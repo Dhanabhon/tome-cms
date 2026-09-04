@@ -1,0 +1,72 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { createServerSupabaseClient } from '../../lib/supabase';
+import type { Post } from '../../types/cms';
+
+let post: Post | null = null;
+let loadError = false;
+const slug = Astro.params.slug;
+
+try {
+  if (!slug) {
+    Astro.response.status = 404;
+  } else {
+    const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+
+    if (error) throw error;
+    post = data;
+    if (!post) Astro.response.status = 404;
+  }
+} catch (error) {
+  console.error('Blog post query failed:', error);
+  Astro.response.status = 500;
+  loadError = true;
+}
+
+const publishedDate = post
+  ? new Intl.DateTimeFormat('en', {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+      year: 'numeric',
+    }).format(new Date(post.published_at ?? post.created_at))
+  : null;
+---
+
+<BaseLayout
+  title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
+  description={post?.meta_description ?? 'Read the latest from TomeCMS.'}
+  image={post?.cover_image}
+  type={post ? 'article' : 'website'}
+>
+  {post ? (
+    <article class="mx-auto max-w-3xl px-5 py-14 sm:px-8 sm:py-20">
+      <a class="text-sm font-medium text-accent hover:underline" href="/"><span aria-hidden="true">←</span> All posts</a>
+      <header class="mt-6">
+        <h1 class="font-display text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">{post.title}</h1>
+        {post.meta_description && <p class="mt-5 text-xl leading-8 text-muted">{post.meta_description}</p>}
+        <div class="mt-5 flex items-center gap-3 text-sm text-muted">
+          <span>By TomeCMS</span>
+          <span aria-hidden="true">•</span>
+          <time datetime={post.published_at ?? post.created_at}>{publishedDate}</time>
+        </div>
+      </header>
+      {post.cover_image && (
+        <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt="" width="1200" height="675" />
+      )}
+      <div class="prose prose-lg mt-12 max-w-none prose-headings:font-display prose-a:text-accent prose-img:rounded-lg" set:html={post.content_html} />
+    </article>
+  ) : (
+    <section class="mx-auto max-w-3xl px-5 py-24 text-center sm:px-8">
+      <p class="text-sm font-semibold uppercase tracking-[0.12em] text-muted">{loadError ? 'Unavailable' : '404'}</p>
+      <h1 class="mt-4 font-display text-5xl font-semibold">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
+      <a class="mt-8 inline-block font-medium text-accent hover:underline" href="/">Return to all posts</a>
+    </section>
+  )}
+</BaseLayout>

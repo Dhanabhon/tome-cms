@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  background: #fff;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+  color: #171717;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: #dbe4ff;
+}
+
+:focus-visible {
+  outline: 2px solid #2449d8;
+  outline-offset: 3px;
+}
+
+.editor-content .ProseMirror {
+  min-height: 28rem;
+  padding: 1rem 0 8rem;
+  outline: none;
+}
+
+.editor-content .ProseMirror > *:first-child {
+  margin-top: 0;
+}
+
+.editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: #98a2b3;
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.editor-content .ProseMirror img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2rem auto;
+  border-radius: 0.5rem;
+}
+
+.editor-content .ProseMirror-selectednode {
+  outline: 2px solid #2449d8;
+  outline-offset: 4px;
+}
+
+[data-tippy-root] {
+  max-width: calc(100vw - 1rem);
+  z-index: 50 !important;
+}
+
+.tippy-box,
+.tippy-content {
+  position: relative;
+}
+
+.tippy-content {
+  padding: 0;
+}
+

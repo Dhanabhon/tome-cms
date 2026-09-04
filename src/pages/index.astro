@@ -1,0 +1,87 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { createServerSupabaseClient } from '../lib/supabase';
+import type { Post } from '../types/cms';
+
+let posts: Post[] = [];
+let loadError = false;
+
+try {
+  const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false });
+
+  if (error) throw error;
+  posts = data;
+} catch (error) {
+  console.error('Homepage post query failed:', error);
+  Astro.response.status = 500;
+  loadError = true;
+}
+
+const [featured, ...remainingPosts] = posts;
+const dateFormatter = new Intl.DateTimeFormat('en', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+  year: 'numeric',
+});
+const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
+---
+
+<BaseLayout>
+  <section class="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+    <div class="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+      <div>
+        <h1 class="max-w-lg font-display text-5xl font-semibold leading-[0.98] tracking-tight sm:text-6xl">
+          Ideas, carefully published.
+        </h1>
+        <p class="mt-6 max-w-md text-lg leading-8 text-muted">
+          A quiet place for thoughtful notes on design, software, and the work between.
+        </p>
+      </div>
+
+      <div class="border-t border-line pt-7 lg:border-l lg:border-t-0 lg:pl-12 lg:pt-1">
+        {featured ? (
+          <article>
+            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Featured</p>
+            <h2 class="mt-4 max-w-xl font-display text-3xl font-semibold leading-tight sm:text-4xl">
+              <a class="hover:text-accent" href={`/blog/${featured.slug}`}>{featured.title}</a>
+            </h2>
+            {featured.meta_description && (
+              <p class="mt-4 max-w-xl text-lg leading-8 text-muted">{featured.meta_description}</p>
+            )}
+            <div class="mt-6 flex items-center gap-3 text-sm">
+              <a class="font-medium text-accent hover:underline" href={`/blog/${featured.slug}`}>Read article <span aria-hidden="true">→</span></a>
+              <span class="text-line" aria-hidden="true">•</span>
+              <time class="text-muted" datetime={featured.published_at ?? featured.created_at}>{postDate(featured)}</time>
+            </div>
+          </article>
+        ) : (
+          <p class="text-muted">No published posts yet.</p>
+        )}
+      </div>
+    </div>
+
+    <div class="mt-14 border-t border-line">
+      {remainingPosts.map((post) => (
+        <article class="grid gap-3 border-b border-line py-5 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-12">
+          <h2 class="font-display text-2xl font-medium leading-tight">
+            <a class="hover:text-accent" href={`/blog/${post.slug}`}>{post.title}</a>
+          </h2>
+          <time class="text-sm text-muted" datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
+          <a class="text-sm font-medium text-accent hover:underline" href={`/blog/${post.slug}`}>Read article <span aria-hidden="true">→</span></a>
+        </article>
+      ))}
+    </div>
+
+    {loadError && (
+      <p class="mt-8 border-l-2 border-accent pl-4 text-sm text-muted" role="alert">
+        Published posts are temporarily unavailable.
+      </p>
+    )}
+  </section>
+</BaseLayout>

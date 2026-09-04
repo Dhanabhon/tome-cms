@@ -1,0 +1,53 @@
+---
+import { z } from 'zod';
+
+import Editor from '../../../components/admin/Editor';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { authenticate } from '../../../lib/supabase';
+import type { Post } from '../../../types/cms';
+
+let post: Post | null = null;
+let userEmail: string | null = null;
+let errorMessage: string | null = null;
+const id = z.uuid().safeParse(Astro.params.id);
+
+try {
+  if (!id.success) {
+    Astro.response.status = 404;
+    errorMessage = 'Post not found.';
+  } else {
+    const auth = await authenticate(Astro.cookies, Astro.request);
+    if (!auth) {
+      Astro.response.status = 401;
+      errorMessage = 'Sign in with your configured Supabase Auth flow to edit this post.';
+    } else {
+      userEmail = auth.user.email ?? null;
+      const { data, error } = await auth.supabase
+        .from('posts')
+        .select('*')
+        .eq('id', id.data)
+        .eq('author_id', auth.user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      post = data;
+      if (!post) {
+        Astro.response.status = 404;
+        errorMessage = 'Post not found.';
+      }
+    }
+  }
+} catch (error) {
+  console.error('Post editor query failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The editor is temporarily unavailable.';
+}
+---
+
+<AdminLayout title={post?.title ?? 'Edit post'} userEmail={userEmail} showHeader={!post}>
+  {post ? (
+    <Editor client:only="react" initialPost={post} />
+  ) : (
+    <p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p>
+  )}
+</AdminLayout>

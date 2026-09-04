@@ -1,0 +1,26 @@
+---
+interface Props {
+  active?: 'admin' | 'writing';
+}
+
+const { active } = Astro.props;
+---
+
+<header class="border-b border-line">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
+    <a class="font-display text-2xl font-semibold tracking-tight text-ink" href="/">TomeCMS</a>
+    <nav aria-label="Primary" class="flex items-center gap-7 text-sm">
+      <a
+        class:list={['border-b-2 py-1 transition-colors', active === 'writing' ? 'border-accent text-accent' : 'border-transparent text-ink hover:text-accent']}
+        href="/"
+        aria-current={active === 'writing' ? 'page' : undefined}>Writing</a
+      >
+      <a
+        class:list={['border-b-2 py-1 transition-colors', active === 'admin' ? 'border-accent text-accent' : 'border-transparent text-ink hover:text-accent']}
+        href="/admin"
+        aria-current={active === 'admin' ? 'page' : undefined}>Admin</a
+      >
+    </nav>
+  </div>
+</header>
+
