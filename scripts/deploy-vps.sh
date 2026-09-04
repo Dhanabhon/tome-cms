@@ -62,14 +62,20 @@ done
 if ! "${SUDO[@]}" test -f "$ENV_FILE"; then
   "${SUDO[@]}" install -d -m 0750 "$(dirname "$ENV_FILE")"
   "${SUDO[@]}" install -m 0640 "${SOURCE_DIR}/.env.example" "$ENV_FILE"
-  fail "Created ${ENV_FILE}. Fill in the Supabase values, then run this script again."
+  install_token="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(24).toString("base64url"))')"
+  "${SUDO[@]}" sed -i "s|^TOME_CMS_INSTALL_TOKEN=.*|TOME_CMS_INSTALL_TOKEN=${install_token}|" "$ENV_FILE"
+  fail "Created ${ENV_FILE} with a random installation token. Fill in the Supabase values, then run this script again."
 fi
 
 PUBLIC_SUPABASE_URL="$(env_value PUBLIC_SUPABASE_URL)"
 PUBLIC_SUPABASE_ANON_KEY="$(env_value PUBLIC_SUPABASE_ANON_KEY)"
+SUPABASE_SERVICE_ROLE_KEY="$(env_value SUPABASE_SERVICE_ROLE_KEY)"
+TOME_CMS_INSTALL_TOKEN="$(env_value TOME_CMS_INSTALL_TOKEN)"
 DOMAIN="${DOMAIN:-$(env_value TOME_CMS_DOMAIN)}"
 [[ -n "$PUBLIC_SUPABASE_URL" ]] || fail "PUBLIC_SUPABASE_URL is missing in ${ENV_FILE}."
 [[ -n "$PUBLIC_SUPABASE_ANON_KEY" ]] || fail "PUBLIC_SUPABASE_ANON_KEY is missing in ${ENV_FILE}."
+[[ -n "$SUPABASE_SERVICE_ROLE_KEY" ]] || fail "SUPABASE_SERVICE_ROLE_KEY is missing in ${ENV_FILE}."
+(( ${#TOME_CMS_INSTALL_TOKEN} >= 24 )) || fail "TOME_CMS_INSTALL_TOKEN must contain at least 24 characters."
 [[ -z "$DOMAIN" || "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "TOME_CMS_DOMAIN must be a hostname without a scheme or path."
 [[ -z "$DOMAIN" ]] || need nginx
 export PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY

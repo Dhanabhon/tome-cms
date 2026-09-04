@@ -1,14 +1,15 @@
 ---
 interface Props {
   active?: 'admin' | 'writing';
+  siteName?: string;
 }
 
-const { active } = Astro.props;
+const { active, siteName = 'TomeCMS' } = Astro.props;
 ---
 
 <header class="border-b border-line">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-    <a class="font-display text-2xl font-semibold tracking-tight text-ink" href="/">TomeCMS</a>
+    <a class="font-display text-2xl font-semibold tracking-tight text-ink" href="/">{siteName}</a>
     <nav aria-label="Primary" class="flex items-center gap-7 text-sm">
       <a
         class:list={['border-b-2 py-1 transition-colors', active === 'writing' ? 'border-accent text-accent' : 'border-transparent text-ink hover:text-accent']}
@@ -23,4 +24,3 @@ const { active } = Astro.props;
     </nav>
   </div>
 </header>
-

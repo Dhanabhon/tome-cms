@@ -1,0 +1,53 @@
+/* Hallmark · modern-minimal · friendly-austere · monochrome neutral · Progressive Rail */
+:root {
+  --color-paper: oklch(100% 0 0);
+  --color-paper-2: oklch(98.5% 0 0);
+  --color-paper-3: oklch(97% 0 0);
+  --color-surface: oklch(100% 0 0);
+  --color-ink: oklch(14.5% 0 0);
+  --color-ink-2: oklch(30% 0 0);
+  --color-muted: oklch(43% 0 0);
+  --color-rule: oklch(92.2% 0 0);
+  --color-rule-strong: oklch(76% 0 0);
+  --color-accent: oklch(20.5% 0 0);
+  --color-accent-ink: oklch(98.5% 0 0);
+  --color-focus: oklch(49% 0.2 255);
+  --color-focus-soft: oklch(96% 0.025 255);
+  --color-error: oklch(46% 0.19 25);
+  --color-error-soft: oklch(97% 0.02 25);
+
+  --font-display: "Geist", "IBM Plex Sans Thai", ui-sans-serif, sans-serif;
+  --font-body: "Geist", "IBM Plex Sans Thai", ui-sans-serif, sans-serif;
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.5625rem;
+  --text-xl: 1.953rem;
+  --text-2xl: 2.441rem;
+  --text-display: clamp(2.5rem, 4vw, 3.75rem);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 100ms;
+  --dur-short: 180ms;
+  --dur-long: 260ms;
+
+  --rule-hair: 1px;
+  --radius-input: 0.5rem;
+  --radius-card: 0.625rem;
+  --control-height: 3rem;
+  --z-sticky-nav: 300;
+}
