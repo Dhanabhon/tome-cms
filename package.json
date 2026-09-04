@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "dev:macos": "./scripts/dev-local-macos.sh",
+    "dev:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-local-windows.ps1",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check && bash -n scripts/deploy-vps.sh",
+    "check": "astro check && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",
     "astro": "astro"
   },
   "dependencies": {
