@@ -1,0 +1,42 @@
+---
+import SEOHead from '../components/blog/SEOHead.astro';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  userEmail?: string | null;
+  showHeader?: boolean;
+}
+
+const { showHeader = true, title, userEmail } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="robots" content="noindex, nofollow" />
+    <SEOHead title={`${title} | TomeCMS`} description="TomeCMS publishing dashboard." canonical={canonical} />
+  </head>
+  <body class="min-h-screen bg-white">
+    {showHeader && (
+      <header class="border-b border-line">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
+          <div class="flex items-center gap-8">
+            <a class="font-display text-2xl font-semibold tracking-tight" href="/admin">TomeCMS</a>
+            <nav aria-label="Admin" class="flex items-center gap-6 text-sm">
+              <a class="border-b-2 border-accent py-1 text-accent" href="/admin" aria-current="page">Posts</a>
+              <a class="text-ink hover:text-accent" href="/">View site <span aria-hidden="true">↗</span></a>
+            </nav>
+          </div>
+          {userEmail && <span class="hidden text-sm text-muted sm:inline">{userEmail}</span>}
+        </div>
+      </header>
+    )}
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>

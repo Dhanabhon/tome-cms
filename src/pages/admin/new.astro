@@ -1,0 +1,30 @@
+---
+import Editor from '../../components/admin/Editor';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { authenticate } from '../../lib/supabase';
+
+let userEmail: string | null = null;
+let errorMessage: string | null = null;
+
+try {
+  const auth = await authenticate(Astro.cookies, Astro.request);
+  if (!auth) {
+    Astro.response.status = 401;
+    errorMessage = 'Sign in with your configured Supabase Auth flow to create a post.';
+  } else {
+    userEmail = auth.user.email ?? null;
+  }
+} catch (error) {
+  console.error('New post authentication failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The editor is temporarily unavailable.';
+}
+---
+
+<AdminLayout title="New post" userEmail={userEmail} showHeader={Boolean(errorMessage)}>
+  {errorMessage ? (
+    <p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p>
+  ) : (
+    <Editor client:only="react" />
+  )}
+</AdminLayout>
