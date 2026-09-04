@@ -1,9 +1,23 @@
 node_modules/
 dist/
 .astro/
+
+# Local environment
 .env
 .env.*
 !.env.example
+
+# Local tools and generated previews
+.superpowers/
+.impeccable/
+
+# Design source sheets are not runtime assets
+public/brand/*-brand-kit.png
+
+# OS and logs
 .DS_Store
+*.log
+
+# Supabase CLI state
 supabase/.branches/
 supabase/.temp/

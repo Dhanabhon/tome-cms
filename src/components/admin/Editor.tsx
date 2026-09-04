@@ -255,7 +255,9 @@ export default function Editor({ initialPost }: EditorProps) {
       <div className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
           <div className="flex items-center gap-6">
-            <a className="hidden font-display text-2xl font-semibold tracking-tight sm:inline" href="/admin">TomeCMS</a>
+            <a className="hidden sm:inline" href="/admin" aria-label="TomeCMS dashboard">
+              <img className="h-8 w-auto" src="/brand/tomecms-logo.png" alt="TomeCMS" width="96" height="32" />
+            </a>
             <a className="text-sm font-medium text-accent hover:underline sm:border-l sm:border-line sm:pl-6" href="/admin">
               <span aria-hidden="true">←</span> Posts
             </a>
