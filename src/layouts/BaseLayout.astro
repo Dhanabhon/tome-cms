@@ -1,6 +1,7 @@
 ---
 import Header from '../components/blog/Header.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
+import { getSiteSettings } from '../lib/installation';
 import '../styles/global.css';
 
 interface Props {
@@ -10,30 +11,28 @@ interface Props {
   type?: 'article' | 'website';
 }
 
-const {
-  description = 'A quiet place for thoughtful notes on design, software, and the work between.',
-  image,
-  title = 'TomeCMS',
-  type = 'website',
-} = Astro.props;
+const settings = await getSiteSettings();
+const siteName = settings?.site_name ?? 'TomeCMS';
+const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
+const { description = defaultDescription, image, title = siteName, type = 'website' } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
-const pageTitle = title === 'TomeCMS' ? title : `${title} | TomeCMS`;
+const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={settings?.default_locale ?? 'en'}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <SEOHead title={pageTitle} description={description} canonical={canonical} image={image} type={type} />
   </head>
   <body class="flex min-h-screen flex-col">
-    <Header active="writing" />
+    <Header active="writing" siteName={siteName} />
     <main class="flex-1">
       <slot />
     </main>
     <footer class="mx-auto flex w-full max-w-6xl flex-col gap-3 border-t border-line px-5 py-7 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
-      <p>&copy; {new Date().getFullYear()} TomeCMS. All rights reserved.</p>
+      <p>&copy; {new Date().getFullYear()} {siteName}. All rights reserved.</p>
       <nav aria-label="Footer" class="flex gap-6">
         <a class="text-accent hover:underline" href="/">Writing</a>
         <a class="text-accent hover:underline" href="/admin">Admin</a>
@@ -41,4 +40,3 @@ const pageTitle = title === 'TomeCMS' ? title : `${title} | TomeCMS`;
     </footer>
   </body>
 </html>
-

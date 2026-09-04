@@ -83,9 +83,36 @@ export interface User {
   email: string | null;
 }
 
+export interface SiteSettings {
+  id: boolean;
+  site_name: string;
+  site_description: string;
+  default_locale: 'th' | 'en';
+  timezone: 'Asia/Bangkok' | 'UTC';
+  owner_id: string;
+  installed_at: string;
+  updated_at: string;
+}
+
+export interface SiteSettingsInsert {
+  id?: boolean;
+  site_name: string;
+  site_description?: string;
+  default_locale: SiteSettings['default_locale'];
+  timezone: SiteSettings['timezone'];
+  owner_id: string;
+  installed_at?: string;
+  updated_at?: string;
+}
+
+export type SiteSettingsUpdate = Partial<Omit<SiteSettingsInsert, 'id' | 'owner_id' | 'installed_at'>>;
+
 type PostRow = { [Key in keyof Post]: Post[Key] };
 type DatabasePostInsert = { [Key in keyof PostInsert]: PostInsert[Key] };
 type DatabasePostUpdate = { [Key in keyof PostUpdate]: PostUpdate[Key] };
+type SiteSettingsRow = { [Key in keyof SiteSettings]: SiteSettings[Key] };
+type DatabaseSiteSettingsInsert = { [Key in keyof SiteSettingsInsert]: SiteSettingsInsert[Key] };
+type DatabaseSiteSettingsUpdate = { [Key in keyof SiteSettingsUpdate]: SiteSettingsUpdate[Key] };
 
 export interface Database {
   public: {
@@ -94,6 +121,12 @@ export interface Database {
         Row: PostRow;
         Insert: DatabasePostInsert;
         Update: DatabasePostUpdate;
+        Relationships: [];
+      };
+      site_settings: {
+        Row: SiteSettingsRow;
+        Insert: DatabaseSiteSettingsInsert;
+        Update: DatabaseSiteSettingsUpdate;
         Relationships: [];
       };
     };

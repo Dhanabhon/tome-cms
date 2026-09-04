@@ -1,0 +1,453 @@
+---
+import { isInstalled } from '../lib/installation';
+import '../styles/installer-tokens.css';
+import '../styles/installer.css';
+
+if (await isInstalled()) return Astro.redirect('/admin');
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+const english = Astro.url.searchParams.get('lang') === 'en';
+const language = english ? 'en' : 'th';
+const alternateLanguage = english ? 'th' : 'en';
+const copy = english
+  ? {
+      title: 'Set up your website',
+      intro: 'Check the system, add your site details, and create the owner account in four steps.',
+      steps: ['System check', 'Site details', 'Owner account', 'Install'],
+      current: 'Step 1 of 4',
+      remaining: '3 steps left',
+      contextTitle: 'Checking your system',
+      contextBody: 'TomeCMS is checking every service required before setup begins.',
+      contextNote: 'Sensitive details are sent over a secure connection only.',
+      readinessTitle: 'System readiness',
+      readinessBody: 'You can continue as soon as all four checks are ready.',
+      checks: ['Supabase connection', 'Database migration', 'blog-media bucket', 'HTTPS connection'],
+      checking: 'Checking',
+      retry: 'Check again',
+      firstAction: 'Name your site',
+      footer: '© TomeCMS · Set up once, then come back to write.',
+    }
+  : {
+      title: 'ตั้งค่าเว็บไซต์ของคุณ',
+      intro: 'ตรวจระบบ กำหนดข้อมูลเว็บไซต์ และสร้างบัญชีเจ้าของให้เสร็จใน 4 ขั้นตอน',
+      steps: ['ตรวจระบบ', 'ข้อมูลเว็บไซต์', 'บัญชีเจ้าของ', 'ยืนยันติดตั้ง'],
+      current: 'ขั้นที่ 1 จาก 4',
+      remaining: 'เหลืออีก 3 ขั้น',
+      contextTitle: 'กำลังตรวจสอบระบบ',
+      contextBody: 'TomeCMS กำลังตรวจทุกบริการที่จำเป็นก่อนเริ่มตั้งค่า',
+      contextNote: 'ข้อมูลสำคัญส่งผ่านการเชื่อมต่อที่ปลอดภัยเท่านั้น',
+      readinessTitle: 'ตรวจสอบความพร้อม',
+      readinessBody: 'เมื่อทั้ง 4 รายการพร้อม คุณไปตั้งชื่อเว็บไซต์ต่อได้ทันที',
+      checks: ['เชื่อมต่อ Supabase', 'Database migration', 'blog-media bucket', 'การเชื่อมต่อ HTTPS'],
+      checking: 'กำลังตรวจ',
+      retry: 'ตรวจอีกครั้ง',
+      firstAction: 'ตั้งชื่อเว็บไซต์',
+      footer: '© TomeCMS · ตั้งค่าครั้งเดียว แล้วกลับมาเพื่อเขียนได้ทุกวัน',
+    };
+---
+
+<!doctype html>
+<html lang={language}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light" />
+    <title>{copy.title} · TomeCMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <nav class="installer-nav" aria-label="Installer navigation">
+      <a class="installer-wordmark" href="#top" aria-label="TomeCMS installer">
+        <span class="installer-brand-mark" aria-hidden="true">T</span>
+        <span>TomeCMS</span>
+      </a>
+      <a class="installer-button" href={`/install?lang=${alternateLanguage}`} lang={alternateLanguage}>
+        {english ? 'ภาษาไทย' : 'English'}
+      </a>
+    </nav>
+
+    <main class="installer-page" id="top">
+      <header class="installer-intro">
+        <h1>{copy.title}</h1>
+        <p>{copy.intro}</p>
+      </header>
+
+      <section class="installer-progress" aria-label={english ? 'Installation progress' : 'ความคืบหน้าการติดตั้ง'}>
+        <ol aria-label={english ? 'Installation steps' : 'ขั้นตอนการติดตั้ง'}>
+          {copy.steps.map((label, index) => (
+            <li data-step-indicator={index + 1} data-state={index === 0 ? 'active' : undefined} aria-current={index === 0 ? 'step' : undefined}>
+              <span class="installer-progress-dot">{index + 1}</span>
+              <span class="installer-progress-label">{label}</span>
+            </li>
+          ))}
+        </ol>
+        <div class="installer-meter" role="status">
+          <span data-progress-current>{copy.current}</span>
+          <progress max="4" value="1" data-progress aria-label={copy.current}></progress>
+          <span data-progress-remaining>{copy.remaining}</span>
+        </div>
+      </section>
+
+      <section class="installer-workspace" aria-label="TomeCMS setup wizard">
+        <aside class="installer-context">
+          <div class="installer-context-copy">
+            <span class="installer-step-index" data-step-index>01 / 04</span>
+            <h2 data-context-title>{copy.contextTitle}</h2>
+            <p data-context-body>{copy.contextBody}</p>
+          </div>
+          <p class="installer-note">
+            <span class="installer-note-mark" aria-hidden="true">✓</span>
+            <span data-context-note>{copy.contextNote}</span>
+          </p>
+        </aside>
+
+        <form class="installer-task" data-install-form novalidate>
+          <p class="installer-alert" data-form-alert role="alert" hidden></p>
+
+          <section class="installer-step" data-step="1">
+            <div class="installer-step-head">
+              <h2 tabindex="-1">{copy.readinessTitle}</h2>
+              <p>{copy.readinessBody}</p>
+            </div>
+            <ul class="installer-checks">
+              {copy.checks.map((label, index) => (
+                <li class="installer-check" data-readiness-row data-key={['supabase', 'migration', 'mediaBucket', 'secureConnection'][index]} data-state="checking">
+                  <span class="installer-check-mark" aria-hidden="true">·</span>
+                  <span>{label}</span>
+                  <span class="installer-check-value">{copy.checking}</span>
+                </li>
+              ))}
+            </ul>
+            <div class="installer-actions">
+              <button class="installer-button" type="button" data-retry hidden>{copy.retry}</button>
+              <button class="installer-button installer-button--primary" type="button" data-next disabled>
+                {copy.firstAction} <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="installer-step" data-step="2" hidden>
+            <div class="installer-step-head">
+              <h2 tabindex="-1">{english ? 'Site details' : 'ข้อมูลเว็บไซต์'}</h2>
+              <p>{english ? 'Used on your homepage and in search results. You can change these later.' : 'ข้อมูลส่วนนี้ใช้กับหน้าแรกและ SEO คุณเปลี่ยนภายหลังได้'}</p>
+            </div>
+            <div class="installer-fields">
+              <div class="installer-field">
+                <label for="site-name">{english ? 'Site name' : 'ชื่อเว็บไซต์'}<span class="installer-required-mark" aria-hidden="true"> *</span></label>
+                <input class="installer-control" id="site-name" name="siteName" value={english ? 'My notes' : 'บันทึกของฉัน'} maxlength="120" required aria-describedby="site-name-help" />
+                <p class="installer-helper" id="site-name-help">{english ? 'The name readers will see.' : 'ชื่อที่ผู้อ่านจะเห็นบนหน้าเว็บ'}</p>
+              </div>
+              <div class="installer-field">
+                <label for="site-description">{english ? 'Site description' : 'คำอธิบายเว็บไซต์'}</label>
+                <textarea class="installer-control" id="site-description" name="siteDescription" maxlength="160" aria-describedby="site-description-help">{english ? 'Notes on work, software, and what I learn.' : 'เรื่องงาน ซอฟต์แวร์ และสิ่งที่ได้เรียนรู้'}</textarea>
+                <p class="installer-helper" id="site-description-help">{english ? 'Keep it under 160 characters.' : 'แนะนำไม่เกิน 160 ตัวอักษร'}</p>
+              </div>
+              <div class="installer-field-grid">
+                <div class="installer-field">
+                  <label for="default-locale">{english ? 'Default language' : 'ภาษาเริ่มต้น'}</label>
+                  <select class="installer-control" id="default-locale" name="defaultLocale">
+                    <option value="th">ไทย</option><option value="en" selected={english}>English</option>
+                  </select>
+                  <p class="installer-helper">{english ? 'Used for pages and date formatting.' : 'ใช้กับหน้าเว็บและรูปแบบวันที่'}</p>
+                </div>
+                <div class="installer-field">
+                  <label for="timezone">{english ? 'Timezone' : 'เขตเวลา'}</label>
+                  <select class="installer-control" id="timezone" name="timezone">
+                    <option value="Asia/Bangkok">Asia/Bangkok</option><option value="UTC">UTC</option>
+                  </select>
+                  <p class="installer-helper">{english ? 'Used to schedule publication.' : 'ใช้กำหนดเวลาเผยแพร่บทความ'}</p>
+                </div>
+              </div>
+            </div>
+            <div class="installer-actions">
+              <button class="installer-button" type="button" data-back>{english ? 'Back' : 'ย้อนกลับ'}</button>
+              <button class="installer-button installer-button--primary" type="button" data-next>{english ? 'Create owner account' : 'สร้างบัญชีเจ้าของ'} <span aria-hidden="true">→</span></button>
+            </div>
+          </section>
+
+          <section class="installer-step" data-step="3" hidden>
+            <div class="installer-step-head">
+              <h2 tabindex="-1">{english ? 'Create the owner account' : 'สร้างบัญชีเจ้าของ'}</h2>
+              <p>{english ? 'This account can access Admin and publish articles.' : 'บัญชีนี้ใช้เข้าถึง Admin และเผยแพร่บทความ'}</p>
+            </div>
+            <div class="installer-fields">
+              <div class="installer-field">
+                <label for="owner-email">{english ? 'Sign-in email' : 'อีเมลสำหรับเข้าสู่ระบบ'}<span class="installer-required-mark" aria-hidden="true"> *</span></label>
+                <input class="installer-control" id="owner-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" aria-describedby="owner-email-help" />
+                <p class="installer-helper" id="owner-email-help">{english ? 'Used to sign in and recover the account.' : 'ใช้เข้าสู่ระบบและกู้คืนบัญชี'}</p>
+              </div>
+              <div class="installer-field-grid">
+                <div class="installer-field">
+                  <label for="owner-password">{english ? 'Password' : 'รหัสผ่าน'}<span class="installer-required-mark" aria-hidden="true"> *</span></label>
+                  <input class="installer-control" id="owner-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required aria-describedby="owner-password-help" />
+                  <p class="installer-helper" id="owner-password-help">{english ? 'At least 12 characters.' : 'อย่างน้อย 12 ตัวอักษร'}</p>
+                </div>
+                <div class="installer-field">
+                  <label for="owner-password-confirm">{english ? 'Confirm password' : 'ยืนยันรหัสผ่าน'}<span class="installer-required-mark" aria-hidden="true"> *</span></label>
+                  <input class="installer-control" id="owner-password-confirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required aria-describedby="owner-password-confirm-help" />
+                  <p class="installer-helper" id="owner-password-confirm-help">{english ? 'Enter the same password again.' : 'กรอกให้ตรงกับช่องแรก'}</p>
+                </div>
+              </div>
+            </div>
+            <div class="installer-actions">
+              <button class="installer-button" type="button" data-back>{english ? 'Back' : 'ย้อนกลับ'}</button>
+              <button class="installer-button installer-button--primary" type="button" data-next>{english ? 'Review details' : 'ตรวจข้อมูล'} <span aria-hidden="true">→</span></button>
+            </div>
+          </section>
+
+          <section class="installer-step" data-step="4" hidden>
+            <div class="installer-step-head">
+              <h2 tabindex="-1">{english ? 'Review and install' : 'ตรวจข้อมูลแล้วติดตั้ง'}</h2>
+              <p>{english ? 'TomeCMS will create the account, save these settings, and close the installer.' : 'ระบบจะสร้างบัญชี บันทึกการตั้งค่า และปิด Installer'}</p>
+            </div>
+            <dl class="installer-review">
+              <div class="installer-review-row"><dt>{english ? 'Website' : 'เว็บไซต์'}</dt><dd data-review-site></dd></div>
+              <div class="installer-review-row"><dt>{english ? 'Language and time' : 'ภาษาและเวลา'}</dt><dd data-review-locale></dd></div>
+              <div class="installer-review-row"><dt>{english ? 'Owner account' : 'บัญชีเจ้าของ'}</dt><dd data-review-email></dd></div>
+            </dl>
+            <div class="installer-field">
+              <label for="installation-token">Installation token<span class="installer-required-mark" aria-hidden="true"> *</span></label>
+              <input class="installer-control" id="installation-token" name="installationToken" type="password" autocomplete="off" required placeholder={english ? 'Paste the token from your VPS' : 'วาง token จาก VPS'} aria-describedby="installation-token-help" />
+              <p class="installer-helper" id="installation-token-help">{english ? 'The token is never stored when verification fails.' : 'ระบบไม่บันทึก token หากไม่ผ่าน คุณแก้แล้วลองใหม่ได้'}</p>
+            </div>
+            <details class="installer-help">
+              <summary>{english ? 'Where is the installation token?' : 'Installation token อยู่ที่ไหน?'}</summary>
+              <p>{english ? 'On the VPS, run this command:' : 'บน VPS ให้รันคำสั่งนี้:'}</p>
+              <code>sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env</code>
+            </details>
+            <div class="installer-actions">
+              <button class="installer-button" type="button" data-back>{english ? 'Back' : 'ย้อนกลับ'}</button>
+              <button class="installer-button installer-button--primary" type="submit">{english ? 'Install TomeCMS' : 'ติดตั้ง TomeCMS'}</button>
+            </div>
+          </section>
+
+          <section class="installer-success" data-success hidden>
+            <div class="installer-success-mark" aria-hidden="true">✓</div>
+            <p class="installer-success-kicker">{english ? 'All four steps are complete' : 'ตั้งค่าครบทั้ง 4 ขั้นตอน'}</p>
+            <h2 tabindex="-1">{english ? 'Your site is ready' : 'เว็บไซต์พร้อมแล้ว'}</h2>
+            <p>{english ? 'The installer is closed. You can now open Admin and start writing.' : 'Installer ถูกปิดเรียบร้อย ต่อจากนี้คุณเข้าสู่ Admin และเริ่มเขียนบทความได้'}</p>
+            <div class="installer-actions"><a class="installer-button installer-button--primary" href="/admin">{english ? 'Open Admin' : 'ไปหน้า Admin'}</a></div>
+          </section>
+        </form>
+      </section>
+
+      <p class="installer-footer">{copy.footer}</p>
+    </main>
+
+    <script is:inline define:vars={{ english }}>
+      const form = document.querySelector('[data-install-form]');
+      const steps = [...document.querySelectorAll('[data-step]')];
+      const indicators = [...document.querySelectorAll('[data-step-indicator]')];
+      const alertElement = document.querySelector('[data-form-alert]');
+      const progress = document.querySelector('[data-progress]');
+      const progressCurrent = document.querySelector('[data-progress-current]');
+      const progressRemaining = document.querySelector('[data-progress-remaining]');
+      const retryButton = document.querySelector('[data-retry]');
+      const firstNextButton = document.querySelector('[data-step="1"] [data-next]');
+      let currentStep = 1;
+      let readinessReady = false;
+      let submitting = false;
+
+      const context = english
+        ? [
+            ['System ready', 'All required services are connected. You can begin setting up your site.', 'Sensitive details are sent over a secure connection only.'],
+            ['Start with the public site', 'Choose the name, language, and timezone your readers will see.', 'You can change these details later in Settings.'],
+            ['Your owner account', 'Create one account for administration and publishing.', 'Use at least 12 characters and a password you do not reuse elsewhere.'],
+            ['Ready to install', 'Review the details, then use the token from your VPS to confirm.', 'After installation, this page closes permanently.'],
+          ]
+        : [
+            ['ระบบพร้อมแล้ว', 'ทุกส่วนที่ TomeCMS ต้องใช้เชื่อมต่อเรียบร้อย คุณเริ่มตั้งค่าเว็บไซต์ได้เลย', 'ข้อมูลสำคัญส่งผ่านการเชื่อมต่อที่ปลอดภัยเท่านั้น'],
+            ['เริ่มจากหน้าบ้าน', 'กำหนดชื่อ ภาษา และเวลาที่ผู้อ่านจะเห็นเมื่อเปิดเว็บไซต์', 'คุณแก้ข้อมูลเหล่านี้ภายหลังได้ใน Settings'],
+            ['บัญชีเจ้าของเว็บไซต์', 'สร้างบัญชีเดียวสำหรับดูแลระบบและเผยแพร่เนื้อหา', 'ใช้รหัสผ่านอย่างน้อย 12 ตัวอักษรและไม่ซ้ำกับบริการอื่น'],
+            ['พร้อมติดตั้ง', 'ตรวจข้อมูลครั้งสุดท้าย แล้วใช้ token จาก VPS เพื่อยืนยัน', 'เมื่อติดตั้งสำเร็จ หน้านี้จะถูกปิดถาวร'],
+          ];
+
+      const text = {
+        checking: english ? 'Checking' : 'กำลังตรวจ',
+        ready: english ? 'Ready' : 'พร้อม',
+        unavailable: english ? 'Needs attention' : 'ต้องแก้ไข',
+        statusError: english ? 'The system check did not finish. Check the VPS settings and try again.' : 'ตรวจระบบไม่สำเร็จ กรุณาตรวจค่าบน VPS แล้วลองอีกครั้ง',
+        invalidStep: english ? 'Check the highlighted field, then try again.' : 'ตรวจช่องที่มีปัญหาแล้วลองอีกครั้ง',
+        installing: english ? 'Installing…' : 'กำลังติดตั้ง…',
+        install: english ? 'Install TomeCMS' : 'ติดตั้ง TomeCMS',
+        installed: english ? 'Installed' : 'ติดตั้งแล้ว',
+      };
+
+      function showAlert(message) {
+        alertElement.textContent = message;
+        alertElement.hidden = !message;
+      }
+
+      function fieldError(field) {
+        if (field.name === 'siteName' && !field.value.trim()) return english ? 'Add a site name before continuing.' : 'กรอกชื่อเว็บไซต์ก่อนดำเนินการต่อ';
+        if (field.name === 'email' && !field.validity.valid) return english ? 'Enter a complete email address, including the domain.' : 'รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจชื่อและโดเมน';
+        if (field.name === 'password' && field.value.length < 12) return english ? 'Use at least 12 characters.' : 'รหัสผ่านต้องมีอย่างน้อย 12 ตัวอักษร';
+        if (field.name === 'passwordConfirm' && field.value !== form.elements.password.value) return english ? 'The passwords do not match. Enter the first password again.' : 'รหัสผ่านไม่ตรงกัน กรุณากรอกรหัสผ่านแรกอีกครั้ง';
+        if (field.name === 'installationToken' && !field.value) return english ? 'Paste the installation token from your VPS.' : 'วาง installation token จาก VPS ก่อนติดตั้ง';
+        return '';
+      }
+
+      function validateField(field) {
+        const message = fieldError(field);
+        const helper = document.getElementById(field.getAttribute('aria-describedby'));
+        field.setAttribute('aria-invalid', String(Boolean(message)));
+        if (helper && message) {
+          if (!helper.dataset.original) helper.dataset.original = helper.textContent;
+          helper.textContent = message;
+          helper.dataset.tone = 'error';
+        } else if (helper?.dataset.original) {
+          helper.textContent = helper.dataset.original;
+          delete helper.dataset.tone;
+        }
+        return !message;
+      }
+
+      function validateStep(step) {
+        const fields = [...step.querySelectorAll('input, textarea, select')];
+        const valid = fields.map(validateField).every(Boolean);
+        if (!valid) {
+          showAlert(text.invalidStep);
+          step.querySelector('[aria-invalid="true"]')?.focus();
+        }
+        return valid;
+      }
+
+      function renderStep(nextStep) {
+        currentStep = nextStep;
+        showAlert('');
+        steps.forEach((step) => { step.hidden = Number(step.dataset.step) !== currentStep; });
+        indicators.forEach((indicator, index) => {
+          const stepNumber = index + 1;
+          indicator.dataset.state = stepNumber < currentStep ? 'complete' : stepNumber === currentStep ? 'active' : '';
+          indicator.toggleAttribute('aria-current', stepNumber === currentStep);
+          indicator.querySelector('.installer-progress-dot').textContent = stepNumber < currentStep ? '✓' : String(stepNumber);
+        });
+        progress.value = currentStep;
+        progressCurrent.textContent = english ? `Step ${currentStep} of 4` : `ขั้นที่ ${currentStep} จาก 4`;
+        progressRemaining.textContent = currentStep === 4 ? (english ? 'Final step' : 'ขั้นสุดท้าย') : english ? `${4 - currentStep} steps left` : `เหลืออีก ${4 - currentStep} ขั้น`;
+        progress.setAttribute('aria-label', `${progressCurrent.textContent} ${progressRemaining.textContent}`);
+        document.querySelector('[data-step-index]').textContent = `0${currentStep} / 04`;
+        document.querySelector('[data-context-title]').textContent = context[currentStep - 1][0];
+        document.querySelector('[data-context-body]').textContent = context[currentStep - 1][1];
+        document.querySelector('[data-context-note]').textContent = context[currentStep - 1][2];
+        steps[currentStep - 1].querySelector('h2')?.focus({ preventScroll: true });
+        if (currentStep === 4) {
+          document.querySelector('[data-review-site]').textContent = form.elements.siteName.value;
+          document.querySelector('[data-review-locale]').textContent = `${form.elements.defaultLocale.value} · ${form.elements.timezone.value}`;
+          document.querySelector('[data-review-email]').textContent = form.elements.email.value;
+        }
+      }
+
+      async function checkReadiness() {
+        retryButton.hidden = true;
+        firstNextButton.disabled = true;
+        document.querySelectorAll('[data-readiness-row]').forEach((row) => {
+          row.dataset.state = 'checking';
+          row.querySelector('.installer-check-mark').textContent = '·';
+          row.querySelector('.installer-check-value').textContent = text.checking;
+        });
+        showAlert('');
+        try {
+          const response = await fetch('/api/install/status', { headers: { Accept: 'application/json' } });
+          const status = await response.json();
+          if (!response.ok) throw new Error(status.error);
+          if (status.installed) return window.location.assign('/admin');
+          const readinessKeys = ['supabase', 'migration', 'mediaBucket', 'secureConnection'];
+          readinessReady = status.serviceRole && readinessKeys.every((key) => status[key]);
+          document.querySelectorAll('[data-readiness-row]').forEach((row) => {
+            const ready = row.dataset.key === 'supabase' ? status.supabase && status.serviceRole : status[row.dataset.key];
+            row.dataset.state = ready ? 'ready' : 'error';
+            row.querySelector('.installer-check-mark').textContent = ready ? '✓' : '×';
+            row.querySelector('.installer-check-value').textContent = ready ? text.ready : text.unavailable;
+          });
+          if (readinessReady) {
+            document.querySelector('[data-context-title]').textContent = context[0][0];
+            document.querySelector('[data-context-body]').textContent = context[0][1];
+            document.querySelector('[data-context-note]').textContent = context[0][2];
+          } else {
+            document.querySelector('[data-context-title]').textContent = english ? 'System needs attention' : 'ระบบยังไม่พร้อม';
+            document.querySelector('[data-context-body]').textContent = text.statusError;
+            showAlert(text.statusError);
+          }
+        } catch {
+          readinessReady = false;
+          showAlert(text.statusError);
+        }
+        firstNextButton.disabled = !readinessReady;
+        retryButton.hidden = readinessReady;
+      }
+
+      form.addEventListener('click', (event) => {
+        const next = event.target.closest('[data-next]');
+        const back = event.target.closest('[data-back]');
+        if (next && (currentStep !== 1 || readinessReady) && validateStep(steps[currentStep - 1])) renderStep(currentStep + 1);
+        if (back) renderStep(currentStep - 1);
+      });
+      form.addEventListener('focusout', (event) => {
+        if (event.target.matches('input, textarea, select')) {
+          event.target.dataset.touched = 'true';
+          validateField(event.target);
+        }
+      });
+      form.addEventListener('input', (event) => {
+        if (event.target.matches('input, textarea, select') && event.target.dataset.touched) validateField(event.target);
+      });
+      retryButton.addEventListener('click', checkReadiness);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (submitting || !validateStep(steps[3])) return;
+        submitting = true;
+        const submitButton = form.querySelector('[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.dataset.state = 'loading';
+        submitButton.textContent = text.installing;
+        showAlert('');
+        const data = Object.fromEntries(new FormData(form));
+        delete data.passwordConfirm;
+        try {
+          const response = await fetch('/api/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || text.statusError);
+          steps[3].hidden = true;
+          document.querySelector('[data-success]').hidden = false;
+          document.querySelector('[data-success] h2')?.focus({ preventScroll: true });
+          indicators.forEach((indicator) => {
+            indicator.dataset.state = 'complete';
+            indicator.querySelector('.installer-progress-dot').textContent = '✓';
+          });
+          progressCurrent.textContent = english ? 'Installation complete' : 'ติดตั้งเสร็จแล้ว';
+          progressRemaining.textContent = english ? '4 of 4 complete' : 'ครบ 4 ขั้นตอน';
+          progress.setAttribute('aria-label', `${progressCurrent.textContent} ${progressRemaining.textContent}`);
+          document.querySelector('[data-context-title]').textContent = english ? 'Installation complete' : 'ติดตั้งเสร็จแล้ว';
+          document.querySelector('[data-context-body]').textContent = english ? 'TomeCMS is ready for your first article.' : 'TomeCMS พร้อมรับบทความแรกของคุณ';
+          document.querySelector('[data-context-note]').textContent = english ? 'The installer is closed and the owner is signed in.' : 'Installer ถูกปิดและบัญชีเจ้าของเข้าสู่ระบบแล้ว';
+        } catch (error) {
+          const message = error instanceof Error ? error.message : text.statusError;
+          submitButton.disabled = false;
+          submitButton.dataset.state = 'error';
+          submitButton.textContent = text.install;
+          form.elements.password.value = '';
+          form.elements.passwordConfirm.value = '';
+          form.elements.installationToken.value = '';
+          renderStep(3);
+          showAlert(`${message} ${english ? 'Enter the password and installation token again.' : 'กรอกรหัสผ่านและ installation token ใหม่อีกครั้ง'}`);
+          form.elements.password.focus();
+        } finally {
+          submitting = false;
+        }
+      });
+
+      checkReadiness();
+    </script>
+  </body>
+</html>

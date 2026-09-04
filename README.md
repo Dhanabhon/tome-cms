@@ -9,6 +9,7 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
 - Novel editor with formatting, slash commands, and image uploads
 - Debounced draft saving
 - Supabase authentication, Row Level Security, and Storage policies
+- A secure first-run installer for site settings and the owner account
 - Sanitized HTML output for public articles
 - A deployment script for Ubuntu and Debian VPS hosts
 
@@ -32,16 +33,18 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
    cp .env.example .env
    ```
 
-3. Add your Supabase project URL and anonymous key to `.env`:
+3. Add your Supabase credentials and an installation token to `.env`:
 
    ```dotenv
    PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   TOME_CMS_INSTALL_TOKEN=use-a-random-value-with-at-least-24-characters
    ```
 
-4. Run `supabase/migrations/0001_create_posts.sql` in the Supabase SQL Editor. The migration creates the posts table, access policies, and the `blog-media` storage bucket.
+4. Run the SQL files in `supabase/migrations/` in filename order. They create the posts table, access policies, media bucket, and the single-row site settings table used to lock the installer.
 
-5. Create an email and password user under Authentication in the Supabase dashboard. TomeCMS does not provide public registration.
+5. Start Astro, then open `/install`. The wizard checks the database and storage, saves the site settings, creates the first owner account, and signs it in.
 
 6. Start Astro:
 
@@ -49,9 +52,9 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
    npm run dev
    ```
 
-Open `http://localhost:4321` for the blog and `http://localhost:4321/admin` for the dashboard.
+Open `http://localhost:4321/install` to finish setup. After installation, `/install` redirects to `/admin`.
 
-`SUPABASE_SERVICE_ROLE_KEY` is optional for the current application. Leave it unset unless you add a server-only job that needs it, and never expose it through a variable prefixed with `PUBLIC_`.
+`SUPABASE_SERVICE_ROLE_KEY` and `TOME_CMS_INSTALL_TOKEN` are server-only. Never expose either value through a variable prefixed with `PUBLIC_`.
 
 ## Commands
 
@@ -71,6 +74,9 @@ npm run check     # Check Astro, TypeScript, and the deployment script
 | `/admin` | Sign-in and post dashboard |
 | `/admin/new` | New post editor |
 | `/admin/edit/[id]` | Existing post editor |
+| `/install` | First-run installation wizard |
+| `/api/install/status` | Installer readiness check |
+| `/api/install` | One-time installation endpoint |
 | `/api/posts` | Authenticated post API |
 | `/api/upload` | Authenticated image upload API |
 
@@ -86,20 +92,26 @@ From the project directory on the server, run:
 ./scripts/deploy-vps.sh
 ```
 
-The first run creates `/etc/tome-cms/tome-cms.env` and exits. Add the required Supabase values:
+The first run creates `/etc/tome-cms/tome-cms.env`, generates a random installation token, and exits. Add the required Supabase values:
 
 ```sh
 sudoedit /etc/tome-cms/tome-cms.env
 ./scripts/deploy-vps.sh
 ```
 
-The service listens on `127.0.0.1:4321`. To configure an existing Nginx installation, set a domain before the second deployment:
+Run both SQL migrations in Supabase before the second deployment. The service listens on `127.0.0.1:4321`. To configure an existing Nginx installation, set a domain:
 
 ```dotenv
 TOME_CMS_DOMAIN=blog.example.com
 ```
 
-The script creates the Nginx reverse proxy configuration. Configure HTTPS separately with the certificate tooling used on the server.
+The script creates the Nginx reverse proxy configuration. Configure HTTPS with the certificate tooling used on the server; production installation is blocked over plain HTTP.
+
+After deployment, open `https://your-domain/install`. When the wizard asks for the token, read it on the VPS:
+
+```sh
+sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
+```
 
 ### Later deployments
 
