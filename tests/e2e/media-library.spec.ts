@@ -57,17 +57,17 @@ async function signInAndWait(page: Page, owner: TestOwner) {
   await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
 }
 
-async function seedMediaItems(owner: TestOwner, count: number, prefix: string) {
+async function seedMediaItems(owner: TestOwner, count: number, prefix: string, dimensions = { height: 1, width: 1 }) {
   const { error } = await owner.client.from('media_items').insert(
     Array.from({ length: count }, (_, index) => ({
       created_at: new Date(Date.UTC(2026, 8, 5, 0, 0, count - index)).toISOString(),
-      height: 1,
+      height: dimensions.height,
       mime_type: 'image/png',
       original_name: `${prefix}-${String(index + 1).padStart(2, '0')}.png`,
       owner_id: owner.id,
       size_bytes: 68,
       storage_path: `${owner.id}/${crypto.randomUUID()}.png`,
-      width: 1,
+      width: dimensions.width,
     })),
   );
   expect(error).toBeNull();
@@ -200,6 +200,7 @@ test.describe('media library desktop', () => {
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeFocused();
       await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Unsorted' }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
@@ -216,6 +217,13 @@ test.describe('media library desktop', () => {
       await page.getByRole('button', { name: 'Delete Covers' }).click();
       await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+      await expect
+        .poll(async () => {
+          const { data, error } = await owner.client.from('media_items').select('folder_id').eq('original_name', 'pixel.png').single();
+          if (error) throw error;
+          return data.folder_id;
+        })
+        .toBeNull();
       await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'All media' }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
@@ -319,6 +327,24 @@ test.describe('media library desktop', () => {
       await expect(page.getByRole('button', { name: /page-item-01\.png/i })).toBeVisible();
       await expect(page.getByRole('button', { name: /page-item-49\.png/i })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
+  test('constrains a large image preview inside image details', async ({ page }) => {
+    const owner = await createOwner('media-library-large-preview');
+
+    try {
+      await seedMediaItems(owner, 1, 'large-preview', { height: 3072, width: 4096 });
+      await openMediaLibrary(page, owner);
+      await page.getByRole('button', { name: /large-preview-01\.png/i }).click();
+      const preview = page.getByRole('dialog', { name: 'Image details' }).locator('img');
+      await expect(preview).toBeVisible();
+      expect(await preview.evaluate((image) => {
+        const dialog = image.closest('dialog');
+        return Boolean(dialog && image.getBoundingClientRect().width <= dialog.getBoundingClientRect().width);
+      })).toBe(true);
     } finally {
       await deleteOwner(owner);
     }
