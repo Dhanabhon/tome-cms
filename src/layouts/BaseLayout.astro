@@ -10,6 +10,7 @@ import '../styles/global.css';
 type AlternateLink = { href: string; hreflang: 'th' | 'en' | 'x-default' };
 
 interface Props {
+  authorName?: string;
   title?: string;
   description?: string;
   headline?: string;
@@ -29,6 +30,7 @@ const siteName = settings?.site_name ?? 'TomeCMS';
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const {
   alternates,
+  authorName,
   canonicalPath,
   description = defaultDescription,
   headline,
@@ -47,6 +49,9 @@ const homeUrl = siteUrl.toString();
 const absoluteImage = image ? new URL(image, siteUrl).toString() : null;
 const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
 const publisher = { '@type': 'Organization', name: siteName, url: homeUrl };
+const author = authorName
+  ? { '@type': 'Person', name: authorName }
+  : publisher;
 const seoAlternates: AlternateLink[] = [
   ...(alternates ?? []).map(({ href, locale }) => ({ href: new URL(href, siteUrl).toString(), hreflang: locale })),
   ...(xDefaultHref
@@ -59,7 +64,7 @@ const structuredData = robots.includes('noindex')
     ? {
         '@context': 'https://schema.org',
         '@type': 'BlogPosting',
-        author: publisher,
+        author,
         dateModified: modifiedTime || undefined,
         datePublished: publishedTime || undefined,
         description,
@@ -88,7 +93,7 @@ const structuredData = robots.includes('noindex')
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <SEOHead
-      author={type === 'article' ? siteName : undefined}
+      author={type === 'article' ? authorName ?? siteName : undefined}
       alternates={seoAlternates}
       title={pageTitle}
       description={description}
