@@ -1,7 +1,59 @@
 import { expect, test } from '@playwright/test';
+import { createContext } from 'astro/middleware';
 import { admin, createOwner, deleteOwner, signInAdmin } from './support';
 
 const content = { type: 'doc' as const, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A complete story.' }] }] };
+
+test('PATCH rejects a draft autosaved after publication validation reads its revision', async ({ page }, testInfo) => {
+  const owner = await createOwner('story-revision');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: false, envPrefix: 'PUBLIC_', appType: 'custom',
+    cacheDir: testInfo.outputPath('vite-cache'),
+    server: { middlewareMode: true, hmr: false, watch: null },
+    optimizeDeps: { noDiscovery: true },
+  });
+  const originalFetch = globalThis.fetch;
+  try {
+    await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    const draft = { title: 'Concurrent draft', slug: `revision-${crypto.randomUUID()}`, status: 'draft', contentJson: content, contentHtml: '<p>A complete story.</p>' };
+    const created = await page.request.post('/api/posts', { data: draft });
+    expect(created.status()).toBe(201);
+    const { post } = await created.json();
+    const { PATCH } = await vite.ssrLoadModule('/src/pages/api/posts/index.ts');
+    let autosaved = false;
+    // Interleave a real PUT after the real DB read returns, before PATCH receives its snapshot.
+    globalThis.fetch = async (input, init) => {
+      const response = await originalFetch(input, init);
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (!autosaved && (init?.method ?? 'GET') === 'GET' && url.pathname === '/rest/v1/posts' && url.searchParams.get('id') === `eq.${post.id}`) {
+        autosaved = true;
+        const saved = await page.request.put('/api/posts', { data: { ...draft, id: post.id, contentJson: { type: 'doc', content: [] }, contentHtml: '' } });
+        expect(saved.status()).toBe(200);
+      }
+      return response;
+    };
+    const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
+    const request = new Request(new URL('/api/posts', page.url()), {
+      method: 'PATCH', headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ id: post.id, status: 'published' }),
+    });
+    const response = await PATCH(createContext({ request, defaultLocale: 'en', locals: {} }));
+    expect(autosaved).toBe(true);
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toMatch(/changed.*reload/i);
+    const saved = await admin.from('posts').select('status, content_html, updated_at').eq('id', post.id).single();
+    expect(saved.error).toBeNull();
+    expect(saved.data).toMatchObject({ status: 'draft', content_html: '' });
+    expect(saved.data?.updated_at).not.toBe(post.updated_at);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await vite.close();
+    await admin.from('posts').delete().eq('author_id', owner.id);
+    await deleteOwner(owner);
+  }
+});
 
 test('edition filters survive reload and history with sibling state and responsive rows', async ({ page }) => {
   const owner = await createOwner('story-filters');

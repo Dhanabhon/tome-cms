@@ -284,9 +284,10 @@ export const PATCH: APIRoute = async ({ cookies, request }) => {
     }
 
     const { data, error } = await auth.supabase
-      .from('posts').update({ status }).eq('id', id).eq('author_id', auth.user.id).select().maybeSingle();
+      .from('posts').update({ status }).eq('id', id).eq('author_id', auth.user.id)
+      .eq('updated_at', post.updated_at).select().maybeSingle();
     if (error) return databaseError(error);
-    if (!data) return Response.json({ error: 'Post not found.' }, { status: 404 });
+    if (!data) return Response.json({ error: 'The post changed. Reload before trying again.' }, { status: 409 });
     return Response.json({ post: data });
   } catch (error) {
     console.error('Post status update error:', error);
