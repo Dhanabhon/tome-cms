@@ -48,6 +48,42 @@ export async function deleteOwner(owner: TestOwner) {
   if (error) throw error;
 }
 
+export async function leaseSiteOwner(owner: TestOwner) {
+  const { data: original, error: readError } = await admin
+    .from('site_settings')
+    .select('*')
+    .eq('id', true)
+    .single();
+  if (readError) throw readError;
+
+  const { error: updateError } = await admin
+    .from('site_settings')
+    .update({ owner_id: owner.id })
+    .eq('id', true);
+  if (updateError) throw updateError;
+
+  return async () => {
+    const { error } = await admin
+      .from('site_settings')
+      .update({
+        author_avatar_media_id: original.author_avatar_media_id,
+        author_bio_en: original.author_bio_en,
+        author_bio_th: original.author_bio_th,
+        author_links: original.author_links,
+        author_name: original.author_name,
+        default_locale: original.default_locale,
+        owner_id: original.owner_id,
+        site_description: original.site_description,
+        site_name: original.site_name,
+        timezone: original.timezone,
+      })
+      .eq('id', true);
+    if (error) throw error;
+    // The app caches public settings for five seconds; prevent restored test state leaking into the next serial test.
+    await new Promise((resolve) => setTimeout(resolve, 5_100));
+  };
+}
+
 export async function signInAdmin(page: Page, owner: TestOwner) {
   await page.goto('/admin');
   await page.locator('input[name="email"]').fill(owner.email);
