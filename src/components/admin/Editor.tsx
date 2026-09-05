@@ -19,11 +19,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { uploadImage } from '../../lib/media-client';
-import { ACCEPTED_IMAGE_TYPES, COVER_IMAGE_GUIDANCE } from '../../lib/media';
 import { POST_LOCALES, type MediaAsset, type Post, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
-import MediaPicker from './MediaPicker';
+import PostSettingsDrawer from './PostSettingsDrawer';
 import SlashCommands, { slashCommand } from './SlashCommands';
 
 interface EditorSourcePost {
@@ -38,7 +37,17 @@ interface EditorProps {
   translations: PostTranslationSummary[];
 }
 
-type SaveState = 'Saved' | 'Saving…' | 'Unsaved';
+type SaveState = 'Saved' | 'Saving…' | 'Unsaved' | 'Save failed';
+
+interface EditorDraft {
+  contentHtml: string;
+  contentJson: JSONContent;
+  coverImage: string | null;
+  metaDescription: string | null;
+  metaTitle: string | null;
+  slug: string;
+  title: string;
+}
 
 const editorImage = TiptapImage.extend({
   addProseMirrorPlugins() {
@@ -140,10 +149,13 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const postId = useRef(initialPost?.id);
   const slugTouched = useRef(Boolean(initialPost));
   const changeVersion = useRef(0);
-  const saveInFlight = useRef<Promise<void> | null>(null);
+  const saveTail = useRef<Promise<Post | null>>(Promise.resolve(null));
+  const pendingSaves = useRef(0);
+  const actionPending = useRef(false);
+  const dirtyRef = useRef(false);
+  const postStatusRef = useRef<PostStatus>(initialPost?.status ?? 'draft');
   const autosaveTimer = useRef<number>();
   const coverOperation = useRef(0);
-  const coverPickerTrigger = useRef<HTMLButtonElement>(null);
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
@@ -160,89 +172,104 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const [dirty, setDirty] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [languageEditions, setLanguageEditions] = useState(translations);
+
+  const draftRef = useRef<EditorDraft>({
+    contentHtml, contentJson, coverImage: coverImage || null,
+    metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
+  });
+  draftRef.current = {
+    contentHtml, contentJson, coverImage: coverImage || null,
+    metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
+  };
 
   const markDirty = useCallback(() => {
     changeVersion.current += 1;
+    dirtyRef.current = true;
     setDirty(true);
     setSaveState('Unsaved');
     setErrorMessage(null);
   }, []);
 
-  const persist = useCallback(
-    async (status: PostStatus) => {
-      if (!title.trim()) {
-        setErrorMessage('Add a title before saving.');
-        return;
-      }
-
-      while (saveInFlight.current) await saveInFlight.current;
-
-      let release: () => void = () => undefined;
-      const gate = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      saveInFlight.current = gate;
+  const persist = useCallback((status: PostStatus): Promise<Post> => {
+    pendingSaves.current += 1;
+    const pending = saveTail.current.catch(() => null).then(async () => {
+      const draft = draftRef.current;
+      if (!draft.title.trim()) throw new Error('Add a title before saving.');
       const version = changeVersion.current;
       setSaveState('Saving…');
       setErrorMessage(null);
+      const id = postId.current;
+      const response = await fetch('/api/posts', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...(id ? { id } : {}),
+          ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
+          ...draft,
+          status,
+        }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) throw new Error(readApiError(payload) ?? 'The post could not be saved.');
 
-      try {
-        const id = postId.current;
-        const response = await fetch('/api/posts', {
-          method: id ? 'PUT' : 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            ...(id ? { id } : {}),
-            contentHtml,
-            contentJson,
-            coverImage: coverImage || null,
-            metaDescription: metaDescription || null,
-            metaTitle: metaTitle || null,
-            slug,
-            status,
-            title,
-          }),
-        });
-        const payload: unknown = await response.json();
-        if (!response.ok) throw new Error(readApiError(payload) ?? 'The post could not be saved.');
+      const savedPost = readPost(payload);
+      if (!savedPost) throw new Error('The server returned an invalid post.');
 
-        const savedPost = readPost(payload);
-        if (!savedPost) throw new Error('The server returned an invalid post.');
-
-        const wasNew = !postId.current;
-        postId.current = savedPost.id;
+      const wasNew = !postId.current;
+      postId.current = savedPost.id;
+      postStatusRef.current = savedPost.status;
+      if (draftRef.current.slug === draft.slug) {
+        draftRef.current = { ...draftRef.current, slug: savedPost.slug };
         setSlug(savedPost.slug);
-        setPostStatus(savedPost.status);
-
-        if (wasNew) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
-        if (version === changeVersion.current) {
-          setDirty(false);
-          setSaveState('Saved');
-        } else {
-          setSaveState('Unsaved');
-        }
-      } catch (error) {
-        setSaveState('Unsaved');
-        setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
-      } finally {
-        if (saveInFlight.current === gate) saveInFlight.current = null;
-        release();
       }
-    },
-    [contentHtml, contentJson, coverImage, metaDescription, metaTitle, slug, title],
-  );
+      setPostStatus(savedPost.status);
+      setLanguageEditions((current) => [
+        ...current.filter((edition) => edition.locale !== savedPost.locale),
+        { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
+      ].sort((left, right) => left.locale.localeCompare(right.locale)));
+
+      if (wasNew) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
+      if (version === changeVersion.current) {
+        dirtyRef.current = false;
+        setDirty(false);
+        setSaveState('Saved');
+      } else {
+        setSaveState('Unsaved');
+      }
+      return savedPost;
+    }).catch((error: unknown) => {
+      setSaveState('Save failed');
+      setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
+      throw error;
+    }).finally(() => {
+      pendingSaves.current -= 1;
+    });
+    saveTail.current = pending.catch(() => null);
+    return pending;
+  }, [locale, sourcePost]);
 
   useEffect(() => {
-    if (!dirty || !title.trim()) return;
+    if (!dirty || !title.trim() || actionPending.current) return;
 
-    autosaveTimer.current = window.setTimeout(() => void persist(postStatus), 900);
+    autosaveTimer.current = window.setTimeout(() => void persist(postStatusRef.current).catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, persist, postStatus, title]);
+  }, [dirty, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle]);
 
-  const saveAs = (status: PostStatus) => {
+  const saveBefore = async (action: (post: Post) => void, status = postStatusRef.current) => {
+    if (actionPending.current) return;
+    actionPending.current = true;
     window.clearTimeout(autosaveTimer.current);
-    void persist(status);
+    try {
+      let saved = await persist(status);
+      while (dirtyRef.current) saved = await persist(status);
+      action(saved);
+    } catch {
+      // persist owns the visible error; navigation/publish stops here.
+    } finally {
+      actionPending.current = false;
+    }
   };
 
   const changeTitle = (value: string) => {
@@ -279,7 +306,6 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     coverOperation.current += 1;
     setCoverImage(asset.publicUrl);
     setCoverAsset(asset);
-    setPickerOpen(false);
     markDirty();
   };
 
@@ -290,35 +316,34 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     markDirty();
   };
 
-  const lowResolution = coverAsset && (
-    coverAsset.width < COVER_IMAGE_GUIDANCE.recommendedMinWidth
-    || coverAsset.height < COVER_IMAGE_GUIDANCE.recommendedMinHeight
-  );
-
   return (
     <div className="admin-editor">
       <header className="admin-editor-bar">
         <div className="admin-editor-bar__inner">
           <div className="admin-editor-bar__start">
-            <a className="admin-editor-brand" href="/admin" aria-label="TomeCMS dashboard">
-              <img className="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
-            </a>
-            <a className="admin-toolbar-link" href="/admin">
-              <span aria-hidden="true">←</span> All posts
-            </a>
-            <a className="admin-toolbar-link admin-toolbar-link--site" href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">
-              View site <span aria-hidden="true">↗</span>
+            <a className="admin-toolbar-link" href="/admin" onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              if (dirtyRef.current || pendingSaves.current) {
+                event.preventDefault();
+                void saveBefore(() => window.location.assign('/admin'));
+              }
+            }}>
+              <span aria-hidden="true">←</span> Back to Posts
             </a>
             <nav className="admin-nav" aria-label="Post languages">
               {POST_LOCALES.map((language) => {
-                const translation = translations.find(({ locale: translationLocale }) => translationLocale === language);
+                const translation = languageEditions.find(({ locale: translationLocale }) => translationLocale === language);
                 const current = language === locale;
                 const label = current
-                  ? `${language.toUpperCase()} ${initialPost?.status ?? 'draft'}`
+                  ? `${language.toUpperCase()} ${postStatus}`
                   : translation
                     ? `${language.toUpperCase()} ${translation.status}`
                     : `${language.toUpperCase()} missing`;
-                return <span className="admin-nav__link" aria-current={current ? 'page' : undefined} key={language}>{label}</span>;
+                return current
+                  ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>
+                  : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" key={language} onClick={() => void saveBefore((saved) => {
+                    window.location.assign(translation ? `/admin/edit/${translation.id}` : `/admin/new?sourcePostId=${saved.id}&locale=${language}`);
+                  })} type="button">{label}</button>;
               })}
             </nav>
           </div>
@@ -326,10 +351,13 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
             <span className="admin-save-state" data-state={saveState === 'Saved' ? 'saved' : saveState === 'Saving…' ? 'saving' : 'unsaved'} aria-live="polite">
               <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
             </span>
-            <button className="admin-button admin-button--secondary" data-state={saveState === 'Saving…' ? 'loading' : undefined} onClick={() => saveAs('draft')} type="button">
-              Save draft
-            </button>
-            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} onClick={() => saveAs('published')} type="button">
+            {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
+            <button className="admin-button admin-button--secondary" disabled title="Preview is coming soon" type="button">Preview</button>
+            <button aria-expanded={settingsOpen} aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={(event) => {
+              event.currentTarget.focus();
+              setSettingsOpen(true);
+            }} type="button">Settings</button>
+            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
               {postStatus === 'published' ? 'Update' : 'Publish'}
             </button>
           </div>
@@ -337,121 +365,63 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       </header>
 
       <div className="admin-editor-workspace">
-        {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
+        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{errorMessage}</p>}
 
-        <div className="admin-editor-grid">
-          <article className="admin-editor-canvas">
-            <label className="sr-only" htmlFor="post-title">Post title</label>
-            <textarea
-              className="admin-title-input"
-              id="post-title"
-              maxLength={200}
-              onChange={(event) => changeTitle(event.target.value)}
-              placeholder="Untitled post"
-              rows={2}
-              value={title}
-            />
+        <article className="admin-editor-canvas">
+          <label className="sr-only" htmlFor="post-title">Post title</label>
+          <textarea
+            className="admin-title-input"
+            id="post-title"
+            maxLength={200}
+            onChange={(event) => changeTitle(event.target.value)}
+            placeholder="Untitled post"
+            rows={2}
+            value={title}
+          />
 
-            <EditorRoot>
-              <EditorContent
-                className="editor-canvas editor-content admin-editor-content"
-                editorProps={{
-                  attributes: {
-                    class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
-                  },
-                  handleDOMEvents: { keydown: (_view, event) => handleCommandNavigation(event) },
-                  handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
-                  handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
-                }}
-                extensions={extensions}
-                initialContent={contentJson}
-                onUpdate={({ editor }) => {
-                  setContentJson(editor.getJSON());
-                  setContentHtml(editor.getHTML());
-                  markDirty();
-                }}
-              >
-                <SlashCommands />
-                <FormattingBubble />
-                <BlockInsertMenu />
-              </EditorContent>
-            </EditorRoot>
-          </article>
+          <EditorRoot>
+            <EditorContent
+              className="editor-canvas editor-content admin-editor-content"
+              editorProps={{
+                attributes: {
+                  class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
+                },
+                handleDOMEvents: { keydown: (_view, event) => handleCommandNavigation(event) },
+                handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
+                handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
+              }}
+              extensions={extensions}
+              initialContent={contentJson}
+              onUpdate={({ editor }) => {
+                setContentJson(editor.getJSON());
+                setContentHtml(editor.getHTML());
+                markDirty();
+              }}
+            >
+              <SlashCommands />
+              <FormattingBubble />
+              <BlockInsertMenu />
+            </EditorContent>
+          </EditorRoot>
+        </article>
 
-          <aside className="admin-editor-settings" aria-label="Post settings">
-            <div className="admin-editor-settings__head">
-              <div><h2>Post settings</h2><p>URL, search and answer previews, and cover image.</p></div>
-              <span className="admin-status" data-status={postStatus}>{postStatus}</span>
-            </div>
-            <label className="admin-field">
-              <span>Slug</span>
-              <input
-                className="admin-control"
-                onChange={(event) => {
-                  slugTouched.current = true;
-                  setSlug(event.target.value);
-                  markDirty();
-                }}
-                placeholder="post-slug"
-                type="text"
-                value={slug}
-              />
-              <small>Used in the post URL.</small>
-            </label>
-            <label className="admin-field">
-              <span>Meta title <small>{metaTitle.length}/70</small></span>
-              <input
-                className="admin-control"
-                maxLength={70}
-                onChange={(event) => {
-                  setMetaTitle(event.target.value);
-                  markDirty();
-                }}
-                placeholder="Optional search result title"
-                type="text"
-                value={metaTitle}
-              />
-              <small>Falls back automatically when empty.</small>
-            </label>
-            <label className="admin-field">
-              <span>Meta description <small>{metaDescription.length}/320</small></span>
-              <textarea
-                className="admin-control admin-control--textarea"
-                maxLength={320}
-                onChange={(event) => {
-                  setMetaDescription(event.target.value);
-                  markDirty();
-                }}
-                placeholder="A concise summary or direct answer"
-                value={metaDescription}
-              />
-              <small>Shown below the article title and reused in search and social metadata.</small>
-            </label>
-            <div className="admin-field">
-              <span>Cover image</span>
-              <div className="admin-cover-actions">
-                <button className="admin-button admin-button--secondary" onClick={() => setPickerOpen(true)} ref={coverPickerTrigger} type="button">
-                  Choose from library
-                </button>
-                <label className="admin-upload" data-state={uploadingCover ? 'loading' : undefined}>
-                  <input aria-label="Upload new" className="sr-only" accept={ACCEPTED_IMAGE_TYPES.join(',')} disabled={uploadingCover} onChange={(event) => void selectCover(event.currentTarget.files?.[0], event.currentTarget)} type="file" />
-                  {uploadingCover ? 'Uploading…' : 'Upload new'}
-                </label>
-                {coverImage && <button className="admin-button admin-button--secondary" onClick={removeCover} type="button">Remove</button>}
-              </div>
-              <input name="coverImage" type="hidden" value={coverImage} />
-              <p className="admin-cover-help">
-                Recommended: {COVER_IMAGE_GUIDANCE.recommendedWidth} × {COVER_IMAGE_GUIDANCE.recommendedHeight} px (16:9).
-                {' '}Minimum: {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.
-                {' '}Best: WebP or JPEG; PNG and AVIF are also supported. GIF is accepted but discouraged for covers, especially when animated.
-                {' '}Aim for {COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024} MB or less; {COVER_IMAGE_GUIDANCE.hardLimitBytes / 1024 / 1024} MB maximum.
-              </p>
-              {lowResolution && <p className="admin-cover-warning" role="status">This image is below the recommended minimum of {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.</p>}
-              {coverImage && <img alt="Current cover" className="admin-cover-preview" src={coverImage} />}
-            </div>
-          </aside>
-        </div>
-        {pickerOpen && <MediaPicker onCancel={() => setPickerOpen(false)} onSelect={chooseCover} returnFocus={coverPickerTrigger.current} />}
+        <PostSettingsDrawer
+          coverAsset={coverAsset}
+          coverImage={coverImage}
+          errorMessage={errorMessage}
+          metaDescription={metaDescription}
+          metaTitle={metaTitle}
+          onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
+          onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
+          onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
+          onChooseCover={chooseCover}
+          onClose={() => setSettingsOpen(false)}
+          onRemoveCover={removeCover}
+          onUploadCover={selectCover}
+          open={settingsOpen}
+          slug={slug}
+          uploadingCover={uploadingCover}
+        />
       </div>
     </div>
   );
