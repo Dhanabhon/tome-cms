@@ -35,6 +35,22 @@ async function createMedia(owner: TestOwner, name: string) {
   };
 }
 
+type TestMedia = Awaited<ReturnType<typeof createMedia>>;
+
+async function expectMediaPresent(owner: TestOwner, media: TestMedia) {
+  const { data: metadata, error: metadataError } = await owner.client
+    .from('media_items')
+    .select('id, storage_path')
+    .eq('id', media.id)
+    .single();
+  expect(metadataError).toBeNull();
+  expect(metadata).toEqual({ id: media.id, storage_path: media.storage_path });
+
+  const { data: objects, error: storageError } = await owner.client.storage.from('blog-media').list(owner.id);
+  expect(storageError).toBeNull();
+  expect((objects ?? []).map((object) => object.name)).toContain(media.storage_path.split('/')[1]);
+}
+
 async function createPost(owner: TestOwner, title: string, coverImage: string | null, contentHtml = '<p></p>') {
   const { data, error } = await owner.client
     .from('posts')
@@ -75,36 +91,43 @@ test.describe('media deletion', () => {
   });
 
   test('returns 401 when unauthenticated', async ({ request }) => {
-    const response = await request.delete(`/api/media/${crypto.randomUUID()}`);
+    const owner = await createOwner('media-delete-unauthenticated');
 
-    expect(response.status()).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required.' });
+    try {
+      const media = await createMedia(owner, 'authenticated-only.png');
+      const response = await request.delete(`/api/media/${media.id}`);
+
+      expect(response.status()).toBe(401);
+      await expect(response.json()).resolves.toEqual({ error: 'Authentication required.' });
+      await expectMediaPresent(owner, media);
+    } finally {
+      await deleteTestOwner(owner);
+    }
   });
 
-  test('returns 404 for invalid and another owner media ids without deleting them', async ({ page }) => {
+  test('returns 404 for invalid, missing, and another owner media ids without deleting media', async ({ page }) => {
     const owner = await createOwner('media-delete-owner');
     const otherOwner = await createOwner('media-delete-other');
 
     try {
-      const media = await createMedia(otherOwner, 'private.png');
+      const ownedMedia = await createMedia(owner, 'owned.png');
+      const otherMedia = await createMedia(otherOwner, 'private.png');
       await signIn(page, owner);
 
-      for (const id of ['not-a-uuid', crypto.randomUUID(), media.id]) {
-        const response = await page.request.delete(`/api/media/${id}`);
-        expect(response.status()).toBe(404);
-        await expect(response.json()).resolves.toEqual({ error: 'Media not found.' });
-      }
+      const invalidResponse = await page.request.delete('/api/media/not-a-uuid');
+      expect(invalidResponse.status()).toBe(404);
+      await expect(invalidResponse.json()).resolves.toEqual({ error: 'Media not found.' });
+      await expectMediaPresent(owner, ownedMedia);
 
-      const { data: metadata, error: metadataError } = await otherOwner.client
-        .from('media_items')
-        .select('id')
-        .eq('id', media.id)
-        .single();
-      expect(metadataError).toBeNull();
-      expect(metadata?.id).toBe(media.id);
-      const { data: objects, error: storageError } = await otherOwner.client.storage.from('blog-media').list(otherOwner.id);
-      expect(storageError).toBeNull();
-      expect((objects ?? []).map((object) => object.name)).toContain(media.storage_path.split('/')[1]);
+      const missingResponse = await page.request.delete(`/api/media/${crypto.randomUUID()}`);
+      expect(missingResponse.status()).toBe(404);
+      await expect(missingResponse.json()).resolves.toEqual({ error: 'Media not found.' });
+      await expectMediaPresent(owner, ownedMedia);
+
+      const notOwnedResponse = await page.request.delete(`/api/media/${otherMedia.id}`);
+      expect(notOwnedResponse.status()).toBe(404);
+      await expect(notOwnedResponse.json()).resolves.toEqual({ error: 'Media not found.' });
+      await expectMediaPresent(otherOwner, otherMedia);
     } finally {
       await deleteTestOwner(owner);
       await deleteTestOwner(otherOwner);
@@ -180,6 +203,14 @@ test.describe('media deletion', () => {
         error: 'This image is used by 1 post.',
         posts: [{ id: post.id, title: 'Referenced post' }],
       });
+      const { data: coverPost, error: coverPostError } = await owner.client
+        .from('posts')
+        .select('cover_image, content_html')
+        .eq('id', post.id)
+        .single();
+      expect(coverPostError).toBeNull();
+      expect(coverPost).toEqual({ cover_image: media.publicUrl, content_html: '<p></p>' });
+      await expectMediaPresent(owner, media);
 
       const { error: updateError } = await owner.client
         .from('posts')
@@ -195,24 +226,113 @@ test.describe('media deletion', () => {
 
       await expect(details.getByRole('alert')).toContainText('This image is used by 1 post.');
       await expect(details.getByRole('link', { name: 'Referenced post' })).toHaveAttribute('href', `/admin/edit/${post.id}`);
-      const { data: metadata, error: metadataError } = await owner.client
-        .from('media_items')
-        .select('id')
-        .eq('id', media.id)
-        .single();
-      expect(metadataError).toBeNull();
-      expect(metadata?.id).toBe(media.id);
-      const { data: storedObjects, error: storageError } = await owner.client.storage.from('blog-media').list(owner.id);
-      expect(storageError).toBeNull();
-      expect((storedObjects ?? []).map((object) => object.name)).toContain(media.storage_path.split('/')[1]);
+      await expectMediaPresent(owner, media);
       const { data: storedPost, error: postError } = await owner.client
         .from('posts')
-        .select('content_html')
+        .select('cover_image, content_html')
         .eq('id', post.id)
         .single();
       expect(postError).toBeNull();
+      expect(storedPost?.cover_image).toBeNull();
       expect(storedPost?.content_html).toContain(media.publicUrl);
     } finally {
+      await deleteTestOwner(owner);
+    }
+  });
+
+  test('keeps a newly selected image isolated from earlier deletion completions', async ({ page }) => {
+    const owner = await createOwner('media-delete-selection-race');
+    let releaseSuccess = () => {};
+    let releaseConflict = () => {};
+    let releaseFailure = () => {};
+    const successGate = new Promise<void>((resolve) => {
+      releaseSuccess = resolve;
+    });
+    const conflictGate = new Promise<void>((resolve) => {
+      releaseConflict = resolve;
+    });
+    const failureGate = new Promise<void>((resolve) => {
+      releaseFailure = resolve;
+    });
+
+    try {
+      const first = await createMedia(owner, 'first.png');
+      const second = await createMedia(owner, 'second.png');
+      const third = await createMedia(owner, 'third.png');
+      const fourth = await createMedia(owner, 'fourth.png');
+      await openMediaLibrary(page, owner);
+      await page.route('**/api/media/*', async (route) => {
+        if (route.request().url().endsWith(first.id)) {
+          await successGate;
+          return route.continue();
+        }
+        if (route.request().url().endsWith(second.id)) {
+          await conflictGate;
+          return route.fulfill({
+            body: JSON.stringify({
+              error: 'This image is used by 1 post.',
+              posts: [{ id: crypto.randomUUID(), title: 'Stale post' }],
+            }),
+            contentType: 'application/json',
+            status: 409,
+          });
+        }
+        if (route.request().url().endsWith(third.id)) {
+          await failureGate;
+          return route.fulfill({
+            body: JSON.stringify({ error: 'The image could not be deleted.' }),
+            contentType: 'application/json',
+            status: 500,
+          });
+        }
+        return route.continue();
+      });
+
+      const details = page.getByRole('dialog', { name: 'Image details' });
+      await page.getByRole('button', { name: /first\.png/i }).click();
+      page.once('dialog', (dialog) => dialog.accept());
+      await details.getByRole('button', { name: 'Delete' }).click();
+      await expect(details.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+      await details.getByRole('button', { name: 'Close details' }).click();
+      await page.getByRole('button', { name: /second\.png/i }).click();
+      releaseSuccess();
+
+      await expect(page.getByRole('button', { name: /first\.png/i })).toHaveCount(0);
+      await expect(details).toBeVisible();
+      await expect(details.getByLabel('Image URL')).toHaveValue(second.publicUrl);
+      await expect(details.getByRole('alert')).toHaveCount(0);
+      await expectMediaPresent(owner, second);
+
+      page.once('dialog', (dialog) => dialog.accept());
+      await details.getByRole('button', { name: 'Delete' }).click();
+      await expect(details.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+      await details.getByRole('button', { name: 'Close details' }).click();
+      await page.getByRole('button', { name: /third\.png/i }).click();
+      releaseConflict();
+
+      await expect(details.getByRole('button', { name: 'Delete' })).toBeEnabled();
+      await expect(details).toBeVisible();
+      await expect(details.getByLabel('Image URL')).toHaveValue(third.publicUrl);
+      await expect(details.getByRole('alert')).toHaveCount(0);
+      await expectMediaPresent(owner, second);
+      await expectMediaPresent(owner, third);
+
+      page.once('dialog', (dialog) => dialog.accept());
+      await details.getByRole('button', { name: 'Delete' }).click();
+      await expect(details.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+      await details.getByRole('button', { name: 'Close details' }).click();
+      await page.getByRole('button', { name: /fourth\.png/i }).click();
+      releaseFailure();
+
+      await expect(details.getByRole('button', { name: 'Delete' })).toBeEnabled();
+      await expect(details.getByLabel('Image URL')).toHaveValue(fourth.publicUrl);
+      await expect(details.getByRole('alert')).toHaveCount(0);
+      await expectMediaPresent(owner, third);
+      await expectMediaPresent(owner, fourth);
+    } finally {
+      releaseSuccess();
+      releaseConflict();
+      releaseFailure();
       await deleteTestOwner(owner);
     }
   });

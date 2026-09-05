@@ -27,7 +27,7 @@ export const DELETE: APIRoute = async ({ cookies, params, request }) => {
       .eq('author_id', auth.user.id);
     if (postsError) throw postsError;
 
-    // ponytail: scans one owner's posts; add a media_usage table only when measured post volume makes this slow.
+    // ponytail: O(owner posts) scan has a concurrent-edit window; add relational media_usage when volume or serialization matters.
     const references = posts
       .filter((post) => post.cover_image === publicUrl || post.content_html.includes(publicUrl))
       .map(({ id: postId, title }) => ({ id: postId, title }));
@@ -41,6 +41,7 @@ export const DELETE: APIRoute = async ({ cookies, params, request }) => {
       );
     }
 
+    // ponytail: Storage and metadata deletes are not atomic; retry recovers stale metadata after a partial failure.
     const { error: storageError } = await auth.supabase.storage.from('blog-media').remove([media.storage_path]);
     if (storageError) throw storageError;
 
