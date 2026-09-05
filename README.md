@@ -138,7 +138,16 @@ npm run dev:windows # Start local Supabase and TomeCMS on Windows
 npm run build       # Build the production server
 npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
+npm run test:e2e:media # Run focused Media Library and public blog regressions
 ```
+
+Run `npm run test:e2e:media` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
+
+## Media Library
+
+Authenticated owners manage images at `/admin/media`. Version 1 accepts images only: JPEG, PNG, WebP, GIF, and AVIF, with a hard limit of 8 MB per file. SVG, video, audio, PDFs, and other documents are not supported.
+
+For cover images, use a 1600 × 900 px canvas when possible, with a recommended minimum of 1200 × 675 px. Aim for 2 MB or less for faster delivery; the hard upload limit remains 8 MB.
 
 ## Main routes
 
@@ -147,13 +156,14 @@ npm run check       # Check Astro, TypeScript, and the helper scripts
 | `/` | Published post list |
 | `/blog/[slug]` | Public article with no client-side JavaScript |
 | `/admin` | Sign-in and post dashboard |
+| `/admin/media` | Authenticated image Media Library |
 | `/admin/new` | New post editor |
 | `/admin/edit/[id]` | Existing post editor |
 | `/install` | First-run installation wizard |
 | `/api/install/status` | Installer readiness check |
 | `/api/install` | One-time installation endpoint |
 | `/api/posts` | Authenticated post API |
-| `/api/upload` | Authenticated image upload API |
+| `/api/upload` | Retired upload endpoint; returns `410 Gone` |
 
 ## Deploy to a VPS
 
@@ -174,7 +184,7 @@ sudoedit /etc/tome-cms/tome-cms.env
 ./scripts/deploy-vps.sh
 ```
 
-Run both SQL migrations in Supabase before the second deployment. The service listens on `127.0.0.1:4321`. To configure an existing Nginx installation, set a domain:
+Apply every pending SQL migration in `supabase/migrations/` before the deployment restarts the application. The service listens on `127.0.0.1:4321`. To configure an existing Nginx installation, set a domain:
 
 ```dotenv
 TOME_CMS_DOMAIN=blog.example.com
@@ -195,6 +205,10 @@ Pull the new code and run the same command:
 ```sh
 ./scripts/deploy-vps.sh
 ```
+
+Before restarting TomeCMS, back up Postgres metadata and Supabase Storage objects separately, then apply every pending migration. A database backup does not include the stored image objects.
+
+TomeCMS continues to use Supabase Storage in managed and self-hosted deployments. An external S3-compatible backend is configured by the operator through Supabase Storage; TomeCMS adds no MinIO container, S3 SDK, or S3 credentials to browser code.
 
 Check the service when needed:
 
