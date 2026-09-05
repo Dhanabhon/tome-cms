@@ -1,10 +1,13 @@
 /* Hallmark · genre: modern-minimal · macrostructure: Progressive Rail · tone: friendly-austere
  * theme: studied-DNA (source: https://blog-magicui.vercel.app/) · paper: oklch(100% 0 0) · accent: neutral ink
  * display/body: Geist + IBM Plex Sans Thai · studied: yes · DNA-source: url · nav: N9 · footer: Ft2
+ * component: native select · states: default · hover · focus · active · disabled · loading · error · success
  * pre-emit critique: P5 H5 E5 S5 R5 V5
  * contrast: pass (40–41) · honest: pass (46) · chrome: pass (47) · tokens: pass (48)
  * slop: pass (42–45) · mobile: pass (34, 49–57) · icons: pass (30)
  */
+@import './brand.css';
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { overflow-x: clip; }
 html { background: var(--color-paper); }
@@ -45,11 +48,6 @@ h1, h2, p { margin-block-start: 0; }
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
-}
-.installer-logo {
-  display: block;
-  width: auto;
-  height: 2rem;
 }
 .installer-page {
   width: min(100%, 80rem);
@@ -195,6 +193,7 @@ h1, h2, p { margin-block-start: 0; }
 }
 .installer-task {
   display: grid;
+  gap: var(--space-lg);
   min-width: 0;
   min-height: 30rem;
   padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-2xl));
@@ -265,6 +264,24 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
 .installer-control[aria-busy="true"] { background: var(--color-paper-3); }
 .installer-control[aria-invalid="true"] { border-color: var(--color-error); background: var(--color-error-soft); }
 .installer-control[data-state="success"] { border-color: var(--color-ink-2); }
+select.installer-control {
+  appearance: none;
+  cursor: pointer;
+  padding-inline-end: var(--space-2xl);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%),
+    linear-gradient(var(--color-rule), var(--color-rule));
+  background-position:
+    calc(100% - var(--space-lg)) calc(50% - var(--space-3xs)),
+    calc(100% - var(--space-md) - var(--space-3xs)) calc(50% - var(--space-3xs)),
+    calc(100% - var(--space-xl)) center;
+  background-repeat: no-repeat;
+  background-size:
+    calc(var(--space-xs) - var(--space-3xs)) calc(var(--space-xs) - var(--space-3xs)),
+    calc(var(--space-xs) - var(--space-3xs)) calc(var(--space-xs) - var(--space-3xs)),
+    var(--rule-hair) calc(100% - var(--space-md));
+}
 .installer-helper { min-height: 1lh; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 .installer-helper[data-tone="error"] { color: var(--color-error); }
 .installer-help {
@@ -297,6 +314,7 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   padding-block-start: var(--space-xl);
 }
 .installer-button {
+  --button-hover-background: var(--color-paper-3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -312,7 +330,7 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   white-space: nowrap;
   transition: background-color var(--dur-short) var(--ease-out), opacity var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 }
-.installer-button--primary { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
+.installer-button--primary { --button-hover-background: var(--color-ink-2); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
 .installer-button:focus-visible { outline-color: var(--color-focus); }
 .installer-button:active { transform: translateY(var(--space-3xs)); }
 .installer-button:disabled { cursor: not-allowed; opacity: 0.5; transform: none; }
@@ -327,8 +345,8 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   animation: installer-spin 900ms linear infinite;
   content: "";
 }
-.installer-button[data-state="error"] { border-color: var(--color-error); background: var(--color-error); color: var(--color-paper); }
-.installer-button[data-state="success"] { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
+.installer-button[data-state="error"] { --button-hover-background: var(--color-error); border-color: var(--color-error); background: var(--color-error); color: var(--color-paper); }
+.installer-button[data-state="success"] { --button-hover-background: var(--color-ink-2); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
 .installer-success { align-content: center; min-height: 25rem; }
 .installer-success-mark {
   display: grid;
@@ -349,8 +367,8 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   font-size: var(--text-sm);
 }
 @media (hover: hover) and (pointer: fine) {
-  .installer-button:hover:not(:disabled), .installer-control:hover { background: var(--color-paper-3); }
-  .installer-button--primary:hover:not(:disabled) { opacity: 0.88; }
+  .installer-button:hover:not(:disabled) { background: var(--button-hover-background); }
+  .installer-control:hover { background-color: var(--color-paper-3); }
   .installer-help summary:hover { color: var(--color-focus); }
 }
 @media (min-width: 25rem) {

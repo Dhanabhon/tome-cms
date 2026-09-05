@@ -1,7 +1,7 @@
 # TomeCMS Media Library and Editor Insertion Design
 
 Date: 2026-09-05  
-Status: Approved direction, awaiting written-spec review
+Status: Approved
 
 ## Context
 

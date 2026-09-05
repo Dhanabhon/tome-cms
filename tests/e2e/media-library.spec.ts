@@ -81,7 +81,7 @@ test.describe('media library desktop', () => {
   test('redirects unauthenticated visitors to admin sign in', async ({ page }) => {
     await page.goto('/admin/media');
     await expect(page).toHaveURL(/\/admin\/?$/);
-    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   });
 
   test('retires the legacy upload endpoint without creating orphaned media', async ({ request }) => {

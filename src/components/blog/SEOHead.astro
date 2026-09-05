@@ -11,6 +11,7 @@ const { canonical, description, image, title, type = 'website' } = Astro.props;
 ---
 
 <title>{title}</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="description" content={description} />
 <link rel="canonical" href={canonical} />
 <meta property="og:type" content={type} />
@@ -22,4 +23,3 @@ const { canonical, description, image, title, type = 'website' } = Astro.props;
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 {image && <meta name="twitter:image" content={image} />}
-

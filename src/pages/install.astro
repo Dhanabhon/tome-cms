@@ -54,6 +54,7 @@ const copy = english
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light" />
     <title>{copy.title} · TomeCMS</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -64,7 +65,7 @@ const copy = english
   <body>
     <nav class="installer-nav" aria-label="Installer navigation">
       <a class="installer-wordmark" href="#top" aria-label="TomeCMS installer">
-        <img class="installer-logo" src="/brand/tomecms-logo.png" alt="" width="96" height="32" />
+        <img class="tomecms-logo" src="/brand/tomecms-logo.png" alt="" width="2172" height="724" />
       </a>
       <a class="installer-button" href={`/install?lang=${alternateLanguage}`} lang={alternateLanguage}>
         {english ? 'ภาษาไทย' : 'English'}
@@ -178,8 +179,8 @@ const copy = english
             <div class="installer-fields">
               <div class="installer-field">
                 <label for="owner-email">{english ? 'Sign-in email' : 'อีเมลสำหรับเข้าสู่ระบบ'}<span class="installer-required-mark" aria-hidden="true"> *</span></label>
-                <input class="installer-control" id="owner-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" aria-describedby="owner-email-help" />
-                <p class="installer-helper" id="owner-email-help">{english ? 'Used to sign in and recover the account.' : 'ใช้เข้าสู่ระบบและกู้คืนบัญชี'}</p>
+                <input class="installer-control" id="owner-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" pattern="[^@\s]+@[^@\s]+\.[^@\s]{2,}" required placeholder="you@example.com" aria-describedby="owner-email-help" />
+                <p class="installer-helper" id="owner-email-help">{english ? 'Use a complete address, such as name@example.com.' : 'กรอกอีเมลให้ครบ เช่น name@example.com'}</p>
               </div>
               <div class="installer-field-grid">
                 <div class="installer-field">

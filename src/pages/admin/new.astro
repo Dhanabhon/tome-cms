@@ -23,8 +23,10 @@ try {
 
 <AdminLayout title="New post" userEmail={userEmail} showHeader={Boolean(errorMessage)}>
   {errorMessage ? (
-    <p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p>
+    <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
   ) : (
-    <Editor client:only="react" />
+    <Editor client:only="react">
+      <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+    </Editor>
   )}
 </AdminLayout>
