@@ -68,6 +68,7 @@ test.describe('editor cover media', () => {
       await page.goto('/admin/new');
       await page.getByLabel('Post title').fill(title);
 
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
       await page.getByRole('button', { name: 'Choose from library' }).click();
       const picker = page.getByRole('dialog', { name: 'Media library' });
       await expect(picker).toBeVisible();
@@ -84,7 +85,7 @@ test.describe('editor cover media', () => {
       await expect(page.getByAltText('Current cover')).toHaveAttribute('src', asset.publicUrl);
       await expect(page.locator('input[name="coverImage"]')).toHaveValue(asset.publicUrl);
 
-      await page.getByRole('button', { name: 'Save draft' }).click();
+      await page.getByRole('button', { name: 'Close settings' }).click();
       await expect(page.getByText('Saved', { exact: true })).toBeVisible();
       await expect
         .poll(async () => {
@@ -105,12 +106,15 @@ test.describe('editor cover media', () => {
 
   test('cover upload warns about low resolution without blocking save', async ({ page }) => {
     const owner = await createOwner('editor-cover-upload');
+    const title = `Low resolution cover ${crypto.randomUUID()}`;
 
     try {
       await signInAdmin(page, owner);
       await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
       await page.goto('/admin/new');
 
+      await page.getByLabel('Post title').fill(title);
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
       await page.getByLabel('Upload new').setInputFiles(PIXEL);
 
       await expect(page.getByAltText('Current cover')).toHaveAttribute('src', /\/storage\/v1\/object\/public\/blog-media\//);
@@ -118,7 +122,12 @@ test.describe('editor cover media', () => {
       await expect(page.getByText(/Best: WebP or JPEG; PNG and AVIF are also supported\. GIF is accepted but discouraged/)).toBeVisible();
       await expect(page.getByText(/Aim for 2 MB or less; 8 MB maximum\./)).toBeVisible();
       await expect(page.getByText('This image is below the recommended minimum of 1200 × 675 px.')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Save draft' })).toBeEnabled();
+      await page.getByRole('button', { name: 'Close settings' }).click();
+      await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+      await expect.poll(async () => {
+        const { data } = await owner.client.from('posts').select('cover_image').eq('title', title).single();
+        return data?.cover_image;
+      }).toMatch(/\/storage\/v1\/object\/public\/blog-media\//);
     } finally {
       await deleteOwner(owner);
     }
@@ -132,6 +141,7 @@ test.describe('editor cover media', () => {
       await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
       await page.goto('/admin/new');
       await page.getByLabel('Post title').fill('Keep this unsaved title');
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
       await page.getByLabel('Meta title').fill('Keep this unsaved meta title');
       await page.route('**/storage/v1/object/blog-media/**', (route) => route.fulfill({
         body: JSON.stringify({ message: 'Forced cover upload failure' }),
@@ -163,6 +173,7 @@ test.describe('editor cover media', () => {
       await signInAdmin(page, owner);
       await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
       await page.goto('/admin/new');
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
       await page.route('**/storage/v1/object/blog-media/**', async (route) => {
         if (route.request().method() === 'POST') await uploadGate;
         return route.continue();
@@ -207,13 +218,15 @@ test.describe('editor cover media', () => {
       await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
       await page.goto(`/admin/edit/${post.id}`);
 
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
       await expect(page.getByAltText('Current cover')).toHaveAttribute('src', coverUrl);
       await expect(page.getByText(/below the recommended minimum/)).toHaveCount(0);
       await page.getByRole('button', { name: 'Remove' }).click();
       await expect(page.getByAltText('Current cover')).toHaveCount(0);
       await expect(page.locator('input[name="coverImage"]')).toHaveValue('');
 
-      await page.getByRole('button', { name: 'Save draft' }).click();
+      await page.getByRole('button', { name: 'Close settings' }).click();
+      await expect(page.getByText('Saved', { exact: true })).toBeVisible();
       await expect
         .poll(async () => {
           const { data, error: queryError } = await owner.client.from('posts').select('cover_image').eq('id', post.id).single();
@@ -441,6 +454,7 @@ test('cover media picker fills the mobile viewport', async ({ page }, testInfo) 
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     await page.goto('/admin/new');
 
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const opener = page.getByRole('button', { name: 'Choose from library' });
     await opener.click();
     const picker = page.getByRole('dialog', { name: 'Media library' });
