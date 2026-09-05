@@ -10,6 +10,7 @@ interface Props {
 
 const { showHeader = true, title, userEmail } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
+const mediaActive = Astro.url.pathname === '/admin/media';
 ---
 
 <!doctype html>
@@ -29,8 +30,17 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString(
               <img class="h-8 w-auto" src="/brand/tomecms-logo.png" alt="TomeCMS" width="96" height="32" />
             </a>
             <nav aria-label="Admin" class="flex items-center gap-6 text-sm">
-              <a class="border-b-2 border-accent py-1 text-accent" href="/admin" aria-current="page">Posts</a>
-              <a class="text-ink hover:text-accent" href="/">View site <span aria-hidden="true">↗</span></a>
+              <a
+                class:list={['py-1', mediaActive ? 'text-ink hover:text-accent' : 'border-b-2 border-accent text-accent']}
+                href="/admin"
+                aria-current={mediaActive ? undefined : 'page'}
+              >Posts</a>
+              <a
+                class:list={['py-1', mediaActive ? 'border-b-2 border-accent text-accent' : 'text-ink hover:text-accent']}
+                href="/admin/media"
+                aria-current={mediaActive ? 'page' : undefined}
+              >Media</a>
+              <a class="text-ink hover:text-accent" href="/" target="_blank" rel="noreferrer">View site <span aria-hidden="true">↗</span></a>
             </nav>
           </div>
           {userEmail && <span class="hidden text-sm text-muted sm:inline">{userEmail}</span>}
