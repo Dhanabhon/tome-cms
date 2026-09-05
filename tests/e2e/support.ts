@@ -50,8 +50,8 @@ export async function deleteOwner(owner: TestOwner) {
 
 export async function signInAdmin(page: Page, owner: TestOwner) {
   await page.goto('/admin');
-  await page.getByLabel('Email address').fill(owner.email);
-  await page.getByLabel('Password').fill(owner.password);
+  await page.locator('input[name="email"]').fill(owner.email);
+  await page.locator('input[name="password"]').fill(owner.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/admin\/?$/);
 }
