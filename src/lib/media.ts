@@ -8,6 +8,15 @@ export const ACCEPTED_IMAGE_TYPES = [
   'image/webp',
 ] as const;
 
+export const COVER_IMAGE_GUIDANCE = {
+  hardLimitBytes: MAX_IMAGE_BYTES,
+  recommendedHeight: 900,
+  recommendedMaxBytes: 2 * 1024 * 1024,
+  recommendedMinHeight: 675,
+  recommendedMinWidth: 1200,
+  recommendedWidth: 1600,
+} as const;
+
 const IMAGE_EXTENSIONS = {
   'image/avif': 'avif',
   'image/gif': 'gif',
