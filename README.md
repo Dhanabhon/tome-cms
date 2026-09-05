@@ -177,18 +177,25 @@ From the project directory on the server, run:
 ./scripts/deploy-vps.sh
 ```
 
-The first run creates `/etc/tome-cms/tome-cms.env`, generates a random installation token, and exits. Add the required Supabase values:
+The first run creates `/etc/tome-cms/tome-cms.env`, generates a random installation token, and exits. Add the required Supabase values. To configure an existing Nginx installation, also set `TOME_CMS_DOMAIN` before deployment:
 
 ```sh
 sudoedit /etc/tome-cms/tome-cms.env
-./scripts/deploy-vps.sh
 ```
-
-Apply every pending SQL migration in `supabase/migrations/` before the deployment restarts the application. The service listens on `127.0.0.1:4321`. To configure an existing Nginx installation, set a domain:
 
 ```dotenv
 TOME_CMS_DOMAIN=blog.example.com
 ```
+
+Before running the deployment script again, back up existing Postgres metadata and Supabase Storage objects separately when applicable, then apply every pending SQL migration in `supabase/migrations/`. A database backup does not include the stored image objects.
+
+Only after the backups and migrations are complete, deploy and restart TomeCMS:
+
+```sh
+./scripts/deploy-vps.sh
+```
+
+The service listens on `127.0.0.1:4321`.
 
 The script creates the Nginx reverse proxy configuration. Configure HTTPS with the certificate tooling used on the server; production installation is blocked over plain HTTP.
 
@@ -200,13 +207,16 @@ sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
 
 ### Later deployments
 
-Pull the new code and run the same command:
+For every later deployment:
+
+1. Pull the new code.
+2. Back up Postgres metadata and Supabase Storage objects separately.
+3. Apply every pending SQL migration in `supabase/migrations/`.
+4. Only then deploy and restart the application:
 
 ```sh
 ./scripts/deploy-vps.sh
 ```
-
-Before restarting TomeCMS, back up Postgres metadata and Supabase Storage objects separately, then apply every pending migration. A database backup does not include the stored image objects.
 
 TomeCMS continues to use Supabase Storage in managed and self-hosted deployments. An external S3-compatible backend is configured by the operator through Supabase Storage; TomeCMS adds no MinIO container, S3 SDK, or S3 credentials to browser code.
 
