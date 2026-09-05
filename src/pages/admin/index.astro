@@ -1,5 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
 import type { Post } from '../../types/cms';
 
@@ -7,6 +9,7 @@ let posts: Post[] = [];
 let userEmail: string | null = null;
 let errorMessage: string | null = null;
 let authRequired = false;
+let settings = null;
 
 try {
   const auth = await authenticate(Astro.cookies, Astro.request);
@@ -15,6 +18,7 @@ try {
     authRequired = true;
   } else {
     userEmail = auth.user.email ?? null;
+    settings = await getSiteSettings();
     const { data, error } = await auth.supabase
       .from('posts')
       .select('*')
@@ -36,9 +40,11 @@ const dateFormatter = new Intl.DateTimeFormat('en', {
 });
 const publishedCount = posts.filter((post) => post.status === 'published').length;
 const draftCount = posts.length - publishedCount;
+const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
 <AdminLayout title="Posts" userEmail={userEmail}>
+  <Frame active="posts" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
   <section class="admin-page">
     <header class="admin-page__head">
       <div>
@@ -105,10 +111,12 @@ const draftCount = posts.length - publishedCount;
       </>
     )}
   </section>
+  </Frame>
 </AdminLayout>
 
 <script>
   import { createBrowserSupabaseClient } from '../../lib/supabase';
+  import { safeAdminReturnTo } from '../../lib/admin';
 
   const form = document.querySelector<HTMLFormElement>('[data-auth-form]');
   const errorElement = document.querySelector<HTMLElement>('[data-auth-error]');
@@ -155,7 +163,7 @@ const draftCount = posts.length - publishedCount;
         password: passwordInput.value,
       });
       if (error) throw error;
-      window.location.reload();
+      window.location.assign(safeAdminReturnTo(new URLSearchParams(window.location.search).get('returnTo')));
     } catch (error) {
       const message = error instanceof Error && 'code' in error && error.code === 'invalid_credentials'
         ? 'Email or password is incorrect.'

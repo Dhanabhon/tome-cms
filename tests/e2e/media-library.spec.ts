@@ -80,7 +80,7 @@ test.describe('media library desktop', () => {
 
   test('redirects unauthenticated visitors to admin sign in', async ({ page }) => {
     await page.goto('/admin/media');
-    await expect(page).toHaveURL(/\/admin\/?$/);
+    await expect(page).toHaveURL(/\/admin\?returnTo=%2Fadmin%2Fmedia$/);
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   });
 
