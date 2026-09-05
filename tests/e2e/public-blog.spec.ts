@@ -1,11 +1,12 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 
-import { createOwner, deleteOwner, signInAdmin } from './support';
+import { admin, createOwner, deleteOwner, signInAdmin } from './support';
 
 test('published sanitized content renders without public JavaScript', async ({ browser, page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'The public HTML contract only needs one browser project.');
   const owner = await createOwner('public-blog');
   const slug = `public-media-${crypto.randomUUID()}`;
+  let createdPostId: string | undefined;
   let noScriptContext: BrowserContext | undefined;
 
   try {
@@ -21,6 +22,9 @@ test('published sanitized content renders without public JavaScript', async ({ b
       },
     });
     expect(createResponse.status()).toBe(201);
+    const { data: createdPost, error: createdPostError } = await admin.from('posts').select('id').eq('slug', slug).single();
+    if (createdPostError) throw createdPostError;
+    createdPostId = createdPost.id;
 
     noScriptContext = await browser.newContext({ javaScriptEnabled: false });
     const publicPage = await noScriptContext.newPage();
@@ -41,7 +45,11 @@ test('published sanitized content renders without public JavaScript', async ({ b
     expect(html).toContain('Public media regression');
   } finally {
     await noScriptContext?.close();
-    await owner.client.from('posts').delete().eq('slug', slug);
+    const { data: deletedPosts, error: deletePostError } = await admin.from('posts').delete().eq('slug', slug).select('id');
+    if (deletePostError) throw deletePostError;
+    if (createdPostId && !deletedPosts.some((post) => post.id === createdPostId)) {
+      throw new Error('The public blog fixture post was not deleted.');
+    }
     await deleteOwner(owner);
   }
 });
