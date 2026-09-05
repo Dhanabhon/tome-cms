@@ -30,6 +30,10 @@ export function markInstalled(installed: boolean) {
   settingsCache = undefined;
 }
 
+export function invalidateSiteSettingsCache() {
+  settingsCache = undefined;
+}
+
 export async function getSiteSettings() {
   if (settingsCache && settingsCache.expiresAt > Date.now()) return settingsCache.settings;
 
@@ -46,6 +50,17 @@ export async function getSiteSettings() {
     console.error('Site settings query failed:', error);
     return null;
   }
+}
+
+export async function getSiteSettingsForOwner(ownerId: string) {
+  const { data, error } = await createServiceRoleSupabaseClient()
+    .from('site_settings')
+    .select('*')
+    .eq('id', true)
+    .eq('owner_id', ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 export async function isInstalled() {
@@ -94,7 +109,11 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
     const [{ error: postsError }, settingsResult, { error: foldersError }, { error: itemsError }, bucketsResult] =
       await Promise.all([
         supabase.from('posts').select('id, locale, translation_group_id', { head: true }),
-        supabase.from('site_settings').select('id').eq('id', true).maybeSingle(),
+        supabase
+          .from('site_settings')
+          .select('id, author_name, author_avatar_media_id, author_bio_th, author_bio_en, author_links')
+          .eq('id', true)
+          .maybeSingle(),
         supabase.from('media_folders').select('id', { head: true }),
         supabase.from('media_items').select('id', { head: true }),
         supabase.storage.listBuckets(),

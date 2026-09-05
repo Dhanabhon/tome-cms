@@ -100,6 +100,11 @@ export interface User {
   email: string | null;
 }
 
+export interface AuthorLink {
+  label: string;
+  url: string;
+}
+
 export interface SiteSettings {
   id: boolean;
   site_name: string;
@@ -109,6 +114,11 @@ export interface SiteSettings {
   owner_id: string;
   installed_at: string;
   updated_at: string;
+  author_name: string;
+  author_avatar_media_id: string | null;
+  author_bio_th: string;
+  author_bio_en: string;
+  author_links: AuthorLink[];
 }
 
 export interface SiteSettingsInsert {
@@ -120,9 +130,21 @@ export interface SiteSettingsInsert {
   owner_id: string;
   installed_at?: string;
   updated_at?: string;
+  author_name?: string;
+  author_avatar_media_id?: string | null;
+  author_bio_th?: string;
+  author_bio_en?: string;
+  author_links?: AuthorLink[];
 }
 
 export type SiteSettingsUpdate = Partial<Omit<SiteSettingsInsert, 'id' | 'owner_id' | 'installed_at'>>;
+
+export interface PublicAuthorProfile {
+  avatarUrl: string | null;
+  bio: string;
+  links: AuthorLink[];
+  name: string;
+}
 
 export interface MediaFolder {
   created_at: string;

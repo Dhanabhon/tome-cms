@@ -16,6 +16,11 @@ const slug = Astro.params.slug;
 const settings = await getSiteSettings();
 const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
 const articleSettings: SiteSettings = settings ?? {
+  author_avatar_media_id: null,
+  author_bio_en: '',
+  author_bio_th: '',
+  author_links: [],
+  author_name: '',
   default_locale: locale,
   id: true,
   installed_at: '',
