@@ -6,21 +6,22 @@ import { z } from 'zod';
 import { getSiteSettings } from '../../../lib/installation';
 import { hasMeaningfulContent } from '../../../lib/posts';
 import { authenticate } from '../../../lib/supabase';
-import { POST_LOCALES, type EditorDocument, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
+import { POST_LOCALES, type EditorNode, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
 
 const MAX_DOCUMENT_BYTES = 1_000_000;
 
-function isEditorDocument(value: unknown): value is EditorDocument {
-  return typeof value === 'object' && value !== null && 'type' in value && value.type === 'doc';
-}
-
 const nullableText = (max: number) => z.union([z.string().trim().max(max), z.null()]).optional();
-const httpUrl = z.url().refine((value) => {
-  const protocol = new URL(value).protocol;
-  return protocol === 'http:' || protocol === 'https:';
-}, 'Use an HTTP or HTTPS URL.');
+const httpUrl = z.url({ protocol: /^https?$/, error: 'Use an HTTP or HTTPS URL.' });
 const nullableUrl = z.union([httpUrl, z.literal(''), z.null()]).optional();
-const editorDocumentSchema = z.json().refine(isEditorDocument, 'Content must be a Tiptap document.');
+const editorNodeSchema = (depth = 0): z.ZodType<EditorNode> => z.object({
+  type: z.string().min(1),
+  attrs: z.record(z.string(), z.json()).optional(),
+  // ponytail: cap nesting at 100 to bound validation/traversal; raise only if the editor needs deeper documents.
+  content: z.array(depth < 100 ? z.lazy(() => editorNodeSchema(depth + 1)) : z.never()).optional(),
+  marks: z.array(z.object({ type: z.string().min(1), attrs: z.record(z.string(), z.json()).optional() })).optional(),
+  text: z.string().optional(),
+});
+const editorDocumentSchema = z.object({ type: z.literal('doc'), content: z.array(editorNodeSchema()).optional() });
 
 const postSchema = z
   .object({
@@ -28,7 +29,7 @@ const postSchema = z
     slug: z.union([z.string().trim().max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), z.literal('')]).optional(),
     coverImage: nullableUrl,
     contentJson: editorDocumentSchema,
-    contentHtml: z.string().max(MAX_DOCUMENT_BYTES),
+    contentHtml: z.string().max(MAX_DOCUMENT_BYTES).transform((html) => sanitizeHtml(html, sanitizeOptions)),
     metaTitle: nullableText(70),
     metaDescription: nullableText(320),
     status: z.enum(['draft', 'published']),
@@ -40,8 +41,8 @@ const postSchema = z
     }
   });
 
-const publishablePostSchema = postSchema.superRefine(({ contentJson, status }, context) => {
-  if (status === 'published' && !hasMeaningfulContent(contentJson)) {
+const publishablePostSchema = postSchema.superRefine(({ contentJson, contentHtml, status }, context) => {
+  if (status === 'published' && (!hasMeaningfulContent(contentJson) || !hasMeaningfulHtml(contentHtml))) {
     context.addIssue({ code: 'custom', message: 'Add content before publishing.', path: ['contentJson'] });
   }
 });
@@ -92,6 +93,24 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
   },
 };
 
+function hasMeaningfulHtml(html: string): boolean {
+  let meaningful = false;
+  const imageBase = 'https://tomecms.invalid';
+  // The wrapper also collects plain text outside block elements; frame.text has decoded entities.
+  sanitizeHtml(`<div>${html}</div>`, {
+    allowedTags: ['div', 'img'],
+    allowedAttributes: { img: ['src'] },
+    exclusiveFilter: ({ tag, text, attribs }) => {
+      if (/[^\s\p{Default_Ignorable_Code_Point}]/u.test(text)) meaningful = true;
+      if (tag === 'img' && attribs.src?.trim() && URL.canParse(attribs.src, imageBase)) {
+        meaningful ||= httpUrl.safeParse(new URL(attribs.src, imageBase).href).success;
+      }
+      return false;
+    },
+  });
+  return meaningful;
+}
+
 function postValues(
   input: z.infer<typeof postSchema>,
   serverValues: { authorId?: string; locale?: PostLocale; translationGroupId?: string } = {},
@@ -107,7 +126,7 @@ function postValues(
     slug,
     cover_image: input.coverImage || null,
     content_json: input.contentJson,
-    content_html: sanitizeHtml(input.contentHtml, sanitizeOptions),
+    content_html: input.contentHtml,
     meta_title: input.metaTitle || null,
     meta_description: input.metaDescription || null,
     status: input.status as PostStatus,
