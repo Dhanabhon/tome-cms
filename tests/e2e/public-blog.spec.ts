@@ -1,9 +1,25 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 
 import { getPublicSiteUrl } from '../../src/lib/seo';
+import type { Post } from '../../src/types/cms';
 import { admin, createOwner, deleteOwner, signInAdmin } from './support';
 
-test('published sanitized content renders without public JavaScript', async ({ browser, page }, testInfo) => {
+const postBody = (title: string, slug: string, contentHtml: string) => ({
+  contentHtml,
+  contentJson: {
+    content: [
+      { attrs: { level: 2 }, content: [{ text: title, type: 'text' }], type: 'heading' },
+      { content: [{ text: 'Visible without JavaScript.', type: 'text' }], type: 'paragraph' },
+    ],
+    type: 'doc',
+  },
+  metaTitle: `Answer-ready ${title}`,
+  slug,
+  status: 'published' as const,
+  title,
+});
+
+test('localized published editions render without public JavaScript', async ({ browser, page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'The public HTML contract only needs one browser project.');
   expect(
     getPublicSiteUrl(
@@ -15,47 +31,72 @@ test('published sanitized content renders without public JavaScript', async ({ b
   const owner = await createOwner('public-blog');
   const slug = `public-media-${crypto.randomUUID()}`;
   const expectedDescription = 'Public media regression Visible without JavaScript.';
-  const metaTitle = 'Answer-ready public article';
-  let createdPostId: string | undefined;
+  let defaultLocale: Post['locale'] | undefined;
   let noScriptContext: BrowserContext | undefined;
 
   try {
+    const { data: settings, error: settingsError } = await admin
+      .from('site_settings')
+      .select('default_locale')
+      .eq('id', true)
+      .single();
+    if (settingsError) throw settingsError;
+    defaultLocale = settings.default_locale;
+
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const createResponse = await page.request.post('/api/posts', {
+    const createSourceResponse = await page.request.post('/api/posts', {
       data: {
-        contentHtml: '<h2>Public media regression</h2><script>alert("unsafe")</script><p>Visible without JavaScript.</p>',
-        contentJson: {
-          content: [
-            { attrs: { level: 2 }, content: [{ text: 'Public media regression', type: 'text' }], type: 'heading' },
-            { content: [{ text: 'Visible without JavaScript.', type: 'text' }], type: 'paragraph' },
-          ],
-          type: 'doc',
-        },
-        metaTitle,
-        slug,
-        status: 'published',
-        title: 'Public media regression',
+        ...postBody(
+          'Public media regression',
+          slug,
+          '<h2>Public media regression</h2><script>alert("unsafe")</script><p>Visible without JavaScript.</p>',
+        ),
+        metaTitle: 'Answer-ready public article',
       },
     });
-    expect(createResponse.status()).toBe(201);
-    const { data: createdPost, error: createdPostError } = await admin
-      .from('posts')
-      .select('id, published_at, updated_at')
-      .eq('slug', slug)
-      .single();
-    if (createdPostError) throw createdPostError;
-    createdPostId = createdPost.id;
+    expect(createSourceResponse.status()).toBe(201);
+    const source = (await createSourceResponse.json()).post as Post;
+
+    const siblingLocale = source.locale === 'th' ? 'en' : 'th';
+    const createSiblingResponse = await page.request.post('/api/posts', {
+      data: {
+        ...postBody('Linked public edition', slug, '<h2>Linked public edition</h2><p>Visible without JavaScript.</p>'),
+        locale: siblingLocale,
+        sourcePostId: source.id,
+      },
+    });
+    expect(createSiblingResponse.status()).toBe(201);
+    const sibling = (await createSiblingResponse.json()).post as Post;
 
     noScriptContext = await browser.newContext({ javaScriptEnabled: false });
     const publicPage = await noScriptContext.newPage();
-    const response = await publicPage.goto(`/blog/${slug}`);
+
+    const rootResponse = await publicPage.request.get('/', { maxRedirects: 0 });
+    expect(rootResponse.status()).toBe(302);
+    await publicPage.goto('/');
+    await expect(publicPage).toHaveURL(new RegExp(`/${defaultLocale}/?$`));
+
+    const response = await publicPage.goto(`/${source.locale}/blog/${source.slug}`);
     expect(response?.status()).toBe(200);
-    expect(await publicPage.title()).toContain(metaTitle);
+    await expect(publicPage.locator('html')).toHaveAttribute('lang', source.locale);
+    expect(await publicPage.title()).toContain('Answer-ready public article');
     await expect(publicPage.locator('meta[name="description"]')).toHaveAttribute('content', expectedDescription);
     await expect(publicPage.locator('meta[name="robots"]')).toHaveAttribute('content', /index, follow/);
-    await expect(publicPage.locator('meta[property="article:published_time"]')).toHaveAttribute('content', createdPost.published_at!);
-    await expect(publicPage.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/blog/${slug}$`));
+    await expect(publicPage.locator('meta[property="article:published_time"]')).toHaveAttribute('content', source.published_at!);
+    await expect(publicPage.locator('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      new RegExp(`/${source.locale}/blog/${source.slug}$`),
+    );
+    await expect(publicPage.locator(`link[rel="alternate"][hreflang="${sibling.locale}"]`)).toHaveAttribute(
+      'href',
+      new RegExp(`/${sibling.locale}/blog/${sibling.slug}$`),
+    );
+    await expect(publicPage.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveAttribute(
+      'href',
+      new RegExp(`/${source.locale}/blog/${source.slug}$`),
+    );
+    await expect(publicPage.locator(`header a[href="/${sibling.locale}/blog/${sibling.slug}"]`)).toBeVisible();
     await expect(publicPage.getByRole('heading', { name: 'Public media regression', level: 2 })).toBeVisible();
     await expect(publicPage.getByText('Visible without JavaScript.')).toBeVisible();
 
@@ -65,16 +106,25 @@ test('published sanitized content renders without public JavaScript', async ({ b
     expect(structuredData).toMatchObject({
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
-      dateModified: createdPost.updated_at,
-      datePublished: createdPost.published_at,
+      dateModified: source.updated_at,
+      datePublished: source.published_at,
       description: expectedDescription,
       headline: 'Public media regression',
+      inLanguage: source.locale,
     });
+
+    const legacy = await publicPage.request.get(`/blog/${source.slug}`, { maxRedirects: 0 });
+    expect(legacy.status()).toBe(301);
+    expect(legacy.headers().location).toBe(`/${source.locale}/blog/${source.slug}`);
 
     const sitemapResponse = await publicPage.request.get('/sitemap.xml');
     expect(sitemapResponse.status()).toBe(200);
     expect(sitemapResponse.headers()['content-type']).toContain('application/xml');
-    expect(await sitemapResponse.text()).toContain(`/blog/${slug}`);
+    const sitemap = await sitemapResponse.text();
+    expect(sitemap).toContain(`/${source.locale}/blog/${source.slug}`);
+    expect(sitemap).toContain(`/${sibling.locale}/blog/${sibling.slug}`);
+    expect(sitemap).toContain('/th');
+    expect(sitemap).toContain('/en');
 
     const robotsResponse = await publicPage.request.get('/robots.txt');
     expect(robotsResponse.status()).toBe(200);
@@ -94,22 +144,57 @@ test('published sanitized content renders without public JavaScript', async ({ b
     expect(html).not.toContain('alert("unsafe")');
     expect(html).toContain('Public media regression');
 
-    await publicPage.goto('/');
+    const unpublishResponse = await page.request.put('/api/posts', {
+      data: {
+        ...postBody(sibling.title, sibling.slug, sibling.content_html),
+        id: sibling.id,
+        status: 'draft',
+      },
+    });
+    expect(unpublishResponse.status()).toBe(200);
+    const unpublishedResponse = await publicPage.goto(`/${sibling.locale}/blog/${sibling.slug}`);
+    expect(unpublishedResponse?.status()).toBe(404);
+    await publicPage.goto(`/${source.locale}/blog/${source.slug}`);
+    await expect(publicPage.locator(`link[rel="alternate"][hreflang="${sibling.locale}"]`)).toHaveCount(0);
+    await expect(publicPage.locator(`header a[href="/${sibling.locale}/blog/${sibling.slug}"]`)).toHaveCount(0);
+
+    try {
+      const { error: updateSettingsError } = await admin
+        .from('site_settings')
+        .update({ default_locale: sibling.locale })
+        .eq('id', true);
+      if (updateSettingsError) throw updateSettingsError;
+      await publicPage.waitForTimeout(5_100);
+
+      await publicPage.goto(`/${source.locale}/blog/${source.slug}`);
+      await expect(publicPage.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveCount(0);
+      const fallbackLegacy = await publicPage.request.get(`/blog/${source.slug}`, { maxRedirects: 0 });
+      expect(fallbackLegacy.status()).toBe(301);
+      expect(fallbackLegacy.headers().location).toBe(`/${source.locale}/blog/${source.slug}`);
+    } finally {
+      const { error: restoreSettingsError } = await admin
+        .from('site_settings')
+        .update({ default_locale: defaultLocale })
+        .eq('id', true);
+      if (restoreSettingsError) throw restoreSettingsError;
+      await publicPage.waitForTimeout(5_100);
+    }
+
+    await publicPage.goto(`/${defaultLocale}`);
     const websiteData = JSON.parse(
       (await publicPage.locator('script[type="application/ld+json"]').textContent()) ?? '{}',
     ) as Record<string, unknown>;
-    expect(websiteData).toMatchObject({ '@context': 'https://schema.org', '@type': 'WebSite' });
+    expect(websiteData).toMatchObject({ '@context': 'https://schema.org', '@type': 'WebSite', inLanguage: defaultLocale });
 
-    const missingResponse = await publicPage.goto(`/blog/missing-${crypto.randomUUID()}`);
+    const invalidLocaleResponse = await publicPage.goto(`/fr/blog/${source.slug}`);
+    expect(invalidLocaleResponse?.status()).toBe(404);
+    const missingResponse = await publicPage.goto(`/${source.locale}/blog/missing-${crypto.randomUUID()}`);
     expect(missingResponse?.status()).toBe(404);
     await expect(publicPage.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   } finally {
     await noScriptContext?.close();
-    const { data: deletedPosts, error: deletePostError } = await admin.from('posts').delete().eq('slug', slug).select('id');
-    if (deletePostError) throw deletePostError;
-    if (createdPostId && !deletedPosts.some((post) => post.id === createdPostId)) {
-      throw new Error('The public blog fixture post was not deleted.');
-    }
+    await admin.from('posts').delete().eq('author_id', owner.id);
+    if (defaultLocale) await admin.from('site_settings').update({ default_locale: defaultLocale }).eq('id', true);
     await deleteOwner(owner);
   }
 });

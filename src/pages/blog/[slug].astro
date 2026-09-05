@@ -1,100 +1,59 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { localePath, otherLocale, postPath } from '../../lib/i18n';
 import { getSiteSettings } from '../../lib/installation';
 import { createServerSupabaseClient } from '../../lib/supabase';
-import type { EditorNode, Post } from '../../types/cms';
+import type { Post } from '../../types/cms';
 
-const blockContainers = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList']);
-const textContent = (node: EditorNode): string => {
-  if (typeof node.text === 'string') return node.text;
-  return (node.content ?? []).map(textContent).join(blockContainers.has(node.type ?? '') ? ' ' : '');
-};
-
-let post: Post | null = null;
-let loadError = false;
 const slug = Astro.params.slug;
 const settings = await getSiteSettings();
-const siteName = settings?.site_name ?? 'TomeCMS';
-const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
+const defaultLocale = settings?.default_locale ?? 'th';
+let post: Post | null = null;
+let loadError = false;
 
 try {
-  if (!slug) {
-    Astro.response.status = 404;
-  } else {
+  if (slug) {
     const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
     const { data, error } = await supabase
       .from('posts')
       .select('*')
+      .eq('locale', defaultLocale)
       .eq('slug', slug)
       .eq('status', 'published')
       .maybeSingle();
-
     if (error) throw error;
     post = data;
-    if (!post) Astro.response.status = 404;
+
+    if (!post) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('locale', otherLocale(defaultLocale))
+        .eq('slug', slug)
+        .eq('status', 'published')
+        .maybeSingle();
+      if (fallbackError) throw fallbackError;
+      post = fallback;
+    }
   }
 } catch (error) {
-  console.error('Blog post query failed:', error);
+  console.error('Legacy blog post query failed:', error);
   Astro.response.status = 500;
   loadError = true;
 }
 
-const publishedAt = post?.published_at ?? post?.created_at ?? null;
-const modifiedAt = post?.updated_at ?? null;
-const dateFormatter = new Intl.DateTimeFormat(settings?.default_locale === 'th' ? 'th-TH' : 'en', {
-  day: 'numeric',
-  month: 'long',
-  timeZone: settings?.timezone ?? 'UTC',
-  year: 'numeric',
-});
-const publishedDate = publishedAt ? dateFormatter.format(new Date(publishedAt)) : null;
-const modifiedDate = modifiedAt ? dateFormatter.format(new Date(modifiedAt)) : null;
-const showModifiedDate = Boolean(
-  publishedAt && modifiedAt && new Date(modifiedAt).getTime() - new Date(publishedAt).getTime() > 60_000,
-);
-const plainText = post ? textContent(post.content_json).replace(/\s+/g, ' ').trim() : '';
-const excerpt = plainText.length > 160 ? `${plainText.slice(0, 157).trimEnd()}…` : plainText;
-const articleDescription = post?.meta_description || excerpt || fallbackDescription;
+if (post) return Astro.redirect(postPath(post), 301);
+if (!loadError) Astro.response.status = 404;
 ---
 
 <BaseLayout
-  title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
-  headline={post?.title}
-  description={articleDescription}
-  image={post?.cover_image}
-  modifiedTime={modifiedAt}
-  publishedTime={publishedAt}
-  robots={post ? undefined : 'noindex, follow'}
-  type={post ? 'article' : 'website'}
+  locale={defaultLocale}
+  robots="noindex, follow"
+  title={loadError ? 'Unavailable' : 'Post not found'}
 >
-  {post ? (
-    <article class="mx-auto max-w-3xl px-5 py-12 sm:px-7 sm:py-20">
-      <a class="text-sm font-medium text-link hover:underline" href="/"><span aria-hidden="true">←</span> All posts</a>
-      <header class="mt-6">
-        <h1 class="font-display text-[40px] font-bold leading-[48px] tracking-[-1.875px] sm:text-[54px] sm:leading-[56px]">{post.title}</h1>
-        {post.meta_description && <p class="mt-5 text-xl leading-[30px] text-muted">{post.meta_description}</p>}
-        <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-          <span>By <a class="text-link hover:underline" href="/">{siteName}</a></span>
-          <span aria-hidden="true">•</span>
-          <span>Published <time datetime={publishedAt ?? undefined}>{publishedDate}</time></span>
-          {showModifiedDate && (
-            <>
-              <span aria-hidden="true">•</span>
-              <span>Updated <time datetime={modifiedAt ?? undefined}>{modifiedDate}</time></span>
-            </>
-          )}
-        </div>
-      </header>
-      {post.cover_image && (
-        <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />
-      )}
-      <div class="prose mt-12 max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={post.content_html} />
-    </article>
-  ) : (
-    <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
-      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
-      <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
-      <a class="mt-8 inline-block font-medium text-link hover:underline" href="/">Return to all posts</a>
-    </section>
-  )}
+  <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
+    <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
+    <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
+    <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(defaultLocale)}>Return to all posts</a>
+  </section>
 </BaseLayout>
