@@ -196,6 +196,88 @@ for (const destination of ['Back to Posts', 'existing edition', 'missing edition
   }
 }
 
+for (const destination of ['clean Back', 'saved Back', 'existing edition', 'missing edition']) {
+  for (const recovery of ['browser stop', 'Stay in editor']) {
+    test(`cancelled ${destination} recovers through ${recovery} and persists new edits`, async ({ page }, testInfo) => {
+      test.skip(recovery === 'browser stop' && testInfo.project.name !== 'desktop', 'Native Navigation API cancellation is covered in Chromium; the fallback is covered in both engines.');
+      const owner = await createOwner('editor-cancelled-navigation');
+      let releaseDestination = () => {};
+      const destinationGate = new Promise<void>((resolve) => { releaseDestination = resolve; });
+      try {
+        await signInAdmin(page, owner);
+        await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+        const response = await page.request.post('/api/posts', { data: draftBody('Cancelled navigation', `cancelled-${crypto.randomUUID()}`) });
+        expect(response.status()).toBe(201);
+        const { post } = await response.json();
+        const target = post.locale === 'th' ? 'en' : 'th';
+        let destinationPath = destination.endsWith('Back') ? '/admin' : `/admin/new?sourcePostId=${post.id}&locale=${target}`;
+        if (destination === 'existing edition') {
+          const sibling = await page.request.post('/api/posts', { data: {
+            ...draftBody('Cancelled edition', `cancelled-edition-${crypto.randomUUID()}`), locale: target, sourcePostId: post.id,
+          } });
+          expect(sibling.status()).toBe(201);
+          destinationPath = `/admin/edit/${(await sibling.json()).post.id}`;
+        }
+        if (recovery === 'Stay in editor') {
+          await page.addInitScript(() => Object.defineProperty(window, 'navigation', { value: undefined }));
+        }
+        await page.goto(`/admin/edit/${post.id}`);
+        await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+        if (destination !== 'clean Back') await page.locator('.ProseMirror').fill('Save before the cancelled departure');
+        await page.route(new URL(destinationPath, page.url()).href, async (route) => {
+          await destinationGate;
+          await route.continue();
+        });
+        const dirtyTitle = `Edited while departing ${post.id}`;
+        // Arrange the real browser Stop/button action before navigation; Playwright waits for pending navigations before evaluating a page.
+        await page.evaluate(({ recovery, dirtyTitle }) => {
+          window.addEventListener('beforeunload', () => {
+            window.setTimeout(() => {
+              const preview = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Preview')!;
+              const back = document.querySelector('a[href="/admin"]')!;
+              sessionStorage.setItem('cancelled-navigation-locked', String(preview.disabled && back.getAttribute('aria-disabled') === 'true'));
+              const title = document.querySelector('textarea')!;
+              Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(title, dirtyTitle);
+              title.dispatchEvent(new Event('input', { bubbles: true }));
+              if (recovery === 'browser stop') window.stop();
+              else [...document.querySelectorAll('button')].find((button) => button.textContent === 'Stay in editor')?.click();
+            }, 1_500);
+          }, { once: true });
+        }, { recovery, dirtyTitle });
+        const departure = page.waitForRequest(new URL(destinationPath, page.url()).href);
+        const navigation = destination.endsWith('Back')
+          ? page.getByRole('link', { name: 'Back to Posts' })
+          : page.getByRole('button', { name: `${destination === 'existing edition' ? 'Edit' : 'Add'} ${target.toUpperCase()} translation` });
+        await navigation.click({ noWaitAfter: true });
+        await departure;
+        await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+        await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled();
+        await expect(navigation).toBeEnabled();
+        expect(await page.evaluate(() => sessionStorage.getItem('cancelled-navigation-locked'))).toBe('true');
+        await expect.poll(async () => {
+          const { data, error } = await owner.client.from('posts').select('title').eq('id', post.id).single();
+          if (error) throw error;
+          return data.title;
+        }).toBe(dirtyTitle);
+        releaseDestination();
+        await page.unrouteAll({ behavior: 'wait' });
+        await page.locator('.ProseMirror').fill('Newest content after cancellation');
+        const popup = page.waitForEvent('popup');
+        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        const preview = await popup;
+        await expect(preview.getByText('Newest content after cancellation')).toBeVisible();
+        await expect(page).toHaveURL(new RegExp(`/admin/edit/${post.id}$`));
+        const saved = await owner.client.from('posts').select('status, content_html').eq('id', post.id).single();
+        expect(saved.error).toBeNull();
+        expect(saved.data).toEqual({ status: 'draft', content_html: '<p>Newest content after cancellation</p>' });
+      } finally {
+        releaseDestination();
+        await cleanupEditor(page, owner);
+      }
+    });
+  }
+}
+
 test('preview waits for Publish queued behind a delayed draft save and preserves its status', async ({ page }) => {
   const owner = await createOwner('preview-publish-race');
   let releaseSave = () => {};

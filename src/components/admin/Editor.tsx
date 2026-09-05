@@ -175,6 +175,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [languageEditions, setLanguageEditions] = useState(translations);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
     contentHtml, contentJson, coverImage: coverImage || null,
@@ -276,12 +277,32 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     }
   }, [persist]);
 
+  const restoreNavigation = useCallback(() => {
+    if (actionPending.current !== 'navigation') return;
+    actionPending.current = false;
+    setIsActionPending(false);
+    setIsNavigating(false);
+  }, []);
+
+  const cancelNavigation = useCallback(() => {
+    if (actionPending.current !== 'navigation') return;
+    window.stop();
+    restoreNavigation();
+  }, [restoreNavigation]);
+
   useEffect(() => {
+    const navigation = (window as Window & { navigation?: EventTarget }).navigation;
+    let departure = 0;
+    const starting = () => { departure += 1; };
+    const failed = () => {
+      const cancelledDeparture = departure;
+      queueMicrotask(() => {
+        // A newer navigation must keep its lock. Stop any residual load before unlocking this document.
+        if (cancelledDeparture === departure) cancelNavigation();
+      });
+    };
     const restore = (event: PageTransitionEvent) => {
-      if (event.persisted && actionPending.current === 'navigation') {
-        actionPending.current = false;
-        setIsActionPending(false);
-      }
+      if (event.persisted) restoreNavigation();
     };
     const retry = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'tome-preview-retry' || !event.source) return;
@@ -289,28 +310,36 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     };
     window.addEventListener('pageshow', restore);
     window.addEventListener('message', retry);
+    navigation?.addEventListener('navigate', starting);
+    navigation?.addEventListener('navigateerror', failed);
     return () => {
       window.removeEventListener('pageshow', restore);
       window.removeEventListener('message', retry);
+      navigation?.removeEventListener('navigate', starting);
+      navigation?.removeEventListener('navigateerror', failed);
     };
-  }, [previewDraft]);
+  }, [cancelNavigation, previewDraft, restoreNavigation]);
 
   useEffect(() => {
     if (!dirty || !title.trim() || actionPending.current) return;
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle]);
+  }, [dirty, isNavigating, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
-    actionPending.current = leavesEditor ? 'navigation' : true;
+    actionPending.current = true;
     setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
     let completed = false;
     try {
       let saved = await persist(status);
       while (dirtyRef.current) saved = await persist(status);
+      if (leavesEditor) {
+        actionPending.current = 'navigation';
+        setIsNavigating(true);
+      }
       action(saved);
       completed = true;
     } catch {
@@ -320,6 +349,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       if (!completed || !leavesEditor) {
         actionPending.current = false;
         setIsActionPending(false);
+        setIsNavigating(false);
       }
     }
   };
@@ -384,6 +414,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
               } else {
                 actionPending.current = 'navigation';
                 setIsActionPending(true);
+                setIsNavigating(true);
               }
             }}>
               <span aria-hidden="true">←</span> Back to Posts
@@ -423,6 +454,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       </header>
 
       <div className="admin-editor-workspace">
+        {isNavigating && <p className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted" role="status">Opening page… <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">Stay in editor</button></p>}
         {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'Save failed' && <strong>Save failed</strong>} {errorMessage}</p>}
 
         <article className="admin-editor-canvas">
