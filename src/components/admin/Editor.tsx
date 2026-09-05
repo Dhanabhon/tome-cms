@@ -18,8 +18,11 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
-import type { Post, PostStatus } from '../../types/cms';
-import { uploadFn, uploadImage } from './ImageUploader';
+import { uploadImage } from '../../lib/media-client';
+import { ACCEPTED_IMAGE_TYPES, COVER_IMAGE_GUIDANCE } from '../../lib/media';
+import type { MediaAsset, Post, PostStatus } from '../../types/cms';
+import { uploadFn } from './ImageUploader';
+import MediaPicker from './MediaPicker';
 import SlashCommands, { slashCommand } from './SlashCommands';
 
 interface EditorProps {
@@ -130,10 +133,12 @@ export default function Editor({ initialPost }: EditorProps) {
   const changeVersion = useRef(0);
   const saveInFlight = useRef<Promise<void> | null>(null);
   const autosaveTimer = useRef<number>();
+  const coverPickerTrigger = useRef<HTMLButtonElement>(null);
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
   const [coverImage, setCoverImage] = useState(initialPost?.cover_image ?? '');
+  const [coverAsset, setCoverAsset] = useState<MediaAsset | null>(null);
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPost?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
@@ -143,6 +148,7 @@ export default function Editor({ initialPost }: EditorProps) {
   const [dirty, setDirty] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const markDirty = useCallback(() => {
     changeVersion.current += 1;
@@ -235,20 +241,41 @@ export default function Editor({ initialPost }: EditorProps) {
     markDirty();
   };
 
-  const selectCover = async (file?: File) => {
+  const selectCover = async (file?: File, input?: HTMLInputElement) => {
     if (!file) return;
     setUploadingCover(true);
     setErrorMessage(null);
 
     try {
-      setCoverImage(await uploadImage(file));
+      const asset = await uploadImage(file);
+      setCoverImage(asset.publicUrl);
+      setCoverAsset(asset);
       markDirty();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'The cover image could not be uploaded.');
     } finally {
+      if (input) input.value = '';
       setUploadingCover(false);
     }
   };
+
+  const chooseCover = (asset: MediaAsset) => {
+    setCoverImage(asset.publicUrl);
+    setCoverAsset(asset);
+    setPickerOpen(false);
+    markDirty();
+  };
+
+  const removeCover = () => {
+    setCoverImage('');
+    setCoverAsset(null);
+    markDirty();
+  };
+
+  const lowResolution = coverAsset && (
+    coverAsset.width < COVER_IMAGE_GUIDANCE.recommendedMinWidth
+    || coverAsset.height < COVER_IMAGE_GUIDANCE.recommendedMinHeight
+  );
 
   return (
     <div className="pb-24">
@@ -319,13 +346,27 @@ export default function Editor({ initialPost }: EditorProps) {
           </label>
           <div className="text-sm font-medium">Cover image</div>
           <div>
-            <label className="inline-flex cursor-pointer items-center rounded-md border border-dashed border-line px-4 py-3 text-sm font-medium hover:bg-soft">
-              <input className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" onChange={(event) => void selectCover(event.target.files?.[0])} type="file" />
-              {uploadingCover ? 'Uploading…' : coverImage ? 'Replace image' : 'Choose image'}
-            </label>
+            <div className="flex flex-wrap gap-3">
+              <button className="rounded-md border border-line px-4 py-3 text-sm font-medium hover:bg-soft" onClick={() => setPickerOpen(true)} ref={coverPickerTrigger} type="button">Choose from library</button>
+              <label className="inline-flex cursor-pointer items-center rounded-md border border-dashed border-line px-4 py-3 text-sm font-medium hover:bg-soft">
+                <input aria-label="Upload new" className="sr-only" accept={ACCEPTED_IMAGE_TYPES.join(',')} disabled={uploadingCover} onChange={(event) => void selectCover(event.currentTarget.files?.[0], event.currentTarget)} type="file" />
+                {uploadingCover ? 'Uploading…' : 'Upload new'}
+              </label>
+              {coverImage && <button className="rounded-md px-4 py-3 text-sm font-medium text-muted underline hover:text-ink" onClick={removeCover} type="button">Remove</button>}
+            </div>
+            <input name="coverImage" type="hidden" value={coverImage} />
+            <p className="mt-3 text-xs leading-5 text-muted">
+              Recommended: {COVER_IMAGE_GUIDANCE.recommendedWidth} × {COVER_IMAGE_GUIDANCE.recommendedHeight} px (16:9).
+              {' '}Minimum: {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.
+              {' '}Best: WebP or JPEG; PNG and AVIF are also supported. GIF is accepted but discouraged for covers, especially when animated.
+              {' '}Aim for {COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024} MB or less; {COVER_IMAGE_GUIDANCE.hardLimitBytes / 1024 / 1024} MB maximum.
+            </p>
+            {lowResolution && <p className="mt-2 text-sm text-amber-700" role="status">This image is below the recommended minimum of {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.</p>}
             {coverImage && <img alt="Current cover" className="mt-4 aspect-[16/9] w-full max-w-sm rounded-lg object-cover" src={coverImage} />}
           </div>
         </section>
+
+        {pickerOpen && <MediaPicker onCancel={() => setPickerOpen(false)} onSelect={chooseCover} returnFocus={coverPickerTrigger.current} />}
 
         <section className="mt-12 md:ml-32">
           <label className="sr-only" htmlFor="post-title">Post title</label>
