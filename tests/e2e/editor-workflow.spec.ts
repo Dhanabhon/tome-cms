@@ -189,14 +189,18 @@ test('edition navigation serializes delayed saves and keeps the newest text', as
 
 test('failed save stops leaving and retry preserves edits before Back to Posts', async ({ page }) => {
   const owner = await createOwner('editor-save-retry');
+  let releaseRetry = () => {};
+  const retryGate = new Promise<void>((resolve) => { releaseRetry = resolve; });
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     await page.goto('/admin/new');
     let rejectSave = true;
-    await page.route('**/api/posts', (route) => rejectSave
-      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Forced save failure' }) })
-      : route.continue());
+    await page.route('**/api/posts', async (route) => {
+      if (rejectSave) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Forced save failure' }) });
+      await retryGate;
+      return route.continue();
+    });
     const title = `Retry source ${crypto.randomUUID()}`;
     await page.getByLabel('Post title').fill(title);
     await page.locator('.ProseMirror').fill('Keep this draft');
@@ -205,8 +209,22 @@ test('failed save stops leaving and retry preserves edits before Back to Posts',
     await expect(page.getByRole('alert')).toContainText('Forced save failure');
     expect(page.url()).toContain('/admin/new');
     rejectSave = false;
+    await page.locator('.ProseMirror').fill('Edited after save failed');
+    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('Forced save failure');
+    await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
+    const retry = page.waitForRequest((request) => request.url().endsWith('/api/posts') && request.method() === 'POST');
     await page.getByRole('button', { name: 'Retry save' }).click();
+    await retry;
+    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('Forced save failure');
+    await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
+    releaseRetry();
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retry save' })).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    const { data: retried } = await owner.client.from('posts').select('content_html').eq('title', title).single();
+    expect(retried?.content_html).toContain('Edited after save failed');
     await page.locator('.ProseMirror').fill('Newest before leaving');
     await page.getByRole('link', { name: 'Back to Posts' }).click();
     await expect(page).toHaveURL(/\/admin$/);
@@ -214,6 +232,7 @@ test('failed save stops leaving and retry preserves edits before Back to Posts',
     expect(error).toBeNull();
     expect(data?.content_html).toContain('Newest before leaving');
   } finally {
+    releaseRetry();
     await deleteOwner(owner);
   }
 });
