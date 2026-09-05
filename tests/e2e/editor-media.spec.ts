@@ -193,6 +193,7 @@ test.describe('editor cover media', () => {
         content_html: '<p></p>',
         content_json: { type: 'doc', content: [{ type: 'paragraph' }] },
         cover_image: coverUrl,
+        locale: 'th',
         slug: `existing-cover-${crypto.randomUUID()}`,
         status: 'draft',
         title: 'Existing cover',
