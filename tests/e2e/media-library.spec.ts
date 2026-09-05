@@ -152,6 +152,74 @@ test.describe('media library desktop', () => {
     }
   });
 
+  test('organizes media categories and persists metadata actions', async ({ page }) => {
+    const owner = await createOwner('media-library-categories');
+
+    try {
+      await openMediaLibrary(page, owner);
+
+      await page.getByLabel('Category name').fill('Headers');
+      await page.getByRole('button', { name: 'Create category' }).click();
+      await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Headers', exact: true })).toBeVisible();
+
+      await page.getByLabel('Category name').fill('Headers');
+      await page.getByRole('button', { name: 'Create category' }).click();
+      await expect(page.getByRole('alert')).toContainText('A category with this name already exists.');
+      await expect(page.getByLabel('Category name')).toHaveValue('Headers');
+
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Headers', exact: true }).click();
+      await page.getByLabel('Upload image').setInputFiles(IMAGE_FIXTURES[0]);
+      const card = page.getByRole('button', { name: /pixel\.png/i });
+      await expect(card).toBeVisible();
+
+      await page.getByRole('button', { name: 'Rename Headers' }).click();
+      const rename = page.getByRole('textbox', { name: 'Rename Headers' });
+      await rename.fill('Covers');
+      await page.getByRole('button', { name: 'Save category name' }).click();
+      await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true })).toBeVisible();
+
+      await card.click();
+      const details = page.getByRole('dialog', { name: 'Image details' });
+      await expect(details).toBeVisible();
+      await details.getByLabel('Alt text').fill('A tiny test image');
+      await details.getByRole('button', { name: 'Save' }).click();
+      await expect(details.getByRole('status')).toContainText('Saved.');
+      await page.reload();
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
+      await page.getByRole('button', { name: /pixel\.png/i }).click();
+      await expect(page.getByRole('dialog', { name: 'Image details' }).getByLabel('Alt text')).toHaveValue('A tiny test image');
+
+      await page.getByRole('dialog', { name: 'Image details' }).getByLabel('Category').selectOption('');
+      await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
+      await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Unsorted' }).click();
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+
+      page.once('dialog', (dialog) => dialog.accept());
+      await page.getByRole('button', { name: 'Delete Covers' }).click();
+      await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'All media' }).click();
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+
+      await page.getByLabel('Search media').fill('pixel.png');
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+      await page.getByLabel('Search media').fill('tiny test image');
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+
+      await page.getByRole('button', { name: /pixel\.png/i }).click();
+      const copyStatus = page.getByRole('dialog', { name: 'Image details' }).getByRole('status');
+      await page.getByRole('button', { name: 'Copy URL' }).click();
+      await expect(copyStatus).toContainText(/URL copied\.|URL selected\./);
+      if (await copyStatus.textContent() === 'URL selected. Copy it with your keyboard shortcut.') {
+        expect(await page.evaluate(() => window.getSelection()?.toString())).toMatch(/^https?:\/\//);
+      }
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
   test('keeps upload refresh coupled to the latest debounced search', async ({ page }) => {
     const owner = await createOwner('media-library-search-race');
     let releaseUpload = () => {};

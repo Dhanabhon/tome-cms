@@ -1,6 +1,6 @@
 import { imageDimensions, imageExtension, validateImageFile } from './media';
 import { createBrowserSupabaseClient } from './supabase';
-import type { MediaAsset, MediaItem, SupportedImageType, UploadImageOptions } from '../types/cms';
+import type { MediaAsset, MediaFolder, MediaItem, SupportedImageType, UploadImageOptions } from '../types/cms';
 
 export const MEDIA_PAGE_SIZE = 48;
 
@@ -15,12 +15,79 @@ export interface MediaPage {
   items: MediaAsset[];
 }
 
+export interface MediaDraft {
+  altText: string;
+  folderId: string;
+}
+
 export function publicMediaUrl(storagePath: string) {
   return createBrowserSupabaseClient().storage.from('blog-media').getPublicUrl(storagePath).data.publicUrl;
 }
 
 function toAsset(item: MediaItem): MediaAsset {
   return { ...item, publicUrl: publicMediaUrl(item.storage_path) };
+}
+
+async function mutationUser() {
+  const supabase = createBrowserSupabaseClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw error ?? new Error('Sign in before changing media.');
+  return { supabase, user: data.user };
+}
+
+function categoryError(error: { code?: string; message: string }) {
+  if (error.code === '23505') return new Error('A category with this name already exists.');
+  return error;
+}
+
+export async function listMediaFolders(): Promise<MediaFolder[]> {
+  const { data, error } = await createBrowserSupabaseClient().from('media_folders').select('*').order('name');
+  if (error) throw error;
+  return data;
+}
+
+export async function createMediaFolder(name: string): Promise<MediaFolder> {
+  const { supabase, user } = await mutationUser();
+  const { data, error } = await supabase
+    .from('media_folders')
+    .insert({ name: name.trim(), owner_id: user.id })
+    .select('*')
+    .single();
+  if (error) throw categoryError(error);
+  return data;
+}
+
+export async function renameMediaFolder(id: string, name: string): Promise<MediaFolder> {
+  const { supabase, user } = await mutationUser();
+  const { data, error } = await supabase
+    .from('media_folders')
+    .update({ name: name.trim() })
+    .eq('id', id)
+    .eq('owner_id', user.id)
+    .select('*')
+    .single();
+  if (error) throw categoryError(error);
+  return data;
+}
+
+export async function deleteMediaFolder(id: string) {
+  const { supabase, user } = await mutationUser();
+  const { error } = await supabase.from('media_folders').delete().eq('id', id).eq('owner_id', user.id);
+  if (error) throw error;
+}
+
+export async function saveMediaDraft(id: string, draft: MediaDraft): Promise<MediaItem> {
+  if (draft.altText.length > 300) throw new Error('Alt text must be 300 characters or fewer.');
+  const { supabase, user } = await mutationUser();
+  const { data, error } = await supabase
+    .from('media_items')
+    .update({ alt_text: draft.altText.trim() || null, folder_id: draft.folderId || null })
+    .eq('id', id)
+    .eq('owner_id', user.id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function listMedia(input: ListMediaInput = {}): Promise<MediaPage> {
