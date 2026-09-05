@@ -84,6 +84,15 @@ test.describe('media library desktop', () => {
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   });
 
+  test('retires the legacy upload endpoint without creating orphaned media', async ({ request }) => {
+    const response = await request.post('/api/upload');
+
+    expect(response.status()).toBe(410);
+    await expect(response.json()).resolves.toEqual({
+      error: 'This upload endpoint has been retired. Use the authenticated Media Library.',
+    });
+  });
+
   test('uploads supported images and rejects invalid files before creating a card', async ({ page }) => {
     const owner = await createOwner('media-library-upload');
 
