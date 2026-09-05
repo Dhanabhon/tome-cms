@@ -392,7 +392,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       </header>
 
       <div className="admin-editor-workspace">
-        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{errorMessage}</p>}
+        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'Save failed' && <strong>Save failed</strong>} {errorMessage}</p>}
 
         <article className="admin-editor-canvas">
           <label className="sr-only" htmlFor="post-title">Post title</label>
