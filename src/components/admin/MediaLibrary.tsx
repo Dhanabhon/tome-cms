@@ -49,6 +49,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryName, setCategoryName] = useState('');
+  const [folderLoadError, setFolderLoadError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<MediaFolder | null>(null);
   const [renameName, setRenameName] = useState('');
@@ -90,10 +91,11 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }, []);
 
   const loadFolders = useCallback(async () => {
+    setFolderLoadError(null);
     try {
       setFolders(await listMediaFolders());
     } catch (folderError) {
-      setError(errorMessage(folderError));
+      setFolderLoadError(errorMessage(folderError));
     }
   }, []);
 
@@ -255,7 +257,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       }
       if (!response.ok || !result.deleted) throw new Error(result.error ?? 'The image could not be deleted.');
 
-      setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+      await load(1, false, currentQuery.current, currentSelection.current);
       if (selectedId.current === item.id) closeDetails();
     } catch (deleteFailure) {
       if (selectedId.current === item.id) setDeleteError(errorMessage(deleteFailure));
@@ -311,6 +313,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {props.mode === 'manage' && selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
           {props.mode === 'manage' && <form className="media-category-form" onSubmit={handleCreateCategory}><label><span className="sr-only">Category name</span><input aria-label="Category name" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button type="submit">Create category</button></form>}
           {props.mode === 'manage' && renaming && <form className="media-category-form" onSubmit={handleRenameCategory}><label><span className="sr-only">Rename {renaming.name}</span><input aria-label={`Rename ${renaming.name}`} maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button type="submit">Save category name</button><button onClick={() => setRenaming(null)} type="button">Cancel rename</button></form>}
+          {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="font-medium text-accent underline" onClick={() => void loadFolders()} type="button">Retry categories</button></p>}
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>
 

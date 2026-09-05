@@ -151,6 +151,38 @@ test.describe('editor cover media', () => {
     }
   });
 
+  test('a later library choice wins over a delayed direct cover upload', async ({ page }) => {
+    const owner = await createOwner('editor-cover-upload-race');
+    let releaseUpload = () => {};
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+
+    try {
+      const asset = await seedMedia(owner);
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto('/admin/new');
+      await page.route('**/storage/v1/object/blog-media/**', async (route) => {
+        if (route.request().method() === 'POST') await uploadGate;
+        return route.continue();
+      });
+
+      await page.getByLabel('Upload new').setInputFiles(PIXEL);
+      await expect(page.getByText('Uploading…')).toBeVisible();
+      await page.getByRole('button', { name: 'Choose from library' }).click();
+      await page.getByRole('dialog', { name: 'Media library' }).getByRole('button', { name: /Select seeded-cover\.png/i }).click();
+      releaseUpload();
+
+      await expect(page.getByText('Uploading…')).toHaveCount(0);
+      await expect(page.getByAltText('Current cover')).toHaveAttribute('src', asset.publicUrl);
+      await expect(page.locator('input[name="coverImage"]')).toHaveValue(asset.publicUrl);
+    } finally {
+      releaseUpload();
+      await deleteOwner(owner);
+    }
+  });
+
   test('existing cover URLs render and can be removed without asset metadata', async ({ page }) => {
     const owner = await createOwner('editor-cover-existing');
     const coverUrl = 'https://example.com/existing-cover.jpg';
@@ -305,6 +337,47 @@ test.describe('editor block insertion', () => {
       await expect(picker.getByRole('alert')).toContainText('Forced inline upload failure');
       await expect(editor).toHaveJSProperty('innerHTML', originalContent);
     } finally {
+      await deleteOwner(owner);
+    }
+  });
+
+  test('a picker selection wins over a delayed picker upload', async ({ page }) => {
+    const owner = await createOwner('editor-picker-upload-race');
+    let releaseUpload = () => {};
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+
+    try {
+      const asset = await seedMedia(owner);
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto('/admin/new');
+      const editor = page.locator('.ProseMirror');
+      await editor.click();
+      await page.getByRole('button', { name: 'Add block' }).click();
+      await page.getByRole('menuitem', { name: 'Image' }).click();
+      const picker = page.getByRole('dialog', { name: 'Media library' });
+      await page.route('**/storage/v1/object/blog-media/**', async (route) => {
+        if (route.request().method() === 'POST') await uploadGate;
+        return route.continue();
+      });
+
+      await picker.getByLabel('Upload image').setInputFiles(PIXEL);
+      await expect(picker.getByText('Uploading image…')).toBeVisible();
+      await picker.getByRole('button', { name: /Select seeded-cover\.png/i }).click();
+      releaseUpload();
+
+      await expect(picker).toHaveCount(0);
+      await expect.poll(async () => {
+        const { count, error } = await owner.client.from('media_items').select('*', { count: 'exact', head: true });
+        if (error) throw error;
+        return count;
+      }).toBe(2);
+      await expect(editor.locator('img')).toHaveCount(1);
+      await expect(editor.locator('img')).toHaveAttribute('src', asset.publicUrl);
+    } finally {
+      releaseUpload();
       await deleteOwner(owner);
     }
   });
