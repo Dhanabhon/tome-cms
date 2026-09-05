@@ -4,8 +4,9 @@ import slugify from 'slugify';
 import { z } from 'zod';
 
 import { getSiteSettings } from '../../../lib/installation';
+import { hasMeaningfulContent } from '../../../lib/posts';
 import { authenticate } from '../../../lib/supabase';
-import type { EditorDocument, PostInsert, PostLocale, PostStatus, PostUpdate } from '../../../types/cms';
+import { POST_LOCALES, type EditorDocument, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
 
 const MAX_DOCUMENT_BYTES = 1_000_000;
 
@@ -14,7 +15,11 @@ function isEditorDocument(value: unknown): value is EditorDocument {
 }
 
 const nullableText = (max: number) => z.union([z.string().trim().max(max), z.null()]).optional();
-const nullableUrl = z.union([z.url(), z.literal(''), z.null()]).optional();
+const httpUrl = z.url().refine((value) => {
+  const protocol = new URL(value).protocol;
+  return protocol === 'http:' || protocol === 'https:';
+}, 'Use an HTTP or HTTPS URL.');
+const nullableUrl = z.union([httpUrl, z.literal(''), z.null()]).optional();
 const editorDocumentSchema = z.json().refine(isEditorDocument, 'Content must be a Tiptap document.');
 
 const postSchema = z
@@ -35,7 +40,24 @@ const postSchema = z
     }
   });
 
-const updateSchema = postSchema.safeExtend({ id: z.uuid() });
+const publishablePostSchema = postSchema.superRefine(({ contentJson, status }, context) => {
+  if (status === 'published' && !hasMeaningfulContent(contentJson)) {
+    context.addIssue({ code: 'custom', message: 'Add content before publishing.', path: ['contentJson'] });
+  }
+});
+
+const createSchema = publishablePostSchema
+  .safeExtend({
+    locale: z.enum(POST_LOCALES).optional(),
+    sourcePostId: z.uuid().optional(),
+  })
+  .superRefine(({ locale, sourcePostId }, context) => {
+    if (Boolean(locale) !== Boolean(sourcePostId)) {
+      context.addIssue({ code: 'custom', message: 'A translated edition requires both locale and sourcePostId.' });
+    }
+  });
+
+const updateSchema = publishablePostSchema.safeExtend({ id: z.uuid() });
 
 const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -105,8 +127,12 @@ async function readJson(request: Request): Promise<{ body: unknown } | { respons
 }
 
 function databaseError(error: { code?: string; message: string }) {
+  if (error.code === '23505' && error.message.includes('posts_translation_group_locale_key')) {
+    return Response.json({ error: 'That language edition already exists.' }, { status: 409 });
+  }
+
   if (error.code === '23505') {
-    return Response.json({ error: 'A post with this slug already exists.' }, { status: 409 });
+    return Response.json({ error: 'A post with this slug already exists in this language.' }, { status: 409 });
   }
 
   console.error('Post database error:', error.message);
@@ -139,17 +165,46 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 
     const json = await readJson(request);
     if ('response' in json) return json.response;
-    const parsed = postSchema.safeParse(json.body);
+    const parsed = createSchema.safeParse(json.body);
     if (!parsed.success) return parseError(parsed.error);
 
-    const settings = await getSiteSettings();
-    if (!settings) {
-      return Response.json({ error: 'The site settings could not be loaded.' }, { status: 500 });
+    let values: PostInsert;
+    if (parsed.data.sourcePostId) {
+      const { data: source, error } = await auth.supabase
+        .from('posts')
+        .select('cover_image, locale, translation_group_id')
+        .eq('id', parsed.data.sourcePostId)
+        .eq('author_id', auth.user.id)
+        .maybeSingle();
+      if (error) return databaseError(error);
+      if (!source) return Response.json({ error: 'Post not found.' }, { status: 404 });
+      if (source.locale === parsed.data.locale) {
+        return Response.json({ error: 'That language edition already exists.' }, { status: 409 });
+      }
+
+      values = postValues(
+        {
+          ...parsed.data,
+          coverImage: parsed.data.coverImage === undefined ? source.cover_image : parsed.data.coverImage,
+        },
+        {
+          authorId: auth.user.id,
+          locale: parsed.data.locale,
+          translationGroupId: source.translation_group_id,
+        },
+      ) as PostInsert;
+    } else {
+      const settings = await getSiteSettings();
+      if (!settings) {
+        return Response.json({ error: 'The site settings could not be loaded.' }, { status: 500 });
+      }
+
+      values = postValues(parsed.data, { authorId: auth.user.id, locale: settings.default_locale }) as PostInsert;
     }
 
     const { data, error } = await auth.supabase
       .from('posts')
-      .insert(postValues(parsed.data, { authorId: auth.user.id, locale: settings.default_locale }) as PostInsert)
+      .insert(values)
       .select()
       .single();
 
