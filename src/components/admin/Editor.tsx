@@ -151,7 +151,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const changeVersion = useRef(0);
   const saveTail = useRef<Promise<Post | null>>(Promise.resolve(null));
   const pendingSaves = useRef(0);
-  const actionPending = useRef(false);
+  const actionPending = useRef<boolean | 'navigation'>(false);
   const dirtyRef = useRef(false);
   const postStatusRef = useRef<PostStatus>(initialPost?.status ?? 'draft');
   const autosaveTimer = useRef<number>();
@@ -174,6 +174,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const [uploadingCover, setUploadingCover] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [languageEditions, setLanguageEditions] = useState(translations);
+  const [isActionPending, setIsActionPending] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
     contentHtml, contentJson, coverImage: coverImage || null,
@@ -250,12 +251,15 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   }, [locale, sourcePost]);
 
   const previewDraft = useCallback(async (target?: Window | null) => {
+    if (actionPending.current) return;
     const previewWindow = target ?? window.open('/admin/preview/pending', '_blank');
     if (!previewWindow) {
       setErrorMessage('Allow pop-ups for this site to open Preview.');
       return;
     }
 
+    actionPending.current = true;
+    setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
     try {
       let saved = await persist();
@@ -266,16 +270,29 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       if (!previewWindow.closed) previewWindow.location.replace(
         `/admin/preview/pending?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
       );
+    } finally {
+      actionPending.current = false;
+      setIsActionPending(false);
     }
   }, [persist]);
 
   useEffect(() => {
+    const restore = (event: PageTransitionEvent) => {
+      if (event.persisted && actionPending.current === 'navigation') {
+        actionPending.current = false;
+        setIsActionPending(false);
+      }
+    };
     const retry = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'tome-preview-retry' || !event.source) return;
       void previewDraft(event.source as Window);
     };
+    window.addEventListener('pageshow', restore);
     window.addEventListener('message', retry);
-    return () => window.removeEventListener('message', retry);
+    return () => {
+      window.removeEventListener('pageshow', restore);
+      window.removeEventListener('message', retry);
+    };
   }, [previewDraft]);
 
   useEffect(() => {
@@ -285,18 +302,25 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     return () => window.clearTimeout(autosaveTimer.current);
   }, [dirty, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle]);
 
-  const saveBefore = async (action: (post: Post) => void, status?: PostStatus) => {
+  const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
-    actionPending.current = true;
+    actionPending.current = leavesEditor ? 'navigation' : true;
+    setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
+    let completed = false;
     try {
       let saved = await persist(status);
       while (dirtyRef.current) saved = await persist(status);
       action(saved);
+      completed = true;
     } catch {
       // persist owns the visible error; navigation/publish stops here.
     } finally {
-      actionPending.current = false;
+      // Keep navigation locked while the destination loads and the opener can still receive clicks.
+      if (!completed || !leavesEditor) {
+        actionPending.current = false;
+        setIsActionPending(false);
+      }
     }
   };
 
@@ -348,11 +372,18 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       <header className="admin-editor-bar">
         <div className="admin-editor-bar__inner">
           <div className="admin-editor-bar__start">
-            <a className="admin-toolbar-link" href="/admin" onClick={(event) => {
-              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            <a aria-disabled={isActionPending || undefined} className="admin-toolbar-link" href="/admin" onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+              if (actionPending.current) {
+                event.preventDefault();
+                return;
+              }
               if (dirtyRef.current || pendingSaves.current) {
                 event.preventDefault();
-                void saveBefore(() => window.location.assign('/admin'));
+                void saveBefore(() => window.location.assign('/admin'), undefined, true);
+              } else {
+                actionPending.current = 'navigation';
+                setIsActionPending(true);
               }
             }}>
               <span aria-hidden="true">←</span> Back to Posts
@@ -368,9 +399,9 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
                     : `${language.toUpperCase()} missing`;
                 return current
                   ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>
-                  : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" key={language} onClick={() => void saveBefore((saved) => {
+                  : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
                     window.location.assign(translation ? `/admin/edit/${translation.id}` : `/admin/new?sourcePostId=${saved.id}&locale=${language}`);
-                  })} type="button">{label}</button>;
+                  }, undefined, true)} type="button">{label}</button>;
               })}
             </nav>
           </div>
@@ -378,13 +409,13 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
             <span className="admin-save-state" data-state={saveState === 'Saved' ? 'saved' : saveState === 'Saving…' ? 'saving' : 'unsaved'} aria-live="polite">
               <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
             </span>
-            {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
-            <button className="admin-button admin-button--secondary" disabled={!postId.current && !title.trim()} title={!postId.current && !title.trim() ? 'Add a title before opening Preview.' : undefined} onClick={() => void previewDraft()} type="button">Preview</button>
+            {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
+            <button className="admin-button admin-button--secondary" disabled={isActionPending || (!postId.current && !title.trim())} title={!postId.current && !title.trim() ? 'Add a title before opening Preview.' : undefined} onClick={() => void previewDraft()} type="button">Preview</button>
             <button aria-expanded={settingsOpen} aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={(event) => {
               event.currentTarget.focus();
               setSettingsOpen(true);
             }} type="button">Settings</button>
-            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
+            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
               {postStatus === 'published' ? 'Update' : 'Publish'}
             </button>
           </div>

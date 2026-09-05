@@ -120,7 +120,88 @@ test('preview queues behind an active save and renders only the newest version',
   }
 });
 
-test('preview preserves Publish queued behind a delayed draft save', async ({ page }) => {
+for (const destination of ['Back to Posts', 'existing edition', 'missing edition']) {
+  for (const firstAction of ['navigation', 'preview']) {
+    test(`editor action lifecycle protects ${destination} with ${firstAction} first`, async ({ page }) => {
+      const owner = await createOwner('editor-action-lifecycle');
+      let releaseSave = () => {};
+      const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+      try {
+        await signInAdmin(page, owner);
+        await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+        const response = await page.request.post('/api/posts', { data: draftBody('Action lifecycle', `lifecycle-${crypto.randomUUID()}`) });
+        expect(response.status()).toBe(201);
+        const { post } = await response.json();
+        const target = post.locale === 'th' ? 'en' : 'th';
+        let destinationPath = destination === 'Back to Posts' ? '/admin' : `/admin/new?sourcePostId=${post.id}&locale=${target}`;
+        if (destination === 'existing edition') {
+          const sibling = await page.request.post('/api/posts', { data: {
+            ...draftBody('Existing edition', `lifecycle-edition-${crypto.randomUUID()}`), locale: target, sourcePostId: post.id,
+          } });
+          expect(sibling.status()).toBe(201);
+          destinationPath = `/admin/edit/${(await sibling.json()).post.id}`;
+        }
+        await page.goto(`/admin/edit/${post.id}`);
+        let inFlight = 0;
+        let maximumInFlight = 0;
+        await page.route('**/api/posts', async (route) => {
+          inFlight += 1;
+          maximumInFlight = Math.max(maximumInFlight, inFlight);
+          await saveGate;
+          const saved = await route.fetch();
+          inFlight -= 1;
+          await route.fulfill({ response: saved });
+        });
+        await page.locator('.ProseMirror').fill('Older in-flight draft');
+        await expect(page.getByText('Saving…', { exact: true })).toBeVisible();
+        await page.locator('.ProseMirror').fill('Newest lifecycle draft');
+        const navigation = destination === 'Back to Posts'
+          ? page.getByRole('link', { name: destination })
+          : page.getByRole('button', { name: `${destination === 'existing edition' ? 'Edit' : 'Add'} ${target.toUpperCase()} translation` });
+        const previewButton = page.getByRole('button', { name: 'Preview', exact: true });
+
+        if (firstAction === 'navigation') {
+          await navigation.click({ noWaitAfter: true });
+          await expect(previewButton).toBeDisabled();
+          await previewButton.click({ force: true });
+          expect(page.context().pages()).toHaveLength(1);
+          releaseSave();
+        } else {
+          const popupPromise = page.waitForEvent('popup');
+          await previewButton.click();
+          const preview = await popupPromise;
+          await expect(preview.getByText('Preparing draft preview…')).toBeVisible();
+          await expect(navigation).toBeDisabled();
+          await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeDisabled();
+          await navigation.click({ force: true, noWaitAfter: true });
+          releaseSave();
+          await expect(preview).toHaveURL(new RegExp(`/admin/preview/${post.id}$`));
+          await expect(preview.getByText('Newest lifecycle draft')).toBeVisible();
+          await expect(page).toHaveURL(new RegExp(`/admin/edit/${post.id}$`));
+          await expect(navigation).toBeEnabled();
+          await navigation.click({ noWaitAfter: true });
+        }
+        await expect(page).toHaveURL(new URL(destinationPath, page.url()).href);
+        const saved = await page.request.get('/api/posts');
+        expect((await saved.json()).posts.find((savedPost: { id: string }) => savedPost.id === post.id)).toMatchObject({
+          status: 'draft', content_html: '<p>Newest lifecycle draft</p>',
+        });
+        expect(maximumInFlight).toBe(1);
+        await page.goBack();
+        await expect(page).toHaveURL(new RegExp(`/admin/edit/${post.id}$`));
+        await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+        await expect(page.getByRole('link', { name: 'Back to Posts' })).toBeEnabled();
+      } finally {
+        releaseSave();
+        await page.close();
+        await admin.from('posts').delete().eq('author_id', owner.id);
+        await deleteOwner(owner);
+      }
+    });
+  }
+}
+
+test('preview waits for Publish queued behind a delayed draft save and preserves its status', async ({ page }) => {
   const owner = await createOwner('preview-publish-race');
   let releaseSave = () => {};
   const gate = new Promise<void>((resolve) => { releaseSave = resolve; });
@@ -141,12 +222,15 @@ test('preview preserves Publish queued behind a delayed draft save', async ({ pa
     await expect(page.getByText('Saving…', { exact: true })).toBeVisible();
     await page.locator('.ProseMirror').fill('Latest published preview version');
     await page.getByRole('button', { name: 'Publish', exact: true }).click();
-    const popupPromise = page.waitForEvent('popup');
-    await page.getByRole('button', { name: 'Preview', exact: true }).click();
-    const preview = await popupPromise;
-    await expect(preview.getByText('Preparing draft preview…')).toBeVisible();
+    const previewButton = page.getByRole('button', { name: 'Preview', exact: true });
+    await expect(previewButton).toBeDisabled();
     expect(statuses).toEqual(['draft']);
     releaseSave();
+    await expect(page.getByRole('button', { name: 'Update', exact: true })).toBeEnabled();
+    await expect(previewButton).toBeEnabled();
+    const popupPromise = page.waitForEvent('popup');
+    await previewButton.click();
+    const preview = await popupPromise;
     await expect(preview).toHaveURL(new RegExp(`/admin/preview/${post.id}$`));
     await expect(preview.getByText('Latest published preview version')).toBeVisible();
     expect(statuses).toEqual(['draft', 'published', 'published']);
@@ -162,6 +246,8 @@ test('preview preserves Publish queued behind a delayed draft save', async ({ pa
 
 test('preview save failure persists with same-tab retry and a safe return link', async ({ page }) => {
   const owner = await createOwner('preview-retry');
+  let releaseRetry = () => {};
+  const retryGate = new Promise<void>((resolve) => { releaseRetry = resolve; });
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
@@ -174,6 +260,7 @@ test('preview save failure persists with same-tab retry and a safe return link',
     await page.route('**/api/posts', async (route) => {
       saves += 1;
       if (rejectSave) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Forced preview save failure' }) });
+      await retryGate;
       return route.continue();
     });
     await page.clock.install();
@@ -199,14 +286,59 @@ test('preview save failure persists with same-tab retry and a safe return link',
     await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     rejectSave = false;
     await preview.getByRole('button', { name: 'Try again' }).click();
+    const back = page.getByRole('link', { name: 'Back to Posts' });
+    await expect(back).toBeDisabled();
+    await back.click({ force: true });
+    await preview.getByRole('button', { name: 'Try again' }).click();
+    releaseRetry();
     await expect(preview).toHaveURL(/\/admin\/preview\/[0-9a-f-]+$/);
     await expect(preview.getByText('Newest sentence after failure')).toBeVisible();
     await expect(preview.getByText('Failed draft sentence')).toHaveCount(0);
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    expect(saves).toBe(2);
     expect(page.context().pages()).toHaveLength(2);
     await preview.goto('/admin/preview/pending?state=save-error&returnTo=https://foreign.example/');
     await expect(preview.getByRole('link', { name: 'Return to editor' })).toHaveAttribute('href', '/admin');
   } finally {
+    releaseRetry();
+    await admin.from('posts').delete().eq('author_id', owner.id);
+    await deleteOwner(owner);
+  }
+});
+
+test('Back modifier clicks leave an accepted preview and its editor open', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Desktop modifier-click behavior.');
+  const owner = await createOwner('preview-back-modifiers');
+  let releaseSave = () => {};
+  const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+  try {
+    await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    const response = await page.request.post('/api/posts', { data: draftBody('Modifier preview', `modifier-${crypto.randomUUID()}`) });
+    expect(response.status()).toBe(201);
+    const { post } = await response.json();
+    await page.goto(`/admin/edit/${post.id}`);
+    await page.route('**/api/posts', async (route) => { await saveGate; return route.continue(); });
+    await page.locator('.ProseMirror').fill('Modifier-safe preview body');
+    const popupPromise = page.waitForEvent('popup');
+    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    const preview = await popupPromise;
+    await expect(preview.getByText('Preparing draft preview…')).toBeVisible();
+    for (const modifier of ['ControlOrMeta', 'Shift'] as const) {
+      const postsPromise = page.context().waitForEvent('page');
+      await page.getByRole('link', { name: 'Back to Posts' }).click({ force: true, modifiers: [modifier] });
+      const posts = await postsPromise;
+      await expect(posts).toHaveURL(/\/admin$/);
+      await expect(page).toHaveURL(new RegExp(`/admin/edit/${post.id}$`));
+      await expect(preview.getByText('Preparing draft preview…')).toBeVisible();
+      await posts.close();
+    }
+    releaseSave();
+    await expect(preview).toHaveURL(new RegExp(`/admin/preview/${post.id}$`));
+    await expect(preview.getByText('Modifier-safe preview body')).toBeVisible();
+  } finally {
+    releaseSave();
+    await page.close();
     await admin.from('posts').delete().eq('author_id', owner.id);
     await deleteOwner(owner);
   }
@@ -308,6 +440,8 @@ test('language context resolves owned editions before editor hydration', async (
     if (!foreignSource) throw new Error('Foreign source was not created.');
 
     for (const url of [
+      `/admin/new?sourcePostId=${source.id}`,
+      `/admin/new?locale=${targetLocale}`,
       `/admin/new?sourcePostId=${source.id}&locale=fr`,
       `/admin/new?sourcePostId=${source.id}&locale=${source.locale}`,
       `/admin/new?sourcePostId=${source.id}&locale=${targetLocale}`,
@@ -316,9 +450,11 @@ test('language context resolves owned editions before editor hydration', async (
     ]) {
       const response = await page.goto(url);
       expect(response?.status(), url).toBe(404);
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
       await expect(page.getByText('Post not found.')).toBeVisible();
       await expect(page.getByText('Thai source')).toHaveCount(0);
       await expect(page.getByText('Foreign source')).toHaveCount(0);
+      expect(await page.content()).not.toContain(coverImage);
     }
   } finally {
     await admin.from('posts').delete().in('author_id', [owner.id, foreignOwner.id]);
