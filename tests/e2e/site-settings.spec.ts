@@ -2,6 +2,90 @@ import { expect, test, type BrowserContext } from '@playwright/test';
 
 import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
 
+test('Profile and Settings forms save, persist, and retain edits on failure', async ({ page }) => {
+  const owner = await createOwner('configuration-forms');
+  const restore = await leaseSiteOwner(owner);
+  try {
+    await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    await page.goto('/admin/profile');
+    await page.getByLabel('Author name').fill('Profile Owner');
+    await page.getByLabel('Bio (English)').fill('English profile');
+    await page.getByLabel('Bio (Thai)').fill('ประวัติภาษาไทย');
+    while (await page.getByRole('button', { name: /Remove link/ }).count()) {
+      await page.getByRole('button', { name: /Remove link/ }).first().click();
+    }
+    await page.getByRole('button', { name: 'Add link' }).click();
+    await page.getByLabel('Link 1 label').fill('Website');
+    await page.getByLabel('Link 1 URL').fill('https://example.com/profile');
+    for (let index = 2; index <= 5; index++) await page.getByRole('button', { name: 'Add link' }).click();
+    await expect(page.getByRole('button', { name: 'Add link' })).toBeDisabled();
+    for (let index = 5; index >= 2; index--) await page.getByRole('button', { name: `Remove link ${index}` }).click();
+    await page.getByRole('button', { name: 'Choose avatar' }).click();
+    await expect(page.getByRole('dialog', { name: 'Media library', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Choose avatar' })).toBeFocused();
+    await page.getByRole('button', { name: 'Choose avatar' }).click();
+    await page.getByLabel('Upload image').setInputFiles({
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4WQAAAAASUVORK5CYII=', 'base64'),
+      mimeType: 'image/png',
+      name: 'author-avatar.png',
+    });
+    await expect(page.getByRole('img', { name: 'Author avatar' })).toBeVisible();
+    await page.getByRole('button', { name: 'Choose avatar' }).click();
+    await page.getByRole('button', { name: /Select author-avatar\.png/ }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved.');
+    await page.reload();
+    await expect(page.getByLabel('Author name')).toHaveValue('Profile Owner');
+    await expect(page.getByLabel('Bio (English)')).toHaveValue('English profile');
+    await expect(page.getByLabel('Bio (Thai)')).toHaveValue('ประวัติภาษาไทย');
+    await expect(page.getByLabel('Link 1 URL')).toHaveValue('https://example.com/profile');
+    await expect(page.getByRole('img', { name: 'Author avatar' })).toHaveAttribute('src', new RegExp(`/storage/v1/object/public/blog-media/${owner.id}/`));
+    await page.getByRole('button', { name: 'Remove avatar' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved.');
+    await page.reload();
+    await expect(page.getByRole('img', { name: 'Author avatar' })).toHaveCount(0);
+    await page.route('**/api/profile', (route) => route.fulfill({ status: 500, json: { error: 'Profile save failed.' } }));
+    await page.getByLabel('Author name').fill('Unsaved profile');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('Profile save failed.');
+    await expect(page.getByLabel('Author name')).toHaveValue('Unsaved profile');
+    await expect(page.getByRole('status')).toBeEmpty();
+
+    await page.goto('/admin/settings');
+    await page.getByLabel('Site name', { exact: true }).fill('My publication');
+    await page.getByLabel('Site description').fill('A multilingual publication.');
+    await page.getByLabel('Default language').selectOption('en');
+    await page.getByLabel('Timezone').selectOption('UTC');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Saved.');
+    await page.reload();
+    await expect(page.getByLabel('Site name', { exact: true })).toHaveValue('My publication');
+    await expect(page.getByLabel('Site description')).toHaveValue('A multilingual publication.');
+    await expect(page.getByLabel('Default language')).toHaveValue('en');
+    await expect(page.getByLabel('Timezone')).toHaveValue('UTC');
+    let submissions = 0;
+    await page.route('**/api/settings', async (route) => {
+      submissions++;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.fulfill({ status: 500, json: { error: 'Settings save failed.' } });
+    });
+    await page.getByLabel('Site name', { exact: true }).fill('Unsaved site');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    await expect(page.getByRole('alert')).toHaveText('Settings save failed.');
+    await expect(page.getByLabel('Site name', { exact: true })).toHaveValue('Unsaved site');
+    await expect(page.getByRole('status')).toBeEmpty();
+    expect(submissions).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  } finally {
+    await restore();
+    await deleteOwner(owner);
+  }
+});
+
 test('only the configured owner can update strict Profile and Settings fields', async ({ browser, page }) => {
   const owner = await createOwner('site-owner');
   const foreignOwner = await createOwner('site-non-owner');
@@ -40,6 +124,11 @@ test('only the configured owner can update strict Profile and Settings fields', 
     const foreignPage = await foreignContext.newPage();
     await signInAdmin(foreignPage, foreignOwner);
     await expect(foreignPage.getByRole('link', { name: 'New post' })).toBeVisible();
+    for (const path of ['/admin/profile', '/admin/settings']) {
+      const forbidden = await foreignPage.request.get(path);
+      expect(forbidden.status()).toBe(404);
+      expect(await forbidden.text()).not.toContain('class="admin-shell"');
+    }
     const foreignProfile = await foreignPage.request.put('/api/profile', {
       data: {
         authorAvatarMediaId: null,

@@ -1,15 +1,26 @@
 ---
 import MediaLibrary from '../../components/admin/MediaLibrary';
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import { adminLoginPath } from '../../lib/admin';
+import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
 
 let userEmail: string | null = null;
 let errorMessage: string | null = null;
+let settings = null;
+let authRequired = false;
 
 try {
   const auth = await authenticate(Astro.cookies, Astro.request);
-  if (!auth) return Astro.redirect('/admin');
-  userEmail = auth.user.email ?? null;
+  if (!auth) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    userEmail = auth.user.email ?? null;
+    settings = await getSiteSettings();
+  }
 } catch (error) {
   console.error('Media library authentication failed:', error);
   Astro.response.status = 500;
@@ -18,9 +29,11 @@ try {
 ---
 
 <AdminLayout title="Media" userEmail={userEmail}>
-  {errorMessage ? (
-    <p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p>
+  {authRequired || errorMessage ? (
+    <main><p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p></main>
   ) : (
+    <AdminShell active="media" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
     <MediaLibrary client:only="react" mode="manage" />
+    </AdminShell>
   )}
 </AdminLayout>

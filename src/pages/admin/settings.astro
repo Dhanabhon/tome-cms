@@ -1,0 +1,43 @@
+---
+import AdminShell from '../../components/admin/AdminShell.astro';
+import SettingsForm from '../../components/admin/SettingsForm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminLoginPath } from '../../lib/admin';
+import { getSiteSettingsForOwner } from '../../lib/installation';
+import { authenticate } from '../../lib/supabase';
+import type { SiteSettings } from '../../types/cms';
+
+let settings: SiteSettings | null = null;
+let userEmail: string | null = null;
+let errorMessage = '';
+try {
+  const auth = await authenticate(Astro.cookies, Astro.request);
+  if (!auth) {
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    settings = await getSiteSettingsForOwner(auth.user.id);
+    if (!settings) {
+      Astro.response.status = 404;
+      errorMessage = 'Site settings not found.';
+    } else {
+      userEmail = auth.user.email ?? null;
+    }
+  }
+} catch (error) {
+  console.error('Settings query failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The settings are temporarily unavailable.';
+}
+---
+
+<AdminLayout title="Settings">
+  {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
+    <AdminShell active="settings" siteName={settings.site_name} userEmail={userEmail}>
+      <section class="admin-page admin-form-page">
+        <header class="admin-page__head"><div><h1>Settings</h1><p>Manage your publication’s name, language, and timezone.</p></div></header>
+        <SettingsForm client:load initialSettings={settings} />
+      </section>
+    </AdminShell>
+  )}
+</AdminLayout>

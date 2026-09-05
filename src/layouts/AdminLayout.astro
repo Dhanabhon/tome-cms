@@ -8,9 +8,8 @@ interface Props {
   showHeader?: boolean;
 }
 
-const { showHeader = true, title, userEmail } = Astro.props;
+const { title } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
-const mediaActive = Astro.url.pathname === '/admin/media';
 ---
 
 <!doctype html>
@@ -28,27 +27,6 @@ const mediaActive = Astro.url.pathname === '/admin/media';
     />
   </head>
   <body class="admin-body">
-    {showHeader && (
-      <header class="admin-header">
-        <div class="admin-header__inner">
-          <div class="admin-header__brand">
-            <a href="/admin" aria-label="TomeCMS dashboard">
-              <img class="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
-            </a>
-            <nav aria-label="Admin" class="admin-nav">
-              <a class="admin-nav__link" href="/admin" aria-current={mediaActive ? undefined : 'page'}>Posts</a>
-              <a class="admin-nav__link" href="/admin/media" aria-current={mediaActive ? 'page' : undefined}>Media</a>
-              <a class="admin-nav__link" href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">
-                View site <span aria-hidden="true">↗</span>
-              </a>
-            </nav>
-          </div>
-          {userEmail && <span class="admin-user">{userEmail}</span>}
-        </div>
-      </header>
-    )}
-    <main>
-      <slot />
-    </main>
+    <slot />
   </body>
 </html>

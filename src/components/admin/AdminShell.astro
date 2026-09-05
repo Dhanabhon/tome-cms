@@ -1,0 +1,83 @@
+---
+interface Props {
+  active: 'media' | 'posts' | 'profile' | 'settings';
+  siteName: string;
+  userEmail?: string | null;
+}
+
+const { active, siteName, userEmail } = Astro.props;
+const links = [
+  { id: 'posts', href: '/admin', label: 'Posts' },
+  { id: 'media', href: '/admin/media', label: 'Media' },
+  { id: 'profile', href: '/admin/profile', label: 'Profile' },
+  { id: 'settings', href: '/admin/settings', label: 'Settings' },
+] as const;
+---
+
+<div class="admin-shell">
+  <header class="admin-mobile-bar">
+    <span>{siteName}</span>
+    <button class="admin-button" type="button" data-nav-open aria-label="Open navigation" aria-controls="admin-mobile-navigation" aria-expanded="false">Menu</button>
+  </header>
+  {[false, true].map((mobile) => {
+    const Container = mobile ? 'dialog' : 'aside';
+    return (
+      <Container class={mobile ? 'admin-mobile-nav' : 'admin-sidebar'} id={mobile ? 'admin-mobile-navigation' : undefined} aria-label="Admin navigation">
+        {mobile && <button class="admin-button" type="button" data-nav-close autofocus aria-label="Close navigation">Close</button>}
+        <a class="admin-shell-brand" href="/admin">
+          <img class="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
+          <span>{siteName}</span>
+        </a>
+        <nav aria-label="Admin">
+          {links.map((link) => <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>{link.label}</a>)}
+        </nav>
+        <div class="admin-shell-account">
+          <a href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">View site <span aria-hidden="true">↗</span></a>
+          {userEmail && <span class="admin-shell-email">{userEmail}</span>}
+          <button class="admin-button" type="button" data-sign-out>Sign out</button>
+          <p class="admin-form-error" data-sign-out-error role="alert"></p>
+        </div>
+      </Container>
+    );
+  })}
+  <main class="admin-shell-main"><slot /></main>
+</div>
+
+<script>
+  import { createBrowserSupabaseClient } from '../../lib/supabase';
+
+  const opener = document.querySelector<HTMLButtonElement>('[data-nav-open]');
+  const dialog = document.querySelector<HTMLDialogElement>('.admin-mobile-nav');
+  opener?.addEventListener('click', () => {
+    dialog?.showModal();
+    opener.setAttribute('aria-expanded', 'true');
+  });
+  dialog?.querySelector('[data-nav-close]')?.addEventListener('click', () => dialog.close());
+  dialog?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    dialog.close();
+  });
+  dialog?.addEventListener('close', () => {
+    opener?.setAttribute('aria-expanded', 'false');
+    opener?.focus();
+  });
+  window.matchMedia('(min-width: 64rem)').addEventListener('change', (event) => {
+    if (event.matches && dialog?.open) dialog.close();
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-sign-out]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+      const message = button.parentElement?.querySelector('[data-sign-out-error]');
+      if (message) message.textContent = '';
+      try {
+        const { error } = await createBrowserSupabaseClient().auth.signOut();
+        if (error) throw error;
+        window.location.assign('/admin');
+      } catch {
+        if (message) message.textContent = 'Unable to sign out. Please try again.';
+        button.disabled = false;
+      }
+    });
+  });
+</script>
