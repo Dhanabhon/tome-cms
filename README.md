@@ -153,7 +153,7 @@ Run `npm run test:e2e:media` and `npm run test:e2e:publishing` after the local S
 
 ## Search and answer visibility
 
-Public pages are server-rendered with self-referencing canonical URLs, indexable robots metadata, Open Graph and X cards, and JSON-LD that describes the site or published article. `/sitemap.xml` contains only the homepage and published posts, while `/robots.txt` advertises that sitemap and allows OAI-SearchBot to crawl public content.
+Public pages are server-rendered with self-referencing canonical URLs, indexable robots metadata, Open Graph and X cards, and JSON-LD that describes the site or published article. `/sitemap.xml` contains both locale homepages (`/th` and `/en`) and each published locale edition, while `/robots.txt` advertises that sitemap and allows OAI-SearchBot to crawl public content.
 
 For each article, write a specific title, add a concise meta description when the opening text is not a good summary, structure the body with descriptive headings, cite primary sources for factual claims, and keep published information current. TomeCMS falls back to the article text when the meta description is empty.
 
