@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
 
@@ -9,6 +9,10 @@ const draftBody = (title: string, slug: string) => ({
   status: 'draft' as const,
   title,
 });
+
+async function expectNoHorizontalOverflow(page: Page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
 
 test('preview opens immediately with the newest draft and requires its owner', async ({ page, browser, playwright }) => {
   const owner = await createOwner('preview-newest');
@@ -183,7 +187,7 @@ test('preview save failure persists with same-tab retry and a safe return link',
     await expect(preview.getByRole('link', { name: 'Return to editor' })).toHaveAttribute('href', `/admin/edit/${post.id}`);
     await expect(preview.getByText('Draft body')).toHaveCount(0);
     await expect(preview.getByText('Failed draft sentence')).toHaveCount(0);
-    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     await preview.reload();
     await expect(preview.getByText('The latest draft could not be saved.')).toBeVisible();
     await page.evaluate(() => {
@@ -192,7 +196,7 @@ test('preview save failure persists with same-tab retry and a safe return link',
     });
     expect(saves).toBe(1);
     await page.locator('.ProseMirror').fill('Newest sentence after failure');
-    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     rejectSave = false;
     await preview.getByRole('button', { name: 'Try again' }).click();
     await expect(preview).toHaveURL(/\/admin\/preview\/[0-9a-f-]+$/);
@@ -338,12 +342,17 @@ test('focused writer uses a centered canvas and accessible settings drawer', asy
     expect(bounds.width).toBeLessThanOrEqual(760);
     expect(Math.abs(bounds.x + bounds.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(2);
     const settings = page.getByRole('button', { name: 'Settings', exact: true });
+    for (const name of ['Back to Posts', 'Preview', 'Settings', 'Publish']) {
+      await expect(name === 'Back to Posts' ? page.getByRole('link', { name, exact: true }) : page.getByRole('button', { name, exact: true })).toBeInViewport();
+    }
+    const languageControls = page.getByRole('navigation', { name: 'Post languages' }).getByRole('button');
+    await expect(languageControls).toHaveCount(1);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     if (testInfo.project.name === 'mobile') {
-      for (const width of [320, 375, 414, 768, 1280, 1440]) {
+      for (const width of [320, 375, 414]) {
         await page.setViewportSize({ width, height: 800 });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-        for (const control of await page.getByRole('navigation', { name: 'Post languages' }).getByRole('button').all()) {
+        await expectNoHorizontalOverflow(page);
+        for (const control of await languageControls.all()) {
           const target = await control.boundingBox();
           expect(target?.width).toBeGreaterThanOrEqual(44);
           expect(target?.height).toBeGreaterThanOrEqual(44);
@@ -376,6 +385,87 @@ test('focused writer uses a centered canvas and accessible settings drawer', asy
     await page.getByRole('link', { name: 'Back to Posts' }).click();
     await expect(page).toHaveURL(/\/admin$/);
   } finally {
+    await deleteOwner(owner);
+  }
+});
+
+test('publishing surfaces stay within the required project-specific viewports', async ({ page }, testInfo) => {
+  const owner = await createOwner('publishing-widths');
+  const restoreSettings = await leaseSiteOwner(owner);
+  const widths = testInfo.project.name === 'mobile' ? [320, 375, 414] : [768, 1280, 1440];
+  const sourceSlug = `width-source-${crypto.randomUUID()}`;
+  const siblingSlug = `width-sibling-${crypto.randomUUID()}`;
+
+  try {
+    await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    const sourceResponse = await page.request.post('/api/posts', { data: { ...draftBody('Viewport source', sourceSlug), status: 'published' } });
+    expect(sourceResponse.ok()).toBe(true);
+    const { post: source } = await sourceResponse.json();
+    const siblingLocale = source.locale === 'th' ? 'en' : 'th';
+    const siblingResponse = await page.request.post('/api/posts', { data: {
+      ...draftBody('Viewport sibling', siblingSlug), locale: siblingLocale, sourcePostId: source.id, status: 'published',
+    } });
+    expect(siblingResponse.ok()).toBe(true);
+
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/admin?status=published');
+      await expect(page.locator('.admin-shell')).toHaveCount(1);
+      await expect(page.getByRole('heading', { name: 'Posts', exact: true })).toBeVisible();
+      await expect(page.getByRole('tablist', { name: 'Post status' })).toBeVisible();
+      await expect(page.locator('.admin-story-row')).toHaveCount(2);
+      await expectNoHorizontalOverflow(page);
+
+      await page.goto('/admin/profile');
+      await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+
+      await page.goto('/admin/settings');
+      await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+
+      await page.goto(`/admin/edit/${source.id}`);
+      await expect(page.getByLabel('Post title')).toBeVisible();
+      for (const name of ['Back to Posts', 'Preview', 'Settings', 'Update']) {
+        await expect(name === 'Back to Posts' ? page.getByRole('link', { name, exact: true }) : page.getByRole('button', { name, exact: true })).toBeInViewport();
+      }
+      const languageControls = page.getByRole('navigation', { name: 'Post languages' }).getByRole('button');
+      await expect(languageControls).toHaveCount(1);
+      for (const control of await languageControls.all()) {
+        const target = await control.boundingBox();
+        expect(target?.width).toBeGreaterThanOrEqual(44);
+        expect(target?.height).toBeGreaterThanOrEqual(44);
+      }
+      await expectNoHorizontalOverflow(page);
+      const settings = page.getByRole('button', { name: 'Settings', exact: true });
+      await settings.click();
+      const drawer = page.getByRole('dialog', { name: 'Post settings' });
+      await expect(drawer).toBeVisible();
+      if (width <= 414) {
+        const bounds = await drawer.boundingBox();
+        expect(bounds?.width).toBe(width);
+        expect(bounds?.height).toBe(800);
+      }
+      await expectNoHorizontalOverflow(page);
+      await page.keyboard.press('Escape');
+      await expect(settings).toBeFocused();
+
+      await page.goto(`/admin/preview/${source.id}`);
+      await expect(page.getByRole('heading', { name: 'Viewport source' })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+
+      await page.goto(`/${source.locale}`);
+      await expect(page.getByRole('main')).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+
+      await page.goto(`/${source.locale}/blog/${source.slug}`);
+      await expect(page.locator(`header a[href="/${siblingLocale}/blog/${siblingSlug}"]`)).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    }
+  } finally {
+    await restoreSettings();
+    await admin.from('posts').delete().eq('author_id', owner.id);
     await deleteOwner(owner);
   }
 });
@@ -445,18 +535,19 @@ test('failed save stops leaving and retry preserves edits before Back to Posts',
     await page.getByLabel('Post title').fill(title);
     await page.locator('.ProseMirror').fill('Keep this draft');
     await page.getByRole('link', { name: 'Back to Posts' }).click();
-    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('Forced save failure');
+    await expect(page.getByRole('alert').getByText('Save failed', { exact: true })).toBeVisible();
     expect(page.url()).toContain('/admin/new');
     rejectSave = false;
     await page.locator('.ProseMirror').fill('Edited after save failed');
-    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('Forced save failure');
     await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
     const retry = page.waitForRequest((request) => request.url().endsWith('/api/posts') && request.method() === 'POST');
     await page.getByRole('button', { name: 'Retry save' }).click();
     await retry;
-    await expect(page.getByText('Save failed', { exact: true })).toBeVisible();
+    await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('Forced save failure');
     await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
     releaseRetry();
