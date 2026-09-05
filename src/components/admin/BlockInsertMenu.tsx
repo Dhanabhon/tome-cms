@@ -1,5 +1,5 @@
 import { useEditor } from 'novel';
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { MediaAsset } from '../../types/cms';
 import MediaPicker from './MediaPicker';
@@ -9,16 +9,18 @@ const MENU_ID = 'block-insert-menu';
 export default function BlockInsertMenu() {
   const { editor } = useEditor();
   const root = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const items = useRef<Array<HTMLButtonElement | null>>([]);
+  const frame = useRef<number | null>(null);
   const savedPosition = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const [position, setPosition] = useState({ left: 0, menuLeft: 0, menuTop: 42, top: 0 });
   const [visible, setVisible] = useState(false);
 
   const update = useCallback(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     const ownsFocus = editor.isFocused || Boolean(root.current?.contains(document.activeElement));
     const shouldShow = editor.isEditable && editor.state.selection.empty && ownsFocus;
     setVisible(shouldShow);
@@ -29,33 +31,59 @@ export default function BlockInsertMenu() {
     if (!canvas) return;
     const canvasRect = canvas.getBoundingClientRect();
     const cursor = editor.view.coordsAtPos(editor.state.selection.from);
+    const menuWidth = menu.current?.offsetWidth ?? 0;
+    const menuHeight = menu.current?.offsetHeight ?? 0;
+    const left = Math.max(0, Math.min(cursor.left - canvasRect.left - 44, canvasRect.width - 36));
+    const menuLeft = menuOpen ? Math.max(-left, Math.min(0, canvasRect.width - left - menuWidth)) : 0;
+    let menuViewportTop = cursor.top + 42;
+    if (menuOpen && menuViewportTop + menuHeight > window.innerHeight - 8) {
+      menuViewportTop = cursor.top - menuHeight - 6;
+    }
+    if (menuOpen) {
+      menuViewportTop = Math.max(8, Math.min(menuViewportTop, window.innerHeight - menuHeight - 8));
+    }
     setPosition({
-      left: Math.max(0, Math.min(cursor.left - canvasRect.left - 44, canvasRect.width - 36)),
+      left,
+      menuLeft,
+      menuTop: menuViewportTop - cursor.top,
       top: cursor.top - canvasRect.top,
     });
-  }, [editor, pickerOpen]);
+  }, [editor, menuOpen, pickerOpen]);
 
-  useEffect(() => {
-    if (!editor) return;
-    const afterBlur = () => requestAnimationFrame(update);
-    editor.on('focus', update);
-    editor.on('blur', afterBlur);
-    editor.on('selectionUpdate', update);
-    editor.on('transaction', afterBlur);
-    window.addEventListener('resize', update);
-    update();
-    return () => {
-      editor.off('focus', update);
-      editor.off('blur', afterBlur);
-      editor.off('selectionUpdate', update);
-      editor.off('transaction', afterBlur);
-      window.removeEventListener('resize', update);
-    };
+  const scheduleUpdate = useCallback(() => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      if (!editor?.isDestroyed) update();
+    });
   }, [editor, update]);
 
   useEffect(() => {
-    if (menuOpen) items.current[activeIndex]?.focus();
-  }, [activeIndex, menuOpen]);
+    if (!editor) return;
+    editor.on('focus', update);
+    editor.on('blur', scheduleUpdate);
+    editor.on('selectionUpdate', update);
+    editor.on('transaction', scheduleUpdate);
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('scroll', scheduleUpdate, true);
+    update();
+    return () => {
+      editor.off('focus', update);
+      editor.off('blur', scheduleUpdate);
+      editor.off('selectionUpdate', update);
+      editor.off('transaction', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('scroll', scheduleUpdate, true);
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
+    };
+  }, [editor, scheduleUpdate, update]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    update();
+    items.current[activeIndex]?.focus({ preventScroll: true });
+  }, [activeIndex, menuOpen, update]);
 
   if (!editor) return null;
 
@@ -141,7 +169,14 @@ export default function BlockInsertMenu() {
             <span aria-hidden="true">+</span>
           </button>
           {menuOpen && (
-            <div aria-label="Insert block" className="block-insert-menu" id={MENU_ID} role="menu">
+            <div
+              aria-label="Insert block"
+              className="block-insert-menu"
+              id={MENU_ID}
+              ref={menu}
+              role="menu"
+              style={{ left: position.menuLeft, top: position.menuTop }}
+            >
               {actions.map((action, index) => (
                 <button
                   className="block-insert-item"

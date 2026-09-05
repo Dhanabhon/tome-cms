@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { createOwner, deleteOwner, signInAdmin, type TestOwner } from './support';
 
@@ -38,6 +38,18 @@ async function seedMedia(owner: TestOwner) {
     ...data,
     publicUrl: owner.client.storage.from('blog-media').getPublicUrl(storagePath).data.publicUrl,
   };
+}
+
+async function blockControlBounds(page: Page) {
+  const [canvas, editor, menu, trigger] = await Promise.all([
+    page.locator('.editor-canvas').boundingBox(),
+    page.locator('.ProseMirror').boundingBox(),
+    page.getByRole('menu', { name: 'Insert block' }).boundingBox(),
+    page.getByRole('button', { name: 'Add block' }).boundingBox(),
+  ]);
+  const viewport = page.viewportSize();
+  if (!canvas || !editor || !menu || !trigger || !viewport) throw new Error('Block controls are not measurable.');
+  return { canvas, editor, menu, trigger, viewport };
 }
 
 test.describe('editor cover media', () => {
@@ -296,6 +308,50 @@ test.describe('editor block insertion', () => {
       await deleteOwner(owner);
     }
   });
+
+  test('menu stays inside the canvas at a right-edge cursor and flips above a lower final block', async ({ page }) => {
+    const owner = await createOwner('editor-block-bounds');
+
+    try {
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto('/admin/new');
+
+      const editor = page.locator('.ProseMirror');
+      const addBlock = page.getByRole('button', { name: 'Add block' });
+      await editor.click();
+      await page.keyboard.type('i'.repeat(125));
+      await addBlock.click();
+
+      let bounds = await blockControlBounds(page);
+      expect(bounds.trigger.x).toBeGreaterThan(bounds.editor.x + bounds.editor.width / 2);
+      expect(bounds.trigger.x).toBeGreaterThan(bounds.canvas.x + bounds.canvas.width - bounds.menu.width);
+      expect(bounds.menu.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
+      expect(bounds.menu.x + bounds.menu.width).toBeLessThanOrEqual(bounds.canvas.x + bounds.canvas.width + 1);
+
+      await page.keyboard.press('Escape');
+      for (let index = 0; index < 18; index += 1) {
+        await page.keyboard.press('End');
+        await page.keyboard.press('Enter');
+        await page.keyboard.type(`Block ${index + 1}`);
+      }
+      const finalBlock = editor.locator('p').last();
+      await finalBlock.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        window.scrollBy(0, rect.bottom - window.innerHeight + 40);
+      });
+      await finalBlock.click({ position: { x: 4, y: 4 } });
+      await addBlock.click();
+
+      bounds = await blockControlBounds(page);
+      expect(bounds.trigger.y).toBeGreaterThan(bounds.viewport.height / 2);
+      expect(bounds.menu.y).toBeGreaterThanOrEqual(8);
+      expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.viewport.height - 8);
+      expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.trigger.y + 1);
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
 });
 
 test('cover media picker fills the mobile viewport', async ({ page }, testInfo) => {
@@ -337,6 +393,13 @@ test('active block menu does not create mobile horizontal overflow', async ({ pa
     await page.locator('.ProseMirror').click();
     await page.getByRole('button', { name: 'Add block' }).click();
     await expect(page.getByRole('menu', { name: 'Insert block' })).toBeVisible();
+    const bounds = await blockControlBounds(page);
+    expect(bounds.trigger.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
+    expect(bounds.trigger.x + bounds.trigger.width).toBeLessThanOrEqual(bounds.editor.x + 1);
+    expect(bounds.menu.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
+    expect(bounds.menu.x + bounds.menu.width).toBeLessThanOrEqual(bounds.canvas.x + bounds.canvas.width + 1);
+    expect(bounds.menu.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.viewport.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {
     await deleteOwner(owner);
