@@ -76,6 +76,7 @@ export async function leaseSiteOwner(owner: TestOwner) {
         site_description: original.site_description,
         site_name: original.site_name,
         timezone: original.timezone,
+        updated_at: original.updated_at,
       })
       .eq('id', true);
     if (error) throw error;
