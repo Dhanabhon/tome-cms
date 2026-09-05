@@ -567,7 +567,9 @@ body {
 .admin-preview-pending p { margin-block: var(--space-lg); }
 .admin-button:focus-visible { outline-color: var(--color-focus); }
 .admin-button:active:not(:disabled) { transform: translateY(var(--space-3xs)); }
-.admin-button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
+.admin-button:disabled,
+.admin-nav__link:disabled,
+.admin-toolbar-link[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; transform: none; }
 .admin-button[data-state="loading"] { cursor: wait; }
 .admin-button[data-state="loading"]::before {
   width: var(--space-md);
