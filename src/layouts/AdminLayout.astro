@@ -1,24 +1,24 @@
 ---
-import SEOHead from '../components/blog/SEOHead.astro';
+import type { PostLocale } from '../types/cms';
 import '../styles/global.css';
 
 interface Props {
   title: string;
-  userEmail?: string | null;
-  showHeader?: boolean;
+  lang?: PostLocale;
 }
 
-const { title } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
+const { title, lang = 'en' } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="robots" content="noindex, nofollow" />
-    <SEOHead title={`${title} | TomeCMS`} description="TomeCMS publishing dashboard." canonical={canonical} />
+    <title>{title} | TomeCMS</title>
+    <meta name="description" content="TomeCMS publishing dashboard." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

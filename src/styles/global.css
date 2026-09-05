@@ -552,6 +552,19 @@ body {
 }
 
 .admin-button--secondary { background: var(--color-paper); }
+.admin-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper);
+}
+.admin-preview-pending { max-width: 40rem; margin: var(--space-2xl) auto; padding: var(--space-lg); }
+.admin-preview-pending h1 { font-size: var(--text-xl); font-weight: 600; }
+.admin-preview-pending p { margin-block: var(--space-lg); }
 .admin-button:focus-visible { outline-color: var(--color-focus); }
 .admin-button:active:not(:disabled) { transform: translateY(var(--space-3xs)); }
 .admin-button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }

@@ -59,7 +59,7 @@ const tabs = [{ status: 'draft', label: 'Drafts' }, { status: 'published', label
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
-<AdminLayout title="Posts" userEmail={userEmail}>
+<AdminLayout title="Posts">
   <Frame active="posts" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
   <section class="admin-page">
     <header class="admin-page__head">
@@ -145,6 +145,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                   <summary aria-label={`Actions for ${title} (${post.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
                   <div>
                     <a href={`/admin/edit/${post.id}`}>Edit</a>
+                    <a href={`/admin/preview/${post.id}`} target="_blank" rel="noopener noreferrer">Preview</a>
                     <button type="button" data-post-action={post.status === 'draft' ? 'published' : 'draft'} data-post-id={post.id}>{post.status === 'draft' ? 'Publish' : 'Unpublish'}</button>
                     <button type="button" data-post-action="delete" data-post-id={post.id} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>Delete</button>
                   </div>

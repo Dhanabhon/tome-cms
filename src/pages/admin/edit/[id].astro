@@ -9,7 +9,6 @@ import type { Post, PostTranslationSummary } from '../../../types/cms';
 let post: Post | null = null;
 let editorPost: Omit<Post, 'translation_group_id'> | null = null;
 let translations: PostTranslationSummary[] = [];
-let userEmail: string | null = null;
 let errorMessage: string | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
 
@@ -23,7 +22,6 @@ try {
       Astro.response.status = 401;
       errorMessage = 'Sign in with your configured Supabase Auth flow to edit this post.';
     } else {
-      userEmail = auth.user.email ?? null;
       const { data, error } = await auth.supabase
         .from('posts')
         .select('*')
@@ -57,7 +55,7 @@ try {
 }
 ---
 
-<AdminLayout title={post?.title ?? 'Edit post'} userEmail={userEmail} showHeader={!post}>
+<AdminLayout title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
       <Editor client:only="react" initialPost={editorPost} locale={post.locale} translations={translations}>
