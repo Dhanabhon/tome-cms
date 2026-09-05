@@ -1,0 +1,65 @@
+---
+import { z } from 'zod';
+
+import PostArticle from '../../../components/blog/PostArticle.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getSiteSettings } from '../../../lib/installation';
+import { getPublicAuthorProfile } from '../../../lib/profile';
+import { authenticate } from '../../../lib/supabase';
+import type { Post, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
+
+let post: Post | null = null;
+let settings: SiteSettings | null = null;
+let profile: PublicAuthorProfile | null = null;
+let errorMessage: string | null = null;
+const id = z.uuid().safeParse(Astro.params.id);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+try {
+  if (!id.success) {
+    Astro.response.status = 404;
+    errorMessage = 'Post not found.';
+  } else {
+    const auth = await authenticate(Astro.cookies, Astro.request);
+    if (!auth) {
+      Astro.response.status = 401;
+      errorMessage = 'Sign in to preview this post.';
+    } else {
+      const { data, error } = await auth.supabase
+        .from('posts')
+        .select('*')
+        .eq('id', id.data)
+        .eq('author_id', auth.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      post = data;
+      if (!post) {
+        Astro.response.status = 404;
+        errorMessage = 'Post not found.';
+      } else {
+        settings = await getSiteSettings();
+        if (!settings) throw new Error('Site settings not found.');
+        profile = await getPublicAuthorProfile(settings, post.locale);
+      }
+    }
+  }
+} catch (error) {
+  console.error('Post preview query failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The preview is temporarily unavailable.';
+}
+---
+
+<AdminLayout lang={post?.locale} title={post ? `Preview: ${post.title}` : 'Draft preview'}>
+  <main>
+    {errorMessage ? <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p> : post && settings ? (
+      <>
+        <div class="admin-preview-bar">
+          <strong>Draft preview</strong>
+          <a class="admin-button admin-button--secondary" href={`/admin/edit/${post.id}`}>Edit post</a>
+        </div>
+        <PostArticle post={post} preview profile={profile} settings={settings} />
+      </>
+    ) : null}
+  </main>
+</AdminLayout>

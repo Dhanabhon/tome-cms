@@ -1,0 +1,28 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { safeAdminReturnTo } from '../../../lib/admin';
+
+const saveError = Astro.url.searchParams.get('state') === 'save-error';
+const returnTo = safeAdminReturnTo(Astro.url.searchParams.get('returnTo'));
+---
+
+<AdminLayout title="Draft preview">
+  <main class="admin-preview-pending">
+    <h1>Draft preview</h1>
+    {saveError ? (
+      <>
+        <p role="alert">The latest draft could not be saved.</p>
+        <div class="admin-preview-bar">
+          <button class="admin-button admin-button--primary" type="button" data-preview-retry>Try again</button>
+          <a class="admin-button admin-button--secondary" href={returnTo}>Return to editor</a>
+        </div>
+      </>
+    ) : <p role="status">Preparing draft preview…</p>}
+  </main>
+</AdminLayout>
+
+<script>
+  document.querySelector('[data-preview-retry]')?.addEventListener('click', () => {
+    window.opener?.postMessage({ type: 'tome-preview-retry' }, window.location.origin);
+  });
+</script>

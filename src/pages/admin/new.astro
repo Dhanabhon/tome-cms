@@ -8,7 +8,6 @@ import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
 import type { PostLocale, PostTranslationSummary } from '../../types/cms';
 
-let userEmail: string | null = null;
 let errorMessage: string | null = null;
 let locale: PostLocale | null = null;
 let sourcePost: { coverImage: string | null; id: string } | undefined;
@@ -20,7 +19,6 @@ try {
     Astro.response.status = 401;
     errorMessage = 'Sign in with your configured Supabase Auth flow to create a post.';
   } else {
-    userEmail = auth.user.email ?? null;
     const settings = await getSiteSettings();
     if (!settings) throw new Error('Site settings not found.');
 
@@ -69,7 +67,7 @@ try {
 }
 ---
 
-<AdminLayout title="New post" userEmail={userEmail} showHeader={Boolean(errorMessage)}>
+<AdminLayout title="New post">
   <main>
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>

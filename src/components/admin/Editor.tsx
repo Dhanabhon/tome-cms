@@ -249,6 +249,35 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     return pending;
   }, [locale, sourcePost]);
 
+  const previewDraft = useCallback(async (target?: Window | null) => {
+    const previewWindow = target ?? window.open('/admin/preview/pending', '_blank');
+    if (!previewWindow) {
+      setErrorMessage('Allow pop-ups for this site to open Preview.');
+      return;
+    }
+
+    window.clearTimeout(autosaveTimer.current);
+    try {
+      let saved = await persist(postStatusRef.current);
+      while (dirtyRef.current) saved = await persist(postStatusRef.current);
+      if (!previewWindow.closed) previewWindow.location.replace(`/admin/preview/${saved.id}`);
+    } catch {
+      const returnTo = postId.current ? `/admin/edit/${postId.current}` : window.location.pathname + window.location.search;
+      if (!previewWindow.closed) previewWindow.location.replace(
+        `/admin/preview/pending?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
+      );
+    }
+  }, [persist]);
+
+  useEffect(() => {
+    const retry = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'tome-preview-retry' || !event.source) return;
+      void previewDraft(event.source as Window);
+    };
+    window.addEventListener('message', retry);
+    return () => window.removeEventListener('message', retry);
+  }, [previewDraft]);
+
   useEffect(() => {
     if (!dirty || !title.trim() || actionPending.current) return;
 
@@ -350,7 +379,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
               <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
             </span>
             {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
-            <button className="admin-button admin-button--secondary" disabled title="Preview is coming soon" type="button">Preview</button>
+            <button className="admin-button admin-button--secondary" disabled={!postId.current && !title.trim()} title={!postId.current && !title.trim() ? 'Add a title before opening Preview.' : undefined} onClick={() => void previewDraft()} type="button">Preview</button>
             <button aria-expanded={settingsOpen} aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={(event) => {
               event.currentTarget.focus();
               setSettingsOpen(true);
