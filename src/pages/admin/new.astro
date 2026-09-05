@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import Editor from '../../components/admin/Editor';
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminLoginPath } from '../../lib/admin';
 import { isPostLocale } from '../../lib/i18n';
 import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
@@ -16,8 +17,8 @@ let translations: PostTranslationSummary[] = [];
 try {
   const auth = await authenticate(Astro.cookies, Astro.request);
   if (!auth) {
-    Astro.response.status = 401;
-    errorMessage = 'Sign in with your configured Supabase Auth flow to create a post.';
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
   } else {
     const settings = await getSiteSettings();
     if (!settings) throw new Error('Site settings not found.');
