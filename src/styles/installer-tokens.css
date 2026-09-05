@@ -1,23 +1,27 @@
-/* Hallmark · modern-minimal · friendly-austere · monochrome neutral · Progressive Rail */
+/* TomeCMS design tokens · Notion Marketing 2024 */
 :root {
-  --color-paper: oklch(100% 0 0);
-  --color-paper-2: oklch(98.5% 0 0);
-  --color-paper-3: oklch(97% 0 0);
-  --color-surface: oklch(100% 0 0);
-  --color-ink: oklch(14.5% 0 0);
-  --color-ink-2: oklch(30% 0 0);
-  --color-muted: oklch(43% 0 0);
-  --color-rule: oklch(92.2% 0 0);
-  --color-rule-strong: oklch(76% 0 0);
-  --color-accent: oklch(20.5% 0 0);
-  --color-accent-ink: oklch(98.5% 0 0);
-  --color-focus: oklch(49% 0.2 255);
-  --color-focus-soft: oklch(96% 0.025 255);
-  --color-error: oklch(46% 0.19 25);
-  --color-error-soft: oklch(97% 0.02 25);
+  --color-paper: #ffffff;
+  --color-paper-2: #f6f5f4;
+  --color-paper-3: #ebeae8;
+  --color-surface: #ffffff;
+  --color-hero: #02093a;
+  --color-ink: #000000;
+  --color-ink-2: #615d59;
+  --color-muted: #615d59;
+  --color-placeholder: #a39e98;
+  --color-rule: rgb(0 0 0 / 8%);
+  --color-rule-strong: rgb(0 0 0 / 24%);
+  --color-accent: #2537b1;
+  --color-link: #097fe8;
+  --color-accent-ink: #ffffff;
+  --color-focus: #2537b1;
+  --color-focus-soft: color-mix(in srgb, #2537b1 12%, #ffffff);
+  --color-error: #f64932;
+  --color-error-ink: #912315;
+  --color-error-soft: color-mix(in srgb, #f64932 10%, #ffffff);
 
-  --font-display: "Geist", "IBM Plex Sans Thai", ui-sans-serif, sans-serif;
-  --font-body: "Geist", "IBM Plex Sans Thai", ui-sans-serif, sans-serif;
+  --font-display: "NotionInter", "Inter", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "NotionInter", "Inter", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   --space-3xs: 0.125rem;
   --space-2xs: 0.25rem;
@@ -27,16 +31,16 @@
   --space-lg: 1.5rem;
   --space-xl: 2.5rem;
   --space-2xl: 4rem;
-  --space-3xl: 6rem;
+  --space-3xl: 5rem;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-md: 1.25rem;
-  --text-lg: 1.5625rem;
-  --text-xl: 1.953rem;
-  --text-2xl: 2.441rem;
-  --text-display: clamp(2.5rem, 4vw, 3.75rem);
+  --text-lg: 1.25rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 2.5rem;
+  --text-display: clamp(3rem, 5vw, 4rem);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
@@ -47,7 +51,7 @@
 
   --rule-hair: 1px;
   --radius-input: 0.5rem;
-  --radius-card: 0.625rem;
+  --radius-card: 0.5rem;
   --control-height: 3rem;
   --z-sticky-nav: 300;
 }

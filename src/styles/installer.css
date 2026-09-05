@@ -1,20 +1,13 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Progressive Rail · tone: friendly-austere
- * theme: studied-DNA (source: https://blog-magicui.vercel.app/) · paper: oklch(100% 0 0) · accent: neutral ink
- * display/body: Geist + IBM Plex Sans Thai · studied: yes · DNA-source: url · nav: N9 · footer: Ft2
- * component: native select · states: default · hover · focus · active · disabled · loading · error · success
- * pre-emit critique: P5 H5 E5 S5 R5 V5
- * contrast: pass (40–41) · honest: pass (46) · chrome: pass (47) · tokens: pass (48)
- * slop: pass (42–45) · mobile: pass (34, 49–57) · icons: pass (30)
- */
+/* TomeCMS installer · DESIGN.md + DESIGN-TOKENS.json */
 @import './brand.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { overflow-x: clip; }
-html { background: var(--color-paper); }
+html { background: var(--color-paper-2); }
 body {
   min-width: 0;
   margin: 0;
-  background: var(--color-paper);
+  background: var(--color-paper-2);
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -60,9 +53,7 @@ h1, h2, p { margin-block-start: 0; }
   gap: var(--space-lg);
   min-width: 0;
   padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-2xl));
-  background-color: var(--color-paper);
-  background-image: radial-gradient(var(--color-rule) var(--rule-hair), transparent var(--rule-hair));
-  background-size: var(--space-sm) var(--space-sm);
+  background-color: var(--color-paper-2);
   color: var(--color-ink);
 }
 .installer-intro h1 {
@@ -71,9 +62,9 @@ h1, h2, p { margin-block-start: 0; }
   margin-block-end: 0;
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: 500;
-  letter-spacing: -0.04em;
-  line-height: 1.06;
+  font-weight: 700;
+  letter-spacing: -1.875px;
+  line-height: 1;
   overflow-wrap: anywhere;
 }
 .installer-intro p {
@@ -166,9 +157,8 @@ h1, h2, p { margin-block-start: 0; }
   margin-block-end: 0;
   font-family: var(--font-display);
   font-size: var(--text-2xl);
-  font-weight: 500;
-  letter-spacing: -0.035em;
-  line-height: 1.12;
+  font-weight: 400;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .installer-context p { max-width: 50ch; margin-block-end: 0; color: var(--color-muted); }
@@ -210,9 +200,9 @@ h1, h2, p { margin-block-start: 0; }
   min-width: 0;
   margin-block-end: 0;
   font-size: var(--text-xl);
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.25px;
+  line-height: 1.27;
   overflow-wrap: anywhere;
 }
 .installer-step-head p, .installer-success p { max-width: 60ch; margin-block-end: 0; color: var(--color-muted); }
@@ -222,7 +212,7 @@ h1, h2, p { margin-block-start: 0; }
   border: var(--rule-hair) solid var(--color-error);
   border-radius: var(--radius-input);
   background: var(--color-error-soft);
-  color: var(--color-error);
+  color: var(--color-error-ink);
   font-size: var(--text-sm);
 }
 .installer-checks { display: grid; margin: 0; padding: 0; list-style: none; }
@@ -257,12 +247,13 @@ h1, h2, p { margin-block-start: 0; }
   transition: background-color var(--dur-short) var(--ease-out);
 }
 textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm); resize: vertical; }
-.installer-control::placeholder { color: var(--color-muted); opacity: 1; }
-.installer-control:focus-visible { border-color: var(--color-ink); outline-color: var(--color-focus); }
+.installer-control::placeholder { color: var(--color-placeholder); opacity: 1; }
+.installer-control:focus-visible { border-color: var(--color-focus); outline-color: var(--color-focus); outline-offset: 0; }
 .installer-control:active { border-color: var(--color-ink); }
 .installer-control:disabled { cursor: not-allowed; opacity: 0.55; }
 .installer-control[aria-busy="true"] { background: var(--color-paper-3); }
 .installer-control[aria-invalid="true"] { border-color: var(--color-error); background: var(--color-error-soft); }
+.installer-control[aria-invalid="true"]:focus-visible { outline-color: var(--color-error); }
 .installer-control[data-state="success"] { border-color: var(--color-ink-2); }
 select.installer-control {
   appearance: none;
@@ -283,7 +274,7 @@ select.installer-control {
     var(--rule-hair) calc(100% - var(--space-md));
 }
 .installer-helper { min-height: 1lh; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
-.installer-helper[data-tone="error"] { color: var(--color-error); }
+.installer-helper[data-tone="error"] { color: var(--color-error-ink); }
 .installer-help {
   padding-block: var(--space-xs);
   border-block: var(--rule-hair) solid var(--color-rule);
@@ -330,7 +321,7 @@ select.installer-control {
   white-space: nowrap;
   transition: background-color var(--dur-short) var(--ease-out), opacity var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 }
-.installer-button--primary { --button-hover-background: var(--color-ink-2); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
+.installer-button--primary { --button-hover-background: color-mix(in srgb, var(--color-accent) 88%, black); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
 .installer-button:focus-visible { outline-color: var(--color-focus); }
 .installer-button:active { transform: translateY(var(--space-3xs)); }
 .installer-button:disabled { cursor: not-allowed; opacity: 0.5; transform: none; }
@@ -345,8 +336,8 @@ select.installer-control {
   animation: installer-spin 900ms linear infinite;
   content: "";
 }
-.installer-button[data-state="error"] { --button-hover-background: var(--color-error); border-color: var(--color-error); background: var(--color-error); color: var(--color-paper); }
-.installer-button[data-state="success"] { --button-hover-background: var(--color-ink-2); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
+.installer-button[data-state="error"] { --button-hover-background: var(--color-error); border-color: var(--color-error); background: var(--color-error); color: var(--color-ink); }
+.installer-button[data-state="success"] { --button-hover-background: color-mix(in srgb, var(--color-accent) 88%, black); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
 .installer-success { align-content: center; min-height: 25rem; }
 .installer-success-mark {
   display: grid;

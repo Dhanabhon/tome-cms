@@ -55,7 +55,7 @@ export const slashCommand = Command.configure({
 
 export default function SlashCommands() {
   return (
-    <EditorCommand className="max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-white p-1.5 font-sans shadow-xl">
+    <EditorCommand className="max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-white p-1.5 font-sans">
       <EditorCommandEmpty className="px-3 py-5 text-center text-sm text-muted">No commands found</EditorCommandEmpty>
       <EditorCommandList>
         {commandItems.map((item) => (
