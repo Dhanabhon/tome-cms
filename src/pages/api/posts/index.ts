@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { getSiteSettings } from '../../../lib/installation';
 import { hasMeaningfulContent } from '../../../lib/posts';
 import { authenticate } from '../../../lib/supabase';
-import { POST_LOCALES, type EditorNode, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
+import { POST_LOCALES, POST_STATUSES, type EditorNode, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
 
 const MAX_DOCUMENT_BYTES = 1_000_000;
 
@@ -59,6 +59,7 @@ const createSchema = publishablePostSchema
   });
 
 const updateSchema = publishablePostSchema.safeExtend({ id: z.uuid() });
+const statusSchema = z.object({ id: z.uuid(), status: z.enum(POST_STATUSES) }).strict();
 
 const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -259,6 +260,36 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
     return Response.json({ post: data });
   } catch (error) {
     console.error('Post update error:', error);
+    return Response.json({ error: 'The post could not be updated.' }, { status: 500 });
+  }
+};
+
+export const PATCH: APIRoute = async ({ cookies, request }) => {
+  try {
+    const auth = await authenticate(cookies, request);
+    if (!auth) return Response.json({ error: 'Authentication required.' }, { status: 401 });
+
+    const json = await readJson(request);
+    if ('response' in json) return json.response;
+    const parsed = statusSchema.safeParse(json.body);
+    if (!parsed.success) return parseError(parsed.error);
+
+    const { id, status } = parsed.data;
+    const { data: post, error: readError } = await auth.supabase
+      .from('posts').select('*').eq('id', id).eq('author_id', auth.user.id).maybeSingle();
+    if (readError) return databaseError(readError);
+    if (!post) return Response.json({ error: 'Post not found.' }, { status: 404 });
+    if (status === 'published' && (!hasMeaningfulContent(post.content_json) || !hasMeaningfulHtml(post.content_html))) {
+      return Response.json({ error: 'Add content before publishing.' }, { status: 400 });
+    }
+
+    const { data, error } = await auth.supabase
+      .from('posts').update({ status }).eq('id', id).eq('author_id', auth.user.id).select().maybeSingle();
+    if (error) return databaseError(error);
+    if (!data) return Response.json({ error: 'Post not found.' }, { status: 404 });
+    return Response.json({ post: data });
+  } catch (error) {
+    console.error('Post status update error:', error);
     return Response.json({ error: 'The post could not be updated.' }, { status: 500 });
   }
 };
