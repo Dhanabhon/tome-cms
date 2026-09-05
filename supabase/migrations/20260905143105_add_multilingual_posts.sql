@@ -52,8 +52,10 @@ begin
     or exists (
       select 1
       from public.posts as post
-      join posts_multilingual_snapshot as snapshot using (id)
-      where row(
+      full join posts_multilingual_snapshot as snapshot using (id)
+      where post.id is null
+        or snapshot.id is null
+        or row(
         post.title,
         post.slug,
         post.cover_image,
