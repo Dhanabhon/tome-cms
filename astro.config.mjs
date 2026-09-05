@@ -5,7 +5,7 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   output: 'server',
+  devToolbar: { enabled: false },
   adapter: node({ mode: 'standalone' }),
   integrations: [react(), tailwind()],
 });
-

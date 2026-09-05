@@ -20,30 +20,30 @@ const mediaActive = Astro.url.pathname === '/admin/media';
     <meta name="viewport" content="width=device-width" />
     <meta name="robots" content="noindex, nofollow" />
     <SEOHead title={`${title} | TomeCMS`} description="TomeCMS publishing dashboard." canonical={canonical} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body class="min-h-screen bg-white">
+  <body class="admin-body">
     {showHeader && (
-      <header class="border-b border-line">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
-          <div class="flex items-center gap-8">
+      <header class="admin-header">
+        <div class="admin-header__inner">
+          <div class="admin-header__brand">
             <a href="/admin" aria-label="TomeCMS dashboard">
-              <img class="h-8 w-auto" src="/brand/tomecms-logo.png" alt="TomeCMS" width="96" height="32" />
+              <img class="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
             </a>
-            <nav aria-label="Admin" class="flex items-center gap-6 text-sm">
-              <a
-                class:list={['py-1', mediaActive ? 'text-ink hover:text-accent' : 'border-b-2 border-accent text-accent']}
-                href="/admin"
-                aria-current={mediaActive ? undefined : 'page'}
-              >Posts</a>
-              <a
-                class:list={['py-1', mediaActive ? 'border-b-2 border-accent text-accent' : 'text-ink hover:text-accent']}
-                href="/admin/media"
-                aria-current={mediaActive ? 'page' : undefined}
-              >Media</a>
-              <a class="text-ink hover:text-accent" href="/" target="_blank" rel="noreferrer">View site <span aria-hidden="true">↗</span></a>
+            <nav aria-label="Admin" class="admin-nav">
+              <a class="admin-nav__link" href="/admin" aria-current={mediaActive ? undefined : 'page'}>Posts</a>
+              <a class="admin-nav__link" href="/admin/media" aria-current={mediaActive ? 'page' : undefined}>Media</a>
+              <a class="admin-nav__link" href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">
+                View site <span aria-hidden="true">↗</span>
+              </a>
             </nav>
           </div>
-          {userEmail && <span class="hidden text-sm text-muted sm:inline">{userEmail}</span>}
+          {userEmail && <span class="admin-user">{userEmail}</span>}
         </div>
       </header>
     )}

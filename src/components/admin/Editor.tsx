@@ -286,115 +286,56 @@ export default function Editor({ initialPost }: EditorProps) {
   );
 
   return (
-    <div className="pb-24">
-      <div className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8">
-          <div className="flex items-center gap-6">
-            <a className="hidden sm:inline" href="/admin" aria-label="TomeCMS dashboard">
-              <img className="h-8 w-auto" src="/brand/tomecms-logo.png" alt="TomeCMS" width="96" height="32" />
+    <div className="admin-editor">
+      <header className="admin-editor-bar">
+        <div className="admin-editor-bar__inner">
+          <div className="admin-editor-bar__start">
+            <a className="admin-editor-brand" href="/admin" aria-label="TomeCMS dashboard">
+              <img className="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
             </a>
-            <a className="text-sm font-medium text-accent hover:underline sm:border-l sm:border-line sm:pl-6" href="/admin">
-              <span aria-hidden="true">←</span> Posts
+            <a className="admin-toolbar-link" href="/admin">
+              <span aria-hidden="true">←</span> All posts
+            </a>
+            <a className="admin-toolbar-link admin-toolbar-link--site" href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">
+              View site <span aria-hidden="true">↗</span>
             </a>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted sm:inline" aria-live="polite">{saveState}</span>
-            <button className="rounded-md border border-line px-4 py-2 text-sm font-medium hover:bg-soft" onClick={() => saveAs('draft')} type="button">
+          <div className="admin-editor-actions">
+            <span className="admin-save-state" data-state={saveState === 'Saved' ? 'saved' : saveState === 'Saving…' ? 'saving' : 'unsaved'} aria-live="polite">
+              <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
+            </span>
+            <button className="admin-button admin-button--secondary" data-state={saveState === 'Saving…' ? 'loading' : undefined} onClick={() => saveAs('draft')} type="button">
               Save draft
             </button>
-            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-800" onClick={() => saveAs('published')} type="button">
+            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} onClick={() => saveAs('published')} type="button">
               {postStatus === 'published' ? 'Update' : 'Publish'}
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-5xl px-5 pt-10 sm:px-8">
-        {errorMessage && <p className="mb-6 border-l-2 border-red-600 pl-4 text-sm text-red-700" role="alert">{errorMessage}</p>}
+      <div className="admin-editor-workspace">
+        {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
 
-        <section aria-label="Post metadata" className="grid gap-x-8 gap-y-5 border-b border-line pb-10 sm:grid-cols-[9rem_minmax(0,28rem)] sm:pl-9">
-          <label className="contents">
-            <span className="self-center text-sm font-medium">Slug</span>
-            <input
-              className="w-full rounded-md border border-line px-3 py-2 text-sm"
-              onChange={(event) => {
-                slugTouched.current = true;
-                setSlug(event.target.value);
-                markDirty();
-              }}
-              placeholder="post-slug"
-              type="text"
-              value={slug}
-            />
-          </label>
-          <label className="contents">
-            <span className="self-center text-sm font-medium">Meta title</span>
-            <input
-              className="w-full rounded-md border border-line px-3 py-2 text-sm"
-              maxLength={70}
-              onChange={(event) => {
-                setMetaTitle(event.target.value);
-                markDirty();
-              }}
-              type="text"
-              value={metaTitle}
-            />
-          </label>
-          <label className="contents">
-            <span className="pt-2 text-sm font-medium">Meta description</span>
+        <div className="admin-editor-grid">
+          <article className="admin-editor-canvas">
+            <label className="sr-only" htmlFor="post-title">Post title</label>
             <textarea
-              className="min-h-24 w-full resize-y rounded-md border border-line px-3 py-2 text-sm"
-              maxLength={320}
-              onChange={(event) => {
-                setMetaDescription(event.target.value);
-                markDirty();
-              }}
-              value={metaDescription}
+              className="admin-title-input"
+              id="post-title"
+              maxLength={200}
+              onChange={(event) => changeTitle(event.target.value)}
+              placeholder="Untitled post"
+              rows={2}
+              value={title}
             />
-          </label>
-          <div className="text-sm font-medium">Cover image</div>
-          <div>
-            <div className="flex flex-wrap gap-3">
-              <button className="rounded-md border border-line px-4 py-3 text-sm font-medium hover:bg-soft" onClick={() => setPickerOpen(true)} ref={coverPickerTrigger} type="button">Choose from library</button>
-              <label className="inline-flex cursor-pointer items-center rounded-md border border-dashed border-line px-4 py-3 text-sm font-medium hover:bg-soft">
-                <input aria-label="Upload new" className="sr-only" accept={ACCEPTED_IMAGE_TYPES.join(',')} disabled={uploadingCover} onChange={(event) => void selectCover(event.currentTarget.files?.[0], event.currentTarget)} type="file" />
-                {uploadingCover ? 'Uploading…' : 'Upload new'}
-              </label>
-              {coverImage && <button className="rounded-md px-4 py-3 text-sm font-medium text-muted underline hover:text-ink" onClick={removeCover} type="button">Remove</button>}
-            </div>
-            <input name="coverImage" type="hidden" value={coverImage} />
-            <p className="mt-3 text-xs leading-5 text-muted">
-              Recommended: {COVER_IMAGE_GUIDANCE.recommendedWidth} × {COVER_IMAGE_GUIDANCE.recommendedHeight} px (16:9).
-              {' '}Minimum: {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.
-              {' '}Best: WebP or JPEG; PNG and AVIF are also supported. GIF is accepted but discouraged for covers, especially when animated.
-              {' '}Aim for {COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024} MB or less; {COVER_IMAGE_GUIDANCE.hardLimitBytes / 1024 / 1024} MB maximum.
-            </p>
-            {lowResolution && <p className="mt-2 text-sm text-amber-700" role="status">This image is below the recommended minimum of {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.</p>}
-            {coverImage && <img alt="Current cover" className="mt-4 aspect-[16/9] w-full max-w-sm rounded-lg object-cover" src={coverImage} />}
-          </div>
-        </section>
 
-        {pickerOpen && <MediaPicker onCancel={() => setPickerOpen(false)} onSelect={chooseCover} returnFocus={coverPickerTrigger.current} />}
-
-        <section className="mt-12 md:ml-32">
-          <label className="sr-only" htmlFor="post-title">Post title</label>
-          <textarea
-            className="w-full resize-none overflow-hidden border-0 bg-transparent font-display text-4xl font-semibold leading-tight tracking-tight outline-none placeholder:text-gray-300 sm:text-[2.5rem]"
-            id="post-title"
-            maxLength={200}
-            onChange={(event) => changeTitle(event.target.value)}
-            placeholder="Untitled post"
-            rows={2}
-            value={title}
-          />
-
-          <div className="max-w-3xl">
             <EditorRoot>
               <EditorContent
-                className="editor-canvas editor-content"
+                className="editor-canvas editor-content admin-editor-content"
                 editorProps={{
                   attributes: {
-                    class: 'prose prose-lg max-w-none prose-headings:font-display prose-a:text-accent prose-img:rounded-lg',
+                    class: 'prose prose-lg max-w-none prose-headings:font-sans prose-a:text-accent prose-img:rounded-lg',
                   },
                   handleDOMEvents: { keydown: (_view, event) => handleCommandNavigation(event) },
                   handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
@@ -413,8 +354,78 @@ export default function Editor({ initialPost }: EditorProps) {
                 <BlockInsertMenu />
               </EditorContent>
             </EditorRoot>
-          </div>
-        </section>
+          </article>
+
+          <aside className="admin-editor-settings" aria-label="Post settings">
+            <div className="admin-editor-settings__head">
+              <div><h2>Post settings</h2><p>URL, search details, and cover image.</p></div>
+              <span className="admin-status" data-status={postStatus}>{postStatus}</span>
+            </div>
+            <label className="admin-field">
+              <span>Slug</span>
+              <input
+                className="admin-control"
+                onChange={(event) => {
+                  slugTouched.current = true;
+                  setSlug(event.target.value);
+                  markDirty();
+                }}
+                placeholder="post-slug"
+                type="text"
+                value={slug}
+              />
+              <small>Used in the post URL.</small>
+            </label>
+            <label className="admin-field">
+              <span>Meta title <small>{metaTitle.length}/70</small></span>
+              <input
+                className="admin-control"
+                maxLength={70}
+                onChange={(event) => {
+                  setMetaTitle(event.target.value);
+                  markDirty();
+                }}
+                type="text"
+                value={metaTitle}
+              />
+            </label>
+            <label className="admin-field">
+              <span>Meta description <small>{metaDescription.length}/320</small></span>
+              <textarea
+                className="admin-control admin-control--textarea"
+                maxLength={320}
+                onChange={(event) => {
+                  setMetaDescription(event.target.value);
+                  markDirty();
+                }}
+                value={metaDescription}
+              />
+            </label>
+            <div className="admin-field">
+              <span>Cover image</span>
+              <div className="admin-cover-actions">
+                <button className="admin-button admin-button--secondary" onClick={() => setPickerOpen(true)} ref={coverPickerTrigger} type="button">
+                  Choose from library
+                </button>
+                <label className="admin-upload" data-state={uploadingCover ? 'loading' : undefined}>
+                  <input aria-label="Upload new" className="sr-only" accept={ACCEPTED_IMAGE_TYPES.join(',')} disabled={uploadingCover} onChange={(event) => void selectCover(event.currentTarget.files?.[0], event.currentTarget)} type="file" />
+                  {uploadingCover ? 'Uploading…' : 'Upload new'}
+                </label>
+                {coverImage && <button className="admin-button admin-button--secondary" onClick={removeCover} type="button">Remove</button>}
+              </div>
+              <input name="coverImage" type="hidden" value={coverImage} />
+              <p className="admin-cover-help">
+                Recommended: {COVER_IMAGE_GUIDANCE.recommendedWidth} × {COVER_IMAGE_GUIDANCE.recommendedHeight} px (16:9).
+                {' '}Minimum: {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.
+                {' '}Best: WebP or JPEG; PNG and AVIF are also supported. GIF is accepted but discouraged for covers, especially when animated.
+                {' '}Aim for {COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024} MB or less; {COVER_IMAGE_GUIDANCE.hardLimitBytes / 1024 / 1024} MB maximum.
+              </p>
+              {lowResolution && <p className="admin-cover-warning" role="status">This image is below the recommended minimum of {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.</p>}
+              {coverImage && <img alt="Current cover" className="admin-cover-preview" src={coverImage} />}
+            </div>
+          </aside>
+        </div>
+        {pickerOpen && <MediaPicker onCancel={() => setPickerOpen(false)} onSelect={chooseCover} returnFocus={coverPickerTrigger.current} />}
       </div>
     </div>
   );

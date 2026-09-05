@@ -1,0 +1,13 @@
+.tomecms-logo {
+  display: block;
+  flex-shrink: 0;
+  width: 10rem;
+  height: 2rem;
+  /* Crop the PNG's transparent vertical padding without stretching the wordmark. */
+  object-fit: cover;
+  object-position: center 48%;
+}
+
+@media (min-width: 64rem) {
+  .tomecms-logo { width: 15rem; height: 3rem; }
+}

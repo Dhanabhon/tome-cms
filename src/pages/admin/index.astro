@@ -34,55 +34,73 @@ const dateFormatter = new Intl.DateTimeFormat('en', {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
+const publishedCount = posts.filter((post) => post.status === 'published').length;
+const draftCount = posts.length - publishedCount;
 ---
 
 <AdminLayout title="Posts" userEmail={userEmail}>
-  <section class="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
-    <div class="flex items-center justify-between gap-6">
-      <h1 class="font-display text-5xl font-semibold tracking-tight sm:text-6xl">Posts</h1>
+  <section class="admin-page">
+    <header class="admin-page__head">
+      <div>
+        <h1>Posts</h1>
+        <p>Draft, publish, and keep your writing in one place.</p>
+      </div>
       {!authRequired && !errorMessage && (
-        <a class="rounded-md bg-accent px-5 py-3 text-sm font-medium text-white hover:bg-blue-800" href="/admin/new">New post</a>
+        <a class="admin-button admin-button--primary" href="/admin/new">New post <span aria-hidden="true">+</span></a>
       )}
-    </div>
+    </header>
 
     {authRequired ? (
-      <form class="mt-12 max-w-md space-y-5 border-t border-line pt-8" data-auth-form>
-        <div>
-          <h2 class="font-display text-3xl font-semibold">Sign in</h2>
-          <p class="mt-2 text-sm leading-6 text-muted">Use an existing Supabase email and password account.</p>
+      <div class="admin-auth">
+        <div class="admin-auth__intro">
+          <h2>Welcome back</h2>
+          <p>Sign in with the owner account you created during setup.</p>
         </div>
-        <label class="block">
-          <span class="mb-2 block text-sm font-medium">Email</span>
-          <input class="w-full rounded-md border border-line px-3 py-2" name="email" required type="email" autocomplete="email" />
-        </label>
-        <label class="block">
-          <span class="mb-2 block text-sm font-medium">Password</span>
-          <input class="w-full rounded-md border border-line px-3 py-2" name="password" required type="password" autocomplete="current-password" />
-        </label>
-        <p class="text-sm text-red-700" data-auth-error role="alert"></p>
-        <button class="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800" type="submit">Sign in</button>
-      </form>
-    ) : errorMessage ? (
-      <p class="mt-12 border-l-2 border-accent pl-4 text-muted" role="alert">{errorMessage}</p>
-    ) : (
-      <div class="mt-10 border-t border-line">
-        <div class="hidden grid-cols-[1fr_10rem_14rem] border-b border-line px-5 py-4 text-xs font-semibold uppercase tracking-[0.1em] text-muted sm:grid">
-          <span>Title</span>
-          <span>Status</span>
-          <span>Updated</span>
-        </div>
-        {posts.map((post) => (
-          <a
-            class="group grid gap-2 border-b border-line px-1 py-6 transition-colors hover:border-l-2 hover:border-l-accent hover:bg-soft hover:pl-5 sm:grid-cols-[1fr_10rem_14rem] sm:items-center sm:px-5"
-            href={`/admin/edit/${post.id}`}
-          >
-            <span class="font-display text-2xl font-medium group-hover:text-accent">{post.title}</span>
-            <span class="text-sm capitalize text-muted">{post.status}</span>
-            <time class="text-sm text-muted" datetime={post.updated_at}>{dateFormatter.format(new Date(post.updated_at))}</time>
-          </a>
-        ))}
-        {!posts.length && <p class="border-b border-line py-12 text-center text-muted">No posts yet. Start with a new one.</p>}
+        <form class="admin-auth__form" data-auth-form>
+          <label class="admin-field">
+            <span>Email address</span>
+            <input class="admin-control" name="email" required type="email" autocomplete="email" />
+          </label>
+          <label class="admin-field">
+            <span>Password</span>
+            <input class="admin-control" name="password" required type="password" autocomplete="current-password" />
+          </label>
+          <p class="admin-form-error" data-auth-error role="alert"></p>
+          <button class="admin-button admin-button--primary" type="submit">Sign in</button>
+        </form>
       </div>
+    ) : errorMessage ? (
+      <p class="admin-alert" role="alert">{errorMessage}</p>
+    ) : (
+      <>
+        <div class="admin-summary" aria-label="Post summary">
+          <p><strong>{posts.length}</strong><span>Total</span></p>
+          <p><strong>{draftCount}</strong><span>Drafts</span></p>
+          <p><strong>{publishedCount}</strong><span>Published</span></p>
+        </div>
+        <div class="admin-posts">
+          <div class="admin-posts__head" aria-hidden="true">
+            <span>Post</span>
+            <span>Status</span>
+            <span>Last updated</span>
+          </div>
+          {posts.map((post) => (
+            <a class="admin-post-row" href={`/admin/edit/${post.id}`}>
+              <span class="admin-post-row__title"><strong>{post.title}</strong><small>/{post.slug}</small></span>
+              <span class="admin-status" data-status={post.status}>{post.status}</span>
+              <time datetime={post.updated_at}>{dateFormatter.format(new Date(post.updated_at))}</time>
+              <span class="admin-post-row__arrow" aria-hidden="true">→</span>
+            </a>
+          ))}
+          {!posts.length && (
+            <div class="admin-empty">
+              <span class="admin-empty__mark" aria-hidden="true">+</span>
+              <div><h2>Your first post starts here</h2><p>Create a draft now and publish whenever it is ready.</p></div>
+              <a class="admin-button admin-button--secondary" href="/admin/new">Create first post</a>
+            </div>
+          )}
+        </div>
+      </>
     )}
   </section>
 </AdminLayout>

@@ -393,7 +393,7 @@ test.describe('editor block insertion', () => {
       const editor = page.locator('.ProseMirror');
       const addBlock = page.getByRole('button', { name: 'Add block' });
       await editor.click();
-      await page.keyboard.type('i'.repeat(125));
+      await page.keyboard.type('i'.repeat(128));
       await addBlock.click();
 
       let bounds = await blockControlBounds(page);
