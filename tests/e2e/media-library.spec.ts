@@ -181,6 +181,11 @@ test.describe('media library desktop', () => {
       await card.click();
       const details = page.getByRole('dialog', { name: 'Image details' });
       await expect(details).toBeVisible();
+      await expect(details.getByRole('button', { name: 'Close details' })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(details).toHaveCount(0);
+      await expect(card).toBeFocused();
+      await card.click();
       await details.getByLabel('Alt text').fill('A tiny test image');
       await details.getByRole('button', { name: 'Save' }).click();
       await expect(details.getByRole('status')).toContainText('Saved.');
@@ -191,9 +196,20 @@ test.describe('media library desktop', () => {
 
       await page.getByRole('dialog', { name: 'Image details' }).getByLabel('Category').selectOption('');
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByRole('dialog', { name: 'Image details' }).getByRole('status')).toContainText('Saved.');
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
       await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Unsorted' }).click();
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
+
+      await page.getByRole('button', { name: /pixel\.png/i }).click();
+      await page.getByRole('dialog', { name: 'Image details' }).getByLabel('Category').selectOption({ label: 'Covers' });
+      await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByRole('dialog', { name: 'Image details' }).getByRole('status')).toContainText('Saved.');
+      await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
+      await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
       page.once('dialog', (dialog) => dialog.accept());
@@ -245,6 +261,41 @@ test.describe('media library desktop', () => {
       releaseUpload();
       await expect(page.getByText('Uploading image…')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /existing-01\.png|pixel\.png/i })).toHaveCount(0);
+      await expect(page.getByText('No media yet')).toBeVisible();
+    } finally {
+      releaseUpload();
+      await deleteOwner(owner);
+    }
+  });
+
+  test('keeps upload refresh coupled to the current category', async ({ page }) => {
+    const owner = await createOwner('media-library-category-race');
+    let releaseUpload = () => {};
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+
+    try {
+      await openMediaLibrary(page, owner);
+      for (const name of ['Headers', 'Covers']) {
+        await page.getByLabel('Category name').fill(name);
+        await page.getByRole('button', { name: 'Create category' }).click();
+        await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name, exact: true })).toBeVisible();
+      }
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Headers', exact: true }).click();
+      await page.route('**/storage/v1/object/blog-media/**', async (route) => {
+        if (route.request().method() === 'POST') await uploadGate;
+        return route.continue();
+      });
+
+      await page.getByLabel('Upload image').setInputFiles(IMAGE_FIXTURES[0]);
+      await expect(page.getByText('Uploading image…')).toBeVisible();
+      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
+      await expect(page.getByText('No media yet')).toBeVisible();
+
+      releaseUpload();
+      await expect(page.getByText('Uploading image…')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
       await expect(page.getByText('No media yet')).toBeVisible();
     } finally {
       releaseUpload();
@@ -333,13 +384,24 @@ test.describe('media library desktop', () => {
   });
 });
 
-test('media library has no mobile horizontal overflow', async ({ page }, testInfo) => {
+test('mobile media library exposes category selection and category CRUD without overflow', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'Responsive behavior is covered in the mobile project.');
   const owner = await createOwner('media-library-mobile');
 
   try {
     await openMediaLibrary(page, owner);
     await expect(page.getByText('No media yet')).toBeVisible();
+    await expect(page.getByLabel('Media category')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Media categories' })).toBeHidden();
+    await page.getByLabel('Category name').fill('Mobile');
+    await page.getByRole('button', { name: 'Create category' }).click();
+    await page.getByLabel('Media category').selectOption({ label: 'Mobile' });
+    await page.getByRole('button', { name: 'Rename Mobile' }).click();
+    await page.getByRole('textbox', { name: 'Rename Mobile' }).fill('Phone');
+    await page.getByRole('button', { name: 'Save category name' }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Delete Phone' }).click();
+    await expect(page.getByLabel('Media category').getByRole('option', { name: 'Phone' })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth)).toBe(true);
   } finally {
     await deleteOwner(owner);

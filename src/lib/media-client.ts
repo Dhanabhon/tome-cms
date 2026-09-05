@@ -77,8 +77,8 @@ export async function deleteMediaFolder(id: string) {
 }
 
 export async function saveMediaDraft(id: string, draft: MediaDraft): Promise<MediaItem> {
-  if (draft.altText.length > 300) throw new Error('Alt text must be 300 characters or fewer.');
   const { supabase, user } = await mutationUser();
+  if (draft.altText.length > 300) throw new Error('Alt text must be 300 characters or fewer.');
   const { data, error } = await supabase
     .from('media_items')
     .update({ alt_text: draft.altText.trim() || null, folder_id: draft.folderId || null })
