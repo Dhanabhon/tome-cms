@@ -138,7 +138,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                     <span>{post.status === 'published' ? 'Published' : 'Updated'} <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                   </div>
                   <p class="admin-story-sibling">
-                    {sibling ? <a href={`/admin/edit/${sibling.id}`}>{sibling.locale.toUpperCase()} {sibling.status}</a> : <span>{post.locale === 'th' ? 'EN' : 'TH'} missing</span>}
+                    {sibling ? <a href={`/admin/edit/${sibling.id}`}>{sibling.locale.toUpperCase()} {sibling.status}</a> : <a href={`/admin/new?${new URLSearchParams({ sourcePostId: post.id, locale: post.locale === 'th' ? 'en' : 'th' })}`}>{post.locale === 'th' ? 'EN' : 'TH'} missing</a>}
                   </p>
                 </div>
                 <details class="admin-story-menu">

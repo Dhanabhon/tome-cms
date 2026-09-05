@@ -20,14 +20,22 @@ import slugify from 'slugify';
 
 import { uploadImage } from '../../lib/media-client';
 import { ACCEPTED_IMAGE_TYPES, COVER_IMAGE_GUIDANCE } from '../../lib/media';
-import type { MediaAsset, Post, PostStatus } from '../../types/cms';
+import { POST_LOCALES, type MediaAsset, type Post, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
 import MediaPicker from './MediaPicker';
 import SlashCommands, { slashCommand } from './SlashCommands';
 
+interface EditorSourcePost {
+  coverImage: string | null;
+  id: string;
+}
+
 interface EditorProps {
-  initialPost?: Post;
+  initialPost?: Omit<Post, 'translation_group_id'>;
+  locale: PostLocale;
+  sourcePost?: EditorSourcePost;
+  translations: PostTranslationSummary[];
 }
 
 type SaveState = 'Saved' | 'Saving…' | 'Unsaved';
@@ -127,7 +135,7 @@ function FormattingBubble() {
   );
 }
 
-export default function Editor({ initialPost }: EditorProps) {
+export default function Editor({ initialPost, locale, sourcePost, translations }: EditorProps) {
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
   const slugTouched = useRef(Boolean(initialPost));
@@ -139,7 +147,9 @@ export default function Editor({ initialPost }: EditorProps) {
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
-  const [coverImage, setCoverImage] = useState(initialPost?.cover_image ?? '');
+  const [coverImage, setCoverImage] = useState(
+    initialPost?.cover_image ?? sourcePost?.coverImage ?? '',
+  );
   const [coverAsset, setCoverAsset] = useState<MediaAsset | null>(null);
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
@@ -299,6 +309,18 @@ export default function Editor({ initialPost }: EditorProps) {
             <a className="admin-toolbar-link admin-toolbar-link--site" href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">
               View site <span aria-hidden="true">↗</span>
             </a>
+            <nav className="admin-nav" aria-label="Post languages">
+              {POST_LOCALES.map((language) => {
+                const translation = translations.find(({ locale: translationLocale }) => translationLocale === language);
+                const current = language === locale;
+                const label = current
+                  ? `${language.toUpperCase()} ${initialPost?.status ?? 'draft'}`
+                  : translation
+                    ? `${language.toUpperCase()} ${translation.status}`
+                    : `${language.toUpperCase()} missing`;
+                return <span className="admin-nav__link" aria-current={current ? 'page' : undefined} key={language}>{label}</span>;
+              })}
+            </nav>
           </div>
           <div className="admin-editor-actions">
             <span className="admin-save-state" data-state={saveState === 'Saved' ? 'saved' : saveState === 'Saving…' ? 'saving' : 'unsaved'} aria-live="polite">
