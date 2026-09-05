@@ -482,12 +482,29 @@ test('active block menu does not create mobile horizontal overflow', async ({ pa
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     await page.goto('/admin/new');
 
-    await page.locator('.ProseMirror').click();
+    const editor = page.locator('.ProseMirror');
+    await editor.click();
+    await page.keyboard.type('First block');
+    for (let index = 0; index < 18; index += 1) {
+      await page.keyboard.press('End');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type(`Block ${index + 1}`);
+    }
+    const finalBlock = editor.locator('p').last();
+    await finalBlock.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      window.scrollBy(0, rect.bottom - window.innerHeight + 40);
+    });
+    await finalBlock.click({ position: { x: 4, y: 4 } });
     await page.getByRole('button', { name: 'Add block' }).click();
     await expect(page.getByRole('menu', { name: 'Insert block' })).toBeVisible();
     const bounds = await blockControlBounds(page);
+    const finalBlockBounds = await finalBlock.boundingBox();
+    if (!finalBlockBounds) throw new Error('Focused block is not measurable.');
     expect(bounds.trigger.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
     expect(bounds.trigger.x + bounds.trigger.width).toBeLessThanOrEqual(bounds.editor.x + 1);
+    expect(bounds.trigger.y).toBeGreaterThanOrEqual(finalBlockBounds.y - 1);
+    expect(bounds.trigger.y).toBeLessThanOrEqual(finalBlockBounds.y + finalBlockBounds.height + 1);
     expect(bounds.menu.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
     expect(bounds.menu.x + bounds.menu.width).toBeLessThanOrEqual(bounds.canvas.x + bounds.canvas.width + 1);
     expect(bounds.menu.y).toBeGreaterThanOrEqual(0);

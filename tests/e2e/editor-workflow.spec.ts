@@ -29,7 +29,7 @@ test('preview opens immediately with the newest draft and requires its owner', a
     } });
     expect(profile.ok()).toBe(true);
     await page.clock.install();
-    await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(new Date(Date.now() + 1_000));
     const title = `Newest preview title ${crypto.randomUUID()}`;
     await page.getByLabel('Post title').fill(title);
     await page.locator('.ProseMirror').fill('Newest unsaved sentence');
@@ -173,7 +173,7 @@ test('preview save failure persists with same-tab retry and a safe return link',
       return route.continue();
     });
     await page.clock.install();
-    await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(new Date(Date.now() + 1_000));
     await page.getByLabel('Post title').fill('Retry preview');
     await page.locator('.ProseMirror').fill('Failed draft sentence');
     const popupPromise = page.waitForEvent('popup');
@@ -216,7 +216,7 @@ test('preview reports a blocked popup without starting a save', async ({ page })
     await page.goto('/admin/new');
     await expect(page.getByLabel('Post title')).toBeVisible();
     await page.clock.install();
-    await page.clock.pauseAt(new Date());
+    await page.clock.pauseAt(new Date(Date.now() + 1_000));
     let saves = 0;
     page.on('request', (request) => { if (request.url().endsWith('/api/posts')) saves += 1; });
     await page.getByLabel('Post title').fill('Blocked popup draft');
@@ -338,6 +338,20 @@ test('focused writer uses a centered canvas and accessible settings drawer', asy
     expect(bounds.width).toBeLessThanOrEqual(760);
     expect(Math.abs(bounds.x + bounds.width / 2 - page.viewportSize()!.width / 2)).toBeLessThan(2);
     const settings = page.getByRole('button', { name: 'Settings', exact: true });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    if (testInfo.project.name === 'mobile') {
+      for (const width of [320, 375, 414, 768, 1280, 1440]) {
+        await page.setViewportSize({ width, height: 800 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        for (const control of await page.getByRole('navigation', { name: 'Post languages' }).getByRole('button').all()) {
+          const target = await control.boundingBox();
+          expect(target?.width).toBeGreaterThanOrEqual(44);
+          expect(target?.height).toBeGreaterThanOrEqual(44);
+        }
+        await expect(settings).toBeInViewport();
+      }
+      await page.setViewportSize({ width: 414, height: 800 });
+    }
     await settings.click();
     const drawer = page.getByRole('dialog', { name: 'Post settings' });
     await expect(drawer).toBeVisible();
@@ -351,6 +365,11 @@ test('focused writer uses a centered canvas and accessible settings drawer', asy
       expect(drawerBounds?.width).toBe(page.viewportSize()!.width);
       expect(drawerBounds?.height).toBe(page.viewportSize()!.height);
     }
+    expect(await drawer.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [...style.transitionDuration.split(','), ...style.animationDuration.split(',')]
+        .every((duration) => Number.parseFloat(duration) * (duration.includes('ms') ? 1 : 1000) <= 150);
+    })).toBe(true);
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
     await expect(settings).toBeFocused();

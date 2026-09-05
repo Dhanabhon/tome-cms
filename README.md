@@ -8,6 +8,11 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
 - Draft and published post workflows
 - Novel editor with formatting, slash commands, and image uploads
 - Debounced draft saving
+- Admin shell routes for Posts, Media, Profile, and Settings; the focused post editor is outside that shell
+- Manual Thai (TH) and English (EN) editions with independent draft, publish, and unpublish states
+- Localized public routes at `/<locale>` and `/<locale>/blog/<slug>`, with legacy routes redirected to their localized equivalents
+- Owner-only Preview that saves and opens the newest draft
+- Profile details reused by the global post author block
 - Supabase authentication, Row Level Security, and Storage policies
 - A secure first-run installer for site settings and the owner account
 - SEO, GEO, and AEO foundations with canonical URLs, social metadata, structured data, and automatic discovery files
@@ -141,9 +146,10 @@ npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
 npm run admin:reset-password # Reset the installed owner password
 npm run test:e2e:media # Run focused Media Library and public blog regressions
+npm run test:e2e:publishing # Run focused multilingual publishing regressions
 ```
 
-Run `npm run test:e2e:media` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
+Run `npm run test:e2e:media` and `npm run test:e2e:publishing` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
 
 ## Search and answer visibility
 
@@ -242,11 +248,15 @@ For every later deployment:
 1. Pull the new code.
 2. Back up Postgres metadata and Supabase Storage objects separately.
 3. Apply every pending SQL migration in `supabase/migrations/`.
-4. Only then deploy and restart the application:
+4. Deploy and restart the application:
 
 ```sh
 ./scripts/deploy-vps.sh
 ```
+
+5. Run smoke checks for the public homepage, a localized article URL, owner sign-in, and a new draft save.
+
+Never seed or reset production. `supabase db reset` is only for deliberately disposable local development data.
 
 TomeCMS continues to use Supabase Storage in managed and self-hosted deployments. An external S3-compatible backend is configured by the operator through Supabase Storage; TomeCMS adds no MinIO container, S3 SDK, or S3 credentials to browser code.
 
