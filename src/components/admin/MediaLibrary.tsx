@@ -55,9 +55,13 @@ export default function MediaLibrary({ mode }: Props) {
   const [draft, setDraft] = useState<MediaDraft>({ altText: '', folderId: '' });
   const [detailsStatus, setDetailsStatus] = useState<string | null>(null);
   const currentQuery = useRef('');
+  const currentSelection = useRef<CategorySelection>('all');
   const requestId = useRef(0);
   const selectedId = useRef<string | null>(null);
   const urlInput = useRef<HTMLInputElement>(null);
+  const detailsDialog = useRef<HTMLDialogElement>(null);
+  const detailsClose = useRef<HTMLButtonElement>(null);
+  const detailsOpener = useRef<HTMLButtonElement | null>(null);
 
   const load = useCallback(async (nextPage: number, append: boolean, term: string, nextSelection: CategorySelection) => {
     const id = ++requestId.current;
@@ -104,7 +108,20 @@ export default function MediaLibrary({ mode }: Props) {
     void load(1, false, debouncedSearch, selection);
   }, [debouncedSearch, load, selection]);
 
+  useEffect(() => {
+    const dialog = detailsDialog.current;
+    if (!dialog) return;
+    if (selected) {
+      if (!dialog.open) dialog.showModal();
+      detailsClose.current?.focus();
+    } else {
+      if (dialog.open) dialog.close();
+      detailsOpener.current?.focus();
+    }
+  }, [selected]);
+
   function selectCategory(nextSelection: CategorySelection) {
+    currentSelection.current = nextSelection;
     setPage(1);
     setSelection(nextSelection);
   }
@@ -113,11 +130,15 @@ export default function MediaLibrary({ mode }: Props) {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
+    const uploadSelection = currentSelection.current;
+    const uploadQuery = currentQuery.current;
     setUploading(true);
     setError(null);
     try {
-      await uploadImage(file, { folderId: folderId(selection) ?? null });
-      await load(1, false, currentQuery.current, selection);
+      await uploadImage(file, { folderId: folderId(uploadSelection) ?? null });
+      if (currentSelection.current === uploadSelection && currentQuery.current === uploadQuery) {
+        await load(1, false, uploadQuery, uploadSelection);
+      }
     } catch (uploadError) {
       setError(errorMessage(uploadError));
       setFailedRequest(null);
@@ -158,13 +179,17 @@ export default function MediaLibrary({ mode }: Props) {
     try {
       await deleteMediaFolder(folder.id);
       setFolders((current) => current.filter((currentFolder) => currentFolder.id !== folder.id));
-      if (selection === folder.id) selectCategory('unsorted');
+      setItems((current) => current.map((item) => (item.folder_id === folder.id ? { ...item, folder_id: null } : item)));
+      if (selected?.folder_id === folder.id) setSelected((current) => (current ? { ...current, folder_id: null } : current));
+      if (draft.folderId === folder.id) setDraft((current) => ({ ...current, folderId: '' }));
+      if (currentSelection.current === folder.id) selectCategory('unsorted');
     } catch (deleteError) {
       setCategoryError(errorMessage(deleteError));
     }
   }
 
-  function openDetails(item: MediaAsset) {
+  function openDetails(item: MediaAsset, opener: HTMLButtonElement) {
+    detailsOpener.current = opener;
     selectedId.current = item.id;
     setSelected(item);
     setDraft({ altText: item.alt_text ?? '', folderId: item.folder_id ?? '' });
@@ -182,6 +207,7 @@ export default function MediaLibrary({ mode }: Props) {
         setSelected(asset);
         setDetailsStatus('Saved.');
       }
+      await load(1, false, currentQuery.current, currentSelection.current);
     } catch (saveError) {
       setDetailsStatus(errorMessage(saveError));
     }
@@ -199,6 +225,20 @@ export default function MediaLibrary({ mode }: Props) {
     }
   }
 
+  function closeDetails() {
+    selectedId.current = null;
+    setSelected(null);
+  }
+
+  function categoryActions(folder: MediaFolder) {
+    return <>
+      <button aria-label={`Rename ${folder.name}`} className="media-category-action" onClick={() => { setRenaming(folder); setRenameName(folder.name); }} type="button">Rename {folder.name}</button>
+      <button aria-label={`Delete ${folder.name}`} className="media-category-action" onClick={() => void handleDeleteCategory(folder)} type="button">Delete {folder.name}</button>
+    </>;
+  }
+
+  const selectedFolder = folders.find((folder) => folder.id === selection);
+
   const categoryButtons = (
     <>
       <button aria-pressed={selection === 'all'} className="media-category" onClick={() => selectCategory('all')} type="button">All media</button>
@@ -206,8 +246,7 @@ export default function MediaLibrary({ mode }: Props) {
       {folders.map((folder) => (
         <div className="media-category-row" key={folder.id}>
           <button aria-pressed={selection === folder.id} className="media-category" onClick={() => selectCategory(folder.id)} type="button">{folder.name}</button>
-          <button aria-label={`Rename ${folder.name}`} className="media-category-action" onClick={() => { setRenaming(folder); setRenameName(folder.name); }} type="button">Rename {folder.name}</button>
-          <button aria-label={`Delete ${folder.name}`} className="media-category-action" onClick={() => void handleDeleteCategory(folder)} type="button">Delete {folder.name}</button>
+          {categoryActions(folder)}
         </div>
       ))}
     </>
@@ -230,6 +269,7 @@ export default function MediaLibrary({ mode }: Props) {
         <aside className="media-categories">
           <nav aria-label="Media categories">{categoryButtons}</nav>
           <label className="media-category-select"><span className="sr-only">Media category</span><select aria-label="Media category" onChange={(event) => selectCategory(event.target.value)} value={selection}><option value="all">All media</option><option value="unsorted">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+          {selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
           <form className="media-category-form" onSubmit={handleCreateCategory}><label><span className="sr-only">Category name</span><input aria-label="Category name" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button type="submit">Create category</button></form>
           {renaming && <form className="media-category-form" onSubmit={handleRenameCategory}><label><span className="sr-only">Rename {renaming.name}</span><input aria-label={`Rename ${renaming.name}`} maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button type="submit">Save category name</button><button onClick={() => setRenaming(null)} type="button">Cancel rename</button></form>}
           {categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
@@ -242,12 +282,12 @@ export default function MediaLibrary({ mode }: Props) {
           {!loading && !error && !items.length && <div className="media-empty"><h2 className="font-display text-3xl font-semibold">No media yet</h2><p className="mt-2 text-sm text-muted">Upload an image to start your library.</p></div>}
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {
             const format = item.mime_type.replace('image/', '').toUpperCase();
-            return <button aria-label={`${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}`} className="media-card" key={item.id} onClick={() => openDetails(item)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm" title={item.original_name}>{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span></button>;
+            return <button aria-label={`${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}`} className="media-card" key={item.id} onClick={(event) => openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm" title={item.original_name}>{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span></button>;
           })}</div>{hasMore && <div className="media-status"><button className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{loading ? 'Loading…' : 'Load more'}</button></div>}</>}
         </div>
       </div>
 
-      {selected && <div aria-label="Image details" aria-modal="true" className="media-details-backdrop" role="dialog"><div className="media-details"><button aria-label="Close details" className="media-details-close" onClick={() => { selectedId.current = null; setSelected(null); }} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label>Category<select aria-label="Category" onChange={(event) => setDraft((current) => ({ ...current, folderId: event.target.value }))} value={draft.folderId}><option value="">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}</div></div>}
+      <dialog aria-label="Image details" className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label="Close details" className="media-details-close" onClick={closeDetails} ref={detailsClose} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label>Category<select aria-label="Category" onChange={(event) => setDraft((current) => ({ ...current, folderId: event.target.value }))} value={draft.folderId}><option value="">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}</div>}</dialog>
     </section>
   );
 }

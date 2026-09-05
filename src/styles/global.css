@@ -144,12 +144,17 @@ body {
   @apply hidden;
 }
 
-.media-details-backdrop {
-  @apply fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center;
+.media-category-mobile-actions {
+  @apply hidden;
 }
 
 .media-details {
-  @apply relative max-h-full w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-xl;
+  max-height: calc(100% - 2rem);
+  @apply w-full max-w-lg overflow-y-auto rounded-lg border-0 bg-white p-5 shadow-xl;
+}
+
+.media-details::backdrop {
+  @apply bg-black/40;
 }
 
 .media-details > img {
@@ -184,6 +189,10 @@ body {
 
   .media-category-select {
     display: block;
+  }
+
+  .media-category-mobile-actions {
+    @apply mt-2 flex flex-wrap gap-2;
   }
 }
 
