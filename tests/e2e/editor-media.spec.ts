@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { createOwner, deleteOwner, signInAdmin, type TestOwner } from './support';
+import { createOwner, cleanupEditor, signInAdmin, type TestOwner } from './support';
 
 const PIXEL = {
   buffer: Buffer.from(
@@ -99,8 +99,7 @@ test.describe('editor cover media', () => {
         })
         .toBe(asset.publicUrl);
     } finally {
-      await owner.client.from('posts').delete().eq('author_id', owner.id);
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -129,7 +128,7 @@ test.describe('editor cover media', () => {
         return data?.cover_image;
       }).toMatch(/\/storage\/v1\/object\/public\/blog-media\//);
     } finally {
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -157,7 +156,7 @@ test.describe('editor cover media', () => {
       await expect(page.getByLabel('Meta title')).toHaveValue('Keep this unsaved meta title');
       await expect(upload).toHaveValue('');
     } finally {
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -190,7 +189,7 @@ test.describe('editor cover media', () => {
       await expect(page.locator('input[name="coverImage"]')).toHaveValue(asset.publicUrl);
     } finally {
       releaseUpload();
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -235,8 +234,7 @@ test.describe('editor cover media', () => {
         })
         .toBeNull();
     } finally {
-      await owner.client.from('posts').delete().eq('id', post.id);
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 });
@@ -295,7 +293,7 @@ test.describe('editor block insertion', () => {
       await expect(picker).toHaveCount(0);
       await expect(editor).toBeFocused();
     } finally {
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -320,7 +318,7 @@ test.describe('editor block insertion', () => {
       await expect(page.getByRole('button', { name: 'Bold' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Add block' })).toHaveCount(0);
     } finally {
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -351,7 +349,7 @@ test.describe('editor block insertion', () => {
       await expect(picker.getByRole('alert')).toContainText('Forced inline upload failure');
       await expect(editor).toHaveJSProperty('innerHTML', originalContent);
     } finally {
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -392,7 +390,7 @@ test.describe('editor block insertion', () => {
       await expect(editor.locator('img')).toHaveAttribute('src', asset.publicUrl);
     } finally {
       releaseUpload();
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 
@@ -440,7 +438,7 @@ test.describe('editor block insertion', () => {
       expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.viewport.height - 8);
       expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.trigger.y + 1);
     } finally {
-      await deleteOwner(owner);
+      await cleanupEditor(page, owner);
     }
   });
 });
@@ -469,7 +467,7 @@ test('cover media picker fills the mobile viewport', async ({ page }, testInfo) 
     await expect(picker).toHaveCount(0);
     await expect(opener).toBeFocused();
   } finally {
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -511,6 +509,6 @@ test('active block menu does not create mobile horizontal overflow', async ({ pa
     expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.viewport.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });

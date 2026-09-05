@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Request } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 function requiredEnv(name: 'PUBLIC_SUPABASE_ANON_KEY' | 'PUBLIC_SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY') {
@@ -12,6 +12,8 @@ export const anonKey = requiredEnv('PUBLIC_SUPABASE_ANON_KEY');
 export const admin = createClient(supabaseUrl, requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+const editorWrites = new WeakMap<Page, Set<Promise<void>>>();
 
 export interface TestOwner {
   client: SupabaseClient;
@@ -46,6 +48,21 @@ export async function deleteOwner(owner: TestOwner) {
   }
   const { error } = await admin.auth.admin.deleteUser(owner.id);
   if (error) throw error;
+}
+
+export async function cleanupEditor(page: Page, ...owners: TestOwner[]) {
+  if (!page.isClosed()) {
+    await page.unrouteAll({ behavior: 'wait' });
+    // Stop new writes, then drain existing writes before deleting their database rows.
+    await page.route('**/*', (route) => /^(POST|PUT|PATCH|DELETE)$/.test(route.request().method()) ? route.abort() : route.continue());
+    await Promise.all(editorWrites.get(page) ?? []);
+    await page.close();
+  }
+  for (const owner of owners) {
+    const { error } = await admin.from('posts').delete().eq('author_id', owner.id);
+    if (error) throw error;
+    await deleteOwner(owner);
+  }
 }
 
 export async function leaseSiteOwner(owner: TestOwner) {
@@ -86,6 +103,25 @@ export async function leaseSiteOwner(owner: TestOwner) {
 }
 
 export async function signInAdmin(page: Page, owner: TestOwner) {
+  if (!editorWrites.has(page)) {
+    const writes = new Set<Promise<void>>();
+    editorWrites.set(page, writes);
+    page.on('request', (request) => {
+      if (!/^(POST|PUT|PATCH|DELETE)$/.test(request.method())) return;
+      const pending = new Promise<void>((resolve) => {
+        const finished = (completed: Request) => {
+          if (completed !== request) return;
+          page.off('requestfinished', finished);
+          page.off('requestfailed', finished);
+          resolve();
+        };
+        page.on('requestfinished', finished);
+        page.on('requestfailed', finished);
+      });
+      writes.add(pending);
+      void pending.then(() => writes.delete(pending));
+    });
+  }
   await page.goto('/admin');
   await page.locator('input[name="email"]').fill(owner.email);
   await page.locator('input[name="password"]').fill(owner.password);

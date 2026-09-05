@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
+import { cleanupEditor, createOwner, leaseSiteOwner, signInAdmin } from './support';
 
 const draftBody = (title: string, slug: string) => ({
   contentHtml: '<p>Draft body</p>',
@@ -71,9 +71,7 @@ test('preview opens immediately with the newest draft and requires its owner', a
     await anonymous.dispose();
     await foreignContext.close();
     await restoreSettings();
-    await admin.from('posts').delete().in('author_id', [owner.id, foreignOwner.id]);
-    await deleteOwner(owner);
-    await deleteOwner(foreignOwner);
+    await cleanupEditor(page, owner, foreignOwner);
   }
 });
 
@@ -115,8 +113,7 @@ test('preview queues behind an active save and renders only the newest version',
     expect(stored).toMatchObject({ status: 'published', content_html: '<p>Newest queued preview version</p>' });
   } finally {
     releaseSave();
-    await admin.from('posts').delete().eq('author_id', owner.id);
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -193,9 +190,7 @@ for (const destination of ['Back to Posts', 'existing edition', 'missing edition
         await expect(page.getByRole('link', { name: 'Back to Posts' })).toBeEnabled();
       } finally {
         releaseSave();
-        await page.close();
-        await admin.from('posts').delete().eq('author_id', owner.id);
-        await deleteOwner(owner);
+        await cleanupEditor(page, owner);
       }
     });
   }
@@ -239,8 +234,7 @@ test('preview waits for Publish queued behind a delayed draft save and preserves
     expect(stored).toMatchObject({ status: 'published', content_html: '<p>Latest published preview version</p>' });
   } finally {
     releaseSave();
-    await admin.from('posts').delete().eq('author_id', owner.id);
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -301,8 +295,7 @@ test('preview save failure persists with same-tab retry and a safe return link',
     await expect(preview.getByRole('link', { name: 'Return to editor' })).toHaveAttribute('href', '/admin');
   } finally {
     releaseRetry();
-    await admin.from('posts').delete().eq('author_id', owner.id);
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -338,9 +331,7 @@ test('Back modifier clicks leave an accepted preview and its editor open', async
     await expect(preview.getByText('Modifier-safe preview body')).toBeVisible();
   } finally {
     releaseSave();
-    await page.close();
-    await admin.from('posts').delete().eq('author_id', owner.id);
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -362,8 +353,7 @@ test('preview reports a blocked popup without starting a save', async ({ page })
     expect(saves).toBe(0);
     expect(page.context().pages()).toHaveLength(1);
   } finally {
-    await admin.from('posts').delete().eq('author_id', owner.id);
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -457,9 +447,7 @@ test('language context resolves owned editions before editor hydration', async (
       expect(await page.content()).not.toContain(coverImage);
     }
   } finally {
-    await admin.from('posts').delete().in('author_id', [owner.id, foreignOwner.id]);
-    await deleteOwner(owner);
-    await deleteOwner(foreignOwner);
+    await cleanupEditor(page, owner, foreignOwner);
   }
 });
 
@@ -521,7 +509,7 @@ test('focused writer uses a centered canvas and accessible settings drawer', asy
     await page.getByRole('link', { name: 'Back to Posts' }).click();
     await expect(page).toHaveURL(/\/admin$/);
   } finally {
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -601,8 +589,7 @@ test('publishing surfaces stay within the required project-specific viewports', 
     }
   } finally {
     await restoreSettings();
-    await admin.from('posts').delete().eq('author_id', owner.id);
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -649,7 +636,7 @@ test('edition navigation serializes delayed saves and keeps the newest text', as
     await expect(page.locator('.ProseMirror')).toHaveText('');
   } finally {
     releaseSave();
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -700,7 +687,7 @@ test('failed save stops leaving and retry preserves edits before Back to Posts',
     expect(data?.content_html).toContain('Newest before leaving');
   } finally {
     releaseRetry();
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
@@ -738,6 +725,6 @@ test('manual translation saves its edition and publishes only that edition', asy
       status: 'published', content_html: '<p>Final translation before switching</p>',
     });
   } finally {
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
