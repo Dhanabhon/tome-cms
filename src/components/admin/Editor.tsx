@@ -134,6 +134,7 @@ export default function Editor({ initialPost }: EditorProps) {
   const changeVersion = useRef(0);
   const saveInFlight = useRef<Promise<void> | null>(null);
   const autosaveTimer = useRef<number>();
+  const coverOperation = useRef(0);
   const coverPickerTrigger = useRef<HTMLButtonElement>(null);
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
@@ -244,16 +245,20 @@ export default function Editor({ initialPost }: EditorProps) {
 
   const selectCover = async (file?: File, input?: HTMLInputElement) => {
     if (!file) return;
+    const operation = ++coverOperation.current;
     setUploadingCover(true);
     setErrorMessage(null);
 
     try {
       const asset = await uploadImage(file);
+      if (operation !== coverOperation.current) return;
       setCoverImage(asset.publicUrl);
       setCoverAsset(asset);
       markDirty();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'The cover image could not be uploaded.');
+      if (operation === coverOperation.current) {
+        setErrorMessage(error instanceof Error ? error.message : 'The cover image could not be uploaded.');
+      }
     } finally {
       if (input) input.value = '';
       setUploadingCover(false);
@@ -261,6 +266,7 @@ export default function Editor({ initialPost }: EditorProps) {
   };
 
   const chooseCover = (asset: MediaAsset) => {
+    coverOperation.current += 1;
     setCoverImage(asset.publicUrl);
     setCoverAsset(asset);
     setPickerOpen(false);
@@ -268,6 +274,7 @@ export default function Editor({ initialPost }: EditorProps) {
   };
 
   const removeCover = () => {
+    coverOperation.current += 1;
     setCoverImage('');
     setCoverAsset(null);
     markDirty();

@@ -341,6 +341,28 @@ test.describe('media library desktop', () => {
     }
   });
 
+  test('does not skip the 49th item after deleting from the first page', async ({ page }) => {
+    const owner = await createOwner('media-library-delete-pagination');
+
+    try {
+      await seedMediaItems(owner, 49, 'delete-page-item');
+      await openMediaLibrary(page, owner);
+
+      const cards = page.getByRole('button', { name: /delete-page-item-\d+\.png/i });
+      await expect(cards).toHaveCount(48);
+      await page.getByRole('button', { name: /delete-page-item-01\.png/i }).click();
+      page.once('dialog', (dialog) => dialog.accept());
+      await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Delete' }).click();
+
+      await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
+      await expect(cards).toHaveCount(48);
+      await expect(page.getByRole('button', { name: /delete-page-item-49\.png/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
   test('constrains a large image preview inside image details', async ({ page }) => {
     const owner = await createOwner('media-library-large-preview');
 
@@ -384,6 +406,33 @@ test.describe('media library desktop', () => {
       await expect(page.getByRole('alert')).toContainText('Forced list failure');
       await page.getByRole('button', { name: 'Retry' }).click();
       await expect(page.getByText('No media yet')).toBeVisible();
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
+  test('keeps category load failure visible through searches and retries categories', async ({ page }) => {
+    const owner = await createOwner('media-library-category-load-retry');
+    let folderRequests = 0;
+
+    try {
+      await signInAndWait(page, owner);
+      await page.route('**/rest/v1/media_folders*', async (route) => {
+        if (route.request().method() !== 'GET' || folderRequests++ > 0) return route.continue();
+        return route.fulfill({
+          body: JSON.stringify({ message: 'Forced category load failure' }),
+          contentType: 'application/json',
+          status: 500,
+        });
+      });
+
+      await page.goto('/admin/media');
+      await expect(page.getByRole('alert')).toContainText('Forced category load failure');
+      await page.getByLabel('Search media').fill('nothing');
+      await expect(page.getByRole('alert')).toContainText('Forced category load failure');
+      await page.getByRole('button', { name: 'Retry categories' }).click();
+      await expect(page.getByText('Forced category load failure')).toHaveCount(0);
+      expect(folderRequests).toBe(2);
     } finally {
       await deleteOwner(owner);
     }

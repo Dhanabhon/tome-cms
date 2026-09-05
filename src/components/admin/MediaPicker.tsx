@@ -11,6 +11,7 @@ interface MediaPickerProps {
 
 export default function MediaPicker({ onCancel, onSelect, returnFocus }: MediaPickerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const completed = useRef(false);
   const focusTarget = useRef<HTMLElement | null>(
     returnFocus ?? (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement ? document.activeElement : null),
   );
@@ -19,17 +20,22 @@ export default function MediaPicker({ onCancel, onSelect, returnFocus }: MediaPi
     const element = dialog.current;
     if (element && !element.open) element.showModal();
     return () => {
+      completed.current = true;
       if (element?.open) element.close();
     };
   }, []);
 
   const cancel = () => {
+    if (completed.current) return;
+    completed.current = true;
     dialog.current?.close();
     focusTarget.current?.focus();
     onCancel();
   };
 
   const select = (asset: MediaAsset) => {
+    if (completed.current) return;
+    completed.current = true;
     dialog.current?.close();
     focusTarget.current?.focus();
     onSelect(asset);

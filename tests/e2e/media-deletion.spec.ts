@@ -240,6 +240,40 @@ test.describe('media deletion', () => {
     }
   });
 
+  test('finds a media reference after the first 1000 owner posts and leaves media intact', async ({ page }) => {
+    const owner = await createOwner('media-delete-paginated-reference');
+
+    try {
+      const media = await createMedia(owner, 'deep-reference.png');
+      const referencedPostId = '00000000-0000-4000-8000-000000001000';
+      const { error } = await owner.client.from('posts').insert(
+        Array.from({ length: 1001 }, (_, index) => ({
+          author_id: owner.id,
+          content_html: '<p></p>',
+          content_json: { content: [], type: 'doc' },
+          cover_image: index === 1000 ? media.publicUrl : null,
+          id: `00000000-0000-4000-8000-${index.toString().padStart(12, '0')}`,
+          slug: `deep-reference-${owner.id}-${index}`,
+          status: 'draft',
+          title: index === 1000 ? 'Reference after page one' : `Unreferenced ${index}`,
+        })),
+      );
+      expect(error).toBeNull();
+      await signIn(page, owner);
+
+      const response = await page.request.delete(`/api/media/${media.id}`);
+
+      expect(response.status()).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: 'This image is used by 1 post.',
+        posts: [{ id: referencedPostId, title: 'Reference after page one' }],
+      });
+      await expectMediaPresent(owner, media);
+    } finally {
+      await deleteTestOwner(owner);
+    }
+  });
+
   test('keeps a newly selected image isolated from earlier deletion completions', async ({ page }) => {
     const owner = await createOwner('media-delete-selection-race');
     let releaseSuccess = () => {};

@@ -8,7 +8,7 @@ export const DELETE: APIRoute = async ({ cookies, params, request }) => {
     const auth = await authenticate(cookies, request);
     if (!auth) return Response.json({ error: 'Authentication required.' }, { status: 401 });
 
-    const id = z.string().uuid().safeParse(params.id);
+    const id = z.uuid().safeParse(params.id);
     if (!id.success) return Response.json({ error: 'Media not found.' }, { status: 404 });
 
     const { data: media, error: mediaError } = await auth.supabase
@@ -21,16 +21,21 @@ export const DELETE: APIRoute = async ({ cookies, params, request }) => {
     if (!media) return Response.json({ error: 'Media not found.' }, { status: 404 });
 
     const publicUrl = auth.supabase.storage.from('blog-media').getPublicUrl(media.storage_path).data.publicUrl;
-    const { data: posts, error: postsError } = await auth.supabase
-      .from('posts')
-      .select('id, title, cover_image, content_html')
-      .eq('author_id', auth.user.id);
-    if (postsError) throw postsError;
-
     // ponytail: O(owner posts) scan has a concurrent-edit window; add relational media_usage when volume or serialization matters.
-    const references = posts
-      .filter((post) => post.cover_image === publicUrl || post.content_html.includes(publicUrl))
-      .map(({ id: postId, title }) => ({ id: postId, title }));
+    const references: { id: string; title: string }[] = [];
+    for (let start = 0; ; start += 1000) {
+      const { data: posts, error: postsError } = await auth.supabase
+        .from('posts')
+        .select('id, title, cover_image, content_html')
+        .eq('author_id', auth.user.id)
+        .order('id')
+        .range(start, start + 999);
+      if (postsError) throw postsError;
+      references.push(...posts
+        .filter((post) => post.cover_image === publicUrl || post.content_html.includes(publicUrl))
+        .map(({ id: postId, title }) => ({ id: postId, title })));
+      if (posts.length < 1000) break;
+    }
     if (references.length) {
       return Response.json(
         {
