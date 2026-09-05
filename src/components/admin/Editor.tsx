@@ -191,7 +191,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     setSaveState((current) => current === 'Save failed' ? current : 'Unsaved');
   }, []);
 
-  const persist = useCallback((status: PostStatus): Promise<Post> => {
+  const persist = useCallback((status?: PostStatus): Promise<Post> => {
     pendingSaves.current += 1;
     const pending = saveTail.current.catch(() => null).then(async () => {
       const draft = draftRef.current;
@@ -206,7 +206,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
           ...(id ? { id } : {}),
           ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
           ...draft,
-          status,
+          status: status ?? postStatusRef.current,
         }),
       });
       const payload: unknown = await response.json();
@@ -258,8 +258,8 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
 
     window.clearTimeout(autosaveTimer.current);
     try {
-      let saved = await persist(postStatusRef.current);
-      while (dirtyRef.current) saved = await persist(postStatusRef.current);
+      let saved = await persist();
+      while (dirtyRef.current) saved = await persist();
       if (!previewWindow.closed) previewWindow.location.replace(`/admin/preview/${saved.id}`);
     } catch {
       const returnTo = postId.current ? `/admin/edit/${postId.current}` : window.location.pathname + window.location.search;
@@ -281,11 +281,11 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   useEffect(() => {
     if (!dirty || !title.trim() || actionPending.current) return;
 
-    autosaveTimer.current = window.setTimeout(() => void persist(postStatusRef.current).catch(() => undefined), 900);
+    autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
   }, [dirty, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle]);
 
-  const saveBefore = async (action: (post: Post) => void, status = postStatusRef.current) => {
+  const saveBefore = async (action: (post: Post) => void, status?: PostStatus) => {
     if (actionPending.current) return;
     actionPending.current = true;
     window.clearTimeout(autosaveTimer.current);
