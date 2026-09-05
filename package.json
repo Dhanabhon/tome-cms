@@ -10,6 +10,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",
+    "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test",
+    "test:e2e:media": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/media-rls.spec.ts tests/e2e/media-library.spec.ts tests/e2e/media-deletion.spec.ts tests/e2e/editor-media.spec.ts tests/e2e/public-blog.spec.ts",
     "astro": "astro"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@playwright/test": "1.63.0",
     "@types/node": "^26.0.0",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
