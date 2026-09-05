@@ -26,12 +26,13 @@ export default function MediaLibrary({ mode }: Props) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [failedRequest, setFailedRequest] = useState<{ append: boolean; page: number } | null>(null);
+  const [failedRequest, setFailedRequest] = useState<{ append: boolean; page: number; term: string } | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const currentQuery = useRef('');
   const requestId = useRef(0);
 
-  const load = useCallback(async (nextPage: number, append = false, term = debouncedSearch) => {
+  const load = useCallback(async (nextPage: number, append: boolean, term: string) => {
     const id = ++requestId.current;
     setLoading(true);
     setError(null);
@@ -45,15 +46,18 @@ export default function MediaLibrary({ mode }: Props) {
     } catch (loadError) {
       if (id === requestId.current) {
         setError(errorMessage(loadError));
-        setFailedRequest({ append, page: nextPage });
+        setFailedRequest({ append, page: nextPage, term });
       }
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
+    const timer = window.setTimeout(() => {
+      currentQuery.current = search;
+      setDebouncedSearch(search);
+    }, 250);
     return () => window.clearTimeout(timer);
   }, [search]);
 
@@ -69,7 +73,7 @@ export default function MediaLibrary({ mode }: Props) {
     setError(null);
     try {
       await uploadImage(file);
-      await load(1);
+      await load(1, false, currentQuery.current);
     } catch (uploadError) {
       setError(errorMessage(uploadError));
       setFailedRequest(null);
@@ -117,7 +121,7 @@ export default function MediaLibrary({ mode }: Props) {
           {failedRequest && (
             <button
               className="font-medium text-accent underline"
-              onClick={() => void load(failedRequest.page, failedRequest.append)}
+              onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term)}
               type="button"
             >Retry</button>
           )}
@@ -158,7 +162,7 @@ export default function MediaLibrary({ mode }: Props) {
               <button
                 className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent"
                 disabled={loading}
-                onClick={() => void load(page + 1, true)}
+                onClick={() => void load(page + 1, true, currentQuery.current)}
                 type="button"
               >
                 {loading ? 'Loading…' : 'Load more'}

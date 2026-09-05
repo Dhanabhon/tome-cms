@@ -31,6 +31,7 @@ export async function listMedia(input: ListMediaInput = {}): Promise<MediaPage> 
     .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .slice(0, 100);
+  const searchPattern = searchTerm?.trim().replace(/\s+/g, '%');
   let query = createBrowserSupabaseClient()
     .from('media_items')
     .select('*')
@@ -39,8 +40,8 @@ export async function listMedia(input: ListMediaInput = {}): Promise<MediaPage> 
 
   if (input.folderId === null) query = query.is('folder_id', null);
   else if (input.folderId) query = query.eq('folder_id', input.folderId);
-  if (searchTerm) {
-    query = query.or(`original_name.ilike.%${searchTerm}%,alt_text.ilike.%${searchTerm}%`);
+  if (searchPattern) {
+    query = query.or(`original_name.ilike.%${searchPattern}%,alt_text.ilike.%${searchPattern}%`);
   }
 
   const { data, error } = await query;
