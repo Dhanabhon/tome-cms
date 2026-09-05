@@ -1,3 +1,7 @@
+import type { SupportedImageType } from '../lib/media';
+
+export type { SupportedImageType } from '../lib/media';
+
 export const POST_STATUSES = ['draft', 'published'] as const;
 
 export type PostStatus = (typeof POST_STATUSES)[number];
@@ -107,16 +111,120 @@ export interface SiteSettingsInsert {
 
 export type SiteSettingsUpdate = Partial<Omit<SiteSettingsInsert, 'id' | 'owner_id' | 'installed_at'>>;
 
+export interface MediaFolder {
+  created_at: string;
+  id: string;
+  name: string;
+  owner_id: string;
+  updated_at: string;
+}
+
+export interface MediaFolderInsert {
+  created_at?: string;
+  id?: string;
+  name: string;
+  owner_id: string;
+  updated_at?: string;
+}
+
+export interface MediaFolderUpdate {
+  created_at?: string;
+  id?: string;
+  name?: string;
+  owner_id?: string;
+  updated_at?: string;
+}
+
+export interface MediaItem {
+  alt_text: string | null;
+  created_at: string;
+  folder_id: string | null;
+  height: number;
+  id: string;
+  mime_type: SupportedImageType;
+  original_name: string;
+  owner_id: string;
+  size_bytes: number;
+  storage_path: string;
+  updated_at: string;
+  width: number;
+}
+
+export interface MediaItemInsert {
+  alt_text?: string | null;
+  created_at?: string;
+  folder_id?: string | null;
+  height: number;
+  id?: string;
+  mime_type: SupportedImageType;
+  original_name: string;
+  owner_id: string;
+  size_bytes: number;
+  storage_path: string;
+  updated_at?: string;
+  width: number;
+}
+
+export interface MediaItemUpdate {
+  alt_text?: string | null;
+  created_at?: string;
+  folder_id?: string | null;
+  height?: number;
+  id?: string;
+  mime_type?: SupportedImageType;
+  original_name?: string;
+  owner_id?: string;
+  size_bytes?: number;
+  storage_path?: string;
+  updated_at?: string;
+  width?: number;
+}
+
+export interface MediaAsset extends MediaItem {
+  publicUrl: string;
+}
+
+export interface UploadImageOptions {
+  altText?: string | null;
+  folderId?: string | null;
+}
+
 type PostRow = { [Key in keyof Post]: Post[Key] };
 type DatabasePostInsert = { [Key in keyof PostInsert]: PostInsert[Key] };
 type DatabasePostUpdate = { [Key in keyof PostUpdate]: PostUpdate[Key] };
 type SiteSettingsRow = { [Key in keyof SiteSettings]: SiteSettings[Key] };
 type DatabaseSiteSettingsInsert = { [Key in keyof SiteSettingsInsert]: SiteSettingsInsert[Key] };
 type DatabaseSiteSettingsUpdate = { [Key in keyof SiteSettingsUpdate]: SiteSettingsUpdate[Key] };
+type MediaFolderRow = { [Key in keyof MediaFolder]: MediaFolder[Key] };
+type DatabaseMediaFolderInsert = { [Key in keyof MediaFolderInsert]: MediaFolderInsert[Key] };
+type DatabaseMediaFolderUpdate = { [Key in keyof MediaFolderUpdate]: MediaFolderUpdate[Key] };
+type MediaItemRow = { [Key in keyof MediaItem]: MediaItem[Key] };
+type DatabaseMediaItemInsert = { [Key in keyof MediaItemInsert]: MediaItemInsert[Key] };
+type DatabaseMediaItemUpdate = { [Key in keyof MediaItemUpdate]: MediaItemUpdate[Key] };
 
 export interface Database {
   public: {
     Tables: {
+      media_folders: {
+        Row: MediaFolderRow;
+        Insert: DatabaseMediaFolderInsert;
+        Update: DatabaseMediaFolderUpdate;
+        Relationships: [];
+      };
+      media_items: {
+        Row: MediaItemRow;
+        Insert: DatabaseMediaItemInsert;
+        Update: DatabaseMediaItemUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'media_items_folder_id_fkey';
+            columns: ['folder_id'];
+            isOneToOne: false;
+            referencedRelation: 'media_folders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       posts: {
         Row: PostRow;
         Insert: DatabasePostInsert;

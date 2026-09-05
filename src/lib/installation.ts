@@ -91,22 +91,33 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
 
   try {
     const supabase = createServiceRoleSupabaseClient();
-    const [{ error: postsError }, settingsResult, bucketsResult] = await Promise.all([
-      supabase.from('posts').select('id', { count: 'exact', head: true }),
-      supabase.from('site_settings').select('id').eq('id', true).maybeSingle(),
-      supabase.storage.listBuckets(),
-    ]);
+    const [{ error: postsError }, settingsResult, { error: foldersError }, { error: itemsError }, bucketsResult] =
+      await Promise.all([
+        supabase.from('posts').select('id', { count: 'exact', head: true }),
+        supabase.from('site_settings').select('id').eq('id', true).maybeSingle(),
+        supabase.from('media_folders').select('id', { head: true }),
+        supabase.from('media_items').select('id', { head: true }),
+        supabase.storage.listBuckets(),
+      ]);
 
     readiness.supabase = !postsError;
-    readiness.migration = !postsError && !settingsResult.error;
+    readiness.migration = !postsError && !settingsResult.error && !foldersError && !itemsError;
     readiness.installed = Boolean(settingsResult.data);
     readiness.mediaBucket =
       !bucketsResult.error && bucketsResult.data.some((bucket) => bucket.id === 'blog-media');
 
-    if (settingsResult.error && !isMissingTable(settingsResult.error)) {
-      console.error('Site settings readiness check failed:', settingsResult.error.message);
+    if (postsError && !isMissingTable(postsError)) {
+      console.error('posts readiness check failed:', postsError.message);
     }
-    if (postsError) console.error('Posts readiness check failed:', postsError.message);
+    if (settingsResult.error && !isMissingTable(settingsResult.error)) {
+      console.error('site_settings readiness check failed:', settingsResult.error.message);
+    }
+    if (foldersError && !isMissingTable(foldersError)) {
+      console.error('media_folders readiness check failed:', foldersError.message);
+    }
+    if (itemsError && !isMissingTable(itemsError)) {
+      console.error('media_items readiness check failed:', itemsError.message);
+    }
     if (bucketsResult.error) console.error('Storage readiness check failed:', bucketsResult.error.message);
 
     markInstalled(readiness.installed);
