@@ -116,6 +116,46 @@ test('preview queues behind an active save and renders only the newest version',
   }
 });
 
+test('preview preserves Publish queued behind a delayed draft save', async ({ page }) => {
+  const owner = await createOwner('preview-publish-race');
+  let releaseSave = () => {};
+  const gate = new Promise<void>((resolve) => { releaseSave = resolve; });
+  try {
+    await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    const response = await page.request.post('/api/posts', { data: draftBody('Publish preview race', `publish-preview-${crypto.randomUUID()}`) });
+    expect(response.ok()).toBe(true);
+    const { post } = await response.json();
+    await page.goto(`/admin/edit/${post.id}`);
+    const statuses: string[] = [];
+    await page.route('**/api/posts', async (route) => {
+      statuses.push(route.request().postDataJSON().status);
+      if (statuses.length === 1) await gate;
+      return route.continue();
+    });
+    await page.locator('.ProseMirror').fill('Delayed draft version');
+    await expect(page.getByText('Saving…', { exact: true })).toBeVisible();
+    await page.locator('.ProseMirror').fill('Latest published preview version');
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    const popupPromise = page.waitForEvent('popup');
+    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    const preview = await popupPromise;
+    await expect(preview.getByText('Preparing draft preview…')).toBeVisible();
+    expect(statuses).toEqual(['draft']);
+    releaseSave();
+    await expect(preview).toHaveURL(new RegExp(`/admin/preview/${post.id}$`));
+    await expect(preview.getByText('Latest published preview version')).toBeVisible();
+    expect(statuses).toEqual(['draft', 'published', 'published']);
+    await expect(page.getByRole('button', { name: 'Update', exact: true })).toBeVisible();
+    const { data: stored } = await owner.client.from('posts').select('status, content_html').eq('id', post.id).single();
+    expect(stored).toMatchObject({ status: 'published', content_html: '<p>Latest published preview version</p>' });
+  } finally {
+    releaseSave();
+    await admin.from('posts').delete().eq('author_id', owner.id);
+    await deleteOwner(owner);
+  }
+});
+
 test('preview save failure persists with same-tab retry and a safe return link', async ({ page }) => {
   const owner = await createOwner('preview-retry');
   try {
