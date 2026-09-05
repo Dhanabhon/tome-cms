@@ -56,15 +56,17 @@ const draftCount = posts.length - publishedCount;
           <h2>Welcome back</h2>
           <p>Sign in with the owner account you created during setup.</p>
         </div>
-        <form class="admin-auth__form" data-auth-form>
-          <label class="admin-field">
-            <span>Email address</span>
-            <input class="admin-control" name="email" required type="email" autocomplete="email" />
-          </label>
-          <label class="admin-field">
-            <span>Password</span>
-            <input class="admin-control" name="password" required type="password" autocomplete="current-password" />
-          </label>
+        <form class="admin-auth__form" data-auth-form novalidate>
+          <div class="admin-field">
+            <label for="admin-email">Email address</label>
+            <input class="admin-control" id="admin-email" name="email" required type="email" autocomplete="email" aria-describedby="admin-email-error" />
+            <p class="admin-field-error" id="admin-email-error" data-auth-email-error aria-live="polite"></p>
+          </div>
+          <div class="admin-field">
+            <label for="admin-password">Password</label>
+            <input class="admin-control" id="admin-password" name="password" required type="password" autocomplete="current-password" aria-describedby="admin-password-error" />
+            <p class="admin-field-error" id="admin-password-error" data-auth-password-error aria-live="polite"></p>
+          </div>
           <p class="admin-form-error" data-auth-error role="alert"></p>
           <button class="admin-button admin-button--primary" type="submit">Sign in</button>
         </form>
@@ -110,24 +112,55 @@ const draftCount = posts.length - publishedCount;
 
   const form = document.querySelector<HTMLFormElement>('[data-auth-form]');
   const errorElement = document.querySelector<HTMLElement>('[data-auth-error]');
+  const emailInput = form?.querySelector<HTMLInputElement>('[name="email"]');
+  const passwordInput = form?.querySelector<HTMLInputElement>('[name="password"]');
+  const emailError = document.querySelector<HTMLElement>('[data-auth-email-error]');
+  const passwordError = document.querySelector<HTMLElement>('[data-auth-password-error]');
+
+  function setFieldError(input: HTMLInputElement, element: HTMLElement | null, message = '') {
+    if (message) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+    if (element) element.textContent = message;
+  }
+
+  form?.addEventListener('input', (event) => {
+    if (emailInput && event.target === emailInput) setFieldError(emailInput, emailError);
+    if (passwordInput && event.target === passwordInput) setFieldError(passwordInput, passwordError);
+    if (errorElement) errorElement.textContent = '';
+  });
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const formData = new FormData(form);
-    const email = formData.get('email');
-    const password = formData.get('password');
-    if (typeof email !== 'string' || typeof password !== 'string') return;
+    if (!emailInput || !passwordInput) return;
+
+    setFieldError(emailInput, emailError);
+    setFieldError(passwordInput, passwordError);
+    if (emailInput.validity.valueMissing) setFieldError(emailInput, emailError, 'Enter your email address.');
+    else if (emailInput.validity.typeMismatch) setFieldError(emailInput, emailError, 'Enter a valid email address.');
+    if (passwordInput.validity.valueMissing) setFieldError(passwordInput, passwordError, 'Enter your password.');
+
+    const firstInvalid = form.querySelector<HTMLInputElement>('[aria-invalid="true"]');
+    if (firstInvalid) {
+      firstInvalid.focus();
+      return;
+    }
 
     const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
     if (button) button.disabled = true;
     if (errorElement) errorElement.textContent = '';
 
     try {
-      const { error } = await createBrowserSupabaseClient().auth.signInWithPassword({ email, password });
+      const { error } = await createBrowserSupabaseClient().auth.signInWithPassword({
+        email: emailInput.value,
+        password: passwordInput.value,
+      });
       if (error) throw error;
       window.location.reload();
     } catch (error) {
-      if (errorElement) errorElement.textContent = error instanceof Error ? error.message : 'Sign in failed.';
+      const message = error instanceof Error && 'code' in error && error.code === 'invalid_credentials'
+        ? 'Email or password is incorrect.'
+        : 'Unable to sign in. Please try again.';
+      if (errorElement) errorElement.textContent = message;
       if (button) button.disabled = false;
     }
   });

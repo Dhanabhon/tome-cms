@@ -8,9 +8,9 @@ const { active, siteName = 'TomeCMS' } = Astro.props;
 ---
 
 <header class="border-b border-line">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-    <a class="font-display text-2xl font-semibold tracking-tight text-ink" href="/">{siteName}</a>
-    <nav aria-label="Primary" class="flex items-center gap-7 text-sm">
+  <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
+    <a class="min-w-0 truncate font-display text-xl font-bold tracking-tight text-ink sm:text-[22px]" href="/">{siteName}</a>
+    <nav aria-label="Primary" class="flex shrink-0 items-center gap-4 text-sm sm:gap-7 sm:text-base">
       <a
         class:list={['border-b-2 py-1 transition-colors', active === 'writing' ? 'border-accent text-accent' : 'border-transparent text-ink hover:text-accent']}
         href="/"

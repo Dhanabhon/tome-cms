@@ -1,0 +1,301 @@
+{
+  "color": {
+    "Surface Base": {
+      "$type": "color",
+      "$value": "#f6f5f4",
+      "$description": "Primary page background and card surfaces; maps to --color-gray-200"
+    },
+    "Surface White": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$description": "Navigation dropdown panels, card surfaces, modal overlays"
+    },
+    "Hero Dark Navy": {
+      "$type": "color",
+      "$value": "#02093a",
+      "$description": "Hero section deep background; maps to --color-campaigns-agents-launch-blue-900"
+    },
+    "Brand Blue": {
+      "$type": "color",
+      "$value": "#2537b1",
+      "$description": "Primary CTA button fill, key links, hero accent; maps to --color-campaigns-agents-launch-blue-200"
+    },
+    "Text Primary": {
+      "$type": "color",
+      "$value": "#000000",
+      "$description": "Body text, headings, nav labels; dominant text color across all zones"
+    },
+    "Text Muted": {
+      "$type": "color",
+      "$value": "#a39e98",
+      "$description": "Secondary labels, placeholder text, icon fills; maps to --color-gray-400"
+    },
+    "Text Medium": {
+      "$type": "color",
+      "$value": "#615d59",
+      "$description": "Tertiary text, icon button states; maps to --color-gray-600"
+    },
+    "Border Subtle": {
+      "$type": "color",
+      "$value": "#000000",
+      "$description": "Hairline dividers at 8% opacity; maps to --border-color-regular"
+    },
+    "Accent Blue": {
+      "$type": "color",
+      "$value": "#097fe8",
+      "$description": "Inline links, badge text, code keyword highlights; maps to --color-blue-500"
+    },
+    "Accent Red": {
+      "$type": "color",
+      "$value": "#f64932",
+      "$description": "Warning/error states, status tags; maps to --color-red-500"
+    }
+  },
+  "typography": {
+    "Display Hero": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "64px",
+        "fontWeight": 700,
+        "lineHeight": "64px",
+        "letterSpacing": "-1.875px"
+      },
+      "$description": "Hero headline (probe-confirmed h1 at 64px; CSSOM shows 54px w700 / 56px ls:-1.875px as closest match)"
+    },
+    "Display Large": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "54px",
+        "fontWeight": 700,
+        "lineHeight": "56px",
+        "letterSpacing": "-1.875px"
+      },
+      "$description": "Section hero headings, large marketing titles"
+    },
+    "Heading XL": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "48px",
+        "fontWeight": 400,
+        "lineHeight": "72px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Large section headings"
+    },
+    "Heading L": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "40px",
+        "fontWeight": 400,
+        "lineHeight": "60px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Mid-page section headings"
+    },
+    "Heading M": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "22px",
+        "fontWeight": 700,
+        "lineHeight": "28px",
+        "letterSpacing": "-0.25px"
+      },
+      "$description": "Card titles, feature headings"
+    },
+    "Heading S": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "20px",
+        "fontWeight": 600,
+        "lineHeight": "28px",
+        "letterSpacing": "-0.125px"
+      },
+      "$description": "Sub-section headings, callout titles"
+    },
+    "Body Regular": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "16px",
+        "fontWeight": 400,
+        "lineHeight": "24px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Primary body text, paragraph content (highest frequency: 443 hits)"
+    },
+    "Body Large": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "20px",
+        "fontWeight": 400,
+        "lineHeight": "30px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Hero subheadline, lead paragraph text"
+    },
+    "Label Medium": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "14px",
+        "fontWeight": 500,
+        "lineHeight": "20px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Navigation labels, button text, UI labels (90 hits)"
+    },
+    "Label Small": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "12px",
+        "fontWeight": 500,
+        "lineHeight": "16px",
+        "letterSpacing": "0.125px"
+      },
+      "$description": "Badges, tags, small metadata labels"
+    },
+    "Nav Link": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "NotionInter",
+        "fontSize": "16px",
+        "fontWeight": 500,
+        "lineHeight": "24px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Global navigation links (probe-confirmed: 16px w500)"
+    }
+  },
+  "spacing": {
+    "spacing-1": {
+      "$type": "dimension",
+      "$value": "2px"
+    },
+    "spacing-2": {
+      "$type": "dimension",
+      "$value": "3px"
+    },
+    "spacing-3": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "spacing-4": {
+      "$type": "dimension",
+      "$value": "5px"
+    },
+    "spacing-5": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "spacing-6": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "spacing-7": {
+      "$type": "dimension",
+      "$value": "10px"
+    },
+    "spacing-8": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "spacing-9": {
+      "$type": "dimension",
+      "$value": "14px"
+    },
+    "spacing-10": {
+      "$type": "dimension",
+      "$value": "15px"
+    },
+    "spacing-11": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "spacing-12": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "spacing-13": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "spacing-14": {
+      "$type": "dimension",
+      "$value": "28px"
+    },
+    "spacing-15": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "spacing-16": {
+      "$type": "dimension",
+      "$value": "40px"
+    },
+    "spacing-17": {
+      "$type": "dimension",
+      "$value": "48px"
+    },
+    "spacing-18": {
+      "$type": "dimension",
+      "$value": "60px"
+    },
+    "spacing-19": {
+      "$type": "dimension",
+      "$value": "64px"
+    },
+    "spacing-20": {
+      "$type": "dimension",
+      "$value": "80px"
+    }
+  },
+  "borderRadius": {
+    "radius-none": {
+      "$type": "dimension",
+      "$value": "0px"
+    },
+    "radius-xs": {
+      "$type": "dimension",
+      "$value": "2px"
+    },
+    "radius-sm": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "radius-md": {
+      "$type": "dimension",
+      "$value": "5px"
+    },
+    "radius-base": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "radius-card": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "radius-lg": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "radius-xl": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "radius-2xl": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "radius-pill": {
+      "$type": "dimension",
+      "$value": "9999px"
+    }
+  }
+}

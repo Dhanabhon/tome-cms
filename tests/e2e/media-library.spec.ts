@@ -84,6 +84,38 @@ test.describe('media library desktop', () => {
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   });
 
+  test('renders field validation in the form instead of a native browser popup', async ({ page }) => {
+    await page.goto('/admin');
+    const email = page.getByLabel('Email address');
+    const password = page.getByLabel('Password');
+    await email.fill('ddd');
+    await password.fill('not-the-owner-password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+    await expect(email).toHaveAttribute('aria-invalid', 'true');
+    await expect(email).toBeFocused();
+    await expect(email.evaluate((input) => getComputedStyle(input).outlineColor)).resolves.toBe(
+      await email.evaluate((input) => getComputedStyle(input).borderColor),
+    );
+
+    await email.fill('owner@example.com');
+    await expect(page.getByText('Enter a valid email address.')).toHaveCount(0);
+    await expect(email).not.toHaveAttribute('aria-invalid', 'true');
+
+    await password.fill('');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByText('Enter your password.')).toBeVisible();
+    await expect(password).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('explains rejected credentials without exposing which field is wrong', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByLabel('Email address').fill('missing@example.com');
+    await page.getByLabel('Password').fill('not-the-owner-password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('alert')).toHaveText('Email or password is incorrect.');
+  });
+
   test('retires the legacy upload endpoint without creating orphaned media', async ({ request }) => {
     const response = await request.post('/api/upload');
 
@@ -98,6 +130,7 @@ test.describe('media library desktop', () => {
 
     try {
       await openMediaLibrary(page, owner);
+      await expect(page.getByRole('heading', { name: 'Media', exact: true })).not.toBeFocused();
       await expect(page.getByText('No media yet')).toBeVisible();
       let storageUploads = 0;
       await page.route('**/storage/v1/object/blog-media/**', async (route) => {

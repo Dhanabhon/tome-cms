@@ -33,7 +33,7 @@ export default function BlockInsertMenu() {
     const cursor = editor.view.coordsAtPos(editor.state.selection.from);
     const menuWidth = menu.current?.offsetWidth ?? 0;
     const menuHeight = menu.current?.offsetHeight ?? 0;
-    const left = Math.max(0, Math.min(cursor.left - canvasRect.left - 44, canvasRect.width - 36));
+    const left = 0;
     const menuLeft = menuOpen ? Math.max(-left, Math.min(0, canvasRect.width - left - menuWidth)) : 0;
     let menuViewportTop = cursor.top + 42;
     if (menuOpen && menuViewportTop + menuHeight > window.innerHeight - 8) {

@@ -52,7 +52,7 @@ const extensions = [
   TiptapLink.configure({
     autolink: true,
     openOnClick: false,
-    HTMLAttributes: { class: 'text-accent underline underline-offset-2', rel: 'noopener noreferrer' },
+    HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
   }),
   editorImage,
   slashCommand,
@@ -109,7 +109,7 @@ function FormattingBubble() {
   ];
 
   return (
-    <EditorBubble className="flex overflow-hidden rounded-md border border-line bg-white p-1 font-sans shadow-lg" tippyOptions={{ duration: 100 }}>
+    <EditorBubble className="flex overflow-hidden rounded-md border border-line bg-white p-1 font-sans" tippyOptions={{ duration: 100 }}>
       {actions.map((action) => (
         <EditorBubbleItem key={action.label} onSelect={action.run}>
           <button
@@ -335,7 +335,7 @@ export default function Editor({ initialPost }: EditorProps) {
                 className="editor-canvas editor-content admin-editor-content"
                 editorProps={{
                   attributes: {
-                    class: 'prose prose-lg max-w-none prose-headings:font-sans prose-a:text-accent prose-img:rounded-lg',
+                    class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
                   },
                   handleDOMEvents: { keydown: (_view, event) => handleCommandNavigation(event) },
                   handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),

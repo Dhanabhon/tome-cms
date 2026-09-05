@@ -382,7 +382,7 @@ test.describe('editor block insertion', () => {
     }
   });
 
-  test('menu stays inside the canvas at a right-edge cursor and flips above a lower final block', async ({ page }) => {
+  test('block tool stays in the gutter for the active line and keeps its menu in bounds', async ({ page }) => {
     const owner = await createOwner('editor-block-bounds');
 
     try {
@@ -393,12 +393,12 @@ test.describe('editor block insertion', () => {
       const editor = page.locator('.ProseMirror');
       const addBlock = page.getByRole('button', { name: 'Add block' });
       await editor.click();
-      await page.keyboard.type('i'.repeat(128));
+      await page.keyboard.type('i'.repeat(144));
       await addBlock.click();
 
       let bounds = await blockControlBounds(page);
-      expect(bounds.trigger.x).toBeGreaterThan(bounds.editor.x + bounds.editor.width / 2);
-      expect(bounds.trigger.x).toBeGreaterThan(bounds.canvas.x + bounds.canvas.width - bounds.menu.width);
+      expect(bounds.trigger.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
+      expect(bounds.trigger.x + bounds.trigger.width).toBeLessThanOrEqual(bounds.editor.x + 1);
       expect(bounds.menu.x).toBeGreaterThanOrEqual(bounds.canvas.x - 1);
       expect(bounds.menu.x + bounds.menu.width).toBeLessThanOrEqual(bounds.canvas.x + bounds.canvas.width + 1);
 
@@ -417,7 +417,11 @@ test.describe('editor block insertion', () => {
       await addBlock.click();
 
       bounds = await blockControlBounds(page);
+      const finalBlockBounds = await finalBlock.boundingBox();
+      if (!finalBlockBounds) throw new Error('Focused block is not measurable.');
       expect(bounds.trigger.y).toBeGreaterThan(bounds.viewport.height / 2);
+      expect(bounds.trigger.y).toBeGreaterThanOrEqual(finalBlockBounds.y - 1);
+      expect(bounds.trigger.y).toBeLessThanOrEqual(finalBlockBounds.y + finalBlockBounds.height + 1);
       expect(bounds.menu.y).toBeGreaterThanOrEqual(8);
       expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.viewport.height - 8);
       expect(bounds.menu.y + bounds.menu.height).toBeLessThanOrEqual(bounds.trigger.y + 1);
