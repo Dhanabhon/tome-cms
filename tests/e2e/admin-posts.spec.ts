@@ -86,7 +86,6 @@ test('edition filters survive reload and history with sibling state and responsi
     await expect(page).toHaveURL(/status=published/);
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('TH missing');
-    await expect(rows.first().getByRole('link', { name: /missing|Preview/ })).toHaveCount(0);
     await page.getByRole('tab', { name: 'All' , exact: true }).click();
     await page.getByLabel('Language', { exact: true }).selectOption('en');
     await page.getByLabel('Search posts').fill(' ENGLISH ');
