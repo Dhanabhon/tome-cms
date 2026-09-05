@@ -18,6 +18,7 @@ interface Props {
 }
 
 type CategorySelection = 'all' | 'unsorted' | string;
+type ReferencingPost = { id: string; title: string };
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -54,6 +55,9 @@ export default function MediaLibrary({ mode }: Props) {
   const [selected, setSelected] = useState<MediaAsset | null>(null);
   const [draft, setDraft] = useState<MediaDraft>({ altText: '', folderId: '' });
   const [detailsStatus, setDetailsStatus] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [referencingPosts, setReferencingPosts] = useState<ReferencingPost[]>([]);
   const currentQuery = useRef('');
   const currentSelection = useRef<CategorySelection>('all');
   const requestId = useRef(0);
@@ -196,6 +200,8 @@ export default function MediaLibrary({ mode }: Props) {
     setSelected(item);
     setDraft({ altText: item.alt_text ?? '', folderId: item.folder_id ?? '' });
     setDetailsStatus(null);
+    setDeleteError(null);
+    setReferencingPosts([]);
   }
 
   async function saveDetails() {
@@ -224,6 +230,32 @@ export default function MediaLibrary({ mode }: Props) {
     } catch {
       urlInput.current?.select();
       setDetailsStatus('URL selected. Copy it with your keyboard shortcut.');
+    }
+  }
+
+  async function deleteSelected(confirmDeletion: boolean) {
+    if (!selected || (confirmDeletion && !window.confirm(`Delete ${selected.original_name}? This cannot be undone.`))) return;
+    const item = selected;
+    setDeleting(true);
+    setDetailsStatus(null);
+    setDeleteError(null);
+    setReferencingPosts([]);
+    try {
+      const response = await fetch(`/api/media/${item.id}`, { method: 'DELETE' });
+      const result = await response.json() as { deleted?: boolean; error?: string; posts?: ReferencingPost[] };
+      if (response.status === 409) {
+        setDeleteError(result.error ?? 'This image is still in use.');
+        setReferencingPosts(result.posts ?? []);
+        return;
+      }
+      if (!response.ok || !result.deleted) throw new Error(result.error ?? 'The image could not be deleted.');
+
+      setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+      closeDetails();
+    } catch (deleteFailure) {
+      setDeleteError(errorMessage(deleteFailure));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -289,7 +321,7 @@ export default function MediaLibrary({ mode }: Props) {
         </div>
       </div>
 
-      <dialog aria-label="Image details" className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label="Close details" className="media-details-close" onClick={closeDetails} ref={detailsClose} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label>Category<select aria-label="Category" onChange={(event) => setDraft((current) => ({ ...current, folderId: event.target.value }))} value={draft.folderId}><option value="">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}</div>}</dialog>
+      <dialog aria-label="Image details" className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label="Close details" className="media-details-close" onClick={closeDetails} ref={detailsClose} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label>Category<select aria-label="Category" onChange={(event) => setDraft((current) => ({ ...current, folderId: event.target.value }))} value={draft.folderId}><option value="">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button><button disabled={deleting} onClick={() => void deleteSelected(true)} type="button">{deleting ? 'Deleting…' : 'Delete'}</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 ? <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul> : <button disabled={deleting} onClick={() => void deleteSelected(false)} type="button">Retry</button>}</div>}</div>}</dialog>
     </section>
   );
 }
