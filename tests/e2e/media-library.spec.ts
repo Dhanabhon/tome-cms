@@ -57,6 +57,22 @@ async function signInAndWait(page: Page, owner: TestOwner) {
   await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
 }
 
+async function seedMediaItems(owner: TestOwner, count: number, prefix: string) {
+  const { error } = await owner.client.from('media_items').insert(
+    Array.from({ length: count }, (_, index) => ({
+      created_at: new Date(Date.UTC(2026, 8, 5, 0, 0, count - index)).toISOString(),
+      height: 1,
+      mime_type: 'image/png',
+      original_name: `${prefix}-${String(index + 1).padStart(2, '0')}.png`,
+      owner_id: owner.id,
+      size_bytes: 68,
+      storage_path: `${owner.id}/${crypto.randomUUID()}.png`,
+      width: 1,
+    })),
+  );
+  expect(error).toBeNull();
+}
+
 test.describe('media library desktop', () => {
   test.beforeEach(async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Upload behavior is covered in the desktop project.');
@@ -94,8 +110,8 @@ test.describe('media library desktop', () => {
       }
 
       await page.getByLabel('Search media').fill('pixel.webp');
-      await expect(page.getByRole('button', { name: /pixel\.webp/i })).toBeVisible();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /pixel\.webp/i })).toBeVisible();
 
       await page.getByLabel('Search media').fill('');
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
@@ -131,6 +147,59 @@ test.describe('media library desktop', () => {
       const { data: storedObjects, error: storageError } = await owner.client.storage.from('blog-media').list(owner.id);
       expect(storageError).toBeNull();
       expect(storedObjects).toHaveLength(IMAGE_FIXTURES.length);
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
+  test('keeps upload refresh coupled to the latest debounced search', async ({ page }) => {
+    const owner = await createOwner('media-library-search-race');
+    let releaseUpload = () => {};
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+
+    try {
+      await seedMediaItems(owner, 1, 'existing');
+      await openMediaLibrary(page, owner);
+      await expect(page.getByRole('button', { name: /existing-01\.png/i })).toBeVisible();
+      await page.route('**/storage/v1/object/blog-media/**', async (route) => {
+        if (route.request().method() === 'POST') await uploadGate;
+        return route.continue();
+      });
+
+      await page.getByLabel('Upload image').setInputFiles(IMAGE_FIXTURES[0]);
+      await expect(page.getByText('Uploading image…')).toBeVisible();
+      await page.getByLabel('Search media').fill('no matching asset');
+      await expect(page.getByRole('button', { name: /existing-01\.png/i })).toHaveCount(0);
+      await expect(page.getByText('No media yet')).toBeVisible();
+
+      releaseUpload();
+      await expect(page.getByText('Uploading image…')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /existing-01\.png|pixel\.png/i })).toHaveCount(0);
+      await expect(page.getByText('No media yet')).toBeVisible();
+    } finally {
+      releaseUpload();
+      await deleteOwner(owner);
+    }
+  });
+
+  test('loads 48 media items first and appends the 49th item', async ({ page }) => {
+    const owner = await createOwner('media-library-pagination');
+
+    try {
+      await seedMediaItems(owner, 49, 'page-item');
+      await openMediaLibrary(page, owner);
+
+      const cards = page.getByRole('button', { name: /page-item-\d+\.png/i });
+      await expect(cards).toHaveCount(48);
+      await expect(page.getByRole('button', { name: /page-item-01\.png/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /page-item-49\.png/i })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Load more' }).click();
+      await expect(cards).toHaveCount(49);
+      await expect(page.getByRole('button', { name: /page-item-01\.png/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /page-item-49\.png/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
     } finally {
       await deleteOwner(owner);
     }
