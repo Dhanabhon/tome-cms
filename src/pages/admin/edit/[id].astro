@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminLoginPath } from '../../../lib/admin';
 import { authenticate } from '../../../lib/supabase';
 import type { Post, PostTranslationSummary } from '../../../types/cms';
 
@@ -19,8 +20,8 @@ try {
   } else {
     const auth = await authenticate(Astro.cookies, Astro.request);
     if (!auth) {
-      Astro.response.status = 401;
-      errorMessage = 'Sign in with your configured Supabase Auth flow to edit this post.';
+      Astro.response.status = 302;
+      Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
     } else {
       const { data, error } = await auth.supabase
         .from('posts')

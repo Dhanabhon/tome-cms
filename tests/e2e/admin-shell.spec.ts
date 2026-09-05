@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
+import { admin, cleanupEditor, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
 
 test('shared database suite defaults to one worker', async () => {
   const { default: config } = await import('../../playwright.config');
@@ -102,17 +102,39 @@ for (const [bookmark, destination] of [
   });
 }
 
+for (const destination of ['new', 'translation-new', 'edit']) {
+  test(`editor login bookmark returns to ${destination} with its full query`, async ({ page }) => {
+    const owner = await createOwner('editor-login-return');
+    const postId = crypto.randomUUID();
+    try {
+      const { error } = await admin.from('posts').insert({
+        id: postId, author_id: owner.id, title: 'Login return draft', locale: 'th',
+        slug: `login-return-${postId}`, status: 'draft', content_json: { type: 'doc', content: [] }, content_html: '',
+      });
+      expect(error).toBeNull();
+      const path = destination === 'edit' ? `/admin/edit/${postId}`
+        : destination === 'translation-new' ? `/admin/new?sourcePostId=${postId}&locale=en` : '/admin/new';
+      await page.goto(path);
+      await expect(page).toHaveURL(new URL(`/admin?returnTo=${encodeURIComponent(path)}`, page.url()).href);
+      await expect(page.getByRole('main')).toHaveCount(1);
+      await page.getByLabel('Email address').fill(owner.email);
+      await page.getByLabel('Password').fill(owner.password);
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect(page).toHaveURL(new URL(path, page.url()).href);
+      await expect(page.getByLabel('Post title')).toHaveValue(destination === 'edit' ? 'Login return draft' : '');
+      await expect(page.getByRole('main')).toHaveCount(1);
+      if (destination === 'translation-new') await expect(page.getByText('EN draft', { exact: true })).toBeVisible();
+    } finally {
+      await cleanupEditor(page, owner);
+    }
+  });
+}
+
 test('editor routes retain one main in loading, authenticated, and error states', async ({ page }) => {
   const owner = await createOwner('editor-landmarks');
   const restore = await leaseSiteOwner(owner);
   const postId = crypto.randomUUID();
   try {
-    for (const path of ['/admin/new', `/admin/edit/${postId}`, '/admin/edit/invalid']) {
-      const response = await page.goto(path);
-      expect(response?.status()).toBe(path.endsWith('invalid') ? 404 : 401);
-      await expect.soft(page.getByRole('main')).toHaveCount(1, { timeout: 1_000 });
-      await expect(page.getByRole('alert')).toBeVisible();
-    }
     const { error } = await admin.from('posts').insert({
       id: postId, author_id: owner.id, title: 'Landmark draft', locale: 'en',
       slug: `landmark-${postId}`, status: 'draft', content_json: { type: 'doc', content: [] }, content_html: '',
@@ -134,14 +156,15 @@ test('editor routes retain one main in loading, authenticated, and error states'
       await expect.soft(page.getByRole('main')).toHaveCount(1, { timeout: 1_000 });
       await expect(page.locator('.admin-shell')).toHaveCount(0);
     }
-    const missing = await page.goto(`/admin/edit/${crypto.randomUUID()}`);
-    expect(missing?.status()).toBe(404);
-    await expect.soft(page.getByRole('main')).toHaveCount(1, { timeout: 1_000 });
-    await expect(page.getByRole('alert')).toHaveText('Post not found.');
+    for (const path of [`/admin/edit/${crypto.randomUUID()}`, '/admin/edit/invalid']) {
+      const missing = await page.goto(path);
+      expect(missing?.status()).toBe(404);
+      await expect.soft(page.getByRole('main')).toHaveCount(1, { timeout: 1_000 });
+      await expect(page.getByRole('alert')).toHaveText('Post not found.');
+    }
   } finally {
-    await admin.from('posts').delete().eq('id', postId);
     await restore();
-    await deleteOwner(owner);
+    await cleanupEditor(page, owner);
   }
 });
 
