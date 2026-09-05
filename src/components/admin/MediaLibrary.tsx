@@ -62,6 +62,7 @@ export default function MediaLibrary({ mode }: Props) {
   const detailsDialog = useRef<HTMLDialogElement>(null);
   const detailsClose = useRef<HTMLButtonElement>(null);
   const detailsOpener = useRef<HTMLButtonElement | null>(null);
+  const mediaHeading = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async (nextPage: number, append: boolean, term: string, nextSelection: CategorySelection) => {
     const id = ++requestId.current;
@@ -116,7 +117,8 @@ export default function MediaLibrary({ mode }: Props) {
       detailsClose.current?.focus();
     } else {
       if (dialog.open) dialog.close();
-      detailsOpener.current?.focus();
+      if (detailsOpener.current?.isConnected) detailsOpener.current.focus();
+      else mediaHeading.current?.focus();
     }
   }, [selected]);
 
@@ -256,7 +258,7 @@ export default function MediaLibrary({ mode }: Props) {
     <section className="media-shell" data-mode={mode}>
       <div className="media-toolbar">
         <div>
-          <h1 className="font-display text-5xl font-semibold tracking-tight sm:text-6xl">Media</h1>
+          <h1 className="font-display text-5xl font-semibold tracking-tight sm:text-6xl" ref={mediaHeading} tabIndex={-1}>Media</h1>
           <p className="mt-2 text-sm text-muted">Upload and find images for your posts.</p>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">

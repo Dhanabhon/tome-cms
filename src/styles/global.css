@@ -157,11 +157,11 @@ body {
   @apply bg-black/40;
 }
 
-.media-details > img {
+.media-details img {
   @apply mb-4 aspect-video w-full rounded-md bg-soft object-contain;
 }
 
-.media-details > label {
+.media-details label {
   @apply mt-4 block text-sm font-medium;
 }
 
