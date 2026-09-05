@@ -2,7 +2,7 @@ import { expect, test, type BrowserContext } from '@playwright/test';
 
 import { getPublicSiteUrl } from '../../src/lib/seo';
 import type { Post } from '../../src/types/cms';
-import { admin, createOwner, deleteOwner, signInAdmin } from './support';
+import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
 
 const postBody = (title: string, slug: string, contentHtml: string) => ({
   contentHtml,
@@ -31,13 +31,17 @@ test('localized published editions render without public JavaScript', async ({ b
   const owner = await createOwner('public-blog');
   const slug = `public-media-${crypto.randomUUID()}`;
   const expectedDescription = 'Public media regression Visible without JavaScript.';
+  const avatarId = crypto.randomUUID();
+  const avatarPath = `${owner.id}/${avatarId}.png`;
   let defaultLocale: Post['locale'] | undefined;
   let noScriptContext: BrowserContext | undefined;
+  let restoreOwner: (() => Promise<void>) | undefined;
 
   try {
+    restoreOwner = await leaseSiteOwner(owner);
     const { data: settings, error: settingsError } = await admin
       .from('site_settings')
-      .select('default_locale')
+      .select('default_locale, site_name')
       .eq('id', true)
       .single();
     if (settingsError) throw settingsError;
@@ -45,6 +49,34 @@ test('localized published editions render without public JavaScript', async ({ b
 
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    const avatar = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4WQAAAAASUVORK5CYII=', 'base64');
+    const { error: avatarUploadError } = await owner.client.storage
+      .from('blog-media')
+      .upload(avatarPath, avatar, { contentType: 'image/png' });
+    if (avatarUploadError) throw avatarUploadError;
+    const { error: avatarInsertError } = await owner.client.from('media_items').insert({
+      alt_text: null,
+      folder_id: null,
+      height: 1,
+      id: avatarId,
+      mime_type: 'image/png',
+      original_name: 'public-author-avatar.png',
+      owner_id: owner.id,
+      size_bytes: avatar.byteLength,
+      storage_path: avatarPath,
+      width: 1,
+    });
+    if (avatarInsertError) throw avatarInsertError;
+    const profileResponse = await page.request.put('/api/profile', {
+      data: {
+        authorAvatarMediaId: avatarId,
+        authorBioEn: 'English bio',
+        authorBioTh: 'ประวัติภาษาไทย',
+        authorLinks: [{ label: 'Website', url: 'https://example.com/about' }],
+        authorName: 'Tome Owner',
+      },
+    });
+    expect(profileResponse.status()).toBe(200);
     const createSourceResponse = await page.request.post('/api/posts', {
       data: {
         ...postBody(
@@ -106,11 +138,54 @@ test('localized published editions render without public JavaScript', async ({ b
     expect(structuredData).toMatchObject({
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
+      author: { '@type': 'Person', name: 'Tome Owner' },
       dateModified: source.updated_at,
       datePublished: source.published_at,
       description: expectedDescription,
       headline: 'Public media regression',
       inLanguage: source.locale,
+      publisher: { '@type': 'Organization', name: settings.site_name },
+    });
+    await expect(publicPage.locator('meta[name="author"]')).toHaveAttribute('content', 'Tome Owner');
+
+    const thai = source.locale === 'th' ? source : sibling;
+    const english = source.locale === 'en' ? source : sibling;
+    await publicPage.goto(`/th/blog/${thai.slug}`);
+    const thaiAuthor = publicPage.getByRole('complementary', { name: 'About the author' });
+    await expect(thaiAuthor.getByText('Tome Owner')).toBeVisible();
+    await expect(thaiAuthor.getByText('ประวัติภาษาไทย')).toBeVisible();
+    await expect(thaiAuthor.getByText('English bio')).toHaveCount(0);
+    await expect(thaiAuthor.locator('img')).toHaveAttribute('alt', '');
+    await expect(thaiAuthor.locator('img')).toHaveAttribute('src', new RegExp(`/storage/v1/object/public/blog-media/${owner.id}/`));
+    await expect(thaiAuthor.getByRole('link', { name: 'Website' })).toHaveAttribute('href', 'https://example.com/about');
+    await expect(thaiAuthor.getByRole('link', { name: 'Website' })).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect(thaiAuthor.getByRole('link', { name: 'Tome Owner' })).toHaveCount(0);
+
+    await publicPage.goto(`/en/blog/${english.slug}`);
+    const englishAuthor = publicPage.getByRole('complementary', { name: 'About the author' });
+    await expect(englishAuthor.getByText('Tome Owner')).toBeVisible();
+    await expect(englishAuthor.getByText('English bio')).toBeVisible();
+    await expect(englishAuthor.getByText('ประวัติภาษาไทย')).toHaveCount(0);
+
+    const clearedProfile = await page.request.put('/api/profile', {
+      data: {
+        authorAvatarMediaId: avatarId,
+        authorBioEn: 'English bio',
+        authorBioTh: 'ประวัติภาษาไทย',
+        authorLinks: [{ label: 'Website', url: 'https://example.com/about' }],
+        authorName: '   ',
+      },
+    });
+    expect(clearedProfile.status()).toBe(200);
+    await publicPage.goto(`/th/blog/${thai.slug}`);
+    await expect(publicPage.getByRole('complementary', { name: 'About the author' })).toHaveCount(0);
+    await expect(publicPage.locator('meta[name="author"]')).toHaveAttribute('content', settings.site_name);
+    const clearedStructuredData = JSON.parse(
+      (await publicPage.locator('script[type="application/ld+json"]').textContent()) ?? '{}',
+    ) as Record<string, unknown>;
+    expect(clearedStructuredData).toMatchObject({
+      author: { '@type': 'Organization', name: settings.site_name },
+      publisher: { '@type': 'Organization', name: settings.site_name },
     });
 
     const legacy = await publicPage.request.get(`/blog/${source.slug}`, { maxRedirects: 0 });
@@ -194,7 +269,7 @@ test('localized published editions render without public JavaScript', async ({ b
   } finally {
     await noScriptContext?.close();
     await admin.from('posts').delete().eq('author_id', owner.id);
-    if (defaultLocale) await admin.from('site_settings').update({ default_locale: defaultLocale }).eq('id', true);
+    if (restoreOwner) await restoreOwner();
     await deleteOwner(owner);
   }
 });

@@ -1,0 +1,22 @@
+---
+import type { PublicAuthorProfile } from '../../types/cms';
+
+interface Props {
+  profile: PublicAuthorProfile;
+}
+
+const { profile } = Astro.props;
+---
+
+<aside class="author-block" aria-label="About the author">
+  {profile.avatarUrl && <img class="author-block__avatar" src={profile.avatarUrl} alt="" width="96" height="96" loading="lazy" />}
+  <div class="author-block__body">
+    <h2>{profile.name}</h2>
+    {profile.bio && <p>{profile.bio}</p>}
+    {profile.links.length > 0 && (
+      <nav aria-label="Author links">
+        {profile.links.map((link) => <a href={link.url} rel="noopener noreferrer" target="_blank">{link.label}</a>)}
+      </nav>
+    )}
+  </div>
+</aside>

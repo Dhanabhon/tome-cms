@@ -4,8 +4,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, postPath } from '../../../lib/i18n';
 import { getSiteSettings } from '../../../lib/installation';
 import { postExcerpt } from '../../../lib/posts';
+import { getPublicAuthorProfile } from '../../../lib/profile';
 import { createServerSupabaseClient } from '../../../lib/supabase';
-import type { Post, PostAlternate, SiteSettings } from '../../../types/cms';
+import type { Post, PostAlternate, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
@@ -31,6 +32,7 @@ const articleSettings: SiteSettings = settings ?? {
   updated_at: '',
 };
 let post: Post | null = null;
+let profile: PublicAuthorProfile | null = null;
 let availableLocales: PostAlternate[] = [];
 let loadError = false;
 
@@ -59,6 +61,7 @@ try {
         .eq('status', 'published');
       if (editionsError) throw editionsError;
       availableLocales = editions.map((edition) => ({ href: postPath(edition), locale: edition.locale }));
+      profile = await getPublicAuthorProfile(articleSettings, post.locale);
     }
   }
 } catch (error) {
@@ -66,6 +69,7 @@ try {
   Astro.response.status = 500;
   loadError = true;
   post = null;
+  profile = null;
 }
 
 const xDefaultHref = settings
@@ -75,6 +79,7 @@ const xDefaultHref = settings
 
 <BaseLayout
   alternates={availableLocales}
+  authorName={profile?.name}
   canonicalPath={post ? postPath(post) : undefined}
   description={post ? postExcerpt(post, fallbackDescription) : fallbackDescription}
   headline={post?.title}
@@ -88,7 +93,7 @@ const xDefaultHref = settings
   xDefaultHref={xDefaultHref}
 >
   {post ? (
-    <PostArticle post={post} settings={articleSettings} />
+    <PostArticle post={post} profile={profile} settings={articleSettings} />
   ) : (
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
       <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>

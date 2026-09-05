@@ -1,14 +1,16 @@
 ---
 import { localePath } from '../../lib/i18n';
-import type { Post, SiteSettings } from '../../types/cms';
+import type { Post, PublicAuthorProfile, SiteSettings } from '../../types/cms';
+import AuthorBlock from './AuthorBlock.astro';
 
 interface Props {
   post: Post;
   preview?: boolean;
+  profile?: PublicAuthorProfile | null;
   settings: SiteSettings;
 }
 
-const { post, preview = false, settings } = Astro.props;
+const { post, preview = false, profile, settings } = Astro.props;
 const formatter = new Intl.DateTimeFormat(post.locale === 'th' ? 'th-TH' : 'en', {
   day: 'numeric',
   month: 'long',
@@ -42,4 +44,5 @@ const showModifiedDate = !preview && new Date(modifiedAt).getTime() - new Date(p
     <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />
   )}
   <div class="prose mt-12 max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={post.content_html} />
+  {profile && <AuthorBlock profile={profile} />}
 </article>
