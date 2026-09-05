@@ -40,7 +40,7 @@ test('language context resolves owned editions before editor hydration', async (
     const languages = page.getByRole('navigation', { name: 'Post languages' });
     await expect(languages).toContainText(source.locale.toUpperCase());
     await expect(languages).toContainText(`${targetLocale.toUpperCase()} missing`);
-    await expect(page.locator('body')).not.toContainText(source.translation_group_id);
+    expect(await page.content()).not.toContain(source.translation_group_id);
 
     await page.goto('/admin');
     await expect(page.getByRole('link', { name: `${targetLocale.toUpperCase()} missing` })).toHaveAttribute(
