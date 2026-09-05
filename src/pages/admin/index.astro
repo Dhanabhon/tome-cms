@@ -3,7 +3,8 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
-import type { Post } from '../../types/cms';
+import { filterAdminPosts, readingMinutes, type AdminPostFilters } from '../../lib/posts';
+import type { Post, PostLocale } from '../../types/cms';
 
 let posts: Post[] = [];
 let userEmail: string | null = null;
@@ -37,9 +38,24 @@ try {
 const dateFormatter = new Intl.DateTimeFormat('en', {
   dateStyle: 'medium',
   timeStyle: 'short',
+  timeZone: settings?.timezone ?? 'UTC',
 });
-const publishedCount = posts.filter((post) => post.status === 'published').length;
-const draftCount = posts.length - publishedCount;
+const status = ['draft', 'published', 'all'].includes(Astro.url.searchParams.get('status') ?? '')
+  ? Astro.url.searchParams.get('status') as 'draft' | 'published' | 'all'
+  : 'draft';
+const locale = ['th', 'en', 'all'].includes(Astro.url.searchParams.get('locale') ?? '')
+  ? Astro.url.searchParams.get('locale') as PostLocale | 'all'
+  : 'all';
+const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+const filters: AdminPostFilters = { status, locale, query };
+const filteredPosts = filterAdminPosts(posts, filters);
+const editions = new Map<string, Post[]>();
+for (const post of posts) {
+  const group = editions.get(post.translation_group_id) ?? [];
+  group.push(post);
+  editions.set(post.translation_group_id, group);
+}
+const tabs = [{ status: 'draft', label: 'Drafts' }, { status: 'published', label: 'Published' }, { status: 'all', label: 'All' }];
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
@@ -80,35 +96,71 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     ) : errorMessage ? (
       <p class="admin-alert" role="alert">{errorMessage}</p>
     ) : (
-      <>
-        <div class="admin-summary" aria-label="Post summary">
-          <p><strong>{posts.length}</strong><span>Total</span></p>
-          <p><strong>{draftCount}</strong><span>Drafts</span></p>
-          <p><strong>{publishedCount}</strong><span>Published</span></p>
-        </div>
-        <div class="admin-posts">
-          <div class="admin-posts__head" aria-hidden="true">
-            <span>Post</span>
-            <span>Status</span>
-            <span>Last updated</span>
-          </div>
-          {posts.map((post) => (
-            <a class="admin-post-row" href={`/admin/edit/${post.id}`}>
-              <span class="admin-post-row__title"><strong>{post.title}</strong><small>/{post.slug}</small></span>
-              <span class="admin-status" data-status={post.status}>{post.status}</span>
-              <time datetime={post.updated_at}>{dateFormatter.format(new Date(post.updated_at))}</time>
-              <span class="admin-post-row__arrow" aria-hidden="true">→</span>
-            </a>
+      <div data-admin-posts>
+        <nav class="admin-post-tabs" role="tablist" aria-label="Post status">
+          {tabs.map((tab) => (
+            <a role="tab" aria-selected={status === tab.status} href={`/admin?${new URLSearchParams({ status: tab.status, locale, q: query })}`}>{tab.label}</a>
           ))}
-          {!posts.length && (
+        </nav>
+        <form class="admin-post-filters" action="/admin" method="get">
+          <input type="hidden" name="status" value={status} />
+          <div class="admin-field">
+            <label for="post-search">Search posts</label>
+            <input class="admin-control" id="post-search" name="q" type="search" maxlength="100" value={query} placeholder="Search by title" />
+          </div>
+          <div class="admin-field">
+            <label for="post-locale">Language</label>
+            <select class="admin-control" id="post-locale" name="locale">
+              <option value="all" selected={locale === 'all'}>All languages</option>
+              <option value="th" selected={locale === 'th'}>Thai</option>
+              <option value="en" selected={locale === 'en'}>English</option>
+            </select>
+          </div>
+          <button class="admin-button" type="submit">Apply filters</button>
+        </form>
+        <p class="admin-alert" data-post-error role="alert" hidden></p>
+        <div class="admin-story-list">
+          {filteredPosts.map((post) => {
+            const title = post.title.trim() || 'Untitled post';
+            const sibling = editions.get(post.translation_group_id)?.find((edition) => edition.locale !== post.locale);
+            const timestamp = post.status === 'published' ? post.published_at ?? post.updated_at : post.updated_at;
+            return (
+              <article class="admin-story-row" aria-label={`${title} (${post.locale.toUpperCase()})`}>
+                <div class="admin-story-cover" aria-hidden="true">
+                  {post.cover_image ? <img src={post.cover_image} alt="" loading="lazy" /> : <span>✎</span>}
+                </div>
+                <div class="admin-story-content">
+                  <h2><a href={`/admin/edit/${post.id}`}>{title}</a></h2>
+                  <div class="admin-story-meta">
+                    <span class="admin-locale">{post.locale.toUpperCase()}</span>
+                    <span>{readingMinutes(post.content_json)} min read</span>
+                    <span class="admin-status" data-status={post.status}>{post.status}</span>
+                    <span>{post.status === 'published' ? 'Published' : 'Updated'} <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                  </div>
+                  <p class="admin-story-sibling">
+                    {sibling ? <a href={`/admin/edit/${sibling.id}`}>{sibling.locale.toUpperCase()} {sibling.status}</a> : <span>{post.locale === 'th' ? 'EN' : 'TH'} missing</span>}
+                  </p>
+                </div>
+                <details class="admin-story-menu">
+                  <summary aria-label={`Actions for ${title} (${post.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
+                  <div>
+                    <a href={`/admin/edit/${post.id}`}>Edit</a>
+                    <button type="button" data-post-action={post.status === 'draft' ? 'published' : 'draft'} data-post-id={post.id}>{post.status === 'draft' ? 'Publish' : 'Unpublish'}</button>
+                    <button type="button" data-post-action="delete" data-post-id={post.id} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>Delete</button>
+                  </div>
+                </details>
+              </article>
+            );
+          })}
+          {!filteredPosts.length && (
             <div class="admin-empty">
               <span class="admin-empty__mark" aria-hidden="true">+</span>
-              <div><h2>Your first post starts here</h2><p>Create a draft now and publish whenever it is ready.</p></div>
-              <a class="admin-button admin-button--secondary" href="/admin/new">Create first post</a>
+              <div><h2>{posts.length ? 'No posts match these filters.' : 'Your first post starts here'}</h2><p>{posts.length ? 'Try another title, language, or status.' : 'Create a draft now and publish whenever it is ready.'}</p></div>
+              {!posts.length && <a class="admin-button admin-button--secondary" href="/admin/new">Create first post</a>}
             </div>
           )}
         </div>
-      </>
+      </div>
     )}
   </section>
   </Frame>
@@ -117,6 +169,37 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 <script>
   import { createBrowserSupabaseClient } from '../../lib/supabase';
   import { safeAdminReturnTo } from '../../lib/admin';
+
+  const postsContainer = document.querySelector<HTMLElement>('[data-admin-posts]');
+  const postError = postsContainer?.querySelector<HTMLElement>('[data-post-error]');
+  postsContainer?.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-post-action]') : null;
+    if (!button || button.disabled) return;
+    const { postAction: action, postId: id } = button.dataset;
+    if (!id || !action) return;
+    if (action === 'delete' && !window.confirm(`Delete “${button.dataset.postTitle}” (${button.dataset.postLocale})? Only this language edition will be deleted. This cannot be undone.`)) return;
+    button.disabled = true;
+    try {
+      const response = action === 'delete'
+        ? await fetch(`/api/posts?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        : await fetch('/api/posts', {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id, status: action }),
+          });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'The action could not be completed. Please try again.');
+      }
+      window.location.reload();
+    } catch (error) {
+      if (postError) {
+        postError.textContent = error instanceof Error ? error.message : 'The action could not be completed. Please try again.';
+        postError.hidden = false;
+      }
+      button.disabled = false;
+    }
+  });
 
   const form = document.querySelector<HTMLFormElement>('[data-auth-form]');
   const errorElement = document.querySelector<HTMLElement>('[data-auth-error]');

@@ -1,4 +1,4 @@
-import type { EditorNode, Post } from '../types/cms';
+import type { EditorNode, Post, PostLocale, PostStatus } from '../types/cms';
 
 const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList']);
 
@@ -24,4 +24,20 @@ export function readingMinutes(node: EditorNode) {
     .filter((segment) => segment.isWordLike)
     .length;
   return Math.max(1, Math.ceil(words / 200));
+}
+
+export interface AdminPostFilters {
+  locale: 'all' | PostLocale;
+  query: string;
+  status: 'all' | PostStatus;
+}
+
+export function filterAdminPosts(posts: Post[], filters: AdminPostFilters) {
+  const query = filters.query.trim().toLocaleLowerCase();
+  // ponytail: filter one owner's complete list in memory; add DB pagination only when measured volume requires it.
+  return posts.filter((post) => (
+    (filters.status === 'all' || post.status === filters.status)
+    && (filters.locale === 'all' || post.locale === filters.locale)
+    && (!query || post.title.toLocaleLowerCase().includes(query))
+  ));
 }
