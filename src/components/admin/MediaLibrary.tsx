@@ -1,12 +1,23 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 
-import { listMedia, uploadImage } from '../../lib/media-client';
+import {
+  createMediaFolder,
+  deleteMediaFolder,
+  listMedia,
+  listMediaFolders,
+  renameMediaFolder,
+  saveMediaDraft,
+  uploadImage,
+  type MediaDraft,
+} from '../../lib/media-client';
 import { ACCEPTED_IMAGE_TYPES } from '../../lib/media';
-import type { MediaAsset } from '../../types/cms';
+import type { MediaAsset, MediaFolder } from '../../types/cms';
 
 interface Props {
   mode: 'manage' | 'select';
 }
+
+type CategorySelection = 'all' | 'unsorted' | string;
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -19,26 +30,42 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
 }
 
+function folderId(selection: CategorySelection) {
+  if (selection === 'all') return undefined;
+  return selection === 'unsorted' ? null : selection;
+}
+
 export default function MediaLibrary({ mode }: Props) {
   const [items, setItems] = useState<MediaAsset[]>([]);
+  const [folders, setFolders] = useState<MediaFolder[]>([]);
+  const [selection, setSelection] = useState<CategorySelection>('all');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [failedRequest, setFailedRequest] = useState<{ append: boolean; page: number; term: string } | null>(null);
+  const [failedRequest, setFailedRequest] = useState<{ append: boolean; page: number; selection: CategorySelection; term: string } | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<MediaFolder | null>(null);
+  const [renameName, setRenameName] = useState('');
+  const [selected, setSelected] = useState<MediaAsset | null>(null);
+  const [draft, setDraft] = useState<MediaDraft>({ altText: '', folderId: '' });
+  const [detailsStatus, setDetailsStatus] = useState<string | null>(null);
   const currentQuery = useRef('');
   const requestId = useRef(0);
+  const selectedId = useRef<string | null>(null);
+  const urlInput = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async (nextPage: number, append: boolean, term: string) => {
+  const load = useCallback(async (nextPage: number, append: boolean, term: string, nextSelection: CategorySelection) => {
     const id = ++requestId.current;
     setLoading(true);
     setError(null);
     setFailedRequest(null);
     try {
-      const result = await listMedia({ folderId: null, page: nextPage, search: term });
+      const result = await listMedia({ folderId: folderId(nextSelection), page: nextPage, search: term });
       if (id !== requestId.current) return;
       setItems((current) => (append ? [...current, ...result.items] : result.items));
       setHasMore(result.hasMore);
@@ -46,12 +73,24 @@ export default function MediaLibrary({ mode }: Props) {
     } catch (loadError) {
       if (id === requestId.current) {
         setError(errorMessage(loadError));
-        setFailedRequest({ append, page: nextPage, term });
+        setFailedRequest({ append, page: nextPage, selection: nextSelection, term });
       }
     } finally {
       if (id === requestId.current) setLoading(false);
     }
   }, []);
+
+  const loadFolders = useCallback(async () => {
+    try {
+      setFolders(await listMediaFolders());
+    } catch (folderError) {
+      setError(errorMessage(folderError));
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadFolders();
+  }, [loadFolders]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -62,8 +101,13 @@ export default function MediaLibrary({ mode }: Props) {
   }, [search]);
 
   useEffect(() => {
-    void load(1, false, debouncedSearch);
-  }, [debouncedSearch, load]);
+    void load(1, false, debouncedSearch, selection);
+  }, [debouncedSearch, load, selection]);
+
+  function selectCategory(nextSelection: CategorySelection) {
+    setPage(1);
+    setSelection(nextSelection);
+  }
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -72,8 +116,8 @@ export default function MediaLibrary({ mode }: Props) {
     setUploading(true);
     setError(null);
     try {
-      await uploadImage(file);
-      await load(1, false, currentQuery.current);
+      await uploadImage(file, { folderId: folderId(selection) ?? null });
+      await load(1, false, currentQuery.current, selection);
     } catch (uploadError) {
       setError(errorMessage(uploadError));
       setFailedRequest(null);
@@ -83,6 +127,92 @@ export default function MediaLibrary({ mode }: Props) {
     }
   }
 
+  async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCategoryError(null);
+    try {
+      const folder = await createMediaFolder(categoryName);
+      setFolders((current) => [...current, folder].sort((left, right) => left.name.localeCompare(right.name)));
+      setCategoryName('');
+    } catch (createError) {
+      setCategoryError(errorMessage(createError));
+    }
+  }
+
+  async function handleRenameCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!renaming) return;
+    setCategoryError(null);
+    try {
+      const folder = await renameMediaFolder(renaming.id, renameName);
+      setFolders((current) => current.map((currentFolder) => (currentFolder.id === folder.id ? folder : currentFolder)).sort((left, right) => left.name.localeCompare(right.name)));
+      setRenaming(null);
+    } catch (renameError) {
+      setCategoryError(errorMessage(renameError));
+    }
+  }
+
+  async function handleDeleteCategory(folder: MediaFolder) {
+    if (!window.confirm(`Delete ${folder.name}? Images in this category will move to Unsorted.`)) return;
+    setCategoryError(null);
+    try {
+      await deleteMediaFolder(folder.id);
+      setFolders((current) => current.filter((currentFolder) => currentFolder.id !== folder.id));
+      if (selection === folder.id) selectCategory('unsorted');
+    } catch (deleteError) {
+      setCategoryError(errorMessage(deleteError));
+    }
+  }
+
+  function openDetails(item: MediaAsset) {
+    selectedId.current = item.id;
+    setSelected(item);
+    setDraft({ altText: item.alt_text ?? '', folderId: item.folder_id ?? '' });
+    setDetailsStatus(null);
+  }
+
+  async function saveDetails() {
+    if (!selected) return;
+    setDetailsStatus(null);
+    try {
+      const updated = await saveMediaDraft(selected.id, draft);
+      const asset = { ...updated, publicUrl: selected.publicUrl };
+      setItems((current) => current.map((item) => (item.id === asset.id ? asset : item)));
+      if (selectedId.current === asset.id) {
+        setSelected(asset);
+        setDetailsStatus('Saved.');
+      }
+    } catch (saveError) {
+      setDetailsStatus(errorMessage(saveError));
+    }
+  }
+
+  async function copyUrl() {
+    if (!selected) return;
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard unavailable.');
+      await navigator.clipboard.writeText(selected.publicUrl);
+      setDetailsStatus('URL copied.');
+    } catch {
+      urlInput.current?.select();
+      setDetailsStatus('URL selected. Copy it with your keyboard shortcut.');
+    }
+  }
+
+  const categoryButtons = (
+    <>
+      <button aria-pressed={selection === 'all'} className="media-category" onClick={() => selectCategory('all')} type="button">All media</button>
+      <button aria-pressed={selection === 'unsorted'} className="media-category" onClick={() => selectCategory('unsorted')} type="button">Unsorted</button>
+      {folders.map((folder) => (
+        <div className="media-category-row" key={folder.id}>
+          <button aria-pressed={selection === folder.id} className="media-category" onClick={() => selectCategory(folder.id)} type="button">{folder.name}</button>
+          <button aria-label={`Rename ${folder.name}`} className="media-category-action" onClick={() => { setRenaming(folder); setRenameName(folder.name); }} type="button">Rename {folder.name}</button>
+          <button aria-label={`Delete ${folder.name}`} className="media-category-action" onClick={() => void handleDeleteCategory(folder)} type="button">Delete {folder.name}</button>
+        </div>
+      ))}
+    </>
+  );
+
   return (
     <section className="media-shell" data-mode={mode}>
       <div className="media-toolbar">
@@ -91,86 +221,33 @@ export default function MediaLibrary({ mode }: Props) {
           <p className="mt-2 text-sm text-muted">Upload and find images for your posts.</p>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
-          <label className="min-w-0 flex-1 sm:max-w-sm">
-            <span className="sr-only">Search media</span>
-            <input
-              className="w-full rounded-md border border-line px-3 py-2 text-sm"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search media"
-              type="search"
-              value={search}
-            />
-          </label>
-          <label className="cursor-pointer whitespace-nowrap rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800">
-            <span>{uploading ? 'Uploading…' : 'Upload image'}</span>
-            <input
-              accept={ACCEPTED_IMAGE_TYPES.join(',')}
-              className="sr-only"
-              disabled={uploading}
-              onChange={handleUpload}
-              type="file"
-            />
-          </label>
+          <label className="min-w-0 flex-1 sm:max-w-sm"><span className="sr-only">Search media</span><input className="w-full rounded-md border border-line px-3 py-2 text-sm" onChange={(event) => setSearch(event.target.value)} placeholder="Search media" type="search" value={search} /></label>
+          <label className="cursor-pointer whitespace-nowrap rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800"><span>{uploading ? 'Uploading…' : 'Upload image'}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
         </div>
       </div>
 
-      {uploading && <p className="media-status" role="status">Uploading image…</p>}
-      {error && (
-        <div className="media-status" role="alert">
-          <span>{error}</span>
-          {failedRequest && (
-            <button
-              className="font-medium text-accent underline"
-              onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term)}
-              type="button"
-            >Retry</button>
-          )}
+      <div className="media-library-layout">
+        <aside className="media-categories">
+          <nav aria-label="Media categories">{categoryButtons}</nav>
+          <label className="media-category-select"><span className="sr-only">Media category</span><select aria-label="Media category" onChange={(event) => selectCategory(event.target.value)} value={selection}><option value="all">All media</option><option value="unsorted">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+          <form className="media-category-form" onSubmit={handleCreateCategory}><label><span className="sr-only">Category name</span><input aria-label="Category name" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button type="submit">Create category</button></form>
+          {renaming && <form className="media-category-form" onSubmit={handleRenameCategory}><label><span className="sr-only">Rename {renaming.name}</span><input aria-label={`Rename ${renaming.name}`} maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button type="submit">Save category name</button><button onClick={() => setRenaming(null)} type="button">Cancel rename</button></form>}
+          {categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
+        </aside>
+
+        <div className="min-w-0">
+          {uploading && <p className="media-status" role="status">Uploading image…</p>}
+          {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="font-medium text-accent underline" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection)} type="button">Retry</button>}</div>}
+          {loading && !items.length && <p className="media-status" role="status">Loading media…</p>}
+          {!loading && !error && !items.length && <div className="media-empty"><h2 className="font-display text-3xl font-semibold">No media yet</h2><p className="mt-2 text-sm text-muted">Upload an image to start your library.</p></div>}
+          {items.length > 0 && <><div className="media-grid">{items.map((item) => {
+            const format = item.mime_type.replace('image/', '').toUpperCase();
+            return <button aria-label={`${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}`} className="media-card" key={item.id} onClick={() => openDetails(item)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm" title={item.original_name}>{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span></button>;
+          })}</div>{hasMore && <div className="media-status"><button className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{loading ? 'Loading…' : 'Load more'}</button></div>}</>}
         </div>
-      )}
-      {loading && !items.length && <p className="media-status" role="status">Loading media…</p>}
-      {!loading && !error && !items.length && (
-        <div className="media-empty">
-          <h2 className="font-display text-3xl font-semibold">No media yet</h2>
-          <p className="mt-2 text-sm text-muted">Upload an image to start your library.</p>
-        </div>
-      )}
-      {items.length > 0 && (
-        <>
-          <div className="media-grid">
-            {items.map((item) => {
-              const format = item.mime_type.replace('image/', '').toUpperCase();
-              return (
-                <button
-                  aria-label={`${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}`}
-                  className="media-card"
-                  key={item.id}
-                  type="button"
-                >
-                  <img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} />
-                  <strong className="block truncate text-sm" title={item.original_name}>{item.original_name}</strong>
-                  <span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">
-                    <span>{item.width} × {item.height}</span>
-                    <span>{format}</span>
-                    <span>{formatSize(item.size_bytes)}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {hasMore && (
-            <div className="media-status">
-              <button
-                className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent"
-                disabled={loading}
-                onClick={() => void load(page + 1, true, currentQuery.current)}
-                type="button"
-              >
-                {loading ? 'Loading…' : 'Load more'}
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      </div>
+
+      {selected && <div aria-label="Image details" aria-modal="true" className="media-details-backdrop" role="dialog"><div className="media-details"><button aria-label="Close details" className="media-details-close" onClick={() => { selectedId.current = null; setSelected(null); }} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label>Category<select aria-label="Category" onChange={(event) => setDraft((current) => ({ ...current, folderId: event.target.value }))} value={draft.folderId}><option value="">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}</div></div>}
     </section>
   );
 }
