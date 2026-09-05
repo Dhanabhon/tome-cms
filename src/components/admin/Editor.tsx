@@ -188,8 +188,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     changeVersion.current += 1;
     dirtyRef.current = true;
     setDirty(true);
-    setSaveState('Unsaved');
-    setErrorMessage(null);
+    setSaveState((current) => current === 'Save failed' ? current : 'Unsaved');
   }, []);
 
   const persist = useCallback((status: PostStatus): Promise<Post> => {
@@ -198,8 +197,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       const draft = draftRef.current;
       if (!draft.title.trim()) throw new Error('Add a title before saving.');
       const version = changeVersion.current;
-      setSaveState('Saving…');
-      setErrorMessage(null);
+      setSaveState((current) => current === 'Save failed' ? current : 'Saving…');
       const id = postId.current;
       const response = await fetch('/api/posts', {
         method: id ? 'PUT' : 'POST',
@@ -216,6 +214,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
 
       const savedPost = readPost(payload);
       if (!savedPost) throw new Error('The server returned an invalid post.');
+      setErrorMessage(null);
 
       const wasNew = !postId.current;
       postId.current = savedPost.id;
@@ -284,7 +283,6 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     if (!file) return;
     const operation = ++coverOperation.current;
     setUploadingCover(true);
-    setErrorMessage(null);
 
     try {
       const asset = await uploadImage(file);
