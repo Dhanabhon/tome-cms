@@ -10,24 +10,17 @@ import {
 
 const commandItems = createSuggestionItems([
   {
-    title: 'Heading 1',
-    description: 'Large section heading',
-    icon: <span aria-hidden="true">H1</span>,
-    searchTerms: ['title', 'large'],
-    command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 1 }).run(),
-  },
-  {
     title: 'Heading 2',
-    description: 'Medium section heading',
+    description: 'Large section heading',
     icon: <span aria-hidden="true">H2</span>,
-    searchTerms: ['subtitle', 'medium'],
+    searchTerms: ['section', 'subtitle'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run(),
   },
   {
     title: 'Heading 3',
-    description: 'Small section heading',
+    description: 'Subsection heading',
     icon: <span aria-hidden="true">H3</span>,
-    searchTerms: ['subtitle', 'small'],
+    searchTerms: ['section', 'subtitle'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run(),
   },
   {
@@ -85,4 +78,3 @@ export default function SlashCommands() {
     </EditorCommand>
   );
 }
-

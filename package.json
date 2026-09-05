@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "admin:reset-password": "node scripts/reset-admin-password.mjs",
     "dev": "astro dev",
     "dev:macos": "./scripts/dev-local-macos.sh",
     "dev:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-local-windows.ps1",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",
+    "check": "astro check && node scripts/reset-admin-password.mjs --self-test && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",
     "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test",
     "test:e2e:media": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/media-rls.spec.ts tests/e2e/media-library.spec.ts tests/e2e/media-deletion.spec.ts tests/e2e/editor-media.spec.ts tests/e2e/public-blog.spec.ts",
     "astro": "astro"
