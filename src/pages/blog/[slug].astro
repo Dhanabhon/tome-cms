@@ -42,18 +42,24 @@ try {
   loadError = true;
 }
 
-if (post) return Astro.redirect(postPath(post), 301);
-if (!loadError) Astro.response.status = 404;
+if (post) {
+  Astro.response.status = 301;
+  Astro.response.headers.set('Location', postPath(post));
+} else if (!loadError) {
+  Astro.response.status = 404;
+}
 ---
 
-<BaseLayout
-  locale={defaultLocale}
-  robots="noindex, follow"
-  title={loadError ? 'Unavailable' : 'Post not found'}
->
-  <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
-    <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
-    <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
-    <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(defaultLocale)}>Return to all posts</a>
-  </section>
-</BaseLayout>
+{!post && (
+  <BaseLayout
+    locale={defaultLocale}
+    robots="noindex, follow"
+    title={loadError ? 'Unavailable' : 'Post not found'}
+  >
+    <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
+      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
+      <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
+      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(defaultLocale)}>Return to all posts</a>
+    </section>
+  </BaseLayout>
+)}

@@ -3,5 +3,6 @@ import { getSiteSettings } from '../lib/installation';
 import { localePath } from '../lib/i18n';
 
 const settings = await getSiteSettings();
-return Astro.redirect(localePath(settings?.default_locale ?? 'th'), 302);
+Astro.response.status = 302;
+Astro.response.headers.set('Location', localePath(settings?.default_locale ?? 'th'));
 ---
