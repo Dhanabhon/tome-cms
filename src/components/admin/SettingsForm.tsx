@@ -13,6 +13,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [timezone, setTimezone] = useState(initialSettings.timezone);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -20,6 +21,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     if (saving) return;
     setSaving(true);
     setError('');
+    setFieldErrors({});
     setStatus('');
     try {
       const response = await fetch('/api/settings', {
@@ -28,7 +30,14 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
         body: JSON.stringify({ defaultLocale, siteDescription, siteName, timezone }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? 'The settings could not be saved.');
+      if (!response.ok) {
+        const fields: Record<string, string> = {};
+        for (const name of ['siteName', 'siteDescription', 'defaultLocale', 'timezone']) {
+          fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
+        }
+        setFieldErrors(fields);
+        throw new Error(result.error ?? 'The settings could not be saved.');
+      }
       setStatus('Saved.');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'The settings could not be saved.');
@@ -38,12 +47,32 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   };
 
   return (
-    <form className="admin-settings-form" onSubmit={save} onChange={() => setStatus('')}>
+    <form className="admin-settings-form" onSubmit={save} onChange={(event) => {
+      setStatus('');
+      const name = (event.target as HTMLInputElement).name;
+      setFieldErrors((current) => ({ ...current, [name]: '' }));
+    }}>
       <fieldset disabled={saving}>
-        <label className="admin-field">Site name<input className="admin-control" required maxLength={120} value={siteName} onChange={(event) => setSiteName(event.target.value)} /></label>
-        <label className="admin-field">Site description<textarea className="admin-control admin-control--textarea" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} /></label>
-        <label className="admin-field">Default language<select className="admin-control" value={defaultLocale} onChange={(event) => setDefaultLocale(event.target.value as SiteSettings['default_locale'])}><option value="th">Thai</option><option value="en">English</option></select></label>
-        <label className="admin-field">Timezone<select className="admin-control" value={timezone} onChange={(event) => setTimezone(event.target.value as SiteSettings['timezone'])}><option value="Asia/Bangkok">Asia/Bangkok</option><option value="UTC">UTC</option></select></label>
+        <div className="admin-field">
+          <label htmlFor="siteName">Site name</label>
+          <input className="admin-control" id="siteName" name="siteName" aria-invalid={Boolean(fieldErrors.siteName)} aria-describedby="siteName-error" required maxLength={120} value={siteName} onChange={(event) => setSiteName(event.target.value)} />
+          <p className="admin-field-error" id="siteName-error" aria-live="polite">{fieldErrors.siteName}</p>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="siteDescription">Site description</label>
+          <textarea className="admin-control admin-control--textarea" id="siteDescription" name="siteDescription" aria-invalid={Boolean(fieldErrors.siteDescription)} aria-describedby="siteDescription-error" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} />
+          <p className="admin-field-error" id="siteDescription-error" aria-live="polite">{fieldErrors.siteDescription}</p>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="defaultLocale">Default language</label>
+          <select className="admin-control" id="defaultLocale" name="defaultLocale" aria-invalid={Boolean(fieldErrors.defaultLocale)} aria-describedby="defaultLocale-error" value={defaultLocale} onChange={(event) => setDefaultLocale(event.target.value as SiteSettings['default_locale'])}><option value="th">Thai</option><option value="en">English</option></select>
+          <p className="admin-field-error" id="defaultLocale-error" aria-live="polite">{fieldErrors.defaultLocale}</p>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="timezone">Timezone</label>
+          <select className="admin-control" id="timezone" name="timezone" aria-invalid={Boolean(fieldErrors.timezone)} aria-describedby="timezone-error" value={timezone} onChange={(event) => setTimezone(event.target.value as SiteSettings['timezone'])}><option value="Asia/Bangkok">Asia/Bangkok</option><option value="UTC">UTC</option></select>
+          <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
+        </div>
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
       <div className="admin-form-actions">

@@ -71,6 +71,11 @@ test('edition filters survive reload and history with sibling state and responsi
     await signInAdmin(page, owner);
     const rows = page.locator('.admin-story-row');
     await expect(page.getByRole('tab', { name: 'Drafts' })).toHaveAttribute('aria-selected', 'true');
+    for (const tab of await page.getByRole('tab').all()) {
+      const target = await tab.boundingBox();
+      expect(target?.width).toBeGreaterThanOrEqual(44);
+      expect(target?.height).toBeGreaterThanOrEqual(44);
+    }
     await expect(rows).toHaveCount(2);
     await expect(rows.first()).toContainText('English story');
     await expect(rows.filter({ hasText: 'Thai story' })).toContainText('EN draft');

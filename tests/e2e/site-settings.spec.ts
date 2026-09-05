@@ -2,6 +2,50 @@ import { expect, test, type BrowserContext } from '@playwright/test';
 
 import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
 
+for (const surface of ['profile', 'settings']) {
+  test(`${surface} associates server field errors and preserves whitespace-only required values`, async ({ page }) => {
+    const owner = await createOwner(`field-errors-${surface}`);
+    const restore = await leaseSiteOwner(owner);
+    try {
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto(`/admin/${surface}`);
+      if (surface === 'profile') {
+        while (await page.getByRole('button', { name: /Remove link/ }).count()) {
+          await page.getByRole('button', { name: /Remove link/ }).first().click();
+        }
+        await page.getByRole('button', { name: 'Add link' }).click();
+        await page.getByLabel('Link 1 URL').fill('https://example.com');
+      }
+      const field = page.getByRole('textbox', { name: surface === 'profile' ? 'Link 1 label' : 'Site name', exact: true });
+      await field.fill('   ');
+      const response = page.waitForResponse((result) => result.url().endsWith(`/api/${surface}`) && result.request().method() === 'PUT');
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      const rejected = await response;
+      expect(rejected.status()).toBe(400);
+      const payload = await rejected.json();
+      const message = surface === 'profile'
+        ? payload.issues.properties.authorLinks.items[0].properties.label.errors[0]
+        : payload.issues.properties.siteName.errors[0];
+      await expect(field).toHaveValue('   ');
+      await expect(field).toHaveAttribute('aria-invalid', 'true');
+      await expect(field).toHaveAccessibleDescription(message);
+      const errorId = await field.getAttribute('aria-describedby');
+      await expect(page.locator(`[id="${errorId}"]`)).toBeVisible();
+      await expect(page.locator(`[id="${errorId}"]`)).toHaveAttribute('aria-live', 'polite');
+      await expect(page.getByRole('status')).toBeEmpty();
+      await field.fill('Corrected value');
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(page.getByRole('status')).toHaveText('Saved.');
+      await expect(field).not.toHaveAttribute('aria-invalid', 'true');
+      await expect(page.locator(`[id="${errorId}"]`)).toBeEmpty();
+    } finally {
+      await restore();
+      await deleteOwner(owner);
+    }
+  });
+}
+
 test('Profile and Settings forms save, persist, and retain edits on failure', async ({ page }) => {
   const owner = await createOwner('configuration-forms');
   const restore = await leaseSiteOwner(owner);
@@ -235,6 +279,24 @@ test('only the configured owner can update strict Profile and Settings fields', 
       },
     });
     expect(foreignAvatar.status()).toBe(404);
+
+    const profilePayload = {
+      authorAvatarMediaId: null, authorBioEn: '', authorBioTh: '', authorLinks: [], authorName: 'Tome Owner',
+    };
+    const missingAvatar = await page.request.put('/api/profile', {
+      data: { ...profilePayload, authorAvatarMediaId: crypto.randomUUID() },
+    });
+    expect(missingAvatar.status()).toBe(404);
+    for (const extra of [
+      { owner_id: foreignOwner.id },
+      { unexpected: 'extra' },
+      { siteName: 'Cross-surface site name' },
+      { defaultLocale: 'en', siteDescription: 'Cross-surface description', timezone: 'UTC' },
+      { authorLinks: [{ label: 'Website', url: 'https://example.com', extra: true }] },
+    ]) {
+      const rejectedProfile = await page.request.put('/api/profile', { data: { ...profilePayload, ...extra } });
+      expect(rejectedProfile.status()).toBe(400);
+    }
 
     const { data: originalSettings, error: settingsError } = await admin
       .from('site_settings')

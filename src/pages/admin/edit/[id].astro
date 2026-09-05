@@ -45,11 +45,13 @@ try {
 ---
 
 <AdminLayout title={post?.title ?? 'Edit post'} userEmail={userEmail} showHeader={!post}>
-  {post ? (
-    <Editor client:only="react" initialPost={post}>
-      <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
-    </Editor>
-  ) : (
-    <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
-  )}
+  <main>
+    {post ? (
+      <Editor client:only="react" initialPost={post}>
+        <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+      </Editor>
+    ) : (
+      <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
+    )}
+  </main>
 </AdminLayout>

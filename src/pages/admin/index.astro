@@ -246,7 +246,9 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         password: passwordInput.value,
       });
       if (error) throw error;
-      window.location.assign(safeAdminReturnTo(new URLSearchParams(window.location.search).get('returnTo')));
+      const returnTo = new URLSearchParams(window.location.search).get('returnTo')
+        ?? `${window.location.pathname}${window.location.search}`;
+      window.location.assign(safeAdminReturnTo(returnTo));
     } catch (error) {
       const message = error instanceof Error && 'code' in error && error.code === 'invalid_credentials'
         ? 'Email or password is incorrect.'
