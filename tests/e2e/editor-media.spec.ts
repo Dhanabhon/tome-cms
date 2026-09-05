@@ -21,6 +21,7 @@ async function seedMedia(owner: TestOwner) {
   const { data, error } = await owner.client
     .from('media_items')
     .insert({
+      alt_text: 'Seeded illustration',
       height: 900,
       mime_type: PIXEL.mimeType,
       original_name: 'seeded-cover.png',
@@ -182,6 +183,121 @@ test.describe('editor cover media', () => {
   });
 });
 
+test.describe('editor block insertion', () => {
+  test.beforeEach(async ({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Block insertion interactions are covered in the desktop project.');
+  });
+
+  test('active block menu changes the block and inserts library media at the saved cursor', async ({ page }) => {
+    const owner = await createOwner('editor-block-insertion');
+
+    try {
+      const asset = await seedMedia(owner);
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto('/admin/new');
+
+      const editor = page.locator('.ProseMirror');
+      const addBlock = page.getByRole('button', { name: 'Add block' });
+      await editor.click();
+      await expect(addBlock).toBeVisible();
+
+      await addBlock.click();
+      const blockMenu = page.getByRole('menu', { name: 'Insert block' });
+      await expect(blockMenu).toBeVisible();
+      await expect(blockMenu.getByRole('menuitem')).toHaveCount(8);
+      await expect(blockMenu.getByRole('menuitem', { name: 'Text' })).toBeFocused();
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await expect(editor.locator('h2')).toHaveCount(1);
+
+      await editor.locator('h2').click();
+      await addBlock.click();
+      await blockMenu.getByRole('menuitem', { name: 'Image' }).click();
+      const picker = page.getByRole('dialog', { name: 'Media library' });
+      await expect(picker).toBeVisible();
+      await picker.getByRole('button', { name: /Select seeded-cover\.png/i }).click();
+
+      const insertedImage = editor.locator('img');
+      await expect(insertedImage).toHaveCount(1);
+      await expect(insertedImage).toHaveAttribute('src', asset.publicUrl);
+      await expect(insertedImage).toHaveAttribute('alt', 'Seeded illustration');
+
+      await editor.click();
+      await addBlock.click();
+      await page.keyboard.press('Escape');
+      await expect(blockMenu).toHaveCount(0);
+      await expect(editor).toBeFocused();
+
+      await addBlock.click();
+      await blockMenu.getByRole('menuitem', { name: 'Image' }).click();
+      await expect(picker).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(picker).toHaveCount(0);
+      await expect(editor).toBeFocused();
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
+  test('slash commands and the formatting bubble remain available', async ({ page }) => {
+    const owner = await createOwner('editor-tools-regression');
+
+    try {
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto('/admin/new');
+
+      const editor = page.locator('.ProseMirror');
+      await expect(page.getByRole('button', { name: 'Add block' })).toHaveCount(0);
+      await editor.click();
+      await page.keyboard.type('/');
+      await expect(page.getByText('Large section heading')).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('ControlOrMeta+A');
+      await page.keyboard.type('Format me');
+      await editor.locator('p').selectText();
+      await expect(page.getByRole('button', { name: 'Bold' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Add block' })).toHaveCount(0);
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+
+  test('failed inline upload leaves editor content unchanged', async ({ page }) => {
+    const owner = await createOwner('editor-inline-upload-failure');
+
+    try {
+      await signInAdmin(page, owner);
+      await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+      await page.goto('/admin/new');
+
+      const editor = page.locator('.ProseMirror');
+      await editor.click();
+      await page.keyboard.type('Keep this content');
+      const originalContent = await editor.innerHTML();
+      await page.getByRole('button', { name: 'Add block' }).click();
+      await page.getByRole('menuitem', { name: 'Image' }).click();
+      const picker = page.getByRole('dialog', { name: 'Media library' });
+      await expect(picker).toBeVisible();
+      await page.route('**/storage/v1/object/blog-media/**', (route) => route.fulfill({
+        body: JSON.stringify({ message: 'Forced inline upload failure' }),
+        contentType: 'application/json',
+        status: 500,
+      }));
+
+      await picker.getByLabel('Upload image').setInputFiles(PIXEL);
+
+      await expect(picker.getByRole('alert')).toContainText('Forced inline upload failure');
+      await expect(editor).toHaveJSProperty('innerHTML', originalContent);
+    } finally {
+      await deleteOwner(owner);
+    }
+  });
+});
+
 test('cover media picker fills the mobile viewport', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'Mobile picker layout is covered in the mobile project.');
   const owner = await createOwner('editor-cover-mobile');
@@ -204,6 +320,24 @@ test('cover media picker fills the mobile viewport', async ({ page }, testInfo) 
     await picker.getByRole('button', { name: 'Cancel' }).click();
     await expect(picker).toHaveCount(0);
     await expect(opener).toBeFocused();
+  } finally {
+    await deleteOwner(owner);
+  }
+});
+
+test('active block menu does not create mobile horizontal overflow', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Mobile overflow is covered in the mobile project.');
+  const owner = await createOwner('editor-block-mobile');
+
+  try {
+    await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+    await page.goto('/admin/new');
+
+    await page.locator('.ProseMirror').click();
+    await page.getByRole('button', { name: 'Add block' }).click();
+    await expect(page.getByRole('menu', { name: 'Insert block' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {
     await deleteOwner(owner);
   }

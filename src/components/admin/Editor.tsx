@@ -21,6 +21,7 @@ import slugify from 'slugify';
 import { uploadImage } from '../../lib/media-client';
 import { ACCEPTED_IMAGE_TYPES, COVER_IMAGE_GUIDANCE } from '../../lib/media';
 import type { MediaAsset, Post, PostStatus } from '../../types/cms';
+import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
 import MediaPicker from './MediaPicker';
 import SlashCommands, { slashCommand } from './SlashCommands';
@@ -383,7 +384,7 @@ export default function Editor({ initialPost }: EditorProps) {
           <div className="max-w-3xl">
             <EditorRoot>
               <EditorContent
-                className="editor-content"
+                className="editor-canvas editor-content"
                 editorProps={{
                   attributes: {
                     class: 'prose prose-lg max-w-none prose-headings:font-display prose-a:text-accent prose-img:rounded-lg',
@@ -402,6 +403,7 @@ export default function Editor({ initialPost }: EditorProps) {
               >
                 <SlashCommands />
                 <FormattingBubble />
+                <BlockInsertMenu />
               </EditorContent>
             </EditorRoot>
           </div>
