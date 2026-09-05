@@ -4,9 +4,11 @@ import { z } from 'zod';
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { authenticate } from '../../../lib/supabase';
-import type { Post } from '../../../types/cms';
+import type { Post, PostTranslationSummary } from '../../../types/cms';
 
 let post: Post | null = null;
+let editorPost: Omit<Post, 'translation_group_id'> | null = null;
+let translations: PostTranslationSummary[] = [];
 let userEmail: string | null = null;
 let errorMessage: string | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
@@ -34,6 +36,17 @@ try {
       if (!post) {
         Astro.response.status = 404;
         errorMessage = 'Post not found.';
+      } else {
+        const { data: translationData, error: translationsError } = await auth.supabase
+          .from('posts')
+          .select('id, locale, status, title')
+          .eq('translation_group_id', post.translation_group_id)
+          .eq('author_id', auth.user.id)
+          .order('locale');
+        if (translationsError) throw translationsError;
+        translations = translationData;
+        const { translation_group_id: _translationGroupId, ...safePost } = post;
+        editorPost = safePost;
       }
     }
   }
@@ -46,8 +59,8 @@ try {
 
 <AdminLayout title={post?.title ?? 'Edit post'} userEmail={userEmail} showHeader={!post}>
   <main>
-    {post ? (
-      <Editor client:only="react" initialPost={post}>
+    {post && editorPost ? (
+      <Editor client:only="react" initialPost={editorPost} locale={post.locale} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </Editor>
     ) : (

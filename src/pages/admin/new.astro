@@ -1,10 +1,18 @@
 ---
+import { z } from 'zod';
+
 import Editor from '../../components/admin/Editor';
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import { isPostLocale } from '../../lib/i18n';
+import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
+import type { PostLocale, PostTranslationSummary } from '../../types/cms';
 
 let userEmail: string | null = null;
 let errorMessage: string | null = null;
+let locale: PostLocale | null = null;
+let sourcePost: { coverImage: string | null; id: string } | undefined;
+let translations: PostTranslationSummary[] = [];
 
 try {
   const auth = await authenticate(Astro.cookies, Astro.request);
@@ -13,6 +21,46 @@ try {
     errorMessage = 'Sign in with your configured Supabase Auth flow to create a post.';
   } else {
     userEmail = auth.user.email ?? null;
+    const settings = await getSiteSettings();
+    if (!settings) throw new Error('Site settings not found.');
+
+    const sourcePostId = Astro.url.searchParams.get('sourcePostId');
+    const targetLocale = Astro.url.searchParams.get('locale');
+    const parsedSourcePostId = z.uuid().safeParse(sourcePostId);
+    if (!Astro.url.searchParams.has('sourcePostId') && !Astro.url.searchParams.has('locale')) {
+      locale = settings.default_locale;
+    } else if (!parsedSourcePostId.success || !isPostLocale(targetLocale)) {
+      Astro.response.status = 404;
+      errorMessage = 'Post not found.';
+    } else {
+      const { data: source, error } = await auth.supabase
+        .from('posts')
+        .select('cover_image, id, locale, status, title, translation_group_id')
+        .eq('id', parsedSourcePostId.data)
+        .eq('author_id', auth.user.id)
+        .maybeSingle();
+      if (error) throw error;
+
+      const { data: existing, error: existingError } = source
+        ? await auth.supabase
+            .from('posts')
+            .select('id')
+            .eq('translation_group_id', source.translation_group_id)
+            .eq('locale', targetLocale)
+            .eq('author_id', auth.user.id)
+            .maybeSingle()
+        : { data: null, error: null };
+      if (existingError) throw existingError;
+
+      if (!source || source.locale === targetLocale || existing) {
+        Astro.response.status = 404;
+        errorMessage = 'Post not found.';
+      } else {
+        locale = targetLocale;
+        sourcePost = { coverImage: source.cover_image, id: source.id };
+        translations = [{ id: source.id, locale: source.locale, status: source.status, title: source.title }];
+      }
+    }
   }
 } catch (error) {
   console.error('New post authentication failed:', error);
@@ -25,10 +73,10 @@ try {
   <main>
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
-    ) : (
-      <Editor client:only="react">
+    ) : locale ? (
+      <Editor client:only="react" locale={locale} sourcePost={sourcePost} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </Editor>
-    )}
+    ) : null}
   </main>
 </AdminLayout>

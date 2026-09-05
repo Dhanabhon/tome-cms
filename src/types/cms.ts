@@ -8,6 +8,13 @@ export const POST_LOCALES = ['th', 'en'] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
 export type PostLocale = (typeof POST_LOCALES)[number];
 
+export interface PostTranslationSummary {
+  id: string;
+  locale: PostLocale;
+  status: PostStatus;
+  title: string;
+}
+
 export type Json =
   | string
   | number
