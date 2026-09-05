@@ -15,6 +15,7 @@ test('normal posts receive the configured locale and an independent translation 
     if (settingsError) throw settingsError;
 
     await signInAdmin(page, owner);
+    await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     const response = await page.request.post('/api/posts', {
       data: {
         contentHtml: '<p>Existing content</p>',
