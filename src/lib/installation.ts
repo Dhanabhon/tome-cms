@@ -93,7 +93,7 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
     const supabase = createServiceRoleSupabaseClient();
     const [{ error: postsError }, settingsResult, { error: foldersError }, { error: itemsError }, bucketsResult] =
       await Promise.all([
-        supabase.from('posts').select('id', { count: 'exact', head: true }),
+        supabase.from('posts').select('id, locale, translation_group_id', { head: true }),
         supabase.from('site_settings').select('id').eq('id', true).maybeSingle(),
         supabase.from('media_folders').select('id', { head: true }),
         supabase.from('media_items').select('id', { head: true }),

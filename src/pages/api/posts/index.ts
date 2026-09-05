@@ -3,8 +3,9 @@ import sanitizeHtml from 'sanitize-html';
 import slugify from 'slugify';
 import { z } from 'zod';
 
+import { getSiteSettings } from '../../../lib/installation';
 import { authenticate } from '../../../lib/supabase';
-import type { EditorDocument, PostInsert, PostStatus, PostUpdate } from '../../../types/cms';
+import type { EditorDocument, PostInsert, PostLocale, PostStatus, PostUpdate } from '../../../types/cms';
 
 const MAX_DOCUMENT_BYTES = 1_000_000;
 
@@ -69,12 +70,17 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
   },
 };
 
-function postValues(input: z.infer<typeof postSchema>, authorId?: string): PostInsert | PostUpdate {
+function postValues(
+  input: z.infer<typeof postSchema>,
+  serverValues: { authorId?: string; locale?: PostLocale; translationGroupId?: string } = {},
+): PostInsert | PostUpdate {
   const generatedSlug = slugify(input.slug || input.title, { lower: true, strict: true, trim: true });
   const slug = generatedSlug || `post-${crypto.randomUUID().slice(0, 8)}`;
 
   return {
-    ...(authorId ? { author_id: authorId } : {}),
+    ...(serverValues.authorId ? { author_id: serverValues.authorId } : {}),
+    ...(serverValues.locale ? { locale: serverValues.locale } : {}),
+    ...(serverValues.translationGroupId ? { translation_group_id: serverValues.translationGroupId } : {}),
     title: input.title,
     slug,
     cover_image: input.coverImage || null,
@@ -136,9 +142,14 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     const parsed = postSchema.safeParse(json.body);
     if (!parsed.success) return parseError(parsed.error);
 
+    const settings = await getSiteSettings();
+    if (!settings) {
+      return Response.json({ error: 'The site settings could not be loaded.' }, { status: 500 });
+    }
+
     const { data, error } = await auth.supabase
       .from('posts')
-      .insert(postValues(parsed.data, auth.user.id) as PostInsert)
+      .insert(postValues(parsed.data, { authorId: auth.user.id, locale: settings.default_locale }) as PostInsert)
       .select()
       .single();
 

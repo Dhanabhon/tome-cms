@@ -3,8 +3,10 @@ import type { SupportedImageType } from '../lib/media';
 export type { SupportedImageType } from '../lib/media';
 
 export const POST_STATUSES = ['draft', 'published'] as const;
+export const POST_LOCALES = ['th', 'en'] as const;
 
 export type PostStatus = (typeof POST_STATUSES)[number];
+export type PostLocale = (typeof POST_LOCALES)[number];
 
 export type Json =
   | string
@@ -35,6 +37,8 @@ export interface Post {
   id: string;
   title: string;
   slug: string;
+  locale: PostLocale;
+  translation_group_id: string;
   cover_image: string | null;
   content_json: EditorDocument;
   content_html: string;
@@ -51,6 +55,8 @@ export interface PostInsert {
   id?: string;
   title: string;
   slug: string;
+  locale: PostLocale;
+  translation_group_id?: string;
   cover_image?: string | null;
   content_json: EditorDocument;
   content_html: string;
@@ -74,6 +80,13 @@ export interface PostMutationInput {
   metaTitle?: string | null;
   metaDescription?: string | null;
   status: PostStatus;
+  locale?: PostLocale;
+  sourcePostId?: string;
+}
+
+export interface PostAlternate {
+  href: string;
+  locale: PostLocale;
 }
 
 export interface Meta {
@@ -91,7 +104,7 @@ export interface SiteSettings {
   id: boolean;
   site_name: string;
   site_description: string;
-  default_locale: 'th' | 'en';
+  default_locale: PostLocale;
   timezone: 'Asia/Bangkok' | 'UTC';
   owner_id: string;
   installed_at: string;
