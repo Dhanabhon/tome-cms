@@ -118,6 +118,48 @@ test('malformed POST and PUT editor payloads return validation errors', async ({
   }
 });
 
+for (const method of ['post', 'put'] as const) {
+  for (const location of ['node', 'mark']) {
+    test(`malformed ${method.toUpperCase()} ${location} attrs return validation errors without changing the draft`, async ({ page }) => {
+      const owner = await createOwner('deep-post-attrs');
+      const valid = draftBody('Deep attrs validation', `attrs-${crypto.randomUUID()}`);
+      try {
+        await signInAdmin(page, owner);
+        await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
+        const created = await page.request.post('/api/posts', { data: valid });
+        expect(created.status()).toBe(201);
+        const { post } = await created.json();
+        for (const attrs of [
+          `{"value":${'{"nested":'.repeat(4_000)}null${'}'.repeat(4_000)}}`,
+          `{"value":${'['.repeat(4_000)}null${']'.repeat(4_000)}}`,
+          '{"value":1e400}',
+        ]) {
+          const document = location === 'node'
+            ? `{"type":"doc","content":[{"type":"paragraph","attrs":${attrs},"content":[{"type":"text","text":"Changed body"}]}]}`
+            : `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Changed body","marks":[{"type":"bold","attrs":${attrs}}]}]}]}`;
+          const fields = JSON.stringify({
+            ...valid, contentJson: undefined, slug: `invalid-attrs-${crypto.randomUUID()}`, status: 'published',
+            ...(method === 'put' ? { id: post.id } : {}),
+          });
+          // Build raw request JSON so the test client cannot overflow while stringifying deep attrs.
+          const body = `${fields.slice(0, -1)},"contentJson":${document}}`;
+          expect(Buffer.byteLength(body)).toBeLessThan(1_000_000);
+          const response = await page.request[method]('/api/posts', {
+            headers: { 'content-type': 'application/json' }, data: body,
+          });
+          expect.soft(response.status()).toBe(400);
+          expect.soft((await response.json()).error).toBe('Invalid post payload.');
+        }
+        const saved = await page.request.get('/api/posts');
+        expect((await saved.json()).posts).toEqual([post]);
+      } finally {
+        await admin.from('posts').delete().eq('author_id', owner.id);
+        await deleteOwner(owner);
+      }
+    });
+  }
+}
+
 test('publishing requires meaningful sanitized HTML and accepts rendered image-only articles', async ({ page }) => {
   const owner = await createOwner('rendered-post');
   const valid = draftBody('Rendered validation', `rendered-${crypto.randomUUID()}`);

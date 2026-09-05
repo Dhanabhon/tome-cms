@@ -6,19 +6,21 @@ import { z } from 'zod';
 import { getSiteSettings } from '../../../lib/installation';
 import { hasMeaningfulContent } from '../../../lib/posts';
 import { authenticate } from '../../../lib/supabase';
-import { POST_LOCALES, POST_STATUSES, type EditorNode, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
+import { POST_LOCALES, POST_STATUSES, type EditorNode, type Json, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
 
 const MAX_DOCUMENT_BYTES = 1_000_000;
 
 const nullableText = (max: number) => z.union([z.string().trim().max(max), z.null()]).optional();
 const httpUrl = z.url({ protocol: /^https?$/, error: 'Use an HTTP or HTTPS URL.' });
 const nullableUrl = z.union([httpUrl, z.literal(''), z.null()]).optional();
+// readJson validates JSON values and nesting before these structural schemas run.
+const editorAttrsSchema = z.record(z.string(), z.custom<Json>()).optional();
 const editorNodeSchema = (depth = 0): z.ZodType<EditorNode> => z.object({
   type: z.string().min(1),
-  attrs: z.record(z.string(), z.json()).optional(),
+  attrs: editorAttrsSchema,
   // ponytail: cap nesting at 100 to bound validation/traversal; raise only if the editor needs deeper documents.
   content: z.array(depth < 100 ? z.lazy(() => editorNodeSchema(depth + 1)) : z.never()).optional(),
-  marks: z.array(z.object({ type: z.string().min(1), attrs: z.record(z.string(), z.json()).optional() })).optional(),
+  marks: z.array(z.object({ type: z.string().min(1), attrs: editorAttrsSchema })).optional(),
   text: z.string().optional(),
 });
 const editorDocumentSchema = z.object({ type: z.literal('doc'), content: z.array(editorNodeSchema()).optional() });
@@ -140,7 +142,19 @@ function parseError(error: z.ZodError) {
 
 async function readJson(request: Request): Promise<{ body: unknown } | { response: Response }> {
   try {
-    return { body: await request.json() };
+    const body: unknown = await request.json();
+    const pending = [{ value: body, depth: 0 }];
+    while (pending.length) {
+      const { value, depth } = pending.pop()!;
+      // ponytail: cap request JSON at 256 levels before recursive validation/stringify; raise only for a proven editor need.
+      if (depth > 256 || (typeof value === 'number' && !Number.isFinite(value))) {
+        return { response: Response.json({ error: 'Invalid post payload.' }, { status: 400 }) };
+      }
+      if (typeof value === 'object' && value !== null) {
+        for (const child of Object.values(value)) pending.push({ value: child, depth: depth + 1 });
+      }
+    }
+    return { body };
   } catch {
     return { response: Response.json({ error: 'The request body must be valid JSON.' }, { status: 400 }) };
   }
