@@ -1,0 +1,26 @@
+---
+import MediaLibrary from '../../components/admin/MediaLibrary';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { authenticate } from '../../lib/supabase';
+
+let userEmail: string | null = null;
+let errorMessage: string | null = null;
+
+try {
+  const auth = await authenticate(Astro.cookies, Astro.request);
+  if (!auth) return Astro.redirect('/admin');
+  userEmail = auth.user.email ?? null;
+} catch (error) {
+  console.error('Media library authentication failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The media library is temporarily unavailable.';
+}
+---
+
+<AdminLayout title="Media" userEmail={userEmail}>
+  {errorMessage ? (
+    <p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p>
+  ) : (
+    <MediaLibrary client:only="react" mode="manage" />
+  )}
+</AdminLayout>

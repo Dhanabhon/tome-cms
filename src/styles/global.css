@@ -64,6 +64,36 @@ body {
   z-index: 50 !important;
 }
 
+.media-shell {
+  @apply mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16;
+}
+
+.media-toolbar {
+  @apply flex flex-wrap items-end justify-between gap-6 border-b border-line pb-8;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
+  @apply mt-8 gap-5;
+}
+
+.media-card {
+  @apply min-w-0 overflow-hidden rounded-lg border border-line bg-white p-2 text-left transition-colors hover:border-accent;
+}
+
+.media-card img {
+  @apply mb-3 rounded-md bg-soft;
+}
+
+.media-empty {
+  @apply mt-8 border border-dashed border-line px-5 py-16 text-center;
+}
+
+.media-status {
+  @apply mt-8 flex flex-wrap items-center justify-center gap-3 text-center text-sm text-muted;
+}
+
 .tippy-box,
 .tippy-content {
   position: relative;
@@ -72,4 +102,3 @@ body {
 .tippy-content {
   padding: 0;
 }
-
