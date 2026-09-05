@@ -244,6 +244,7 @@ export default function MediaLibrary({ mode }: Props) {
       const response = await fetch(`/api/media/${item.id}`, { method: 'DELETE' });
       const result = await response.json() as { deleted?: boolean; error?: string; posts?: ReferencingPost[] };
       if (response.status === 409) {
+        if (selectedId.current !== item.id) return;
         setDeleteError(result.error ?? 'This image is still in use.');
         setReferencingPosts(result.posts ?? []);
         return;
@@ -251,9 +252,9 @@ export default function MediaLibrary({ mode }: Props) {
       if (!response.ok || !result.deleted) throw new Error(result.error ?? 'The image could not be deleted.');
 
       setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
-      closeDetails();
+      if (selectedId.current === item.id) closeDetails();
     } catch (deleteFailure) {
-      setDeleteError(errorMessage(deleteFailure));
+      if (selectedId.current === item.id) setDeleteError(errorMessage(deleteFailure));
     } finally {
       setDeleting(false);
     }
