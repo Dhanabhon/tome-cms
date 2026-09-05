@@ -10,6 +10,7 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
 - Debounced draft saving
 - Supabase authentication, Row Level Security, and Storage policies
 - A secure first-run installer for site settings and the owner account
+- SEO, GEO, and AEO foundations with canonical URLs, social metadata, structured data, and automatic discovery files
 - Sanitized HTML output for public articles
 - A deployment script for Ubuntu and Debian VPS hosts
 
@@ -138,10 +139,37 @@ npm run dev:windows # Start local Supabase and TomeCMS on Windows
 npm run build       # Build the production server
 npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
+npm run admin:reset-password # Reset the installed owner password
 npm run test:e2e:media # Run focused Media Library and public blog regressions
 ```
 
 Run `npm run test:e2e:media` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
+
+## Search and answer visibility
+
+Public pages are server-rendered with self-referencing canonical URLs, indexable robots metadata, Open Graph and X cards, and JSON-LD that describes the site or published article. `/sitemap.xml` contains only the homepage and published posts, while `/robots.txt` advertises that sitemap and allows OAI-SearchBot to crawl public content.
+
+For each article, write a specific title, add a concise meta description when the opening text is not a good summary, structure the body with descriptive headings, cite primary sources for factual claims, and keep published information current. TomeCMS falls back to the article text when the meta description is empty.
+
+After deploying a public site, submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools. Search indexing, rich results, and AI citations remain decisions made by each search or answer engine.
+
+## Reset the owner password
+
+From the project directory, run:
+
+```sh
+npm run admin:reset-password
+```
+
+The command reads `.env.local`, `.env`, or `/etc/tome-cms/tome-cms.env`, identifies the installed owner from `site_settings`, and asks you to confirm the displayed Supabase URL and owner email. The new password is entered twice without being displayed and must contain 12–128 characters.
+
+On a VPS where only root can read the environment file, run the same command with `sudo`:
+
+```sh
+sudo npm run admin:reset-password
+```
+
+For a custom environment file, set `TOMECMS_ENV_FILE` to its path before running the command.
 
 ## Media Library
 
@@ -155,6 +183,8 @@ For cover images, use a 1600 × 900 px canvas when possible, with a recommended 
 | --- | --- |
 | `/` | Published post list |
 | `/blog/[slug]` | Public article with no client-side JavaScript |
+| `/sitemap.xml` | Published canonical URLs with accurate modification dates |
+| `/robots.txt` | Crawler rules and sitemap discovery, including OAI-SearchBot |
 | `/admin` | Sign-in and post dashboard |
 | `/admin/media` | Authenticated image Media Library |
 | `/admin/new` | New post editor |

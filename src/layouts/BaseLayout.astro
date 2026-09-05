@@ -2,29 +2,89 @@
 import Header from '../components/blog/Header.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import { getSiteSettings } from '../lib/installation';
+import { getPublicSiteUrl } from '../lib/seo';
 import '../styles/global.css';
 
 interface Props {
   title?: string;
   description?: string;
+  headline?: string;
   image?: string | null;
+  modifiedTime?: string | null;
+  publishedTime?: string | null;
+  robots?: string;
   type?: 'article' | 'website';
 }
 
 const settings = await getSiteSettings();
 const siteName = settings?.site_name ?? 'TomeCMS';
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
-const { description = defaultDescription, image, title = siteName, type = 'website' } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
+const locale = settings?.default_locale ?? 'en';
+const {
+  description = defaultDescription,
+  headline,
+  image,
+  modifiedTime,
+  publishedTime,
+  robots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+  title = siteName,
+  type = 'website',
+} = Astro.props;
+const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
+const canonical = new URL(Astro.url.pathname, siteUrl).toString();
+const homeUrl = siteUrl.toString();
+const absoluteImage = image ? new URL(image, siteUrl).toString() : null;
 const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
+const publisher = { '@type': 'Organization', name: siteName, url: homeUrl };
+const structuredData = robots.includes('noindex')
+  ? undefined
+  : type === 'article'
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        author: publisher,
+        dateModified: modifiedTime || undefined,
+        datePublished: publishedTime || undefined,
+        description,
+        headline: headline ?? title,
+        image: absoluteImage || undefined,
+        inLanguage: locale,
+        isAccessibleForFree: true,
+        mainEntityOfPage: { '@id': canonical, '@type': 'WebPage' },
+        publisher,
+        url: canonical,
+      }
+    : {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        description,
+        inLanguage: locale,
+        name: siteName,
+        publisher,
+        url: homeUrl,
+      };
 ---
 
 <!doctype html>
-<html lang={settings?.default_locale ?? 'en'}>
+<html lang={locale}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <SEOHead title={pageTitle} description={description} canonical={canonical} image={image} type={type} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <SEOHead
+      author={type === 'article' ? siteName : undefined}
+      title={pageTitle}
+      description={description}
+      canonical={canonical}
+      image={absoluteImage}
+      imageAlt={headline ?? title}
+      locale={locale}
+      modifiedTime={modifiedTime}
+      publishedTime={publishedTime}
+      robots={robots}
+      siteName={siteName}
+      structuredData={structuredData}
+      type={type}
+    />
   </head>
   <body class="flex min-h-screen flex-col">
     <Header active="writing" siteName={siteName} />

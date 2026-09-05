@@ -1,10 +1,13 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteSettings } from '../lib/installation';
 import { createServerSupabaseClient } from '../lib/supabase';
 import type { Post } from '../types/cms';
 
 let posts: Post[] = [];
 let loadError = false;
+const settings = await getSiteSettings();
+const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 
 try {
   const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
@@ -32,7 +35,7 @@ const dateFormatter = new Intl.DateTimeFormat('en', {
 const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
 ---
 
-<BaseLayout>
+<BaseLayout description={siteDescription} robots={loadError ? 'noindex, nofollow' : undefined}>
   <section class="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
     <div class="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
       <div>
@@ -40,7 +43,7 @@ const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at
           Ideas, carefully published.
         </h1>
         <p class="mt-6 max-w-md text-lg leading-8 text-muted">
-          A quiet place for thoughtful notes on design, software, and the work between.
+          {siteDescription}
         </p>
       </div>
 

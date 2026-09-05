@@ -1,11 +1,21 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getSiteSettings } from '../../lib/installation';
 import { createServerSupabaseClient } from '../../lib/supabase';
-import type { Post } from '../../types/cms';
+import type { EditorNode, Post } from '../../types/cms';
+
+const blockContainers = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList']);
+const textContent = (node: EditorNode): string => {
+  if (typeof node.text === 'string') return node.text;
+  return (node.content ?? []).map(textContent).join(blockContainers.has(node.type ?? '') ? ' ' : '');
+};
 
 let post: Post | null = null;
 let loadError = false;
 const slug = Astro.params.slug;
+const settings = await getSiteSettings();
+const siteName = settings?.site_name ?? 'TomeCMS';
+const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
 
 try {
   if (!slug) {
@@ -29,20 +39,32 @@ try {
   loadError = true;
 }
 
-const publishedDate = post
-  ? new Intl.DateTimeFormat('en', {
-      day: 'numeric',
-      month: 'long',
-      timeZone: 'UTC',
-      year: 'numeric',
-    }).format(new Date(post.published_at ?? post.created_at))
-  : null;
+const publishedAt = post?.published_at ?? post?.created_at ?? null;
+const modifiedAt = post?.updated_at ?? null;
+const dateFormatter = new Intl.DateTimeFormat(settings?.default_locale === 'th' ? 'th-TH' : 'en', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: settings?.timezone ?? 'UTC',
+  year: 'numeric',
+});
+const publishedDate = publishedAt ? dateFormatter.format(new Date(publishedAt)) : null;
+const modifiedDate = modifiedAt ? dateFormatter.format(new Date(modifiedAt)) : null;
+const showModifiedDate = Boolean(
+  publishedAt && modifiedAt && new Date(modifiedAt).getTime() - new Date(publishedAt).getTime() > 60_000,
+);
+const plainText = post ? textContent(post.content_json).replace(/\s+/g, ' ').trim() : '';
+const excerpt = plainText.length > 160 ? `${plainText.slice(0, 157).trimEnd()}…` : plainText;
+const articleDescription = post?.meta_description || excerpt || fallbackDescription;
 ---
 
 <BaseLayout
   title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
-  description={post?.meta_description ?? 'Read the latest from TomeCMS.'}
+  headline={post?.title}
+  description={articleDescription}
   image={post?.cover_image}
+  modifiedTime={modifiedAt}
+  publishedTime={publishedAt}
+  robots={post ? undefined : 'noindex, follow'}
   type={post ? 'article' : 'website'}
 >
   {post ? (
@@ -52,13 +74,19 @@ const publishedDate = post
         <h1 class="font-display text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">{post.title}</h1>
         {post.meta_description && <p class="mt-5 text-xl leading-8 text-muted">{post.meta_description}</p>}
         <div class="mt-5 flex items-center gap-3 text-sm text-muted">
-          <span>By TomeCMS</span>
+          <span>By <a class="text-accent hover:underline" href="/">{siteName}</a></span>
           <span aria-hidden="true">•</span>
-          <time datetime={post.published_at ?? post.created_at}>{publishedDate}</time>
+          <span>Published <time datetime={publishedAt ?? undefined}>{publishedDate}</time></span>
+          {showModifiedDate && (
+            <>
+              <span aria-hidden="true">•</span>
+              <span>Updated <time datetime={modifiedAt ?? undefined}>{modifiedDate}</time></span>
+            </>
+          )}
         </div>
       </header>
       {post.cover_image && (
-        <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt="" width="1200" height="675" />
+        <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />
       )}
       <div class="prose prose-lg mt-12 max-w-none prose-headings:font-display prose-a:text-accent prose-img:rounded-lg" set:html={post.content_html} />
     </article>

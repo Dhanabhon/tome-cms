@@ -358,7 +358,7 @@ export default function Editor({ initialPost }: EditorProps) {
 
           <aside className="admin-editor-settings" aria-label="Post settings">
             <div className="admin-editor-settings__head">
-              <div><h2>Post settings</h2><p>URL, search details, and cover image.</p></div>
+              <div><h2>Post settings</h2><p>URL, search and answer previews, and cover image.</p></div>
               <span className="admin-status" data-status={postStatus}>{postStatus}</span>
             </div>
             <label className="admin-field">
@@ -385,9 +385,11 @@ export default function Editor({ initialPost }: EditorProps) {
                   setMetaTitle(event.target.value);
                   markDirty();
                 }}
+                placeholder="Optional search result title"
                 type="text"
                 value={metaTitle}
               />
+              <small>Falls back automatically when empty.</small>
             </label>
             <label className="admin-field">
               <span>Meta description <small>{metaDescription.length}/320</small></span>
@@ -398,8 +400,10 @@ export default function Editor({ initialPost }: EditorProps) {
                   setMetaDescription(event.target.value);
                   markDirty();
                 }}
+                placeholder="A concise summary or direct answer"
                 value={metaDescription}
               />
+              <small>Shown below the article title and reused in search and social metadata.</small>
             </label>
             <div className="admin-field">
               <span>Cover image</span>

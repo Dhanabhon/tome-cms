@@ -3,23 +3,55 @@ interface Props {
   title: string;
   description: string;
   canonical: string;
+  author?: string;
   image?: string | null;
+  imageAlt?: string;
+  locale?: 'th' | 'en';
+  modifiedTime?: string | null;
+  publishedTime?: string | null;
+  robots?: string;
+  siteName?: string;
+  structuredData?: Record<string, unknown>;
   type?: 'article' | 'website';
 }
 
-const { canonical, description, image, title, type = 'website' } = Astro.props;
+const {
+  author,
+  canonical,
+  description,
+  image,
+  imageAlt,
+  locale = 'en',
+  modifiedTime,
+  publishedTime,
+  robots,
+  siteName,
+  structuredData,
+  title,
+  type = 'website',
+} = Astro.props;
+const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '\\u003c') : null;
 ---
 
 <title>{title}</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="description" content={description} />
+{author && <meta name="author" content={author} />}
+{robots && <meta name="robots" content={robots} />}
 <link rel="canonical" href={canonical} />
 <meta property="og:type" content={type} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 <meta property="og:url" content={canonical} />
+{siteName && <meta property="og:site_name" content={siteName} />}
+<meta property="og:locale" content={locale === 'th' ? 'th_TH' : 'en_US'} />
 {image && <meta property="og:image" content={image} />}
+{image && imageAlt && <meta property="og:image:alt" content={imageAlt} />}
+{type === 'article' && publishedTime && <meta property="article:published_time" content={publishedTime} />}
+{type === 'article' && modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
 <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 {image && <meta name="twitter:image" content={image} />}
+{image && imageAlt && <meta name="twitter:image:alt" content={imageAlt} />}
+{jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd}></script>}
