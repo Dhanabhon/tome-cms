@@ -13,13 +13,20 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
 - Sanitized HTML output for public articles
 - A deployment script for Ubuntu and Debian VPS hosts
 
-## Requirements
+## Prerequisites
 
-- Node.js 20 or newer
-- npm
-- Docker Desktop and the Supabase CLI for the local setup helper
-- WSL 2 enabled in Docker Desktop when using Windows
-- A hosted or self-hosted Supabase project when connecting manually
+Before using either local setup helper, prepare:
+
+- A local copy of this repository. Open your terminal in the `tome-cms` directory containing `package.json`.
+- [Node.js](https://nodejs.org/en/download) and npm. Choose a supported LTS release; the helper requires Node.js 20 or newer.
+- Docker Desktop installed and running. Follow the operating-system instructions below.
+- The [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), installed with Homebrew on macOS or Scoop on Windows so the `supabase` command is available in your terminal.
+- An internet connection for downloading dependencies and Docker images on the first run.
+- Available ports: `4321` for TomeCMS and `54321` through `54324` for the configured local Supabase services. If a port is occupied, stop the conflicting app or local stack first.
+
+The helper creates the Supabase containers and storage volumes, downloads their images, and configures the database. You do not need to create these manually, write a Docker Compose file, or create a hosted Supabase project. Docker runs Supabase; TomeCMS runs on your computer through Node.js.
+
+A hosted or self-hosted Supabase project is only needed for the [manual connection option](#use-a-hosted-or-self-hosted-supabase-project).
 
 ## Run it locally
 
@@ -27,7 +34,20 @@ Choose the command for your operating system. The helper checks the required too
 
 ### macOS
 
-Start Docker Desktop, then run:
+1. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/), choosing the download for your Mac's Apple silicon or Intel chip.
+2. Open Docker from Applications, complete its first-launch setup, and wait until the Docker engine is running. Keep Docker Desktop open while using TomeCMS.
+3. Open Terminal in the project directory and check the prerequisites:
+
+   ```sh
+   node --version
+   npm --version
+   supabase --version
+   docker info
+   ```
+
+The first three commands should print version numbers. `docker info` should include server details without a connection error. If a command is missing, install that tool and reopen Terminal. If Docker cannot connect, wait for Docker Desktop to finish starting.
+
+Once those checks pass, run:
 
 ```sh
 npm run dev:macos
@@ -35,7 +55,18 @@ npm run dev:macos
 
 ### Windows
 
-Start Docker Desktop with the WSL 2 backend enabled. Open PowerShell in the project directory, then run:
+1. Install [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) with WSL 2 enabled and use Linux containers.
+2. Start Docker Desktop, complete its first-launch setup, and wait until the Docker engine is running.
+3. Install Node.js, npm, and the Supabase CLI on Windows so they are available in PowerShell. Open PowerShell in the project directory and check:
+
+   ```powershell
+   node --version
+   npm.cmd --version
+   supabase --version
+   docker info
+   ```
+
+Each check should succeed before continuing. Reopen PowerShell after installing a missing tool. Then run:
 
 ```powershell
 npm run dev:windows
