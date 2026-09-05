@@ -1,0 +1,113 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { isPostLocale, localePath, postPath } from '../../lib/i18n';
+import { getSiteSettings } from '../../lib/installation';
+import { createServerSupabaseClient } from '../../lib/supabase';
+import type { Post, PostAlternate } from '../../types/cms';
+
+const localeValue = Astro.params.locale;
+if (!isPostLocale(localeValue)) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+const locale = localeValue;
+let posts: Post[] = [];
+let loadError = false;
+const settings = await getSiteSettings();
+const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
+
+try {
+  const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('locale', locale)
+    .eq('status', 'published')
+    .order('published_at', { ascending: false });
+
+  if (error) throw error;
+  posts = data;
+} catch (error) {
+  console.error('Homepage post query failed:', error);
+  Astro.response.status = 500;
+  loadError = true;
+}
+
+const availableLocales: PostAlternate[] = [
+  { href: localePath('th'), locale: 'th' },
+  { href: localePath('en'), locale: 'en' },
+];
+const [featured, ...remainingPosts] = posts;
+const dateFormatter = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: settings?.timezone ?? 'UTC',
+  year: 'numeric',
+});
+const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
+---
+
+<BaseLayout
+  alternates={availableLocales}
+  canonicalPath={localePath(locale)}
+  description={siteDescription}
+  locale={locale}
+  robots={loadError ? 'noindex, nofollow' : undefined}
+>
+  <section class="bg-hero text-white">
+    <div class="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-7 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-16">
+      <div>
+        <h1 class="max-w-xl font-display text-[54px] font-bold leading-[56px] tracking-[-1.875px] sm:text-[64px] sm:leading-[64px]">
+          Ideas, carefully published.
+        </h1>
+        <p class="mt-6 max-w-md text-xl leading-[30px] text-white/75">
+          {siteDescription}
+        </p>
+      </div>
+
+      <div class="rounded-lg bg-white p-6 text-ink sm:p-8">
+        {featured ? (
+          <article>
+            <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">Featured</p>
+            <h2 class="mt-4 max-w-xl font-display text-[40px] font-normal leading-[48px]">
+              <a class="hover:text-link" href={postPath(featured)}>{featured.title}</a>
+            </h2>
+            {featured.meta_description && (
+              <p class="mt-4 max-w-xl text-base leading-6 text-muted">{featured.meta_description}</p>
+            )}
+            <div class="mt-6 flex items-center gap-3 text-sm">
+              <a class="font-medium text-link hover:underline" href={postPath(featured)}>Read article <span aria-hidden="true">→</span></a>
+              <span class="text-line" aria-hidden="true">•</span>
+              <time class="text-muted" datetime={featured.published_at ?? featured.created_at}>{postDate(featured)}</time>
+            </div>
+          </article>
+        ) : (
+          <p class="text-muted">No published posts yet.</p>
+        )}
+      </div>
+    </div>
+  </section>
+
+  {(remainingPosts.length > 0 || loadError) && (
+    <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-20">
+      {remainingPosts.length > 0 && (
+        <div class="border-t border-line">
+          {remainingPosts.map((post) => (
+            <article class="grid gap-3 border-b border-line py-6 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-12">
+              <h2 class="font-display text-[22px] font-bold leading-7 tracking-[-0.25px]">
+                <a class="hover:text-link" href={postPath(post)}>{post.title}</a>
+              </h2>
+              <time class="text-sm text-muted" datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
+              <a class="text-sm font-medium text-link hover:underline" href={postPath(post)}>Read article <span aria-hidden="true">→</span></a>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {loadError && (
+        <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
+          Published posts are temporarily unavailable.
+        </p>
+      )}
+    </section>
+  )}
+</BaseLayout>

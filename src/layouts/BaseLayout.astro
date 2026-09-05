@@ -1,9 +1,13 @@
 ---
 import Header from '../components/blog/Header.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
+import { localePath } from '../lib/i18n';
 import { getSiteSettings } from '../lib/installation';
 import { getPublicSiteUrl } from '../lib/seo';
+import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
+
+type AlternateLink = { href: string; hreflang: 'th' | 'en' | 'x-default' };
 
 interface Props {
   title?: string;
@@ -14,13 +18,18 @@ interface Props {
   publishedTime?: string | null;
   robots?: string;
   type?: 'article' | 'website';
+  alternates?: PostAlternate[];
+  canonicalPath?: string;
+  locale?: PostLocale;
+  xDefaultHref?: string;
 }
 
 const settings = await getSiteSettings();
 const siteName = settings?.site_name ?? 'TomeCMS';
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
-const locale = settings?.default_locale ?? 'en';
 const {
+  alternates,
+  canonicalPath,
   description = defaultDescription,
   headline,
   image,
@@ -29,13 +38,21 @@ const {
   robots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
   title = siteName,
   type = 'website',
+  locale = settings?.default_locale ?? 'en',
+  xDefaultHref,
 } = Astro.props;
 const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
-const canonical = new URL(Astro.url.pathname, siteUrl).toString();
+const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();
 const absoluteImage = image ? new URL(image, siteUrl).toString() : null;
 const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
 const publisher = { '@type': 'Organization', name: siteName, url: homeUrl };
+const seoAlternates: AlternateLink[] = [
+  ...(alternates ?? []).map(({ href, locale }) => ({ href: new URL(href, siteUrl).toString(), hreflang: locale })),
+  ...(xDefaultHref
+    ? [{ href: new URL(xDefaultHref, siteUrl).toString(), hreflang: 'x-default' as const }]
+    : []),
+];
 const structuredData = robots.includes('noindex')
   ? undefined
   : type === 'article'
@@ -72,6 +89,7 @@ const structuredData = robots.includes('noindex')
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <SEOHead
       author={type === 'article' ? siteName : undefined}
+      alternates={seoAlternates}
       title={pageTitle}
       description={description}
       canonical={canonical}
@@ -93,14 +111,14 @@ const structuredData = robots.includes('noindex')
     />
   </head>
   <body class="flex min-h-screen flex-col">
-    <Header active="writing" siteName={siteName} />
+    <Header active="writing" availableLocales={alternates} locale={locale} siteName={siteName} />
     <main class="flex-1">
       <slot />
     </main>
     <footer class="mx-auto flex w-full max-w-7xl flex-col gap-3 border-t border-line px-5 py-7 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-7">
       <p>&copy; {new Date().getFullYear()} {siteName}. All rights reserved.</p>
       <nav aria-label="Footer" class="flex gap-6">
-        <a class="text-link hover:underline" href="/">Writing</a>
+        <a class="text-link hover:underline" href={localePath(locale)}>Writing</a>
         <a class="text-link hover:underline" href="/admin">Admin</a>
       </nav>
     </footer>

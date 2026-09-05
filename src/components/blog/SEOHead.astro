@@ -1,4 +1,9 @@
 ---
+interface AlternateLink {
+  href: string;
+  hreflang: 'th' | 'en' | 'x-default';
+}
+
 interface Props {
   title: string;
   description: string;
@@ -13,9 +18,11 @@ interface Props {
   siteName?: string;
   structuredData?: Record<string, unknown>;
   type?: 'article' | 'website';
+  alternates?: AlternateLink[];
 }
 
 const {
+  alternates,
   author,
   canonical,
   description,
@@ -39,6 +46,7 @@ const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '
 {author && <meta name="author" content={author} />}
 {robots && <meta name="robots" content={robots} />}
 <link rel="canonical" href={canonical} />
+{alternates?.map(({ href, hreflang }) => <link rel="alternate" hreflang={hreflang} href={href} />)}
 <meta property="og:type" content={type} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />

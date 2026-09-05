@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 
+import { postPath } from '../lib/i18n';
 import { getPublicSiteUrl } from '../lib/seo';
 import { createServerSupabaseClient } from '../lib/supabase';
 
@@ -10,7 +11,7 @@ export const GET: APIRoute = async ({ cookies, request, site }) => {
   try {
     const { data: posts, error } = await createServerSupabaseClient(cookies, request)
       .from('posts')
-      .select('slug, updated_at')
+      .select('locale, slug, updated_at')
       .eq('status', 'published')
       .order('updated_at', { ascending: false })
       // ponytail: one sitemap covers this small CMS; add a sitemap index if a site exceeds 1,000 posts.
@@ -18,11 +19,12 @@ export const GET: APIRoute = async ({ cookies, request, site }) => {
     if (error) throw error;
 
     const siteUrl = getPublicSiteUrl(request, site);
-    const entries = [
-      { lastModified: posts[0]?.updated_at, location: siteUrl.toString() },
+    const entries: { lastModified?: string; location: string }[] = [
+      { location: new URL('/th', siteUrl).toString() },
+      { location: new URL('/en', siteUrl).toString() },
       ...posts.map((post) => ({
         lastModified: post.updated_at,
-        location: new URL(`/blog/${encodeURIComponent(post.slug)}`, siteUrl).toString(),
+        location: new URL(postPath(post), siteUrl).toString(),
       })),
     ];
     const urls = entries

@@ -1,0 +1,94 @@
+---
+import PostArticle from '../../../components/blog/PostArticle.astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { isPostLocale, localePath, postPath } from '../../../lib/i18n';
+import { getSiteSettings } from '../../../lib/installation';
+import { postExcerpt } from '../../../lib/posts';
+import { createServerSupabaseClient } from '../../../lib/supabase';
+import type { Post, PostAlternate, SiteSettings } from '../../../types/cms';
+
+const localeValue = Astro.params.locale;
+if (!isPostLocale(localeValue)) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+const locale = localeValue;
+const slug = Astro.params.slug;
+const settings = await getSiteSettings();
+const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
+const articleSettings: SiteSettings = settings ?? {
+  default_locale: locale,
+  id: true,
+  installed_at: '',
+  owner_id: '',
+  site_description: '',
+  site_name: 'TomeCMS',
+  timezone: 'UTC',
+  updated_at: '',
+};
+let post: Post | null = null;
+let availableLocales: PostAlternate[] = [];
+let loadError = false;
+
+try {
+  if (!slug) {
+    Astro.response.status = 404;
+  } else {
+    const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('locale', locale)
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+
+    if (error) throw error;
+    post = data;
+    if (!post) {
+      Astro.response.status = 404;
+    } else {
+      const { data: editions, error: editionsError } = await supabase
+        .from('posts')
+        .select('locale, slug')
+        .eq('translation_group_id', post.translation_group_id)
+        .eq('status', 'published');
+      if (editionsError) throw editionsError;
+      availableLocales = editions.map((edition) => ({ href: postPath(edition), locale: edition.locale }));
+    }
+  }
+} catch (error) {
+  console.error('Blog post query failed:', error);
+  Astro.response.status = 500;
+  loadError = true;
+  post = null;
+}
+
+const xDefaultHref = settings
+  ? availableLocales.find((alternate) => alternate.locale === settings.default_locale)?.href
+  : undefined;
+---
+
+<BaseLayout
+  alternates={availableLocales}
+  canonicalPath={post ? postPath(post) : undefined}
+  description={post ? postExcerpt(post, fallbackDescription) : fallbackDescription}
+  headline={post?.title}
+  image={post?.cover_image}
+  locale={locale}
+  modifiedTime={post?.updated_at}
+  publishedTime={post?.published_at ?? post?.created_at}
+  robots={post ? undefined : 'noindex, follow'}
+  title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
+  type={post ? 'article' : 'website'}
+  xDefaultHref={xDefaultHref}
+>
+  {post ? (
+    <PostArticle post={post} settings={articleSettings} />
+  ) : (
+    <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
+      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
+      <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
+      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(locale)}>Return to all posts</a>
+    </section>
+  )}
+</BaseLayout>
