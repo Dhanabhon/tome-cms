@@ -316,6 +316,16 @@ test.describe('editor block insertion', () => {
       await page.keyboard.type('Format me');
       await editor.locator('p').selectText();
       await expect(page.getByRole('button', { name: 'Bold' })).toBeVisible();
+      await page.getByRole('button', { name: 'Link' }).click();
+      const linkDialog = page.getByRole('dialog', { name: 'Add a link' });
+      const url = linkDialog.getByRole('textbox', { name: 'URL' });
+      await expect(url).toBeFocused();
+      await url.fill('not a url');
+      await linkDialog.getByRole('button', { name: 'Apply link' }).click();
+      await expect(linkDialog.getByText('Enter a valid HTTP or HTTPS URL.')).toBeVisible();
+      await url.fill('example.com');
+      await linkDialog.getByRole('button', { name: 'Apply link' }).click();
+      await expect(editor.getByRole('link')).toHaveAttribute('href', 'https://example.com/');
       await expect(page.getByRole('button', { name: 'Add block' })).toHaveCount(0);
     } finally {
       await cleanupEditor(page, owner);

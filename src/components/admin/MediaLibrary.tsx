@@ -11,7 +11,9 @@ import {
   type MediaDraft,
 } from '../../lib/media-client';
 import { ACCEPTED_IMAGE_TYPES } from '../../lib/media';
+import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder } from '../../types/cms';
+import UiSelect from './UiSelect';
 
 type MediaLibraryProps =
   | { mode: 'manage' }
@@ -186,7 +188,13 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }
 
   async function handleDeleteCategory(folder: MediaFolder) {
-    if (!window.confirm(`Delete ${folder.name}? Images in this category will move to Unsorted.`)) return;
+    const confirmed = await confirmUi({
+      title: 'Delete category?',
+      message: `Delete ${folder.name}? Images in this category will move to Unsorted.`,
+      confirmLabel: 'Delete category',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setCategoryError(null);
     try {
       await deleteMediaFolder(folder.id);
@@ -240,7 +248,16 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }
 
   async function deleteSelected(confirmDeletion: boolean) {
-    if (!selected || (confirmDeletion && !window.confirm(`Delete ${selected.original_name}? This cannot be undone.`))) return;
+    if (!selected) return;
+    if (confirmDeletion) {
+      const confirmed = await confirmUi({
+        title: 'Delete image?',
+        message: `Delete ${selected.original_name}? This cannot be undone.`,
+        confirmLabel: 'Delete image',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
     const item = selected;
     setDeleting(true);
     setDetailsStatus(null);
@@ -279,6 +296,15 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }
 
   const selectedFolder = folders.find((folder) => folder.id === selection);
+  const categoryOptions = [
+    { label: 'All media', value: 'all' },
+    { label: 'Unsorted', value: 'unsorted' },
+    ...folders.map((folder) => ({ label: folder.name, value: folder.id })),
+  ];
+  const detailCategoryOptions = [
+    { label: 'Unsorted', value: '' },
+    ...folders.map((folder) => ({ label: folder.name, value: folder.id })),
+  ];
 
   const categoryButtons = (
     <>
@@ -309,10 +335,10 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       <div className="media-library-layout">
         <aside className="media-categories">
           <nav aria-label="Media categories">{categoryButtons}</nav>
-          <label className="media-category-select"><span className="sr-only">Media category</span><select aria-label="Media category" onChange={(event) => selectCategory(event.target.value)} value={selection}><option value="all">All media</option><option value="unsorted">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+          <div className="media-category-select"><UiSelect ariaLabel="Media category" className="admin-control" id="media-category" onValueChange={(next) => selectCategory(next)} options={categoryOptions} value={selection} /></div>
           {props.mode === 'manage' && selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
-          {props.mode === 'manage' && <form className="media-category-form" onSubmit={handleCreateCategory}><label><span className="sr-only">Category name</span><input aria-label="Category name" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button type="submit">Create category</button></form>}
-          {props.mode === 'manage' && renaming && <form className="media-category-form" onSubmit={handleRenameCategory}><label><span className="sr-only">Rename {renaming.name}</span><input aria-label={`Rename ${renaming.name}`} maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button type="submit">Save category name</button><button onClick={() => setRenaming(null)} type="button">Cancel rename</button></form>}
+          {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">Category name</span><input aria-label="Category name" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button type="submit">Create category</button></form>}
+          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">Rename {renaming.name}</span><input aria-label={`Rename ${renaming.name}`} maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button type="submit">Save category name</button><button onClick={() => setRenaming(null)} type="button">Cancel rename</button></form>}
           {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="font-medium text-accent underline" onClick={() => void loadFolders()} type="button">Retry categories</button></p>}
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>
@@ -324,12 +350,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {!loading && !error && !items.length && <div className="media-empty"><h2 className="font-display text-[22px] font-bold leading-7 tracking-[-0.25px]">No media yet</h2><p className="mt-2 text-sm text-muted">Upload an image to start your library.</p></div>}
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {
             const format = item.mime_type.replace('image/', '').toUpperCase();
-            return <button aria-label={props.mode === 'select' ? `Select ${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}` : `${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}`} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm" title={item.original_name}>{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span>{props.mode === 'select' && <span className="media-card-select">Select</span>}</button>;
+            return <button aria-label={props.mode === 'select' ? `Select ${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}` : `${item.original_name}, ${item.width} × ${item.height}, ${format}, ${formatSize(item.size_bytes)}`} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm">{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span>{props.mode === 'select' && <span className="media-card-select">Select</span>}</button>;
           })}</div>{hasMore && <div className="media-status"><button className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{loading ? 'Loading…' : 'Load more'}</button></div>}</>}
         </div>
       </div>
 
-      {props.mode === 'manage' && <dialog aria-label="Image details" className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label="Close details" className="media-details-close" onClick={closeDetails} ref={detailsClose} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label>Category<select aria-label="Category" onChange={(event) => setDraft((current) => ({ ...current, folderId: event.target.value }))} value={draft.folderId}><option value="">Unsorted</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button><button disabled={deleting} onClick={() => void deleteSelected(true)} type="button">{deleting ? 'Deleting…' : 'Delete'}</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 ? <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul> : <button disabled={deleting} onClick={() => void deleteSelected(false)} type="button">Retry</button>}</div>}</div>}</dialog>}
+      {props.mode === 'manage' && <dialog aria-label="Image details" className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label="Close details" className="media-details-close" onClick={closeDetails} ref={detailsClose} type="button">Close</button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label htmlFor="media-details-category">Category</label><UiSelect ariaLabel="Category" className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} /><label>Alt text<textarea aria-label="Alt text" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>Image URL<input aria-label="Image URL" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button onClick={() => void saveDetails()} type="button">Save</button><button onClick={() => void copyUrl()} type="button">Copy URL</button><button disabled={deleting} onClick={() => void deleteSelected(true)} type="button">{deleting ? 'Deleting…' : 'Delete'}</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 ? <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul> : <button disabled={deleting} onClick={() => void deleteSelected(false)} type="button">Retry</button>}</div>}</div>}</dialog>}
     </section>
   );
 }

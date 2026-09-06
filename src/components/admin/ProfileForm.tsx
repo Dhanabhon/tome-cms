@@ -61,7 +61,7 @@ export default function ProfileForm({ initialAvatar = null, initialSettings }: P
 
   return (
     <>
-      <form className="admin-settings-form" onSubmit={save} onChange={(event) => {
+      <form className="admin-settings-form" noValidate onSubmit={save} onChange={(event) => {
         setStatus('');
         const name = (event.target as HTMLInputElement).name;
         setFieldErrors((current) => ({ ...current, [name]: '' }));
@@ -103,7 +103,7 @@ export default function ProfileForm({ initialAvatar = null, initialSettings }: P
                 </div>
                 <div className="admin-field">
                   <label htmlFor={`authorLinks.${index}.url`}>Link {index + 1} URL</label>
-                  <input className="admin-control" id={`authorLinks.${index}.url`} name={`authorLinks.${index}.url`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.url`])} aria-describedby={`authorLinks.${index}.url-error`} type="url" pattern="https?://.*" title="Use an HTTP or HTTPS URL." required value={link.url} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, url: event.target.value } : item))} />
+                  <input className="admin-control" id={`authorLinks.${index}.url`} name={`authorLinks.${index}.url`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.url`])} aria-describedby={`authorLinks.${index}.url-error`} type="url" pattern="https?://.*" required value={link.url} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, url: event.target.value } : item))} />
                   <p className="admin-field-error" id={`authorLinks.${index}.url-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.url`]}</p>
                 </div>
                 <button className="admin-button" type="button" aria-label={`Remove link ${index + 1}`} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setFieldErrors({}); setStatus(''); }}>Remove</button>

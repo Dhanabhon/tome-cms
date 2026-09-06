@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
+import UiSelect from '../../components/admin/UiSelect';
 import { getSiteSettings } from '../../lib/installation';
 import { authenticate } from '../../lib/supabase';
 import { filterAdminPosts, readingMinutes, type AdminPostFilters } from '../../lib/posts';
@@ -102,7 +103,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             <a role="tab" aria-selected={status === tab.status} href={`/admin?${new URLSearchParams({ status: tab.status, locale, q: query })}`}>{tab.label}</a>
           ))}
         </nav>
-        <form class="admin-post-filters" action="/admin" method="get">
+        <form class="admin-post-filters" action="/admin" method="get" novalidate>
           <input type="hidden" name="status" value={status} />
           <div class="admin-field">
             <label for="post-search">Search posts</label>
@@ -110,11 +111,18 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
           </div>
           <div class="admin-field">
             <label for="post-locale">Language</label>
-            <select class="admin-control" id="post-locale" name="locale">
-              <option value="all" selected={locale === 'all'}>All languages</option>
-              <option value="th" selected={locale === 'th'}>Thai</option>
-              <option value="en" selected={locale === 'en'}>English</option>
-            </select>
+            <UiSelect
+              client:load
+              className="admin-control"
+              defaultValue={locale}
+              id="post-locale"
+              name="locale"
+              options={[
+                { label: 'All languages', value: 'all' },
+                { label: 'Thai', value: 'th' },
+                { label: 'English', value: 'en' },
+              ]}
+            />
           </div>
           <button class="admin-button" type="submit">Apply filters</button>
         </form>
@@ -170,6 +178,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 <script>
   import { createBrowserSupabaseClient } from '../../lib/supabase';
   import { safeAdminReturnTo } from '../../lib/admin';
+  import { confirmUi } from '../../lib/ui-dialog';
 
   const postsContainer = document.querySelector<HTMLElement>('[data-admin-posts]');
   const postError = postsContainer?.querySelector<HTMLElement>('[data-post-error]');
@@ -178,7 +187,15 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     if (!button || button.disabled) return;
     const { postAction: action, postId: id } = button.dataset;
     if (!id || !action) return;
-    if (action === 'delete' && !window.confirm(`Delete “${button.dataset.postTitle}” (${button.dataset.postLocale})? Only this language edition will be deleted. This cannot be undone.`)) return;
+    if (action === 'delete') {
+      const confirmed = await confirmUi({
+        title: 'Delete post?',
+        message: `Delete “${button.dataset.postTitle}” (${button.dataset.postLocale})? Only this language edition will be deleted. This cannot be undone.`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
     button.disabled = true;
     try {
       const response = action === 'delete'

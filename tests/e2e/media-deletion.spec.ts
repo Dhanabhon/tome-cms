@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { createOwner, deleteOwner, signInAdmin, type TestOwner } from './support';
 
@@ -6,6 +6,13 @@ const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4WQAAAAASUVORK5CYII=',
   'base64',
 );
+
+async function confirmImageDeletion(page: Page, details: Locator) {
+  await details.getByRole('button', { name: 'Delete' }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Delete image?' });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Delete image' }).click();
+}
 
 async function createMedia(owner: TestOwner, name: string) {
   const storagePath = `${owner.id}/${crypto.randomUUID()}.png`;
@@ -162,8 +169,7 @@ test.describe('media deletion', () => {
       const card = page.getByRole('button', { name: /unused\.png/i });
       await card.click();
       const details = page.getByRole('dialog', { name: 'Image details' });
-      page.once('dialog', (dialog) => dialog.accept());
-      await details.getByRole('button', { name: 'Delete' }).click();
+      await confirmImageDeletion(page, details);
 
       await expect(details).toBeVisible();
       await expect(card).toBeVisible();
@@ -222,8 +228,7 @@ test.describe('media deletion', () => {
       await page.goto('/admin/media');
       await page.getByRole('button', { name: /referenced\.png/i }).click();
       const details = page.getByRole('dialog', { name: 'Image details' });
-      page.once('dialog', (dialog) => dialog.accept());
-      await details.getByRole('button', { name: 'Delete' }).click();
+      await confirmImageDeletion(page, details);
 
       await expect(details.getByRole('alert')).toContainText('This image is used by 1 post.');
       await expect(details.getByRole('link', { name: 'Referenced post' })).toHaveAttribute('href', `/admin/edit/${post.id}`);
@@ -326,8 +331,7 @@ test.describe('media deletion', () => {
 
       const details = page.getByRole('dialog', { name: 'Image details' });
       await page.getByRole('button', { name: /first\.png/i }).click();
-      page.once('dialog', (dialog) => dialog.accept());
-      await details.getByRole('button', { name: 'Delete' }).click();
+      await confirmImageDeletion(page, details);
       await expect(details.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
       await details.getByRole('button', { name: 'Close details' }).click();
       await page.getByRole('button', { name: /second\.png/i }).click();
@@ -339,8 +343,7 @@ test.describe('media deletion', () => {
       await expect(details.getByRole('alert')).toHaveCount(0);
       await expectMediaPresent(owner, second);
 
-      page.once('dialog', (dialog) => dialog.accept());
-      await details.getByRole('button', { name: 'Delete' }).click();
+      await confirmImageDeletion(page, details);
       await expect(details.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
       await details.getByRole('button', { name: 'Close details' }).click();
       await page.getByRole('button', { name: /third\.png/i }).click();
@@ -353,8 +356,7 @@ test.describe('media deletion', () => {
       await expectMediaPresent(owner, second);
       await expectMediaPresent(owner, third);
 
-      page.once('dialog', (dialog) => dialog.accept());
-      await details.getByRole('button', { name: 'Delete' }).click();
+      await confirmImageDeletion(page, details);
       await expect(details.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
       await details.getByRole('button', { name: 'Close details' }).click();
       await page.getByRole('button', { name: /fourth\.png/i }).click();
