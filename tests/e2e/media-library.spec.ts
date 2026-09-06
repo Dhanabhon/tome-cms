@@ -84,12 +84,51 @@ test.describe('media library desktop', () => {
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   });
 
+  test('presents a dedicated owner sign-in page with password visibility control', async ({ page }) => {
+    await page.goto('/admin');
+    await expect(page.getByRole('heading', { name: 'Welcome back', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Write, preview, publish.', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Posts', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'TomeCMS home' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View site' })).toBeVisible();
+
+    const password = page.getByLabel('Password');
+    await password.fill('owner-password');
+    await page.getByRole('button', { name: 'Show characters' }).click();
+    await expect(password).toHaveAttribute('type', 'text');
+    await expect(page.getByRole('button', { name: 'Hide characters' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Hide characters' }).click();
+    await expect(password).toHaveAttribute('type', 'password');
+  });
+
+  test('keeps the sign-in page inside supported viewport widths', async ({ page }) => {
+    for (const width of [320, 375, 414, 768]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/admin');
+      await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect((await page.getByRole('button', { name: 'Sign in' }).boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      expect(await page.getByRole('link', { name: 'View site' }).evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
+      const formTop = (await page.getByRole('heading', { name: 'Welcome back' }).boundingBox())?.y ?? 0;
+      const contextTop = (await page.getByRole('heading', { name: 'Write, preview, publish.' }).boundingBox())?.y ?? 0;
+      expect(formTop).toBeLessThan(contextTop);
+    }
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/admin');
+    const submitBox = await page.getByRole('button', { name: 'Sign in' }).boundingBox();
+    expect((submitBox?.y ?? 800) + (submitBox?.height ?? 0)).toBeLessThanOrEqual(800);
+  });
+
   test('renders field validation in the form instead of a native browser popup', async ({ page }) => {
     await page.goto('/admin');
     const email = page.getByLabel('Email address');
     const password = page.getByLabel('Password');
+    const passwordTop = (await password.boundingBox())?.y;
     await email.fill('ddd');
     await password.fill('not-the-owner-password');
+    await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+    expect((await password.boundingBox())?.y).toBe(passwordTop);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByText('Enter a valid email address.')).toBeVisible();
     await expect(email).toHaveAttribute('aria-invalid', 'true');
@@ -113,7 +152,36 @@ test.describe('media library desktop', () => {
     await page.getByLabel('Email address').fill('missing@example.com');
     await page.getByLabel('Password').fill('not-the-owner-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('alert')).toHaveText('Email or password is incorrect.');
+    await expect(page.getByRole('alert')).toHaveText('Email or password is incorrect. Check both fields and try again.');
+    await expect(page.getByLabel('Password')).toBeFocused();
+  });
+
+  test('shows an in-flight state while owner credentials are checked', async ({ page }) => {
+    let releaseRequest = () => {};
+    const requestGate = new Promise<void>((resolve) => { releaseRequest = resolve; });
+    await page.route('**/auth/v1/token**', async (route) => {
+      await requestGate;
+      await route.abort();
+    });
+    await page.goto('/admin');
+    await page.getByLabel('Email address').fill('owner@example.com');
+    await page.getByLabel('Password').fill('owner-password');
+    const submit = page.locator('[data-auth-form] button[type="submit"]');
+    const authRequest = page.waitForRequest((request) => request.url().includes('/auth/v1/token'));
+    await submit.click();
+    await authRequest;
+
+    try {
+      await expect(submit).toBeDisabled();
+      await expect(submit).toHaveText('Signing in…');
+      await expect(page.locator('[data-auth-form]')).toHaveAttribute('aria-busy', 'true');
+    } finally {
+      releaseRequest();
+    }
+
+    await expect(page.getByRole('alert')).toHaveText('We could not sign you in. Check your connection and try again.');
+    await expect(submit).toBeEnabled();
+    await expect(submit).toHaveText('Sign in');
   });
 
   test('retires the legacy upload endpoint without creating orphaned media', async ({ request }) => {

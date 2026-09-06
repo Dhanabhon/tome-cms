@@ -104,7 +104,18 @@ test('Admin navigation, mobile focus, and sign out', async ({ page }, testInfo) 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (mobile) await opener.click();
     await expect(navigation.getByRole('link', { name: 'Profile', exact: true })).toHaveAttribute('aria-current', 'page');
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    const signOutButton = page.getByRole('button', { name: 'Sign out', exact: true });
+    await signOutButton.click();
+    const signOutDialog = page.getByRole('dialog', { name: 'Sign out?' });
+    await expect(signOutDialog).toBeVisible();
+    await expect(signOutDialog.getByText('You will need to sign in again to access the admin area.')).toBeVisible();
+    await signOutDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(signOutDialog).not.toBeVisible();
+    await expect(signOutButton).toBeFocused();
+    await expect(page).toHaveURL(/\/admin\/profile$/);
+
+    await signOutButton.click();
+    await signOutDialog.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Admin', exact: true })).toHaveCount(0);
   } finally {

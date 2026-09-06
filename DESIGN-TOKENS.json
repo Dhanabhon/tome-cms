@@ -2,48 +2,53 @@
   "color": {
     "Surface Base": {
       "$type": "color",
-      "$value": "#f6f5f4",
-      "$description": "Primary page background and card surfaces; maps to --color-gray-200"
+      "$value": "#f2f8f7",
+      "$description": "Primary page background and quiet application surfaces"
     },
     "Surface White": {
       "$type": "color",
       "$value": "#ffffff",
       "$description": "Navigation dropdown panels, card surfaces, modal overlays"
     },
-    "Hero Dark Navy": {
+    "Surface Mint": {
       "$type": "color",
-      "$value": "#02093a",
-      "$description": "Hero section deep background; maps to --color-campaigns-agents-launch-blue-900"
+      "$value": "#c5e5e4",
+      "$description": "Selected states, quiet highlights, and branded soft surfaces"
     },
-    "Brand Blue": {
+    "Hero Evergreen": {
       "$type": "color",
-      "$value": "#2537b1",
-      "$description": "Primary CTA button fill, key links, hero accent; maps to --color-campaigns-agents-launch-blue-200"
+      "$value": "#0f3d3a",
+      "$description": "Dark hero, editor code, and grounded navigation surfaces"
+    },
+    "Accent Teal": {
+      "$type": "color",
+      "$value": "#236a67",
+      "$description": "Primary CTA fill and links; passes WCAG AA against white and mint surfaces"
+    },
+    "Focus Teal": {
+      "$type": "color",
+      "$value": "#498f8c",
+      "$description": "Focus rings and non-text brand accents from the reference artwork"
     },
     "Text Primary": {
       "$type": "color",
-      "$value": "#000000",
+      "$value": "#0a0c0c",
       "$description": "Body text, headings, nav labels; dominant text color across all zones"
     },
     "Text Muted": {
       "$type": "color",
-      "$value": "#a39e98",
-      "$description": "Secondary labels, placeholder text, icon fills; maps to --color-gray-400"
+      "$value": "#4d6865",
+      "$description": "Placeholder text and tertiary labels; passes WCAG AA against white, base, and mint surfaces"
     },
     "Text Medium": {
       "$type": "color",
-      "$value": "#615d59",
-      "$description": "Tertiary text, icon button states; maps to --color-gray-600"
+      "$value": "#526e6b",
+      "$description": "Secondary copy and icon states"
     },
     "Border Subtle": {
       "$type": "color",
-      "$value": "#000000",
-      "$description": "Hairline dividers at 8% opacity; maps to --border-color-regular"
-    },
-    "Accent Blue": {
-      "$type": "color",
-      "$value": "#097fe8",
-      "$description": "Inline links, badge text, code keyword highlights; maps to --color-blue-500"
+      "$value": "#0f3d3a",
+      "$description": "Hairline dividers mixed at 10% and strong borders mixed at 26%"
     },
     "Accent Red": {
       "$type": "color",

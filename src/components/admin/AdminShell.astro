@@ -45,6 +45,7 @@ const links = [
 
 <script>
   import { createBrowserSupabaseClient } from '../../lib/supabase';
+  import { confirmUi } from '../../lib/ui-dialog';
 
   const opener = document.querySelector<HTMLButtonElement>('[data-nav-open]');
   const dialog = document.querySelector<HTMLDialogElement>('.admin-mobile-nav');
@@ -67,6 +68,14 @@ const links = [
   document.querySelectorAll<HTMLButtonElement>('[data-sign-out]').forEach((button) => {
     button.addEventListener('click', async () => {
       if (button.disabled) return;
+      button.focus();
+      const confirmed = await confirmUi({
+        title: 'Sign out?',
+        message: 'You will need to sign in again to access the admin area.',
+        cancelLabel: 'Cancel',
+        confirmLabel: 'Sign out',
+      });
+      if (!confirmed || button.disabled) return;
       button.disabled = true;
       const message = button.parentElement?.querySelector('[data-sign-out-error]');
       if (message) message.textContent = '';

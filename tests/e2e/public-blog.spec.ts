@@ -128,6 +128,16 @@ test('localized published editions render without public JavaScript', async ({ b
       'href',
       new RegExp(`/${source.locale}/blog/${source.slug}$`),
     );
+    const languageTrigger = publicPage.getByRole('button', {
+      name: `Change language. Current language: ${source.locale === 'en' ? 'English (US)' : 'ไทย'}`,
+    });
+    await expect(languageTrigger).toBeVisible();
+    await languageTrigger.click();
+    const languageMenu = publicPage.getByRole('navigation', { name: 'Choose language' });
+    await expect(languageMenu).toBeVisible();
+    await expect(languageMenu.getByRole('link')).toHaveCount(2);
+    await expect(languageMenu.getByRole('link', { name: 'English (US)' })).toBeVisible();
+    await expect(languageMenu.getByRole('link', { name: 'ไทย' })).toBeVisible();
     await expect(publicPage.locator(`header a[href="/${sibling.locale}/blog/${sibling.slug}"]`)).toBeVisible();
     await expect(publicPage.getByRole('heading', { name: 'Public media regression', level: 2 })).toBeVisible();
     await expect(publicPage.getByText('Visible without JavaScript.')).toBeVisible();
