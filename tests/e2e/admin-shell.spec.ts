@@ -1,10 +1,57 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { admin, cleanupEditor, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
+
+async function recordNextPageTransition(page: Page, key: string) {
+  await page.evaluate((storageKey) => {
+    const transition = document.querySelector<HTMLElement>('[data-page-transition]')!;
+    new MutationObserver(() => {
+      if (transition.hidden) return;
+      const block = transition.querySelector<HTMLElement>('[data-skeleton-block]')!;
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        animation: getComputedStyle(block).animationName,
+        busy: document.body.getAttribute('aria-busy'),
+        popoverOpen: typeof transition.showPopover !== 'function' || transition.matches(':popover-open'),
+        status: transition.querySelector('[role="status"]')?.textContent,
+      }));
+    }).observe(transition, { attributeFilter: ['hidden'] });
+  }, key);
+}
 
 test('shared database suite defaults to one worker', async () => {
   const { default: config } = await import('../../playwright.config');
   expect(config.workers).toBe(1);
+});
+
+test('internal page changes expose a reduced-motion skeleton', async ({ page }) => {
+  let releaseRequest = () => {};
+  const requestGate = new Promise<void>((resolve) => { releaseRequest = resolve; });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/en');
+  const transition = page.locator('[data-page-transition]');
+  await expect(transition).toHaveCount(1);
+  await expect(transition).toBeHidden();
+  await recordNextPageTransition(page, 'public-page-transition');
+  await page.route('**/admin', async (route) => {
+    await requestGate;
+    await route.continue();
+  });
+
+  try {
+    const navigationRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/admin' && request.resourceType() === 'document');
+    await page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name: 'Admin', exact: true }).click({ noWaitAfter: true });
+    await navigationRequest;
+  } finally {
+    releaseRequest();
+  }
+
+  await expect(page).toHaveURL(/\/admin$/);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('public-page-transition')!))).toEqual({
+    animation: 'none', busy: 'true', popoverOpen: true, status: 'Loading page…',
+  });
+  await expect(page.locator('[data-page-transition]')).toHaveCount(1);
+  await expect(page.locator('[data-page-transition]')).toBeHidden();
+  await expect(page.locator('body')).not.toHaveAttribute('aria-busy', 'true');
 });
 
 test('Admin navigation, mobile focus, and sign out', async ({ page }, testInfo) => {
@@ -34,8 +81,25 @@ test('Admin navigation, mobile focus, and sign out', async ({ page }, testInfo) 
     await expect(navigation.getByRole('link')).toHaveText(['Posts', 'Media', 'Profile', 'Settings']);
     await expect(navigation.getByRole('link', { name: 'Posts', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('link', { name: 'Stats', exact: true })).toHaveCount(0);
-    await navigation.getByRole('link', { name: 'Profile', exact: true }).click();
+    let releaseProfile = () => {};
+    const profileGate = new Promise<void>((resolve) => { releaseProfile = resolve; });
+    await page.route('**/admin/profile', async (route) => {
+      await profileGate;
+      await route.continue();
+    });
+    await recordNextPageTransition(page, 'admin-page-transition');
+    const profileRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/admin/profile' && request.resourceType() === 'document');
+    await navigation.getByRole('link', { name: 'Profile', exact: true }).click({ noWaitAfter: true });
+    try {
+      await profileRequest;
+    } finally {
+      releaseProfile();
+    }
+    await page.waitForURL(/\/admin\/profile$/, { waitUntil: 'load' });
     await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('admin-page-transition')!))).toMatchObject({
+      busy: 'true', popoverOpen: true, status: 'Loading page…',
+    });
     await expect(page.getByRole('main')).toHaveCount(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (mobile) await opener.click();

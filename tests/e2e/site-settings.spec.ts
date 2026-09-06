@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 
-import { admin, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
+import { admin, chooseUiOption, createOwner, deleteOwner, leaseSiteOwner, signInAdmin } from './support';
 
 for (const surface of ['profile', 'settings']) {
   test(`${surface} associates server field errors and preserves whitespace-only required values`, async ({ page }) => {
@@ -101,15 +101,15 @@ test('Profile and Settings forms save, persist, and retain edits on failure', as
     await page.goto('/admin/settings');
     await page.getByLabel('Site name', { exact: true }).fill('My publication');
     await page.getByLabel('Site description').fill('A multilingual publication.');
-    await page.getByLabel('Default language').selectOption('en');
-    await page.getByLabel('Timezone').selectOption('UTC');
+    await chooseUiOption(page, 'Default language', 'English');
+    await chooseUiOption(page, 'Timezone', 'UTC');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('status')).toHaveText('Saved.');
     await page.reload();
     await expect(page.getByLabel('Site name', { exact: true })).toHaveValue('My publication');
     await expect(page.getByLabel('Site description')).toHaveValue('A multilingual publication.');
-    await expect(page.getByLabel('Default language')).toHaveValue('en');
-    await expect(page.getByLabel('Timezone')).toHaveValue('UTC');
+    await expect(page.getByRole('combobox', { name: 'Default language' })).toHaveAttribute('data-value', 'en');
+    await expect(page.getByRole('combobox', { name: 'Timezone' })).toHaveAttribute('data-value', 'UTC');
     let submissions = 0;
     await page.route('**/api/settings', async (route) => {
       submissions++;

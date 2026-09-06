@@ -1,4 +1,4 @@
-import { expect, type Page, type Request } from '@playwright/test';
+import { expect, type Locator, type Page, type Request } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 function requiredEnv(name: 'PUBLIC_SUPABASE_ANON_KEY' | 'PUBLIC_SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY') {
@@ -127,4 +127,9 @@ export async function signInAdmin(page: Page, owner: TestOwner) {
   await page.locator('input[name="password"]').fill(owner.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/admin\/?$/);
+}
+
+export async function chooseUiOption(scope: Locator | Page, label: string, option: string) {
+  await scope.getByRole('combobox', { name: label, exact: true }).click();
+  await scope.getByRole('option', { name: option, exact: true }).click();
 }

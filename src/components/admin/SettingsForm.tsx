@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 
 import type { SiteSettings } from '../../types/cms';
+import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
   initialSettings: Pick<SiteSettings, 'site_name' | 'site_description' | 'default_locale' | 'timezone'>;
@@ -47,7 +48,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   };
 
   return (
-    <form className="admin-settings-form" onSubmit={save} onChange={(event) => {
+    <form className="admin-settings-form" noValidate onSubmit={save} onChange={(event) => {
       setStatus('');
       const name = (event.target as HTMLInputElement).name;
       setFieldErrors((current) => ({ ...current, [name]: '' }));
@@ -65,12 +66,12 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
         </div>
         <div className="admin-field">
           <label htmlFor="defaultLocale">Default language</label>
-          <select className="admin-control" id="defaultLocale" name="defaultLocale" aria-invalid={Boolean(fieldErrors.defaultLocale)} aria-describedby="defaultLocale-error" value={defaultLocale} onChange={(event) => setDefaultLocale(event.target.value as SiteSettings['default_locale'])}><option value="th">Thai</option><option value="en">English</option></select>
+          <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: 'Thai', value: 'th' }, { label: 'English', value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setStatus(''); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
           <p className="admin-field-error" id="defaultLocale-error" aria-live="polite">{fieldErrors.defaultLocale}</p>
         </div>
         <div className="admin-field">
           <label htmlFor="timezone">Timezone</label>
-          <select className="admin-control" id="timezone" name="timezone" aria-invalid={Boolean(fieldErrors.timezone)} aria-describedby="timezone-error" value={timezone} onChange={(event) => setTimezone(event.target.value as SiteSettings['timezone'])}><option value="Asia/Bangkok">Asia/Bangkok</option><option value="UTC">UTC</option></select>
+          <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
           <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
         </div>
       </fieldset>

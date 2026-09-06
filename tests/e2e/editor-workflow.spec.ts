@@ -26,7 +26,8 @@ test('preview opens immediately with the newest draft and requires its owner', a
     await page.goto('/admin/new');
     const previewButton = page.getByRole('button', { name: 'Preview', exact: true });
     await expect(previewButton).toBeDisabled();
-    await expect(previewButton).toHaveAttribute('title', 'Add a title before opening Preview.');
+    await expect(previewButton).toHaveAccessibleDescription('Add a title before opening Preview.');
+    await expect(previewButton).not.toHaveAttribute('title');
     const profile = await page.request.put('/api/profile', { data: {
       authorAvatarMediaId: null, authorBioEn: 'Current English profile', authorBioTh: 'ประวัติล่าสุด',
       authorLinks: [], authorName: 'Current preview author',
@@ -253,6 +254,8 @@ for (const destination of ['clean Back', 'saved Back', 'existing edition', 'miss
         await expect(page.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
         await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled();
         await expect(navigation).toBeEnabled();
+        await expect(page.locator('[data-page-transition]')).toHaveCount(1);
+        await expect(page.locator('[data-page-transition]')).toBeHidden();
         expect(await page.evaluate(() => sessionStorage.getItem('cancelled-navigation-locked'))).toBe('true');
         await expect.poll(async () => {
           const { data, error } = await owner.client.from('posts').select('title').eq('id', post.id).single();

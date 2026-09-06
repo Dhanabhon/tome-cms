@@ -1,4 +1,6 @@
 ---
+import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
+import UiSelect from '../components/admin/UiSelect';
 import { isInstalled } from '../lib/installation';
 import '../styles/installer-tokens.css';
 import '../styles/installer.css';
@@ -151,16 +153,26 @@ const copy = english
               <div class="installer-field-grid">
                 <div class="installer-field">
                   <label for="default-locale">{english ? 'Default language' : 'ภาษาเริ่มต้น'}</label>
-                  <select class="installer-control" id="default-locale" name="defaultLocale">
-                    <option value="th">ไทย</option><option value="en" selected={english}>English</option>
-                  </select>
+                  <UiSelect
+                    client:load
+                    className="installer-control"
+                    defaultValue={english ? 'en' : 'th'}
+                    id="default-locale"
+                    name="defaultLocale"
+                    options={[{ label: 'ไทย', value: 'th' }, { label: 'English', value: 'en' }]}
+                  />
                   <p class="installer-helper">{english ? 'Used for pages and date formatting.' : 'ใช้กับหน้าเว็บและรูปแบบวันที่'}</p>
                 </div>
                 <div class="installer-field">
                   <label for="timezone">{english ? 'Timezone' : 'เขตเวลา'}</label>
-                  <select class="installer-control" id="timezone" name="timezone">
-                    <option value="Asia/Bangkok">Asia/Bangkok</option><option value="UTC">UTC</option>
-                  </select>
+                  <UiSelect
+                    client:load
+                    className="installer-control"
+                    defaultValue="Asia/Bangkok"
+                    id="timezone"
+                    name="timezone"
+                    options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]}
+                  />
                   <p class="installer-helper">{english ? 'Used to schedule publication.' : 'ใช้กำหนดเวลาเผยแพร่บทความ'}</p>
                 </div>
               </div>
@@ -239,6 +251,8 @@ const copy = english
 
       <p class="installer-footer">{copy.footer}</p>
     </main>
+
+    <PageTransitionSkeleton />
 
     <script is:inline define:vars={{ english }}>
       const form = document.querySelector('[data-install-form]');

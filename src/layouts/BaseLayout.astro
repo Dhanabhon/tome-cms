@@ -1,5 +1,6 @@
 ---
 import Header from '../components/blog/Header.astro';
+import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import { localePath } from '../lib/i18n';
 import { getSiteSettings } from '../lib/installation';
@@ -127,5 +128,6 @@ const structuredData = robots.includes('noindex')
         <a class="text-link hover:underline" href="/admin">Admin</a>
       </nav>
     </footer>
+    <PageTransitionSkeleton />
   </body>
 </html>

@@ -1,0 +1,201 @@
+---
+interface Props {
+  variant?: 'admin' | 'public';
+}
+
+const { variant = 'public' } = Astro.props;
+---
+
+<div
+  class:list={['page-transition-skeleton', { 'page-transition-skeleton--admin': variant === 'admin' }]}
+  data-page-transition
+  hidden
+  popover="manual"
+>
+  <p class="page-transition-skeleton__status" role="status">Loading page…</p>
+  <div class="page-transition-skeleton__frame" aria-hidden="true">
+    {variant === 'admin' && (
+      <aside class="page-transition-skeleton__rail">
+        <span class="page-transition-skeleton__brand" data-skeleton-block></span>
+        <span data-skeleton-block></span>
+        <span data-skeleton-block></span>
+        <span data-skeleton-block></span>
+        <span data-skeleton-block></span>
+      </aside>
+    )}
+    <section class="page-transition-skeleton__page">
+      <header>
+        <span class="page-transition-skeleton__wordmark" data-skeleton-block></span>
+        <span class="page-transition-skeleton__action" data-skeleton-block></span>
+      </header>
+      <div class="page-transition-skeleton__content">
+        <span class="page-transition-skeleton__title" data-skeleton-block></span>
+        <span class="page-transition-skeleton__copy" data-skeleton-block></span>
+        <div class="page-transition-skeleton__rows">
+          <span data-skeleton-block></span>
+          <span data-skeleton-block></span>
+          <span data-skeleton-block></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script is:inline>
+  {
+  const transition = document.querySelector('[data-page-transition]');
+
+  const showTransition = () => {
+    if (!transition || !transition.hidden) return;
+    transition.hidden = false;
+    document.body.setAttribute('aria-busy', 'true');
+    try {
+      transition.showPopover?.();
+    } catch {
+      // The fixed-position fallback remains visible if the Popover API is unavailable.
+    }
+  };
+
+  const hideTransition = () => {
+    if (!transition) return;
+    try {
+      if (transition.hidePopover && transition.matches(':popover-open')) transition.hidePopover();
+    } catch {
+      // Ignore an unsupported popover selector; hidden still resets the fallback.
+    }
+    transition.hidden = true;
+    document.body.removeAttribute('aria-busy');
+  };
+
+  const showAfterEvent = (event) => {
+    queueMicrotask(() => {
+      if (!event.defaultPrevented) showTransition();
+    });
+  };
+
+  document.addEventListener('click', (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!link || link.hasAttribute('download') || link.hasAttribute('data-no-page-transition')) return;
+    const target = link.getAttribute('target');
+    if (target && target.toLowerCase() !== '_self') return;
+
+    const destination = new URL(link.href, window.location.href);
+    if (!['http:', 'https:'].includes(destination.protocol) || destination.origin !== window.location.origin) return;
+    if (destination.pathname === window.location.pathname && destination.search === window.location.search && (destination.hash || window.location.hash)) return;
+    showAfterEvent(event);
+  });
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target instanceof HTMLFormElement ? event.target : null;
+    if (!form || form.method.toLowerCase() === 'dialog') return;
+    const target = form.getAttribute('target');
+    if (target && target.toLowerCase() !== '_self') return;
+    showAfterEvent(event);
+  });
+
+  const navigation = Reflect.get(window, 'navigation');
+  let navigationGeneration = 0;
+  const navigationStarted = (event) => {
+    const destination = event.destination;
+    if (destination?.sameDocument) return;
+    navigationGeneration += 1;
+    showTransition();
+  };
+  const navigationEnded = () => {
+    const generation = navigationGeneration;
+    queueMicrotask(() => {
+      if (generation === navigationGeneration) hideTransition();
+    });
+  };
+
+  navigation?.addEventListener('navigate', navigationStarted);
+  navigation?.addEventListener('navigateerror', navigationEnded);
+  navigation?.addEventListener('navigatesuccess', navigationEnded);
+  window.addEventListener('beforeunload', showTransition);
+  window.addEventListener('pageshow', hideTransition);
+  window.addEventListener('tome:navigation-cancelled', hideTransition);
+  }
+</script>
+
+<style is:inline>
+  .page-transition-skeleton {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-sticky-nav);
+    box-sizing: border-box;
+    width: 100vw;
+    height: 100svh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+
+  .page-transition-skeleton[hidden] { display: none; }
+  .page-transition-skeleton__status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .page-transition-skeleton__frame { display: grid; min-height: 100%; }
+  .page-transition-skeleton__page { min-width: 0; background: var(--color-paper-2); }
+  .page-transition-skeleton__page > header {
+    display: flex;
+    min-height: 5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
+    border-block-end: var(--rule-hair) solid var(--color-rule);
+    background: var(--color-paper);
+  }
+
+  [data-skeleton-block] {
+    display: block;
+    border-radius: var(--radius-card);
+    background: var(--color-paper-3);
+    opacity: 0.55;
+    animation: page-transition-pulse calc(var(--dur-long) * 4) var(--ease-in-out) infinite alternate;
+  }
+
+  .page-transition-skeleton__wordmark { width: min(11rem, 40vw); height: 2rem; }
+  .page-transition-skeleton__action { width: 6.5rem; height: var(--control-height); }
+  .page-transition-skeleton__content { width: min(64rem, 100%); margin-inline: auto; padding: var(--space-2xl) var(--space-lg); }
+  .page-transition-skeleton__title { width: min(28rem, 72%); height: clamp(2.5rem, 6vw, 4rem); }
+  .page-transition-skeleton__copy { width: min(38rem, 88%); height: 1.25rem; margin-block-start: var(--space-md); }
+  .page-transition-skeleton__rows { display: grid; gap: var(--space-md); margin-block-start: var(--space-2xl); }
+  .page-transition-skeleton__rows > span { height: 5rem; }
+  .page-transition-skeleton__rail { display: none; }
+
+  @media (min-width: 64rem) {
+    .page-transition-skeleton--admin .page-transition-skeleton__frame { grid-template-columns: 15rem minmax(0, 1fr); }
+    .page-transition-skeleton--admin .page-transition-skeleton__rail {
+      display: grid;
+      align-content: start;
+      gap: var(--space-sm);
+      padding: var(--space-lg);
+      border-inline-end: var(--rule-hair) solid var(--color-rule);
+      background: var(--color-paper);
+    }
+    .page-transition-skeleton__rail > span { height: var(--control-height); }
+    .page-transition-skeleton__rail .page-transition-skeleton__brand { height: 4rem; margin-block-end: var(--space-lg); }
+  }
+
+  @keyframes page-transition-pulse {
+    to { opacity: 0.9; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-skeleton-block] { animation: none; opacity: 0.7; }
+  }
+</style>

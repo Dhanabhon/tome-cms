@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createContext } from 'astro/middleware';
-import { admin, createOwner, deleteOwner, signInAdmin } from './support';
+import { admin, chooseUiOption, createOwner, deleteOwner, signInAdmin } from './support';
 
 const content = { type: 'doc' as const, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A complete story.' }] }] };
 
@@ -16,6 +16,7 @@ test('PATCH rejects a draft autosaved after publication validation reads its rev
   const originalFetch = globalThis.fetch;
   try {
     await signInAdmin(page, owner);
+    await expect(page.locator('select')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     const draft = { title: 'Concurrent draft', slug: `revision-${crypto.randomUUID()}`, status: 'draft', contentJson: content, contentHtml: '<p>A complete story.</p>' };
     const created = await page.request.post('/api/posts', { data: draft });
@@ -87,7 +88,7 @@ test('edition filters survive reload and history with sibling state and responsi
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('TH missing');
     await page.getByRole('tab', { name: 'All' , exact: true }).click();
-    await page.getByLabel('Language', { exact: true }).selectOption('en');
+    await chooseUiOption(page, 'Language', 'English');
     await page.getByLabel('Search posts').fill(' ENGLISH ');
     await page.getByRole('button', { name: 'Apply filters' }).click();
     await expect(page).toHaveURL(/locale=en/);
@@ -95,7 +96,7 @@ test('edition filters survive reload and history with sibling state and responsi
     await expect(rows.first()).toContainText('English story');
     await page.reload();
     await expect(page.getByLabel('Search posts')).toHaveValue('ENGLISH');
-    await expect(page.getByLabel('Language', { exact: true })).toHaveValue('en');
+    await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveAttribute('data-value', 'en');
     await page.goBack();
     await expect(rows).toHaveCount(3);
     await page.goForward();
@@ -107,7 +108,7 @@ test('edition filters survive reload and history with sibling state and responsi
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.goto('/admin?status=invalid&locale=fr&q=' + 'x'.repeat(120));
     await expect(page.getByRole('tab', { name: 'Drafts' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByLabel('Language', { exact: true })).toHaveValue('all');
+    await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveAttribute('data-value', 'all');
     await expect(page.getByLabel('Search posts')).toHaveValue('x'.repeat(100));
     await expect(page.getByText('No posts match these filters.')).toBeVisible();
   } finally {
@@ -142,11 +143,14 @@ test('row actions publish, unpublish and confirm deletion of only one edition; f
     await row.getByRole('button', { name: 'Unpublish' }).click();
     await expect(row.locator('.admin-status')).toHaveText('draft');
     await row.locator('summary').click();
-    page.once('dialog', async (dialog) => { expect(dialog.message()).toContain(source.title); await dialog.dismiss(); });
     await row.getByRole('button', { name: 'Delete', exact: true }).click();
+    const deleteDialog = page.getByRole('dialog', { name: 'Delete post?' });
+    await expect(deleteDialog).toContainText(source.title);
+    await deleteDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(row).toHaveCount(1);
-    page.once('dialog', async (dialog) => { expect(dialog.message()).toContain('TH'); await dialog.accept(); });
     await row.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(deleteDialog).toContainText('TH');
+    await deleteDialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(row).toHaveCount(0);
     expect((await admin.from('posts').select('id').eq('id', sibling.id)).data).toEqual([{ id: sibling.id }]);
     await admin.from('posts').update({ content_html: '' }).eq('id', sibling.id);

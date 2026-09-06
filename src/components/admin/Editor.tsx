@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { uploadImage } from '../../lib/media-client';
+import { promptUi } from '../../lib/ui-dialog';
 import { POST_LOCALES, type MediaAsset, type Post, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
@@ -87,8 +88,10 @@ function readPost(payload: unknown): Post | null {
 }
 
 function normalizedLink(value: string): string | null {
+  const candidate = value.trim();
+  if (!candidate || /\s/.test(candidate)) return null;
   try {
-    const url = new URL(value.includes('://') ? value : `https://${value}`);
+    const url = new URL(candidate.includes('://') ? candidate : `https://${candidate}`);
     return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
   } catch {
     return null;
@@ -117,9 +120,17 @@ function FormattingBubble() {
           return;
         }
 
-        const value = window.prompt('Paste a link');
-        const href = value ? normalizedLink(value) : null;
-        if (href) instance.chain().focus().setLink({ href }).run();
+        void promptUi({
+          title: 'Add a link',
+          message: 'Paste an HTTP or HTTPS address.',
+          label: 'URL',
+          confirmLabel: 'Apply link',
+          validate: (value) => normalizedLink(value) ? null : 'Enter a valid HTTP or HTTPS URL.',
+        }).then((value) => {
+          if (value === null) return;
+          const href = normalizedLink(value);
+          if (href) instance.chain().focus().setLink({ href }).run();
+        });
       },
     },
     { active: editor.isActive('code'), label: 'Inline code', text: '</>', run: (instance) => void instance.chain().focus().toggleCode().run() },
@@ -133,7 +144,6 @@ function FormattingBubble() {
             aria-label={action.label}
             aria-pressed={action.active}
             className={`min-w-9 rounded px-2 py-1.5 text-sm font-semibold hover:bg-soft ${action.active ? 'bg-soft text-accent' : 'text-ink'}`}
-            title={action.label}
             type="button"
           >
             {action.text}
@@ -288,6 +298,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     if (actionPending.current !== 'navigation') return;
     window.stop();
     restoreNavigation();
+    window.dispatchEvent(new Event('tome:navigation-cancelled'));
   }, [restoreNavigation]);
 
   useEffect(() => {
@@ -441,7 +452,8 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
               <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
             </span>
             {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
-            <button className="admin-button admin-button--secondary" disabled={isActionPending || (!postId.current && !title.trim())} title={!postId.current && !title.trim() ? 'Add a title before opening Preview.' : undefined} onClick={() => void previewDraft()} type="button">Preview</button>
+            <button aria-describedby={!postId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!postId.current && !title.trim())} onClick={() => void previewDraft()} type="button">Preview</button>
+            <span className="sr-only" id="preview-disabled-reason">Add a title before opening Preview.</span>
             <button aria-expanded={settingsOpen} aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={(event) => {
               event.currentTarget.focus();
               setSettingsOpen(true);

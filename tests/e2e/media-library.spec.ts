@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { createOwner, deleteOwner, signInAdmin, type TestOwner } from './support';
+import { chooseUiOption, createOwner, deleteOwner, signInAdmin, type TestOwner } from './support';
 
 const IMAGE_FIXTURES = [
   {
@@ -236,7 +236,7 @@ test.describe('media library desktop', () => {
       await page.getByRole('button', { name: /pixel\.png/i }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' }).getByLabel('Alt text')).toHaveValue('A tiny test image');
 
-      await page.getByRole('dialog', { name: 'Image details' }).getByLabel('Category').selectOption('');
+      await chooseUiOption(page.getByRole('dialog', { name: 'Image details' }), 'Category', 'Unsorted');
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Save' }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' }).getByRole('status')).toContainText('Saved.');
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
@@ -247,7 +247,7 @@ test.describe('media library desktop', () => {
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
       await page.getByRole('button', { name: /pixel\.png/i }).click();
-      await page.getByRole('dialog', { name: 'Image details' }).getByLabel('Category').selectOption({ label: 'Covers' });
+      await chooseUiOption(page.getByRole('dialog', { name: 'Image details' }), 'Category', 'Covers');
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Save' }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' }).getByRole('status')).toContainText('Saved.');
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
@@ -255,8 +255,10 @@ test.describe('media library desktop', () => {
       await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
-      page.once('dialog', (dialog) => dialog.accept());
       await page.getByRole('button', { name: 'Delete Covers' }).click();
+      const deleteCategoryDialog = page.getByRole('dialog', { name: 'Delete category?' });
+      await expect(deleteCategoryDialog).toContainText('Covers');
+      await deleteCategoryDialog.getByRole('button', { name: 'Delete category' }).click();
       await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
       await expect
@@ -384,8 +386,8 @@ test.describe('media library desktop', () => {
       const cards = page.getByRole('button', { name: /delete-page-item-\d+\.png/i });
       await expect(cards).toHaveCount(48);
       await page.getByRole('button', { name: /delete-page-item-01\.png/i }).click();
-      page.once('dialog', (dialog) => dialog.accept());
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Delete' }).click();
+      await page.getByRole('dialog', { name: 'Delete image?' }).getByRole('button', { name: 'Delete image' }).click();
 
       await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
       await expect(cards).toHaveCount(48);
@@ -512,13 +514,13 @@ test('mobile media library exposes category selection and category CRUD without 
     await expect(page.getByRole('navigation', { name: 'Media categories' })).toBeHidden();
     await page.getByLabel('Category name').fill('Mobile');
     await page.getByRole('button', { name: 'Create category' }).click();
-    await page.getByLabel('Media category').selectOption({ label: 'Mobile' });
+    await chooseUiOption(page, 'Media category', 'Mobile');
     await page.getByRole('button', { name: 'Rename Mobile' }).click();
     await page.getByRole('textbox', { name: 'Rename Mobile' }).fill('Phone');
     await page.getByRole('button', { name: 'Save category name' }).click();
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Delete Phone' }).click();
-    await expect(page.getByLabel('Media category').getByRole('option', { name: 'Phone' })).toHaveCount(0);
+    await page.getByRole('dialog', { name: 'Delete category?' }).getByRole('button', { name: 'Delete category' }).click();
+    await expect(page.getByRole('option', { name: 'Phone', exact: true, includeHidden: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth)).toBe(true);
   } finally {
     await deleteOwner(owner);
