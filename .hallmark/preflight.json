@@ -1,24 +1,25 @@
 {
-  "scanned_at": "2026-09-04",
-  "design_system": null,
+  "scanned_at": "2026-09-06",
+  "design_system": "DESIGN.md",
   "font_stack": {
-    "display": "Georgia, Cambria, Times New Roman, serif",
-    "body": "Inter, ui-sans-serif, system-ui, sans-serif"
+    "display": "NotionInter, Inter, IBM Plex Sans Thai, sans-serif",
+    "body": "NotionInter, Inter, IBM Plex Sans Thai, sans-serif"
   },
   "palette": {
-    "accent": "#2449d8",
-    "ink": "#171717",
-    "line": "#d9dde5",
-    "muted": "#667085",
-    "soft": "#f7f8fa"
+    "accent": "#236a67",
+    "focus": "#498f8c",
+    "ink": "#0a0c0c",
+    "line": "#0f3d3a / 26%",
+    "muted": "#4d6865",
+    "soft": "#f2f8f7"
   },
   "motion": "motion-cut",
-  "spacing": "Tailwind default spacing scale",
+  "spacing": "4-point named token scale",
   "framework": "Astro 5 with React islands and Tailwind CSS 3",
   "preserve": [
-    "existing editorial font roles",
-    "blue accent",
-    "light neutral palette",
+    "DESIGN.md typography roles",
+    "TomeCMS mint and teal palette",
+    "light mint surfaces",
     "motion-cut stance"
   ]
 }

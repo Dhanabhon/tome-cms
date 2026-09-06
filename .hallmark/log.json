@@ -1,5 +1,23 @@
 [
   {
+    "date": "2026-09-06",
+    "macrostructure": "Existing app structures",
+    "theme": "TomeCMS Mint 2026",
+    "theme_axes": "light / geometric-sans / green",
+    "enrichment": "none",
+    "scope": "app",
+    "brief": "Replace the blue brand palette with accessible mint and teal tokens"
+  },
+  {
+    "date": "2026-09-06",
+    "macrostructure": "Split Studio",
+    "theme": "DESIGN.md · Notion Marketing 2024",
+    "enrichment": "none",
+    "nav": "N9 Edge-aligned minimal",
+    "footer": "Ft2 Inline rule",
+    "brief": "Redesign the single-owner admin authentication page"
+  },
+  {
     "date": "2026-09-04",
     "macrostructure": "Progressive Rail",
     "theme": "studied-DNA",

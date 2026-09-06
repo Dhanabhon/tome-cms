@@ -1,24 +1,27 @@
-/* TomeCMS design tokens · Notion Marketing 2024 */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5
+ * design-system: DESIGN.md · theme: TomeCMS Mint 2026 · genre: modern-minimal · tone: calm and friendly
+ * anchor hue: teal · macrostructure: existing app structures · scope: app palette
+ */
 :root {
-  --color-paper: #ffffff;
-  --color-paper-2: #f6f5f4;
-  --color-paper-3: #ebeae8;
-  --color-surface: #ffffff;
-  --color-hero: #02093a;
-  --color-ink: #000000;
-  --color-ink-2: #615d59;
-  --color-muted: #615d59;
-  --color-placeholder: #a39e98;
-  --color-rule: rgb(0 0 0 / 8%);
-  --color-rule-strong: rgb(0 0 0 / 24%);
-  --color-accent: #2537b1;
-  --color-link: #097fe8;
-  --color-accent-ink: #ffffff;
-  --color-focus: #2537b1;
-  --color-focus-soft: color-mix(in srgb, #2537b1 12%, #ffffff);
-  --color-error: #f64932;
-  --color-error-ink: #912315;
-  --color-error-soft: color-mix(in srgb, #f64932 10%, #ffffff);
+  --color-paper: oklch(100% 0 0);
+  --color-paper-2: oklch(97.43% 0.0065 185.27);
+  --color-paper-3: oklch(89.85% 0.0336 194.25);
+  --color-surface: oklch(100% 0 0);
+  --color-hero: oklch(32.86% 0.0489 188.84);
+  --color-ink: oklch(15.2% 0.0033 196.81);
+  --color-ink-2: oklch(51.53% 0.0331 188.02);
+  --color-muted: oklch(49.49% 0.0322 187.7);
+  --color-placeholder: oklch(49.49% 0.0322 187.7);
+  --color-rule: color-mix(in oklch, var(--color-hero) 10%, transparent);
+  --color-rule-strong: color-mix(in oklch, var(--color-hero) 26%, transparent);
+  --color-accent: oklch(48% 0.0694 191.12);
+  --color-link: oklch(48% 0.0694 191.12);
+  --color-accent-ink: oklch(100% 0 0);
+  --color-focus: oklch(60.38% 0.0709 191.77);
+  --color-focus-soft: oklch(89.85% 0.0336 194.25);
+  --color-error: oklch(65.12% 0.213 30.9);
+  --color-error-ink: oklch(43.47% 0.148 30.83);
+  --color-error-soft: color-mix(in oklch, var(--color-error) 10%, var(--color-paper));
 
   --font-display: "NotionInter", "Inter", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "NotionInter", "Inter", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

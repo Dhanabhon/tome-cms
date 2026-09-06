@@ -60,7 +60,60 @@ const tabs = [{ status: 'draft', label: 'Drafts' }, { status: 'published', label
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
-<AdminLayout title="Posts">
+<AdminLayout title={authRequired ? 'Sign in' : 'Posts'}>
+  {authRequired ? (
+    <main class="admin-auth-page">
+      <header class="admin-auth-nav" aria-label="Admin sign in">
+        <a class="admin-auth-brand" href="/" aria-label="TomeCMS home">
+          <img class="tomecms-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
+        </a>
+        <a class="admin-auth-nav__link" href="/">View site <span aria-hidden="true">↗</span></a>
+      </header>
+
+      <div class="admin-auth-stage">
+        <section class="admin-auth-context" aria-labelledby="admin-auth-context-title">
+          <div>
+            <h2 id="admin-auth-context-title">Write, preview, publish.</h2>
+            <p>Manage the work behind your site from one focused workspace.</p>
+          </div>
+          <ul aria-label="Admin workspace tools">
+            <li><strong>Draft first</strong><span>Preview every post before it goes live.</span></li>
+            <li><strong>Thai and English</strong><span>Keep both language editions together.</span></li>
+            <li><strong>One media library</strong><span>Organize images where you write.</span></li>
+          </ul>
+        </section>
+
+        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
+          <header>
+            <h1 id="admin-auth-title">Welcome back</h1>
+            <p>Sign in with the owner account created during setup.</p>
+          </header>
+          <form class="admin-auth__form" data-auth-form novalidate>
+            <div class="admin-field">
+              <label for="admin-email">Email address</label>
+              <input class="admin-control" id="admin-email" name="email" required type="email" autocomplete="email" inputmode="email" aria-required="true" aria-describedby="admin-email-error" />
+              <p class="admin-field-error" id="admin-email-error" data-auth-email-error aria-live="polite"></p>
+            </div>
+            <div class="admin-field">
+              <label id="admin-password-label" for="admin-password">Password</label>
+              <div class="admin-auth-password">
+                <input class="admin-control" id="admin-password" name="password" required type="password" autocomplete="current-password" aria-required="true" aria-describedby="admin-password-error" />
+                <button class="admin-auth-password__toggle" type="button" data-password-toggle aria-controls="admin-password" aria-describedby="admin-password-label" aria-label="Show characters" aria-pressed="false">Show</button>
+              </div>
+              <p class="admin-field-error" id="admin-password-error" data-auth-password-error aria-live="polite"></p>
+            </div>
+            <p class="admin-form-error admin-auth__error" data-auth-error role="alert"></p>
+            <button class="admin-button admin-button--primary admin-auth__submit" type="submit"><span data-auth-submit-label>Sign in</span></button>
+          </form>
+        </section>
+      </div>
+
+      <footer class="admin-auth-footer">
+        <span>TomeCMS</span>
+        <span>Owner administration</span>
+      </footer>
+    </main>
+  ) : (
   <Frame active="posts" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
   <section class="admin-page">
     <header class="admin-page__head">
@@ -73,28 +126,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       )}
     </header>
 
-    {authRequired ? (
-      <div class="admin-auth">
-        <div class="admin-auth__intro">
-          <h2>Welcome back</h2>
-          <p>Sign in with the owner account you created during setup.</p>
-        </div>
-        <form class="admin-auth__form" data-auth-form novalidate>
-          <div class="admin-field">
-            <label for="admin-email">Email address</label>
-            <input class="admin-control" id="admin-email" name="email" required type="email" autocomplete="email" aria-describedby="admin-email-error" />
-            <p class="admin-field-error" id="admin-email-error" data-auth-email-error aria-live="polite"></p>
-          </div>
-          <div class="admin-field">
-            <label for="admin-password">Password</label>
-            <input class="admin-control" id="admin-password" name="password" required type="password" autocomplete="current-password" aria-describedby="admin-password-error" />
-            <p class="admin-field-error" id="admin-password-error" data-auth-password-error aria-live="polite"></p>
-          </div>
-          <p class="admin-form-error" data-auth-error role="alert"></p>
-          <button class="admin-button admin-button--primary" type="submit">Sign in</button>
-        </form>
-      </div>
-    ) : errorMessage ? (
+    {errorMessage ? (
       <p class="admin-alert" role="alert">{errorMessage}</p>
     ) : (
       <div data-admin-posts>
@@ -173,6 +205,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     )}
   </section>
   </Frame>
+  )}
 </AdminLayout>
 
 <script>
@@ -225,6 +258,11 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
   const passwordInput = form?.querySelector<HTMLInputElement>('[name="password"]');
   const emailError = document.querySelector<HTMLElement>('[data-auth-email-error]');
   const passwordError = document.querySelector<HTMLElement>('[data-auth-password-error]');
+  const passwordToggle = document.querySelector<HTMLButtonElement>('[data-password-toggle]');
+  const submitButton = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+  const submitLabel = form?.querySelector<HTMLElement>('[data-auth-submit-label]');
+  let emailTouched = false;
+  let passwordTouched = false;
 
   function setFieldError(input: HTMLInputElement, element: HTMLElement | null, message = '') {
     if (message) input.setAttribute('aria-invalid', 'true');
@@ -232,9 +270,50 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     if (element) element.textContent = message;
   }
 
+  function validateEmail() {
+    if (!emailInput) return false;
+    const message = emailInput.validity.valueMissing
+      ? 'Enter your email address.'
+      : emailInput.validity.typeMismatch ? 'Enter a valid email address.' : '';
+    setFieldError(emailInput, emailError, message);
+    return !message;
+  }
+
+  function validatePassword() {
+    if (!passwordInput) return false;
+    const message = passwordInput.validity.valueMissing ? 'Enter your password.' : '';
+    setFieldError(passwordInput, passwordError, message);
+    return !message;
+  }
+
+  emailInput?.addEventListener('blur', () => {
+    emailTouched = true;
+    validateEmail();
+  });
+
+  passwordInput?.addEventListener('blur', () => {
+    passwordTouched = true;
+    validatePassword();
+  });
+
+  passwordToggle?.addEventListener('click', () => {
+    if (!passwordInput) return;
+    const revealing = passwordInput.type === 'password';
+    passwordInput.type = revealing ? 'text' : 'password';
+    passwordToggle.textContent = revealing ? 'Hide' : 'Show';
+    passwordToggle.setAttribute('aria-label', `${revealing ? 'Hide' : 'Show'} characters`);
+    passwordToggle.setAttribute('aria-pressed', String(revealing));
+  });
+
   form?.addEventListener('input', (event) => {
-    if (emailInput && event.target === emailInput) setFieldError(emailInput, emailError);
-    if (passwordInput && event.target === passwordInput) setFieldError(passwordInput, passwordError);
+    if (emailInput && event.target === emailInput) {
+      if (emailTouched) validateEmail();
+      else setFieldError(emailInput, emailError);
+    }
+    if (passwordInput && event.target === passwordInput) {
+      if (passwordTouched) validatePassword();
+      else setFieldError(passwordInput, passwordError);
+    }
     if (errorElement) errorElement.textContent = '';
   });
 
@@ -242,11 +321,10 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     event.preventDefault();
     if (!emailInput || !passwordInput) return;
 
-    setFieldError(emailInput, emailError);
-    setFieldError(passwordInput, passwordError);
-    if (emailInput.validity.valueMissing) setFieldError(emailInput, emailError, 'Enter your email address.');
-    else if (emailInput.validity.typeMismatch) setFieldError(emailInput, emailError, 'Enter a valid email address.');
-    if (passwordInput.validity.valueMissing) setFieldError(passwordInput, passwordError, 'Enter your password.');
+    emailTouched = true;
+    passwordTouched = true;
+    validateEmail();
+    validatePassword();
 
     const firstInvalid = form.querySelector<HTMLInputElement>('[aria-invalid="true"]');
     if (firstInvalid) {
@@ -254,8 +332,12 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       return;
     }
 
-    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (button) button.disabled = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.dataset.state = 'loading';
+    }
+    if (submitLabel) submitLabel.textContent = 'Signing in…';
+    form.setAttribute('aria-busy', 'true');
     if (errorElement) errorElement.textContent = '';
 
     try {
@@ -268,11 +350,21 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         ?? `${window.location.pathname}${window.location.search}`;
       window.location.assign(safeAdminReturnTo(returnTo));
     } catch (error) {
-      const message = error instanceof Error && 'code' in error && error.code === 'invalid_credentials'
-        ? 'Email or password is incorrect.'
-        : 'Unable to sign in. Please try again.';
+      const invalidCredentials = error instanceof Error && 'code' in error && error.code === 'invalid_credentials';
+      const message = invalidCredentials
+        ? 'Email or password is incorrect. Check both fields and try again.'
+        : 'We could not sign you in. Check your connection and try again.';
       if (errorElement) errorElement.textContent = message;
-      if (button) button.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+        delete submitButton.dataset.state;
+      }
+      if (submitLabel) submitLabel.textContent = 'Sign in';
+      form.removeAttribute('aria-busy');
+      if (invalidCredentials) {
+        passwordInput.focus();
+        passwordInput.select();
+      }
     }
   });
 </script>

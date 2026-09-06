@@ -1,18 +1,19 @@
 ---
 version: alpha
-name: "Notion Marketing 2024"
-description: "Notion's marketing homepage pairs a deep navy (#02093a) hero section with a light (#f6f5f4) body, using a custom typeface (NotionInter) across all text roles. The design employs a 12-column grid with 28px gutters, a dual-radius language (8px for cards, 9999px for pills), and a multi-layer progressive shadow system for floating UI elements. Brand blue (#2537b1) drives CTAs and accent highlights, while a semantic gray-scale ladder (gray-200 through gray-900) structures all text and surface hierarchy."
+name: "TomeCMS Mint 2026"
+description: "TomeCMS uses a calm mint-and-teal palette anchored by reference mint (#c5e5e4), reference teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) carries CTAs and links, while deep evergreen (#0f3d3a) grounds dark surfaces. The existing NotionInter hierarchy, 12-column grid, dual-radius language, and progressive shadows remain unchanged."
 colors:
   surface-white: "#ffffff"
-  hero-dark-navy: "#02093a"
-  surface-base: "#f6f5f4"
-  accent-blue: "#097fe8"
+  surface-base: "#f2f8f7"
+  surface-mint: "#c5e5e4"
+  hero-evergreen: "#0f3d3a"
+  accent-teal: "#236a67"
+  focus-teal: "#498f8c"
   accent-red: "#f64932"
-  brand-blue: "#2537b1"
-  text-medium: "#615d59"
-  text-muted: "#a39e98"
-  text-primary: "#000000"
-  border-subtle: "#000000"
+  text-medium: "#526e6b"
+  text-muted: "#4d6865"
+  text-primary: "#0a0c0c"
+  border-subtle: "#0f3d3a"
 typography:
   display-hero:
     fontFamily: "NotionInter"
@@ -106,7 +107,7 @@ spacing:
 
 ## Overview
 
-Notion's marketing homepage pairs a deep navy (#02093a) hero section with a light (#f6f5f4) body, using a custom typeface (NotionInter) across all text roles. The design employs a 12-column grid with 28px gutters, a dual-radius language (8px for cards, 9999px for pills), and a multi-layer progressive shadow system for floating UI elements. Brand blue (#2537b1) drives CTAs and accent highlights, while a semantic gray-scale ladder (gray-200 through gray-900) structures all text and surface hierarchy.
+TomeCMS pairs white and pale-mint surfaces with deep evergreen anchors, using the reference artwork's mint (#c5e5e4), teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) drives CTAs and links. The existing NotionInter hierarchy, 12-column grid with 28px gutters, dual-radius language, and progressive shadow system remain the structural foundation.
 
 **Signature traits:**
 - Single-family weight hierarchy: Builds hierarchy from NotionInter across 4 weights rather than multiple families.
@@ -114,31 +115,32 @@ Notion's marketing homepage pairs a deep navy (#02093a) hero section with a ligh
 
 ## Colors
 
-The palette uses 10 validated color tokens across 1 theme profile. Semantic roles stay attached to observed usage so generation agents can choose accents without inventing new color meaning.
+The palette uses 11 validated color tokens across one theme profile. Semantic roles stay attached to observed usage so generation agents can choose accents without inventing new color meaning.
 
 **Semantic naming:**
-- **surface-background** maps to `surface-base`: Role "background" is grounded by usage context "Primary page background and card surfaces; maps to --color-gray-200".
+- **surface-background** maps to `surface-base`: Role "background" is grounded by usage context "Primary page background and quiet application surfaces".
 - **surface-primary** maps to `surface-white`: Role "primary" is grounded by usage context "Navigation dropdown panels, card surfaces, modal overlays".
-- **action-text** maps to `brand-blue`: Role "text" is grounded by usage context "Primary CTA button fill, key links, hero accent; maps to --color-campaigns-agents-launch-blue-200".
+- **action-text** maps to `accent-teal`: Role "text" is grounded by usage context "Primary CTA fill and links; darkened from the reference teal to preserve white-label contrast".
 - **content-text** maps to `text-primary`: Role "text" is grounded by usage context "Body text, headings, nav labels; dominant text color across all zones".
 
 ### Primary Brand
 - **Surface White** (#ffffff): Navigation dropdown panels, card surfaces, modal overlays. Role: primary. {authored: rgb(255, 255, 255), space: rgb, alpha: 0}
+- **Surface Mint** (#c5e5e4): Selected states, quiet highlights, and branded soft surfaces. Role: background. {authored: rgb(197, 229, 228), space: rgb}
+- **Hero Evergreen** (#0f3d3a): Dark hero, editor code, and grounded navigation surfaces. Role: background. {authored: rgb(15, 61, 58), space: rgb}
+- **Accent Teal** (#236a67): Primary CTA fill and links; passes WCAG AA against white and mint surfaces. Role: action. {authored: rgb(35, 106, 103), space: rgb}
+- **Focus Teal** (#498f8c): Focus rings and non-text brand accents from the reference artwork. Role: focus. {authored: rgb(73, 143, 140), space: rgb}
 
 ### Text Scale
-- **Accent Blue** (#097fe8): Inline links, badge text, code keyword highlights; maps to --color-blue-500. Role: text. {authored: rgb(9, 127, 232), space: rgb}
 - **Accent Red** (#f64932): Warning/error states, status tags; maps to --color-red-500. Role: text. {authored: rgb(246, 73, 50), space: rgb}
-- **Brand Blue** (#2537b1): Primary CTA button fill, key links, hero accent; maps to --color-campaigns-agents-launch-blue-200. Role: text. {authored: rgb(37, 55, 177), space: rgb}
-- **Text Medium** (#615d59): Tertiary text, icon button states; maps to --color-gray-600. Role: text. {authored: rgb(97, 93, 89), space: rgb}
-- **Text Muted** (#a39e98): Secondary labels, placeholder text, icon fills; maps to --color-gray-400. Role: text. {authored: rgb(163, 158, 152), space: rgb}
-- **Text Primary** (#000000): Body text, headings, nav labels; dominant text color across all zones. Role: text. {authored: rgb(0, 0, 0), space: rgb, alpha: 0.05}
+- **Text Medium** (#526e6b): Secondary copy and icon states. Role: text. {authored: rgb(82, 110, 107), space: rgb}
+- **Text Muted** (#4d6865): Placeholder text and tertiary labels; passes WCAG AA against white, base, and mint surfaces. Role: text. {authored: rgb(77, 104, 101), space: rgb}
+- **Text Primary** (#0a0c0c): Body text, headings, nav labels; dominant text color across all zones. Role: text. {authored: rgb(10, 12, 12), space: rgb}
 
 ### Interactive
-- **Border Subtle** (#000000): Hairline dividers at 8% opacity; maps to --border-color-regular. Role: border. {authored: rgb(0, 0, 0), space: rgb, alpha: 0.05}
+- **Border Subtle** (#0f3d3a): Hairline dividers mixed at 10% and strong borders mixed at 26%. Role: border. {authored: rgb(15, 61, 58), space: rgb}
 
 ### Surface & Shadows
-- **Hero Dark Navy** (#02093a): Hero section deep background; maps to --color-campaigns-agents-launch-blue-900. Role: background. {authored: rgb(2, 9, 58), space: rgb}
-- **Surface Base** (#f6f5f4): Primary page background and card surfaces; maps to --color-gray-200. Role: background. {authored: rgb(246, 245, 244), space: rgb}
+- **Surface Base** (#f2f8f7): Primary page background and quiet application surfaces. Role: background. {authored: rgb(242, 248, 247), space: rgb}
 
 ## Typography
 
