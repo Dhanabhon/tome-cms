@@ -96,6 +96,98 @@ export interface PostAlternate {
   locale: PostLocale;
 }
 
+export type PageLocale = PostLocale;
+export type PageStatus = PostStatus;
+
+export interface Page {
+  id: string;
+  translation_group_id: string;
+  locale: PageLocale;
+  title: string;
+  slug: string;
+  content_json: EditorDocument;
+  content_html: string;
+  meta_title: string | null;
+  meta_description: string | null;
+  status: PageStatus;
+  published_at: string | null;
+  author_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PageTranslationSummary {
+  id: string;
+  locale: PageLocale;
+  status: PageStatus;
+  title: string;
+}
+
+export interface PageInsert {
+  id?: string;
+  translation_group_id?: string;
+  locale: PageLocale;
+  title: string;
+  slug: string;
+  content_json: EditorDocument;
+  content_html: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  status?: PageStatus;
+  published_at?: string | null;
+  author_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type PageUpdate = Partial<Omit<PageInsert, 'id' | 'author_id' | 'created_at' | 'locale' | 'translation_group_id'>>;
+
+export interface PageMutationInput {
+  title: string;
+  slug?: string;
+  contentJson: EditorDocument;
+  contentHtml: string;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  status: PageStatus;
+  locale?: PageLocale;
+  sourcePageId?: string;
+}
+
+export type NavigationLocation = 'header' | 'footer';
+export type NavigationKind = 'home' | 'page' | 'custom';
+
+export interface NavigationItem {
+  id: string;
+  owner_id: string;
+  locale: PageLocale;
+  location: NavigationLocation;
+  kind: NavigationKind;
+  label: string;
+  page_id: string | null;
+  url: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NavigationMutationItem {
+  kind: NavigationKind;
+  label: string;
+  pageId: string | null;
+  url: string | null;
+}
+
+export interface PublicNavigationItem {
+  href: string;
+  kind: NavigationKind;
+  label: string;
+}
+
+export type NavigationItemInsert = Pick<NavigationItem, 'owner_id' | 'locale' | 'location' | 'kind' | 'label' | 'position'>
+  & Partial<Pick<NavigationItem, 'id' | 'page_id' | 'url' | 'created_at' | 'updated_at'>>;
+export type NavigationItemUpdate = Partial<Omit<NavigationItemInsert, 'id' | 'owner_id' | 'created_at'>>;
+
 export interface Meta {
   title: string | null;
   description: string | null;
@@ -236,6 +328,12 @@ export interface UploadImageOptions {
 type PostRow = { [Key in keyof Post]: Post[Key] };
 type DatabasePostInsert = { [Key in keyof PostInsert]: PostInsert[Key] };
 type DatabasePostUpdate = { [Key in keyof PostUpdate]: PostUpdate[Key] };
+type PageRow = { [Key in keyof Page]: Page[Key] };
+type DatabasePageInsert = { [Key in keyof PageInsert]: PageInsert[Key] };
+type DatabasePageUpdate = { [Key in keyof PageUpdate]: PageUpdate[Key] };
+type NavigationItemRow = { [Key in keyof NavigationItem]: NavigationItem[Key] };
+type DatabaseNavigationItemInsert = { [Key in keyof NavigationItemInsert]: NavigationItemInsert[Key] };
+type DatabaseNavigationItemUpdate = { [Key in keyof NavigationItemUpdate]: NavigationItemUpdate[Key] };
 type SiteSettingsRow = { [Key in keyof SiteSettings]: SiteSettings[Key] };
 type DatabaseSiteSettingsInsert = { [Key in keyof SiteSettingsInsert]: SiteSettingsInsert[Key] };
 type DatabaseSiteSettingsUpdate = { [Key in keyof SiteSettingsUpdate]: SiteSettingsUpdate[Key] };
@@ -249,6 +347,26 @@ type DatabaseMediaItemUpdate = { [Key in keyof MediaItemUpdate]: MediaItemUpdate
 export interface Database {
   public: {
     Tables: {
+      pages: {
+        Row: PageRow;
+        Insert: DatabasePageInsert;
+        Update: DatabasePageUpdate;
+        Relationships: [];
+      };
+      navigation_items: {
+        Row: NavigationItemRow;
+        Insert: DatabaseNavigationItemInsert;
+        Update: DatabaseNavigationItemUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'navigation_items_page_owner_locale_fkey';
+            columns: ['page_id', 'owner_id', 'locale'];
+            isOneToOne: false;
+            referencedRelation: 'pages';
+            referencedColumns: ['id', 'author_id', 'locale'];
+          },
+        ];
+      };
       media_folders: {
         Row: MediaFolderRow;
         Insert: DatabaseMediaFolderInsert;
@@ -283,7 +401,16 @@ export interface Database {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      replace_navigation_items: {
+        Args: {
+          menu_items: Json;
+          target_locale: PageLocale;
+          target_location: NavigationLocation;
+        };
+        Returns: NavigationItem[];
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
