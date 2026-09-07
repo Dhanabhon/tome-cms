@@ -28,6 +28,48 @@ function expectNoPublicScripts(rawHtml: string) {
   expect(html).not.toMatch(/steal\(\)|alert\("unsafe"\)/);
 }
 
+test('Page settings provider failures return 500 while invalid and reserved routes stay 404', async ({ request }, testInfo) => {
+  const { dev } = await import('astro');
+  const server = await dev({
+    logLevel: 'error', server: { host: '127.0.0.1', port: 0 },
+    vite: { cacheDir: testInfo.outputPath('astro-vite-cache'), server: { hmr: false, watch: null } },
+  });
+  const originalFetch = globalThis.fetch;
+  let failedSettingsReads = 0;
+  const pageQueries: string[] = [];
+  try {
+    // Use a fresh Astro server so settings caches cannot mask this provider-boundary failure.
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname === '/rest/v1/pages') pageQueries.push(url.search);
+      // Keep the middleware's installed-state probe healthy; fail the full settings read.
+      if (url.pathname === '/rest/v1/site_settings' && url.searchParams.get('select') === '*') {
+        failedSettingsReads++;
+        return Response.json({ code: 'XX000', message: 'Private settings provider diagnostic' }, { status: 500 });
+      }
+      return originalFetch(input, init);
+    };
+    for (const [path, status, message] of [
+      ['/fr/example', 404, 'Page not found.'],
+      ['/th/blog', 404, 'Page not found.'],
+      ['/th/example', 500, 'This page is temporarily unavailable.'],
+    ] as const) {
+      const response = await request.get(`http://127.0.0.1:${server.address.port}${path}`);
+      expect(response.status(), path).toBe(status);
+      const html = await response.text();
+      expect(html).toContain(message);
+      expect(html).toContain('<meta name="robots" content="noindex, follow">');
+      expect(html).not.toContain('application/ld+json');
+      expect(html).not.toContain('Private settings provider diagnostic');
+    }
+    expect(failedSettingsReads).toBeGreaterThan(0);
+    expect(pageQueries).toEqual([]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await server.stop();
+  }
+});
+
 test('published Pages have exact-locale owner-scoped HTML and WebPage metadata without JavaScript', async ({ browser, page }) => {
   const owner = await createOwner('public-pages');
   const foreign = await createOwner('public-pages-foreign');
