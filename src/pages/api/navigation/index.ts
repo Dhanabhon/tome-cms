@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { isAuthError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { invalidatePublicNavigationCache } from '../../../lib/navigation';
@@ -7,7 +8,7 @@ import { authenticate } from '../../../lib/supabase';
 import { POST_LOCALES, type NavigationItem } from '../../../types/cms';
 
 const label = z.string().trim().min(1).max(80);
-const customUrl = z.string().trim().max(2048).transform(normalizeNavigationUrl)
+const customUrl = z.string().trim().transform(normalizeNavigationUrl)
   .pipe(z.string().min(1).max(2048));
 const itemSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('home'), label, pageId: z.null(), url: z.null() }).strict(),
@@ -39,7 +40,10 @@ function invalidPayload() {
   return Response.json({ error: 'Invalid navigation payload.' }, { status: 400 });
 }
 
-function unexpectedError(error: unknown) {
+function requestError(error: unknown) {
+  if (isAuthError(error) && (error.status === 401 || error.status === 403)) {
+    return Response.json({ error: 'Authentication required.' }, { status: 401 });
+  }
   console.error('Navigation request failed:', error);
   return Response.json({ error: 'Navigation could not be loaded or saved.' }, { status: 500 });
 }
@@ -54,11 +58,11 @@ export const GET: APIRoute = async ({ cookies, request }) => {
       auth.supabase.from('pages').select('id, translation_group_id, locale, title, slug, status')
         .eq('author_id', auth.user.id).order('title').order('id'),
     ]);
-    if (items.error) return unexpectedError(items.error);
-    if (pages.error) return unexpectedError(pages.error);
+    if (items.error) return requestError(items.error);
+    if (pages.error) return requestError(pages.error);
     return Response.json({ items: items.data, pages: pages.data });
   } catch (error) {
-    return unexpectedError(error);
+    return requestError(error);
   }
 };
 
@@ -79,7 +83,7 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
     if (pageIds.length) {
       const { data, error } = await auth.supabase.from('pages').select('id')
         .eq('author_id', auth.user.id).eq('locale', locale).in('id', pageIds);
-      if (error) return unexpectedError(error);
+      if (error) return requestError(error);
       if (data.length !== pageIds.length) return invalidPayload();
     }
     const { data, error } = await auth.supabase.rpc('replace_navigation_items', {
@@ -89,11 +93,11 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
     if (error) {
       if (error.code === '42501') return Response.json({ error: 'Authentication required.' }, { status: 401 });
       if (['22023', '22P02', '23503', '23505', '23514'].includes(error.code)) return invalidPayload();
-      return unexpectedError(error);
+      return requestError(error);
     }
     invalidatePublicNavigationCache();
     return Response.json({ items: data.map(safeItem) });
   } catch (error) {
-    return unexpectedError(error);
+    return requestError(error);
   }
 };
