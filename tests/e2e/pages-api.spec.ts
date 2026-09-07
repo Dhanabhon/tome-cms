@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { APIRoute } from 'astro';
 import { createContext } from 'astro/middleware';
 
 import type { Page } from '../../src/types/cms';
@@ -16,6 +17,59 @@ const pageBody = (title: string, slug?: string) => ({
   contentHtml: '<p>Page body.</p>',
   status: 'draft' as const,
 });
+
+for (const [method, failureMessage] of [
+  ['GET', 'The page list could not be loaded.'], ['POST', 'The page could not be created.'],
+  ['PUT', 'The page could not be updated.'], ['PATCH', 'The page could not be updated.'],
+  ['DELETE', 'The page could not be deleted.'],
+] as const) {
+  test(`Page ${method} maps provider authentication rejection safely`, async ({ page }, testInfo) => {
+    const owner = await createOwner(`page-auth-error-${method.toLowerCase()}`);
+    const { createServer } = await import('vite');
+    const vite = await createServer({
+      configFile: false, envPrefix: 'PUBLIC_', appType: 'custom', cacheDir: testInfo.outputPath('vite-cache'),
+      server: { middlewareMode: true, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true },
+    });
+    const originalFetch = globalThis.fetch;
+    try {
+      await signInAdmin(page, owner);
+      const handlers = await vite.ssrLoadModule('/src/pages/api/pages/index.ts') as Record<typeof method, APIRoute>;
+      const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
+      for (const status of [401, 403, 500, 'unexpected'] as const) {
+        let authRequests = 0;
+        let dataRequests = 0;
+        globalThis.fetch = async (input, init) => {
+          const url = new URL(input instanceof Request ? input.url : String(input));
+          if (url.pathname === '/auth/v1/user') {
+            authRequests += 1;
+            if (status === 'unexpected') throw Object.assign(new Error(`Private provider failure ${owner.id}`), { status: 401 });
+            return Response.json({
+              error_code: status === 500 ? 'unexpected_failure' : 'bad_jwt',
+              message: `Private authentication failure ${owner.id}`,
+            }, { status });
+          }
+          if (url.pathname.startsWith('/rest/v1/')) dataRequests += 1;
+          return originalFetch(input, init);
+        };
+        const response = await handlers[method](createContext({
+          request: new Request(new URL(`/api/pages?id=${crypto.randomUUID()}`, page.url()), {
+            method, headers: { cookie, 'content-type': 'application/json' },
+            ...(['POST', 'PUT', 'PATCH'].includes(method) ? { body: JSON.stringify(pageBody('Private page content')) } : {}),
+          }), defaultLocale: 'en', locals: {},
+        }));
+        const authRejected = status === 401 || status === 403;
+        expect(authRequests).toBeGreaterThan(0);
+        expect(dataRequests).toBe(0);
+        expect.soft(response.status, `${method}, provider status ${status}`).toBe(authRejected ? 401 : 500);
+        expect.soft(await response.json()).toEqual({ error: authRejected ? 'Authentication required.' : failureMessage });
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+      await vite.close();
+      await deleteOwner(owner);
+    }
+  });
+}
 
 test('requires authentication and rejects malformed or server-owned fields', async ({ page, request }) => {
   const id = crypto.randomUUID();

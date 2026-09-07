@@ -80,6 +80,8 @@ async function createPost(owner: TestOwner, title: string, coverImage: string | 
 }
 
 async function deleteTestOwner(owner: TestOwner) {
+  const { error: pagesError } = await owner.client.from('pages').delete().eq('author_id', owner.id);
+  expect(pagesError).toBeNull();
   const { error } = await owner.client.from('posts').delete().eq('author_id', owner.id);
   expect(error).toBeNull();
   await deleteOwner(owner);
@@ -280,6 +282,119 @@ test.describe('media deletion', () => {
       await expectMediaPresent(owner, media);
     } finally {
       await deleteTestOwner(owner);
+    }
+  });
+
+  for (const status of ['draft', 'published'] as const) {
+    test(`protects ${status} Page content images and retries after the reference is removed`, async ({ page }) => {
+      const owner = await createOwner(`media-delete-page-${status}`);
+      try {
+        const media = await createMedia(owner, `${status}-page.png`);
+        await signIn(page, owner);
+        // DocumentCanvas serializes the Media Picker's setImage({ src, alt }) as an image node.
+        const created = await page.request.post('/api/pages', { data: {
+          title: `${status} image page`, slug: `media-page-${crypto.randomUUID()}`, status,
+          contentJson: { type: 'doc', content: [{ type: 'image', attrs: { src: media.publicUrl, alt: 'Page image' } }] },
+          contentHtml: `<img class="rounded-lg" src="${media.publicUrl}" alt="Page image">`,
+        } });
+        expect(created.status()).toBe(201);
+        const saved = (await created.json()).page as { id: string; title: string; content_html: string };
+        expect(saved.content_html).toContain(`src="${media.publicUrl}"`);
+
+        const response = await page.request.delete(`/api/media/${media.id}`);
+        expect(response.status()).toBe(409);
+        expect(await response.json()).toEqual({
+          error: 'This image is used by 1 page.', posts: [], pages: [{ id: saved.id, title: saved.title }],
+        });
+        await expectMediaPresent(owner, media);
+
+        await page.goto('/admin/media');
+        const card = page.getByRole('button', { name: new RegExp(`${status}-page\\.png`, 'i') });
+        await card.click();
+        const details = page.getByRole('dialog', { name: 'Image details' });
+        await confirmImageDeletion(page, details);
+        await expect(details.getByRole('alert')).toContainText('This image is used by 1 page.');
+        await expect(details.getByRole('alert').getByRole('link')).toHaveCount(0);
+        await details.getByRole('button', { name: 'Retry' }).click();
+        await expect(details.getByRole('button', { name: 'Delete', exact: true })).toBeEnabled();
+        await expectMediaPresent(owner, media);
+
+        const { error } = await owner.client.from('pages')
+          .update({ content_html: '<p>Image removed.</p>', content_json: { type: 'doc', content: [{ type: 'paragraph' }] } })
+          .eq('id', saved.id);
+        expect(error).toBeNull();
+        await details.getByRole('button', { name: 'Retry' }).click();
+        await expect(details).toHaveCount(0);
+        await expect(card).toHaveCount(0);
+        const { data: metadata, error: metadataError } = await owner.client.from('media_items').select('id').eq('id', media.id).maybeSingle();
+        expect(metadataError).toBeNull();
+        expect(metadata).toBeNull();
+        const { data: objects, error: storageError } = await owner.client.storage.from('blog-media').list(owner.id);
+        expect(storageError).toBeNull();
+        expect(objects?.map((object) => object.name)).not.toContain(media.storage_path.split('/')[1]);
+      } finally {
+        await deleteTestOwner(owner);
+      }
+    });
+  }
+
+  test('finds a media reference after the first 1000 owner Pages and leaves media intact', async ({ page }) => {
+    const owner = await createOwner('media-delete-paginated-page');
+    try {
+      const media = await createMedia(owner, 'deep-page-reference.png');
+      const idPrefix = crypto.randomUUID().slice(0, 24);
+      const { error } = await owner.client.from('pages').insert(Array.from({ length: 1001 }, (_, index) => ({
+        author_id: owner.id, locale: 'th', status: 'draft',
+        id: `${idPrefix}${index.toString().padStart(12, '0')}`,
+        title: index === 1000 ? 'Page after first batch' : `Unreferenced page ${index}`,
+        slug: `deep-page-${owner.id}-${index}`,
+        content_json: { type: 'doc', content: [] },
+        content_html: index === 1000 ? `<img src="${media.publicUrl}" alt="Page image">` : '<p></p>',
+      })));
+      expect(error).toBeNull();
+      await signIn(page, owner);
+      const response = await page.request.delete(`/api/media/${media.id}`);
+      expect(response.status()).toBe(409);
+      expect(await response.json()).toEqual({
+        error: 'This image is used by 1 page.', posts: [],
+        pages: [{ id: `${idPrefix}000000001000`, title: 'Page after first batch' }],
+      });
+      await expectMediaPresent(owner, media);
+    } finally {
+      await deleteTestOwner(owner);
+    }
+  });
+
+  test('unrelated owner Pages and foreign draft or published Page references do not block deletion', async ({ page }) => {
+    const owner = await createOwner('media-delete-page-scope');
+    const foreign = await createOwner('media-delete-foreign-page');
+    try {
+      const media = await createMedia(owner, 'deletable-page-image.png');
+      const otherMedia = await createMedia(owner, 'other-page-image.png');
+      for (const [author, status, publicUrl] of [
+        [owner, 'draft', otherMedia.publicUrl], [foreign, 'draft', media.publicUrl], [foreign, 'published', media.publicUrl],
+      ] as const) {
+        const { error } = await author.client.from('pages').insert({
+          author_id: author.id, title: `${status} private page`, slug: `scope-${crypto.randomUUID()}`,
+          locale: 'th', status, content_json: { type: 'doc', content: [] },
+          content_html: `<img src="${publicUrl}" alt="Page image">`,
+        });
+        expect(error).toBeNull();
+      }
+      await signIn(page, owner);
+      const response = await page.request.delete(`/api/media/${media.id}`);
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toEqual({ deleted: true });
+      const { data: metadata, error } = await owner.client.from('media_items').select('id').eq('id', media.id).maybeSingle();
+      expect(error).toBeNull();
+      expect(metadata).toBeNull();
+      const { data: objects, error: storageError } = await owner.client.storage.from('blog-media').list(owner.id);
+      expect(storageError).toBeNull();
+      expect(objects?.map((object) => object.name)).not.toContain(media.storage_path.split('/')[1]);
+      await expectMediaPresent(owner, otherMedia);
+    } finally {
+      await deleteTestOwner(owner);
+      await deleteTestOwner(foreign);
     }
   });
 
