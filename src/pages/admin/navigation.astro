@@ -1,0 +1,41 @@
+---
+import NavigationManager from '../../components/admin/NavigationManager';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import { adminLoginPath } from '../../lib/admin';
+import { getSiteSettings } from '../../lib/installation';
+import { authenticate } from '../../lib/supabase';
+
+let userEmail: string | null = null;
+let errorMessage: string | null = null;
+let settings = null;
+let authRequired = false;
+
+try {
+  const auth = await authenticate(Astro.cookies, Astro.request);
+  if (!auth) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    userEmail = auth.user.email ?? null;
+    settings = await getSiteSettings();
+  }
+} catch (error) {
+  console.error('Navigation authentication failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'Navigation is temporarily unavailable.';
+}
+---
+
+<AdminLayout title="Navigation">
+  {authRequired || errorMessage ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
+  ) : (
+    <AdminShell active="navigation" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+      <NavigationManager client:only="react">
+        <p class="admin-editor-fallback" slot="fallback" role="status">Loading navigation…</p>
+      </NavigationManager>
+    </AdminShell>
+  )}
+</AdminLayout>
