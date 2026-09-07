@@ -1,0 +1,69 @@
+---
+import { z } from 'zod';
+
+import PageEditor from '../../../../components/admin/PageEditor';
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { adminLoginPath } from '../../../../lib/admin';
+import { authenticate } from '../../../../lib/supabase';
+import type { Page, PageTranslationSummary } from '../../../../types/cms';
+
+let page: Page | null = null;
+let editorPage: Omit<Page, 'translation_group_id'> | null = null;
+let translations: PageTranslationSummary[] = [];
+let errorMessage: string | null = null;
+const id = z.uuid().safeParse(Astro.params.id);
+
+try {
+  if (!id.success) {
+    Astro.response.status = 404;
+    errorMessage = 'Page not found.';
+  } else {
+    const auth = await authenticate(Astro.cookies, Astro.request);
+    if (!auth) {
+      Astro.response.status = 302;
+      Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+    } else {
+      const { data, error } = await auth.supabase
+        .from('pages')
+        .select('*')
+        .eq('id', id.data)
+        .eq('author_id', auth.user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      page = data;
+      if (!page) {
+        Astro.response.status = 404;
+        errorMessage = 'Page not found.';
+      } else {
+        const { data: translationData, error: translationsError } = await auth.supabase
+          .from('pages')
+          .select('id, locale, status, title')
+          .eq('translation_group_id', page.translation_group_id)
+          .eq('author_id', auth.user.id)
+          .order('locale');
+        if (translationsError) throw translationsError;
+        translations = translationData;
+        const { translation_group_id: _translationGroupId, ...safePage } = page;
+        editorPage = safePage;
+      }
+    }
+  }
+} catch (error) {
+  console.error('Page editor query failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The editor is temporarily unavailable.';
+}
+---
+
+<AdminLayout title={page?.title ?? 'Edit page'}>
+  <main>
+    {page && editorPage ? (
+      <PageEditor client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
+        <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+      </PageEditor>
+    ) : (
+      <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
+    )}
+  </main>
+</AdminLayout>
