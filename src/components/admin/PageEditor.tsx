@@ -236,7 +236,7 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
   const changeTitle = (value: string) => {
     setTitle(value);
     if (!slugTouched.current) {
-      setSlug(slugify(value, { lower: true, strict: true, trim: true }) || fallbackSlug.current);
+      setSlug(slugify(value, { lower: true, strict: true, trim: true }).slice(0, 160).replace(/-+$/, '') || fallbackSlug.current);
     }
     markDirty();
   };

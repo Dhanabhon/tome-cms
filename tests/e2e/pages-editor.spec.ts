@@ -98,6 +98,29 @@ test('Page autosave serializes changes, replaces history, and saves before creat
   }
 });
 
+test('Page autosave bounds generated slugs for long valid titles', async ({ page }) => {
+  const owner = await createOwner('page-long-title');
+  const expectedSlug = `${crypto.randomUUID()}-${'a'.repeat(122)}`;
+  const title = `${expectedSlug} ${'b'.repeat(40)}`;
+  try {
+    await signInAdmin(page, owner);
+    await page.goto('/admin/pages/new');
+    const savedResponse = page.waitForResponse((response) => response.url().endsWith('/api/pages') && response.request().method() === 'POST');
+    await page.getByLabel('Page title').fill(title);
+    await page.locator('.ProseMirror').fill('A Page with a full-length title.');
+    expect((await savedResponse).status()).toBe(201);
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/pages\/edit\/[0-9a-f-]+$/);
+    const { data: stored, error } = await owner.client.from('pages').select('title, slug').eq('id', page.url().split('/').at(-1)!).single();
+    expect(error).toBeNull();
+    expect(stored).toEqual({ title, slug: expectedSlug });
+    expect(stored?.slug.length).toBeLessThanOrEqual(160);
+    expect(stored?.slug).not.toMatch(/-$/);
+  } finally {
+    await cleanupEditor(page, owner);
+  }
+});
+
 test('Page Preview opens immediately, flushes the newest draft, and scopes sanitized content to its owner', async ({ page, browser, playwright }) => {
   const owner = await createOwner('page-preview');
   const foreignOwner = await createOwner('page-preview-foreign');
