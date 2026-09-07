@@ -139,6 +139,7 @@ export async function signInAdmin(page: Page, owner: TestOwner) {
   await page.locator('input[name="password"]').fill(owner.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/admin\/?$/);
+  await expect(page.locator('.admin-shell')).toBeVisible();
 }
 
 export async function chooseUiOption(scope: Locator | Page, label: string, option: string) {

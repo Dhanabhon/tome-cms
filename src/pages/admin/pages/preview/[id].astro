@@ -1,0 +1,57 @@
+---
+import { z } from 'zod';
+
+import PageArticle from '../../../../components/blog/PageArticle.astro';
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { authenticate } from '../../../../lib/supabase';
+import type { Page } from '../../../../types/cms';
+
+let page: Page | null = null;
+let errorMessage: string | null = null;
+const id = z.uuid().safeParse(Astro.params.id);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
+try {
+  if (!id.success) {
+    Astro.response.status = 404;
+    errorMessage = 'Page not found.';
+  } else {
+    const auth = await authenticate(Astro.cookies, Astro.request);
+    if (!auth) {
+      Astro.response.status = 401;
+      errorMessage = 'Sign in to preview this page.';
+    } else {
+      const { data, error } = await auth.supabase
+        .from('pages')
+        .select('*')
+        .eq('id', id.data)
+        .eq('author_id', auth.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      page = data;
+      if (!page) {
+        Astro.response.status = 404;
+        errorMessage = 'Page not found.';
+      }
+    }
+  }
+} catch (error) {
+  console.error('Page preview query failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The preview is temporarily unavailable.';
+}
+---
+
+<AdminLayout lang={page?.locale} title={page ? `Preview: ${page.title}` : 'Draft preview'}>
+  <main>
+    {errorMessage ? <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p> : page ? (
+      <>
+        <div class="admin-preview-bar">
+          <span>Page preview</span>
+          <a class="admin-button admin-button--secondary" href={`/admin/pages/edit/${page.id}`}>Edit page</a>
+        </div>
+        <PageArticle page={page} preview />
+      </>
+    ) : null}
+  </main>
+</AdminLayout>

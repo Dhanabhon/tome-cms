@@ -568,6 +568,7 @@ body {
   background: var(--color-paper);
 }
 .admin-preview-pending { max-width: 40rem; margin: var(--space-2xl) auto; padding: var(--space-lg); }
+.page-article { min-width: 0; overflow-wrap: anywhere; }
 .admin-preview-pending h1 { font-size: var(--text-xl); font-weight: 600; }
 .admin-preview-pending p { margin-block: var(--space-lg); }
 .admin-button:focus-visible { outline-color: var(--color-focus); }
