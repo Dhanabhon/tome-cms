@@ -1,0 +1,194 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdminShell from '../../../components/admin/AdminShell.astro';
+import UiSelect from '../../../components/admin/UiSelect';
+import { adminLoginPath } from '../../../lib/admin';
+import { getSiteSettings } from '../../../lib/installation';
+import { filterAdminPages, type AdminPageFilters } from '../../../lib/pages';
+import { authenticate } from '../../../lib/supabase';
+import type { Page, PageLocale } from '../../../types/cms';
+
+let pages: Page[] = [];
+let userEmail: string | null = null;
+let errorMessage: string | null = null;
+let authRequired = false;
+let settings = null;
+
+try {
+  const auth = await authenticate(Astro.cookies, Astro.request);
+  if (!auth) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    userEmail = auth.user.email ?? null;
+    settings = await getSiteSettings();
+    const { data, error } = await auth.supabase
+      .from('pages')
+      .select('*')
+      .eq('author_id', auth.user.id)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    pages = data;
+  }
+} catch (error) {
+  console.error('Admin page query failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'The Pages dashboard is temporarily unavailable.';
+}
+
+const dateFormatter = new Intl.DateTimeFormat('en', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: settings?.timezone ?? 'UTC',
+});
+const status = ['draft', 'published', 'all'].includes(Astro.url.searchParams.get('status') ?? '')
+  ? Astro.url.searchParams.get('status') as 'draft' | 'published' | 'all'
+  : 'draft';
+const locale = ['th', 'en', 'all'].includes(Astro.url.searchParams.get('locale') ?? '')
+  ? Astro.url.searchParams.get('locale') as PageLocale | 'all'
+  : 'all';
+const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
+const filters: AdminPageFilters = { status, locale, query };
+const filteredPages = filterAdminPages(pages, filters);
+const editions = new Map<string, Page[]>();
+for (const page of pages) {
+  const group = editions.get(page.translation_group_id) ?? [];
+  group.push(page);
+  editions.set(page.translation_group_id, group);
+}
+const tabs = [{ status: 'draft', label: 'Drafts' }, { status: 'published', label: 'Published' }, { status: 'all', label: 'All' }];
+---
+
+<AdminLayout title="Pages">
+  {authRequired || errorMessage ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
+  ) : (
+    <AdminShell active="pages" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+      <section class="admin-page">
+        <header class="admin-page__head">
+          <div><h1>Pages</h1><p>Manage your site pages and their language editions.</p></div>
+          <a class="admin-button admin-button--primary" href="/admin/pages/new">New page <span aria-hidden="true">+</span></a>
+        </header>
+        <div data-admin-pages>
+          <nav class="admin-post-tabs" role="tablist" aria-label="Page status">
+            {tabs.map((tab) => (
+              <a role="tab" aria-selected={status === tab.status} href={`/admin/pages?${new URLSearchParams({ status: tab.status, locale, q: query })}`}>{tab.label}</a>
+            ))}
+          </nav>
+          <form class="admin-post-filters" action="/admin/pages" method="get" novalidate>
+            <input type="hidden" name="status" value={status} />
+            <div class="admin-field">
+              <label for="page-search">Search pages</label>
+              <input class="admin-control" id="page-search" name="q" type="search" maxlength="100" value={query} placeholder="Search by title" />
+            </div>
+            <div class="admin-field">
+              <label for="page-locale">Language</label>
+              <UiSelect
+                client:load
+                className="admin-control"
+                defaultValue={locale}
+                id="page-locale"
+                name="locale"
+                options={[
+                  { label: 'All languages', value: 'all' },
+                  { label: 'Thai', value: 'th' },
+                  { label: 'English', value: 'en' },
+                ]}
+              />
+            </div>
+            <button class="admin-button" type="submit">Apply filters</button>
+          </form>
+          <p class="admin-alert" data-page-error role="alert" hidden></p>
+          <div class="admin-story-list">
+            {filteredPages.map((page) => {
+              const title = page.title.trim() || 'Untitled page';
+              const sibling = editions.get(page.translation_group_id)?.find((edition) => edition.locale !== page.locale);
+              const timestamp = page.status === 'published' ? page.published_at ?? page.updated_at : page.updated_at;
+              return (
+                <article class="admin-story-row admin-page-row" aria-label={`${title} (${page.locale.toUpperCase()})`}>
+                  <div class="admin-story-content">
+                    <h2><a href={`/admin/pages/edit/${page.id}`}>{title}</a></h2>
+                    <p class="admin-page-path">/{page.locale}/{page.slug}</p>
+                    <div class="admin-story-meta">
+                      <span class="admin-locale">{page.locale.toUpperCase()}</span>
+                      <span class="admin-status" data-status={page.status}>{page.status}</span>
+                      <span>{page.status === 'published' ? 'Published' : 'Updated'} <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                    </div>
+                    <p class="admin-story-sibling">
+                      {sibling ? <a href={`/admin/pages/edit/${sibling.id}`}>{sibling.locale.toUpperCase()} {sibling.status}</a> : <a href={`/admin/pages/new?${new URLSearchParams({ sourcePageId: page.id, locale: page.locale === 'th' ? 'en' : 'th' })}`}>{page.locale === 'th' ? 'EN' : 'TH'} missing</a>}
+                    </p>
+                  </div>
+                  <details class="admin-story-menu">
+                    <summary aria-label={`Actions for ${title} (${page.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
+                    <div>
+                      <a href={`/admin/pages/edit/${page.id}`}>Edit</a>
+                      <a href={`/admin/pages/preview/${page.id}`} target="_blank" rel="noopener noreferrer">Preview</a>
+                      <button type="button" data-page-action={page.status === 'draft' ? 'published' : 'draft'} data-page-id={page.id} data-page-title={title} data-page-locale={page.locale.toUpperCase()}>{page.status === 'draft' ? 'Publish' : 'Unpublish'}</button>
+                      <button type="button" data-page-action="delete" data-page-id={page.id} data-page-title={title} data-page-locale={page.locale.toUpperCase()}>Delete</button>
+                    </div>
+                  </details>
+                </article>
+              );
+            })}
+            {!filteredPages.length && (
+              <div class="admin-empty">
+                <span class="admin-empty__mark" aria-hidden="true">+</span>
+                <div><h2>{pages.length ? 'No pages match these filters.' : 'Your first page starts here'}</h2><p>{pages.length ? 'Try another title, language, or status.' : 'Create a draft now and publish whenever it is ready.'}</p></div>
+                {!pages.length && <a class="admin-button admin-button--secondary" href="/admin/pages/new">Create first page</a>}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </AdminShell>
+  )}
+</AdminLayout>
+
+<script>
+  import { confirmUi } from '../../../lib/ui-dialog';
+
+  const pagesContainer = document.querySelector<HTMLElement>('[data-admin-pages]');
+  const pageError = pagesContainer?.querySelector<HTMLElement>('[data-page-error]');
+  pagesContainer?.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-page-action]') : null;
+    if (!button || button.disabled) return;
+    const { pageAction: action, pageId: id } = button.dataset;
+    if (!id || !action) return;
+    if (action === 'delete' || action === 'draft') {
+      const edition = `“${button.dataset.pageTitle}” (${button.dataset.pageLocale})`;
+      const confirmed = await confirmUi(action === 'delete' ? {
+        title: 'Delete page?',
+        message: `Delete ${edition}? This edition and its menu references will be permanently removed. Other language editions will stay saved. This cannot be undone.`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      } : {
+        title: 'Unpublish page?',
+        message: `Unpublish ${edition}? Menu placements stay saved but disappear publicly until republished.`,
+        confirmLabel: 'Unpublish',
+      });
+      if (!confirmed) return;
+    }
+    button.disabled = true;
+    try {
+      const response = action === 'delete'
+        ? await fetch(`/api/pages?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        : await fetch('/api/pages', {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id, status: action }),
+          });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'The action could not be completed. Please try again.');
+      }
+      window.location.reload();
+    } catch (error) {
+      if (pageError) {
+        pageError.textContent = error instanceof Error ? error.message : 'The action could not be completed. Please try again.';
+        pageError.hidden = false;
+      }
+      button.disabled = false;
+    }
+  });
+</script>
