@@ -1,0 +1,19 @@
+---
+import type { PublicNavigationItem } from '../../types/cms';
+
+interface Props {
+  items?: PublicNavigationItem[];
+  siteName?: string;
+}
+
+const { items = [], siteName = 'TomeCMS' } = Astro.props;
+---
+
+<footer class="site-footer mx-auto w-full max-w-7xl border-t border-line px-5 py-7 text-sm text-muted sm:px-7">
+  {items.length > 0 && (
+    <nav aria-label="Footer" class="public-navigation">
+      <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
+    </nav>
+  )}
+  <p>&copy; {new Date().getFullYear()} {siteName}. All rights reserved.</p>
+</footer>
