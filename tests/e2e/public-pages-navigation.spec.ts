@@ -230,7 +230,7 @@ test('sitemap lists every published owner Page edition and fails closed if eithe
   }
 });
 
-test('independent locale menus and Page visibility work on desktop and native mobile navigation without JavaScript', async ({ browser, page }) => {
+test('independent locale menus and Page visibility work on desktop and native mobile navigation without JavaScript', async ({ browser, browserName, page }) => {
   test.setTimeout(60_000);
   const owner = await createOwner('public-menus');
   let restoreOwner: (() => Promise<void>) | undefined;
@@ -289,7 +289,8 @@ test('independent locale menus and Page visibility work on desktop and native mo
         if (await disclosure.getAttribute('open') === null) await summary.press('Enter');
         await expect(disclosure).toHaveAttribute('open', '');
         await expect(disclosure.getByRole('link')).toHaveText([`${locale} Home`, `${locale} About`, `${locale} Contact`]);
-        await summary.press('Tab');
+        // WebKit's native keyboard policy includes links when traversing with Option/Alt+Tab.
+        await summary.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
         await expect(disclosure.getByRole('link').first()).toBeFocused();
         await disclosure.getByRole('link').first().press('Enter');
         await expect(publicPage).toHaveURL(new RegExp(`/${locale}$`));
