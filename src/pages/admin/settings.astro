@@ -35,7 +35,7 @@ try {
   {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
     <AdminShell active="settings" siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
-        <header class="admin-page__head"><div><h1>Settings</h1><p>Manage your publication’s name, language, and timezone.</p></div></header>
+        <header class="admin-page__head"><div><h1>Settings</h1><p>Manage your publication’s name, tagline, language, and timezone.</p></div></header>
         <SettingsForm client:load initialSettings={settings} />
       </section>
     </AdminShell>

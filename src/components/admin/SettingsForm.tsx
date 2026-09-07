@@ -4,11 +4,12 @@ import type { SiteSettings } from '../../types/cms';
 import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
-  initialSettings: Pick<SiteSettings, 'site_name' | 'site_description' | 'default_locale' | 'timezone'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'timezone'>;
 }
 
 export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [siteName, setSiteName] = useState(initialSettings.site_name);
+  const [tagline, setTagline] = useState(initialSettings.tagline);
   const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
@@ -28,12 +29,12 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ defaultLocale, siteDescription, siteName, timezone }),
+        body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, timezone }),
       });
       const result = await response.json();
       if (!response.ok) {
         const fields: Record<string, string> = {};
-        for (const name of ['siteName', 'siteDescription', 'defaultLocale', 'timezone']) {
+        for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'timezone']) {
           fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
         }
         setFieldErrors(fields);
@@ -58,6 +59,11 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
           <label htmlFor="siteName">Site name</label>
           <input className="admin-control" id="siteName" name="siteName" aria-invalid={Boolean(fieldErrors.siteName)} aria-describedby="siteName-error" required maxLength={120} value={siteName} onChange={(event) => setSiteName(event.target.value)} />
           <p className="admin-field-error" id="siteName-error" aria-live="polite">{fieldErrors.siteName}</p>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="tagline">Tagline</label>
+          <input className="admin-control" id="tagline" name="tagline" aria-invalid={Boolean(fieldErrors.tagline)} aria-describedby="tagline-error" maxLength={120} placeholder="A short line about your publication" value={tagline} onChange={(event) => setTagline(event.target.value)} />
+          <p className="admin-field-error" id="tagline-error" aria-live="polite">{fieldErrors.tagline}</p>
         </div>
         <div className="admin-field">
           <label htmlFor="siteDescription">Site description</label>

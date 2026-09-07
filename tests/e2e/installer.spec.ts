@@ -65,6 +65,7 @@ async function stopServer(child: ChildProcess) {
 test('installer completion exposes and copies the fixed Admin URL without mobile overflow', async ({ context, page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One browser project covers the isolated installer server.');
   const { child, origin } = await startUninstalledServer();
+  let installRequestBody: Record<string, unknown> | undefined;
 
   try {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
@@ -81,11 +82,14 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
       },
       status: 200,
     }));
-    await page.route(`${origin}/api/install`, (route) => route.fulfill({
-      contentType: 'application/json',
-      json: { redirectTo: '/admin' },
-      status: 201,
-    }));
+    await page.route(`${origin}/api/install`, (route) => {
+      installRequestBody = route.request().postDataJSON() as Record<string, unknown>;
+      return route.fulfill({
+        contentType: 'application/json',
+        json: { redirectTo: '/admin' },
+        status: 201,
+      });
+    });
 
     await page.goto(`${origin}/install?lang=en`);
     await expect(page.locator('.installer-footer')).toContainText(`v${packageMetadata.version}`);
@@ -114,6 +118,7 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
 
     await expect(page.getByText('Cloud ready', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Name your site' }).click();
+    await page.getByLabel('Tagline').fill('Ideas worth keeping.');
     await page.getByRole('button', { name: 'Create owner account' }).click();
     await page.getByLabel('Sign-in email').fill('owner@example.com');
     await page.locator('input[name="password"]').fill('a-secure-password');
@@ -121,6 +126,7 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
     await page.getByRole('button', { name: 'Review details' }).click();
     await page.getByLabel('Installation token').fill('test-token');
     await page.getByRole('button', { name: 'Install TomeCMS' }).click();
+    expect(installRequestBody).toMatchObject({ tagline: 'Ideas worth keeping.' });
 
     const adminUrl = `${origin}/admin`;
     const field = page.getByLabel('Admin URL');
