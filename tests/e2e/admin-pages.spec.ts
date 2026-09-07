@@ -136,8 +136,10 @@ test('Page row actions preserve editions and saved placements on unpublish, then
     await deletion.getByRole('button', { name: 'Cancel' }).click();
     await expect(row).toHaveCount(1);
     await row.getByRole('button', { name: 'Delete', exact: true }).click();
+    const deleteRequest = page.waitForRequest((request) => request.method() === 'DELETE' && new URL(request.url()).pathname === '/api/pages');
     await deletion.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(row).toHaveCount(0);
+    expect(await (await deleteRequest).headerValue('content-type')).toBe('application/json');
     expect((await admin.from('navigation_items').select('id').eq('page_id', source.id)).data).toEqual([]);
     expect((await admin.from('pages').select('id').eq('id', sibling.id)).data).toEqual([{ id: sibling.id }]);
     await admin.from('pages').update({ content_html: '' }).eq('id', sibling.id);

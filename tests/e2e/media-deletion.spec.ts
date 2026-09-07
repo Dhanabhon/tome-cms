@@ -11,7 +11,9 @@ async function confirmImageDeletion(page: Page, details: Locator) {
   await details.getByRole('button', { name: 'Delete' }).click();
   const confirmation = page.getByRole('dialog', { name: 'Delete image?' });
   await expect(confirmation).toBeVisible();
+  const deleteRequest = page.waitForRequest((request) => request.method() === 'DELETE' && new URL(request.url()).pathname.startsWith('/api/media/'));
   await confirmation.getByRole('button', { name: 'Delete image' }).click();
+  expect(await (await deleteRequest).headerValue('content-type')).toBe('application/json');
 }
 
 async function createMedia(owner: TestOwner, name: string) {
