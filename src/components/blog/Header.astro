@@ -1,4 +1,5 @@
 ---
+import LanguageSwitcher from '../LanguageSwitcher.astro';
 import { localePath } from '../../lib/i18n';
 import type { PostAlternate, PostLocale } from '../../types/cms';
 
@@ -9,7 +10,6 @@ interface Props {
 }
 
 const { availableLocales = [], locale = 'en', siteName = 'TomeCMS' } = Astro.props;
-const languageLabels: Record<PostLocale, string> = { en: 'English (US)', th: 'ไทย' };
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
@@ -19,32 +19,7 @@ const languageOptions = availableLocales
   <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
     <a class="min-w-0 flex-1 truncate font-display text-xl font-bold tracking-tight text-ink sm:text-[22px]" href={localePath(locale)}>{siteName}</a>
     {languageOptions.length > 1 && (
-      <div class="language-switcher">
-        <button
-          aria-label={`Change language. Current language: ${languageLabels[locale]}`}
-          class="language-switcher__trigger"
-          popovertarget="language-switcher-menu"
-          type="button"
-        >
-          <span>{languageLabels[locale]}</span>
-          <svg aria-hidden="true" class="language-switcher__chevron" fill="none" viewBox="0 0 24 24">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-        <nav aria-label="Choose language" class="language-switcher__menu" id="language-switcher-menu" popover="auto">
-          {languageOptions.map((alternate) => (
-            <a
-              aria-current={alternate.locale === locale ? 'page' : undefined}
-              href={alternate.href}
-            >
-              <span>{languageLabels[alternate.locale]}</span>
-              {alternate.locale === locale && (
-                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>
-              )}
-            </a>
-          ))}
-        </nav>
-      </div>
+      <LanguageSwitcher currentLocale={locale} options={languageOptions} />
     )}
   </div>
 </header>

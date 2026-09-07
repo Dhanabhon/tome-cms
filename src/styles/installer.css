@@ -46,6 +46,7 @@ h1, h2, p { margin-block-start: 0; }
   text-decoration: none;
   white-space: nowrap;
 }
+.installer-wordmark .tomecms-logo { width: 7.5rem; height: 1.5rem; }
 .installer-page {
   width: min(100%, 80rem);
   min-width: 0;
@@ -360,6 +361,7 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   .installer-meter span:last-child { grid-column: auto; }
 }
 @media (min-width: 40rem) {
+  .installer-wordmark .tomecms-logo { width: 9rem; height: 1.75rem; }
   .installer-intro { grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.72fr); align-items: end; }
   .installer-intro p { justify-self: end; }
   .installer-progress-label { display: inline; overflow-wrap: anywhere; }
@@ -367,6 +369,7 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   .installer-admin-url-row { grid-template-columns: minmax(0, 1fr) auto; }
 }
 @media (min-width: 64rem) {
+  .installer-wordmark .tomecms-logo { width: 10rem; height: 2rem; }
   .installer-workspace { grid-template-columns: minmax(18rem, 0.72fr) minmax(0, 1.28fr); }
   .installer-context { border-inline-end: var(--rule-hair) solid var(--color-rule); border-block-end: 0; }
   .installer-task { min-height: 32rem; }

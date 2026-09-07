@@ -55,6 +55,7 @@
   --rule-hair: 1px;
   --radius-input: 0.5rem;
   --radius-card: 0.5rem;
+  --radius-pill: 9999px;
   --control-height: 3rem;
   --z-sticky-nav: 300;
 }
