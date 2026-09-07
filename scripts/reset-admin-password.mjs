@@ -1,21 +1,13 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { accessSync, constants } from 'node:fs';
-import { resolve } from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 
-const RELOADED_ENV = 'TOMECMS_PASSWORD_RESET_ENV_LOADED';
-
-function adminKey(environment = process.env) {
-  return environment.SUPABASE_SECRET_KEY || environment.SUPABASE_SERVICE_ROLE_KEY;
-}
+import { adminKey, ensureSupabaseAdminEnvironment, supabaseOrigin } from './lib/supabase-environment.mjs';
 
 function passwordError(password, confirmation) {
   if (password.length < 12 || password.length > 128) {
@@ -34,48 +26,6 @@ function selfTest() {
   assert.match(passwordError('x'.repeat(129), 'x'.repeat(129)), /12 and 128/);
   assert.match(passwordError('x'.repeat(12), 'y'.repeat(12)), /do not match/);
   console.log('Admin password reset self-check passed.');
-}
-
-function readableEnvFile() {
-  const candidates = process.env.TOMECMS_ENV_FILE
-    ? [resolve(process.env.TOMECMS_ENV_FILE)]
-    : [resolve('.env.local'), resolve('.env'), '/etc/tome-cms/tome-cms.env'];
-
-  return candidates.find((file) => {
-    try {
-      accessSync(file, constants.R_OK);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-}
-
-function ensureEnvironment() {
-  const missingUrl = !process.env.PUBLIC_SUPABASE_URL;
-  const missingKey = !adminKey();
-  if (!missingUrl && !missingKey) return;
-
-  if (missingUrl && missingKey && !process.env[RELOADED_ENV]) {
-    const envFile = readableEnvFile();
-    if (envFile) {
-      const result = spawnSync(
-        process.execPath,
-        [`--env-file=${envFile}`, fileURLToPath(import.meta.url), ...process.argv.slice(2)],
-        {
-          env: { ...process.env, [RELOADED_ENV]: '1' },
-          stdio: 'inherit',
-        },
-      );
-      if (result.error) throw result.error;
-      process.exit(result.status ?? 1);
-    }
-  }
-
-  throw new Error(
-    'PUBLIC_SUPABASE_URL and a Supabase secret or service-role key must be configured together. ' +
-      'Set TOMECMS_ENV_FILE to a readable environment file when using a custom path.',
-  );
 }
 
 async function ask(question) {
@@ -112,15 +62,11 @@ async function main() {
     throw new Error('Run this command in an interactive terminal so the password can stay hidden.');
   }
 
-  ensureEnvironment();
-  const url = process.env.PUBLIC_SUPABASE_URL;
+  ensureSupabaseAdminEnvironment(import.meta.url);
+  const origin = supabaseOrigin(process.env.PUBLIC_SUPABASE_URL);
   const serviceRoleKey = adminKey();
-  const projectUrl = new URL(url);
-  if (!['http:', 'https:'].includes(projectUrl.protocol)) {
-    throw new Error('PUBLIC_SUPABASE_URL must use http or https.');
-  }
 
-  const supabase = createClient(url, serviceRoleKey, {
+  const supabase = createClient(origin, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: settings, error: settingsError } = await supabase
@@ -138,7 +84,7 @@ async function main() {
   if (userError) throw new Error(`Could not read the owner account: ${userError.message}`);
   if (!user?.email) throw new Error('The configured owner account has no email address.');
 
-  console.log(`Supabase: ${projectUrl.origin}`);
+  console.log(`Supabase: ${origin}`);
   console.log(`Owner: ${user.email}`);
   const confirmation = await ask('Type RESET to continue: ');
   if (confirmation !== 'RESET') {

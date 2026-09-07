@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       );
     }
 
-    const expectedToken = process.env.TOME_CMS_INSTALL_TOKEN;
+    const expectedToken = process.env.TOME_CMS_INSTALL_TOKEN || import.meta.env.TOME_CMS_INSTALL_TOKEN;
     if (!expectedToken || !tokenMatches(parsed.data.installationToken, expectedToken)) {
       return Response.json({ error: 'Installation token ไม่ถูกต้อง กรุณาคัดลอกจาก VPS อีกครั้ง' }, { status: 401 });
     }

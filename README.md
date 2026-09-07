@@ -171,6 +171,7 @@ npm run configure:supabase # Choose Supabase Cloud or an existing Self-hosted de
 npm run build       # Build the production server
 npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
+npm run admin:reset-installation # Preview a reset to the Wizard Installer
 npm run admin:reset-password # Reset the installed owner password
 npm run test:e2e:media # Run focused Media Library and public blog regressions
 npm run test:e2e:publishing # Run focused multilingual publishing regressions
@@ -203,6 +204,28 @@ sudo npm run admin:reset-password
 ```
 
 For a custom environment file, set `TOMECMS_ENV_FILE` to its path before running the command.
+
+## Reset TomeCMS to the Wizard Installer
+
+This reset permanently deletes all TomeCMS posts, Media Library records and folders, every object in the dedicated `blog-media` bucket, site settings, and the configured owner account. It keeps the Supabase project, database schema, migrations, bucket, environment file, and installation token.
+
+Back up Postgres and Supabase Storage first. Close every Admin tab and stop TomeCMS so an active editor cannot write during the reset. Apply all pending migrations, then preview the exact target and record counts without changing anything:
+
+```sh
+npm run admin:reset-installation -- --dry-run
+```
+
+Run the destructive reset only after checking that preview:
+
+```sh
+npm run admin:reset-installation -- --execute
+```
+
+The default command is also a dry run. Destructive mode requires the explicit `--execute` option and then requires you to type `RESET <supabase-origin>` exactly, including the scheme and any port. It supports local, Supabase Cloud, and Self-hosted connections and accepts current or legacy admin key names. Remote connections must use HTTPS; plain HTTP is accepted only for loopback development. For `/etc/tome-cms/tome-cms.env`, run it with `sudo`; use `TOMECMS_ENV_FILE` for any other path.
+
+If the command exits after deletion begins, keep TomeCMS stopped. Restore the Postgres and `blog-media` Storage backups from the same recovery point, rerun the dry run to verify the restored counts, then retry with `--execute`. Database backups do not replace a separate Storage backup.
+
+After completion, restart TomeCMS, open `/install`, and use the existing `TOME_CMS_INSTALL_TOKEN`. The old owner's refresh sessions are removed with the account, but an already-issued access token can remain valid until its expiry.
 
 ## Media Library
 
