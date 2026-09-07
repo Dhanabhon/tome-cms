@@ -179,6 +179,21 @@ npm run test:e2e:publishing # Run focused multilingual publishing regressions
 
 Run `npm run test:e2e:media` and `npm run test:e2e:publishing` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
 
+## Versioning
+
+TomeCMS follows [Semantic Versioning](https://semver.org/). The `version` field in `package.json` is the single source of truth and is shown automatically in the Wizard Installer. `package-lock.json` must carry the same version.
+
+Create a release with npm's standard version command:
+
+```sh
+npm version patch # bug fix: 0.1.0 -> 0.1.1
+npm version minor # backward-compatible feature: 0.1.0 -> 0.2.0
+npm version major # breaking change: 0.1.0 -> 1.0.0
+git push --follow-tags
+```
+
+`npm version` updates both package files, runs the project checks and production build, then creates the version commit and `vX.Y.Z` Git tag. It requires a clean working tree.
+
 ## Search and answer visibility
 
 Public pages are server-rendered with self-referencing canonical URLs, indexable robots metadata, Open Graph and X cards, and JSON-LD that describes the site or published article. `/sitemap.xml` contains both locale homepages (`/th` and `/en`) and each published locale edition, while `/robots.txt` advertises that sitemap and allows OAI-SearchBot to crawl public content.

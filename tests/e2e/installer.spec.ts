@@ -4,6 +4,8 @@ import { createServer } from 'node:net';
 
 import { expect, test } from '@playwright/test';
 
+import packageMetadata from '../../package.json' with { type: 'json' };
+
 const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function availablePort() {
@@ -86,6 +88,7 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
     }));
 
     await page.goto(`${origin}/install?lang=en`);
+    await expect(page.locator('.installer-footer')).toContainText(`v${packageMetadata.version}`);
     const installerLogo = page.locator('.installer-wordmark .tomecms-logo');
     const logoBox = await installerLogo.boundingBox();
     expect(logoBox).not.toBeNull();
