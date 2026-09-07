@@ -70,7 +70,7 @@ test('navigation manager recovers loading and save failures without losing local
       if (route.request().method() === 'GET' && ++loads === 1) {
         await loadGate;
         await route.fulfill({ status: 500, json: { error: 'Navigation could not be loaded or saved.' } });
-      } else if (route.request().method() === 'PUT' && ++saves === 1) {
+      } else if (route.request().method() === 'PUT' && ++saves <= 2) {
         await saveGate;
         await route.fulfill({ status: 500, json: { error: 'Navigation could not be loaded or saved.' } });
       } else await route.continue();
@@ -94,9 +94,21 @@ test('navigation manager recovers loading and save failures without losing local
     await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Contact');
     await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toHaveValue('My home');
     await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).toContainText('Unsaved');
-    await page.getByRole('button', { name: 'Retry save', exact: true }).click();
+    const retrySave = page.getByRole('button', { name: 'Retry save', exact: true });
+    await retrySave.focus();
+    await expect(retrySave).toBeFocused();
+    await retrySave.press('Enter');
+    await expect.poll(() => saves).toBe(2);
+    await expect(page.getByRole('button', { name: 'Add item', exact: true })).toBeFocused();
+    await expect(page.getByRole('alert')).toContainText('Navigation could not be saved');
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Contact');
+    await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toHaveValue('My home');
+    await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).toContainText('Unsaved');
+    await retrySave.focus();
+    await retrySave.press('Enter');
     await expect(page.getByRole('status')).toHaveText('Menu saved.');
-    expect(saves).toBe(2);
+    await expect(page.getByRole('button', { name: 'Add item', exact: true })).toBeFocused();
+    expect(saves).toBe(3);
     await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).not.toContainText('Unsaved');
     await page.reload();
     await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Contact');
@@ -226,6 +238,10 @@ test('navigation manager tabs support keyboard selection and layouts fit all req
     await page.keyboard.press('End');
     await expect(page.getByRole('tab', { name: 'English', exact: true })).toHaveAttribute('aria-selected', 'true');
     await addNavigationItem(page, 'Custom URL', 'A very long navigation label '.repeat(2), undefined, `/${'segment'.repeat(50)}`);
+    const addButton = page.getByRole('button', { name: 'Add item', exact: true });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    expect(await addButton.evaluate((element) => getComputedStyle(element).transitionProperty)).not.toBe('none');
+    expect(await addButton.evaluate((element) => getComputedStyle(element).transitionDuration.split(',').some((duration) => parseFloat(duration) > 0))).toBe(true);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     for (const width of [320, 375, 414, 768, 1280, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -233,7 +249,8 @@ test('navigation manager tabs support keyboard selection and layouts fit all req
       const row = page.getByRole('list', { name: 'Menu items' }).getByRole('listitem');
       await expect(row.getByRole('button', { name: 'Move up', exact: true })).toBeVisible();
       await expect(row.getByRole('button', { name: 'Move down', exact: true })).toBeVisible();
-      expect(await row.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0s');
+      expect(await addButton.evaluate((element) => getComputedStyle(element).transitionProperty)).toBe('none');
+      expect(await addButton.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0s');
       await page.getByRole('button', { name: 'Add item', exact: true }).click();
       await expect(page.getByRole('dialog', { name: 'Add navigation item' })).toBeVisible();
       expect(await page.getByRole('dialog', { name: 'Add navigation item' }).evaluate((element) => element.scrollWidth <= element.clientWidth), `dialog width ${width}`).toBe(true);
