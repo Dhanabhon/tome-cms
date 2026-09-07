@@ -1,30 +1,12 @@
-import {
-  EditorBubble,
-  EditorBubbleItem,
-  EditorContent,
-  type EditorInstance,
-  EditorRoot,
-  handleCommandNavigation,
-  handleImageDrop,
-  handleImagePaste,
-  type JSONContent,
-  Placeholder,
-  StarterKit,
-  TiptapImage,
-  TiptapLink,
-  UploadImagesPlugin,
-  useEditor,
-} from 'novel';
+import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { uploadImage } from '../../lib/media-client';
-import { promptUi } from '../../lib/ui-dialog';
 import { POST_LOCALES, type MediaAsset, type Post, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
-import BlockInsertMenu from './BlockInsertMenu';
-import { uploadFn } from './ImageUploader';
+import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
-import SlashCommands, { slashCommand } from './SlashCommands';
+import useEditorSaveQueue from './useEditorSaveQueue';
 
 interface EditorSourcePost {
   coverImage: string | null;
@@ -38,8 +20,6 @@ interface EditorProps {
   translations: PostTranslationSummary[];
 }
 
-type SaveState = 'Saved' | 'Saving…' | 'Unsaved' | 'Save failed';
-
 interface EditorDraft {
   contentHtml: string;
   contentJson: JSONContent;
@@ -49,32 +29,6 @@ interface EditorDraft {
   slug: string;
   title: string;
 }
-
-const editorImage = TiptapImage.extend({
-  addProseMirrorPlugins() {
-    return [UploadImagesPlugin({ imageClass: 'rounded-lg opacity-50' })];
-  },
-}).configure({
-  allowBase64: false,
-  HTMLAttributes: { class: 'rounded-lg' },
-});
-
-const extensions = [
-  StarterKit.configure({
-    heading: { levels: [1, 2, 3] },
-    blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
-    code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
-    codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-ink p-5 font-mono text-sm text-white' } },
-  }),
-  Placeholder.configure({ placeholder: "Type '/' for commands" }),
-  TiptapLink.configure({
-    autolink: true,
-    openOnClick: false,
-    HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
-  }),
-  editorImage,
-  slashCommand,
-];
 
 function readApiError(payload: unknown): string | null {
   if (typeof payload !== 'object' || payload === null || !('error' in payload)) return null;
@@ -87,82 +41,11 @@ function readPost(payload: unknown): Post | null {
   return typeof post === 'object' && post !== null && 'id' in post ? (post as Post) : null;
 }
 
-function normalizedLink(value: string): string | null {
-  const candidate = value.trim();
-  if (!candidate || /\s/.test(candidate)) return null;
-  try {
-    const url = new URL(candidate.includes('://') ? candidate : `https://${candidate}`);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-function FormattingBubble() {
-  const { editor } = useEditor();
-  if (!editor) return null;
-
-  const actions: Array<{
-    active: boolean;
-    label: string;
-    text: string;
-    run: (instance: EditorInstance) => void;
-  }> = [
-    { active: editor.isActive('bold'), label: 'Bold', text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
-    { active: editor.isActive('italic'), label: 'Italic', text: 'I', run: (instance) => void instance.chain().focus().toggleItalic().run() },
-    {
-      active: editor.isActive('link'),
-      label: 'Link',
-      text: '↗',
-      run: (instance) => {
-        if (instance.isActive('link')) {
-          instance.chain().focus().unsetLink().run();
-          return;
-        }
-
-        void promptUi({
-          title: 'Add a link',
-          message: 'Paste an HTTP or HTTPS address.',
-          label: 'URL',
-          confirmLabel: 'Apply link',
-          validate: (value) => normalizedLink(value) ? null : 'Enter a valid HTTP or HTTPS URL.',
-        }).then((value) => {
-          if (value === null) return;
-          const href = normalizedLink(value);
-          if (href) instance.chain().focus().setLink({ href }).run();
-        });
-      },
-    },
-    { active: editor.isActive('code'), label: 'Inline code', text: '</>', run: (instance) => void instance.chain().focus().toggleCode().run() },
-  ];
-
-  return (
-    <EditorBubble className="flex overflow-hidden rounded-md border border-line bg-white p-1 font-sans" tippyOptions={{ duration: 100 }}>
-      {actions.map((action) => (
-        <EditorBubbleItem key={action.label} onSelect={action.run}>
-          <button
-            aria-label={action.label}
-            aria-pressed={action.active}
-            className={`min-w-9 rounded px-2 py-1.5 text-sm font-semibold hover:bg-soft ${action.active ? 'bg-soft text-accent' : 'text-ink'}`}
-            type="button"
-          >
-            {action.text}
-          </button>
-        </EditorBubbleItem>
-      ))}
-    </EditorBubble>
-  );
-}
-
 export default function Editor({ initialPost, locale, sourcePost, translations }: EditorProps) {
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
   const slugTouched = useRef(Boolean(initialPost));
-  const changeVersion = useRef(0);
-  const saveTail = useRef<Promise<Post | null>>(Promise.resolve(null));
-  const pendingSaves = useRef(0);
   const actionPending = useRef<boolean | 'navigation'>(false);
-  const dirtyRef = useRef(false);
   const postStatusRef = useRef<PostStatus>(initialPost?.status ?? 'draft');
   const autosaveTimer = useRef<number>();
   const coverOperation = useRef(0);
@@ -178,8 +61,6 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const [contentJson, setContentJson] = useState<JSONContent>(initialPost?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
   const [contentHtml, setContentHtml] = useState(initialPost?.content_html ?? '<p></p>');
   const [postStatus, setPostStatus] = useState<PostStatus>(initialPost?.status ?? 'draft');
-  const [saveState, setSaveState] = useState<SaveState>('Saved');
-  const [dirty, setDirty] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -196,70 +77,57 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
-  const markDirty = useCallback(() => {
-    changeVersion.current += 1;
-    dirtyRef.current = true;
-    setDirty(true);
-    setSaveState((current) => current === 'Save failed' ? current : 'Unsaved');
+  const snapshot = useCallback(() => {
+    const draft = draftRef.current;
+    if (!draft.title.trim()) throw new Error('Add a title before saving.');
+    return draft;
   }, []);
 
-  const persist = useCallback((status?: PostStatus): Promise<Post> => {
-    pendingSaves.current += 1;
-    const pending = saveTail.current.catch(() => null).then(async () => {
-      const draft = draftRef.current;
-      if (!draft.title.trim()) throw new Error('Add a title before saving.');
-      const version = changeVersion.current;
-      setSaveState((current) => current === 'Save failed' ? current : 'Saving…');
-      const id = postId.current;
-      const response = await fetch('/api/posts', {
-        method: id ? 'PUT' : 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          ...(id ? { id } : {}),
-          ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
-          ...draft,
-          status: status ?? postStatusRef.current,
-        }),
-      });
-      const payload: unknown = await response.json();
-      if (!response.ok) throw new Error(readApiError(payload) ?? 'The post could not be saved.');
-
-      const savedPost = readPost(payload);
-      if (!savedPost) throw new Error('The server returned an invalid post.');
-      setErrorMessage(null);
-
-      const wasNew = !postId.current;
-      postId.current = savedPost.id;
-      postStatusRef.current = savedPost.status;
-      if (draftRef.current.slug === draft.slug) {
-        draftRef.current = { ...draftRef.current, slug: savedPost.slug };
-        setSlug(savedPost.slug);
-      }
-      setPostStatus(savedPost.status);
-      setLanguageEditions((current) => [
-        ...current.filter((edition) => edition.locale !== savedPost.locale),
-        { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
-      ].sort((left, right) => left.locale.localeCompare(right.locale)));
-
-      if (wasNew) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
-      if (version === changeVersion.current) {
-        dirtyRef.current = false;
-        setDirty(false);
-        setSaveState('Saved');
-      } else {
-        setSaveState('Unsaved');
-      }
-      return savedPost;
-    }).catch((error: unknown) => {
-      setSaveState('Save failed');
-      setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
-      throw error;
-    }).finally(() => {
-      pendingSaves.current -= 1;
+  const save = useCallback(async (draft: EditorDraft, status?: PostStatus): Promise<Post> => {
+    const id = postId.current;
+    const response = await fetch('/api/posts', {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ...(id ? { id } : {}),
+        ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
+        ...draft,
+        status: status ?? postStatusRef.current,
+      }),
     });
-    saveTail.current = pending.catch(() => null);
-    return pending;
+    const payload: unknown = await response.json();
+    if (!response.ok) throw new Error(readApiError(payload) ?? 'The post could not be saved.');
+
+    const savedPost = readPost(payload);
+    if (!savedPost) throw new Error('The server returned an invalid post.');
+    setErrorMessage(null);
+
+    const wasNew = !postId.current;
+    postId.current = savedPost.id;
+    postStatusRef.current = savedPost.status;
+    if (draftRef.current.slug === draft.slug) {
+      draftRef.current = { ...draftRef.current, slug: savedPost.slug };
+      setSlug(savedPost.slug);
+    }
+    setPostStatus(savedPost.status);
+    setLanguageEditions((current) => [
+      ...current.filter((edition) => edition.locale !== savedPost.locale),
+      { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
+    ].sort((left, right) => left.locale.localeCompare(right.locale)));
+
+    if (wasNew) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
+    return savedPost;
   }, [locale, sourcePost]);
+
+  const handleSaveError = useCallback((error: unknown) => {
+    setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
+  }, []);
+
+  const { dirty, dirtyRef, markDirty, pendingCount, persist, saveState } = useEditorSaveQueue({
+    onError: handleSaveError,
+    save,
+    snapshot,
+  });
 
   const previewDraft = useCallback(async (target?: Window | null) => {
     if (actionPending.current) return;
@@ -419,7 +287,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
                 event.preventDefault();
                 return;
               }
-              if (dirtyRef.current || pendingSaves.current) {
+              if (dirtyRef.current || pendingCount.current) {
                 event.preventDefault();
                 void saveBefore(() => window.location.assign('/admin'), undefined, true);
               } else {
@@ -481,30 +349,11 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
             value={title}
           />
 
-          <EditorRoot>
-            <EditorContent
-              className="editor-canvas editor-content admin-editor-content"
-              editorProps={{
-                attributes: {
-                  class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
-                },
-                handleDOMEvents: { keydown: (_view, event) => handleCommandNavigation(event) },
-                handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
-                handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
-              }}
-              extensions={extensions}
-              initialContent={contentJson}
-              onUpdate={({ editor }) => {
-                setContentJson(editor.getJSON());
-                setContentHtml(editor.getHTML());
-                markDirty();
-              }}
-            >
-              <SlashCommands />
-              <FormattingBubble />
-              <BlockInsertMenu />
-            </EditorContent>
-          </EditorRoot>
+          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson, nextContentHtml) => {
+            setContentJson(nextContentJson);
+            setContentHtml(nextContentHtml);
+            markDirty();
+          }} />
         </article>
 
         <PostSettingsDrawer
