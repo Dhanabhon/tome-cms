@@ -35,3 +35,42 @@ test('editor fixture cleanup reports database errors before deleting its owner',
     await deleteOwner(owner);
   }
 });
+
+test('deleting the final edition releases its translation group', async () => {
+  const firstOwner = await createOwner('translation-cleanup-first');
+  const nextOwner = await createOwner('translation-cleanup-next');
+  const group = crypto.randomUUID();
+  try {
+    const firstInsert = await admin.from('posts').insert({
+      author_id: firstOwner.id,
+      content_html: '',
+      content_json: { type: 'doc', content: [] },
+      locale: 'en',
+      slug: `translation-cleanup-first-${group}`,
+      status: 'draft',
+      title: 'First owner edition',
+      translation_group_id: group,
+    });
+    expect(firstInsert.error).toBeNull();
+
+    const firstDelete = await admin.from('posts').delete().eq('translation_group_id', group);
+    expect(firstDelete.error).toBeNull();
+
+    const nextInsert = await admin.from('posts').insert({
+      author_id: nextOwner.id,
+      content_html: '',
+      content_json: { type: 'doc', content: [] },
+      locale: 'en',
+      slug: `translation-cleanup-next-${group}`,
+      status: 'draft',
+      title: 'Next owner edition',
+      translation_group_id: group,
+    });
+    expect(nextInsert.error).toBeNull();
+  } finally {
+    const { error } = await admin.from('posts').delete().eq('translation_group_id', group);
+    if (error) throw error;
+    await deleteOwner(firstOwner);
+    await deleteOwner(nextOwner);
+  }
+});

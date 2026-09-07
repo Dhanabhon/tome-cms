@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "admin:reset-installation": "node scripts/reset-installation.mjs",
     "admin:reset-password": "node scripts/reset-admin-password.mjs",
     "configure:supabase": "./scripts/configure-supabase.sh",
     "dev": "astro dev",
@@ -11,7 +12,7 @@
     "dev:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-local-windows.ps1",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check && node scripts/reset-admin-password.mjs --self-test && bash scripts/configure-supabase.sh --self-test && bash -n scripts/configure-supabase.sh scripts/deploy-vps.sh scripts/dev-local-macos.sh",
+    "check": "astro check && node scripts/reset-admin-password.mjs --self-test && node scripts/reset-installation.mjs --self-test && bash scripts/configure-supabase.sh --self-test && bash -n scripts/configure-supabase.sh scripts/deploy-vps.sh scripts/dev-local-macos.sh",
     "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test",
     "test:e2e:media": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/media-rls.spec.ts tests/e2e/media-library.spec.ts tests/e2e/media-deletion.spec.ts tests/e2e/editor-media.spec.ts tests/e2e/public-blog.spec.ts",
     "test:e2e:publishing": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/multilingual-posts.spec.ts tests/e2e/public-blog.spec.ts tests/e2e/admin-shell.spec.ts tests/e2e/site-settings.spec.ts tests/e2e/admin-posts.spec.ts tests/e2e/editor-workflow.spec.ts tests/e2e/editor-media.spec.ts tests/e2e/editor-cleanup.spec.ts",
