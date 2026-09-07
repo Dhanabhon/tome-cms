@@ -86,6 +86,29 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
     }));
 
     await page.goto(`${origin}/install?lang=en`);
+    const installerLogo = page.locator('.installer-wordmark .tomecms-logo');
+    const logoBox = await installerLogo.boundingBox();
+    expect(logoBox).not.toBeNull();
+    expect(logoBox?.width ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(161);
+
+    const englishLanguageTrigger = page.getByRole('button', {
+      name: 'Change language. Current language: English (US)',
+    });
+    await englishLanguageTrigger.click();
+    const englishLanguageMenu = page.getByRole('navigation', { name: 'Choose language' });
+    await expect(englishLanguageMenu.getByRole('link')).toHaveCount(2);
+    await expect(englishLanguageMenu.getByRole('link', { name: 'English (US)' })).toHaveAttribute('aria-current', 'page');
+    await englishLanguageMenu.getByRole('link', { name: 'ไทย' }).click();
+    await expect(page).toHaveURL(`${origin}/install?lang=th`);
+    await expect(page.getByRole('heading', { name: 'ตั้งค่าเว็บไซต์ของคุณ' })).toBeVisible();
+
+    const thaiLanguageTrigger = page.getByRole('button', { name: 'เปลี่ยนภาษา ภาษาปัจจุบัน: ไทย' });
+    await thaiLanguageTrigger.click();
+    const thaiLanguageMenu = page.getByRole('navigation', { name: 'เลือกภาษา' });
+    await expect(thaiLanguageMenu.getByRole('link', { name: 'ไทย' })).toHaveAttribute('aria-current', 'page');
+    await thaiLanguageMenu.getByRole('link', { name: 'English (US)' }).click();
+    await expect(page).toHaveURL(`${origin}/install?lang=en`);
+
     await expect(page.getByText('Cloud ready', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Name your site' }).click();
     await page.getByRole('button', { name: 'Create owner account' }).click();

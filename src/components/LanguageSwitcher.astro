@@ -1,0 +1,151 @@
+---
+import type { PostLocale } from '../types/cms';
+
+interface LanguageOption {
+  href: string;
+  locale: PostLocale;
+}
+
+interface Props {
+  currentLocale: PostLocale;
+  menuLabel?: string;
+  options: readonly LanguageOption[];
+  triggerLabel?: string;
+  variant?: 'default' | 'installer';
+}
+
+const languageLabels: Record<PostLocale, string> = { en: 'English (US)', th: 'ไทย' };
+const {
+  currentLocale,
+  menuLabel = 'Choose language',
+  options,
+  triggerLabel = `Change language. Current language: ${languageLabels[currentLocale]}`,
+  variant = 'default',
+} = Astro.props;
+---
+
+<div class:list={['language-switcher', { 'language-switcher--installer': variant === 'installer' }]}>
+  <button
+    aria-label={triggerLabel}
+    class="language-switcher__trigger"
+    popovertarget="language-switcher-menu"
+    type="button"
+  >
+    <span>{languageLabels[currentLocale]}</span>
+    <svg aria-hidden="true" class="language-switcher__chevron" fill="none" viewBox="0 0 24 24">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  </button>
+  <nav aria-label={menuLabel} class="language-switcher__menu" id="language-switcher-menu" popover="auto">
+    {options.map((option) => (
+      <a aria-current={option.locale === currentLocale ? 'page' : undefined} href={option.href} lang={option.locale}>
+        <span>{languageLabels[option.locale]}</span>
+        {option.locale === currentLocale && (
+          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>
+        )}
+      </a>
+    ))}
+  </nav>
+</div>
+
+<style>
+  /* Hallmark · component: language dropdown · genre: modern-minimal · theme: TomeCMS Mint 2026
+   * states: default · hover · focus · active · disabled · loading · error · success
+   * contrast: pass (40–41) · mobile: pass (34, 49)
+   */
+  .language-switcher {
+    --language-menu-block-start: 4.75rem;
+    --language-menu-inline-end: max(1.25rem, calc((100vw - 80rem) / 2 + 1.75rem));
+    order: 2;
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+  }
+
+  .language-switcher--installer {
+    --language-menu-block-start: calc(var(--space-2xl) + var(--space-xs));
+    --language-menu-inline-end: clamp(var(--space-md), 4vw, var(--space-xl));
+  }
+
+  .language-switcher__trigger {
+    display: flex;
+    width: min(9.75rem, calc(100vw - 2.5rem));
+    min-height: 2.75rem;
+    align-items: center;
+    gap: var(--space-xs);
+    padding-inline: var(--space-sm);
+    border: var(--rule-hair) solid var(--color-rule-strong);
+    border-radius: var(--radius-pill);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--text-base);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .language-switcher__trigger > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .language-switcher__chevron { width: 1rem; height: 1rem; flex: 0 0 auto; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; transition: transform var(--dur-short) var(--ease-out); }
+  .language-switcher__trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
+  .language-switcher__trigger:active { background: var(--color-paper-3); }
+  .language-switcher__trigger:disabled { cursor: not-allowed; opacity: 0.5; }
+  .language-switcher__trigger[data-state='loading'] { cursor: wait; opacity: 0.75; }
+  .language-switcher__trigger[data-state='error'] { border-color: var(--color-error); }
+  .language-switcher__trigger[data-state='success'] { border-color: var(--color-accent); }
+  .language-switcher:has(.language-switcher__menu:popover-open) .language-switcher__trigger { border-color: var(--color-focus); }
+  .language-switcher:has(.language-switcher__menu:popover-open) .language-switcher__chevron { transform: rotate(180deg); }
+
+  .language-switcher__menu {
+    position: fixed;
+    z-index: calc(var(--z-sticky-nav) + 1);
+    inset: auto;
+    inset-block-start: var(--language-menu-block-start);
+    inset-inline-end: var(--language-menu-inline-end);
+    width: min(9.75rem, calc(100vw - 2.5rem));
+    margin: 0;
+    padding: var(--space-2xs);
+    border: var(--rule-hair) solid var(--color-rule-strong);
+    border-radius: var(--radius-card);
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  .language-switcher__menu a {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding-inline: var(--space-sm);
+    border-radius: var(--radius-input);
+    color: inherit;
+    font-size: var(--text-sm);
+    text-decoration: none;
+  }
+
+  .language-switcher__menu a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 0; }
+  .language-switcher__menu a:active { background: var(--color-paper-3); }
+  .language-switcher__menu a[aria-current='page'] { background: var(--color-paper-2); font-weight: 600; }
+  .language-switcher__menu svg { width: 1rem; height: 1rem; flex: 0 0 auto; stroke: var(--color-accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+
+  @supports (anchor-name: --language-trigger) {
+    .language-switcher__trigger { anchor-name: --language-trigger; }
+    .language-switcher__menu {
+      position-anchor: --language-trigger;
+      inset: calc(anchor(bottom) + var(--space-xs)) auto auto anchor(left);
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .language-switcher__trigger:hover:not(:disabled) { border-color: var(--color-ink-2); background: var(--color-paper-2); }
+    .language-switcher__menu a:hover { background: var(--color-paper-2); }
+  }
+
+  @media (min-width: 37.5rem) {
+    .language-switcher { order: 0; margin-inline-start: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .language-switcher__chevron { transition: none; }
+  }
+</style>

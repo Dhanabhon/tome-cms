@@ -1,4 +1,5 @@
 ---
+import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
 import UiSelect from '../components/admin/UiSelect';
 import { isInstalled } from '../lib/installation';
@@ -10,7 +11,10 @@ if (await isInstalled()) return Astro.redirect('/admin');
 Astro.response.headers.set('Cache-Control', 'no-store');
 const english = Astro.url.searchParams.get('lang') === 'en';
 const language = english ? 'en' : 'th';
-const alternateLanguage = english ? 'th' : 'en';
+const languageOptions = [
+  { href: '/install?lang=en', locale: 'en' },
+  { href: '/install?lang=th', locale: 'th' },
+] as const;
 const copy = english
   ? {
       title: 'Set up your website',
@@ -69,9 +73,13 @@ const copy = english
       <a class="installer-wordmark" href="#top" aria-label="TomeCMS installer">
         <img class="tomecms-logo" src="/brand/tomecms-logo.png" alt="" width="2172" height="724" />
       </a>
-      <a class="installer-button" href={`/install?lang=${alternateLanguage}`} lang={alternateLanguage}>
-        {english ? 'ภาษาไทย' : 'English'}
-      </a>
+      <LanguageSwitcher
+        currentLocale={language}
+        menuLabel={english ? 'Choose language' : 'เลือกภาษา'}
+        options={languageOptions}
+        triggerLabel={english ? 'Change language. Current language: English (US)' : 'เปลี่ยนภาษา ภาษาปัจจุบัน: ไทย'}
+        variant="installer"
+      />
     </nav>
 
     <main class="installer-page" id="top">
