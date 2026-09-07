@@ -155,6 +155,11 @@ const copy = english
                 <p class="installer-helper" id="site-name-help">{english ? 'The name readers will see.' : 'ชื่อที่ผู้อ่านจะเห็นบนหน้าเว็บ'}</p>
               </div>
               <div class="installer-field">
+                <label for="tagline">Tagline</label>
+                <input class="installer-control" id="tagline" name="tagline" maxlength="120" placeholder={english ? 'A short line about your publication' : 'ประโยคสั้น ๆ ที่บอกว่าเว็บไซต์นี้เกี่ยวกับอะไร'} aria-describedby="tagline-help" />
+                <p class="installer-helper" id="tagline-help">{english ? 'Shown beneath your site name on the homepage.' : 'แสดงใต้ชื่อเว็บไซต์บนหน้าแรก'}</p>
+              </div>
+              <div class="installer-field">
                 <label for="site-description">{english ? 'Site description' : 'คำอธิบายเว็บไซต์'}</label>
                 <textarea class="installer-control" id="site-description" name="siteDescription" maxlength="160" aria-describedby="site-description-help">{english ? 'Notes on work, software, and what I learn.' : 'เรื่องงาน ซอฟต์แวร์ และสิ่งที่ได้เรียนรู้'}</textarea>
                 <p class="installer-helper" id="site-description-help">{english ? 'Keep it under 160 characters.' : 'แนะนำไม่เกิน 160 ตัวอักษร'}</p>
@@ -229,6 +234,7 @@ const copy = english
             </div>
             <dl class="installer-review">
               <div class="installer-review-row"><dt>{english ? 'Website' : 'เว็บไซต์'}</dt><dd data-review-site></dd></div>
+              <div class="installer-review-row"><dt>Tagline</dt><dd data-review-tagline></dd></div>
               <div class="installer-review-row"><dt>{english ? 'Language and time' : 'ภาษาและเวลา'}</dt><dd data-review-locale></dd></div>
               <div class="installer-review-row"><dt>{english ? 'Owner account' : 'บัญชีเจ้าของ'}</dt><dd data-review-email></dd></div>
             </dl>
@@ -290,13 +296,13 @@ const copy = english
       const context = english
         ? [
             ['System ready', 'All required services are connected. You can begin setting up your site.', 'Sensitive details are sent over a secure connection only.'],
-            ['Start with the public site', 'Choose the name, language, and timezone your readers will see.', 'You can change these details later in Settings.'],
+            ['Start with the public site', 'Choose the name, tagline, language, and timezone your readers will see.', 'You can change these details later in Settings.'],
             ['Your owner account', 'Create one account for administration and publishing.', 'Use at least 12 characters and a password you do not reuse elsewhere.'],
             ['Ready to install', 'Review the details, then use the token from your VPS to confirm.', 'After installation, this page closes permanently.'],
           ]
         : [
             ['ระบบพร้อมแล้ว', 'ทุกส่วนที่ TomeCMS ต้องใช้เชื่อมต่อเรียบร้อย คุณเริ่มตั้งค่าเว็บไซต์ได้เลย', 'ข้อมูลสำคัญส่งผ่านการเชื่อมต่อที่ปลอดภัยเท่านั้น'],
-            ['เริ่มจากหน้าบ้าน', 'กำหนดชื่อ ภาษา และเวลาที่ผู้อ่านจะเห็นเมื่อเปิดเว็บไซต์', 'คุณแก้ข้อมูลเหล่านี้ภายหลังได้ใน Settings'],
+            ['เริ่มจากหน้าบ้าน', 'กำหนดชื่อ Tagline ภาษา และเวลาที่ผู้อ่านจะเห็นเมื่อเปิดเว็บไซต์', 'คุณแก้ข้อมูลเหล่านี้ภายหลังได้ใน Settings'],
             ['บัญชีเจ้าของเว็บไซต์', 'สร้างบัญชีเดียวสำหรับดูแลระบบและเผยแพร่เนื้อหา', 'ใช้รหัสผ่านอย่างน้อย 12 ตัวอักษรและไม่ซ้ำกับบริการอื่น'],
             ['พร้อมติดตั้ง', 'ตรวจข้อมูลครั้งสุดท้าย แล้วใช้ token จาก VPS เพื่อยืนยัน', 'เมื่อติดตั้งสำเร็จ หน้านี้จะถูกปิดถาวร'],
           ];
@@ -396,6 +402,7 @@ const copy = english
         steps[currentStep - 1].querySelector('h2')?.focus({ preventScroll: true });
         if (currentStep === 4) {
           document.querySelector('[data-review-site]').textContent = form.elements.siteName.value;
+          document.querySelector('[data-review-tagline]').textContent = form.elements.tagline.value.trim() || (english ? 'Not set' : 'ยังไม่ระบุ');
           document.querySelector('[data-review-locale]').textContent = `${form.elements.defaultLocale.value} · ${form.elements.timezone.value}`;
           document.querySelector('[data-review-email]').textContent = form.elements.email.value;
         }

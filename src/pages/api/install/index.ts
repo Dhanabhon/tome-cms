@@ -15,6 +15,7 @@ const installSchema = z
     password: z.string().min(12).max(128),
     siteDescription: z.string().trim().max(160),
     siteName: z.string().trim().min(1).max(120),
+    tagline: z.string().trim().max(120).optional(),
     timezone: z.enum(['Asia/Bangkok', 'UTC']),
   })
   .strict();
@@ -94,6 +95,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       owner_id: ownerId,
       site_description: parsed.data.siteDescription,
       site_name: parsed.data.siteName,
+      tagline: parsed.data.tagline ?? '',
       timezone: parsed.data.timezone,
     };
     const { error: settingsError } = await admin.from('site_settings').insert(settings);

@@ -114,7 +114,7 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
         supabase.from('posts').select('id, locale, translation_group_id', { head: true }),
         supabase
           .from('site_settings')
-          .select('id, author_name, author_avatar_media_id, author_bio_th, author_bio_en, author_links')
+          .select('id, tagline, author_name, author_avatar_media_id, author_bio_th, author_bio_en, author_links')
           .eq('id', true)
           .maybeSingle(),
         supabase.from('media_folders').select('id', { head: true }),

@@ -14,6 +14,7 @@ let posts: Post[] = [];
 let loadError = false;
 const settings = await getSiteSettings();
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
+const tagline = settings?.tagline?.trim();
 
 try {
   const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
@@ -59,9 +60,11 @@ const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at
         <h1 class="max-w-xl font-display text-[54px] font-bold leading-[56px] tracking-[-1.875px] sm:text-[64px] sm:leading-[64px]">
           Ideas, carefully published.
         </h1>
-        <p class="mt-6 max-w-md text-xl leading-[30px] text-white/75">
-          {siteDescription}
-        </p>
+        {tagline && (
+          <p class="mt-6 max-w-md text-xl leading-[30px] text-white/75">
+            {tagline}
+          </p>
+        )}
       </div>
 
       <div class="rounded-lg bg-white p-6 text-ink sm:p-8">

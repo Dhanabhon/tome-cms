@@ -9,6 +9,7 @@ const settingsSchema = z.object({
   defaultLocale: z.enum(POST_LOCALES),
   siteDescription: z.string().trim().max(160),
   siteName: z.string().trim().min(1).max(120),
+  tagline: z.string().trim().max(120).optional(),
   timezone: z.enum(['Asia/Bangkok', 'UTC']),
 }).strict();
 
@@ -38,6 +39,7 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
         default_locale: input.defaultLocale,
         site_description: input.siteDescription,
         site_name: input.siteName,
+        tagline: input.tagline ?? current.tagline,
         timezone: input.timezone,
         updated_at: new Date().toISOString(),
       })

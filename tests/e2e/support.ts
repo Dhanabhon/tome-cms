@@ -99,6 +99,7 @@ export async function leaseSiteOwner(owner: TestOwner) {
         owner_id: original.owner_id,
         site_description: original.site_description,
         site_name: original.site_name,
+        tagline: original.tagline,
         timezone: original.timezone,
         updated_at: original.updated_at,
       })

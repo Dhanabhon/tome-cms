@@ -115,6 +115,7 @@ export interface AuthorLink {
 export interface SiteSettings {
   id: boolean;
   site_name: string;
+  tagline: string;
   site_description: string;
   default_locale: PostLocale;
   timezone: 'Asia/Bangkok' | 'UTC';
@@ -131,6 +132,7 @@ export interface SiteSettings {
 export interface SiteSettingsInsert {
   id?: boolean;
   site_name: string;
+  tagline?: string;
   site_description?: string;
   default_locale: SiteSettings['default_locale'];
   timezone: SiteSettings['timezone'];

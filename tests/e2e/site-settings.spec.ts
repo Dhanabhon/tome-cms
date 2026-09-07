@@ -100,6 +100,7 @@ test('Profile and Settings forms save, persist, and retain edits on failure', as
 
     await page.goto('/admin/settings');
     await page.getByLabel('Site name', { exact: true }).fill('My publication');
+    await page.getByLabel('Tagline').fill('Ideas worth keeping.');
     await page.getByLabel('Site description').fill('A multilingual publication.');
     await chooseUiOption(page, 'Default language', 'English');
     await chooseUiOption(page, 'Timezone', 'UTC');
@@ -107,9 +108,14 @@ test('Profile and Settings forms save, persist, and retain edits on failure', as
     await expect(page.getByRole('status')).toHaveText('Saved.');
     await page.reload();
     await expect(page.getByLabel('Site name', { exact: true })).toHaveValue('My publication');
+    await expect(page.getByLabel('Tagline')).toHaveValue('Ideas worth keeping.');
     await expect(page.getByLabel('Site description')).toHaveValue('A multilingual publication.');
     await expect(page.getByRole('combobox', { name: 'Default language' })).toHaveAttribute('data-value', 'en');
     await expect(page.getByRole('combobox', { name: 'Timezone' })).toHaveAttribute('data-value', 'UTC');
+    await page.goto('/en');
+    await expect(page.getByText('Ideas worth keeping.', { exact: true })).toBeVisible();
+    await expect(page.getByText('A multilingual publication.', { exact: true })).toHaveCount(0);
+    await page.goto('/admin/settings');
     let submissions = 0;
     await page.route('**/api/settings', async (route) => {
       submissions++;
@@ -323,6 +329,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
         defaultLocale: newLocale,
         siteDescription: 'A multilingual publication.',
         siteName: 'Tome CMS',
+        tagline: 'Ideas in two languages.',
         timezone: 'UTC',
       },
     });
@@ -331,6 +338,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       default_locale: newLocale,
       site_description: 'A multilingual publication.',
       site_name: 'Tome CMS',
+      tagline: 'Ideas in two languages.',
       timezone: 'UTC',
     });
 
@@ -340,6 +348,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
         owner_id: foreignOwner.id,
         siteDescription: 'A multilingual publication.',
         siteName: 'Tome CMS',
+        tagline: 'Ideas in two languages.',
         timezone: 'UTC',
       },
     });
