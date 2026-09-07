@@ -109,7 +109,7 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
 
   try {
     const supabase = createServiceRoleSupabaseClient();
-    const [{ error: postsError }, settingsResult, { error: foldersError }, { error: itemsError }, { error: pagesError }, { error: navigationError }, bucketsResult] =
+    const [postsResult, settingsResult, foldersResult, itemsResult, pagesResult, navigationResult, bucketsResult] =
       await Promise.all([
         supabase.from('posts').select('id, locale, translation_group_id', { head: true }),
         supabase
@@ -124,29 +124,27 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
         supabase.storage.listBuckets(),
       ]);
 
-    readiness.supabase = !postsError;
-    readiness.migration = !postsError && !settingsResult.error && !foldersError && !itemsError && !pagesError && !navigationError;
+    const tableResults = [
+      ['posts', postsResult],
+      ['site_settings', settingsResult],
+      ['media_folders', foldersResult],
+      ['media_items', itemsResult],
+      ['pages', pagesResult],
+      ['navigation_items', navigationResult],
+    ] as const;
+    // These un-ranged reads return 200 even when empty; the SDK normalizes a bodyless 404 to 204 without an error.
+    readiness.supabase = !postsResult.error && postsResult.status === 200;
+    readiness.migration = tableResults.every(([, result]) => !result.error && result.status === 200);
     readiness.installed = Boolean(settingsResult.data);
     readiness.mediaBucket =
       !bucketsResult.error && bucketsResult.data.some((bucket) => bucket.id === 'blog-media');
 
-    if (postsError && !isMissingTable(postsError)) {
-      console.error('posts readiness check failed:', postsError.message);
-    }
-    if (settingsResult.error && !isMissingTable(settingsResult.error)) {
-      console.error('site_settings readiness check failed:', settingsResult.error.message);
-    }
-    if (foldersError && !isMissingTable(foldersError)) {
-      console.error('media_folders readiness check failed:', foldersError.message);
-    }
-    if (itemsError && !isMissingTable(itemsError)) {
-      console.error('media_items readiness check failed:', itemsError.message);
-    }
-    if (pagesError && !isMissingTable(pagesError)) {
-      console.error('pages readiness check failed:', pagesError.message);
-    }
-    if (navigationError && !isMissingTable(navigationError)) {
-      console.error('navigation_items readiness check failed:', navigationError.message);
+    for (const [table, { error, status }] of tableResults) {
+      if (error && !isMissingTable(error)) {
+        console.error(`${table} readiness check failed:`, error.message);
+      } else if (!error && status !== 200 && status !== 204) {
+        console.error(`${table} readiness check failed:`, `Unexpected response status: ${status}`);
+      }
     }
     if (bucketsResult.error) console.error('Storage readiness check failed:', bucketsResult.error.message);
 

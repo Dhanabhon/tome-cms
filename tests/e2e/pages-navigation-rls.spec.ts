@@ -9,8 +9,11 @@ test.describe('Pages and Navigation database contracts', () => {
   test.describe.configure({ mode: 'serial' });
   test('installation readiness requires every CMS table and reports table-specific failures', async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Database contracts run once on desktop.');
-    for (const table of ['pages', 'navigation_items'] as const) {
-      expect((await admin.from(table).select('id', { head: true })).error).toBeNull();
+    for (const table of ['posts', 'media_folders', 'media_items', 'pages', 'navigation_items'] as const) {
+      expect(await admin.from(table).select('id', { head: true })).toMatchObject({ status: 200, error: null });
+      // An empty table/result still returns 200, not the SDK's normalized bodyless-404 status of 204.
+      expect(await admin.from(table).select('id', { head: true }).eq('id', '00000000-0000-0000-0000-000000000000'))
+        .toMatchObject({ status: 200, error: null });
     }
     const { createServer } = await import('vite');
     const vite = await createServer({
@@ -29,17 +32,21 @@ test.describe('Pages and Navigation database contracts', () => {
       const logged: unknown[][] = [];
       console.error = (...args: unknown[]) => { logged.push(args); };
       for (const table of ['posts', 'site_settings', 'media_folders', 'media_items', 'pages', 'navigation_items']) {
-        for (const code of ['42P01', 'PGRST205', '42501']) {
+        for (const code of ['42P01', 'PGRST205', '42501', 'bodyless-404', 'bodyless-204', 'unexpected-202']) {
           logged.length = 0;
           globalThis.fetch = async (input, init) => {
             const url = new URL(input instanceof Request ? input.url : String(input));
             if (url.origin === new URL(supabaseUrl).origin && url.pathname === `/rest/v1/${table}`) {
+              if (code === 'bodyless-404') return new Response(null, { status: 404 });
+              if (code === 'bodyless-204') return new Response(null, { status: 204 });
+              if (code === 'unexpected-202') return new Response(null, { status: 202 });
               return Response.json({ code, message: `Unavailable ${table}` }, { status: code === '42501' ? 403 : 404 });
             }
             return originalFetch(input, init);
           };
           expect((await readiness(request)).migration, `${table}: ${code}`).toBe(false);
-          expect(logged).toEqual(code === '42501' ? [[`${table} readiness check failed:`, `Unavailable ${table}`]] : []);
+          expect(logged).toEqual(code === '42501' ? [[`${table} readiness check failed:`, `Unavailable ${table}`]]
+            : code === 'unexpected-202' ? [[`${table} readiness check failed:`, 'Unexpected response status: 202']] : []);
         }
       }
     } finally {
