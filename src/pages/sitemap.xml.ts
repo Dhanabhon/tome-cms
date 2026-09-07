@@ -1,22 +1,28 @@
 import type { APIRoute } from 'astro';
 
-import { postPath } from '../lib/i18n';
+import { pagePath, postPath } from '../lib/i18n';
+import { getSiteSettings } from '../lib/installation';
 import { getPublicSiteUrl } from '../lib/seo';
-import { createServerSupabaseClient } from '../lib/supabase';
+import { createServerSupabaseClient, createServiceRoleSupabaseClient } from '../lib/supabase';
 
 const escapeXml = (value: string) =>
   value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character]!);
 
 export const GET: APIRoute = async ({ cookies, request, site }) => {
   try {
-    const { data: posts, error } = await createServerSupabaseClient(cookies, request)
-      .from('posts')
-      .select('locale, slug, updated_at')
-      .eq('status', 'published')
-      .order('updated_at', { ascending: false })
-      // ponytail: one sitemap covers this small CMS; add a sitemap index if a site exceeds 1,000 posts.
-      .limit(1_000);
-    if (error) throw error;
+    const settings = await getSiteSettings();
+    if (!settings) throw new Error('Site settings are unavailable.');
+    const supabase = createServerSupabaseClient(cookies, request);
+    // ponytail: cap each content type at 1,000 URLs; add a sitemap index if either outgrows this limit.
+    const [{ data: posts, error: postsError }, { data: pages, error: pagesError }] = await Promise.all([
+      supabase.from('posts').select('locale, slug, updated_at')
+        .eq('status', 'published').order('updated_at', { ascending: false }).limit(1_000),
+      createServiceRoleSupabaseClient().from('pages').select('locale, slug, updated_at')
+        .eq('author_id', settings.owner_id).eq('status', 'published')
+        .order('updated_at', { ascending: false }).limit(1_000),
+    ]);
+    if (postsError) throw postsError;
+    if (pagesError) throw pagesError;
 
     const siteUrl = getPublicSiteUrl(request, site);
     const entries: { lastModified?: string; location: string }[] = [
@@ -25,6 +31,10 @@ export const GET: APIRoute = async ({ cookies, request, site }) => {
       ...posts.map((post) => ({
         lastModified: post.updated_at,
         location: new URL(postPath(post), siteUrl).toString(),
+      })),
+      ...pages.map((page) => ({
+        lastModified: page.updated_at,
+        location: new URL(pagePath(page), siteUrl).toString(),
       })),
     ];
     const urls = entries

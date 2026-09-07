@@ -1,7 +1,9 @@
 ---
 import Header from '../components/blog/Header.astro';
+import Footer from '../components/blog/Footer.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import { getSiteSettings } from '../lib/installation';
+import { getPublicNavigation } from '../lib/navigation';
 import { getPublicSiteUrl } from '../lib/seo';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
@@ -17,7 +19,7 @@ interface Props {
   modifiedTime?: string | null;
   publishedTime?: string | null;
   robots?: string;
-  type?: 'article' | 'website';
+  type?: 'article' | 'page' | 'website';
   alternates?: PostAlternate[];
   canonicalPath?: string;
   locale?: PostLocale;
@@ -42,6 +44,7 @@ const {
   locale = settings?.default_locale ?? 'en',
   xDefaultHref,
 } = Astro.props;
+const navigation = await getPublicNavigation(locale);
 const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();
@@ -75,7 +78,18 @@ const structuredData = robots.includes('noindex')
         publisher,
         url: canonical,
       }
-    : {
+    : type === 'page'
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'WebPage',
+          description,
+          inLanguage: locale,
+          isPartOf: { '@type': 'WebSite', name: siteName, url: homeUrl },
+          name: headline ?? title,
+          publisher,
+          url: canonical,
+        }
+      : {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
         description,
@@ -115,12 +129,10 @@ const structuredData = robots.includes('noindex')
     />
   </head>
   <body class="flex min-h-screen flex-col">
-    <Header availableLocales={alternates} locale={locale} siteName={siteName} />
+    <Header availableLocales={alternates} items={navigation.header} locale={locale} siteName={siteName} />
     <main class="flex-1">
       <slot />
     </main>
-    <footer class="mx-auto w-full max-w-7xl border-t border-line px-5 py-7 text-sm text-muted sm:px-7">
-      <p>&copy; {new Date().getFullYear()} {siteName}. All rights reserved.</p>
-    </footer>
+    <Footer items={navigation.footer} siteName={siteName} />
   </body>
 </html>

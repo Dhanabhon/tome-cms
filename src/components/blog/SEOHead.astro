@@ -17,7 +17,7 @@ interface Props {
   robots?: string;
   siteName?: string;
   structuredData?: Record<string, unknown>;
-  type?: 'article' | 'website';
+  type?: 'article' | 'page' | 'website';
   alternates?: AlternateLink[];
 }
 
@@ -47,7 +47,7 @@ const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '
 {robots && <meta name="robots" content={robots} />}
 <link rel="canonical" href={canonical} />
 {alternates?.map(({ href, hreflang }) => <link rel="alternate" hreflang={hreflang} href={href} />)}
-<meta property="og:type" content={type} />
+<meta property="og:type" content={type === 'article' ? 'article' : 'website'} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 <meta property="og:url" content={canonical} />

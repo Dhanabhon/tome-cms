@@ -223,7 +223,7 @@ test('localized published editions render without public JavaScript', async ({ b
     const rawHtml = await response!.text();
     // The E2E harness uses Astro dev; remove only its injected HMR, toolbar, and CSS module scripts.
     const html = rawHtml.replace(
-      /<script[^>]+type=["']module["'][^>]+src=["'](?:\/@vite\/client|\/@fs\/[^"']+\/astro\/dist\/runtime\/client\/dev-toolbar\/entrypoint\.js[^"']*|\/node_modules\/@astrojs\/tailwind\/base\.css|\/src\/styles\/global\.css)["'][^>]*><\/script>/gi,
+      /<script[^>]+type=["']module["'][^>]+src=["'](?:\/@vite\/client|\/@fs\/[^"']+\/astro\/dist\/runtime\/client\/dev-toolbar\/entrypoint\.js[^"']*|\/node_modules\/@astrojs\/tailwind\/base\.css|\/src\/styles\/global\.css|\/src\/components\/LanguageSwitcher\.astro\?astro&type=style&index=0&lang\.css)["'][^>]*><\/script>/gi,
       '',
     );
     expect(html).not.toMatch(/<script[^>]+type=["']module["']/i);

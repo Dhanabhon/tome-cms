@@ -1,0 +1,70 @@
+---
+import PageArticle from '../../components/blog/PageArticle.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { isPostLocale, localePath, pagePath } from '../../lib/i18n';
+import { getSiteSettings } from '../../lib/installation';
+import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
+import { createServiceRoleSupabaseClient } from '../../lib/supabase';
+import type { Page, PostAlternate } from '../../types/cms';
+
+const settings = await getSiteSettings();
+const localeValue = Astro.params.locale;
+const locale = isPostLocale(localeValue) ? localeValue : settings?.default_locale ?? 'en';
+const slug = Astro.params.slug;
+const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
+let page: Page | null = null;
+let availableLocales: PostAlternate[] = [];
+let loadError = false;
+
+try {
+  if (!isPostLocale(localeValue) || !slug || RESERVED_PAGE_SLUGS.has(slug) || !settings) {
+    Astro.response.status = 404;
+  } else {
+    const supabase = createServiceRoleSupabaseClient();
+    const { data, error } = await supabase.from('pages').select('*')
+      .eq('locale', locale).eq('slug', slug).eq('author_id', settings.owner_id)
+      .eq('status', 'published').maybeSingle();
+    if (error) throw error;
+    page = data;
+    if (!page) {
+      Astro.response.status = 404;
+    } else {
+      const { data: editions, error: editionsError } = await supabase.from('pages').select('locale, slug')
+        .eq('translation_group_id', page.translation_group_id).eq('author_id', settings.owner_id)
+        .eq('status', 'published');
+      if (editionsError) throw editionsError;
+      availableLocales = editions.map((edition) => ({ href: pagePath(edition), locale: edition.locale }));
+    }
+  }
+} catch (error) {
+  console.error('Public Page query failed:', error);
+  Astro.response.status = 500;
+  loadError = true;
+  page = null;
+  availableLocales = [];
+}
+
+const xDefaultHref = availableLocales.find((alternate) => alternate.locale === settings?.default_locale)?.href;
+---
+
+<BaseLayout
+  alternates={availableLocales}
+  canonicalPath={page ? pagePath(page) : undefined}
+  description={page ? pageDescription(page, fallbackDescription) : fallbackDescription}
+  headline={page?.title}
+  locale={locale}
+  robots={page ? undefined : 'noindex, follow'}
+  title={page?.meta_title ?? page?.title ?? (loadError ? 'Unavailable' : 'Page not found')}
+  type={page ? 'page' : 'website'}
+  xDefaultHref={xDefaultHref}
+>
+  {page ? (
+    <PageArticle page={page} />
+  ) : (
+    <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
+      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
+      <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This page is temporarily unavailable.' : 'Page not found.'}</h1>
+      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(locale)}>Return to all posts</a>
+    </section>
+  )}
+</BaseLayout>

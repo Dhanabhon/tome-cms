@@ -1,25 +1,39 @@
 ---
 import LanguageSwitcher from '../LanguageSwitcher.astro';
 import { localePath } from '../../lib/i18n';
-import type { PostAlternate, PostLocale } from '../../types/cms';
+import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../types/cms';
 
 interface Props {
   availableLocales?: PostAlternate[];
+  items?: PublicNavigationItem[];
   locale?: PostLocale;
   siteName?: string;
 }
 
-const { availableLocales = [], locale = 'en', siteName = 'TomeCMS' } = Astro.props;
+const { availableLocales = [], items = [], locale = 'en', siteName = 'TomeCMS' } = Astro.props;
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
 ---
 
-<header class="border-b border-line">
-  <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
+<header class="site-header border-b border-line">
+  <div class="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
     <a class="min-w-0 flex-1 truncate font-display text-xl font-bold tracking-tight text-ink sm:text-[22px]" href={localePath(locale)}>{siteName}</a>
+    {items.length > 0 && (
+      <nav aria-label="Primary" class="public-navigation site-header__desktop">
+        <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
+      </nav>
+    )}
     {languageOptions.length > 1 && (
       <LanguageSwitcher currentLocale={locale} options={languageOptions} />
+    )}
+    {items.length > 0 && (
+      <details class="site-header__mobile">
+        <summary>{locale === 'th' ? 'เมนู' : 'Menu'}</summary>
+        <nav aria-label="Primary" class="public-navigation">
+          <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
+        </nav>
+      </details>
     )}
   </div>
 </header>
