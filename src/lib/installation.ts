@@ -1,4 +1,9 @@
-import { createServiceRoleSupabaseClient } from './supabase';
+import {
+  createServiceRoleSupabaseClient,
+  hasSupabaseAdminKey,
+  hasSupabasePublicConfig,
+  supabaseDeploymentMode,
+} from './supabase';
 import type { SiteSettings } from '../types/cms';
 
 const INSTALLATION_CACHE_MS = 5_000;
@@ -7,6 +12,7 @@ export interface InstallationReadiness {
   installed: boolean;
   mediaBucket: boolean;
   migration: boolean;
+  provider: 'cloud' | 'local' | 'self-hosted' | 'unknown';
   secureConnection: boolean;
   serviceRole: boolean;
   supabase: boolean;
@@ -65,11 +71,7 @@ export async function getSiteSettingsForOwner(ownerId: string) {
 
 export async function isInstalled() {
   if (installationCache && installationCache.expiresAt > Date.now()) return installationCache.installed;
-  if (
-    !import.meta.env.PUBLIC_SUPABASE_URL ||
-    !import.meta.env.PUBLIC_SUPABASE_ANON_KEY ||
-    !process.env.SUPABASE_SERVICE_ROLE_KEY
-  ) {
+  if (!hasSupabasePublicConfig() || !hasSupabaseAdminKey()) {
     markInstalled(false);
     return false;
   }
@@ -97,8 +99,9 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
     installed: false,
     mediaBucket: false,
     migration: false,
+    provider: supabaseDeploymentMode(),
     secureConnection: isSecureRequest(request),
-    serviceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    serviceRole: hasSupabaseAdminKey(),
     supabase: false,
   };
 

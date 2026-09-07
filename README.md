@@ -24,7 +24,7 @@ TomeCMS is a small Astro blog with a private React editor. Public pages render o
 Before using either local setup helper, prepare:
 
 - A local copy of this repository. Open your terminal in the `tome-cms` directory containing `package.json`.
-- [Node.js](https://nodejs.org/en/download) and npm. Choose a supported LTS release; the helper requires Node.js 20 or newer.
+- [Node.js](https://nodejs.org/en/download) and npm. Choose a supported LTS release; TomeCMS requires Node.js 22 or newer.
 - Docker Desktop installed and running. Follow the operating-system instructions below.
 - The [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), installed with Homebrew on macOS or Scoop on Windows so the `supabase` command is available in your terminal.
 - An internet connection for downloading dependencies and Docker images on the first run.
@@ -32,7 +32,7 @@ Before using either local setup helper, prepare:
 
 The helper creates the Supabase containers and storage volumes, downloads their images, and configures the database. You do not need to create these manually, write a Docker Compose file, or create a hosted Supabase project. Docker runs Supabase; TomeCMS runs on your computer through Node.js.
 
-A hosted or self-hosted Supabase project is only needed for the [manual connection option](#use-a-hosted-or-self-hosted-supabase-project).
+A hosted or self-hosted Supabase project is only needed for the [external connection option](#connect-supabase-cloud-or-self-hosted).
 
 ## Run it locally
 
@@ -100,7 +100,29 @@ The helper will not overwrite an `.env.local` file that it did not create. If yo
 
 The local Supabase credentials are for development only. Do not expose ports `54321` through `54324` to a public network.
 
-### Use a hosted or self-hosted Supabase project
+### Connect Supabase Cloud or Self-hosted
+
+TomeCMS uses the same Auth, Data API, and Storage client for both deployments. Supabase Cloud is the recommended option for most sites because Supabase operates the platform, managed updates, and plan-dependent backup features. Choose Self-hosted only when you are prepared to operate its Docker stack, HTTPS, Postgres, Storage, monitoring, backups, and upgrades.
+
+On macOS or Linux, run the bootstrap helper before opening the web installer:
+
+```sh
+npm run configure:supabase
+```
+
+Choose `1` for Supabase Cloud or `2` for an existing Self-hosted Supabase deployment. The helper accepts either the current publishable/secret keys or legacy anon/service-role keys, verifies Auth and the Data API without printing the secret, and atomically updates `.env.local` without discarding unrelated settings. For non-interactive use:
+
+```sh
+PUBLIC_SUPABASE_URL=https://supabase.example.com \
+PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key \
+SUPABASE_SECRET_KEY=your-secret-key \
+TOMECMS_CONFIGURE_CONFIRM=yes \
+npm run configure:supabase -- self-hosted
+```
+
+The Self-hosted option connects TomeCMS to an existing production deployment; it deliberately does not install or upgrade the Supabase stack. Follow the [official Docker guide](https://supabase.com/docs/guides/self-hosting/docker), use a valid HTTPS endpoint, and maintain database and Storage backups separately. The local stack created by `npm run dev:macos` or `npm run dev:windows` remains development-only.
+
+On Windows, create `.env.local` from `.env.example` and fill in the same values manually. The native Windows development helper continues to configure the local Docker stack automatically.
 
 1. Install the locked dependency set:
 
@@ -108,18 +130,20 @@ The local Supabase credentials are for development only. Do not expose ports `54
    npm ci
    ```
 
-2. Create the local environment file:
+2. If you did not use the bootstrap helper, create the local environment file:
 
    ```sh
-   cp .env.example .env
+   cp .env.example .env.local
+   chmod 600 .env.local
    ```
 
-3. Add your Supabase credentials and an installation token to `.env`:
+3. Add your deployment mode, Supabase credentials, and installation token to `.env.local`:
 
    ```dotenv
+   TOME_CMS_SUPABASE_MODE=cloud
    PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
+   SUPABASE_SECRET_KEY=your-secret-or-service-role-key
    TOME_CMS_INSTALL_TOKEN=use-a-random-value-with-at-least-24-characters
    ```
 
@@ -133,7 +157,9 @@ The local Supabase credentials are for development only. Do not expose ports `54
 
 6. Open `http://localhost:4321/install`. The wizard checks the database and storage, saves the site settings, creates the first owner account, and signs it in. The completion screen shows the full `/admin` URL so you can copy or bookmark it; later visits to `/install` redirect to `/admin`.
 
-`SUPABASE_SERVICE_ROLE_KEY` and `TOME_CMS_INSTALL_TOKEN` are server-only. Never expose either value through a variable prefixed with `PUBLIC_`.
+`SUPABASE_SECRET_KEY` and `TOME_CMS_INSTALL_TOKEN` are server-only. Never expose either value through a variable prefixed with `PUBLIC_`. Existing `PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` configurations remain supported.
+
+Set `TOME_CMS_SUPABASE_MODE=cloud` explicitly when Supabase Cloud is exposed through a custom domain; otherwise TomeCMS infers non-`supabase.co` endpoints as Self-hosted.
 
 ## Commands
 
@@ -141,6 +167,7 @@ The local Supabase credentials are for development only. Do not expose ports `54
 npm run dev         # Start the development server
 npm run dev:macos   # Start local Supabase and TomeCMS on macOS
 npm run dev:windows # Start local Supabase and TomeCMS on Windows
+npm run configure:supabase # Choose Supabase Cloud or an existing Self-hosted deployment
 npm run build       # Build the production server
 npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
@@ -203,7 +230,7 @@ For cover images, use a 1600 × 900 px canvas when possible, with a recommended 
 
 ## Deploy to a VPS
 
-The deployment script targets Ubuntu or Debian with Node.js 20 or newer, npm, curl, systemd, and sudo access. It builds a versioned release, installs production dependencies, runs TomeCMS as a systemd service, checks the new release, and restores the previous release if the health check fails.
+The deployment script targets Ubuntu or Debian with Node.js 22 or newer, npm, curl, systemd, and sudo access. It builds a versioned release, installs production dependencies, runs TomeCMS as a systemd service, checks the new release, and restores the previous release if the health check fails.
 
 ### First deployment
 
@@ -213,7 +240,15 @@ From the project directory on the server, run:
 ./scripts/deploy-vps.sh
 ```
 
-The first run creates `/etc/tome-cms/tome-cms.env`, generates a random installation token, and exits. Add the required Supabase values. To configure an existing Nginx installation, also set `TOME_CMS_DOMAIN` before deployment:
+The first run asks you to choose Supabase Cloud (recommended) or an existing Self-hosted deployment, verifies the connection, creates `/etc/tome-cms/tome-cms.env`, generates a random installation token, and exits so you can apply the TomeCMS migrations. The secret key is read without being displayed.
+
+To configure the backend separately or change it later, run:
+
+```sh
+sudo TOMECMS_ENV_FILE=/etc/tome-cms/tome-cms.env ./scripts/configure-supabase.sh
+```
+
+To configure an existing Nginx installation, set `TOME_CMS_DOMAIN` before the final deployment:
 
 ```sh
 sudoedit /etc/tome-cms/tome-cms.env

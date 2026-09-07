@@ -122,7 +122,7 @@ const copy = english
                 <li class="installer-check" data-readiness-row data-key={['supabase', 'migration', 'mediaBucket', 'secureConnection'][index]} data-state="checking">
                   <span class="installer-check-mark" aria-hidden="true">·</span>
                   <span>{label}</span>
-                  <span class="installer-check-value">{copy.checking}</span>
+                  <span class="installer-check-value" aria-live="polite">{copy.checking}</span>
                 </li>
               ))}
             </ul>
@@ -304,6 +304,11 @@ const copy = english
         copy: english ? 'Copy' : 'คัดลอก',
         copied: english ? 'Copied' : 'คัดลอกแล้ว',
         copyFailed: english ? 'URL selected' : 'เลือก URL แล้ว',
+        providers: {
+          cloud: english ? 'Cloud ready' : 'Cloud พร้อม',
+          local: english ? 'Local ready' : 'Local พร้อม',
+          'self-hosted': english ? 'Self-hosted ready' : 'Self-hosted พร้อม',
+        },
       };
 
       copyAdminUrlButton.addEventListener('click', async () => {
@@ -407,7 +412,9 @@ const copy = english
             const ready = row.dataset.key === 'supabase' ? status.supabase && status.serviceRole : status[row.dataset.key];
             row.dataset.state = ready ? 'ready' : 'error';
             row.querySelector('.installer-check-mark').textContent = ready ? '✓' : '×';
-            row.querySelector('.installer-check-value').textContent = ready ? text.ready : text.unavailable;
+            row.querySelector('.installer-check-value').textContent = ready
+              ? row.dataset.key === 'supabase' ? text.providers[status.provider] ?? text.ready : text.ready
+              : text.unavailable;
           });
           if (readinessReady) {
             document.querySelector('[data-context-title]').textContent = context[0][0];
