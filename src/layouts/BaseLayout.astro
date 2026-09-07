@@ -1,8 +1,6 @@
 ---
 import Header from '../components/blog/Header.astro';
-import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
-import { localePath } from '../lib/i18n';
 import { getSiteSettings } from '../lib/installation';
 import { getPublicSiteUrl } from '../lib/seo';
 import type { PostAlternate, PostLocale } from '../types/cms';
@@ -117,17 +115,12 @@ const structuredData = robots.includes('noindex')
     />
   </head>
   <body class="flex min-h-screen flex-col">
-    <Header active="writing" availableLocales={alternates} locale={locale} siteName={siteName} />
+    <Header availableLocales={alternates} locale={locale} siteName={siteName} />
     <main class="flex-1">
       <slot />
     </main>
-    <footer class="mx-auto flex w-full max-w-7xl flex-col gap-3 border-t border-line px-5 py-7 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-7">
+    <footer class="mx-auto w-full max-w-7xl border-t border-line px-5 py-7 text-sm text-muted sm:px-7">
       <p>&copy; {new Date().getFullYear()} {siteName}. All rights reserved.</p>
-      <nav aria-label="Footer" class="flex gap-6">
-        <a class="text-link hover:underline" href={localePath(locale)}>Writing</a>
-        <a class="text-link hover:underline" href="/admin">Admin</a>
-      </nav>
     </footer>
-    <PageTransitionSkeleton />
   </body>
 </html>

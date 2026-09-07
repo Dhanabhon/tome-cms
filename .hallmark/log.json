@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-09-07",
+    "macrostructure": "Existing public shell + Progressive Rail",
+    "theme": "TomeCMS Mint 2026",
+    "theme_axes": "light / geometric-sans / green",
+    "enrichment": "none",
+    "scope": "public shell + installer completion",
+    "brief": "Remove public authoring links and surface the fixed admin URL after setup"
+  },
+  {
     "date": "2026-09-06",
     "macrostructure": "Existing app structures",
     "theme": "TomeCMS Mint 2026",

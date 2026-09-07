@@ -131,7 +131,7 @@ The local Supabase credentials are for development only. Do not expose ports `54
    npm run dev
    ```
 
-6. Open `http://localhost:4321/install`. The wizard checks the database and storage, saves the site settings, creates the first owner account, and signs it in. After installation, `/install` redirects to `/admin`.
+6. Open `http://localhost:4321/install`. The wizard checks the database and storage, saves the site settings, creates the first owner account, and signs it in. The completion screen shows the full `/admin` URL so you can copy or bookmark it; later visits to `/install` redirect to `/admin`.
 
 `SUPABASE_SERVICE_ROLE_KEY` and `TOME_CMS_INSTALL_TOKEN` are server-only. Never expose either value through a variable prefixed with `PUBLIC_`.
 
