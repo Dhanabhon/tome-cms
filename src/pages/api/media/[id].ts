@@ -21,7 +21,7 @@ export const DELETE: APIRoute = async ({ cookies, params, request }) => {
     if (!media) return Response.json({ error: 'Media not found.' }, { status: 404 });
 
     const publicUrl = auth.supabase.storage.from('blog-media').getPublicUrl(media.storage_path).data.publicUrl;
-    // ponytail: O(owner posts) scan has a concurrent-edit window; add relational media_usage when volume or serialization matters.
+    // ponytail: O(owner posts + pages) scan has a concurrent-edit window; add relational media_usage when volume or serialization matters.
     const references: { id: string; title: string }[] = [];
     for (let start = 0; ; start += 1000) {
       const { data: posts, error: postsError } = await auth.supabase
@@ -36,11 +36,30 @@ export const DELETE: APIRoute = async ({ cookies, params, request }) => {
         .map(({ id: postId, title }) => ({ id: postId, title })));
       if (posts.length < 1000) break;
     }
-    if (references.length) {
+    const pageReferences: typeof references = [];
+    for (let start = 0; ; start += 1000) {
+      const { data: pages, error: pagesError } = await auth.supabase
+        .from('pages')
+        .select('id, title, content_html')
+        .eq('author_id', auth.user.id)
+        .order('id')
+        .range(start, start + 999);
+      if (pagesError) throw pagesError;
+      pageReferences.push(...pages
+        .filter((page) => page.content_html.includes(publicUrl))
+        .map(({ id: pageId, title }) => ({ id: pageId, title })));
+      if (pages.length < 1000) break;
+    }
+    if (references.length || pageReferences.length) {
+      const usage = [
+        references.length && `${references.length} post${references.length === 1 ? '' : 's'}`,
+        pageReferences.length && `${pageReferences.length} page${pageReferences.length === 1 ? '' : 's'}`,
+      ].filter(Boolean).join(' and ');
       return Response.json(
         {
-          error: `This image is used by ${references.length} post${references.length === 1 ? '.' : 's.'}`,
+          error: `This image is used by ${usage}.`,
           posts: references,
+          ...(pageReferences.length ? { pages: pageReferences } : {}),
         },
         { status: 409 },
       );

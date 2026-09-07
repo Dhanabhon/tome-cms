@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { isAuthError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { editorDocumentSchema, hasMeaningfulContent, hasMeaningfulHtml, MAX_DOCUMENT_BYTES, sanitizedContentHtmlSchema } from '../../../lib/editor-content';
@@ -107,6 +108,14 @@ function reservedSlugError(slug: string) {
     : null;
 }
 
+function requestError(error: unknown, message: string) {
+  if (isAuthError(error) && (error.status === 401 || error.status === 403)) {
+    return Response.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+  console.error('Page request failed:', error);
+  return Response.json({ error: message }, { status: 500 });
+}
+
 export const GET: APIRoute = async ({ cookies, request }) => {
   try {
     const auth = await authenticate(cookies, request);
@@ -121,8 +130,7 @@ export const GET: APIRoute = async ({ cookies, request }) => {
     if (error) return databaseError(error);
     return Response.json({ pages: data });
   } catch (error) {
-    console.error('Page list error:', error);
-    return Response.json({ error: 'The page list could not be loaded.' }, { status: 500 });
+    return requestError(error, 'The page list could not be loaded.');
   }
 };
 
@@ -172,8 +180,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     if (error) return databaseError(error);
     return Response.json({ page: data }, { status: 201 });
   } catch (error) {
-    console.error('Page creation error:', error);
-    return Response.json({ error: 'The page could not be created.' }, { status: 500 });
+    return requestError(error, 'The page could not be created.');
   }
 };
 
@@ -203,8 +210,7 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
     if (!data) return Response.json({ error: 'Page not found.' }, { status: 404 });
     return Response.json({ page: data });
   } catch (error) {
-    console.error('Page update error:', error);
-    return Response.json({ error: 'The page could not be updated.' }, { status: 500 });
+    return requestError(error, 'The page could not be updated.');
   }
 };
 
@@ -234,8 +240,7 @@ export const PATCH: APIRoute = async ({ cookies, request }) => {
     if (!data) return Response.json({ error: 'The page changed. Reload before trying again.' }, { status: 409 });
     return Response.json({ page: data });
   } catch (error) {
-    console.error('Page status update error:', error);
-    return Response.json({ error: 'The page could not be updated.' }, { status: 500 });
+    return requestError(error, 'The page could not be updated.');
   }
 };
 
@@ -259,7 +264,6 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
     if (!data) return Response.json({ error: 'Page not found.' }, { status: 404 });
     return new Response(null, { status: 204 });
   } catch (error) {
-    console.error('Page deletion error:', error);
-    return Response.json({ error: 'The page could not be deleted.' }, { status: 500 });
+    return requestError(error, 'The page could not be deleted.');
   }
 };
