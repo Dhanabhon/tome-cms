@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createContext } from 'astro/middleware';
 
 import type { APIRoute } from 'astro';
@@ -9,6 +9,22 @@ const home = (label = 'Home') => ({ kind: 'home', label, pageId: null, url: null
 const custom = (url: string, label = 'Link') => ({ kind: 'custom', label, pageId: null, url });
 const pageItem = (pageId: string) => ({ kind: 'page', label: 'Page', pageId, url: null });
 const menu = (items: unknown[], locale = 'th', location = 'header') => ({ locale, location, items });
+
+async function chooseNavigationOption(page: Page, field: string, option: string) {
+  await page.getByRole('combobox', { name: field, exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
+
+async function addNavigationItem(page: Page, kind: string, label: string, placement?: string, target?: string) {
+  await page.getByRole('button', { name: 'Add item', exact: true }).click();
+  await page.getByRole('radio', { name: kind, exact: true }).check();
+  if (kind === 'Page') await chooseNavigationOption(page, 'Page', target!);
+  if (kind === 'Custom URL') await page.getByRole('textbox', { name: 'URL', exact: true }).fill(target!);
+  await page.getByRole('textbox', { name: 'Label', exact: true }).fill(label);
+  if (placement) await chooseNavigationOption(page, 'Placement', placement);
+  await page.getByRole('button', { name: 'Add to menu', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Add navigation item' })).not.toBeVisible();
+}
 
 async function seedPage(owner: TestOwner, locale: PageLocale, status = 'draft') {
   const { data, error } = await owner.client.from('pages').insert({
@@ -33,6 +49,199 @@ async function cleanup(...owners: TestOwner[]) {
 test('navigation requires authentication', async ({ request }) => {
   expect((await request.get('/api/navigation')).status()).toBe(401);
   expect((await request.put('/api/navigation', { data: menu([]) })).status()).toBe(401);
+});
+
+test('navigation manager redirects unauthenticated visitors', async ({ page }) => {
+  await page.goto('/admin/navigation');
+  await expect(page).toHaveURL(/\/admin\?returnTo=%2Fadmin%2Fnavigation$/);
+});
+
+test('navigation manager recovers loading and save failures without losing local edits or duplicate submissions', async ({ page }) => {
+  const owner = await createOwner('navigation-ui-retry');
+  let releaseLoad!: () => void;
+  let releaseSave!: () => void;
+  const loadGate = new Promise<void>((resolve) => { releaseLoad = resolve; });
+  const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+  let loads = 0;
+  let saves = 0;
+  try {
+    await signInAdmin(page, owner);
+    await page.route('**/api/navigation', async (route) => {
+      if (route.request().method() === 'GET' && ++loads === 1) {
+        await loadGate;
+        await route.fulfill({ status: 500, json: { error: 'Navigation could not be loaded or saved.' } });
+      } else if (route.request().method() === 'PUT' && ++saves === 1) {
+        await saveGate;
+        await route.fulfill({ status: 500, json: { error: 'Navigation could not be loaded or saved.' } });
+      } else await route.continue();
+    });
+    await page.goto('/admin/navigation');
+    await expect(page.getByRole('heading', { name: 'Navigation', exact: true })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('Loading navigation…');
+    releaseLoad();
+    await expect(page.getByRole('alert')).toContainText('Navigation could not be loaded');
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.getByText('No items in this menu.')).toBeVisible();
+    await addNavigationItem(page, 'Home', 'My home');
+    await addNavigationItem(page, 'Custom URL', 'Contact', undefined, '/contact');
+    await page.getByRole('list', { name: 'Menu items' }).getByRole('listitem').first().getByRole('button', { name: 'Move down', exact: true }).click();
+    await page.getByRole('button', { name: 'Save menu', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Saving…', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Saving…', exact: true }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+    expect(saves).toBe(1);
+    releaseSave();
+    await expect(page.getByRole('alert')).toContainText('Navigation could not be saved');
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Contact');
+    await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toHaveValue('My home');
+    await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).toContainText('Unsaved');
+    await page.getByRole('button', { name: 'Retry save', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Menu saved.');
+    expect(saves).toBe(2);
+    await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).not.toContainText('Unsaved');
+    await page.reload();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Contact');
+    await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toHaveValue('My home');
+  } finally {
+    releaseLoad(); releaseSave();
+    await page.unrouteAll({ behavior: 'wait' });
+    await cleanup(owner);
+  }
+});
+
+test('navigation manager keeps four independent menus and page labels, with exact-language availability', async ({ page }) => {
+  const owner = await createOwner('navigation-ui-local');
+  try {
+    const draft = await seedPage(owner, 'th');
+    const english = await seedPage(owner, 'en', 'published');
+    await signInAdmin(page, owner);
+    await page.goto('/admin/navigation');
+    await expect(page.getByRole('heading', { name: 'Navigation', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Add item', exact: true }).click();
+    await page.getByRole('radio', { name: 'Page', exact: true }).check();
+    await expect(page.getByRole('button', { name: `${english.title} — Missing Thai translation`, exact: true })).toBeDisabled();
+    await chooseNavigationOption(page, 'Page', `${draft.title} — Draft`);
+    await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue(draft.title);
+    await chooseNavigationOption(page, 'Placement', 'Both');
+    await page.getByRole('button', { name: 'Add to menu', exact: true }).click();
+    await expect(page.getByText('Hidden — Draft', { exact: true })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Item 1 label' }).fill('Header about');
+    await expect(page.getByRole('tab', { name: 'Footer', exact: true })).toContainText('Unsaved');
+    await expect(page.getByRole('tab', { name: 'Footer', exact: true })).toHaveAccessibleDescription('Unsaved');
+    await page.getByRole('tab', { name: 'Footer', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue(draft.title);
+    await page.getByRole('textbox', { name: 'Item 1 label' }).fill('Footer about');
+    await page.getByRole('button', { name: 'Save menu', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Menu saved.');
+    const savedFooter = (await page.request.get('/api/navigation').then((response) => response.json())).items as NavigationItem[];
+    expect(savedFooter.map(({ label, location, locale }) => ({ label, location, locale }))).toEqual([{ label: 'Footer about', location: 'footer', locale: 'th' }]);
+    await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).toContainText('Unsaved');
+    await page.getByRole('tab', { name: 'English', exact: true }).click();
+    await addNavigationItem(page, 'Page', 'English footer', undefined, english.title);
+    await page.getByRole('tab', { name: 'MenuBar', exact: true }).click();
+    await addNavigationItem(page, 'Home', 'English home', 'MenuBar');
+    await page.getByRole('tab', { name: 'ไทย', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Header about');
+    await page.getByRole('button', { name: 'Save menu', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Menu saved.');
+    await expect(page.getByRole('tab', { name: 'English', exact: true })).toContainText('Unsaved');
+    const { error } = await owner.client.from('pages').update({ title: 'Renamed page' }).eq('id', draft.id);
+    if (error) throw error;
+    await page.reload();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Header about');
+    await expect(page.getByText('Renamed page', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Footer', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Footer about');
+  } finally {
+    await cleanup(owner);
+  }
+});
+
+test('navigation manager validates targets, reorders by buttons and drag, and restores focus after removal and dialog close', async ({ page }, testInfo) => {
+  const owner = await createOwner('navigation-ui-reorder');
+  try {
+    await signInAdmin(page, owner);
+    await page.goto('/admin/navigation');
+    await expect(page.getByRole('heading', { name: 'Navigation', exact: true })).toBeVisible();
+    await addNavigationItem(page, 'Home', 'Home');
+    await addNavigationItem(page, 'Custom URL', 'Contact', 'Footer', '/contact');
+    await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toHaveCount(0);
+    await addNavigationItem(page, 'Custom URL', 'One', undefined, 'https://EXAMPLE.com:443');
+    await addNavigationItem(page, 'Custom URL', 'Two', undefined, '/two');
+    await page.getByRole('button', { name: 'Add item', exact: true }).click();
+    await page.getByRole('radio', { name: 'Custom URL', exact: true }).check();
+    await page.getByRole('textbox', { name: 'Label', exact: true }).fill('Duplicate');
+    await page.getByRole('textbox', { name: 'URL', exact: true }).fill('https://example.com/');
+    await page.getByRole('button', { name: 'Add to menu', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('already in');
+    await page.getByRole('textbox', { name: 'URL', exact: true }).fill('javascript:alert(1)');
+    await page.getByRole('button', { name: 'Add to menu', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('HTTP(S)');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Add item', exact: true })).toBeFocused();
+    await page.getByRole('button', { name: 'Add item', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Add item', exact: true })).toBeFocused();
+    const rows = page.getByRole('list', { name: 'Menu items' }).getByRole('listitem');
+    await rows.nth(2).getByRole('button', { name: 'Move up', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toHaveValue('Two');
+    await expect(page.getByRole('status')).toContainText('Moved Two to position 2');
+    await expect(rows.nth(1).getByRole('button', { name: 'Move up', exact: true })).toBeFocused();
+    await rows.nth(1).getByRole('button', { name: 'Move up', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toBeFocused();
+    await rows.nth(0).getByRole('button', { name: 'Move down', exact: true }).click();
+    await rows.nth(0).getByRole('button', { name: 'Move down', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue('Two');
+    if (testInfo.project.name === 'desktop') {
+      await rows.nth(0).dragTo(rows.nth(2));
+      await expect(page.getByRole('textbox', { name: 'Item 3 label' })).toHaveValue('Two');
+    }
+    await rows.nth(1).getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByRole('textbox', { name: 'Item 2 label' })).toBeFocused();
+    await page.getByRole('button', { name: 'Save menu', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Menu saved.');
+    await page.reload();
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByRole('textbox', { name: 'Item 1 label' })).toHaveValue(testInfo.project.name === 'desktop' ? 'Home' : 'Two');
+    await page.getByRole('tab', { name: 'Footer', exact: true }).click();
+    await expect(page.getByText('No items in this menu.')).toBeVisible();
+  } finally {
+    await cleanup(owner);
+  }
+});
+
+test('navigation manager tabs support keyboard selection and layouts fit all required widths with reduced motion', async ({ page }) => {
+  const owner = await createOwner('navigation-ui-responsive');
+  try {
+    await signInAdmin(page, owner);
+    await page.goto('/admin/navigation');
+    await expect(page.getByRole('heading', { name: 'Navigation', exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'MenuBar', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Footer', exact: true })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'Footer', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Home');
+    await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: 'ไทย', exact: true }).focus();
+    await page.keyboard.press('End');
+    await expect(page.getByRole('tab', { name: 'English', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await addNavigationItem(page, 'Custom URL', 'A very long navigation label '.repeat(2), undefined, `/${'segment'.repeat(50)}`);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    for (const width of [320, 375, 414, 768, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `width ${width}`).toBe(true);
+      const row = page.getByRole('list', { name: 'Menu items' }).getByRole('listitem');
+      await expect(row.getByRole('button', { name: 'Move up', exact: true })).toBeVisible();
+      await expect(row.getByRole('button', { name: 'Move down', exact: true })).toBeVisible();
+      expect(await row.evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0s');
+      await page.getByRole('button', { name: 'Add item', exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Add navigation item' })).toBeVisible();
+      expect(await page.getByRole('dialog', { name: 'Add navigation item' }).evaluate((element) => element.scrollWidth <= element.clientWidth), `dialog width ${width}`).toBe(true);
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    }
+  } finally {
+    await cleanup(owner);
+  }
 });
 
 test('navigation returns only owned summaries and saves four independent ordered menus', async ({ page }) => {
