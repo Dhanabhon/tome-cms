@@ -51,34 +51,40 @@ fi
 (( EUID == 0 )) || "${SUDO[@]}" -v
 
 node_major="$(node --version | sed -E 's/^v([0-9]+).*/\1/')"
-if [[ ! "$node_major" =~ ^[0-9]+$ ]] || (( node_major < 20 )); then
-  fail "Node.js 20 or newer is required."
+if [[ ! "$node_major" =~ ^[0-9]+$ ]] || (( node_major < 22 )); then
+  fail "Node.js 22 or newer is required."
 fi
 
-for source_file in package.json package-lock.json astro.config.mjs; do
+for source_file in package.json package-lock.json astro.config.mjs scripts/configure-supabase.sh; do
   [[ -f "${SOURCE_DIR}/${source_file}" ]] || fail "Run this script from a complete TomeCMS checkout."
 done
 
-if ! "${SUDO[@]}" test -f "$ENV_FILE"; then
+configured_now=false
+if ! "${SUDO[@]}" test -f "$ENV_FILE" || [[ -z "$(env_value PUBLIC_SUPABASE_URL)" ]]; then
   "${SUDO[@]}" install -d -m 0750 "$(dirname "$ENV_FILE")"
-  "${SUDO[@]}" install -m 0640 "${SOURCE_DIR}/.env.example" "$ENV_FILE"
-  install_token="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(24).toString("base64url"))')"
-  "${SUDO[@]}" sed -i "s|^TOME_CMS_INSTALL_TOKEN=.*|TOME_CMS_INSTALL_TOKEN=${install_token}|" "$ENV_FILE"
-  fail "Created ${ENV_FILE} with a random installation token. Fill in the Supabase values, then run this script again."
+  echo 'Configure the Supabase backend before deploying TomeCMS.'
+  "${SUDO[@]}" env TOMECMS_ENV_FILE="$ENV_FILE" "${SOURCE_DIR}/scripts/configure-supabase.sh"
+  configured_now=true
+fi
+if [[ "$configured_now" == true ]]; then
+  echo 'Apply every SQL file in supabase/migrations/ to that project, then run this deployment script again.'
+  exit 0
 fi
 
 PUBLIC_SUPABASE_URL="$(env_value PUBLIC_SUPABASE_URL)"
+PUBLIC_SUPABASE_PUBLISHABLE_KEY="$(env_value PUBLIC_SUPABASE_PUBLISHABLE_KEY)"
 PUBLIC_SUPABASE_ANON_KEY="$(env_value PUBLIC_SUPABASE_ANON_KEY)"
+SUPABASE_SECRET_KEY="$(env_value SUPABASE_SECRET_KEY)"
 SUPABASE_SERVICE_ROLE_KEY="$(env_value SUPABASE_SERVICE_ROLE_KEY)"
 TOME_CMS_INSTALL_TOKEN="$(env_value TOME_CMS_INSTALL_TOKEN)"
 DOMAIN="${DOMAIN:-$(env_value TOME_CMS_DOMAIN)}"
 [[ -n "$PUBLIC_SUPABASE_URL" ]] || fail "PUBLIC_SUPABASE_URL is missing in ${ENV_FILE}."
-[[ -n "$PUBLIC_SUPABASE_ANON_KEY" ]] || fail "PUBLIC_SUPABASE_ANON_KEY is missing in ${ENV_FILE}."
-[[ -n "$SUPABASE_SERVICE_ROLE_KEY" ]] || fail "SUPABASE_SERVICE_ROLE_KEY is missing in ${ENV_FILE}."
+[[ -n "$PUBLIC_SUPABASE_PUBLISHABLE_KEY" || -n "$PUBLIC_SUPABASE_ANON_KEY" ]] || fail "A publishable or anon key is missing in ${ENV_FILE}."
+[[ -n "$SUPABASE_SECRET_KEY" || -n "$SUPABASE_SERVICE_ROLE_KEY" ]] || fail "A secret or service-role key is missing in ${ENV_FILE}."
 (( ${#TOME_CMS_INSTALL_TOKEN} >= 24 )) || fail "TOME_CMS_INSTALL_TOKEN must contain at least 24 characters."
 [[ -z "$DOMAIN" || "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || fail "TOME_CMS_DOMAIN must be a hostname without a scheme or path."
 [[ -z "$DOMAIN" ]] || need nginx
-export PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY
+export PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_PUBLISHABLE_KEY PUBLIC_SUPABASE_ANON_KEY
 
 lock_file="/tmp/${APP_NAME}-deploy.lock"
 exec 9>"$lock_file"

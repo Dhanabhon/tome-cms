@@ -11,8 +11,11 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 
-const REQUIRED_ENV = ['PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const RELOADED_ENV = 'TOMECMS_PASSWORD_RESET_ENV_LOADED';
+
+function adminKey(environment = process.env) {
+  return environment.SUPABASE_SECRET_KEY || environment.SUPABASE_SERVICE_ROLE_KEY;
+}
 
 function passwordError(password, confirmation) {
   if (password.length < 12 || password.length > 128) {
@@ -23,6 +26,8 @@ function passwordError(password, confirmation) {
 }
 
 function selfTest() {
+  assert.equal(adminKey({ SUPABASE_SECRET_KEY: 'current', SUPABASE_SERVICE_ROLE_KEY: 'legacy' }), 'current');
+  assert.equal(adminKey({ SUPABASE_SERVICE_ROLE_KEY: 'legacy' }), 'legacy');
   assert.match(passwordError('x'.repeat(11), 'x'.repeat(11)), /12 and 128/);
   assert.equal(passwordError('x'.repeat(12), 'x'.repeat(12)), null);
   assert.equal(passwordError('x'.repeat(128), 'x'.repeat(128)), null);
@@ -47,10 +52,11 @@ function readableEnvFile() {
 }
 
 function ensureEnvironment() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
-  if (missing.length === 0) return;
+  const missingUrl = !process.env.PUBLIC_SUPABASE_URL;
+  const missingKey = !adminKey();
+  if (!missingUrl && !missingKey) return;
 
-  if (missing.length === REQUIRED_ENV.length && !process.env[RELOADED_ENV]) {
+  if (missingUrl && missingKey && !process.env[RELOADED_ENV]) {
     const envFile = readableEnvFile();
     if (envFile) {
       const result = spawnSync(
@@ -67,7 +73,7 @@ function ensureEnvironment() {
   }
 
   throw new Error(
-    `${missing.join(' and ')} must be configured together. ` +
+    'PUBLIC_SUPABASE_URL and a Supabase secret or service-role key must be configured together. ' +
       'Set TOMECMS_ENV_FILE to a readable environment file when using a custom path.',
   );
 }
@@ -108,7 +114,7 @@ async function main() {
 
   ensureEnvironment();
   const url = process.env.PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = adminKey();
   const projectUrl = new URL(url);
   if (!['http:', 'https:'].includes(projectUrl.protocol)) {
     throw new Error('PUBLIC_SUPABASE_URL must use http or https.');

@@ -1,15 +1,22 @@
 import { expect, type Locator, type Page, type Request } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-function requiredEnv(name: 'PUBLIC_SUPABASE_ANON_KEY' | 'PUBLIC_SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY') {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required for E2E tests.`);
+type SupabaseEnvName =
+  | 'PUBLIC_SUPABASE_URL'
+  | 'PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+  | 'PUBLIC_SUPABASE_ANON_KEY'
+  | 'SUPABASE_SECRET_KEY'
+  | 'SUPABASE_SERVICE_ROLE_KEY';
+
+function requiredEnv(...names: SupabaseEnvName[]) {
+  const value = names.map((name) => process.env[name]).find(Boolean);
+  if (!value) throw new Error(`${names.join(' or ')} is required for E2E tests.`);
   return value;
 }
 
 export const supabaseUrl = requiredEnv('PUBLIC_SUPABASE_URL');
-export const anonKey = requiredEnv('PUBLIC_SUPABASE_ANON_KEY');
-export const admin = createClient(supabaseUrl, requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+export const anonKey = requiredEnv('PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'PUBLIC_SUPABASE_ANON_KEY');
+export const admin = createClient(supabaseUrl, requiredEnv('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'), {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 

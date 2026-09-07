@@ -18,7 +18,7 @@ done
 docker info >/dev/null 2>&1 || fail "Docker Desktop is not running."
 
 node_major="$(node -p "process.versions.node.split('.')[0]")"
-(( node_major >= 20 )) || fail "Node.js 20 or newer is required."
+(( node_major >= 22 )) || fail "Node.js 22 or newer is required."
 
 cd "$ROOT_DIR"
 [[ -f supabase/config.toml ]] || supabase init --yes
@@ -31,8 +31,10 @@ env_value() {
 }
 
 api_url="$(env_value API_URL)"
-anon_key="$(env_value ANON_KEY)"
-service_role_key="$(env_value SERVICE_ROLE_KEY)"
+anon_key="$(env_value PUBLISHABLE_KEY)"
+anon_key="${anon_key:-$(env_value ANON_KEY)}"
+service_role_key="$(env_value SECRET_KEY)"
+service_role_key="${service_role_key:-$(env_value SERVICE_ROLE_KEY)}"
 studio_url="$(env_value STUDIO_URL)"
 [[ -n "$api_url" && -n "$anon_key" && -n "$service_role_key" ]] || fail "Supabase did not return the required local credentials."
 
@@ -49,9 +51,10 @@ env_tmp="$(mktemp "${TMPDIR:-/tmp}/tomecms-env.XXXXXX")"
 trap 'rm -f "$env_tmp"' EXIT
 {
   echo "$ENV_MARKER"
+  echo "TOME_CMS_SUPABASE_MODE=local"
   echo "PUBLIC_SUPABASE_URL=${api_url}"
-  echo "PUBLIC_SUPABASE_ANON_KEY=${anon_key}"
-  echo "SUPABASE_SERVICE_ROLE_KEY=${service_role_key}"
+  echo "PUBLIC_SUPABASE_PUBLISHABLE_KEY=${anon_key}"
+  echo "SUPABASE_SECRET_KEY=${service_role_key}"
   echo "TOME_CMS_INSTALL_TOKEN=${install_token}"
   echo "TOME_CMS_DOMAIN="
 } >"$env_tmp"
@@ -70,8 +73,9 @@ echo "Installation token: ${install_token}"
 echo
 
 export PUBLIC_SUPABASE_URL="$api_url"
-export PUBLIC_SUPABASE_ANON_KEY="$anon_key"
-export SUPABASE_SERVICE_ROLE_KEY="$service_role_key"
+export PUBLIC_SUPABASE_PUBLISHABLE_KEY="$anon_key"
+export SUPABASE_SECRET_KEY="$service_role_key"
+export TOME_CMS_SUPABASE_MODE="local"
 export TOME_CMS_INSTALL_TOKEN="$install_token"
 export TOME_CMS_DOMAIN=""
 exec npm run dev

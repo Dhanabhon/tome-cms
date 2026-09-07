@@ -26,7 +26,9 @@ async function startUninstalledServer() {
     env: {
       ...process.env,
       PUBLIC_SUPABASE_ANON_KEY: '',
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: '',
       PUBLIC_SUPABASE_URL: '',
+      SUPABASE_SECRET_KEY: '',
       SUPABASE_SERVICE_ROLE_KEY: '',
       TOME_CMS_VITE_CACHE_DIR: 'node_modules/.vite-installer-test',
     },
@@ -70,6 +72,7 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
         installed: false,
         mediaBucket: true,
         migration: true,
+        provider: 'cloud',
         secureConnection: true,
         serviceRole: true,
         supabase: true,
@@ -83,6 +86,7 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
     }));
 
     await page.goto(`${origin}/install?lang=en`);
+    await expect(page.getByText('Cloud ready', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Name your site' }).click();
     await page.getByRole('button', { name: 'Create owner account' }).click();
     await page.getByLabel('Sign-in email').fill('owner@example.com');

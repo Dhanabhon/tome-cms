@@ -15,7 +15,7 @@ foreach ($CommandName in @('node', 'npm.cmd', 'docker', 'supabase')) {
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop is not running.' }
 
 $NodeMajor = [int](& node -p "process.versions.node.split('.')[0]")
-if ($NodeMajor -lt 20) { throw 'Node.js 20 or newer is required.' }
+if ($NodeMajor -lt 22) { throw 'Node.js 22 or newer is required.' }
 
 Push-Location $RootDir
 try {
@@ -43,8 +43,10 @@ try {
     }
 
     $ApiUrl = Get-StatusValue 'API_URL'
-    $AnonKey = Get-StatusValue 'ANON_KEY'
-    $ServiceRoleKey = Get-StatusValue 'SERVICE_ROLE_KEY'
+    $AnonKey = Get-StatusValue 'PUBLISHABLE_KEY'
+    if (-not $AnonKey) { $AnonKey = Get-StatusValue 'ANON_KEY' }
+    $ServiceRoleKey = Get-StatusValue 'SECRET_KEY'
+    if (-not $ServiceRoleKey) { $ServiceRoleKey = Get-StatusValue 'SERVICE_ROLE_KEY' }
     $StudioUrl = Get-StatusValue 'STUDIO_URL'
     if (-not $ApiUrl -or -not $AnonKey -or -not $ServiceRoleKey) {
         throw 'Supabase did not return the required local credentials.'
@@ -66,9 +68,10 @@ try {
 
     $EnvLines = @(
         $EnvMarker,
+        'TOME_CMS_SUPABASE_MODE=local',
         "PUBLIC_SUPABASE_URL=$ApiUrl",
-        "PUBLIC_SUPABASE_ANON_KEY=$AnonKey",
-        "SUPABASE_SERVICE_ROLE_KEY=$ServiceRoleKey",
+        "PUBLIC_SUPABASE_PUBLISHABLE_KEY=$AnonKey",
+        "SUPABASE_SECRET_KEY=$ServiceRoleKey",
         "TOME_CMS_INSTALL_TOKEN=$InstallToken",
         'TOME_CMS_DOMAIN='
     )
@@ -80,8 +83,9 @@ try {
     }
 
     $env:PUBLIC_SUPABASE_URL = $ApiUrl
-    $env:PUBLIC_SUPABASE_ANON_KEY = $AnonKey
-    $env:SUPABASE_SERVICE_ROLE_KEY = $ServiceRoleKey
+    $env:PUBLIC_SUPABASE_PUBLISHABLE_KEY = $AnonKey
+    $env:SUPABASE_SECRET_KEY = $ServiceRoleKey
+    $env:TOME_CMS_SUPABASE_MODE = 'local'
     $env:TOME_CMS_INSTALL_TOKEN = $InstallToken
     $env:TOME_CMS_DOMAIN = ''
 
