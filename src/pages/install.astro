@@ -1,4 +1,5 @@
 ---
+import packageMetadata from '../../package.json' with { type: 'json' };
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
 import UiSelect from '../components/admin/UiSelect';
@@ -31,7 +32,7 @@ const copy = english
       checking: 'Checking',
       retry: 'Check again',
       firstAction: 'Name your site',
-      footer: '© TomeCMS · Set up once, then come back to write.',
+      footer: `© TomeCMS · v${packageMetadata.version} · Set up once, then come back to write.`,
     }
   : {
       title: 'ตั้งค่าเว็บไซต์ของคุณ',
@@ -48,7 +49,7 @@ const copy = english
       checking: 'กำลังตรวจ',
       retry: 'ตรวจอีกครั้ง',
       firstAction: 'ตั้งชื่อเว็บไซต์',
-      footer: '© TomeCMS · ตั้งค่าครั้งเดียว แล้วกลับมาเพื่อเขียนได้ทุกวัน',
+      footer: `© TomeCMS · v${packageMetadata.version} · ตั้งค่าครั้งเดียว แล้วกลับมาเพื่อเขียนได้ทุกวัน`,
     };
 ---
 
