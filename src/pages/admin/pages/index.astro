@@ -172,7 +172,7 @@ const tabs = [{ status: 'draft', label: 'Drafts' }, { status: 'published', label
     button.disabled = true;
     try {
       const response = action === 'delete'
-        ? await fetch(`/api/pages?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        ? await fetch(`/api/pages?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'content-type': 'application/json' } })
         : await fetch('/api/pages', {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },

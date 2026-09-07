@@ -150,8 +150,10 @@ test('row actions publish, unpublish and confirm deletion of only one edition; f
     await expect(row).toHaveCount(1);
     await row.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(deleteDialog).toContainText('TH');
+    const deleteRequest = page.waitForRequest((request) => request.method() === 'DELETE' && new URL(request.url()).pathname === '/api/posts');
     await deleteDialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(row).toHaveCount(0);
+    expect(await (await deleteRequest).headerValue('content-type')).toBe('application/json');
     expect((await admin.from('posts').select('id').eq('id', sibling.id)).data).toEqual([{ id: sibling.id }]);
     await admin.from('posts').update({ content_html: '' }).eq('id', sibling.id);
     await page.goto('/admin');

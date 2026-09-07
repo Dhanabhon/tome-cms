@@ -264,7 +264,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setDeleteError(null);
     setReferencingPosts([]);
     try {
-      const response = await fetch(`/api/media/${item.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/media/${item.id}`, { method: 'DELETE', headers: { 'content-type': 'application/json' } });
       const result = await response.json() as { deleted?: boolean; error?: string; posts?: ReferencingPost[] };
       if (response.status === 409) {
         if (selectedId.current !== item.id) return;

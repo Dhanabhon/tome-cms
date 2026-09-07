@@ -232,7 +232,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     button.disabled = true;
     try {
       const response = action === 'delete'
-        ? await fetch(`/api/posts?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        ? await fetch(`/api/posts?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'content-type': 'application/json' } })
         : await fetch('/api/posts', {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
