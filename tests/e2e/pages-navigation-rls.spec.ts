@@ -1,11 +1,54 @@
 import { expect, test } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import type { getInstallationReadiness } from '../../src/lib/installation';
 import type { Database, Json, NavigationItemInsert, PageInsert } from '../../src/types/cms';
 import { admin, anonKey, createOwner, deleteOwner, supabaseUrl, type TestOwner } from './support';
 
 test.describe('Pages and Navigation database contracts', () => {
   test.describe.configure({ mode: 'serial' });
+  test('installation readiness requires every CMS table and reports table-specific failures', async ({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Database contracts run once on desktop.');
+    for (const table of ['pages', 'navigation_items'] as const) {
+      expect((await admin.from(table).select('id', { head: true })).error).toBeNull();
+    }
+    const { createServer } = await import('vite');
+    const vite = await createServer({
+      configFile: false, envPrefix: 'PUBLIC_', appType: 'custom', cacheDir: testInfo.outputPath('vite-cache'),
+      server: { middlewareMode: true, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true },
+    });
+    const originalFetch = globalThis.fetch;
+    const originalError = console.error;
+    try {
+      const { getInstallationReadiness: readiness } = await vite.ssrLoadModule('/src/lib/installation.ts') as {
+        getInstallationReadiness: typeof getInstallationReadiness;
+      };
+      const request = new Request('https://example.com/install');
+      expect(await readiness(request)).toMatchObject({ migration: true, serviceRole: true, supabase: true, mediaBucket: true });
+
+      const logged: unknown[][] = [];
+      console.error = (...args: unknown[]) => { logged.push(args); };
+      for (const table of ['posts', 'site_settings', 'media_folders', 'media_items', 'pages', 'navigation_items']) {
+        for (const code of ['42P01', 'PGRST205', '42501']) {
+          logged.length = 0;
+          globalThis.fetch = async (input, init) => {
+            const url = new URL(input instanceof Request ? input.url : String(input));
+            if (url.origin === new URL(supabaseUrl).origin && url.pathname === `/rest/v1/${table}`) {
+              return Response.json({ code, message: `Unavailable ${table}` }, { status: code === '42501' ? 403 : 404 });
+            }
+            return originalFetch(input, init);
+          };
+          expect((await readiness(request)).migration, `${table}: ${code}`).toBe(false);
+          expect(logged).toEqual(code === '42501' ? [[`${table} readiness check failed:`, `Unavailable ${table}`]] : []);
+        }
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+      console.error = originalError;
+      await vite.close();
+    }
+  });
+
   test('enforces ownership, edition constraints, timestamps, and atomic menu replacement', async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Database contracts run once on desktop.');
     const owners: TestOwner[] = [];

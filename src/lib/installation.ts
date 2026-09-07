@@ -109,7 +109,7 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
 
   try {
     const supabase = createServiceRoleSupabaseClient();
-    const [{ error: postsError }, settingsResult, { error: foldersError }, { error: itemsError }, bucketsResult] =
+    const [{ error: postsError }, settingsResult, { error: foldersError }, { error: itemsError }, { error: pagesError }, { error: navigationError }, bucketsResult] =
       await Promise.all([
         supabase.from('posts').select('id, locale, translation_group_id', { head: true }),
         supabase
@@ -119,11 +119,13 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
           .maybeSingle(),
         supabase.from('media_folders').select('id', { head: true }),
         supabase.from('media_items').select('id', { head: true }),
+        supabase.from('pages').select('id', { head: true }),
+        supabase.from('navigation_items').select('id', { head: true }),
         supabase.storage.listBuckets(),
       ]);
 
     readiness.supabase = !postsError;
-    readiness.migration = !postsError && !settingsResult.error && !foldersError && !itemsError;
+    readiness.migration = !postsError && !settingsResult.error && !foldersError && !itemsError && !pagesError && !navigationError;
     readiness.installed = Boolean(settingsResult.data);
     readiness.mediaBucket =
       !bucketsResult.error && bucketsResult.data.some((bucket) => bucket.id === 'blog-media');
@@ -139,6 +141,12 @@ export async function getInstallationReadiness(request: Request): Promise<Instal
     }
     if (itemsError && !isMissingTable(itemsError)) {
       console.error('media_items readiness check failed:', itemsError.message);
+    }
+    if (pagesError && !isMissingTable(pagesError)) {
+      console.error('pages readiness check failed:', pagesError.message);
+    }
+    if (navigationError && !isMissingTable(navigationError)) {
+      console.error('navigation_items readiness check failed:', navigationError.message);
     }
     if (bucketsResult.error) console.error('Storage readiness check failed:', bucketsResult.error.message);
 

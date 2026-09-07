@@ -14,7 +14,13 @@ import {
 
 const BUCKET = 'blog-media';
 const PAGE_SIZE = 1_000;
-const RESET_TABLES = ['posts', 'media_items', 'media_folders'];
+const RESET_TABLES = [
+  { label: 'Navigation items', name: 'navigation_items' },
+  { label: 'Pages', name: 'pages' },
+  { label: 'Posts', name: 'posts' },
+  { label: 'Media records', name: 'media_items' },
+  { label: 'Media folders', name: 'media_folders' },
+];
 
 function confirmationPhrase(origin) {
   return `RESET ${origin}`;
@@ -39,6 +45,13 @@ function selfTest() {
   assert.deepEqual(parseOptions(['--dry-run']), { dryRun: true });
   assert.deepEqual(parseOptions(['--execute']), { dryRun: false });
   assert.throws(() => parseOptions(['--yes']), /Usage/);
+  assert.deepEqual(RESET_TABLES, [
+    { label: 'Navigation items', name: 'navigation_items' },
+    { label: 'Pages', name: 'pages' },
+    { label: 'Posts', name: 'posts' },
+    { label: 'Media records', name: 'media_items' },
+    { label: 'Media folders', name: 'media_folders' },
+  ]);
   console.log('Installation reset self-check passed.');
 }
 
@@ -136,7 +149,7 @@ async function main() {
 
   const bucket = supabase.storage.from(BUCKET);
   const [tableCounts, storagePaths] = await Promise.all([
-    Promise.all(RESET_TABLES.map((table) => rowCount(supabase, table))),
+    Promise.all(RESET_TABLES.map((table) => rowCount(supabase, table.name))),
     listStoragePaths(bucket),
   ]);
 
@@ -144,9 +157,7 @@ async function main() {
   console.log(`Supabase: ${projectOrigin}`);
   console.log(`Site: ${settings.site_name}`);
   console.log(`Owner: ${user.email}`);
-  console.log(`Posts: ${tableCounts[0]}`);
-  console.log(`Media records: ${tableCounts[1]}`);
-  console.log(`Media folders: ${tableCounts[2]}`);
+  RESET_TABLES.forEach((table, index) => console.log(`${table.label}: ${tableCounts[index]}`));
   console.log(`Stored files: ${storagePaths.length}`);
 
   if (dryRun) {
@@ -171,7 +182,7 @@ async function main() {
     throw new Error(`${BUCKET} changed during reset. Stop active clients and run the reset again.`);
   }
 
-  for (const table of RESET_TABLES) await deleteRows(supabase, table);
+  for (const table of RESET_TABLES) await deleteRows(supabase, table.name);
 
   const { data: settingsBackup, error: backupError } = await supabase
     .from('site_settings')
@@ -190,7 +201,7 @@ async function main() {
   if (!deletedSettings) throw new Error('The installer marker disappeared during reset.');
 
   const remaining = await Promise.all(
-    [...RESET_TABLES, 'site_settings'].map((table) => rowCount(supabase, table)),
+    [...RESET_TABLES.map((table) => table.name), 'site_settings'].map((table) => rowCount(supabase, table)),
   );
   if (remaining.some(Boolean)) {
     await restoreSettings(supabase, settingsBackup, 'TomeCMS data changed during reset.');
