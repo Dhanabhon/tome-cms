@@ -70,7 +70,7 @@ test.describe('editor cover media', () => {
 
       await page.getByRole('button', { name: 'Settings', exact: true }).click();
       await page.getByRole('button', { name: 'Choose from library' }).click();
-      const picker = page.getByRole('dialog', { name: 'Media library' });
+      const picker = page.getByRole('dialog', { name: 'File library' });
       await expect(picker).toBeVisible();
       await expect(picker.getByRole('button', { name: 'Cancel' })).toBeFocused();
       await expect(picker.getByRole('button', { name: 'Create category' })).toHaveCount(0);
@@ -181,7 +181,7 @@ test.describe('editor cover media', () => {
       await page.getByLabel('Upload new').setInputFiles(PIXEL);
       await expect(page.getByText('Uploading…')).toBeVisible();
       await page.getByRole('button', { name: 'Choose from library' }).click();
-      await page.getByRole('dialog', { name: 'Media library' }).getByRole('button', { name: /Select seeded-cover\.png/i }).click();
+      await page.getByRole('dialog', { name: 'File library' }).getByRole('button', { name: /Select seeded-cover\.png/i }).click();
       releaseUpload();
 
       await expect(page.getByText('Uploading…')).toHaveCount(0);
@@ -271,7 +271,7 @@ test.describe('editor block insertion', () => {
       await editor.locator('h2').click();
       await addBlock.click();
       await blockMenu.getByRole('menuitem', { name: 'Image' }).click();
-      const picker = page.getByRole('dialog', { name: 'Media library' });
+      const picker = page.getByRole('dialog', { name: 'File library' });
       await expect(picker).toBeVisible();
       await picker.getByRole('button', { name: /Select seeded-cover\.png/i }).click();
 
@@ -346,7 +346,7 @@ test.describe('editor block insertion', () => {
       const originalContent = await editor.innerHTML();
       await page.getByRole('button', { name: 'Add block' }).click();
       await page.getByRole('menuitem', { name: 'Image' }).click();
-      const picker = page.getByRole('dialog', { name: 'Media library' });
+      const picker = page.getByRole('dialog', { name: 'File library' });
       await expect(picker).toBeVisible();
       await page.route('**/storage/v1/object/blog-media/**', (route) => route.fulfill({
         body: JSON.stringify({ message: 'Forced inline upload failure' }),
@@ -379,7 +379,7 @@ test.describe('editor block insertion', () => {
       await editor.click();
       await page.getByRole('button', { name: 'Add block' }).click();
       await page.getByRole('menuitem', { name: 'Image' }).click();
-      const picker = page.getByRole('dialog', { name: 'Media library' });
+      const picker = page.getByRole('dialog', { name: 'File library' });
       await page.route('**/storage/v1/object/blog-media/**', async (route) => {
         if (route.request().method() === 'POST') await uploadGate;
         return route.continue();
@@ -465,7 +465,7 @@ test('cover media picker fills the mobile viewport', async ({ page }, testInfo) 
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const opener = page.getByRole('button', { name: 'Choose from library' });
     await opener.click();
-    const picker = page.getByRole('dialog', { name: 'Media library' });
+    const picker = page.getByRole('dialog', { name: 'File library' });
     await expect(picker).toBeVisible();
     await expect(picker.getByRole('button', { name: 'Cancel' })).toBeFocused();
     expect(await picker.evaluate((dialog) => {

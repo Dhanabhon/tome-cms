@@ -189,7 +189,7 @@ test.describe('media library desktop', () => {
 
     expect(response.status()).toBe(410);
     await expect(response.json()).resolves.toEqual({
-      error: 'This upload endpoint has been retired. Use the authenticated Media Library.',
+      error: 'This upload endpoint has been retired. Use the authenticated File Library.',
     });
   });
 
@@ -198,8 +198,8 @@ test.describe('media library desktop', () => {
 
     try {
       await openMediaLibrary(page, owner);
-      await expect(page.getByRole('heading', { name: 'Media', exact: true })).not.toBeFocused();
-      await expect(page.getByText('No media yet')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'File Library', exact: true })).not.toBeFocused();
+      await expect(page.getByText('No files yet')).toBeVisible();
       let storageUploads = 0;
       await page.route('**/storage/v1/object/blog-media/**', async (route) => {
         if (route.request().method() === 'POST' && storageUploads++ === 0) {
@@ -219,11 +219,11 @@ test.describe('media library desktop', () => {
         await expect(card).toContainText(/\d+(?:\.\d+)? (?:B|KB)/);
       }
 
-      await page.getByLabel('Search media').fill('pixel.webp');
+      await page.getByLabel('Search files').fill('pixel.webp');
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
       await expect(page.getByRole('button', { name: /pixel\.webp/i })).toBeVisible();
 
-      await page.getByLabel('Search media').fill('');
+      await page.getByLabel('Search files').fill('');
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
       const rejected = [
@@ -270,14 +270,14 @@ test.describe('media library desktop', () => {
 
       await page.getByLabel('Category name').fill('Headers');
       await page.getByRole('button', { name: 'Create category' }).click();
-      await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Headers', exact: true })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Headers', exact: true })).toBeVisible();
 
       await page.getByLabel('Category name').fill('Headers');
       await page.getByRole('button', { name: 'Create category' }).click();
       await expect(page.getByRole('alert')).toContainText('A category with this name already exists.');
       await expect(page.getByLabel('Category name')).toHaveValue('Headers');
 
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Headers', exact: true }).click();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Headers', exact: true }).click();
       await page.getByLabel('Upload image').setInputFiles(IMAGE_FIXTURES[0]);
       const card = page.getByRole('button', { name: /pixel\.png/i });
       await expect(card).toBeVisible();
@@ -286,7 +286,7 @@ test.describe('media library desktop', () => {
       const rename = page.getByRole('textbox', { name: 'Rename Headers' });
       await rename.fill('Covers');
       await page.getByRole('button', { name: 'Save category name' }).click();
-      await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Covers', exact: true })).toBeVisible();
 
       await card.click();
       const details = page.getByRole('dialog', { name: 'Image details' });
@@ -300,7 +300,7 @@ test.describe('media library desktop', () => {
       await details.getByRole('button', { name: 'Save' }).click();
       await expect(details.getByRole('status')).toContainText('Saved.');
       await page.reload();
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
       await page.getByRole('button', { name: /pixel\.png/i }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' }).getByLabel('Alt text')).toHaveValue('A tiny test image');
 
@@ -310,8 +310,8 @@ test.describe('media library desktop', () => {
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
-      await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeFocused();
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Unsorted' }).click();
+      await expect(page.getByRole('heading', { name: 'File Library', exact: true })).toBeFocused();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Unsorted' }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
       await page.getByRole('button', { name: /pixel\.png/i }).click();
@@ -320,14 +320,14 @@ test.describe('media library desktop', () => {
       await expect(page.getByRole('dialog', { name: 'Image details' }).getByRole('status')).toContainText('Saved.');
       await page.getByRole('dialog', { name: 'Image details' }).getByRole('button', { name: 'Close details' }).click();
       await expect(page.getByRole('dialog', { name: 'Image details' })).toHaveCount(0);
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
       await page.getByRole('button', { name: 'Delete Covers' }).click();
       const deleteCategoryDialog = page.getByRole('dialog', { name: 'Delete category?' });
       await expect(deleteCategoryDialog).toContainText('Covers');
       await deleteCategoryDialog.getByRole('button', { name: 'Delete category' }).click();
-      await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Covers', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
       await expect
         .poll(async () => {
@@ -336,12 +336,12 @@ test.describe('media library desktop', () => {
           return data.folder_id;
         })
         .toBeNull();
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'All media' }).click();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'All files' }).click();
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
-      await page.getByLabel('Search media').fill('pixel.png');
+      await page.getByLabel('Search files').fill('pixel.png');
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
-      await page.getByLabel('Search media').fill('tiny test image');
+      await page.getByLabel('Search files').fill('tiny test image');
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toBeVisible();
 
       await page.getByRole('button', { name: /pixel\.png/i }).click();
@@ -374,14 +374,14 @@ test.describe('media library desktop', () => {
 
       await page.getByLabel('Upload image').setInputFiles(IMAGE_FIXTURES[0]);
       await expect(page.getByText('Uploading image…')).toBeVisible();
-      await page.getByLabel('Search media').fill('no matching asset');
+      await page.getByLabel('Search files').fill('no matching asset');
       await expect(page.getByRole('button', { name: /existing-01\.png/i })).toHaveCount(0);
-      await expect(page.getByText('No media yet')).toBeVisible();
+      await expect(page.getByText('No files yet')).toBeVisible();
 
       releaseUpload();
       await expect(page.getByText('Uploading image…')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /existing-01\.png|pixel\.png/i })).toHaveCount(0);
-      await expect(page.getByText('No media yet')).toBeVisible();
+      await expect(page.getByText('No files yet')).toBeVisible();
     } finally {
       releaseUpload();
       await deleteOwner(owner);
@@ -400,9 +400,9 @@ test.describe('media library desktop', () => {
       for (const name of ['Headers', 'Covers']) {
         await page.getByLabel('Category name').fill(name);
         await page.getByRole('button', { name: 'Create category' }).click();
-        await expect(page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name, exact: true })).toBeVisible();
+        await expect(page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name, exact: true })).toBeVisible();
       }
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Headers', exact: true }).click();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Headers', exact: true }).click();
       await page.route('**/storage/v1/object/blog-media/**', async (route) => {
         if (route.request().method() === 'POST') await uploadGate;
         return route.continue();
@@ -410,13 +410,13 @@ test.describe('media library desktop', () => {
 
       await page.getByLabel('Upload image').setInputFiles(IMAGE_FIXTURES[0]);
       await expect(page.getByText('Uploading image…')).toBeVisible();
-      await page.getByRole('navigation', { name: 'Media categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
-      await expect(page.getByText('No media yet')).toBeVisible();
+      await page.getByRole('navigation', { name: 'File categories' }).getByRole('button', { name: 'Covers', exact: true }).click();
+      await expect(page.getByText('No files yet')).toBeVisible();
 
       releaseUpload();
       await expect(page.getByText('Uploading image…')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /pixel\.png/i })).toHaveCount(0);
-      await expect(page.getByText('No media yet')).toBeVisible();
+      await expect(page.getByText('No files yet')).toBeVisible();
     } finally {
       releaseUpload();
       await deleteOwner(owner);
@@ -505,10 +505,10 @@ test.describe('media library desktop', () => {
       });
 
       await page.goto('/admin/media');
-      await expect(page.getByText('Loading media…')).toBeVisible();
+      await expect(page.getByText('Loading files…')).toBeVisible();
       await expect(page.getByRole('alert')).toContainText('Forced list failure');
       await page.getByRole('button', { name: 'Retry' }).click();
-      await expect(page.getByText('No media yet')).toBeVisible();
+      await expect(page.getByText('No files yet')).toBeVisible();
     } finally {
       await deleteOwner(owner);
     }
@@ -531,7 +531,7 @@ test.describe('media library desktop', () => {
 
       await page.goto('/admin/media');
       await expect(page.getByRole('alert')).toContainText('Forced category load failure');
-      await page.getByLabel('Search media').fill('nothing');
+      await page.getByLabel('Search files').fill('nothing');
       await expect(page.getByRole('alert')).toContainText('Forced category load failure');
       await page.getByRole('button', { name: 'Retry categories' }).click();
       await expect(page.getByText('Forced category load failure')).toHaveCount(0);
@@ -577,12 +577,12 @@ test('mobile media library exposes category selection and category CRUD without 
 
   try {
     await openMediaLibrary(page, owner);
-    await expect(page.getByText('No media yet')).toBeVisible();
-    await expect(page.getByLabel('Media category')).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Media categories' })).toBeHidden();
+    await expect(page.getByText('No files yet')).toBeVisible();
+    await expect(page.getByLabel('File category')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'File categories' })).toBeHidden();
     await page.getByLabel('Category name').fill('Mobile');
     await page.getByRole('button', { name: 'Create category' }).click();
-    await chooseUiOption(page, 'Media category', 'Mobile');
+    await chooseUiOption(page, 'File category', 'Mobile');
     await page.getByRole('button', { name: 'Rename Mobile' }).click();
     await page.getByRole('textbox', { name: 'Rename Mobile' }).fill('Phone');
     await page.getByRole('button', { name: 'Save category name' }).click();

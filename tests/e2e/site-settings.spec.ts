@@ -66,7 +66,7 @@ test('Profile and Settings forms save, persist, and retain edits on failure', as
     await expect(page.getByRole('button', { name: 'Add link' })).toBeDisabled();
     for (let index = 5; index >= 2; index--) await page.getByRole('button', { name: `Remove link ${index}` }).click();
     await page.getByRole('button', { name: 'Choose avatar' }).click();
-    await expect(page.getByRole('dialog', { name: 'Media library', exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'File library', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Choose avatar' })).toBeFocused();
     await page.getByRole('button', { name: 'Choose avatar' }).click();

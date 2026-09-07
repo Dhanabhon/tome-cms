@@ -47,7 +47,7 @@ test('Admin navigation, mobile focus, and sign out', async ({ page }, testInfo) 
       await expect(opener).not.toBeVisible();
     }
     const navigation = mobile ? dialog.getByRole('navigation') : page.locator('.admin-sidebar').getByRole('navigation');
-    await expect(navigation.getByRole('link')).toHaveText(['Posts', 'Pages', 'Media', 'Navigation', 'Profile', 'Settings']);
+    await expect(navigation.getByRole('link')).toHaveText(['Posts', 'Pages', 'Files', 'Navigation', 'Profile', 'Settings']);
     await expect(navigation.getByRole('link', { name: 'Pages', exact: true })).toHaveAttribute('href', '/admin/pages');
     await expect(navigation.getByRole('link', { name: 'Navigation', exact: true })).toHaveAttribute('href', '/admin/navigation');
     const viewSite = page.getByRole('link', { name: 'View site (opens in a new tab)' });
