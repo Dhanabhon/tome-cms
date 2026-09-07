@@ -87,6 +87,18 @@ test('creates sanitized drafts, generates slugs, and rejects reserved or duplica
     expect(saved.content_html).toContain('rel="noopener noreferrer"');
     expect((await admin.from('pages').select('content_html').eq('id', saved.id).single()).data?.content_html).toBe(saved.content_html);
 
+    const longTitle = `${'a'.repeat(159)} b`;
+    const longTitlePage = await page.request.post('/api/pages', { data: pageBody(longTitle) });
+    expect(longTitlePage.status()).toBe(201);
+    const generatedSlug = ((await longTitlePage.json()).page as Page).slug;
+    expect(generatedSlug).toHaveLength(159);
+    expect(generatedSlug).not.toMatch(/-$/);
+
+    const oversizedSlug = await page.request.post('/api/pages', {
+      data: pageBody('Explicit oversized slug', 'a'.repeat(161)),
+    });
+    expect(oversizedSlug.status()).toBe(400);
+
     const reserved = await page.request.post('/api/pages', { data: pageBody('Reserved', 'blog') });
     expect(reserved.status()).toBe(400);
 

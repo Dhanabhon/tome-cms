@@ -6,8 +6,9 @@ import { editorText } from './editor-content';
 export const RESERVED_PAGE_SLUGS = new Set(['blog']);
 
 export function resolvePageSlug(value: string | undefined, title: string) {
-  return slugify(value || title, { lower: true, strict: true, trim: true })
-    || `page-${crypto.randomUUID().slice(0, 8)}`;
+  const normalized = slugify(value || title, { lower: true, strict: true, trim: true });
+  const slug = value ? normalized : normalized.slice(0, 160).replace(/-+$/, '');
+  return slug || `page-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 export function pageDescription(
