@@ -146,6 +146,10 @@ test('Page row actions preserve editions and saved placements on unpublish, then
     await row.getByRole('button', { name: 'Publish', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('Add content before publishing.');
     await expect(row.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled();
+    expect((await admin.from('pages').update({ content_html: '<p>A complete page.</p>' }).eq('id', sibling.id)).error).toBeNull();
+    await row.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(row).toHaveCount(0);
+    expect((await admin.from('pages').select('status').eq('id', sibling.id).single()).data?.status).toBe('published');
   } finally {
     // Dashboard actions reload after completion; close the page before editor-oriented cleanup tracks stale requests.
     await page.close();
