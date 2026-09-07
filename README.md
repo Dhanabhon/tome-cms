@@ -1,16 +1,17 @@
 # TomeCMS
 
-TomeCMS is a small Astro blog with a private React editor. Public pages render on the server and send no application JavaScript. The admin area uses Novel for block editing and Supabase for authentication, posts, and image storage.
+TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private React editor. Public Pages, articles, Header, and Footer render on the server and send no application JavaScript. The admin area uses Novel for block editing and Supabase for authentication, content, navigation, and image storage.
 
 ## What is included
 
 - Server-rendered homepage and article pages
 - Draft and published post workflows
+- Standalone Pages and independently ordered Header (MenuBar) and Footer navigation
 - Novel editor with formatting, slash commands, and image uploads
 - Debounced draft saving
-- Admin shell routes for Posts, Media, Profile, and Settings; the focused post editor is outside that shell
+- Admin shell routes for Posts, Pages, Navigation, Media, Profile, and Settings; focused Post and Page editors are outside that shell
 - Manual Thai (TH) and English (EN) editions with independent draft, publish, and unpublish states
-- Localized public routes at `/<locale>` and `/<locale>/blog/<slug>`, with legacy routes redirected to their localized equivalents
+- Localized public routes at `/<locale>`, `/<locale>/blog/<slug>`, and `/<locale>/<slug>`, with legacy blog routes redirected to their localized equivalents
 - Owner-only Preview that saves and opens the newest draft
 - Profile details reused by the global post author block
 - Supabase authentication, Row Level Security, and Storage policies
@@ -147,7 +148,7 @@ On Windows, create `.env.local` from `.env.example` and fill in the same values 
    TOME_CMS_INSTALL_TOKEN=use-a-random-value-with-at-least-24-characters
    ```
 
-4. Run the SQL files in `supabase/migrations/` in filename order. They create the posts table, access policies, media bucket, and the single-row site settings table used to lock the installer.
+4. Run the SQL files in `supabase/migrations/` in filename order. They create Posts, Pages, Navigation, access policies, media tables and bucket, and the single-row site settings table used to lock the installer. The wizard requires all of these tables to be queryable before installation.
 
 5. Start Astro:
 
@@ -175,9 +176,18 @@ npm run admin:reset-installation # Preview a reset to the Wizard Installer
 npm run admin:reset-password # Reset the installed owner password
 npm run test:e2e:media # Run focused Media Library and public blog regressions
 npm run test:e2e:publishing # Run focused multilingual publishing regressions
+npm run test:e2e:pages # Run Pages, Navigation, public blog, and admin shell regressions
 ```
 
 Run `npm run test:e2e:media` and `npm run test:e2e:publishing` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
+
+For `npm run test:e2e:pages`, use an installed local development site with all pending migrations applied, the `blog-media` bucket, and `.env.local` containing the Supabase URL, public key, and server admin key. Complete the Wizard Installer first: the browser tests temporarily lease the existing `site_settings` owner and restore it afterward. Use a development database because tests create and remove accounts and content. Install the locked dependencies with `npm ci` and the Playwright browsers with `npx playwright install chromium webkit`, then run:
+
+```sh
+npm run test:e2e:pages
+```
+
+Playwright starts Astro at `http://127.0.0.1:4322` (or reuses a running server there) and runs desktop Chromium and mobile WebKit projects. The database contracts run once on desktop. Local migrations can also be applied directly with `supabase migration up --local`; the macOS and Windows development helpers run that command automatically.
 
 ## Versioning
 
@@ -222,7 +232,7 @@ For a custom environment file, set `TOMECMS_ENV_FILE` to its path before running
 
 ## Reset TomeCMS to the Wizard Installer
 
-This reset permanently deletes all TomeCMS posts, Media Library records and folders, every object in the dedicated `blog-media` bucket, site settings, and the configured owner account. It keeps the Supabase project, database schema, migrations, bucket, environment file, and installation token.
+This reset permanently deletes all TomeCMS Navigation items, Pages, Posts, Media Library records and folders, every object in the dedicated `blog-media` bucket, site settings, and the configured owner account. The preview lists Navigation and Page counts, and content rows are deleted in that order before Posts and Media. It keeps the Supabase project, database schema, migrations, bucket, environment file, and installation token.
 
 Back up Postgres and Supabase Storage first. Close every Admin tab and stop TomeCMS so an active editor cannot write during the reset. Apply all pending migrations, then preview the exact target and record counts without changing anything:
 
@@ -248,22 +258,42 @@ Authenticated owners manage images at `/admin/media`. Version 1 accepts images o
 
 For cover images, use a 1600 × 900 px canvas when possible, with a recommended minimum of 1200 × 675 px. Aim for 2 MB or less for faster delivery; the hard upload limit remains 8 MB.
 
+## Pages and Navigation
+
+Posts are dated blog articles at `/<locale>/blog/<slug>`. Pages are standalone content such as About or Contact at `/<locale>/<slug>`, for example `/th/about` and `/en/about`. The `blog` Page slug is reserved. Manage Pages at `/admin/pages`; create, edit, and preview them through the Page routes listed below.
+
+Thai and English Page editions have independent content, slugs, and Draft/Published states. Publishing, unpublishing, or deleting one edition does not change its sibling. Only Published editions appear publicly; a missing or Draft edition returns `404` without substituting another language.
+
+At `/admin/navigation`, choose one of the two fixed locations, Header (labelled MenuBar) or Footer, then Thai or English. Each flat menu has its own labels and order; nested menus are not supported. Add Home (the locale's blog index), a Page edition in the selected language, or a custom relative URL starting with `/` or an absolute HTTP(S) URL. Adding to both locations creates independent entries; save each changed menu with **Save menu**.
+
+Draft Page menu items remain saved but hidden publicly. Publishing makes them visible; unpublishing hides them while retaining their positions, and republishing restores them. Deleting a Page edition also deletes its menu references. Public Pages, Header, and Footer are server-rendered; the mobile menu uses a native disclosure and requires no application JavaScript.
+
 ## Main routes
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Published post list |
-| `/blog/[slug]` | Public article with no client-side JavaScript |
+| `/` | Redirect to the default locale's published post list |
+| `/<locale>` | Localized published post list (`th` or `en`) |
+| `/<locale>/blog/<slug>` | Public article with no application JavaScript |
+| `/blog/[slug]` | Legacy article redirect to its localized URL |
+| `/<locale>/<slug>` | Published standalone Page with no application JavaScript |
 | `/sitemap.xml` | Published canonical URLs with accurate modification dates |
 | `/robots.txt` | Crawler rules and sitemap discovery, including OAI-SearchBot |
 | `/admin` | Sign-in and post dashboard |
 | `/admin/media` | Authenticated image Media Library |
 | `/admin/new` | New post editor |
 | `/admin/edit/[id]` | Existing post editor |
+| `/admin/pages` | Authenticated Page list |
+| `/admin/pages/new` | New Page editor |
+| `/admin/pages/edit/[id]` | Existing Page editor |
+| `/admin/pages/preview/[id]` | Owner-only Page preview, excluded from indexing |
+| `/admin/navigation` | Header/Footer menus by language |
 | `/install` | First-run installation wizard |
 | `/api/install/status` | Installer readiness check |
 | `/api/install` | One-time installation endpoint |
 | `/api/posts` | Authenticated post API |
+| `/api/pages` | Authenticated Page list, CRUD, translation, and publication API |
+| `/api/navigation` | Authenticated menu list and replacement API |
 | `/api/upload` | Retired upload endpoint; returns `410 Gone` |
 
 ## Deploy to a VPS
@@ -316,6 +346,10 @@ sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
 
 ### Later deployments
 
+Existing Cloud and Self-hosted installations must apply `supabase/migrations/20260907210000_create_pages_and_navigation.sql` before deploying the Pages/Navigation code. Apply any earlier pending SQL files first, in filename order; existing Posts and site settings need no backfill. For Cloud, run the pending SQL in the target project's SQL Editor. For Self-hosted, run the same SQL against the existing Supabase database using the deployment's administrative SQL client. Track which migrations have already been applied and do not rerun earlier files indiscriminately.
+
+`npm run configure:supabase` configures and verifies the connection; `./scripts/deploy-vps.sh` builds and restarts TomeCMS. Neither command applies remote database migrations or upgrades a Self-hosted Supabase stack. Keep the existing application release running until the database migration succeeds, then deploy the new code.
+
 For every later deployment:
 
 1. Pull the new code.
@@ -327,7 +361,7 @@ For every later deployment:
 ./scripts/deploy-vps.sh
 ```
 
-5. Run smoke checks for the public homepage, a localized article URL, owner sign-in, and a new draft save.
+5. Run smoke checks for the public homepage, a localized article and Page URL, Header/Footer links, owner sign-in, and a new draft save. `/api/install/status` should report `migration: true` when all required tables are queryable.
 
 Never seed or reset production. `supabase db reset` is only for deliberately disposable local development data.
 
