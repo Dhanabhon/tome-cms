@@ -133,11 +133,13 @@ test('navigation accepts label/item limits and normalizes safe URLs', async ({ p
         custom(' HTTPS://EXAMPLE.COM:443/a/../b?x=1#part ', 'a'.repeat(80)),
         custom('http://EXAMPLE.COM:80'), custom(' /th/about?x=1#part '),
         custom('/' + 'a'.repeat(2047)),
+        custom(`https://example.com/${'segment/../'.repeat(200)}short`),
       ]),
     });
     expect(response.status()).toBe(200);
     expect((await response.json()).items.map((item: NavigationItem) => item.url)).toEqual([
       'https://example.com/b?x=1#part', 'http://example.com/', '/th/about?x=1#part', '/' + 'a'.repeat(2047),
+      'https://example.com/short',
     ]);
     const maximum = await page.request.put('/api/navigation', {
       data: menu(Array.from({ length: 50 }, (_, index) => custom(`/item-${index}`))),
@@ -148,6 +150,49 @@ test('navigation accepts label/item limits and normalizes safe URLs', async ({ p
     expect(emptied.status()).toBe(200);
     expect(await emptied.json()).toEqual({ items: [] });
   } finally {
+    await cleanup(owner);
+  }
+});
+
+test('navigation maps provider authentication rejection to 401 for GET and PUT while unexpected failures stay 500', async ({ page }, testInfo) => {
+  const owner = await createOwner('navigation-auth-error');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: false, envPrefix: 'PUBLIC_', appType: 'custom', cacheDir: testInfo.outputPath('vite-cache'),
+    server: { middlewareMode: true, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true },
+  });
+  const originalFetch = globalThis.fetch;
+  try {
+    await signInAdmin(page, owner);
+    const { GET, PUT } = await vite.ssrLoadModule('/src/pages/api/navigation/index.ts') as { GET: APIRoute; PUT: APIRoute };
+    const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
+    for (const status of [401, 403, 500]) {
+      globalThis.fetch = async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        if (url.pathname === '/auth/v1/user') {
+          return Response.json({
+            error_code: status === 500 ? 'unexpected_failure' : 'bad_jwt',
+            message: `Private authentication failure ${owner.id}`,
+          }, { status });
+        }
+        return originalFetch(input, init);
+      };
+      for (const [method, handler] of [['GET', GET], ['PUT', PUT]] as const) {
+        const response = await handler(createContext({
+          request: new Request(new URL('/api/navigation', page.url()), {
+            method, headers: { cookie, 'content-type': 'application/json' },
+            ...(method === 'PUT' ? { body: JSON.stringify(menu([])) } : {}),
+          }), defaultLocale: 'en', locals: {},
+        }));
+        expect(response.status, `${method}, provider status ${status}`).toBe(status === 500 ? 500 : 401);
+        expect(await response.json()).toEqual({
+          error: status === 500 ? 'Navigation could not be loaded or saved.' : 'Authentication required.',
+        });
+      }
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    await vite.close();
     await cleanup(owner);
   }
 });
@@ -269,6 +314,37 @@ test('public resolver filters owner and published locale, caches for five second
     }));
     expect(response.status).toBe(200);
     expect((await getPublicNavigation('th')).header).toEqual([{ href: '/th', label: 'Updated', kind: 'home' }]);
+
+    invalidatePublicNavigationCache();
+    let releaseRead!: () => void;
+    let readReady!: () => void;
+    const heldRead = new Promise<void>((resolve) => { releaseRead = resolve; });
+    const readStarted = new Promise<void>((resolve) => { readReady = resolve; });
+    let deferNextRead = true;
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const read = await originalFetch(input, init);
+      if (deferNextRead && url.pathname === '/rest/v1/navigation_items') {
+        deferNextRead = false;
+        readReady();
+        await heldRead;
+      }
+      return read;
+    };
+    const oldRead = getPublicNavigation('th');
+    try {
+      await readStarted;
+      const replacement = await PUT(createContext({
+        request: new Request(new URL('/api/navigation', page.url()), {
+          method: 'PUT', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(menu([home('Newest')])),
+        }), defaultLocale: 'en', locals: {},
+      }));
+      expect(replacement.status).toBe(200);
+    } finally {
+      releaseRead();
+    }
+    expect((await oldRead).header).toEqual([{ href: '/th', label: 'Updated', kind: 'home' }]);
+    expect((await getPublicNavigation('th')).header).toEqual([{ href: '/th', label: 'Newest', kind: 'home' }]);
 
     invalidatePublicNavigationCache();
     globalThis.fetch = async (input, init) => {
