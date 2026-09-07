@@ -1,17 +1,7 @@
+import { editorText } from './editor-content';
 import type { EditorNode, Post, PostLocale, PostStatus } from '../types/cms';
 
-const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList']);
-
-export function editorText(node: EditorNode): string {
-  if (typeof node.text === 'string') return node.text;
-  return (node.content ?? []).map(editorText).join(BLOCKS.has(node.type ?? '') ? ' ' : '');
-}
-
-export function hasMeaningfulContent(node: EditorNode) {
-  if (node.type === 'image') return true;
-  if (typeof node.text === 'string' && node.text.trim()) return true;
-  return (node.content ?? []).some(hasMeaningfulContent);
-}
+export { editorText, hasMeaningfulContent } from './editor-content';
 
 export function postExcerpt(post: Pick<Post, 'content_json' | 'meta_description'>, fallback: string) {
   if (post.meta_description) return post.meta_description;

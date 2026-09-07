@@ -1,4 +1,4 @@
-import type { Post, PostLocale } from '../types/cms';
+import type { Page, Post, PostLocale } from '../types/cms';
 import { POST_LOCALES } from '../types/cms';
 
 export function isPostLocale(value: string | null | undefined): value is PostLocale {
@@ -7,4 +7,5 @@ export function isPostLocale(value: string | null | undefined): value is PostLoc
 
 export const localePath = (locale: PostLocale) => `/${locale}`;
 export const postPath = (post: Pick<Post, 'locale' | 'slug'>) => `/${post.locale}/blog/${encodeURIComponent(post.slug)}`;
+export const pagePath = (page: Pick<Page, 'locale' | 'slug'>) => `/${page.locale}/${encodeURIComponent(page.slug)}`;
 export const otherLocale = (locale: PostLocale): PostLocale => locale === 'th' ? 'en' : 'th';
