@@ -7,9 +7,17 @@ dist/
 .env.*
 !.env.example
 
-# Local tools and generated previews
-.superpowers/
-.impeccable/
+# Local AI tools, skills, and generated previews
+/.agent/
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.gemini/
+/.hallmark/
+/.impeccable/
+/.superpowers/
+/docs/superpowers/
 test-results/
 
 # Design source sheets are not runtime assets
