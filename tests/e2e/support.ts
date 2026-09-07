@@ -66,6 +66,10 @@ export async function cleanupEditor(page: Page, ...owners: TestOwner[]) {
     await page.close();
   }
   for (const owner of owners) {
+    const { error: navigationError } = await admin.from('navigation_items').delete().eq('owner_id', owner.id);
+    if (navigationError) throw navigationError;
+    const { error: pagesError } = await admin.from('pages').delete().eq('author_id', owner.id);
+    if (pagesError) throw pagesError;
     const { error } = await admin.from('posts').delete().eq('author_id', owner.id);
     if (error) throw error;
     await deleteOwner(owner);
