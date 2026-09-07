@@ -17,9 +17,10 @@ let availableLocales: PostAlternate[] = [];
 let loadError = false;
 
 try {
-  if (!isPostLocale(localeValue) || !slug || RESERVED_PAGE_SLUGS.has(slug) || !settings) {
+  if (!isPostLocale(localeValue) || !slug || RESERVED_PAGE_SLUGS.has(slug)) {
     Astro.response.status = 404;
   } else {
+    if (!settings) throw new Error('Site settings are unavailable.');
     const supabase = createServiceRoleSupabaseClient();
     const { data, error } = await supabase.from('pages').select('*')
       .eq('locale', locale).eq('slug', slug).eq('author_id', settings.owner_id)
