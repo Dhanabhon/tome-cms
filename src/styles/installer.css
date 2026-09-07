@@ -1,4 +1,7 @@
-/* TomeCMS installer · DESIGN.md + DESIGN-TOKENS.json */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4
+ * genre: modern-minimal · tone: calm and friendly · anchor hue: teal · macrostructure: Progressive Rail
+ * contrast: pass (40–41) · mobile: pass (34, 49, 50–57)
+ */
 @import './brand.css';
 @import './ui-controls.css';
 
@@ -333,6 +336,13 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   font-weight: 600;
 }
 .installer-success-kicker { color: var(--color-ink) !important; font-size: var(--text-sm); font-weight: 500; }
+.installer-admin-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.installer-admin-url { padding-inline: var(--space-sm); }
 .installer-footer {
   margin: 0;
   padding: var(--space-lg) clamp(var(--space-md), 4vw, var(--space-2xl));
@@ -354,6 +364,7 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   .installer-intro p { justify-self: end; }
   .installer-progress-label { display: inline; overflow-wrap: anywhere; }
   .installer-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .installer-admin-url-row { grid-template-columns: minmax(0, 1fr) auto; }
 }
 @media (min-width: 64rem) {
   .installer-workspace { grid-template-columns: minmax(18rem, 0.72fr) minmax(0, 1.28fr); }

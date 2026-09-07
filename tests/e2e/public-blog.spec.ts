@@ -139,6 +139,8 @@ test('localized published editions render without public JavaScript', async ({ b
     await expect(languageMenu.getByRole('link', { name: 'English (US)' })).toBeVisible();
     await expect(languageMenu.getByRole('link', { name: 'ไทย' })).toBeVisible();
     await expect(publicPage.locator(`header a[href="/${sibling.locale}/blog/${sibling.slug}"]`)).toBeVisible();
+    await expect(publicPage.locator('header nav[aria-label="Primary"], footer nav[aria-label="Footer"]')).toHaveCount(0);
+    await expect(publicPage.locator('header a[href="/admin"], footer a[href="/admin"]')).toHaveCount(0);
     await expect(publicPage.getByRole('heading', { name: 'Public media regression', level: 2 })).toBeVisible();
     await expect(publicPage.getByText('Visible without JavaScript.')).toBeVisible();
 
@@ -225,7 +227,9 @@ test('localized published editions render without public JavaScript', async ({ b
       '',
     );
     expect(html).not.toMatch(/<script[^>]+type=["']module["']/i);
+    expect(html.match(/<script(?![^>]*type=["']application\/ld\+json["'])[^>]*>/gi) ?? []).toEqual([]);
     expect(html).not.toContain('astro-island');
+    expect(html).not.toContain('data-page-transition');
     expect(html).not.toContain('alert("unsafe")');
     expect(html).toContain('Public media regression');
 

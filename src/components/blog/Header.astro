@@ -3,13 +3,12 @@ import { localePath } from '../../lib/i18n';
 import type { PostAlternate, PostLocale } from '../../types/cms';
 
 interface Props {
-  active?: 'admin' | 'writing';
   availableLocales?: PostAlternate[];
   locale?: PostLocale;
   siteName?: string;
 }
 
-const { active, availableLocales = [], locale = 'en', siteName = 'TomeCMS' } = Astro.props;
+const { availableLocales = [], locale = 'en', siteName = 'TomeCMS' } = Astro.props;
 const languageLabels: Record<PostLocale, string> = { en: 'English (US)', th: 'ไทย' };
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
@@ -17,49 +16,35 @@ const languageOptions = availableLocales
 ---
 
 <header class="border-b border-line">
-  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-5 sm:flex-nowrap sm:px-7">
-    <a class="min-w-0 flex-1 basis-full truncate font-display text-xl font-bold tracking-tight text-ink sm:basis-auto sm:text-[22px]" href={localePath(locale)}>{siteName}</a>
-    <div class="contents sm:flex sm:shrink-0 sm:items-center sm:gap-7">
-      <nav aria-label="Primary" class="order-2 flex shrink-0 items-center gap-4 text-sm sm:order-none sm:gap-7 sm:text-base">
-        <a
-          class:list={['border-b-2 py-1 transition-colors', active === 'writing' ? 'border-accent text-accent' : 'border-transparent text-ink hover:text-accent']}
-          href={localePath(locale)}
-          aria-current={active === 'writing' ? 'page' : undefined}>Writing</a
+  <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
+    <a class="min-w-0 flex-1 truncate font-display text-xl font-bold tracking-tight text-ink sm:text-[22px]" href={localePath(locale)}>{siteName}</a>
+    {languageOptions.length > 1 && (
+      <div class="language-switcher">
+        <button
+          aria-label={`Change language. Current language: ${languageLabels[locale]}`}
+          class="language-switcher__trigger"
+          popovertarget="language-switcher-menu"
+          type="button"
         >
-        <a
-          class:list={['border-b-2 py-1 transition-colors', active === 'admin' ? 'border-accent text-accent' : 'border-transparent text-ink hover:text-accent']}
-          href="/admin"
-          aria-current={active === 'admin' ? 'page' : undefined}>Admin</a
-        >
-      </nav>
-      {languageOptions.length > 1 && (
-        <div class="language-switcher">
-          <button
-            aria-label={`Change language. Current language: ${languageLabels[locale]}`}
-            class="language-switcher__trigger"
-            popovertarget="language-switcher-menu"
-            type="button"
-          >
-            <span>{languageLabels[locale]}</span>
-            <svg aria-hidden="true" class="language-switcher__chevron" fill="none" viewBox="0 0 24 24">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-          <nav aria-label="Choose language" class="language-switcher__menu" id="language-switcher-menu" popover="auto">
-            {languageOptions.map((alternate) => (
-              <a
-                aria-current={alternate.locale === locale ? 'page' : undefined}
-                href={alternate.href}
-              >
-                <span>{languageLabels[alternate.locale]}</span>
-                {alternate.locale === locale && (
-                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>
-                )}
-              </a>
-            ))}
-          </nav>
-        </div>
-      )}
-    </div>
+          <span>{languageLabels[locale]}</span>
+          <svg aria-hidden="true" class="language-switcher__chevron" fill="none" viewBox="0 0 24 24">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <nav aria-label="Choose language" class="language-switcher__menu" id="language-switcher-menu" popover="auto">
+          {languageOptions.map((alternate) => (
+            <a
+              aria-current={alternate.locale === locale ? 'page' : undefined}
+              href={alternate.href}
+            >
+              <span>{languageLabels[alternate.locale]}</span>
+              {alternate.locale === locale && (
+                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>
+              )}
+            </a>
+          ))}
+        </nav>
+      </div>
+    )}
   </div>
 </header>

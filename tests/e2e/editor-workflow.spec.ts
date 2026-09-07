@@ -669,6 +669,7 @@ test('publishing surfaces stay within the required project-specific viewports', 
       await expectNoHorizontalOverflow(page);
 
       await page.goto(`/${source.locale}/blog/${source.slug}`);
+      await page.getByRole('button', { name: /Change language/ }).click();
       await expect(page.locator(`header a[href="/${siblingLocale}/blog/${siblingSlug}"]`)).toBeVisible();
       await expectNoHorizontalOverflow(page);
     }

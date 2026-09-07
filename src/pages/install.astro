@@ -244,6 +244,14 @@ const copy = english
             <p class="installer-success-kicker">{english ? 'All four steps are complete' : 'ตั้งค่าครบทั้ง 4 ขั้นตอน'}</p>
             <h2 tabindex="-1">{english ? 'Your site is ready' : 'เว็บไซต์พร้อมแล้ว'}</h2>
             <p>{english ? 'The installer is closed. You can now open Admin and start writing.' : 'Installer ถูกปิดเรียบร้อย ต่อจากนี้คุณเข้าสู่ Admin และเริ่มเขียนบทความได้'}</p>
+            <div class="installer-field">
+              <label for="admin-url">{english ? 'Admin URL' : 'URL สำหรับเข้าระบบหลังบ้าน'}</label>
+              <div class="installer-admin-url-row">
+                <input class="installer-control installer-admin-url" id="admin-url" data-admin-url type="url" readonly aria-describedby="admin-url-help" />
+                <button class="installer-button" type="button" data-copy-admin-url aria-live="polite">{english ? 'Copy' : 'คัดลอก'}</button>
+              </div>
+              <p class="installer-helper" id="admin-url-help">{english ? 'Save or bookmark this Admin sign-in address.' : 'บันทึกหรือ Bookmark URL นี้ไว้สำหรับกลับมาเขียนบทความ'}</p>
+            </div>
             <div class="installer-actions"><a class="installer-button installer-button--primary" href="/admin">{english ? 'Open Admin' : 'ไปหน้า Admin'}</a></div>
           </section>
         </form>
@@ -264,6 +272,8 @@ const copy = english
       const progressRemaining = document.querySelector('[data-progress-remaining]');
       const retryButton = document.querySelector('[data-retry]');
       const firstNextButton = document.querySelector('[data-step="1"] [data-next]');
+      const adminUrlInput = document.querySelector('[data-admin-url]');
+      const copyAdminUrlButton = document.querySelector('[data-copy-admin-url]');
       let currentStep = 1;
       let readinessReady = false;
       let submitting = false;
@@ -291,7 +301,26 @@ const copy = english
         installing: english ? 'Installing…' : 'กำลังติดตั้ง…',
         install: english ? 'Install TomeCMS' : 'ติดตั้ง TomeCMS',
         installed: english ? 'Installed' : 'ติดตั้งแล้ว',
+        copy: english ? 'Copy' : 'คัดลอก',
+        copied: english ? 'Copied' : 'คัดลอกแล้ว',
+        copyFailed: english ? 'URL selected' : 'เลือก URL แล้ว',
       };
+
+      copyAdminUrlButton.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(adminUrlInput.value);
+          copyAdminUrlButton.textContent = text.copied;
+          copyAdminUrlButton.dataset.state = 'success';
+        } catch {
+          adminUrlInput.focus();
+          adminUrlInput.select();
+          copyAdminUrlButton.textContent = text.copyFailed;
+        }
+        window.setTimeout(() => {
+          copyAdminUrlButton.textContent = text.copy;
+          delete copyAdminUrlButton.dataset.state;
+        }, 2500);
+      });
 
       function showAlert(message) {
         alertElement.textContent = message;
@@ -432,6 +461,7 @@ const copy = english
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || text.statusError);
+          adminUrlInput.value = new URL('/admin', window.location.origin).href;
           steps[3].hidden = true;
           document.querySelector('[data-success]').hidden = false;
           document.querySelector('[data-success] h2')?.focus({ preventScroll: true });

@@ -23,37 +23,6 @@ test('shared database suite defaults to one worker', async () => {
   expect(config.workers).toBe(1);
 });
 
-test('internal page changes expose a reduced-motion skeleton', async ({ page }) => {
-  let releaseRequest = () => {};
-  const requestGate = new Promise<void>((resolve) => { releaseRequest = resolve; });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/en');
-  const transition = page.locator('[data-page-transition]');
-  await expect(transition).toHaveCount(1);
-  await expect(transition).toBeHidden();
-  await recordNextPageTransition(page, 'public-page-transition');
-  await page.route('**/admin', async (route) => {
-    await requestGate;
-    await route.continue();
-  });
-
-  try {
-    const navigationRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/admin' && request.resourceType() === 'document');
-    await page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name: 'Admin', exact: true }).click({ noWaitAfter: true });
-    await navigationRequest;
-  } finally {
-    releaseRequest();
-  }
-
-  await expect(page).toHaveURL(/\/admin$/);
-  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('public-page-transition')!))).toEqual({
-    animation: 'none', busy: 'true', popoverOpen: true, status: 'Loading page…',
-  });
-  await expect(page.locator('[data-page-transition]')).toHaveCount(1);
-  await expect(page.locator('[data-page-transition]')).toBeHidden();
-  await expect(page.locator('body')).not.toHaveAttribute('aria-busy', 'true');
-});
-
 test('Admin navigation, mobile focus, and sign out', async ({ page }, testInfo) => {
   const owner = await createOwner('admin-shell');
   const restore = await leaseSiteOwner(owner);
@@ -168,7 +137,7 @@ for (const [bookmark, destination] of [
       await expect(page).toHaveURL(new URL(destination, page.url()).href);
       if (destination.includes('locale=en')) {
         await expect(page.getByRole('tab', { name: 'Published' })).toHaveAttribute('aria-selected', 'true');
-        await expect(page.getByLabel('Language', { exact: true })).toHaveValue('en');
+        await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveAttribute('data-value', 'en');
         await expect(page.getByLabel('Search posts')).toHaveValue('story');
       }
     } finally {

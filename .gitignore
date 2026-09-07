@@ -10,6 +10,7 @@ dist/
 # Local tools and generated previews
 .superpowers/
 .impeccable/
+test-results/
 
 # Design source sheets are not runtime assets
 public/brand/*-brand-kit.png
