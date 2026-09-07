@@ -100,10 +100,10 @@ test.describe('Pages and Navigation database contracts', () => {
       expect((await a.from('navigation_items').insert(reference)).error?.code).toBe('23505');
 
       const replacement = [
-        { kind: 'home', label: ' Home ', pageId: null, url: null },
-        { kind: 'page', label: 'About', pageId: page.id, url: null },
-        { kind: 'custom', label: 'Contact', pageId: null, url: ' /contact ' },
-        { kind: 'custom', label: 'External', pageId: null, url: 'https://example.com/contact' },
+        { kind: 'home', label: ' Home ', page_id: null, url: null },
+        { kind: 'page', label: 'About', page_id: page.id, url: null },
+        { kind: 'custom', label: 'Contact', page_id: null, url: ' /contact ' },
+        { kind: 'custom', label: 'External', page_id: null, url: 'https://example.com/contact' },
       ] satisfies Json;
       const replace = (menu_items: Json) => a.rpc('replace_navigation_items', { target_locale: 'th', target_location: 'header', menu_items });
       const menu = await replace(replacement);
@@ -122,8 +122,8 @@ test.describe('Pages and Navigation database contracts', () => {
       }
       expect((await anonymous.from('navigation_items').select('id')).error?.code).toBe('42501');
       expect((await anonymous.rpc('replace_navigation_items', { target_locale: 'th', target_location: 'header', menu_items: [] })).error?.code).toBe('42501');
-      const home = { kind: 'home', label: 'Home', pageId: null, url: null };
-      const custom = { kind: 'custom', label: 'Custom', pageId: null, url: '/contact' };
+      const home = { kind: 'home', label: 'Home', page_id: null, url: null };
+      const custom = { kind: 'custom', label: 'Custom', page_id: null, url: '/contact' };
       const invalidMenus: Json[] = [
         null, {}, Array.from({ length: 51 }, () => home),
         [home, home], [replacement[1], replacement[1]],
@@ -132,9 +132,9 @@ test.describe('Pages and Navigation database contracts', () => {
         [home, { ...custom, url: '//example.com' }], [home, { ...custom, url: 'javascript:alert(1)' }],
         [home, { ...custom, url: 'https://example.com/has space' }],
         [home, { ...custom, url: '/\\example.com' }],
-        [home, { ...custom, pageId: page.id }], [home, { ...home, url: '/' }],
-        [home, { kind: 'page', label: 'Wrong locale', pageId: sibling.id, url: null }],
-        [home, { kind: 'unknown', label: 'Unknown', pageId: null, url: null }],
+        [home, { ...custom, page_id: page.id }], [home, { ...home, url: '/' }],
+        [home, { kind: 'page', label: 'Wrong locale', page_id: sibling.id, url: null }],
+        [home, { kind: 'unknown', label: 'Unknown', page_id: null, url: null }],
       ];
       for (const invalid of invalidMenus) {
         expect((await replace(invalid)).error).not.toBeNull();
