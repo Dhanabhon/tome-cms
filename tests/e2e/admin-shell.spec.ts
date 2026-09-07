@@ -47,7 +47,12 @@ test('Admin navigation, mobile focus, and sign out', async ({ page }, testInfo) 
       await expect(opener).not.toBeVisible();
     }
     const navigation = mobile ? dialog.getByRole('navigation') : page.locator('.admin-sidebar').getByRole('navigation');
-    await expect(navigation.getByRole('link')).toHaveText(['Posts', 'Media', 'Profile', 'Settings']);
+    await expect(navigation.getByRole('link')).toHaveText(['Posts', 'Pages', 'Media', 'Navigation', 'Profile', 'Settings']);
+    await expect(navigation.getByRole('link', { name: 'Pages', exact: true })).toHaveAttribute('href', '/admin/pages');
+    await expect(navigation.getByRole('link', { name: 'Navigation', exact: true })).toHaveAttribute('href', '/admin/navigation');
+    const viewSite = page.getByRole('link', { name: 'View site (opens in a new tab)' });
+    await expect(viewSite).toHaveAttribute('target', '_blank');
+    await expect(viewSite).toHaveAttribute('rel', 'noopener noreferrer');
     await expect(navigation.getByRole('link', { name: 'Posts', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('link', { name: 'Stats', exact: true })).toHaveCount(0);
     let releaseProfile = () => {};
@@ -186,7 +191,7 @@ test('editor routes retain one main in loading, authenticated, and error states'
     expect(error).toBeNull();
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    for (const path of ['/admin', '/admin/media', '/admin/profile', '/admin/settings']) {
+    for (const path of ['/admin', '/admin/pages', '/admin/media', '/admin/profile', '/admin/settings']) {
       await page.goto(path);
       await expect(page.getByRole('main')).toHaveCount(1);
     }
