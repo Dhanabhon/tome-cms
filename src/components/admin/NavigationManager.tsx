@@ -159,7 +159,7 @@ export default function NavigationManager() {
     });
   }
 
-  async function save() {
+  async function save(restoreFocus = false) {
     if (savingRef.current || !dirty[key]) return;
     if (items.some((item) => !item.label.trim() || item.label.trim().length > 80)) {
       setSaveError('Enter a label between 1 and 80 characters for every item.');
@@ -186,6 +186,7 @@ export default function NavigationManager() {
     } finally {
       savingRef.current = false;
       setSaving(false);
+      if (restoreFocus) requestAnimationFrame(() => addButton.current?.focus());
     }
   }
 
@@ -233,7 +234,7 @@ export default function NavigationManager() {
               <button className="admin-button admin-button--primary" data-state={saving ? 'loading' : undefined} disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? 'Saving…' : 'Save menu'}</button>
               <span>{dirty[key] ? 'Unsaved changes in this menu' : 'No unsaved changes in this menu'}</span>
             </div>
-            {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save()} type="button">Retry save</button></div>}
+            {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">Retry save</button></div>}
           </div>
         </div>
       </>}
