@@ -22,13 +22,13 @@ try {
     settings = await getSiteSettings();
   }
 } catch (error) {
-  console.error('Media library authentication failed:', error);
+  console.error('File Library authentication failed:', error);
   Astro.response.status = 500;
-  errorMessage = 'The media library is temporarily unavailable.';
+  errorMessage = 'The file library is temporarily unavailable.';
 }
 ---
 
-<AdminLayout title="Media">
+<AdminLayout title="File Library">
   {authRequired || errorMessage ? (
     <main><p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p></main>
   ) : (

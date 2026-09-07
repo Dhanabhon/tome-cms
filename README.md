@@ -9,7 +9,7 @@ TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private 
 - Standalone Pages and independently ordered Header (MenuBar) and Footer navigation
 - Novel editor with formatting, slash commands, and image uploads
 - Debounced draft saving
-- Admin shell routes for Posts, Pages, Navigation, Media, Profile, and Settings; focused Post and Page editors are outside that shell
+- Admin shell routes for Posts, Pages, Navigation, Files, Profile, and Settings; focused Post and Page editors are outside that shell
 - Manual Thai (TH) and English (EN) editions with independent draft, publish, and unpublish states
 - Localized public routes at `/<locale>`, `/<locale>/blog/<slug>`, and `/<locale>/<slug>`, with legacy blog routes redirected to their localized equivalents
 - Owner-only Preview that saves and opens the newest draft
@@ -174,7 +174,7 @@ npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
 npm run admin:reset-installation # Preview a reset to the Wizard Installer
 npm run admin:reset-password # Reset the installed owner password
-npm run test:e2e:media # Run focused Media Library and public blog regressions
+npm run test:e2e:media # Run focused File Library and public blog regressions
 npm run test:e2e:publishing # Run focused multilingual publishing regressions
 npm run test:e2e:pages # Run Pages, Navigation, public blog, and admin shell regressions
 ```
@@ -232,7 +232,7 @@ For a custom environment file, set `TOMECMS_ENV_FILE` to its path before running
 
 ## Reset TomeCMS to the Wizard Installer
 
-This reset permanently deletes all TomeCMS Navigation items, Pages, Posts, Media Library records and folders, every object in the dedicated `blog-media` bucket, site settings, and the configured owner account. The preview lists Navigation and Page counts, and content rows are deleted in that order before Posts and Media. It keeps the Supabase project, database schema, migrations, bucket, environment file, and installation token.
+This reset permanently deletes all TomeCMS Navigation items, Pages, Posts, File Library records and folders, every object in the dedicated `blog-media` bucket, site settings, and the configured owner account. The preview lists Navigation and Page counts, and content rows are deleted in that order before Posts and file records. It keeps the Supabase project, database schema, migrations, bucket, environment file, and installation token.
 
 Back up Postgres and Supabase Storage first. Close every Admin tab and stop TomeCMS so an active editor cannot write during the reset. Apply all pending migrations, then preview the exact target and record counts without changing anything:
 
@@ -252,7 +252,7 @@ If the command exits after deletion begins, keep TomeCMS stopped. Restore the Po
 
 After completion, restart TomeCMS, open `/install`, and use the existing `TOME_CMS_INSTALL_TOKEN`. The old owner's refresh sessions are removed with the account, but an already-issued access token can remain valid until its expiry.
 
-## Media Library
+## File Library
 
 Authenticated owners manage images at `/admin/media`. Version 1 accepts images only: JPEG, PNG, WebP, GIF, and AVIF, with a hard limit of 8 MB per file. SVG, video, audio, PDFs, and other documents are not supported.
 
@@ -280,7 +280,7 @@ Draft Page menu items remain saved but hidden publicly. Publishing makes them vi
 | `/sitemap.xml` | Published canonical URLs with accurate modification dates |
 | `/robots.txt` | Crawler rules and sitemap discovery, including OAI-SearchBot |
 | `/admin` | Sign-in and post dashboard |
-| `/admin/media` | Authenticated image Media Library |
+| `/admin/media` | Authenticated image File Library |
 | `/admin/new` | New post editor |
 | `/admin/edit/[id]` | Existing post editor |
 | `/admin/pages` | Authenticated Page list |
