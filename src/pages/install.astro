@@ -240,13 +240,21 @@ const copy = english
             </dl>
             <div class="installer-field">
               <label for="installation-token">Installation token<span class="installer-required-mark" aria-hidden="true"> *</span></label>
-              <input class="installer-control" id="installation-token" name="installationToken" type="password" autocomplete="off" required placeholder={english ? 'Paste the token from your VPS' : 'วาง token จาก VPS'} aria-describedby="installation-token-help" />
+              <input class="installer-control" id="installation-token" name="installationToken" type="password" autocomplete="off" required placeholder={english ? 'Paste the token from your environment file' : 'วาง token จากไฟล์ environment'} aria-describedby="installation-token-help" />
               <p class="installer-helper" id="installation-token-help">{english ? 'The token is never stored when verification fails.' : 'ระบบไม่บันทึก token หากไม่ผ่าน คุณแก้แล้วลองใหม่ได้'}</p>
             </div>
             <details class="installer-help">
               <summary>{english ? 'Where is the installation token?' : 'Installation token อยู่ที่ไหน?'}</summary>
-              <p>{english ? 'On the VPS, run this command:' : 'บน VPS ให้รันคำสั่งนี้:'}</p>
-              <code>sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env</code>
+              <div class="installer-help-options">
+                <div class="installer-help-option">
+                  <p><strong>Local</strong> — {english ? 'run from the TomeCMS project folder:' : 'รันจากโฟลเดอร์โปรเจกต์ TomeCMS:'}</p>
+                  <code>grep '^TOME_CMS_INSTALL_TOKEN=' .env.local</code>
+                </div>
+                <div class="installer-help-option">
+                  <p><strong>VPS</strong> — {english ? 'run on the server:' : 'รันบนเซิร์ฟเวอร์:'}</p>
+                  <code>sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env</code>
+                </div>
+              </div>
             </details>
             <div class="installer-actions">
               <button class="installer-button" type="button" data-back>{english ? 'Back' : 'ย้อนกลับ'}</button>
@@ -298,20 +306,20 @@ const copy = english
             ['System ready', 'All required services are connected. You can begin setting up your site.', 'Sensitive details are sent over a secure connection only.'],
             ['Start with the public site', 'Choose the name, tagline, language, and timezone your readers will see.', 'You can change these details later in Settings.'],
             ['Your owner account', 'Create one account for administration and publishing.', 'Use at least 12 characters and a password you do not reuse elsewhere.'],
-            ['Ready to install', 'Review the details, then use the token from your VPS to confirm.', 'After installation, this page closes permanently.'],
+            ['Ready to install', 'Review the details, then use the token from your environment file to confirm.', 'After installation, this page closes permanently.'],
           ]
         : [
             ['ระบบพร้อมแล้ว', 'ทุกส่วนที่ TomeCMS ต้องใช้เชื่อมต่อเรียบร้อย คุณเริ่มตั้งค่าเว็บไซต์ได้เลย', 'ข้อมูลสำคัญส่งผ่านการเชื่อมต่อที่ปลอดภัยเท่านั้น'],
             ['เริ่มจากหน้าบ้าน', 'กำหนดชื่อ Tagline ภาษา และเวลาที่ผู้อ่านจะเห็นเมื่อเปิดเว็บไซต์', 'คุณแก้ข้อมูลเหล่านี้ภายหลังได้ใน Settings'],
             ['บัญชีเจ้าของเว็บไซต์', 'สร้างบัญชีเดียวสำหรับดูแลระบบและเผยแพร่เนื้อหา', 'ใช้รหัสผ่านอย่างน้อย 12 ตัวอักษรและไม่ซ้ำกับบริการอื่น'],
-            ['พร้อมติดตั้ง', 'ตรวจข้อมูลครั้งสุดท้าย แล้วใช้ token จาก VPS เพื่อยืนยัน', 'เมื่อติดตั้งสำเร็จ หน้านี้จะถูกปิดถาวร'],
+            ['พร้อมติดตั้ง', 'ตรวจข้อมูลครั้งสุดท้าย แล้วใช้ token จากไฟล์ environment เพื่อยืนยัน', 'เมื่อติดตั้งสำเร็จ หน้านี้จะถูกปิดถาวร'],
           ];
 
       const text = {
         checking: english ? 'Checking' : 'กำลังตรวจ',
         ready: english ? 'Ready' : 'พร้อม',
         unavailable: english ? 'Needs attention' : 'ต้องแก้ไข',
-        statusError: english ? 'The system check did not finish. Check the VPS settings and try again.' : 'ตรวจระบบไม่สำเร็จ กรุณาตรวจค่าบน VPS แล้วลองอีกครั้ง',
+        statusError: english ? 'The system check did not finish. Check the environment settings and try again.' : 'ตรวจระบบไม่สำเร็จ กรุณาตรวจการตั้งค่า environment แล้วลองอีกครั้ง',
         invalidStep: english ? 'Check the highlighted field, then try again.' : 'ตรวจช่องที่มีปัญหาแล้วลองอีกครั้ง',
         installing: english ? 'Installing…' : 'กำลังติดตั้ง…',
         install: english ? 'Install TomeCMS' : 'ติดตั้ง TomeCMS',
@@ -352,7 +360,7 @@ const copy = english
         if (field.name === 'email' && !field.validity.valid) return english ? 'Enter a complete email address, including the domain.' : 'รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจชื่อและโดเมน';
         if (field.name === 'password' && field.value.length < 12) return english ? 'Use at least 12 characters.' : 'รหัสผ่านต้องมีอย่างน้อย 12 ตัวอักษร';
         if (field.name === 'passwordConfirm' && field.value !== form.elements.password.value) return english ? 'The passwords do not match. Enter the first password again.' : 'รหัสผ่านไม่ตรงกัน กรุณากรอกรหัสผ่านแรกอีกครั้ง';
-        if (field.name === 'installationToken' && !field.value) return english ? 'Paste the installation token from your VPS.' : 'วาง installation token จาก VPS ก่อนติดตั้ง';
+        if (field.name === 'installationToken' && !field.value) return english ? 'Paste the installation token from your environment file.' : 'วาง installation token จากไฟล์ environment ก่อนติดตั้ง';
         return '';
       }
 

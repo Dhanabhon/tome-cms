@@ -251,6 +251,7 @@ h1, h2, p { margin-block-start: 0; }
   color: var(--color-ink);
   transition: background-color var(--dur-short) var(--ease-out);
 }
+.installer-control.ui-select__trigger { padding-inline-end: var(--space-sm); }
 textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm); resize: vertical; }
 .installer-control::placeholder { color: var(--color-placeholder); opacity: 1; }
 .installer-control:focus-visible { border-color: var(--color-focus); outline-color: var(--color-focus); outline-offset: 0; }
@@ -272,6 +273,19 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
 .installer-help summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 .installer-help summary:active { color: var(--color-focus); }
 .installer-help p { margin: 0 0 var(--space-sm); color: var(--color-muted); }
+.installer-help-options { display: grid; gap: var(--space-md); padding-block-end: var(--space-xs); }
+.installer-help-option { display: grid; gap: var(--space-xs); min-width: 0; }
+.installer-help-option p { margin: 0; }
+.installer-help code {
+  display: block;
+  max-width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  overflow-x: auto;
+  border-radius: var(--radius-input);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  white-space: nowrap;
+}
 .installer-review { display: grid; margin: 0; }
 .installer-review-row {
   display: grid;
