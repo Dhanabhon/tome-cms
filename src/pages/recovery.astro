@@ -1,0 +1,33 @@
+---
+import RecoveryPasskey from '../components/admin/RecoveryPasskey';
+import AdminLayout from '../layouts/AdminLayout.astro';
+import { normalizeAdminPath } from '../lib/admin';
+import { getSiteSettings } from '../server/content/site-settings';
+
+let adminPath = '/admin';
+try {
+  adminPath = normalizeAdminPath((await getSiteSettings())?.admin_path ?? '/admin');
+} catch {
+  // Recovery remains available when settings cannot be read; the API reports infrastructure failures safely.
+}
+const suppliedContext = Astro.url.searchParams.get('context') ?? '';
+const initialContext = suppliedContext.length <= 2_048 ? suppliedContext : '';
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+---
+
+<AdminLayout title="Recover access">
+  <main class="security-page">
+    <header class="security-page__head">
+      <a class="admin-auth-brand" href="/" aria-label="TomeCMS home">
+        <img class="tomecms-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
+      </a>
+      <div>
+        <p class="security-eyebrow">Account recovery</p>
+        <h1>Return to your publishing workspace</h1>
+        <p>Use one saved recovery code or a one-time link created directly on the TomeCMS server.</p>
+      </div>
+    </header>
+    <RecoveryPasskey client:only="react" adminPath={adminPath} initialContext={initialContext} />
+  </main>
+</AdminLayout>

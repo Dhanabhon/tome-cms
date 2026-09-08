@@ -1,0 +1,41 @@
+---
+import SecurityManager from '../../components/admin/SecurityManager';
+import PasskeySignIn from '../../components/admin/PasskeySignIn';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireInstalledOwner } from '../../server/auth/session';
+
+let authenticated = false;
+let errorMessage = '';
+try {
+  await requireInstalledOwner(Astro.request.headers);
+  authenticated = true;
+} catch (error) {
+  if (!(error instanceof Error) || !/authentication required|owner access/i.test(error.message)) {
+    console.error('Security page failed to load.');
+    errorMessage = 'Security settings are temporarily unavailable.';
+  }
+}
+---
+
+<AdminLayout title="Security">
+  <main class="security-page">
+    <header class="security-page__head">
+      <a href="/admin">← Back to Admin</a>
+      <div>
+        <p class="security-eyebrow">Owner security</p>
+        <h1>Passkeys and recovery</h1>
+        <p>Add a credential on another device and keep a current recovery-code set offline.</p>
+      </div>
+    </header>
+    {errorMessage ? (
+      <p class="admin-alert" role="alert">{errorMessage}</p>
+    ) : authenticated ? (
+      <SecurityManager client:only="react" />
+    ) : (
+      <section class="security-card">
+        <h2>Verify the TomeCMS owner</h2>
+        <PasskeySignIn client:only="react" returnTo="/admin/security" />
+      </section>
+    )}
+  </main>
+</AdminLayout>

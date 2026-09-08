@@ -11,6 +11,7 @@ import {
   resolveEnrollmentUserByReference,
 } from './enrollment';
 import { isSupportedPasskeyOrigin } from './origin';
+import { consumeRecoveryEnrollmentReference } from './recovery';
 
 const env = getServerEnv();
 const publicUrl = new URL(env.TOME_CMS_PUBLIC_URL);
@@ -24,6 +25,7 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: false },
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [publicUrl.origin],
+  disabledPaths: ['/passkey/delete-passkey'],
   user: { additionalFields: { role: { type: 'string', required: true, defaultValue: 'owner', input: false } } },
   plugins: [enrollmentStoragePlugin, passkey({
     origin: publicUrl.origin,
@@ -34,11 +36,19 @@ export const auth = betterAuth({
       resolveUser: ({ context }) => resolveEnrollmentUserByReference({ reference: context }),
       afterVerification: async ({ context, ctx, user }) => {
         if (context) {
-          await assertEnrollmentReference({
+          const purpose = await assertEnrollmentReference({
             reference: context,
             pendingUserId: user.id,
             fallbackAdapter: ctx.context.adapter,
           });
+          if (purpose === 'recovery') {
+            if (ctx.body.createSession !== true) throw new Error('Recovery registration must create a session.');
+            await consumeRecoveryEnrollmentReference({
+              reference: context,
+              ownerId: user.id,
+              fallbackAdapter: ctx.context.adapter,
+            });
+          }
           return;
         }
         if (ctx.context.session?.user.id !== user.id) throw new Error('Installed owner session required.');
