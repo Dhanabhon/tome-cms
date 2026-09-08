@@ -6,6 +6,16 @@ dist/
 .env
 .env.*
 !.env.example
+*.license
+*.lic
+
+# Local Compose state and overrides
+minio-data/
+postgres-data/
+compose.override.yml
+compose.override.yaml
+docker-compose.override.yml
+docker-compose.override.yaml
 
 # Local AI tools, skills, and generated previews
 /.agent/
