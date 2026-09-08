@@ -1,14 +1,17 @@
 ---
 import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
+import { normalizeAdminPath } from '../lib/admin';
 import type { PostLocale } from '../types/cms';
 import '../styles/global.css';
 
 interface Props {
+  adminPath?: string;
   title: string;
   lang?: PostLocale;
 }
 
-const { title, lang = 'en' } = Astro.props;
+const { adminPath: requestedAdminPath = '/admin', title, lang = 'en' } = Astro.props;
+const adminPath = normalizeAdminPath(requestedAdminPath);
 ---
 
 <!doctype html>
@@ -27,7 +30,7 @@ const { title, lang = 'en' } = Astro.props;
       rel="stylesheet"
     />
   </head>
-  <body class="admin-body">
+  <body class="admin-body" data-admin-path={adminPath}>
     <slot />
     <PageTransitionSkeleton variant="admin" />
   </body>
