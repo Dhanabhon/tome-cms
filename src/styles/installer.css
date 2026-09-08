@@ -53,6 +53,7 @@ h1, h2, p { margin-block-start: 0; }
   margin-inline: auto;
   border-inline: var(--rule-hair) solid var(--color-rule);
 }
+.installer-page > astro-island { display: contents; }
 .installer-intro {
   display: grid;
   gap: var(--space-lg);
@@ -87,7 +88,7 @@ h1, h2, p { margin-block-start: 0; }
 }
 .installer-progress ol {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--space-2xs);
   margin: 0;
   padding: 0;
@@ -125,7 +126,7 @@ h1, h2, p { margin-block-start: 0; }
   color: var(--color-accent-ink);
 }
 .installer-progress-label { display: none; min-width: 0; font-size: var(--text-sm); font-weight: 500; }
-.installer-meter {
+.installer-meter, .installer-activity {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-sm);
@@ -133,7 +134,7 @@ h1, h2, p { margin-block-start: 0; }
 }
 .installer-meter span { font-size: var(--text-sm); white-space: nowrap; }
 .installer-meter span:last-child { grid-column: 1 / -1; color: var(--color-muted); }
-.installer-meter progress {
+.installer-meter progress, .installer-activity progress {
   width: 100%;
   height: var(--space-2xs);
   overflow: clip;
@@ -142,9 +143,14 @@ h1, h2, p { margin-block-start: 0; }
   appearance: none;
   background: var(--color-rule);
 }
-.installer-meter progress::-webkit-progress-bar { background: var(--color-rule); }
-.installer-meter progress::-webkit-progress-value { background: var(--color-accent); }
-.installer-meter progress::-moz-progress-bar { background: var(--color-accent); }
+.installer-meter progress::-webkit-progress-bar, .installer-activity progress::-webkit-progress-bar { background: var(--color-rule); }
+.installer-meter progress::-webkit-progress-value, .installer-activity progress::-webkit-progress-value { background: var(--color-accent); }
+.installer-meter progress::-moz-progress-bar, .installer-activity progress::-moz-progress-bar { background: var(--color-accent); }
+.installer-activity {
+  padding-block-start: var(--space-sm);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+}
+.installer-activity span { color: var(--color-muted); font-size: var(--text-sm); }
 .installer-workspace { display: grid; min-width: 0; background: var(--color-surface); color: var(--color-ink); }
 .installer-context {
   display: grid;
@@ -232,6 +238,9 @@ h1, h2, p { margin-block-start: 0; }
 .installer-check:first-child { border-block-start: var(--rule-hair) solid var(--color-rule); }
 .installer-check[data-state="checking"] .installer-check-mark { background: var(--color-paper-3); color: var(--color-muted); }
 .installer-check[data-state="error"] .installer-check-mark { background: var(--color-error); color: var(--color-paper); }
+.installer-check[data-state="deferred"] .installer-check-mark { background: var(--color-paper-3); color: var(--color-ink-2); }
+.installer-check strong { display: block; font-weight: 500; }
+.installer-check small { display: block; margin-block-start: var(--space-3xs); color: var(--color-muted); font-size: var(--text-xs); }
 .installer-check-value { color: var(--color-muted); font-size: var(--text-sm); }
 .installer-fields, .installer-field-grid { display: grid; gap: var(--space-md); min-width: 0; }
 .installer-field { display: grid; gap: var(--space-2xs); min-width: 0; }
@@ -358,6 +367,35 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   min-width: 0;
 }
 .installer-admin-url { padding-inline: var(--space-sm); }
+.installer-recovery-codes {
+  width: 100%;
+  min-height: 18rem;
+  padding: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
+  outline: 2px solid transparent;
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  font-family: monospace;
+  font-size: var(--text-sm);
+  line-height: 1.8;
+  resize: none;
+}
+.installer-recovery-codes:focus-visible { border-color: var(--color-focus); outline-color: var(--color-focus); }
+.installer-recovery-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.installer-acknowledgement {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: start;
+  padding: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
+  background: var(--color-paper-2);
+  cursor: pointer;
+}
+.installer-acknowledgement input { width: 1.125rem; height: 1.125rem; margin: 0.15rem 0 0; accent-color: var(--color-accent); }
+.installer-acknowledgement:focus-within { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 .installer-footer {
   margin: 0;
   padding: var(--space-lg) clamp(var(--space-md), 4vw, var(--space-2xl));
@@ -373,17 +411,18 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
 @media (min-width: 25rem) {
   .installer-meter { grid-template-columns: auto minmax(0, 1fr) auto; }
   .installer-meter span:last-child { grid-column: auto; }
+  .installer-activity { grid-template-columns: minmax(12rem, auto) minmax(0, 1fr); }
 }
 @media (min-width: 40rem) {
   .installer-wordmark .tomecms-logo { width: 9rem; height: 1.75rem; }
   .installer-intro { grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.72fr); align-items: end; }
   .installer-intro p { justify-self: end; }
-  .installer-progress-label { display: inline; overflow-wrap: anywhere; }
   .installer-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .installer-admin-url-row { grid-template-columns: minmax(0, 1fr) auto; }
 }
 @media (min-width: 64rem) {
   .installer-wordmark .tomecms-logo { width: 10rem; height: 2rem; }
+  .installer-progress-label { display: inline; overflow-wrap: anywhere; }
   .installer-workspace { grid-template-columns: minmax(18rem, 0.72fr) minmax(0, 1.28fr); }
   .installer-context { border-inline-end: var(--rule-hair) solid var(--color-rule); border-block-end: 0; }
   .installer-task { min-height: 32rem; }

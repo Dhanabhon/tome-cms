@@ -6,7 +6,7 @@ import {
   type BetterAuthPlugin,
   type DBTransactionAdapter,
 } from 'better-auth';
-import { sql, type Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { db } from '../db/client';
@@ -79,7 +79,7 @@ export async function createEnrollment(input: {
   email: string;
   purpose: EnrollmentPurpose;
   pendingUserId: string;
-}): Promise<{ context: string; expiresAt: Date }> {
+}, executor: Kysely<Database> | Transaction<Database> = db): Promise<{ context: string; expiresAt: Date }> {
   const parsed = createEnrollmentSchema.parse(input);
   const id = randomUUID();
   const exp = Math.floor(Date.now() / 1_000) + ENROLLMENT_TTL_SECONDS;
@@ -89,7 +89,7 @@ export async function createEnrollment(input: {
     getServerEnv().TOME_CMS_CONTEXT_SECRET,
   );
 
-  await db.insertInto('installation_enrollments').values({
+  await executor.insertInto('installation_enrollments').values({
     id,
     context_hash: hashEnrollmentContext(context),
     purpose: parsed.purpose,

@@ -2,7 +2,12 @@ import { defineMiddleware } from 'astro:middleware';
 
 import { isInstalled } from './lib/installation';
 
-const SETUP_PATHS = new Set(['/install', '/api/install', '/api/install/status']);
+const SETUP_PATHS = new Set([
+  '/install',
+  '/api/install/status',
+  '/api/install/enroll',
+  '/api/install/finalize',
+]);
 
 export const onRequest = defineMiddleware(async ({ redirect, url }, next) => {
   const { pathname } = url;
