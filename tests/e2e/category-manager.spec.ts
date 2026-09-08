@@ -191,6 +191,48 @@ test('a completed rename does not discard a newer inline edit', async ({ page })
   }
 });
 
+test('a stale deletion refresh cannot overwrite a newer successful mutation', async ({ page }) => {
+  const owner = await createOwner('category-manager-refresh-revision');
+  let releaseRefresh = () => {};
+  try {
+    await ensureDefaultCategory(owner);
+    const { error } = await owner.client.from('categories').insert({ owner_id: owner.id, name: 'Research' });
+    if (error) throw error;
+    await signInAdmin(page, owner);
+    await page.goto('/admin/categories');
+
+    let markRefreshCaptured = () => {};
+    const refreshCaptured = new Promise<void>((resolve) => { markRefreshCaptured = resolve; });
+    const refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+    let capturedFirstRefresh = false;
+    await page.route('**/api/categories', async (route) => {
+      if (route.request().method() !== 'GET' || capturedFirstRefresh) return route.continue();
+      capturedFirstRefresh = true;
+      const staleResponse = await route.fetch();
+      markRefreshCaptured();
+      await refreshGate;
+      await route.fulfill({ response: staleResponse });
+    });
+
+    await categoryRow(page, 'Research').getByRole('button', { name: 'Delete Research' }).click();
+    await page.getByRole('dialog', { name: 'Delete Category?' }).getByRole('button', { name: 'Delete', exact: true }).click();
+    await refreshCaptured;
+    await expect(categoryRow(page, 'Research')).toHaveCount(0);
+
+    await page.getByLabel('Category name', { exact: true }).fill('Delta');
+    await page.getByRole('button', { name: 'Create category' }).click();
+    await expect(categoryRow(page, 'Delta')).toBeVisible();
+
+    releaseRefresh();
+    await expect(page.locator('.category-manager')).toHaveAttribute('aria-busy', 'false');
+    await expect(categoryRow(page, 'Research')).toHaveCount(0);
+    await expect(categoryRow(page, 'Delta')).toBeVisible();
+  } finally {
+    releaseRefresh();
+    await cleanupEditor(page, owner);
+  }
+});
+
 test('confirms non-optimistic deletion, supports retry, and fits long names at 320px', async ({ page }) => {
   const owner = await createOwner('category-manager-delete');
   try {
