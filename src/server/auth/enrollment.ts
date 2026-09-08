@@ -126,35 +126,6 @@ export async function classifyAuthIdentity(userId: string): Promise<AuthIdentity
   });
 }
 
-export async function cleanupAbandonedInstallIdentities(): Promise<void> {
-  await db.transaction().execute(async (trx) => {
-    await sql`select pg_advisory_xact_lock(hashtext('tomecms-install'))`.execute(trx);
-    const abandoned = await sql<{ pending_user_id: string }>`
-      select distinct enrollment.pending_user_id
-      from installation_enrollments as enrollment
-      where enrollment.purpose = 'install'
-        and enrollment.consumed_at is null
-        and not exists (
-          select 1 from site_settings as settings
-          where settings.owner_id = enrollment.pending_user_id
-        )
-        and (
-          enrollment.expires_at <= CURRENT_TIMESTAMP
-          or (
-            exists (select 1 from passkey where passkey."userId" = enrollment.pending_user_id)
-            and not exists (
-              select 1 from session
-              where session."userId" = enrollment.pending_user_id
-                and session."expiresAt" > CURRENT_TIMESTAMP
-            )
-          )
-        )
-    `.execute(trx);
-    const userIds = abandoned.rows.map(({ pending_user_id }) => pending_user_id);
-    if (userIds.length) await trx.deleteFrom('user').where('id', 'in', userIds).execute();
-  });
-}
-
 export async function assertInstalledOwner<Options extends BetterAuthOptions>(input: {
   userId: string;
   fallbackAdapter: DBTransactionAdapter<Options>;

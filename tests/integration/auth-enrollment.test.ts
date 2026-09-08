@@ -103,7 +103,7 @@ test('passkey and installer database contract', async (context) => {
     const authContext = await auth.$context;
     const signedSession = `${sessionToken}.${await makeSignature(sessionToken, authContext.secret)}`;
     const headers = new Headers({
-      Cookie: `${authContext.authCookies.sessionToken.name}=${signedSession}`,
+      Cookie: `${authContext.authCookies.sessionToken.name}=${signedSession}; ${authContext.authCookies.sessionToken.name}=`,
       Origin: 'http://localhost:4321',
     });
     const { ALL } = await import('../../src/pages/api/auth/[...all]');

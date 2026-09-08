@@ -1,12 +1,10 @@
 import type { APIRoute } from 'astro';
-import { getSessionCookie } from 'better-auth/cookies';
 
 import { auth } from '../../../server/auth/config';
 import { EnrollmentContextError } from '../../../server/auth/context';
 import {
   authorizeEnrollmentContext,
   classifyAuthIdentity,
-  cleanupAbandonedInstallIdentities,
 } from '../../../server/auth/enrollment';
 import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError, type RateLimitAction } from '../../../server/auth/rate-limit';
@@ -49,26 +47,18 @@ export const ALL: APIRoute = async (context) => {
     });
   }
   const url = new URL(request.url);
-  const sessionCookie = getSessionCookie(request);
-  if (sessionCookie) {
-    const current = await auth.api.getSession({
-      headers: request.headers,
-      query: { disableCookieCache: true, disableRefresh: true },
-    });
-    if (!current) {
-      await cleanupAbandonedInstallIdentities();
-      if (!(request.method === 'POST' && url.pathname === '/api/auth/sign-out')) {
-        return rejectInvalidSession(request.headers);
-      }
-    } else {
-      const identity = await classifyAuthIdentity(current.user.id);
-      if (identity === 'invalid') return rejectInvalidSession(request.headers);
-      if (identity === 'pending-install' && !pendingSessionPaths.has(`${request.method} ${url.pathname}`)) {
-        return Response.json({ error: 'This session is limited to installer finalization.' }, {
-          headers: { 'Cache-Control': 'no-store' },
-          status: 403,
-        });
-      }
+  const current = await auth.api.getSession({
+    headers: request.headers,
+    query: { disableCookieCache: true, disableRefresh: true },
+  });
+  if (current) {
+    const identity = await classifyAuthIdentity(current.user.id);
+    if (identity === 'invalid') return rejectInvalidSession(request.headers);
+    if (identity === 'pending-install' && !pendingSessionPaths.has(`${request.method} ${url.pathname}`)) {
+      return Response.json({ error: 'This session is limited to installer finalization.' }, {
+        headers: { 'Cache-Control': 'no-store' },
+        status: 403,
+      });
     }
   }
 
