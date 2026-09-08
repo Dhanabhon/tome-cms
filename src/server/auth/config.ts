@@ -3,16 +3,12 @@ import { betterAuth } from 'better-auth';
 
 import { pool } from '../db/client';
 import { getServerEnv } from '../env';
+import { resolveEnrollmentUser } from './enrollment';
 
 const env = getServerEnv();
 const publicUrl = new URL(env.TOME_CMS_PUBLIC_URL);
 if (publicUrl.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(publicUrl.hostname)) {
   throw new Error('Passkeys require HTTPS outside loopback.');
-}
-
-// Task 3 replaces this with the signed, database-backed enrollment resolver.
-async function resolveEnrollmentUser(): Promise<never> {
-  throw new Error('Enrollment is not available');
 }
 
 export const auth = betterAuth({
@@ -26,6 +22,14 @@ export const auth = betterAuth({
     origin: publicUrl.origin,
     rpID: publicUrl.hostname,
     rpName: 'TomeCMS',
-    registration: { requireSession: false, resolveUser: resolveEnrollmentUser },
+    registration: {
+      requireSession: false,
+      resolveUser: ({ context }) => resolveEnrollmentUser({ context }),
+      afterVerification: async ({ context, user }) => {
+        if (!context) return;
+        const resolved = await resolveEnrollmentUser({ context });
+        if (resolved.id !== user.id) throw new Error('Enrollment context is invalid or expired.');
+      },
+    },
   })],
 });
