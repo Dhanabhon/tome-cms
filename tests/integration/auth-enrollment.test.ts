@@ -245,7 +245,7 @@ test('passkey and installer database contract', async (context) => {
     await db.deleteFrom('installation_enrollments').where('pending_user_id', '=', 'pending-owner').execute();
     await assert.rejects(sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path) values (true, 'pending-owner', 'Other Site', 'en', 'UTC', '/manage')`.execute(db), { code: '23505' });
     await assert.rejects(sql`update site_settings set id = false`.execute(db), { code: '23514' });
-    for (const path of ['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en', '/a', '/Admin', '/nested/path', '/admin/', '/-admin', `/${'a'.repeat(41)}`]) {
+    for (const path of ['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en', '/recovery', '/a', '/Admin', '/nested/path', '/admin/', '/-admin', `/${'a'.repeat(41)}`]) {
       await assert.rejects(sql`update site_settings set admin_path = ${path}`.execute(db), { code: '23514' });
     }
     await sql`update site_settings set admin_path = '/manage-site', default_locale = 'en', timezone = 'UTC'`.execute(db);

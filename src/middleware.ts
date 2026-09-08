@@ -1,10 +1,9 @@
 import type { APIContext, MiddlewareHandler, MiddlewareNext } from 'astro';
-import { defineMiddleware } from 'astro:middleware';
 
 import { adminSignInPath, matchAdminPath, normalizeAdminPath } from './lib/admin';
 import { isInstalled } from './lib/installation';
-import { getSession, type OwnerSession } from './server/auth/session';
-import { getSiteSettings, type SiteSettings } from './server/content/site-settings';
+import type { OwnerSession } from './server/auth/session';
+import type { SiteSettings } from './server/content/site-settings';
 
 const SETUP_PATHS = new Set([
   '/install',
@@ -23,6 +22,12 @@ function isSetupBypass(pathname: string): boolean {
     || pathname === '/favicon.svg';
 }
 
+function isHeadlessStablePath(pathname: string): boolean {
+  return pathname === '/recovery'
+    || pathname === '/api/recovery'
+    || pathname.startsWith('/api/recovery/');
+}
+
 function installationRequired(context: APIContext): Response {
   if (context.url.pathname.startsWith('/api/')) {
     return Response.json(
@@ -34,6 +39,7 @@ function installationRequired(context: APIContext): Response {
 }
 
 async function setBetterAuthLocals(context: APIContext, ownerId: string): Promise<OwnerSession | null> {
+  const { getSession } = await import('./server/auth/session');
   const current = await getSession(context.request.headers);
   const owner = current?.user.id === ownerId ? current : null;
   context.locals.session = owner?.session ?? null;
@@ -80,14 +86,15 @@ const legacyRequest: MiddlewareHandler = async (context, next) => {
   return installationRequired(context);
 };
 
-const headlessRequest: MiddlewareHandler = async (context, next) => {
-  if (isSetupBypass(context.url.pathname)) return next();
+export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) => {
+  if (isSetupBypass(context.url.pathname) || isHeadlessStablePath(context.url.pathname)) return next();
+  const { getSiteSettings } = await import('./server/content/site-settings');
   const settings = await getSiteSettings();
   if (!settings) return installationRequired(context);
   return routeConfiguredAdmin(context, next, settings);
 };
 
-const requestHandlers = { headless: headlessRequest, legacy: legacyRequest } as const;
+const requestHandlers = { headless: preparedHeadlessRequest, legacy: legacyRequest } as const;
 
 // Plan 3 cutover: select `headless` only after every Admin page and API uses PostgreSQL.
-export const onRequest = defineMiddleware(requestHandlers.legacy);
+export const onRequest: MiddlewareHandler = requestHandlers.legacy;

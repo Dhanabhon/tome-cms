@@ -2,11 +2,11 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { z } from 'zod';
 
-const reservedAdminPaths = new Set(['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en']);
+import { RESERVED_ADMIN_PATHS } from '../../lib/admin';
 
 export const adminPathSchema = z.string().trim()
   .regex(/^\/[a-z0-9][a-z0-9-]{1,39}$/)
-  .refine((path) => !reservedAdminPaths.has(path), 'This path is reserved.');
+  .refine((path) => !RESERVED_ADMIN_PATHS.has(path), 'This path is reserved.');
 
 export const installationInputSchema = z.object({
   siteName: z.string().trim().min(1).max(120),

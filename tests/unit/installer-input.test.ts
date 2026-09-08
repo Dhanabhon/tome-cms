@@ -17,6 +17,7 @@ test('installer input and token boundaries reject unsafe values', () => {
   assert.equal(installationInputSchema.safeParse(valid).success, true);
   for (const input of [
     { ...valid, adminPath: '/api' },
+    { ...valid, adminPath: '/recovery' },
     { ...valid, adminPath: '/Admin' },
     { ...valid, adminPath: '/a' },
     { ...valid, email: 'owner@invalid' },

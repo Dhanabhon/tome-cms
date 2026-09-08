@@ -112,6 +112,6 @@ export async function up(db: Kysely<Database>): Promise<void> {
     .addCheckConstraint('site_settings_singleton', sql`id = true`)
     .addCheckConstraint('site_settings_locale', sql`default_locale in ('th', 'en')`)
     .addCheckConstraint('site_settings_timezone', sql`timezone in ('Asia/Bangkok', 'UTC')`)
-    .addCheckConstraint('site_settings_admin_path', sql`admin_path ~ '^/[a-z0-9][a-z0-9-]{1,39}$' and admin_path not in ('/api', '/install', '/health', '/_astro', '/blog', '/th', '/en')`)
+    .addCheckConstraint('site_settings_admin_path', sql`admin_path ~ '^/[a-z0-9][a-z0-9-]{1,39}$' and admin_path not in ('/api', '/install', '/health', '/_astro', '/blog', '/th', '/en', '/recovery')`)
     .execute();
 }
