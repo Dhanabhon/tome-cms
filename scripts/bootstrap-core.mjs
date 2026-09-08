@@ -21,24 +21,42 @@ export function parseOptions(args) {
   return options;
 }
 
-export function makeEnvironment(input, production) {
-  const values = { ...input };
+function localUrls(values) {
+  return {
+    DATABASE_URL: `postgresql://tomecms:${values.POSTGRES_PASSWORD}@127.0.0.1:${values.POSTGRES_PORT || 5432}/tomecms`,
+    TOME_CMS_PUBLIC_URL: `http://localhost:${values.APP_PORT || 4321}`,
+    S3_ENDPOINT: `http://127.0.0.1:${values.MINIO_PORT || 9000}`,
+  };
+}
+
+export function makeEnvironment(input, production, existing = {}) {
+  const values = { ...existing, ...input };
   for (const key of secrets) values[key] ||= randomBytes(32).toString('base64url');
   if (!/^[A-Za-z0-9_-]+$/.test(values.POSTGRES_PASSWORD)) throw new Error('POSTGRES_PASSWORD must use URL-safe letters, digits, underscores or hyphens.');
+  const previousDefaults = localUrls(existing);
   const defaults = {
-    DATABASE_URL: `postgresql://tomecms:${values.POSTGRES_PASSWORD}@127.0.0.1:${values.POSTGRES_PORT || 5432}/tomecms`,
-    DATABASE_POOL_MAX: '10', TOME_CMS_PUBLIC_URL: `http://localhost:${values.APP_PORT || 4321}`,
-    S3_ENDPOINT: `http://127.0.0.1:${values.MINIO_PORT || 9000}`, S3_REGION: 'us-east-1',
+    ...localUrls(values), DATABASE_POOL_MAX: '10', S3_REGION: 'us-east-1',
     S3_ACCESS_KEY_ID: 'tomecms', S3_BUCKET: 'tomecms-media', S3_FORCE_PATH_STYLE: 'true', TOME_CMS_FRONTEND_MODE: 'bundled',
   };
-  for (const [key, value] of Object.entries(defaults)) values[key] ||= value;
-  values.MEDIA_PUBLIC_URL ||= `${values.S3_ENDPOINT.replace(/\/$/, '')}/${values.S3_BUCKET}/`;
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!values[key] || (!Object.hasOwn(input, key) && existing[key] === previousDefaults[key])) values[key] = value;
+  }
+  const previousMedia = existing.S3_ENDPOINT && `${existing.S3_ENDPOINT.replace(/\/$/, '')}/${existing.S3_BUCKET}/`;
+  if (!values.MEDIA_PUBLIC_URL || (!Object.hasOwn(input, 'MEDIA_PUBLIC_URL') && existing.MEDIA_PUBLIC_URL === previousMedia)) {
+    values.MEDIA_PUBLIC_URL = `${values.S3_ENDPOINT.replace(/\/$/, '')}/${values.S3_BUCKET}/`;
+  }
   values.NODE_ENV = production ? 'production' : 'development';
   for (const key of ['TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'MEDIA_PUBLIC_URL']) {
     let url;
     try { url = new URL(values[key]); } catch { throw new Error(`${key} must be a valid URL.`); }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || (production && url.protocol !== 'https:')) {
       throw new Error(`${key} requires ${production ? 'HTTPS' : 'HTTP(S)'} without credentials; configure TLS separately.`);
+    }
+    const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '');
+    if (production && (!host.includes('.') && !host.includes(':') || host.endsWith('.localhost') ||
+      /^(127\.|0\.0\.0\.0$|::1$|::$|::ffff:7f[0-9a-f]{2}:)/.test(host) ||
+      ['host.docker.internal', 'gateway.docker.internal'].includes(host))) {
+      throw new Error(`${key} requires a browser-reachable hostname, not a Docker-internal or loopback endpoint.`);
     }
   }
   return values;
@@ -131,19 +149,21 @@ async function main() {
   }
   const path = resolve(root, '.env.local');
   let existing = {};
+  let existingFile = false;
   try {
     const details = await lstat(path);
+    existingFile = true;
     if (!details.isFile() || details.isSymbolicLink()) throw new Error('Environment must be a regular file, not a symlink.');
     if ((details.mode & 0o077) !== 0 && !options.force) throw new Error('Set .env.local permissions to 0600 before continuing.');
     existing = parseEnv(await readFile(path, 'utf8'));
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const overrides = Object.fromEntries(Object.entries(process.env).filter(([key]) => required.includes(key) || /^(POSTGRES_PORT|MINIO_PORT|MINIO_CONSOLE_PORT|APP_PORT)$/.test(key)));
-  const values = makeEnvironment({ ...existing, ...overrides }, options.production);
-  await verifyLicense(values.MINIO_LICENSE_FILE);
-  const rendered = renderEnvironment(values);
-  if (Object.keys(existing).length && !options.force && Object.entries(values).some(([key, value]) => existing[key] !== value)) {
+  const values = makeEnvironment(overrides, options.production, existing);
+  if (existingFile && !options.force && Object.entries(values).some(([key, value]) => existing[key] !== value)) {
     throw new Error('Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.');
   }
+  await verifyLicense(values.MINIO_LICENSE_FILE);
+  const rendered = renderEnvironment(values);
   run('docker', ['info']);
   run('docker', ['compose', 'version']);
   const env = { ...process.env, ...values };
@@ -151,7 +171,9 @@ async function main() {
   const preflight = ['compose', '-f', 'compose.yaml'];
   run('docker', [...preflight, 'config', '--quiet'], env);
   await verifyPorts(values, preflight, env);
-  await writeEnvironment(path, rendered, options.force);
+  if ((!existingFile || options.force) && !await writeEnvironment(path, rendered, options.force)) {
+    throw new Error('Environment file appeared during bootstrap; rerun to verify it before startup.');
+  }
   const compose = ['compose', '-f', 'compose.yaml', '--env-file', '.env.local'];
   console.log('Starting PostgreSQL and licensed AIStor…');
   run('docker', [...compose, 'up', '-d', '--wait', 'postgres', 'minio', 'minio-init'], env);
