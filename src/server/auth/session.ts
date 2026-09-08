@@ -23,3 +23,14 @@ export async function requireOwner(headers: Headers): Promise<OwnerSession> {
   if (current.user.role !== 'owner') throw new HttpError(403, 'Owner access required.');
   return current;
 }
+
+export async function requireInstalledOwner(headers: Headers): Promise<OwnerSession> {
+  const current = await requireOwner(headers);
+  const { db } = await import('../db/client');
+  const settings = await db.selectFrom('site_settings')
+    .select('owner_id')
+    .where('id', '=', true)
+    .executeTakeFirst();
+  if (settings?.owner_id !== current.user.id) throw new HttpError(403, 'Owner access required.');
+  return current;
+}

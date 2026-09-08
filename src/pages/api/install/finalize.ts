@@ -1,5 +1,3 @@
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
-
 import type { APIRoute } from 'astro';
 import { sql } from 'kysely';
 import { z } from 'zod';
@@ -9,6 +7,7 @@ import { consumeEnrollment } from '../../../server/auth/enrollment';
 import { installationInputSchema } from '../../../server/auth/installation';
 import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/rate-limit';
+import { storeRecoveryCodes } from '../../../server/auth/recovery';
 import { getSession } from '../../../server/auth/session';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
@@ -25,17 +24,6 @@ class FinalizationError extends Error {
   constructor(readonly status: 400 | 401 | 409, message: string) {
     super(message);
   }
-}
-
-function createRecoveryCodes(): string[] {
-  return Array.from({ length: 10 }, () => {
-    const value = randomBytes(16).toString('hex');
-    return Array.from({ length: 8 }, (_, index) => value.slice(index * 4, index * 4 + 4)).join('-');
-  });
-}
-
-function hashRecoveryCode(code: string): string {
-  return createHmac('sha256', env.TOME_CMS_RECOVERY_PEPPER).update(code).digest('hex');
 }
 
 export const POST: APIRoute = async ({ clientAddress, request }) => {
@@ -131,12 +119,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
         author_bio_en: '',
       }).execute();
 
-      const recoveryCodes = createRecoveryCodes();
-      await trx.insertInto('recovery_codes').values(recoveryCodes.map((code) => ({
-        id: randomUUID(),
-        user_id: ownerId,
-        code_hash: hashRecoveryCode(code),
-      }))).execute();
+      const recoveryCodes = await storeRecoveryCodes(ownerId, trx);
 
       return { recoveryCodes, redirectTo: parsed.data.adminPath };
     });

@@ -247,7 +247,7 @@ export async function assertEnrollmentReference<Options extends BetterAuthOption
   reference: string;
   pendingUserId: string;
   fallbackAdapter: DBTransactionAdapter<Options>;
-}): Promise<void> {
+}): Promise<EnrollmentPurpose> {
   const parsedReference = enrollmentReferenceSchema.safeParse(input.reference);
   if (!parsedReference.success || !input.pendingUserId) invalidEnrollment();
 
@@ -274,6 +274,7 @@ export async function assertEnrollmentReference<Options extends BetterAuthOption
   if (purpose.data === 'install' && await adapter.count({ model: 'siteSettings' }) > 0) {
     invalidEnrollment();
   }
+  return purpose.data;
 }
 
 export async function consumeEnrollment(context: string, trx: Transaction<Database>): Promise<string> {

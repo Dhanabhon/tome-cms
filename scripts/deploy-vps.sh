@@ -210,6 +210,12 @@ server {
         proxy_pass http://127.0.0.1:${APP_PORT};
     }
 
+    location = /recovery {
+        access_log off;
+        error_log /dev/null emerg;
+        proxy_pass http://127.0.0.1:${APP_PORT};
+    }
+
     location / {
         proxy_pass http://127.0.0.1:${APP_PORT};
     }

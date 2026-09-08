@@ -81,6 +81,7 @@ export interface PasskeyTable {
   transports: string | null;
   createdAt: Timestamp | null;
   aaguid: string | null;
+  last_used_at: Timestamp | null;
 }
 
 export interface InstallationEnrollmentTable {

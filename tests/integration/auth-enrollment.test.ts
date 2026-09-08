@@ -47,7 +47,8 @@ test('passkey and installer database contract', async (context) => {
     for (const [table, definition] of Object.entries(schema)) {
       if (definition.disableMigrations) continue;
       const actual = columns.filter(column => column.table_name === table);
-      assert.deepEqual(actual.map(column => column.column_name).sort(), ['id', ...Object.keys(definition.fields)].sort());
+      const applicationColumns = table === 'passkey' ? ['last_used_at'] : [];
+      assert.deepEqual(actual.map(column => column.column_name).sort(), ['id', ...Object.keys(definition.fields), ...applicationColumns].sort());
       assert.ok(indexes.some(index => index.tablename === table && index.indexname === `${table}_pkey` && index.indexdef.includes('UNIQUE')));
       const fields: Record<string, DBFieldAttribute> = { id: { type: 'string', required: true }, ...definition.fields };
       for (const [name, field] of Object.entries(fields)) {

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { auth } from '../../../server/auth/config';
-import { EnrollmentContextError } from '../../../server/auth/context';
+import { EnrollmentContextError, verifyEnrollmentContext } from '../../../server/auth/context';
 import {
   authorizeEnrollmentContext,
   classifyAuthIdentity,
@@ -10,17 +10,15 @@ import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError, type RateLimitAction } from '../../../server/auth/rate-limit';
 import { getServerEnv } from '../../../server/env';
 
-const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
+const env = getServerEnv();
+const configuredOrigin = new URL(env.TOME_CMS_PUBLIC_URL).origin;
 const registrationOptionsPath = '/api/auth/passkey/generate-register-options';
+const registrationVerificationPath = '/api/auth/passkey/verify-registration';
+const recoveryContextHeader = 'X-TomeCMS-Recovery-Context';
 const pendingSessionPaths = new Set([
   'GET /api/auth/get-session',
   'POST /api/auth/sign-out',
 ]);
-
-const verificationActions: Readonly<Record<string, RateLimitAction>> = {
-  '/api/auth/passkey/verify-registration': 'install',
-  '/api/auth/passkey/verify-authentication': 'signin',
-};
 
 async function rejectInvalidSession(headers: Headers): Promise<Response> {
   const responseHeaders = new Headers({ 'Cache-Control': 'no-store' });
@@ -81,7 +79,27 @@ export const ALL: APIRoute = async (context) => {
     }
   }
 
-  const action = request.method === 'POST' ? verificationActions[url.pathname] : undefined;
+  let action: RateLimitAction | undefined;
+  if (request.method === 'POST' && url.pathname === '/api/auth/passkey/verify-authentication') {
+    action = 'signin';
+  } else if (request.method === 'POST' && url.pathname === registrationVerificationPath) {
+    const recoveryContext = request.headers.get(recoveryContextHeader);
+    action = current ? 'signin' : 'install';
+    if (recoveryContext) {
+      try {
+        verifyEnrollmentContext(recoveryContext, 'recovery', env.TOME_CMS_CONTEXT_SECRET);
+        action = 'recovery';
+        const headers = new Headers(request.headers);
+        headers.delete(recoveryContextHeader);
+        authRequest = new Request(request, { headers });
+      } catch {
+        return Response.json({ error: 'Enrollment context is invalid or expired.' }, {
+          headers: { 'Cache-Control': 'no-store' },
+          status: 400,
+        });
+      }
+    }
+  }
   if (action) {
     try {
       await enforceRateLimit(action, context.clientAddress);
