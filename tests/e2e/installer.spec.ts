@@ -118,12 +118,29 @@ test('installer completion exposes and copies the fixed Admin URL without mobile
 
     await expect(page.getByText('Cloud ready', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Name your site' }).click();
+    for (const label of ['Default language', 'Timezone']) {
+      const inlineEndGap = await page.getByRole('combobox', { name: label }).evaluate((trigger) =>
+        trigger.getBoundingClientRect().right
+        - trigger.querySelector<HTMLElement>('.ui-select__chevron')!.getBoundingClientRect().right);
+      expect(inlineEndGap).toBeGreaterThanOrEqual(12);
+      expect(inlineEndGap).toBeLessThanOrEqual(24);
+    }
     await page.getByLabel('Tagline').fill('Ideas worth keeping.');
     await page.getByRole('button', { name: 'Create owner account' }).click();
     await page.getByLabel('Sign-in email').fill('owner@example.com');
     await page.locator('input[name="password"]').fill('a-secure-password');
     await page.locator('input[name="passwordConfirm"]').fill('a-secure-password');
     await page.getByRole('button', { name: 'Review details' }).click();
+    await expect(page.getByLabel('Installation token')).toHaveAttribute('placeholder', 'Paste the token from your environment file');
+    await page.getByText('Where is the installation token?').click();
+    await expect(page.locator('.installer-help code')).toHaveText([
+      "grep '^TOME_CMS_INSTALL_TOKEN=' .env.local",
+      "sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env",
+    ]);
+    for (const width of [320, 375, 414, 768]) {
+      await page.setViewportSize({ width, height: 800 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
     await page.getByLabel('Installation token').fill('test-token');
     await page.getByRole('button', { name: 'Install TomeCMS' }).click();
     expect(installRequestBody).toMatchObject({ tagline: 'Ideas worth keeping.' });
