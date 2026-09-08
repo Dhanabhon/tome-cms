@@ -22,6 +22,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
   const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(() => new Set());
   const [liveStatus, setLiveStatus] = useState('');
   const [error, setError] = useState('');
+  const categoryRevision = useRef(0);
   const renameButtons = useRef(new Map<string, HTMLButtonElement>());
 
   const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
@@ -48,6 +49,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       });
       const body = await response.json().catch(() => null) as { category?: PostCategorySummary; error?: string } | null;
       if (!response.ok || !body?.category) throw new Error(body?.error || 'The Category could not be created.');
+      categoryRevision.current += 1;
       setCategories((current) => sortCategories([...current, body.category!]));
       setCreateName((current) => current === createName ? '' : current);
       setLiveStatus(`Category “${body.category.name}” created.`);
@@ -77,6 +79,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       });
       const body = await response.json().catch(() => null) as { category?: PostCategorySummary; error?: string } | null;
       if (!response.ok || !body?.category) throw new Error(body?.error || 'The Category could not be updated.');
+      categoryRevision.current += 1;
       setCategories((current) => sortCategories(current.map((category) => (
         category.id === id ? { ...category, ...body.category } : category
       ))));
@@ -120,13 +123,19 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
         throw new Error(body?.error || 'The Category could not be deleted.');
       }
       affectedPosts = body.affectedPosts;
+      categoryRevision.current += 1;
       setCategories((current) => current.filter(({ id }) => id !== category.id));
-      const refreshResponse = await fetch('/api/categories');
-      const refreshBody = await refreshResponse.json().catch(() => null) as { categories?: PostCategorySummary[]; error?: string } | null;
-      if (!refreshResponse.ok || !refreshBody?.categories) {
-        throw new Error(refreshBody?.error || 'Category counts could not be refreshed. Reload this page.');
+      while (true) {
+        const refreshRevision = categoryRevision.current;
+        const refreshResponse = await fetch('/api/categories');
+        const refreshBody = await refreshResponse.json().catch(() => null) as { categories?: PostCategorySummary[]; error?: string } | null;
+        if (refreshRevision !== categoryRevision.current) continue;
+        if (!refreshResponse.ok || !refreshBody?.categories) {
+          throw new Error(refreshBody?.error || 'Category counts could not be refreshed. Reload this page.');
+        }
+        setCategories(sortCategories(refreshBody.categories));
+        break;
       }
-      setCategories(sortCategories(refreshBody.categories));
       setLiveStatus(`Category “${category.name}” deleted. ${postCountLabel(affectedPosts)} ${affectedPosts === 1 ? 'was' : 'were'} affected.`);
     } catch (caught) {
       if (affectedPosts === null) {
