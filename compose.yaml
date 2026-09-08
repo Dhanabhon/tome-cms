@@ -40,7 +40,12 @@ services:
       S3_BUCKET: ${S3_BUCKET}
   app:
     profiles: ["production"]
-    build: .
+    build:
+      context: .
+      args:
+        PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-}
+        PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+        PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY:-}
     env_file:
       - path: .env.local
         required: false # Allows config/build before bootstrap creates this file.

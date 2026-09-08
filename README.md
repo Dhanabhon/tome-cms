@@ -39,7 +39,7 @@ A hosted or self-hosted Supabase project is only needed for the [external connec
 
 The replacement foundation runs alongside the existing Supabase CMS. PostgreSQL, Kysely migrations, Docker Compose v2, and the health endpoints are available now; the application still uses Supabase for authentication, content, navigation, and media until all five migration plans are complete. This is foundation work, not a Supabase cutover or a 0.2.0 release.
 
-Use Node.js 22 or newer and Docker Desktop with Compose v2. The default local ports are `4321` (TomeCMS), `5432` (PostgreSQL), `9000` (AIStor S3 API), and `9001` (AIStor console). Keep these services bound to loopback; set `APP_PORT`, `POSTGRES_PORT`, `MINIO_PORT`, or `MINIO_CONSOLE_PORT` in `.env.local` only when a port is already occupied.
+Use Node.js 22 or newer and Docker Desktop with Compose v2. The default local ports are `4321` (TomeCMS), `5432` (PostgreSQL), `9000` (AIStor S3 API), and `9001` (AIStor console). Keep these services bound to loopback. When a port is occupied, supply `APP_PORT`, `POSTGRES_PORT`, `MINIO_PORT`, or `MINIO_CONSOLE_PORT` to bootstrap, for example `POSTGRES_PORT=55433 node scripts/bootstrap-core.mjs --force`; this refreshes dependent generated URLs while preserving secrets. Hand-editing only a port in `.env.local` also requires updating its dependent URL (`DATABASE_URL`, `TOME_CMS_PUBLIC_URL`, or `S3_ENDPOINT` and `MEDIA_PUBLIC_URL`). Explicit custom URLs are preserved.
 
 `.env.local` is the local runtime and Compose environment file. The bootstrap can create it with permissions `0600`; keep real secrets out of Git. The `MINIO_LICENSE_FILE` value must be an absolute path to a readable, non-empty AIStor Free license file stored outside this repository. Obtain an AIStor Free license from MinIO, save the downloaded file outside the checkout, and pass its path to the first bootstrap command; the repository does not contain or provide a license.
 
@@ -54,6 +54,10 @@ npm run db:migrate
 If `.env.local` already exists and only its license path needs correction, preserve its other values with `MINIO_LICENSE_FILE=/absolute/path/to/aistor-free.license node scripts/bootstrap-core.mjs --force`; `--force` merges the supplied value and does not rotate existing secrets.
 
 The bootstrap validates Node, Docker, Compose, ports, environment ownership, and the external license before starting PostgreSQL and licensed AIStor. It writes no license into the repository. `npm run test:integration:foundation` starts only disposable PostgreSQL and reports storage as deferred; it does not prove AIStor runtime or S3 readiness.
+
+Production bootstrap (`--production`) requires public HTTPS application and storage URLs and uses the bundled Compose PostgreSQL database. Its host-side `DATABASE_URL` must match the generated URL for `POSTGRES_PASSWORD` and `POSTGRES_PORT`; the application uses `postgres:5432` inside Compose to reach that same database. Custom database targets are supported only for local development in this foundation release.
+
+Until Supabase cutover, production also requires `PUBLIC_SUPABASE_URL`, a `PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or legacy `PUBLIC_SUPABASE_ANON_KEY`), and a runtime `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`). Bootstrap accepts these from the shell or preserves them from `.env.local`. Only the public values become Docker build arguments; privileged keys are supplied at runtime through `.env.local`. Production bootstrap rebuilds the app after services, bucket initialization, and migrations succeed so public configuration changes reach the compiled CMS.
 
 The application exposes `GET /health/live` for a process liveness response and `GET /health/ready` for dependency readiness. Readiness returns HTTP `200` only when the foundation is ready, otherwise `503`; neither route exposes topology, credentials, or other secrets.
 

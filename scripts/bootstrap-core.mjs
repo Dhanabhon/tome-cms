@@ -10,6 +10,7 @@ import { parseEnv } from 'node:util';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const secrets = ['POSTGRES_PASSWORD', 'S3_SECRET_ACCESS_KEY', 'TOME_CMS_INSTALL_TOKEN', 'BETTER_AUTH_SECRET', 'TOME_CMS_CONTEXT_SECRET', 'TOME_CMS_RECOVERY_PEPPER'];
 const required = [...secrets, 'DATABASE_URL', 'TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_BUCKET', 'S3_FORCE_PATH_STYLE', 'MEDIA_PUBLIC_URL', 'MINIO_LICENSE_FILE'];
+const optional = ['DATABASE_POOL_MAX', 'DATABASE_CONNECTION_TIMEOUT_MS', 'DATABASE_QUERY_TIMEOUT_MS', 'PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'];
 
 export function parseOptions(args) {
   const options = { production: false, force: false, checkTestLicense: false };
@@ -58,7 +59,7 @@ export function makeEnvironment(input, production, existing = {}) {
   if (!/^[A-Za-z0-9_-]+$/.test(values.POSTGRES_PASSWORD)) throw new Error('POSTGRES_PASSWORD must use URL-safe letters, digits, underscores or hyphens.');
   const previousDefaults = localUrls(existing);
   const defaults = {
-    ...localUrls(values), DATABASE_POOL_MAX: '10', S3_REGION: 'us-east-1',
+    ...localUrls(values), DATABASE_POOL_MAX: '10', DATABASE_CONNECTION_TIMEOUT_MS: '5000', DATABASE_QUERY_TIMEOUT_MS: '30000', S3_REGION: 'us-east-1',
     S3_ACCESS_KEY_ID: 'tomecms', S3_BUCKET: 'tomecms-media', S3_FORCE_PATH_STYLE: 'true', TOME_CMS_FRONTEND_MODE: 'bundled',
   };
   for (const [key, value] of Object.entries(defaults)) {
@@ -79,6 +80,14 @@ export function makeEnvironment(input, production, existing = {}) {
     if (production && !isPublicHost(host)) {
       throw new Error(`${key} requires a browser-reachable public host; local or special-use address forms are not allowed.`);
     }
+  }
+  if (production && values.DATABASE_URL !== localUrls(values).DATABASE_URL) {
+    throw new Error('Production DATABASE_URL must target the bundled Compose database.');
+  }
+  if (production && !(values.PUBLIC_SUPABASE_URL?.trim() &&
+    (values.PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || values.PUBLIC_SUPABASE_ANON_KEY?.trim()) &&
+    (values.SUPABASE_SECRET_KEY?.trim() || values.SUPABASE_SERVICE_ROLE_KEY?.trim()))) {
+    throw new Error('Production Supabase configuration is required.');
   }
   return values;
 }
@@ -178,7 +187,7 @@ async function main() {
     if ((details.mode & 0o077) !== 0 && !options.force) throw new Error('Set .env.local permissions to 0600 before continuing.');
     existing = parseEnv(await readFile(path, 'utf8'));
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  const overrides = Object.fromEntries(Object.entries(process.env).filter(([key]) => required.includes(key) || /^(POSTGRES_PORT|MINIO_PORT|MINIO_CONSOLE_PORT|APP_PORT)$/.test(key)));
+  const overrides = Object.fromEntries(Object.entries(process.env).filter(([key]) => required.includes(key) || optional.includes(key) || /^(POSTGRES_PORT|MINIO_PORT|MINIO_CONSOLE_PORT|APP_PORT)$/.test(key)));
   const values = makeEnvironment(overrides, options.production, existing);
   if (existingFile && !options.force && Object.entries(values).some(([key, value]) => existing[key] !== value)) {
     throw new Error('Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.');
@@ -197,10 +206,11 @@ async function main() {
   }
   const compose = ['compose', '-f', 'compose.yaml', '--env-file', '.env.local'];
   console.log('Starting PostgreSQL and licensed AIStor…');
-  run('docker', [...compose, 'up', '-d', '--wait', 'postgres', 'minio', 'minio-init'], env);
+  run('docker', [...compose, 'up', '-d', '--wait', 'postgres', 'minio'], env);
+  run('docker', [...compose, 'run', '--rm', '--no-deps', 'minio-init'], env);
   console.log('Applying database migrations…');
   run('npm', ['run', 'db:migrate'], env);
-  if (options.production) run('docker', [...compose, '--profile', 'production', 'up', '-d', '--wait', 'app'], env);
+  if (options.production) run('docker', [...compose, '--profile', 'production', 'up', '-d', '--wait', '--no-deps', '--build', 'app'], env);
   console.log(`Installer: ${values.TOME_CMS_PUBLIC_URL.replace(/\/$/, '')}/install`);
   console.log(`Installation token: ${values.TOME_CMS_INSTALL_TOKEN}`);
   if (!options.production) console.log('Start the application with npm run dev.');

@@ -14,7 +14,17 @@ const globalForDatabase = globalThis as typeof globalThis & {
 };
 
 function createDatabaseClient(env: ServerEnv): DatabaseClient {
-  const pool = new Pool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX });
+  const connectionString = new URL(env.DATABASE_URL);
+  // pg URL options override Pool options; the validated timeout settings stay authoritative.
+  for (const key of ['query_timeout', 'statement_timeout', 'connectionTimeoutMillis']) connectionString.searchParams.delete(key);
+  const pool = new Pool({
+    connectionString: connectionString.href,
+    max: env.DATABASE_POOL_MAX,
+    connectionTimeoutMillis: env.DATABASE_CONNECTION_TIMEOUT_MS,
+    query_timeout: env.DATABASE_QUERY_TIMEOUT_MS,
+    statement_timeout: env.DATABASE_QUERY_TIMEOUT_MS,
+  });
+  pool.on('error', () => console.error('Database pool connection lost'));
   const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
   return { pool, db };
 }

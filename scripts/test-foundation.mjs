@@ -16,6 +16,8 @@ const testEnv = {
   ASTRO_TELEMETRY_DISABLED: '1',
   DATABASE_URL: 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test',
   DATABASE_POOL_MAX: '1',
+  DATABASE_CONNECTION_TIMEOUT_MS: '200',
+  DATABASE_QUERY_TIMEOUT_MS: '300',
   TOME_CMS_PUBLIC_URL: 'http://127.0.0.1:4321',
   TOME_CMS_INSTALL_TOKEN: 'foundation-test-install-token-only',
   BETTER_AUTH_SECRET: 'foundation-test-auth-secret-only-32',
