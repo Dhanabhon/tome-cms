@@ -3,7 +3,11 @@ import { betterAuth } from 'better-auth';
 
 import { pool } from '../db/client';
 import { getServerEnv } from '../env';
-import { resolveEnrollmentUser } from './enrollment';
+import {
+  assertEnrollmentReference,
+  enrollmentStoragePlugin,
+  resolveEnrollmentUserByReference,
+} from './enrollment';
 
 const env = getServerEnv();
 const publicUrl = new URL(env.TOME_CMS_PUBLIC_URL);
@@ -18,17 +22,20 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [publicUrl.origin],
   user: { additionalFields: { role: { type: 'string', required: true, defaultValue: 'owner', input: false } } },
-  plugins: [passkey({
+  plugins: [enrollmentStoragePlugin, passkey({
     origin: publicUrl.origin,
     rpID: publicUrl.hostname,
     rpName: 'TomeCMS',
     registration: {
       requireSession: false,
-      resolveUser: ({ context }) => resolveEnrollmentUser({ context }),
-      afterVerification: async ({ context, user }) => {
+      resolveUser: ({ context }) => resolveEnrollmentUserByReference({ reference: context }),
+      afterVerification: async ({ context, ctx, user }) => {
         if (!context) return;
-        const resolved = await resolveEnrollmentUser({ context });
-        if (resolved.id !== user.id) throw new Error('Enrollment context is invalid or expired.');
+        await assertEnrollmentReference({
+          reference: context,
+          pendingUserId: user.id,
+          fallbackAdapter: ctx.context.adapter,
+        });
       },
     },
   })],

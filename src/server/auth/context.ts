@@ -18,10 +18,17 @@ export type EnrollmentClaims = z.infer<typeof claimsSchema>;
 const INVALID_CONTEXT = 'Enrollment context is invalid or expired.';
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 
+export class EnrollmentContextError extends Error {
+  constructor() {
+    super(INVALID_CONTEXT);
+    this.name = 'EnrollmentContextError';
+  }
+}
+
 function decodeBase64url(value: string): Buffer {
-  if (!BASE64URL.test(value)) throw new Error(INVALID_CONTEXT);
+  if (!BASE64URL.test(value)) throw new EnrollmentContextError();
   const decoded = Buffer.from(value, 'base64url');
-  if (decoded.toString('base64url') !== value) throw new Error(INVALID_CONTEXT);
+  if (decoded.toString('base64url') !== value) throw new EnrollmentContextError();
   return decoded;
 }
 
@@ -38,24 +45,24 @@ export function verifyEnrollmentContext(
   now = new Date(),
 ): EnrollmentClaims {
   try {
-    if (context.length > 2_048) throw new Error(INVALID_CONTEXT);
+    if (context.length > 2_048) throw new EnrollmentContextError();
     const parts = context.split('.');
-    if (parts.length !== 2) throw new Error(INVALID_CONTEXT);
+    if (parts.length !== 2) throw new EnrollmentContextError();
     const [payload, encodedSignature] = parts;
-    if (!payload || !encodedSignature) throw new Error(INVALID_CONTEXT);
+    if (!payload || !encodedSignature) throw new EnrollmentContextError();
 
     const signature = decodeBase64url(encodedSignature);
     const expected = createHmac('sha256', secret).update(payload).digest();
     if (signature.length !== expected.length || !timingSafeEqual(signature, expected)) {
-      throw new Error(INVALID_CONTEXT);
+      throw new EnrollmentContextError();
     }
 
     const claims = claimsSchema.parse(JSON.parse(decodeBase64url(payload).toString('utf8')));
-    if (purpose && claims.purpose !== purpose) throw new Error(INVALID_CONTEXT);
-    if (claims.exp <= Math.floor(now.getTime() / 1_000)) throw new Error(INVALID_CONTEXT);
+    if (purpose && claims.purpose !== purpose) throw new EnrollmentContextError();
+    if (claims.exp <= Math.floor(now.getTime() / 1_000)) throw new EnrollmentContextError();
     return claims;
   } catch {
-    throw new Error(INVALID_CONTEXT);
+    throw new EnrollmentContextError();
   }
 }
 

@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import {
+  getCurrentAdapter,
+  type BetterAuthOptions,
+  type BetterAuthPlugin,
+  type DBTransactionAdapter,
+} from 'better-auth';
 import { sql, type Transaction } from 'kysely';
 import { z } from 'zod';
 
@@ -8,6 +14,7 @@ import type { Database } from '../db/types';
 import { getServerEnv } from '../env';
 import {
   ENROLLMENT_TTL_SECONDS,
+  EnrollmentContextError,
   hashEnrollmentContext,
   signEnrollmentContext,
   verifyEnrollmentContext,
@@ -20,7 +27,49 @@ const createEnrollmentSchema = z.object({
   pendingUserId: z.string().min(1),
 }).strict();
 
-const INVALID_ENROLLMENT = 'Enrollment context is invalid or expired.';
+const enrollmentReferenceSchema = z.uuid();
+const enrollmentPurposeSchema = z.enum(['install', 'recovery']);
+
+interface EnrollmentUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface AdapterEnrollment {
+  id: string;
+  purpose: string;
+  pendingUserId: string;
+  email: string;
+  expiresAt: Date;
+  consumedAt?: Date | null;
+}
+
+export const enrollmentStoragePlugin = {
+  id: 'tomecms-enrollment-storage',
+  schema: {
+    installationEnrollment: {
+      modelName: 'installation_enrollments',
+      disableMigration: true,
+      fields: {
+        purpose: { type: 'string', required: true },
+        pendingUserId: { type: 'string', required: true, fieldName: 'pending_user_id' },
+        email: { type: 'string', required: true },
+        expiresAt: { type: 'date', required: true, fieldName: 'expires_at' },
+        consumedAt: { type: 'date', required: false, fieldName: 'consumed_at' },
+      },
+    },
+    siteSettings: {
+      modelName: 'site_settings',
+      disableMigration: true,
+      fields: {},
+    },
+  },
+} satisfies BetterAuthPlugin;
+
+function invalidEnrollment(): never {
+  throw new EnrollmentContextError();
+}
 
 function readClaims(context: string, purpose?: EnrollmentPurpose) {
   return verifyEnrollmentContext(context, purpose, getServerEnv().TOME_CMS_CONTEXT_SECRET);
@@ -53,9 +102,16 @@ export async function createEnrollment(input: {
 
 export async function resolveEnrollmentUser(input: {
   context?: string | null;
-}): Promise<{ id: string; name: string; email: string }> {
-  if (!input.context) throw new Error(INVALID_ENROLLMENT);
-  const claims = readClaims(input.context);
+}): Promise<EnrollmentUser> {
+  return (await authorizeEnrollmentContext(input.context)).user;
+}
+
+export async function authorizeEnrollmentContext(context?: string | null): Promise<{
+  reference: string;
+  user: EnrollmentUser;
+}> {
+  if (!context) invalidEnrollment();
+  const claims = readClaims(context);
   let query = db.selectFrom('installation_enrollments as enrollment')
     .innerJoin('user as pending_user', 'pending_user.id', 'enrollment.pending_user_id')
     .select([
@@ -64,7 +120,7 @@ export async function resolveEnrollmentUser(input: {
       'enrollment.email as email',
     ])
     .where('enrollment.id', '=', claims.id)
-    .where('enrollment.context_hash', '=', hashEnrollmentContext(input.context))
+    .where('enrollment.context_hash', '=', hashEnrollmentContext(context))
     .where('enrollment.purpose', '=', claims.purpose)
     .where('enrollment.consumed_at', 'is', null)
     .where('enrollment.expires_at', '>', sql<Date>`CURRENT_TIMESTAMP`)
@@ -75,8 +131,70 @@ export async function resolveEnrollmentUser(input: {
   }
 
   const user = await query.executeTakeFirst();
-  if (!user) throw new Error(INVALID_ENROLLMENT);
-  return user;
+  if (!user) invalidEnrollment();
+  return { reference: claims.id, user };
+}
+
+export async function resolveEnrollmentUserByReference(input: {
+  reference?: string | null;
+}): Promise<EnrollmentUser> {
+  const parsedReference = enrollmentReferenceSchema.safeParse(input.reference);
+  if (!parsedReference.success) invalidEnrollment();
+
+  const enrollment = await db.selectFrom('installation_enrollments as enrollment')
+    .innerJoin('user as pending_user', 'pending_user.id', 'enrollment.pending_user_id')
+    .select([
+      'pending_user.id as id',
+      'pending_user.name as name',
+      'enrollment.email as email',
+      'enrollment.purpose as purpose',
+    ])
+    .where('enrollment.id', '=', parsedReference.data)
+    .where('enrollment.consumed_at', 'is', null)
+    .where('enrollment.expires_at', '>', sql<Date>`CURRENT_TIMESTAMP`)
+    .whereRef('pending_user.email', '=', 'enrollment.email')
+    .executeTakeFirst();
+  if (!enrollment) invalidEnrollment();
+  const purpose = enrollmentPurposeSchema.safeParse(enrollment.purpose);
+  if (!purpose.success) invalidEnrollment();
+  if (purpose.data === 'install') {
+    const installed = await db.selectFrom('site_settings').select('id').executeTakeFirst();
+    if (installed) invalidEnrollment();
+  }
+  return { id: enrollment.id, name: enrollment.name, email: enrollment.email };
+}
+
+export async function assertEnrollmentReference<Options extends BetterAuthOptions>(input: {
+  reference: string;
+  pendingUserId: string;
+  fallbackAdapter: DBTransactionAdapter<Options>;
+}): Promise<void> {
+  const parsedReference = enrollmentReferenceSchema.safeParse(input.reference);
+  if (!parsedReference.success || !input.pendingUserId) invalidEnrollment();
+
+  const adapter = await getCurrentAdapter(input.fallbackAdapter);
+  const enrollment = await adapter.findOne<AdapterEnrollment>({
+    model: 'installationEnrollment',
+    where: [
+      { field: 'id', value: parsedReference.data },
+      { field: 'pendingUserId', value: input.pendingUserId },
+      { field: 'consumedAt', value: null },
+      { field: 'expiresAt', operator: 'gt', value: new Date() },
+    ],
+  });
+  if (!enrollment) invalidEnrollment();
+  const purpose = enrollmentPurposeSchema.safeParse(enrollment.purpose);
+  if (!purpose.success) invalidEnrollment();
+
+  const pendingUser = await adapter.findOne<{ id: string; email: string }>({
+    model: 'user',
+    where: [{ field: 'id', value: input.pendingUserId }],
+    select: ['id', 'email'],
+  });
+  if (!pendingUser || pendingUser.email !== enrollment.email) invalidEnrollment();
+  if (purpose.data === 'install' && await adapter.count({ model: 'siteSettings' }) > 0) {
+    invalidEnrollment();
+  }
 }
 
 export async function consumeEnrollment(context: string, trx: Transaction<Database>): Promise<string> {
@@ -95,6 +213,6 @@ export async function consumeEnrollment(context: string, trx: Transaction<Databa
   }
 
   const enrollment = await query.executeTakeFirst();
-  if (!enrollment) throw new Error(INVALID_ENROLLMENT);
+  if (!enrollment) invalidEnrollment();
   return enrollment.pending_user_id;
 }
