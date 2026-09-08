@@ -93,6 +93,42 @@ test('requires authentication and rejects malformed or server-owned payloads', a
   }
 });
 
+test('returns every Category and counts assignments beyond Data API row limits', async ({ page }) => {
+  test.setTimeout(60_000);
+  const owner = await createOwner('category-pagination');
+  try {
+    const categoryRows = Array.from({ length: 101 }, (_, index) => ({
+      owner_id: owner.id,
+      name: `Boundary ${String(index).padStart(3, '0')}`,
+    }));
+    const { data: categories, error: categoryError } = await owner.client.from('categories')
+      .insert(categoryRows).select();
+    if (categoryError || !categories) throw categoryError ?? new Error('Boundary Categories were not created.');
+
+    const groupIds = Array.from({ length: 1_001 }, () => crypto.randomUUID());
+    for (let offset = 0; offset < groupIds.length; offset += 200) {
+      const { error } = await owner.client.from('posts').insert(
+        groupIds.slice(offset, offset + 200).map((groupId) => postRow(owner, 'th', groupId)),
+      );
+      if (error) throw error;
+    }
+    const counted = categories.find(({ name }) => name === 'Boundary 000');
+    if (!counted) throw new Error('Counted Category was not returned after seeding.');
+    const { error: assignmentError } = await admin.from('post_category_assignments')
+      .update({ category_id: counted.id }).eq('owner_id', owner.id);
+    if (assignmentError) throw assignmentError;
+
+    await signInAdmin(page, owner);
+    const response = await page.request.get('/api/categories');
+    expect(response.status()).toBe(200);
+    const listed = (await response.json()).categories as Array<PostCategory & { postCount: number }>;
+    expect.soft(listed).toHaveLength(102);
+    expect.soft(listed.find(({ id }) => id === counted.id)?.postCount).toBe(1_001);
+  } finally {
+    await cleanup(owner);
+  }
+});
+
 test('lists logical-group counts and scopes Category create, rename, and delete', async ({ page }) => {
   const owner = await createOwner('category-crud');
   const foreign = await createOwner('category-crud-foreign');
