@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { uploadImage } from '../../lib/media-client';
-import { POST_LOCALES, type MediaAsset, type Post, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
+import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
 import useEditorSaveQueue from './useEditorSaveQueue';
@@ -14,6 +14,8 @@ interface EditorSourcePost {
 }
 
 interface EditorProps {
+  categories: PostCategory[];
+  initialCategoryIds: string[];
   initialPost?: Omit<Post, 'translation_group_id'>;
   locale: PostLocale;
   sourcePost?: EditorSourcePost;
@@ -21,6 +23,7 @@ interface EditorProps {
 }
 
 interface EditorDraft {
+  categoryIds: string[];
   contentHtml: string;
   contentJson: JSONContent;
   coverImage: string | null;
@@ -28,6 +31,12 @@ interface EditorDraft {
   metaTitle: string | null;
   slug: string;
   title: string;
+}
+
+function selectCategories(categories: PostCategory[], selected: string[]) {
+  const allowed = new Set(categories.map(({ id }) => id));
+  const custom = [...new Set(selected)].filter((id) => allowed.has(id) && !categories.find((item) => item.id === id)?.is_default);
+  return custom.length ? custom : categories.filter(({ is_default }) => is_default).map(({ id }) => id);
 }
 
 function readApiError(payload: unknown): string | null {
@@ -41,7 +50,7 @@ function readPost(payload: unknown): Post | null {
   return typeof post === 'object' && post !== null && 'id' in post ? (post as Post) : null;
 }
 
-export default function Editor({ initialPost, locale, sourcePost, translations }: EditorProps) {
+export default function Editor({ categories, initialCategoryIds, initialPost, locale, sourcePost, translations }: EditorProps) {
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
   const slugTouched = useRef(Boolean(initialPost));
@@ -51,6 +60,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const coverOperation = useRef(0);
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
+  const [categoryIds, setCategoryIds] = useState(() => selectCategories(categories, initialCategoryIds));
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
   const [coverImage, setCoverImage] = useState(
     initialPost?.cover_image ?? sourcePost?.coverImage ?? '',
@@ -69,11 +79,11 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
-    contentHtml, contentJson, coverImage: coverImage || null,
+    categoryIds, contentHtml, contentJson, coverImage: coverImage || null,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    contentHtml, contentJson, coverImage: coverImage || null,
+    categoryIds, contentHtml, contentJson, coverImage: coverImage || null,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -85,13 +95,14 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
 
   const save = useCallback(async (draft: EditorDraft, status?: PostStatus): Promise<Post> => {
     const id = postId.current;
+    const { categoryIds: selectedCategoryIds, ...contentDraft } = draft;
     const response = await fetch('/api/posts', {
       method: id ? 'PUT' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         ...(id ? { id } : {}),
         ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
-        ...draft,
+        ...contentDraft,
         status: status ?? postStatusRef.current,
       }),
     });
@@ -100,11 +111,17 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
 
     const savedPost = readPost(payload);
     if (!savedPost) throw new Error('The server returned an invalid post.');
-    setErrorMessage(null);
-
-    const wasNew = !postId.current;
     postId.current = savedPost.id;
+    // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
+    const membershipResponse = await fetch('/api/posts/categories', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ postId: savedPost.id, categoryIds: selectedCategoryIds }),
+    });
+    const membershipPayload: unknown = await membershipResponse.json();
+    if (!membershipResponse.ok) throw new Error(readApiError(membershipPayload) ?? 'Post Categories could not be saved.');
+    setErrorMessage(null);
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPost.slug };
       setSlug(savedPost.slug);
@@ -115,9 +132,9 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
       { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
     ].sort((left, right) => left.locale.localeCompare(right.locale)));
 
-    if (wasNew) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
+    if (!initialPost) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
     return savedPost;
-  }, [locale, sourcePost]);
+  }, [initialPost, locale, sourcePost]);
 
   const handleSaveError = useCallback((error: unknown) => {
     setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
@@ -204,7 +221,7 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle]);
+  }, [dirty, isNavigating, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle, categoryIds]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -357,19 +374,23 @@ export default function Editor({ initialPost, locale, sourcePost, translations }
         </article>
 
         <PostSettingsDrawer
+          categories={categories}
           coverAsset={coverAsset}
           coverImage={coverImage}
           errorMessage={errorMessage}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
+          onChangeCategories={(selected) => { setCategoryIds(selectCategories(categories, selected)); markDirty(); }}
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
           onChooseCover={chooseCover}
           onClose={() => setSettingsOpen(false)}
+          onManageCategories={() => void saveBefore(() => window.location.assign('/admin/categories'), undefined, true)}
           onRemoveCover={removeCover}
           onUploadCover={selectCover}
           open={settingsOpen}
+          selectedCategoryIds={categoryIds}
           slug={slug}
           uploadingCover={uploadingCover}
         />
