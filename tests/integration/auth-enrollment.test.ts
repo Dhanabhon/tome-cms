@@ -66,6 +66,10 @@ test('passkey and installer database contract', async (context) => {
   const addUser = (id: string, role = 'owner') => sql`insert into "user" (id, name, email, "emailVerified", role) values (${id}, 'Owner', ${`${id}@example.invalid`}, false, ${role})`.execute(db);
   await addUser('owner');
   await addUser('pending-owner');
+  const { createEnrollment, consumeEnrollment, resolveEnrollmentUser } = await import('../../src/server/auth/enrollment');
+  const { enforceRateLimit, RateLimitExceededError } = await import('../../src/server/auth/rate-limit');
+  const pendingEmail = 'pending-owner@example.invalid';
+  let installContextForInstalledCheck = '';
 
   await context.test('owner, enrollment, recovery and rate-limit constraints reject invalid state', async () => {
     await assert.rejects(addUser('non-owner', 'editor'), { code: '23514' });
@@ -81,8 +85,73 @@ test('passkey and installer database contract', async (context) => {
     await assert.rejects(sql`update security_rate_limits set attempts = -1`.execute(db), { code: '23514' });
   });
 
+  await context.test('enrollment rows bind signed contexts to live pending users and consume once', async () => {
+    const valid = await createEnrollment({ email: pendingEmail, purpose: 'recovery', pendingUserId: 'pending-owner' });
+    assert.deepEqual(await resolveEnrollmentUser({ context: valid.context }), {
+      id: 'pending-owner', name: 'Owner', email: pendingEmail,
+    });
+    const stored = await db.selectFrom('installation_enrollments')
+      .select(['context_hash', 'expires_at']).where('pending_user_id', '=', 'pending-owner')
+      .where('purpose', '=', 'recovery').orderBy('created_at', 'desc').executeTakeFirstOrThrow();
+    assert.notEqual(stored.context_hash, valid.context, 'the raw signed context is never stored');
+    assert.match(stored.context_hash, /^[a-f0-9]{64}$/);
+    assert.equal(stored.expires_at.toISOString(), valid.expiresAt.toISOString());
+
+    const expiredRow = await createEnrollment({ email: pendingEmail, purpose: 'recovery', pendingUserId: 'pending-owner' });
+    const { hashEnrollmentContext } = await import('../../src/server/auth/context');
+    await db.updateTable('installation_enrollments').set({ expires_at: new Date(Date.now() - 1_000) })
+      .where('context_hash', '=', hashEnrollmentContext(expiredRow.context)).execute();
+    await assert.rejects(resolveEnrollmentUser({ context: expiredRow.context }), /invalid or expired/i);
+
+    const mismatched = await createEnrollment({ email: pendingEmail, purpose: 'recovery', pendingUserId: 'pending-owner' });
+    await db.updateTable('installation_enrollments').set({ purpose: 'install' })
+      .where('context_hash', '=', hashEnrollmentContext(mismatched.context)).execute();
+    await assert.rejects(resolveEnrollmentUser({ context: mismatched.context }), /invalid or expired/i);
+
+    const singleUse = await createEnrollment({ email: pendingEmail, purpose: 'recovery', pendingUserId: 'pending-owner' });
+    const attempts = await Promise.allSettled([
+      db.transaction().execute(trx => consumeEnrollment(singleUse.context, trx)),
+      db.transaction().execute(trx => consumeEnrollment(singleUse.context, trx)),
+    ]);
+    assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(attempts.filter(result => result.status === 'rejected').length, 1);
+    assert.equal(attempts.find(result => result.status === 'fulfilled')?.value, 'pending-owner');
+    await assert.rejects(resolveEnrollmentUser({ context: singleUse.context }), /invalid or expired/i);
+
+    installContextForInstalledCheck = (await createEnrollment({
+      email: pendingEmail, purpose: 'install', pendingUserId: 'pending-owner',
+    })).context;
+  });
+
+  await context.test('database rate limiter rolls windows without storing client addresses', async () => {
+    const clientAddress = '203.0.113.42';
+    for (let attempt = 0; attempt < 8; attempt += 1) await enforceRateLimit('install', clientAddress);
+    await assert.rejects(
+      enforceRateLimit('install', clientAddress),
+      (error: unknown) => error instanceof RateLimitExceededError
+        && error.status === 429 && error.retryAfter > 0 && error.retryAfter <= 900,
+    );
+    const row = await db.selectFrom('security_rate_limits').selectAll()
+      .where('action', '=', 'install').orderBy('window_started_at', 'desc').executeTakeFirstOrThrow();
+    assert.match(row.key_hash, /^[a-f0-9]{64}$/);
+    assert.ok(!row.key_hash.includes(clientAddress));
+    assert.equal(row.attempts, 9);
+
+    await db.updateTable('security_rate_limits').set({ window_started_at: new Date(Date.now() - 16 * 60_000) })
+      .where('key_hash', '=', row.key_hash).execute();
+    await enforceRateLimit('install', clientAddress);
+    assert.equal((await db.selectFrom('security_rate_limits').select('attempts')
+      .where('key_hash', '=', row.key_hash).executeTakeFirstOrThrow()).attempts, 1);
+  });
+
   await context.test('singleton site settings enforce locale, timezone and reserved admin paths', async () => {
     await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path) values (true, 'owner', 'Test Site', 'th', 'Asia/Bangkok', '/admin')`.execute(db);
+    await assert.rejects(resolveEnrollmentUser({ context: installContextForInstalledCheck }), /invalid or expired/i);
+    await assert.rejects(
+      db.transaction().execute(trx => consumeEnrollment(installContextForInstalledCheck, trx)),
+      /invalid or expired/i,
+    );
+    await db.deleteFrom('installation_enrollments').where('pending_user_id', '=', 'pending-owner').execute();
     await assert.rejects(sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path) values (true, 'pending-owner', 'Other Site', 'en', 'UTC', '/manage')`.execute(db), { code: '23505' });
     await assert.rejects(sql`update site_settings set id = false`.execute(db), { code: '23514' });
     for (const path of ['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en', '/a', '/Admin', '/nested/path', '/admin/', '/-admin', `/${'a'.repeat(41)}`]) {
