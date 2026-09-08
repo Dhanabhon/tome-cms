@@ -1,26 +1,39 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, PostCategoryBadge, PostCategorySummary } from '../types/cms';
+import type { Database, PostCategory, PostCategoryBadge, PostCategorySummary } from '../types/cms';
+
+const READ_PAGE_SIZE = 500;
 
 export async function getOwnerCategories(
   supabase: SupabaseClient<Database>,
   ownerId: string,
 ): Promise<PostCategorySummary[]> {
-  const { data: categories, error } = await supabase.from('categories').select('*')
-    .eq('owner_id', ownerId).order('is_default', { ascending: false }).order('name').order('id').limit(100);
-  if (error) throw error;
+  const categories: PostCategory[] = [];
+  while (true) {
+    const { data, error, count } = await supabase.from('categories').select('*', { count: 'exact' })
+      .eq('owner_id', ownerId).order('is_default', { ascending: false }).order('name').order('id')
+      .range(categories.length, categories.length + READ_PAGE_SIZE - 1);
+    if (error) throw error;
+    categories.push(...data);
+    if (!data.length || (count !== null ? categories.length >= count : data.length < READ_PAGE_SIZE)) break;
+  }
 
-  // ponytail: cap one owner's manager read; add pagination when 100 Categories or 2,000 assignments is a real need.
   const counts = new Map<string, Set<string>>();
   if (categories.length) {
-    const { data: assignments, error: assignmentError } = await supabase.from('post_category_assignments')
-      .select('category_id, translation_group_id').eq('owner_id', ownerId)
-      .in('category_id', categories.map(({ id }) => id)).limit(2_000);
-    if (assignmentError) throw assignmentError;
-    for (const { category_id, translation_group_id } of assignments) {
-      const groups = counts.get(category_id) ?? new Set<string>();
-      groups.add(translation_group_id);
-      counts.set(category_id, groups);
+    let assignmentOffset = 0;
+    while (true) {
+      const { data, error, count } = await supabase.from('post_category_assignments')
+        .select('category_id, translation_group_id', { count: 'exact' }).eq('owner_id', ownerId)
+        .order('category_id').order('translation_group_id')
+        .range(assignmentOffset, assignmentOffset + READ_PAGE_SIZE - 1);
+      if (error) throw error;
+      for (const { category_id, translation_group_id } of data) {
+        const groups = counts.get(category_id) ?? new Set<string>();
+        groups.add(translation_group_id);
+        counts.set(category_id, groups);
+      }
+      assignmentOffset += data.length;
+      if (!data.length || (count !== null ? assignmentOffset >= count : data.length < READ_PAGE_SIZE)) break;
     }
   }
 
