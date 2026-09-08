@@ -1,22 +1,27 @@
 ---
+import { adminHref, normalizeAdminPath } from '../../lib/admin';
+
 interface Props {
   active: 'media' | 'navigation' | 'pages' | 'posts' | 'profile' | 'settings';
+  adminPath?: string;
   siteName: string;
   userEmail?: string | null;
 }
 
-const { active, siteName, userEmail } = Astro.props;
+const { active, adminPath: requestedAdminPath = '/admin', siteName, userEmail } = Astro.props;
+const adminPath = normalizeAdminPath(requestedAdminPath);
+const adminSettings = { admin_path: adminPath };
 const links = [
-  { id: 'posts', href: '/admin', label: 'Posts' },
-  { id: 'pages', href: '/admin/pages', label: 'Pages' },
-  { id: 'media', href: '/admin/media', label: 'Files' },
-  { id: 'navigation', href: '/admin/navigation', label: 'Navigation' },
-  { id: 'profile', href: '/admin/profile', label: 'Profile' },
-  { id: 'settings', href: '/admin/settings', label: 'Settings' },
+  { id: 'posts', href: adminHref(adminSettings), label: 'Posts' },
+  { id: 'pages', href: adminHref(adminSettings, '/pages'), label: 'Pages' },
+  { id: 'media', href: adminHref(adminSettings, '/media'), label: 'Files' },
+  { id: 'navigation', href: adminHref(adminSettings, '/navigation'), label: 'Navigation' },
+  { id: 'profile', href: adminHref(adminSettings, '/profile'), label: 'Profile' },
+  { id: 'settings', href: adminHref(adminSettings, '/settings'), label: 'Settings' },
 ] as const;
 ---
 
-<div class="admin-shell">
+<div class="admin-shell" data-admin-path={adminPath}>
   <header class="admin-mobile-bar">
     <span>{siteName}</span>
     <button class="admin-button" type="button" data-nav-open aria-label="Open navigation" aria-controls="admin-mobile-navigation" aria-expanded="false">Menu</button>
@@ -26,7 +31,7 @@ const links = [
     return (
       <Container class={mobile ? 'admin-mobile-nav' : 'admin-sidebar'} id={mobile ? 'admin-mobile-navigation' : undefined} aria-label="Admin navigation">
         {mobile && <button class="admin-button" type="button" data-nav-close autofocus aria-label="Close navigation">Close</button>}
-        <a class="admin-shell-brand" href="/admin">
+        <a class="admin-shell-brand" href={adminHref(adminSettings)}>
           <img class="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
           <span>{siteName}</span>
         </a>
@@ -84,7 +89,7 @@ const links = [
       try {
         const { error } = await createBrowserSupabaseClient().auth.signOut();
         if (error) throw error;
-        window.location.assign('/admin');
+        window.location.assign(document.querySelector<HTMLElement>('.admin-shell')?.dataset.adminPath ?? '/admin');
       } catch {
         if (message) message.textContent = 'Unable to sign out. Please try again.';
         button.disabled = false;
