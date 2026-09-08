@@ -6,7 +6,7 @@ const SETUP_PATHS = new Set(['/install', '/api/install', '/api/install/status'])
 
 export const onRequest = defineMiddleware(async ({ redirect, url }, next) => {
   const { pathname } = url;
-  if (SETUP_PATHS.has(pathname) || pathname.startsWith('/_astro/') || pathname === '/favicon.svg') {
+  if (SETUP_PATHS.has(pathname) || pathname === '/health/live' || pathname === '/health/ready' || pathname.startsWith('/_astro/') || pathname === '/favicon.svg') {
     return next();
   }
 
