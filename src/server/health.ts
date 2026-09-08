@@ -34,7 +34,7 @@ export async function checkReadiness(signal?: AbortSignal): Promise<ReadinessRes
   if (!inFlight) {
     const current = { checks: unavailable, listeners: new Set<() => void>() };
     inFlight = current;
-    // ponytail: one shared probe; driver queries are not cancelled. Add driver-level query/statement timeouts if a stuck-query incident appears.
+    // One shared probe settles within the pool's connection and query timeouts.
     void probe(current.checks).finally(() => {
       inFlight = undefined;
       for (const finish of current.listeners) finish();

@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { sql } from 'kysely';
 import { Client } from 'pg';
+import { randomBytes } from 'node:crypto';
 
 test('foundation cleanup runs for the exact disposable project after startup fails', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-foundation-wrapper-'));
@@ -39,6 +40,93 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
   const { checkReadiness } = await import('../../src/server/health');
   assert.deepEqual(await checkReadiness(), {
     status: 'ready', checks: { database: 'ready', migrations: 'ready', storage: 'deferred' },
+  });
+
+  await context.test('idle pool backend termination stays alive, redacts output, and reconnects', () => {
+    const sentinel = randomBytes(24).toString('hex');
+    const result = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      import assert from 'node:assert/strict';
+      import { Client } from 'pg';
+      import { setTimeout as delay } from 'node:timers/promises';
+      const { pool } = await import('./src/server/db/client.ts');
+      const killer = new Client({ connectionString: process.env.DATABASE_URL });
+      try {
+        const { rows: [{ pid }] } = await pool.query('select pg_backend_pid() as pid');
+        await killer.connect();
+        await killer.query('select pg_terminate_backend($1)', [pid]);
+        for (let attempt = 0; pool.totalCount && attempt < 100; attempt++) await delay(20);
+        assert.equal(pool.totalCount, 0);
+        assert.equal(pool.listenerCount('error'), 1);
+        assert.equal((await pool.query('select 1 as value')).rows[0].value, 1);
+        process.stdout.write('recovered');
+      } finally {
+        await killer.end();
+        await pool.end();
+      }
+    `], { env: { ...process.env, PGAPPNAME: sentinel }, encoding: 'utf8', timeout: 10_000 });
+    assert.ok(!(result.stdout + result.stderr).includes(sentinel), 'pool errors never print supplied values');
+    assert.equal(result.status, 0, 'idle backend termination must not crash the process');
+    assert.equal(result.stdout, 'recovered');
+    assert.equal(result.stderr, 'Database pool connection lost\n');
+  });
+
+  await context.test('configured deadlines override URL query options and the driver bounds a server stall', () => {
+    const result = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      import assert from 'node:assert/strict';
+      const { pool } = await import('./src/server/db/client.ts');
+      const client = await pool.connect();
+      try {
+        assert.equal((await client.query('show statement_timeout')).rows[0].statement_timeout, '300ms');
+        await client.query('set statement_timeout = 0');
+        const started = performance.now();
+        await assert.rejects(client.query('select pg_sleep(1)'));
+        assert.ok(performance.now() - started < 800);
+        process.stdout.write('bounded');
+      } finally {
+        client.release(true);
+        await pool.end();
+      }
+    `], { env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL + '?query_timeout=0&statement_timeout=0' }, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 0, 'URL options must not disable configured deadlines');
+    assert.equal(result.stdout, 'bounded');
+    assert.equal(result.stderr, '');
+  });
+
+  await context.test('connection acquisition is bounded and releases a saturated pool queue', async () => {
+    const held = await pool.connect();
+    let released = false;
+    const release = () => { if (!released) { released = true; held.release(true); } };
+    const fallback = setTimeout(release, 1_000);
+    try {
+      const started = performance.now();
+      await assert.rejects(pool.query('select 1'));
+      assert.ok(performance.now() - started < 800, 'driver connection acquisition is bounded');
+      assert.equal(pool.waitingCount, 0);
+    } finally {
+      clearTimeout(fallback);
+      release();
+    }
+    assert.equal((await pool.query('select 1 as value')).rows[0].value, 1);
+  });
+
+  await context.test('a stalled readiness probe settles while locked, releases resources, and allows a fresh probe', async () => {
+    const locker = new Client({ connectionString: process.env.DATABASE_URL });
+    await locker.connect();
+    try {
+      await locker.query('begin');
+      await locker.query('lock table kysely_migration in access exclusive mode');
+      const result = await checkReadiness(AbortSignal.timeout(40));
+      assert.equal(result.status, 'not-ready');
+      await delay(650);
+      const blocked = await locker.query("select count(*)::int as count from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and pid <> pg_backend_pid()");
+      assert.equal(blocked.rows[0].count, 0, 'server timeout cancels the blocked migration query while the lock remains held');
+      assert.equal(pool.waitingCount, 0);
+      assert.equal(pool.totalCount, pool.idleCount, 'the driver releases the timed-out probe connection');
+      await locker.query('rollback');
+      assert.equal((await checkReadiness()).status, 'ready', 'a fresh probe succeeds after the stalled probe settles');
+    } finally {
+      await locker.end();
+    }
   });
 
   await context.test('saturated pool has bounded responses and one coalesced probe, then recovers', async () => {

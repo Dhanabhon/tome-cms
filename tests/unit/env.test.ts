@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { parseServerEnv } from '../../src/server/env';
 
@@ -28,4 +33,55 @@ test('rejects missing secrets, malformed URLs, and production HTTP', () => {
   assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', TOME_CMS_PUBLIC_URL: 'http://cms.example.com' }));
   assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'http://minio:9000' }));
   assert.throws(() => parseServerEnv({ ...valid, S3_BUCKET: '../media' }));
+});
+
+test('database timeouts default to finite bounds and accept only bounded decimal integers', () => {
+  const defaults = parseServerEnv(valid);
+  assert.equal(defaults.DATABASE_CONNECTION_TIMEOUT_MS, 5000);
+  assert.equal(defaults.DATABASE_QUERY_TIMEOUT_MS, 30000);
+  for (const [key, maximum] of [['DATABASE_CONNECTION_TIMEOUT_MS', 60000], ['DATABASE_QUERY_TIMEOUT_MS', 3600000]] as const) {
+    for (const value of ['', '0', '99', '-1', '1.5', '1e3', ' 5000 ', 'Infinity', String(maximum + 1)]) {
+      assert.throws(() => parseServerEnv({ ...valid, [key]: value }));
+    }
+    for (const value of ['100', String(maximum)]) assert.equal(parseServerEnv({ ...valid, [key]: value })[key], Number(value));
+  }
+});
+
+test('malformed production URLs produce validation errors without invoking an unsafe URL refinement', () => {
+  for (const key of ['TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT']) {
+    assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'https://s3.example.com', [key]: 'malformed' }), { name: 'ZodError' });
+  }
+});
+
+test('migration CLI contains configuration failures without leaking supplied values', async (context) => {
+  for (const key of ['DATABASE_URL', 'TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'MEDIA_PUBLIC_URL']) {
+    await context.test(key, () => {
+      const sentinel = randomBytes(24).toString('hex');
+      const result = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/db-migrate.ts'], {
+        env: { ...process.env, ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'https://s3.example.com', [key]: sentinel }, encoding: 'utf8', timeout: 10_000,
+      });
+      assert.equal(result.status, 1);
+      assert.ok(!(result.stdout + result.stderr).includes(sentinel), 'configuration values remain private');
+      assert.equal(result.stdout, '');
+      assert.equal(result.stderr, 'Migration failed\n');
+    });
+  }
+});
+
+test('migration CLI also contains database close failures without reporting success or private values', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'tomecms-migrate-close-test-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  await mkdir(join(directory, 'scripts'));
+  await mkdir(join(directory, 'src/server/db'), { recursive: true });
+  await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+  const script = join(directory, 'scripts/db-migrate.ts');
+  await copyFile(new URL('../../scripts/db-migrate.ts', import.meta.url), script);
+  await writeFile(join(directory, 'src/server/db/client.ts'), 'export async function closeDatabase() { throw new Error(process.env.CLOSE_TEST_VALUE); }');
+  await writeFile(join(directory, 'src/server/db/migrator.ts'), 'export async function pendingMigrationNames() { return []; } export async function migrateToLatest() {}');
+  const sentinel = randomBytes(24).toString('hex');
+  const result = spawnSync(process.execPath, ['--import', 'tsx', script], { env: { ...process.env, CLOSE_TEST_VALUE: sentinel }, encoding: 'utf8', timeout: 10_000 });
+  assert.equal(result.status, 1);
+  assert.ok(!(result.stdout + result.stderr).includes(sentinel), 'close errors remain private');
+  assert.equal(result.stdout, '');
+  assert.equal(result.stderr, 'Migration failed\n');
 });
