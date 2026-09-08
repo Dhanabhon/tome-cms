@@ -1,31 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { ACCEPTED_IMAGE_TYPES, COVER_IMAGE_GUIDANCE } from '../../lib/media';
-import type { MediaAsset } from '../../types/cms';
+import type { MediaAsset, PostCategory } from '../../types/cms';
 import MediaPicker from './MediaPicker';
 
 interface PostSettingsDrawerProps {
+  categories: PostCategory[];
   coverAsset: MediaAsset | null;
   coverImage: string;
   errorMessage: string | null;
   metaDescription: string;
   metaTitle: string;
+  onChangeCategories: (value: string[]) => void;
   onChangeMetaDescription: (value: string) => void;
   onChangeMetaTitle: (value: string) => void;
   onChangeSlug: (value: string) => void;
   onChooseCover: (asset: MediaAsset) => void;
   onClose: () => void;
+  onManageCategories: () => void;
   onRemoveCover: () => void;
   onUploadCover: (file: File, input: HTMLInputElement) => Promise<void>;
   open: boolean;
+  selectedCategoryIds: string[];
   slug: string;
   uploadingCover: boolean;
 }
 
 export default function PostSettingsDrawer({
-  coverAsset, coverImage, errorMessage, metaDescription, metaTitle,
-  onChangeMetaDescription, onChangeMetaTitle, onChangeSlug, onChooseCover,
-  onClose, onRemoveCover, onUploadCover, open, slug, uploadingCover,
+  categories, coverAsset, coverImage, errorMessage, metaDescription, metaTitle,
+  onChangeCategories, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug, onChooseCover,
+  onClose, onManageCategories, onRemoveCover, onUploadCover, open, selectedCategoryIds, slug, uploadingCover,
 }: PostSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -65,6 +69,24 @@ export default function PostSettingsDrawer({
         <input className="admin-control" onChange={(event) => onChangeSlug(event.target.value)} placeholder="post-slug" type="text" value={slug} />
         <small>Used in the post URL.</small>
       </label>
+      <fieldset aria-describedby="category-fallback-help" className="admin-field">
+        <legend>Categories</legend>
+        {[...categories].sort((left, right) => Number(right.is_default) - Number(left.is_default) || left.name.localeCompare(right.name)).map((category) => (
+          <label className="flex items-center gap-2 py-2" key={category.id}>
+            <input
+              checked={selectedCategoryIds.includes(category.id)}
+              disabled={category.is_default && categories.some(({ id, is_default }) => !is_default && selectedCategoryIds.includes(id))}
+              onChange={(event) => onChangeCategories(event.target.checked
+                ? [...selectedCategoryIds, category.id]
+                : selectedCategoryIds.filter((id) => id !== category.id))}
+              type="checkbox"
+            />
+            <span>{category.name}</span>
+          </label>
+        ))}
+        <small id="category-fallback-help">Uncategorized is used when no custom categories are selected.</small>
+        <button className="admin-button admin-button--secondary" onClick={onManageCategories} type="button">Manage categories</button>
+      </fieldset>
       <label className="admin-field">
         <span>Meta title <small>{metaTitle.length}/70</small></span>
         <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder="Optional search result title" type="text" value={metaTitle} />

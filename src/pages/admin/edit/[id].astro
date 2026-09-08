@@ -4,12 +4,15 @@ import { z } from 'zod';
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminLoginPath } from '../../../lib/admin';
+import { getCategoryIdsForPost, getOwnerCategories } from '../../../lib/categories';
 import { authenticate } from '../../../lib/supabase';
-import type { Post, PostTranslationSummary } from '../../../types/cms';
+import type { Post, PostCategory, PostTranslationSummary } from '../../../types/cms';
 
 let post: Post | null = null;
 let editorPost: Omit<Post, 'translation_group_id'> | null = null;
 let translations: PostTranslationSummary[] = [];
+let categories: PostCategory[] = [];
+let initialCategoryIds: string[] = [];
 let errorMessage: string | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
 
@@ -36,6 +39,10 @@ try {
         Astro.response.status = 404;
         errorMessage = 'Post not found.';
       } else {
+        categories = await getOwnerCategories(auth.supabase, auth.user.id);
+        const membership = await getCategoryIdsForPost(auth.supabase, auth.user.id, post.id);
+        if (membership === null) throw new Error('Post membership not found.');
+        initialCategoryIds = membership;
         const { data: translationData, error: translationsError } = await auth.supabase
           .from('posts')
           .select('id, locale, status, title')
@@ -59,7 +66,7 @@ try {
 <AdminLayout title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
-      <Editor client:only="react" initialPost={editorPost} locale={post.locale} translations={translations}>
+      <Editor client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </Editor>
     ) : (
