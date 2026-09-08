@@ -122,7 +122,10 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         <p>Draft, publish, and keep your writing in one place.</p>
       </div>
       {!authRequired && !errorMessage && (
-        <a class="admin-button admin-button--primary" href="/admin/new">New post <span aria-hidden="true">+</span></a>
+        <div class="admin-page__actions">
+          <a class="admin-button admin-button--secondary" href="/admin/categories">Manage categories</a>
+          <a class="admin-button admin-button--primary" href="/admin/new">New post <span aria-hidden="true">+</span></a>
+        </div>
       )}
     </header>
 
