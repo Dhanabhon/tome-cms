@@ -1182,3 +1182,65 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .navigation-manager *, .navigation-manager *::before { transition: none !important; animation: none !important; }
 }
+
+.admin-page__actions,
+.category-actions,
+.category-edit-actions,
+.post-category-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.category-manager { min-width: 0; }
+.category-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-md);
+  align-items: end;
+  margin-block: var(--space-xl);
+}
+.category-status { min-height: 1.5em; margin: 0 0 var(--space-md); color: var(--color-muted); font-size: var(--text-sm); }
+.category-list { display: grid; gap: var(--space-sm); min-width: 0; margin: var(--space-md) 0 0; padding: 0; list-style: none; }
+.category-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-md);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-paper);
+}
+.category-row__content { min-width: 0; }
+.category-row__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); min-width: 0; }
+.category-row h2 { min-width: 0; margin: 0; font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
+.category-row p { margin: var(--space-2xs) 0 0; color: var(--color-muted); font-size: var(--text-sm); }
+.category-default,
+.post-category-badges > span {
+  display: inline-flex;
+  min-width: 0;
+  padding: var(--space-3xs) var(--space-xs);
+  border: var(--rule-hair) solid var(--color-focus-soft);
+  border-radius: 999px;
+  background: var(--color-paper-3);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.category-actions { justify-content: end; }
+.category-edit { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-md); align-items: end; min-width: 0; }
+.category-manager :is(button, input):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+@media (max-width: 39.999rem) {
+  .admin-page__actions,
+  .category-create,
+  .category-row,
+  .category-edit { grid-template-columns: minmax(0, 1fr); }
+  .admin-page__actions { align-items: flex-start; }
+  .category-actions { justify-content: start; }
+  .category-create .admin-button { width: fit-content; }
+}

@@ -1,0 +1,56 @@
+---
+import CategoryManager from '../../components/admin/CategoryManager';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminLoginPath } from '../../lib/admin';
+import { getOwnerCategories } from '../../lib/categories';
+import { getSiteSettings } from '../../lib/installation';
+import { authenticate } from '../../lib/supabase';
+import type { PostCategorySummary } from '../../types/cms';
+
+let initialCategories: PostCategorySummary[] = [];
+let userEmail: string | null = null;
+let errorMessage: string | null = null;
+let settings = null;
+let authRequired = false;
+
+try {
+  const auth = await authenticate(Astro.cookies, Astro.request);
+  if (!auth) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    userEmail = auth.user.email ?? null;
+    [settings, initialCategories] = await Promise.all([
+      getSiteSettings(),
+      getOwnerCategories(auth.supabase, auth.user.id),
+    ]);
+  }
+} catch (error) {
+  console.error('Category manager loading failed:', error);
+  Astro.response.status = 500;
+  errorMessage = 'Categories are temporarily unavailable.';
+}
+---
+
+<AdminLayout title="Categories">
+  {authRequired || errorMessage ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
+  ) : (
+    <AdminShell active="posts" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+      <section class="admin-page">
+        <header class="admin-page__head">
+          <div>
+            <h1>Categories</h1>
+            <p>Group related Posts without changing how their language editions stay together.</p>
+          </div>
+          <a class="admin-button admin-button--secondary" href="/admin">Back to Posts</a>
+        </header>
+        <CategoryManager initialCategories={initialCategories} client:only="react">
+          <p class="admin-editor-fallback" slot="fallback" role="status">Loading Categories…</p>
+        </CategoryManager>
+      </section>
+    </AdminShell>
+  )}
+</AdminLayout>
