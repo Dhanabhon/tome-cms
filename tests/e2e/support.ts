@@ -70,8 +70,12 @@ export async function cleanupEditor(page: Page, ...owners: TestOwner[]) {
     if (navigationError) throw navigationError;
     const { error: pagesError } = await admin.from('pages').delete().eq('author_id', owner.id);
     if (pagesError) throw pagesError;
+    const { error: assignmentsError } = await admin.from('post_category_assignments').delete().eq('owner_id', owner.id);
+    if (assignmentsError) throw assignmentsError;
     const { error } = await admin.from('posts').delete().eq('author_id', owner.id);
     if (error) throw error;
+    const { error: categoriesError } = await admin.from('categories').delete().eq('owner_id', owner.id).eq('is_default', false);
+    if (categoriesError) throw categoriesError;
     await deleteOwner(owner);
   }
 }
