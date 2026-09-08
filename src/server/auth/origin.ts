@@ -1,5 +1,22 @@
+import { isIP } from 'node:net';
+
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+export function isSupportedPasskeyOrigin(
+  value: string | URL,
+  environment = process.env.NODE_ENV,
+): boolean {
+  try {
+    const origin = typeof value === 'string' ? new URL(value) : value;
+    const hostname = origin.hostname.replace(/^\[|\]$/g, '');
+    if (isIP(hostname)) return false;
+    if (origin.protocol === 'http:') return environment !== 'production' && hostname === 'localhost';
+    return origin.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export function assertSameOrigin(request: Request, configuredOrigin: string): void {
   const expected = new URL(configuredOrigin);

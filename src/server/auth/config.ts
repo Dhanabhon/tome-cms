@@ -5,14 +5,17 @@ import { pool } from '../db/client';
 import { getServerEnv } from '../env';
 import {
   assertEnrollmentReference,
+  assertInstalledOwner,
+  assertInstalledOwnerCredential,
   enrollmentStoragePlugin,
   resolveEnrollmentUserByReference,
 } from './enrollment';
+import { isSupportedPasskeyOrigin } from './origin';
 
 const env = getServerEnv();
 const publicUrl = new URL(env.TOME_CMS_PUBLIC_URL);
-if (publicUrl.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(publicUrl.hostname)) {
-  throw new Error('Passkeys require HTTPS outside loopback.');
+if (!isSupportedPasskeyOrigin(publicUrl, env.NODE_ENV)) {
+  throw new Error('Passkeys require HTTPS, or http://localhost during local development. IP-address RP IDs are not supported.');
 }
 
 export const auth = betterAuth({
@@ -30,13 +33,23 @@ export const auth = betterAuth({
       requireSession: false,
       resolveUser: ({ context }) => resolveEnrollmentUserByReference({ reference: context }),
       afterVerification: async ({ context, ctx, user }) => {
-        if (!context) return;
-        await assertEnrollmentReference({
-          reference: context,
-          pendingUserId: user.id,
-          fallbackAdapter: ctx.context.adapter,
-        });
+        if (context) {
+          await assertEnrollmentReference({
+            reference: context,
+            pendingUserId: user.id,
+            fallbackAdapter: ctx.context.adapter,
+          });
+          return;
+        }
+        if (ctx.context.session?.user.id !== user.id) throw new Error('Installed owner session required.');
+        await assertInstalledOwner({ userId: user.id, fallbackAdapter: ctx.context.adapter });
       },
+    },
+    authentication: {
+      afterVerification: ({ clientData, ctx }) => assertInstalledOwnerCredential({
+        credentialId: clientData.id,
+        fallbackAdapter: ctx.context.adapter,
+      }),
     },
   })],
 });

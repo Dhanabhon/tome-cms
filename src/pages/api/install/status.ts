@@ -1,18 +1,18 @@
 import type { APIRoute } from 'astro';
 
+import { isSupportedPasskeyOrigin } from '../../../server/auth/origin';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
 import { checkReadiness } from '../../../server/health';
 
 const env = getServerEnv();
 const publicUrl = new URL(env.TOME_CMS_PUBLIC_URL);
-const loopback = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export const GET: APIRoute = async ({ request }) => {
   const headers = { 'Cache-Control': 'no-store' };
   try {
     const readiness = await checkReadiness(request.signal);
-    const relyingParty = publicUrl.protocol === 'https:' || (env.NODE_ENV !== 'production' && loopback.has(publicUrl.hostname))
+    const relyingParty = isSupportedPasskeyOrigin(publicUrl, env.NODE_ENV)
       ? 'ready'
       : 'unavailable';
     const settings = readiness.checks.database === 'ready' && readiness.checks.migrations === 'ready'

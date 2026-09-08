@@ -1,19 +1,42 @@
 import type { APIRoute } from 'astro';
+import { getSessionCookie } from 'better-auth/cookies';
 
 import { auth } from '../../../server/auth/config';
 import { EnrollmentContextError } from '../../../server/auth/context';
-import { authorizeEnrollmentContext } from '../../../server/auth/enrollment';
+import {
+  authorizeEnrollmentContext,
+  classifyAuthIdentity,
+  cleanupAbandonedInstallIdentities,
+} from '../../../server/auth/enrollment';
 import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError, type RateLimitAction } from '../../../server/auth/rate-limit';
 import { getServerEnv } from '../../../server/env';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 const registrationOptionsPath = '/api/auth/passkey/generate-register-options';
+const pendingSessionPaths = new Set([
+  'GET /api/auth/get-session',
+  'POST /api/auth/sign-out',
+]);
 
 const verificationActions: Readonly<Record<string, RateLimitAction>> = {
   '/api/auth/passkey/verify-registration': 'install',
   '/api/auth/passkey/verify-authentication': 'signin',
 };
+
+async function rejectInvalidSession(headers: Headers): Promise<Response> {
+  const responseHeaders = new Headers({ 'Cache-Control': 'no-store' });
+  try {
+    const signedOut = await auth.api.signOut({ asResponse: true, headers });
+    for (const cookie of signedOut.headers.getSetCookie()) responseHeaders.append('Set-Cookie', cookie);
+  } catch {
+    // The database identity is already unusable; cookie cleanup is best-effort.
+  }
+  return Response.json({ error: 'The authentication session is no longer valid.' }, {
+    headers: responseHeaders,
+    status: 401,
+  });
+}
 
 export const ALL: APIRoute = async (context) => {
   const { request } = context;
@@ -26,6 +49,29 @@ export const ALL: APIRoute = async (context) => {
     });
   }
   const url = new URL(request.url);
+  const sessionCookie = getSessionCookie(request);
+  if (sessionCookie) {
+    const current = await auth.api.getSession({
+      headers: request.headers,
+      query: { disableCookieCache: true, disableRefresh: true },
+    });
+    if (!current) {
+      await cleanupAbandonedInstallIdentities();
+      if (!(request.method === 'POST' && url.pathname === '/api/auth/sign-out')) {
+        return rejectInvalidSession(request.headers);
+      }
+    } else {
+      const identity = await classifyAuthIdentity(current.user.id);
+      if (identity === 'invalid') return rejectInvalidSession(request.headers);
+      if (identity === 'pending-install' && !pendingSessionPaths.has(`${request.method} ${url.pathname}`)) {
+        return Response.json({ error: 'This session is limited to installer finalization.' }, {
+          headers: { 'Cache-Control': 'no-store' },
+          status: 403,
+        });
+      }
+    }
+  }
+
   let authRequest = request;
   if (request.method === 'GET' && url.pathname === registrationOptionsPath && url.searchParams.has('context')) {
     try {
