@@ -2,13 +2,14 @@
 import packageMetadata from '../../package.json' with { type: 'json' };
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import InstallerWizard from '../components/admin/InstallerWizard';
+import { normalizeAdminPath } from '../lib/admin';
 import { db } from '../server/db/client';
 import '../styles/installer-tokens.css';
 import '../styles/installer.css';
 
 try {
   const installed = await db.selectFrom('site_settings').select('admin_path').executeTakeFirst();
-  if (installed) return Astro.redirect(installed.admin_path);
+  if (installed) return Astro.redirect(normalizeAdminPath(installed.admin_path));
 } catch {
   // The Wizard renders its actionable readiness state when infrastructure is unavailable.
 }

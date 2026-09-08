@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { RESERVED_ADMIN_PATHS } from '../../lib/admin';
 import { authClient } from '../../lib/auth-client';
 import UiSelect from './UiSelect';
 
@@ -41,7 +42,6 @@ interface EnrollmentResponse {
   rp: { id: string; name: string };
 }
 
-const reservedAdminPaths = new Set(['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en']);
 const adminPathPattern = /^\/[a-z0-9][a-z0-9-]{1,39}$/;
 const fieldControlIds: Record<FieldName, string> = {
   siteName: 'site-name',
@@ -190,7 +190,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
       if (!form.siteName.trim() || form.siteName.trim().length > 120) errors.siteName = language === 'th' ? 'กรอกชื่อเว็บไซต์ไม่เกิน 120 ตัวอักษร' : 'Enter a site name up to 120 characters.';
       if (form.tagline.trim().length > 120) errors.tagline = language === 'th' ? 'Tagline ต้องไม่เกิน 120 ตัวอักษร' : 'Keep the Tagline under 120 characters.';
       if (form.siteDescription.trim().length > 160) errors.siteDescription = language === 'th' ? 'คำอธิบายต้องไม่เกิน 160 ตัวอักษร' : 'Keep the description under 160 characters.';
-      if (!adminPathPattern.test(form.adminPath) || reservedAdminPaths.has(form.adminPath)) errors.adminPath = language === 'th' ? 'ใช้ / ตามด้วยตัวพิมพ์เล็ก ตัวเลข หรือขีดกลาง รวม 2–40 ตัว และห้ามใช้ path ของระบบ' : 'Use / plus 2–40 lowercase letters, numbers, or hyphens, and avoid system paths.';
+      if (!adminPathPattern.test(form.adminPath) || RESERVED_ADMIN_PATHS.has(form.adminPath)) errors.adminPath = language === 'th' ? 'ใช้ / ตามด้วยตัวพิมพ์เล็ก ตัวเลข หรือขีดกลาง รวม 2–40 ตัว และห้ามใช้ path ของระบบ' : 'Use / plus 2–40 lowercase letters, numbers, or hyphens, and avoid system paths.';
     }
     if (targetStep === 3 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       errors.email = language === 'th' ? 'กรอกอีเมลให้ครบ เช่น name@example.com' : 'Enter a complete address, such as name@example.com.';

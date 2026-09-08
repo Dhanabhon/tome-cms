@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 
+import { normalizeAdminPath } from '../../../lib/admin';
 import { isSupportedPasskeyOrigin } from '../../../server/auth/origin';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
@@ -24,7 +25,7 @@ export const GET: APIRoute = async ({ request }) => {
       ready: readiness.status === 'ready' && relyingParty === 'ready',
       checks: { ...readiness.checks, relyingParty },
       rp: { id: publicUrl.hostname, name: 'TomeCMS', origin: publicUrl.origin },
-      ...(settings ? { redirectTo: settings.admin_path } : {}),
+      ...(settings ? { redirectTo: normalizeAdminPath(settings.admin_path) } : {}),
     }, { headers });
   } catch {
     console.error('Installer status check failed.');
