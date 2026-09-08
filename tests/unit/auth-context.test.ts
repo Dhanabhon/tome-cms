@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -46,4 +47,18 @@ test('signed enrollment contexts reject tampering and malformed input', () => {
 test('signed enrollment contexts expire at the declared second', () => {
   const context = signEnrollmentContext({ ...claims, exp: Math.floor(now.getTime() / 1_000) }, secret);
   assert.throws(() => verifyEnrollmentContext(context, 'install', secret, now), /invalid or expired/i);
+});
+
+test('VPS proxy keeps the app private and does not preserve spoofed or bearer-bearing requests', () => {
+  const deployment = readFileSync(new URL('../../scripts/deploy-vps.sh', import.meta.url), 'utf8');
+  const enrollmentLocation = deployment.match(
+    /location = \/api\/auth\/passkey\/generate-register-options \{([\s\S]*?)\n    \}/,
+  )?.[1] ?? '';
+
+  assert.match(deployment, /Environment=HOST=127\.0\.0\.1/);
+  assert.match(deployment, /proxy_set_header X-Forwarded-For \\\$remote_addr;/);
+  assert.doesNotMatch(deployment, /proxy_add_x_forwarded_for/);
+  assert.match(enrollmentLocation, /access_log off;/);
+  assert.match(enrollmentLocation, /error_log \/dev\/null emerg;/);
+  assert.match(enrollmentLocation, /proxy_pass http:\/\/127\.0\.0\.1:\$\{APP_PORT\};/);
 });

@@ -22,7 +22,14 @@ test('passkey and installer database contract', async (context) => {
     assert.deepEqual(auth.options.trustedOrigins, ['http://127.0.0.1:4321']);
     assert.equal(auth.options.emailAndPassword?.enabled, false);
     const schema = getSchema(auth.options);
-    assert.deepEqual(Object.keys(schema).sort(), ['account', 'passkey', 'session', 'user', 'verification']);
+    assert.deepEqual(
+      Object.entries(schema).filter(([, definition]) => !definition.disableMigrations).map(([name]) => name).sort(),
+      ['account', 'passkey', 'session', 'user', 'verification'],
+    );
+    assert.deepEqual(
+      Object.entries(schema).filter(([, definition]) => definition.disableMigrations).map(([name]) => name).sort(),
+      ['installation_enrollments', 'site_settings'],
+    );
     const columns = (await sql<{ table_name: string; column_name: string; udt_name: string; is_nullable: string; column_default: string | null }>`
       select table_name, column_name, udt_name, is_nullable, column_default
       from information_schema.columns where table_schema = 'public'
@@ -37,6 +44,7 @@ test('passkey and installer database contract', async (context) => {
       where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'
     `.execute(db)).rows;
     for (const [table, definition] of Object.entries(schema)) {
+      if (definition.disableMigrations) continue;
       const actual = columns.filter(column => column.table_name === table);
       assert.deepEqual(actual.map(column => column.column_name).sort(), ['id', ...Object.keys(definition.fields)].sort());
       assert.ok(indexes.some(index => index.tablename === table && index.indexname === `${table}_pkey` && index.indexdef.includes('UNIQUE')));
@@ -121,6 +129,37 @@ test('passkey and installer database contract', async (context) => {
     installContextForInstalledCheck = (await createEnrollment({
       email: pendingEmail, purpose: 'install', pendingUserId: 'pending-owner',
     })).context;
+  });
+
+  await context.test('auth challenge storage receives only a transaction-valid internal reference', async () => {
+    const external = await createEnrollment({ email: pendingEmail, purpose: 'recovery', pendingUserId: 'pending-owner' });
+    const { getServerEnv } = await import('../../src/server/env');
+    const { verifyEnrollmentContext } = await import('../../src/server/auth/context');
+    const claims = verifyEnrollmentContext(
+      external.context, 'recovery', getServerEnv().TOME_CMS_CONTEXT_SECRET,
+    );
+    const { ALL } = await import('../../src/pages/api/auth/[...all]');
+    const callAuth = (contextValue: string) => ALL({
+      request: new Request(`http://127.0.0.1:4321/api/auth/passkey/generate-register-options?context=${encodeURIComponent(contextValue)}`),
+      clientAddress: '127.0.0.1',
+    } as Parameters<typeof ALL>[0]);
+
+    assert.equal((await callAuth(claims.id)).status, 400, 'a public bare internal reference is rejected');
+    assert.equal((await callAuth(external.context)).status, 200);
+    const stored = await db.selectFrom('verification').select(['id', 'value'])
+      .orderBy('createdAt', 'desc').executeTakeFirstOrThrow();
+    assert.ok(!stored.value.includes(external.context), 'the signed bearer is absent from challenge storage');
+    assert.equal((JSON.parse(stored.value) as { context?: unknown }).context, claims.id);
+
+    const { assertEnrollmentReference } = await import('../../src/server/auth/enrollment');
+    const { auth } = await import('../../src/server/auth/config');
+    const { runWithTransaction } = await import('@better-auth/core/context');
+    const authContext = await auth.$context;
+    assert.equal(pool.options.max, 1);
+    await runWithTransaction(authContext.adapter, () => assertEnrollmentReference({
+      reference: claims.id, pendingUserId: 'pending-owner', fallbackAdapter: authContext.adapter,
+    }));
+    await db.deleteFrom('verification').where('id', '=', stored.id).execute();
   });
 
   await context.test('database rate limiter rolls windows without storing client addresses', async () => {
