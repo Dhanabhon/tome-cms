@@ -18,6 +18,11 @@
     "test:e2e:pages": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/pages-navigation-rls.spec.ts tests/e2e/pages-api.spec.ts tests/e2e/pages-editor.spec.ts tests/e2e/admin-pages.spec.ts tests/e2e/navigation.spec.ts tests/e2e/public-pages-navigation.spec.ts tests/e2e/public-blog.spec.ts tests/e2e/admin-shell.spec.ts",
     "test:e2e:media": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/media-rls.spec.ts tests/e2e/media-library.spec.ts tests/e2e/media-deletion.spec.ts tests/e2e/editor-media.spec.ts tests/e2e/public-blog.spec.ts",
     "test:e2e:publishing": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/multilingual-posts.spec.ts tests/e2e/public-blog.spec.ts tests/e2e/admin-shell.spec.ts tests/e2e/site-settings.spec.ts tests/e2e/admin-posts.spec.ts tests/e2e/editor-workflow.spec.ts tests/e2e/editor-media.spec.ts tests/e2e/editor-cleanup.spec.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local --import tsx scripts/db-migrate.ts",
+    "infra:up": "docker compose --env-file .env.local up -d postgres minio minio-init",
+    "infra:down": "docker compose --env-file .env.local down",
+    "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
+    "test:integration:foundation": "docker compose -f compose.test.yaml up -d --wait && node --env-file=.env.test --import tsx --test tests/integration/foundation.test.ts",
     "astro": "astro"
   },
   "dependencies": {
@@ -28,7 +33,9 @@
     "@supabase/supabase-js": "^2.115.0",
     "@tailwindcss/typography": "^0.5.20",
     "astro": "^5.18.2",
+    "kysely": "^0.29.5",
     "novel": "^1.0.2",
+    "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sanitize-html": "^2.17.0",
@@ -40,9 +47,11 @@
     "@astrojs/check": "^0.9.10",
     "@playwright/test": "1.63.0",
     "@types/node": "^26.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@types/sanitize-html": "^2.16.1",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   },
   "engines": {
