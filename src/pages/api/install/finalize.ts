@@ -8,6 +8,7 @@ import { EnrollmentContextError, hashEnrollmentContext, verifyEnrollmentContext 
 import { consumeEnrollment } from '../../../server/auth/enrollment';
 import { installationInputSchema } from '../../../server/auth/installation';
 import { assertSameOrigin } from '../../../server/auth/origin';
+import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/rate-limit';
 import { getSession } from '../../../server/auth/session';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
@@ -37,12 +38,22 @@ function hashRecoveryCode(code: string): string {
   return createHmac('sha256', env.TOME_CMS_RECOVERY_PEPPER).update(code).digest('hex');
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ clientAddress, request }) => {
   try {
     try {
       assertSameOrigin(request, configuredOrigin);
     } catch {
       return Response.json({ error: 'Request origin is not allowed.' }, { headers: responseHeaders, status: 403 });
+    }
+
+    try {
+      await enforceRateLimit('install', clientAddress);
+    } catch (error) {
+      if (!(error instanceof RateLimitExceededError)) throw error;
+      return Response.json({ error: 'Too many installation attempts. Try again later.' }, {
+        headers: { ...responseHeaders, 'Retry-After': String(error.retryAfter) },
+        status: 429,
+      });
     }
 
     let body: unknown;
@@ -118,7 +129,6 @@ export const POST: APIRoute = async ({ request }) => {
         author_avatar_media_id: null,
         author_bio_th: '',
         author_bio_en: '',
-        author_links: [],
       }).execute();
 
       const recoveryCodes = createRecoveryCodes();

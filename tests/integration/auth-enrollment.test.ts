@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { makeSignature } from 'better-auth/crypto';
 import { getSchema, type DBFieldAttribute } from 'better-auth/db';
 import { sql } from 'kysely';
 
@@ -18,8 +19,8 @@ test('passkey and installer database contract', async (context) => {
   await context.test('vendor columns, defaults, keys, indexes and foreign keys match pinned metadata', async () => {
     const { auth } = await import('../../src/server/auth/config');
     assert.equal(auth.options.database, pool);
-    assert.equal(auth.options.baseURL, 'http://127.0.0.1:4321');
-    assert.deepEqual(auth.options.trustedOrigins, ['http://127.0.0.1:4321']);
+    assert.equal(auth.options.baseURL, 'http://localhost:4321');
+    assert.deepEqual(auth.options.trustedOrigins, ['http://localhost:4321']);
     assert.equal(auth.options.emailAndPassword?.enabled, false);
     const schema = getSchema(auth.options);
     assert.deepEqual(
@@ -78,6 +79,56 @@ test('passkey and installer database contract', async (context) => {
   const { enforceRateLimit, RateLimitExceededError } = await import('../../src/server/auth/rate-limit');
   const pendingEmail = 'pending-owner@example.invalid';
   let installContextForInstalledCheck = '';
+
+  await context.test('pending sessions remain confined to the live installer identity', async () => {
+    const boundaryUserId = 'pending-boundary';
+    const boundaryEmail = `${boundaryUserId}@example.invalid`;
+    const sessionToken = 'pending-boundary-session-token';
+    await addUser(boundaryUserId);
+    const enrollment = await createEnrollment({
+      email: boundaryEmail, purpose: 'install', pendingUserId: boundaryUserId,
+    });
+    await db.insertInto('passkey').values({
+      id: 'pending-boundary-passkey', publicKey: 'pending-public-key', userId: boundaryUserId,
+      credentialID: 'pending-boundary-credential', counter: 0, deviceType: 'singleDevice', backedUp: false,
+      transports: '', name: 'Pending Passkey', aaguid: null,
+    }).execute();
+    await db.insertInto('session').values({
+      id: 'pending-boundary-session', token: sessionToken, userId: boundaryUserId,
+      expiresAt: new Date(Date.now() + 60_000), updatedAt: new Date(),
+      ipAddress: null, userAgent: null,
+    }).execute();
+
+    const { auth } = await import('../../src/server/auth/config');
+    const authContext = await auth.$context;
+    const signedSession = `${sessionToken}.${await makeSignature(sessionToken, authContext.secret)}`;
+    const headers = new Headers({
+      Cookie: `${authContext.authCookies.sessionToken.name}=${signedSession}`,
+      Origin: 'http://localhost:4321',
+    });
+    const { ALL } = await import('../../src/pages/api/auth/[...all]');
+    const callAuth = (path: string, method = 'GET') => ALL({
+      request: new Request(`http://localhost:4321${path}`, { headers, method }),
+      clientAddress: '127.0.0.1',
+    } as Parameters<typeof ALL>[0]);
+
+    assert.equal((await callAuth('/api/auth/get-session')).status, 200);
+    assert.equal((await callAuth('/api/auth/passkey/list-user-passkeys')).status, 403);
+    assert.equal((await callAuth('/api/auth/passkey/generate-register-options')).status, 403);
+
+    const { assertInstalledOwnerCredential } = await import('../../src/server/auth/enrollment');
+    await assert.rejects(assertInstalledOwnerCredential({
+      credentialId: 'pending-boundary-credential', fallbackAdapter: authContext.adapter,
+    }), /installed owner/i);
+
+    await db.updateTable('installation_enrollments').set({ expires_at: new Date(Date.now() - 1_000) })
+      .where('context_hash', '=', (await import('../../src/server/auth/context')).hashEnrollmentContext(enrollment.context))
+      .execute();
+    assert.equal((await callAuth('/api/auth/passkey/list-user-passkeys')).status, 401);
+    assert.equal(await db.selectFrom('user').select('id').where('id', '=', boundaryUserId).executeTakeFirst(), undefined);
+    assert.equal(await db.selectFrom('session').select('id').where('userId', '=', boundaryUserId).executeTakeFirst(), undefined);
+    assert.equal(await db.selectFrom('passkey').select('id').where('userId', '=', boundaryUserId).executeTakeFirst(), undefined);
+  });
 
   await context.test('owner, enrollment, recovery and rate-limit constraints reject invalid state', async () => {
     await assert.rejects(addUser('non-owner', 'editor'), { code: '23514' });
@@ -140,7 +191,7 @@ test('passkey and installer database contract', async (context) => {
     );
     const { ALL } = await import('../../src/pages/api/auth/[...all]');
     const callAuth = (contextValue: string) => ALL({
-      request: new Request(`http://127.0.0.1:4321/api/auth/passkey/generate-register-options?context=${encodeURIComponent(contextValue)}`),
+      request: new Request(`http://localhost:4321/api/auth/passkey/generate-register-options?context=${encodeURIComponent(contextValue)}`),
       clientAddress: '127.0.0.1',
     } as Parameters<typeof ALL>[0]);
 
@@ -185,6 +236,7 @@ test('passkey and installer database contract', async (context) => {
 
   await context.test('singleton site settings enforce locale, timezone and reserved admin paths', async () => {
     await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path) values (true, 'owner', 'Test Site', 'th', 'Asia/Bangkok', '/admin')`.execute(db);
+    assert.deepEqual((await db.selectFrom('site_settings').select('author_links').executeTakeFirstOrThrow()).author_links, []);
     await assert.rejects(resolveEnrollmentUser({ context: installContextForInstalledCheck }), /invalid or expired/i);
     await assert.rejects(
       db.transaction().execute(trx => consumeEnrollment(installContextForInstalledCheck, trx)),
@@ -199,6 +251,33 @@ test('passkey and installer database contract', async (context) => {
     await sql`update site_settings set admin_path = '/manage-site', default_locale = 'en', timezone = 'UTC'`.execute(db);
     await assert.rejects(sql`update site_settings set default_locale = 'fr'`.execute(db), { code: '23514' });
     await assert.rejects(sql`update site_settings set timezone = 'Europe/London'`.execute(db), { code: '23514' });
+
+    await db.insertInto('passkey').values([
+      {
+        id: 'installed-owner-passkey', publicKey: 'owner-public-key', userId: 'owner',
+        credentialID: 'installed-owner-credential', counter: 0, deviceType: 'singleDevice', backedUp: false,
+        transports: '', name: 'Owner Passkey', aaguid: null,
+      },
+      {
+        id: 'non-owner-passkey', publicKey: 'non-owner-public-key', userId: 'pending-owner',
+        credentialID: 'non-owner-credential', counter: 0, deviceType: 'singleDevice', backedUp: false,
+        transports: '', name: 'Non-owner Passkey', aaguid: null,
+      },
+    ]).execute();
+    const { assertInstalledOwner, assertInstalledOwnerCredential } = await import('../../src/server/auth/enrollment');
+    const { auth } = await import('../../src/server/auth/config');
+    const authContext = await auth.$context;
+    await assertInstalledOwner({ userId: 'owner', fallbackAdapter: authContext.adapter });
+    await assertInstalledOwnerCredential({
+      credentialId: 'installed-owner-credential', fallbackAdapter: authContext.adapter,
+    });
+    await assert.rejects(assertInstalledOwner({
+      userId: 'pending-owner', fallbackAdapter: authContext.adapter,
+    }), /installed owner/i);
+    await assert.rejects(assertInstalledOwnerCredential({
+      credentialId: 'non-owner-credential', fallbackAdapter: authContext.adapter,
+    }), /installed owner/i);
+    await db.deleteFrom('passkey').where('id', '=', 'non-owner-passkey').execute();
   });
 
   await context.test('deleting a user cascades vendor credentials, sessions and owned installer state', async () => {

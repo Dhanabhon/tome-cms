@@ -88,20 +88,24 @@ test('six-step installer preserves safe values and registers a primary Passkey',
       automaticPresenceSimulation: true,
     },
   });
+  let statusAttempts = 0;
   let enrollmentAttempts = 0;
   let finalizeBody: Record<string, unknown> | null = null;
 
   try {
-    await page.route(`${origin}/api/install/status`, (route) => route.fulfill({
-      contentType: 'application/json',
-      json: {
-        installed: false,
-        ready: true,
-        checks: { database: 'ready', migrations: 'ready', storage: 'deferred', relyingParty: 'ready' },
-        rp: { id: 'localhost', name: 'TomeCMS', origin },
-      },
-      status: 200,
-    }));
+    await page.route(`${origin}/api/install/status`, (route) => {
+      statusAttempts += 1;
+      return route.fulfill({
+        contentType: 'application/json',
+        json: {
+          installed: false,
+          ready: true,
+          checks: { database: 'ready', migrations: 'ready', storage: 'deferred', relyingParty: 'ready' },
+          rp: { id: 'localhost', name: 'TomeCMS', origin: statusAttempts === 1 ? 'http://localhost:65530' : origin },
+        },
+        status: 200,
+      });
+    });
     await page.route(`${origin}/api/install/enroll`, (route) => {
       enrollmentAttempts += 1;
       if (enrollmentAttempts === 1) return route.fulfill({ contentType: 'application/json', json: { error: 'The installation token is not valid.' }, status: 401 });
@@ -140,10 +144,17 @@ test('six-step installer preserves safe values and registers a primary Passkey',
     await expect(progress.first()).toHaveAttribute('aria-valuenow', '1');
     await expect(progress.nth(1)).toHaveAttribute('aria-valuenow', '100');
     await expect(page.getByText('Deferred', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Open http:\/\/localhost:65530 exactly/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Name your site' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Check again' }).click();
 
     await page.getByRole('button', { name: 'Name your site' }).click();
     await page.getByLabel('Site name').fill('Tome Notes');
     await page.getByLabel('Tagline').fill('Ideas worth keeping');
+    await page.getByLabel('Admin path').fill('/api');
+    await page.getByRole('button', { name: /Owner identity/ }).click();
+    await expect(page.getByRole('alert')).toContainText('Check the highlighted field');
+    await expect(page.getByLabel('Admin path')).toBeFocused();
     await page.getByLabel('Admin path').fill('/studio');
     await page.getByRole('button', { name: /Owner identity/ }).click();
     await page.getByLabel('Owner email').fill('owner@example.com');

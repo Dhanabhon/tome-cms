@@ -43,6 +43,15 @@ interface EnrollmentResponse {
 
 const reservedAdminPaths = new Set(['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en']);
 const adminPathPattern = /^\/[a-z0-9][a-z0-9-]{1,39}$/;
+const fieldControlIds: Record<FieldName, string> = {
+  siteName: 'site-name',
+  tagline: 'tagline',
+  siteDescription: 'site-description',
+  defaultLocale: 'default-locale',
+  timezone: 'timezone',
+  adminPath: 'admin-path',
+  email: 'owner-email',
+};
 
 const copies = {
   en: {
@@ -89,6 +98,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function isCheckState(value: unknown): value is CheckState {
+  return value === 'ready' || value === 'pending' || value === 'unavailable' || value === 'deferred';
+}
+
+function parseReadiness(value: unknown): ReadinessResponse | null {
+  if (!isRecord(value) || typeof value.installed !== 'boolean' || typeof value.ready !== 'boolean'
+    || !isRecord(value.checks) || !isRecord(value.rp)
+    || !isCheckState(value.checks.database) || !isCheckState(value.checks.migrations)
+    || !isCheckState(value.checks.storage) || !isCheckState(value.checks.relyingParty)
+    || typeof value.rp.id !== 'string' || typeof value.rp.name !== 'string'
+    || typeof value.rp.origin !== 'string' || !URL.canParse(value.rp.origin)
+    || new URL(value.rp.origin).origin !== value.rp.origin
+    || (value.redirectTo !== undefined && typeof value.redirectTo !== 'string')) return null;
+  return value as unknown as ReadinessResponse;
+}
+
 function responseError(value: unknown, fallback: string): string {
   return isRecord(value) && typeof value.error === 'string' ? value.error : fallback;
 }
@@ -131,6 +156,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
   });
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
+  const [originMismatch, setOriginMismatch] = useState(false);
   const [context, setContext] = useState<string | null>(null);
   const [rp, setRp] = useState<{ id: string; name: string } | null>(null);
   const [registrationStarted, setRegistrationStarted] = useState(false);
@@ -170,7 +196,14 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
       errors.email = language === 'th' ? 'กรอกอีเมลให้ครบ เช่น name@example.com' : 'Enter a complete address, such as name@example.com.';
     }
     setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+    const firstInvalid = (Object.keys(errors) as FieldName[])[0];
+    if (firstInvalid) {
+      setAlert(language === 'th' ? 'ตรวจช่องที่มีปัญหา แล้วลองอีกครั้ง' : 'Check the highlighted field, then try again.');
+      window.requestAnimationFrame(() => document.getElementById(fieldControlIds[firstInvalid])?.focus());
+      return false;
+    }
+    setAlert('');
+    return true;
   }
 
   async function loadReadiness(signal?: AbortSignal) {
@@ -180,18 +213,25 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     try {
       const response = await fetch('/api/install/status', { headers: { Accept: 'application/json' }, signal });
       const body = await responseJson(response);
-      if (!response.ok || !isRecord(body) || !isRecord(body.checks) || !isRecord(body.rp)) {
+      const parsed = parseReadiness(body);
+      if (!response.ok || !parsed) {
         throw new Error(apiError(response, body, language, copy.errorFallback));
       }
-      const parsed = body as unknown as ReadinessResponse;
-      if (parsed.installed) {
+      const matchesOrigin = parsed.rp.origin === window.location.origin;
+      setOriginMismatch(!matchesOrigin);
+      if (parsed.installed && matchesOrigin) {
         window.location.assign(parsed.redirectTo ?? '/admin');
         return;
       }
-      setReadiness(parsed);
+      const effective = matchesOrigin ? parsed : {
+        ...parsed,
+        ready: false,
+        checks: { ...parsed.checks, relyingParty: 'unavailable' as const },
+      };
+      setReadiness(effective);
       setRp({ id: parsed.rp.id, name: parsed.rp.name });
-      setActivity({ label: parsed.ready ? copy.ready : copy.errorFallback, value: 100 });
-      if (!parsed.ready) setAlert(copy.errorFallback);
+      setActivity({ label: effective.ready ? copy.ready : copy.errorFallback, value: 100 });
+      if (!effective.ready) setAlert(copy.errorFallback);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       setReadiness(null);
@@ -339,6 +379,11 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     if (key === 'storage') return language === 'th' ? 'จะตรวจและเชื่อมต่อในขั้น File Manager' : 'Validated later with the File Manager storage work.';
     if (key === 'database') return language === 'th' ? 'เปิด PostgreSQL แล้วกด “ตรวจอีกครั้ง”' : 'Start PostgreSQL, then choose “Check again”.';
     if (key === 'migrations') return language === 'th' ? 'รัน npm run db:migrate แล้วตรวจอีกครั้ง' : 'Run npm run db:migrate, then check again.';
+    if (originMismatch && readiness?.rp.origin) {
+      return language === 'th'
+        ? `เปิด Installer ที่ ${readiness.rp.origin} ให้ตรง หรือแก้ TOME_CMS_PUBLIC_URL เป็น ${window.location.origin} แล้วตรวจอีกครั้ง`
+        : `Open ${readiness.rp.origin} exactly, or set TOME_CMS_PUBLIC_URL to ${window.location.origin}, then check again.`;
+    }
     return language === 'th' ? 'ตรวจ TOME_CMS_PUBLIC_URL ให้ตรงกับ URL นี้ และใช้ HTTPS เมื่อไม่ใช่ Local' : 'Make TOME_CMS_PUBLIC_URL match this site; use HTTPS outside local development.';
   }
 

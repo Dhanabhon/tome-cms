@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { createEnrollment } from '../../../server/auth/enrollment';
 import { installationInputSchema, installationTokenMatches } from '../../../server/auth/installation';
-import { assertSameOrigin } from '../../../server/auth/origin';
+import { assertSameOrigin, isSupportedPasskeyOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/rate-limit';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
@@ -57,7 +57,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     }
 
     const readiness = await checkReadiness(request.signal);
-    if (readiness.status !== 'ready') {
+    if (readiness.status !== 'ready' || !isSupportedPasskeyOrigin(publicUrl, env.NODE_ENV)) {
       throw new InstallRequestError(503, 'The database or migrations need attention before installation.');
     }
 

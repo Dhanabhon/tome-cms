@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { assertSameOrigin } from '../../src/server/auth/origin';
+import { assertSameOrigin, isSupportedPasskeyOrigin } from '../../src/server/auth/origin';
 
 const configuredOrigin = 'https://cms.example.com';
 
@@ -60,4 +60,17 @@ test('rejects HTTP configuration in production', () => {
     if (previous === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previous;
   }
+});
+
+test('Passkey origins reject IP RP IDs and limit development HTTP to localhost', () => {
+  assert.equal(isSupportedPasskeyOrigin('http://localhost:4321', 'development'), true);
+  assert.equal(isSupportedPasskeyOrigin('https://cms.example.com', 'production'), true);
+  for (const origin of [
+    'http://127.0.0.1:4321',
+    'https://127.0.0.1',
+    'http://[::1]:4321',
+    'https://[::1]',
+    'http://cms.example.com',
+  ]) assert.equal(isSupportedPasskeyOrigin(origin, 'development'), false, origin);
+  assert.equal(isSupportedPasskeyOrigin('http://localhost:4321', 'production'), false);
 });
