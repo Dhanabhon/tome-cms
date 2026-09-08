@@ -19,19 +19,25 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
   const [categories, setCategories] = useState(() => sortCategories(initialCategories));
   const [createName, setCreateName] = useState('');
   const [edit, setEdit] = useState<{ id: string; name: string } | null>(null);
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(() => new Set());
   const [liveStatus, setLiveStatus] = useState('');
   const [error, setError] = useState('');
   const renameButtons = useRef(new Map<string, HTMLButtonElement>());
 
   const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
+  const startAction = (id: string) => setPendingActionIds((current) => new Set(current).add(id));
+  const finishAction = (id: string) => setPendingActionIds((current) => {
+    const next = new Set(current);
+    next.delete(id);
+    return next;
+  });
 
   async function createCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = createName.trim();
     if (!name) return setError('Enter a Category name.');
     const actionId = 'create';
-    setPendingActionId(actionId);
+    startAction(actionId);
     setError('');
     setLiveStatus(`Creating “${name}”…`);
     try {
@@ -49,7 +55,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       setError(caught instanceof Error ? caught.message : 'The Category could not be created.');
       setLiveStatus('');
     } finally {
-      setPendingActionId((current) => current === actionId ? null : current);
+      finishAction(actionId);
     }
   }
 
@@ -60,7 +66,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     const name = edit.name.trim();
     if (!name) return setError('Enter a Category name.');
     const actionId = `rename:${id}`;
-    setPendingActionId(actionId);
+    startAction(actionId);
     setError('');
     setLiveStatus(`Renaming Category to “${name}”…`);
     try {
@@ -74,14 +80,17 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       setCategories((current) => sortCategories(current.map((category) => (
         category.id === id ? { ...category, ...body.category } : category
       ))));
-      setEdit(null);
+      setEdit((current) => {
+        if (current?.id !== id) return current;
+        focusRename(id);
+        return null;
+      });
       setLiveStatus(`Category renamed to “${body.category.name}”.`);
-      focusRename(id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The Category could not be updated.');
       setLiveStatus('');
     } finally {
-      setPendingActionId((current) => current === actionId ? null : current);
+      finishAction(actionId);
     }
   }
 
@@ -89,16 +98,17 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     const count = postCountLabel(category.postCount);
     const confirmed = await confirmUi({
       title: 'Delete Category?',
-      message: `Delete “${category.name}”? ${count} will move to Uncategorized. This cannot be undone.`,
+      message: `Delete “${category.name}”? This affects ${count}. Posts without another Category will use Uncategorized. This cannot be undone.`,
       confirmLabel: 'Delete',
       tone: 'danger',
     });
     if (!confirmed) return;
 
     const actionId = `delete:${category.id}`;
-    setPendingActionId(actionId);
+    startAction(actionId);
     setError('');
     setLiveStatus(`Deleting “${category.name}”…`);
+    let affectedPosts: number | null = null;
     try {
       const response = await fetch('/api/categories', {
         method: 'DELETE',
@@ -109,18 +119,30 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       if (!response.ok || typeof body?.affectedPosts !== 'number') {
         throw new Error(body?.error || 'The Category could not be deleted.');
       }
+      affectedPosts = body.affectedPosts;
       setCategories((current) => current.filter(({ id }) => id !== category.id));
-      setLiveStatus(`Category “${category.name}” deleted. ${postCountLabel(body.affectedPosts)} moved to Uncategorized.`);
+      const refreshResponse = await fetch('/api/categories');
+      const refreshBody = await refreshResponse.json().catch(() => null) as { categories?: PostCategorySummary[]; error?: string } | null;
+      if (!refreshResponse.ok || !refreshBody?.categories) {
+        throw new Error(refreshBody?.error || 'Category counts could not be refreshed. Reload this page.');
+      }
+      setCategories(sortCategories(refreshBody.categories));
+      setLiveStatus(`Category “${category.name}” deleted. ${postCountLabel(affectedPosts)} ${affectedPosts === 1 ? 'was' : 'were'} affected.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The Category could not be deleted.');
-      setLiveStatus('');
+      if (affectedPosts === null) {
+        setError(caught instanceof Error ? caught.message : 'The Category could not be deleted.');
+        setLiveStatus('');
+      } else {
+        setError(caught instanceof Error ? caught.message : 'Category counts could not be refreshed. Reload this page.');
+        setLiveStatus(`Category “${category.name}” deleted. ${postCountLabel(affectedPosts)} ${affectedPosts === 1 ? 'was' : 'were'} affected.`);
+      }
     } finally {
-      setPendingActionId((current) => current === actionId ? null : current);
+      finishAction(actionId);
     }
   }
 
   return (
-    <div className="category-manager" aria-busy={pendingActionId !== null}>
+    <div className="category-manager" aria-busy={pendingActionIds.size > 0}>
       <form className="category-create" onSubmit={createCategory}>
         <label className="admin-field" htmlFor="category-name">
           <span>Category name <small>80 characters maximum</small></span>
@@ -135,7 +157,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
             value={createName}
           />
         </label>
-        <button className="admin-button admin-button--primary" disabled={pendingActionId === 'create'} type="submit">
+        <button className="admin-button admin-button--primary" disabled={pendingActionIds.has('create')} type="submit">
           Create category
         </button>
       </form>
@@ -156,7 +178,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                     <input
                       autoFocus
                       className="admin-control"
-                      disabled={pendingActionId === renameAction}
+                      disabled={pendingActionIds.has(renameAction)}
                       maxLength={80}
                       onChange={(event) => setEdit({ id: category.id, name: event.target.value })}
                       required
@@ -164,10 +186,10 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                     />
                   </label>
                   <div className="category-edit-actions">
-                    <button className="admin-button admin-button--primary" disabled={pendingActionId === renameAction} type="submit" aria-label={`Save ${edit.name.trim() || 'Category'}`}>Save</button>
+                    <button className="admin-button admin-button--primary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={`Save ${edit.name.trim() || 'Category'}`}>Save</button>
                     <button
                       className="admin-button"
-                      disabled={pendingActionId === renameAction}
+                      disabled={pendingActionIds.has(renameAction)}
                       onClick={() => { setEdit(null); setError(''); focusRename(category.id); }}
                       type="button"
                     >
@@ -198,7 +220,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
                       <button
                         aria-label={`Delete ${category.name}`}
                         className="admin-button"
-                        disabled={pendingActionId === deleteAction}
+                        disabled={pendingActionIds.has(deleteAction)}
                         onClick={() => void deleteCategory(category)}
                         type="button"
                       >
