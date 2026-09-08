@@ -15,6 +15,38 @@ export interface PostTranslationSummary {
   title: string;
 }
 
+export interface PostCategory {
+  id: string;
+  owner_id: string;
+  name: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PostCategorySummary extends PostCategory {
+  postCount: number;
+}
+
+export interface PostCategoryAssignment {
+  translation_group_id: string;
+  category_id: string;
+  owner_id: string;
+  created_at: string;
+}
+
+export interface PostCategoryBadge {
+  id: string;
+  name: string;
+}
+
+export type PostCategoryInsert = Pick<PostCategory, 'owner_id' | 'name'>
+  & Partial<Pick<PostCategory, 'id' | 'is_default' | 'created_at' | 'updated_at'>>;
+export type PostCategoryUpdate = Partial<Omit<PostCategoryInsert, 'id' | 'owner_id' | 'created_at'>>;
+export type PostCategoryAssignmentInsert = Omit<PostCategoryAssignment, 'created_at'>
+  & Partial<Pick<PostCategoryAssignment, 'created_at'>>;
+export type PostCategoryAssignmentUpdate = Partial<Omit<PostCategoryAssignmentInsert, 'owner_id' | 'created_at'>>;
+
 export type Json =
   | string
   | number
@@ -347,6 +379,39 @@ type DatabaseMediaItemUpdate = { [Key in keyof MediaItemUpdate]: MediaItemUpdate
 export interface Database {
   public: {
     Tables: {
+      categories: {
+        Row: { [Key in keyof PostCategory]: PostCategory[Key] };
+        Insert: PostCategoryInsert;
+        Update: PostCategoryUpdate;
+        Relationships: [];
+      };
+      post_category_assignments: {
+        Row: { [Key in keyof PostCategoryAssignment]: PostCategoryAssignment[Key] };
+        Insert: PostCategoryAssignmentInsert;
+        Update: PostCategoryAssignmentUpdate;
+        Relationships: [
+          {
+            foreignKeyName: 'post_category_assignments_translation_group_id_owner_id_fkey';
+            columns: ['translation_group_id', 'owner_id'];
+            isOneToOne: false;
+            referencedRelation: 'post_translation_groups';
+            referencedColumns: ['id', 'author_id'];
+          },
+          {
+            foreignKeyName: 'post_category_assignments_category_id_owner_id_fkey';
+            columns: ['category_id', 'owner_id'];
+            isOneToOne: false;
+            referencedRelation: 'categories';
+            referencedColumns: ['id', 'owner_id'];
+          },
+        ];
+      };
+      post_translation_groups: {
+        Row: { id: string; author_id: string | null };
+        Insert: { id: string; author_id?: string | null };
+        Update: { author_id?: string | null };
+        Relationships: [];
+      };
       pages: {
         Row: PageRow;
         Insert: DatabasePageInsert;
@@ -402,6 +467,14 @@ export interface Database {
     };
     Views: { [_ in never]: never };
     Functions: {
+      replace_post_categories: {
+        Args: { requested_category_ids: string[]; target_post_id: string };
+        Returns: { category_id: string }[];
+      };
+      delete_post_category: {
+        Args: { target_category_id: string };
+        Returns: number;
+      };
       replace_navigation_items: {
         Args: {
           menu_items: Json;
