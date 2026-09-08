@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bootstrap:core": "node scripts/bootstrap-core.mjs",
     "admin:reset-installation": "node scripts/reset-installation.mjs",
     "admin:reset-password": "node scripts/reset-admin-password.mjs",
     "configure:supabase": "./scripts/configure-supabase.sh",
@@ -22,7 +23,7 @@
     "infra:up": "docker compose --env-file .env.local up -d postgres minio minio-init",
     "infra:down": "docker compose --env-file .env.local down",
     "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
-    "test:integration:foundation": "docker compose -f compose.test.yaml up -d --wait && node --env-file=.env.test --import tsx --test tests/integration/foundation.test.ts",
+    "test:integration:foundation": "node scripts/bootstrap-core.mjs --check-test-license && docker compose -f compose.test.yaml up -d --wait && node --env-file=.env.test --import tsx --test tests/integration/foundation.test.ts",
     "astro": "astro"
   },
   "dependencies": {

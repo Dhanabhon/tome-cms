@@ -1,0 +1,44 @@
+name: tomecms-foundation-test
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tomecms_test
+      POSTGRES_USER: tomecms_test
+      POSTGRES_PASSWORD: foundation-test-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tomecms_test -d tomecms_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs: ["/var/lib/postgresql/data"]
+    ports: ["127.0.0.1:55432:5432"]
+  minio:
+    image: quay.io/minio/aistor/minio:RELEASE.2026-08-07T18-34-35Z
+    command: server /data --console-address :9001 --license /minio.license
+    environment:
+      MINIO_ROOT_USER: tomecms_test
+      MINIO_ROOT_PASSWORD: foundation-test-only
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs: ["/data"]
+    configs:
+      - source: minio-license
+        target: /minio.license
+    ports: ["127.0.0.1:59000:9000", "127.0.0.1:59001:9001"]
+  minio-init:
+    image: quay.io/minio/aistor/mc:RELEASE.2026-03-12T04-18-55Z
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['mc alias set local http://minio:9000 "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" && mc mb --ignore-existing "local/$$S3_BUCKET" && mc anonymous set download "local/$$S3_BUCKET"']
+    environment:
+      S3_ACCESS_KEY_ID: tomecms_test
+      S3_SECRET_ACCESS_KEY: foundation-test-only
+      S3_BUCKET: tomecms-test-media
+configs:
+  minio-license:
+    file: ${MINIO_LICENSE_FILE:?Set MINIO_LICENSE_FILE to an explicit external test license}
