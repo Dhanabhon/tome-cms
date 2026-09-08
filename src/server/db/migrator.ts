@@ -1,8 +1,9 @@
 import { Migrator, type MigrationProvider } from 'kysely/migration';
 
 import * as system from './migrations/001_system';
+import * as authInstaller from './migrations/002_auth_installer';
 
-export const migrations = { '001_system': system } as const;
+export const migrations = { '001_system': system, '002_auth_installer': authInstaller } as const;
 
 const provider: MigrationProvider = {
   async getMigrations() {
