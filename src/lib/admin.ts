@@ -1,7 +1,16 @@
 const ADMIN_ORIGIN = 'https://admin.invalid';
 const DEFAULT_ADMIN_PATH = '/admin';
 const ADMIN_PATH_PATTERN = /^\/[a-z0-9][a-z0-9-]{1,39}$/;
-const RESERVED_ADMIN_PATHS = new Set(['/api', '/install', '/health', '/_astro', '/blog', '/th', '/en']);
+export const RESERVED_ADMIN_PATHS: ReadonlySet<string> = new Set([
+  '/api',
+  '/install',
+  '/health',
+  '/_astro',
+  '/blog',
+  '/th',
+  '/en',
+  '/recovery',
+]);
 
 export interface AdminPathSettings {
   admin_path: string;
