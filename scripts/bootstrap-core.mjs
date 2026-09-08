@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
 import { access, lstat, open, readFile, realpath, rename, stat, unlink } from 'node:fs/promises';
-import { createServer } from 'node:net';
+import { createServer, isIP } from 'node:net';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -29,6 +29,29 @@ function localUrls(values) {
   };
 }
 
+function isPublicHost(host) {
+  // ponytail: conservative literal/suffix policy, no DNS; add resolution checks if actual reachability must be verified.
+  if (isIP(host) === 4) {
+    const [a, b, c] = host.split('.').map(Number);
+    return !(a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)) || (b === 88 && c === 99))) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) || (a === 203 && b === 0 && c === 113));
+  }
+  if (isIP(host) === 6) {
+    const [first, second] = host.split(':').map(part => Number.parseInt(part || '0', 16));
+    // Only 2000::/3 global unicast, excluding special 2001::/23, documentation, and 6to4 prefixes.
+    return first >= 0x2000 && first <= 0x3fff &&
+      !(first === 0x2001 && (second < 0x200 || second === 0xdb8)) &&
+      first !== 0x2002 && !(first === 0x3fff && second < 0x1000);
+  }
+  const localSuffixes = ['local', 'localhost', 'internal', 'localdomain', 'lan', 'home.arpa', 'test', 'invalid', 'example', 'onion', 'alt'];
+  return host.length <= 253 && host.includes('.') &&
+    host.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) &&
+    !localSuffixes.some(suffix => host === suffix || host.endsWith(`.${suffix}`));
+}
+
 export function makeEnvironment(input, production, existing = {}) {
   const values = { ...existing, ...input };
   for (const key of secrets) values[key] ||= randomBytes(32).toString('base64url');
@@ -53,10 +76,8 @@ export function makeEnvironment(input, production, existing = {}) {
       throw new Error(`${key} requires ${production ? 'HTTPS' : 'HTTP(S)'} without credentials; configure TLS separately.`);
     }
     const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '');
-    if (production && (!host.includes('.') && !host.includes(':') || host.endsWith('.localhost') ||
-      /^(127\.|0\.0\.0\.0$|::1$|::$|::ffff:7f[0-9a-f]{2}:)/.test(host) ||
-      ['host.docker.internal', 'gateway.docker.internal'].includes(host))) {
-      throw new Error(`${key} requires a browser-reachable hostname, not a Docker-internal or loopback endpoint.`);
+    if (production && !isPublicHost(host)) {
+      throw new Error(`${key} requires a browser-reachable public host; local or special-use address forms are not allowed.`);
     }
   }
   return values;

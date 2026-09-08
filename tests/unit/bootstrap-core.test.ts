@@ -80,6 +80,33 @@ test('production rejects Docker service and loopback endpoints even with HTTPS',
   assert.equal(makeEnvironment(input, true).S3_ENDPOINT, input.S3_ENDPOINT);
 });
 
+test('production public-host policy rejects local suffixes and non-public IP ranges in every public URL', () => {
+  const input = {
+    MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'https://cms.example.com',
+    S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://cdn.example.com/media/',
+  };
+  const blocked = [
+    'minio.local', 'MINIO.LOCAL.', 'minio.local..', 'minio.local%2e', 'cms.internal', 'cms.home.arpa', 'cms.localdomain', 'cms.lan',
+    'cms.test', 'cms.invalid', 'cms.example', 'cms.onion', 'cms.alt',
+    '10.0.0.1', '10.255.255.255', '172.16.0.1', '172.31.255.255', '192.168.1.1',
+    '100.64.0.1', '100.127.255.255', '169.254.169.254', '0.1.2.3',
+    '192.0.0.1', '192.0.2.1', '192.88.99.1', '198.18.0.1', '198.19.255.255',
+    '198.51.100.1', '203.0.113.1', '224.0.0.1', '239.255.255.255', '240.0.0.1', '255.255.255.255',
+    '0x0a000001', '167772161', '[fc00::1]', '[fdff:ffff::1]', '[fe80::1]', '[febf::1]',
+    '[fec0::1]', '[ff02::1]', '[::ffff:10.0.0.1]', '[64:ff9b::a00:1]', '[100::1]',
+    '[2001:2::1]', '[2001:db8::1]', '[2002:a00:1::1]', '[3fff::1]',
+  ];
+  for (const key of ['TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'MEDIA_PUBLIC_URL']) {
+    for (const host of blocked) {
+      assert.throws(() => makeEnvironment({ ...input, [key]: `https://${host}:9000` }, true), /browser-reachable/, `${key}: ${host}`);
+    }
+    for (const host of ['cms.example.com', 'minio.local.example.com', '8.8.8.8', '100.63.255.254', '100.128.0.1', '172.15.255.254', '172.32.0.1', '198.17.255.254', '198.20.0.1', '[2001:4860:4860::8888]', '[2606:4700:4700::1111]']) {
+      assert.equal(makeEnvironment({ ...input, [key]: `https://${host}` }, true)[key], `https://${host}`);
+    }
+  }
+  assert.equal(makeEnvironment({ ...input, S3_ENDPOINT: 'http://10.0.0.1:9000' }, false).S3_ENDPOINT, 'http://10.0.0.1:9000');
+});
+
 test('empty and comment-only existing env files stop the CLI before license checks or startup', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-empty-env-test-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
