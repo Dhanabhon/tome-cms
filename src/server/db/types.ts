@@ -1,5 +1,6 @@
 import type { ColumnType, Generated } from 'kysely';
 
+import type { SupportedImageType } from '../../lib/media';
 import type { EditorDocument, Json } from '../../types/cms';
 
 export type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
@@ -29,6 +30,9 @@ export interface Database {
   categories: CategoryTable;
   post_category_assignments: PostCategoryAssignmentTable;
   navigation_items: NavigationItemTable;
+  media_folders: MediaFolderTable;
+  media_items: MediaItemTable;
+  media_upload_reservations: MediaUploadReservationTable;
 }
 
 export interface UserTable {
@@ -195,4 +199,49 @@ export interface NavigationItemTable {
   position: number;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export type MediaState = 'ready' | 'deleting' | 'delete_failed';
+export type ReservationState = 'pending' | 'finalized' | 'expired';
+
+export interface MediaFolderTable {
+  id: Generated<string>;
+  owner_id: string;
+  name: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface MediaItemTable {
+  id: Generated<string>;
+  owner_id: string;
+  folder_id: string | null;
+  object_key: string;
+  original_name: string;
+  mime_type: SupportedImageType;
+  size_bytes: ColumnType<string, number, number>;
+  checksum_sha256: string;
+  width: number;
+  height: number;
+  alt_text: string | null;
+  state: MediaState;
+  delete_error_code: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface MediaUploadReservationTable {
+  id: Generated<string>;
+  owner_id: string;
+  folder_id: string | null;
+  object_key: string;
+  original_name: string;
+  mime_type: SupportedImageType;
+  expected_size_bytes: ColumnType<string, number, number>;
+  expected_checksum_sha256: string;
+  alt_text: string | null;
+  state: ReservationState;
+  expires_at: RequiredTimestamp;
+  finalized_at: Timestamp | null;
+  created_at: Timestamp;
 }
