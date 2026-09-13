@@ -10,7 +10,7 @@ import { parseEnv } from 'node:util';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const secrets = ['POSTGRES_PASSWORD', 'S3_SECRET_ACCESS_KEY', 'TOME_CMS_INSTALL_TOKEN', 'BETTER_AUTH_SECRET', 'TOME_CMS_CONTEXT_SECRET', 'TOME_CMS_RECOVERY_PEPPER'];
 const required = [...secrets, 'DATABASE_URL', 'TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_BUCKET', 'S3_FORCE_PATH_STYLE', 'MEDIA_PUBLIC_URL', 'MINIO_LICENSE_FILE'];
-const optional = ['DATABASE_POOL_MAX', 'DATABASE_CONNECTION_TIMEOUT_MS', 'DATABASE_QUERY_TIMEOUT_MS', 'PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'];
+const optional = ['DATABASE_POOL_MAX', 'DATABASE_CONNECTION_TIMEOUT_MS', 'DATABASE_QUERY_TIMEOUT_MS'];
 
 export function parseOptions(args) {
   const options = { production: false, force: false, checkTestLicense: false };
@@ -87,11 +87,6 @@ export function makeEnvironment(input, production, existing = {}) {
   }
   if (production && values.DATABASE_URL !== localUrls(values).DATABASE_URL) {
     throw new Error('Production DATABASE_URL must target the bundled Compose database.');
-  }
-  if (production && !(values.PUBLIC_SUPABASE_URL?.trim() &&
-    (values.PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || values.PUBLIC_SUPABASE_ANON_KEY?.trim()) &&
-    (values.SUPABASE_SECRET_KEY?.trim() || values.SUPABASE_SERVICE_ROLE_KEY?.trim()))) {
-    throw new Error('Production Supabase configuration is required.');
   }
   return values;
 }
