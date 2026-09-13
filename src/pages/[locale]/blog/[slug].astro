@@ -6,11 +6,10 @@ import { postExcerpt } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import {
   getPublishedPost,
-  listPublishedPostAlternates,
-  listPublishedPostCategories,
+  type PublishedPost,
 } from '../../../server/content/published';
 import { getSiteSettings } from '../../../server/content/settings';
-import type { Post, PostAlternate, PostCategoryBadge, PublicAuthorProfile } from '../../../types/cms';
+import type { PostAlternate, PostCategoryBadge, PublicAuthorProfile } from '../../../types/cms';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
@@ -29,7 +28,7 @@ const articleSettings = settings ?? {
   site_name: 'TomeCMS',
   timezone: 'UTC',
 };
-let post: Post | null = null;
+let post: PublishedPost | null = null;
 let profile: PublicAuthorProfile | null = null;
 let availableLocales: PostAlternate[] = [];
 let categories: PostCategoryBadge[] = [];
@@ -43,11 +42,9 @@ try {
     if (!post) {
       Astro.response.status = 404;
     } else {
-      [availableLocales, categories, profile] = await Promise.all([
-        listPublishedPostAlternates(post.translation_group_id),
-        listPublishedPostCategories(post.translation_group_id),
-        getPublicAuthorProfile(articleSettings, post.locale),
-      ]);
+      availableLocales = post.translations;
+      categories = post.categories;
+      profile = await getPublicAuthorProfile(articleSettings, post.locale);
     }
   }
 } catch (error) {

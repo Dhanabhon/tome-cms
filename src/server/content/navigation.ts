@@ -117,8 +117,13 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
   }
 }
 
+export interface PublicNavigationSnapshot {
+  lastModified: Date;
+  navigation: PublicNavigation;
+}
+
 // ponytail: this five-second cache is process-local; replace it only when TomeCMS runs multiple app processes.
-const cache = new Map<PageLocale, { expiresAt: number; navigation: PublicNavigation }>();
+const cache = new Map<PageLocale, { expiresAt: number; snapshot: PublicNavigationSnapshot }>();
 let cacheGeneration = 0;
 
 export function invalidatePublicNavigationCache(): void {
@@ -126,41 +131,55 @@ export function invalidatePublicNavigationCache(): void {
   cacheGeneration++;
 }
 
-export async function getPublicNavigation(locale: PageLocale): Promise<PublicNavigation> {
-  const cached = cache.get(locale);
-  if (cached && cached.expiresAt > Date.now()) return cached.navigation;
-  const generation = cacheGeneration;
+async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigationSnapshot> {
   const navigation: PublicNavigation = { footer: [], header: [] };
-
-  try {
-    const settings = await db.selectFrom('site_settings').select('owner_id').where('id', '=', true).executeTakeFirst();
-    if (!settings) return navigation;
-    const items = await db.selectFrom('navigation_items').selectAll()
+  const settings = await db.selectFrom('site_settings').select(['owner_id', 'updated_at'])
+    .where('id', '=', true).executeTakeFirst();
+  if (!settings) return { lastModified: new Date(0), navigation };
+  let modified = settings.updated_at.getTime();
+  const items = await db.selectFrom('navigation_items').selectAll()
+    .where('owner_id', '=', settings.owner_id)
+    .where('locale', '=', locale)
+    .orderBy('position').orderBy('id').limit(100).execute();
+  for (const item of items) modified = Math.max(modified, item.updated_at.getTime());
+  const pageIds = [...new Set(items.flatMap((item) => item.kind === 'page' && item.page_id ? [item.page_id] : []))];
+  const pageUrls = new Map<string, string>();
+  if (pageIds.length) {
+    const pages = await db.selectFrom('pages').select(['id', 'slug', 'updated_at'])
       .where('owner_id', '=', settings.owner_id)
       .where('locale', '=', locale)
-      .orderBy('position').orderBy('id').limit(100).execute();
-    const pageIds = [...new Set(items.flatMap((item) => item.kind === 'page' && item.page_id ? [item.page_id] : []))];
-    const pageUrls = new Map<string, string>();
-    if (pageIds.length) {
-      const pages = await db.selectFrom('pages').select(['id', 'slug'])
-        .where('owner_id', '=', settings.owner_id)
-        .where('locale', '=', locale)
-        .where('status', '=', 'published')
-        .where('id', 'in', pageIds)
-        .execute();
-      for (const page of pages) pageUrls.set(page.id, pagePath({ locale, slug: page.slug }));
+      .where('status', '=', 'published')
+      .where('id', 'in', pageIds)
+      .execute();
+    for (const page of pages) {
+      pageUrls.set(page.id, pagePath({ locale, slug: page.slug }));
+      modified = Math.max(modified, page.updated_at.getTime());
     }
+  }
 
-    for (const item of items) {
-      const href = item.kind === 'home' ? localePath(locale)
-        : item.kind === 'page' ? pageUrls.get(item.page_id ?? '')
-          : normalizeNavigationUrl(item.url ?? '');
-      if (href && navigation[item.location].length < 50) {
-        navigation[item.location].push({ href, kind: item.kind, label: item.label });
-      }
+  for (const item of items) {
+    const href = item.kind === 'home' ? localePath(locale)
+      : item.kind === 'page' ? pageUrls.get(item.page_id ?? '')
+        : normalizeNavigationUrl(item.url ?? '');
+    if (href && navigation[item.location].length < 50) {
+      navigation[item.location].push({ href, kind: item.kind, label: item.label });
     }
-    if (generation === cacheGeneration) cache.set(locale, { expiresAt: Date.now() + 5_000, navigation });
-    return navigation;
+  }
+  return { lastModified: new Date(modified), navigation };
+}
+
+export async function getPublicNavigationSnapshot(locale: PageLocale): Promise<PublicNavigationSnapshot> {
+  const cached = cache.get(locale);
+  if (cached && cached.expiresAt > Date.now()) return cached.snapshot;
+  const generation = cacheGeneration;
+  const snapshot = await queryPublicNavigation(locale);
+  if (generation === cacheGeneration) cache.set(locale, { expiresAt: Date.now() + 5_000, snapshot });
+  return snapshot;
+}
+
+export async function getPublicNavigation(locale: PageLocale): Promise<PublicNavigation> {
+  try {
+    return (await getPublicNavigationSnapshot(locale)).navigation;
   } catch (error) {
     console.error('Public navigation query failed:', error);
     return { footer: [], header: [] };

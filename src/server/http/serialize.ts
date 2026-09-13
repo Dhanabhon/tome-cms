@@ -1,5 +1,5 @@
 import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicMedia, PublicNavigation, PublicPage, PublicPost, PublicSite } from '../../types/cms';
-import type { Page, Post } from '../../types/cms';
+import type { PublishedPage, PublishedPost } from '../content/published';
 import type { SiteSettings } from '../content/settings';
 import type { ReadyMedia } from '../media/service';
 import {
@@ -10,16 +10,6 @@ import {
   publicPostSchema,
   publicSiteSchema,
 } from './public-schemas';
-
-interface ContentRelations {
-  media?: readonly ReadyMedia[];
-  translations?: readonly PostAlternate[];
-}
-
-interface PostRelations extends ContentRelations {
-  categories?: readonly PostCategoryBadge[];
-  coverImage?: ReadyMedia | null;
-}
 
 export function serializePublicMedia(row: ReadyMedia): PublicMedia {
   return publicMediaSchema.parse({
@@ -41,42 +31,42 @@ function serializeTranslations(rows: readonly PostAlternate[]) {
   return rows.map((row) => ({ href: row.href, locale: row.locale }));
 }
 
-export function serializePublicPost(row: Post, relations: PostRelations = {}): PublicPost {
+export function serializePublicPost(row: PublishedPost): PublicPost {
   return publicPostSchema.parse({
-    categories: (relations.categories ?? []).map(serializePublicCategory),
+    categories: row.categories.map(serializePublicCategory),
     contentHtml: row.content_html,
     contentJson: row.content_json,
-    coverImage: relations.coverImage ? serializePublicMedia(relations.coverImage) : null,
+    coverImage: row.coverImage ? serializePublicMedia(row.coverImage) : null,
     createdAt: row.created_at,
     id: row.id,
     locale: row.locale,
-    media: (relations.media ?? []).map(serializePublicMedia),
+    media: row.media.map(serializePublicMedia),
     publishedAt: row.published_at,
     seo: { description: row.meta_description, title: row.meta_title },
     slug: row.slug,
     status: row.status,
     title: row.title,
     translationGroupId: row.translation_group_id,
-    translations: serializeTranslations(relations.translations ?? []),
+    translations: serializeTranslations(row.translations),
     updatedAt: row.updated_at,
   });
 }
 
-export function serializePublicPage(row: Page, relations: ContentRelations = {}): PublicPage {
+export function serializePublicPage(row: PublishedPage): PublicPage {
   return publicPageSchema.parse({
     contentHtml: row.content_html,
     contentJson: row.content_json,
     createdAt: row.created_at,
     id: row.id,
     locale: row.locale,
-    media: (relations.media ?? []).map(serializePublicMedia),
+    media: row.media.map(serializePublicMedia),
     publishedAt: row.published_at,
     seo: { description: row.meta_description, title: row.meta_title },
     slug: row.slug,
     status: row.status,
     title: row.title,
     translationGroupId: row.translation_group_id,
-    translations: serializeTranslations(relations.translations ?? []),
+    translations: serializeTranslations(row.translations),
     updatedAt: row.updated_at,
   });
 }

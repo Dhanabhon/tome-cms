@@ -3,16 +3,16 @@ import PageArticle from '../../components/blog/PageArticle.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, pagePath } from '../../lib/i18n';
 import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
-import { getPublishedPage, listPublishedPageAlternates } from '../../server/content/published';
+import { getPublishedPage, type PublishedPage } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
-import type { Page, PostAlternate } from '../../types/cms';
+import type { PostAlternate } from '../../types/cms';
 
 const settings = await getSiteSettings();
 const localeValue = Astro.params.locale;
 const locale = isPostLocale(localeValue) ? localeValue : settings?.default_locale ?? 'en';
 const slug = Astro.params.slug;
 const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
-let page: Page | null = null;
+let page: PublishedPage | null = null;
 let availableLocales: PostAlternate[] = [];
 let loadError = false;
 
@@ -24,7 +24,7 @@ try {
     if (!page) {
       Astro.response.status = 404;
     } else {
-      availableLocales = await listPublishedPageAlternates(page.translation_group_id);
+      availableLocales = page.translations;
     }
   }
 } catch (error) {

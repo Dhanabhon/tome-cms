@@ -4,6 +4,7 @@ import { pagePath, postPath } from '../lib/i18n';
 import { getPublicSiteUrl } from '../lib/seo';
 import { listPublishedPages, listPublishedPosts } from '../server/content/published';
 import { getSiteSettings } from '../server/content/settings';
+import { POST_LOCALES } from '../types/cms';
 
 const escapeXml = (value: string) =>
   value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character]!);
@@ -13,10 +14,12 @@ export const GET: APIRoute = async ({ request, site }) => {
     const settings = await getSiteSettings();
     if (!settings) throw new Error('Site settings are unavailable.');
     // ponytail: cap each content type at 1,000 URLs; add a sitemap index if either outgrows this limit.
-    const [posts, pages] = await Promise.all([
-      listPublishedPosts({ limit: 1_000 }),
-      listPublishedPages({ limit: 1_000 }),
+    const [postResults, pageResults] = await Promise.all([
+      Promise.all(POST_LOCALES.map((locale) => listPublishedPosts({ locale, limit: 1_000 }))),
+      Promise.all(POST_LOCALES.map((locale) => listPublishedPages({ locale, limit: 1_000 }))),
     ]);
+    const posts = postResults.flatMap(({ items }) => items);
+    const pages = pageResults.flatMap(({ items }) => items);
 
     const siteUrl = getPublicSiteUrl(request, site);
     const entries: { lastModified?: string; location: string }[] = [

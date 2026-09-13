@@ -64,9 +64,11 @@ test('public contracts validate queries and serialize only explicit fields', () 
   assert.equal(publicContentSlugSchema.safeParse('').success, false);
   assert.equal(publicContentSlugSchema.safeParse('Invalid Slug').success, false);
 
-  const publicPost = serializePublicPost(post, {
+  const publicPost = serializePublicPost({
+    ...post,
     categories: [{ id: '8229dd4f-7f40-4557-ab52-fe1d83594321', name: 'News' }],
     coverImage: media,
+    lastModified: new Date(post.updated_at),
     media: [media],
     translations: [{ href: '/en/blog/hello-world', locale: 'en' }],
   });
@@ -95,8 +97,12 @@ test('public contracts validate queries and serialize only explicit fields', () 
     updatedAt: post.updated_at,
   });
 
-  const publicPage = serializePublicPage({ ...post, author_id: 'private-owner' }, {
-    media: [media], translations: [{ href: '/en/about', locale: 'en' }],
+  const publicPage = serializePublicPage({
+    ...post,
+    author_id: 'private-owner',
+    lastModified: new Date(post.updated_at),
+    media: [media],
+    translations: [{ href: '/en/about', locale: 'en' }],
   });
   assert.equal(publicPage.contentHtml, '<p>Hello</p>');
   assert.equal(publicPage.media[0]?.url, media.publicUrl);

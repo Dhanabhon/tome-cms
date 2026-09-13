@@ -1,6 +1,6 @@
 import { sql, type Transaction } from 'kysely';
 
-import type { PostCategory, PostCategorySummary } from '../../types/cms';
+import type { PostCategory, PostCategoryBadge, PostCategorySummary, PostLocale } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database } from '../db/types';
 import { HttpError } from '../http/errors';
@@ -48,6 +48,47 @@ export async function listCategories(ownerId: string): Promise<PostCategorySumma
   return rows
     .map((row) => ({ ...category(row), postCount: Number(row.postCount) }))
     .sort((left, right) => Number(right.is_default) - Number(left.is_default) || left.name.localeCompare(right.name));
+}
+
+export async function listPublishedCategoriesForOwner(
+  ownerId: string,
+  locale: PostLocale,
+  baseline: Date,
+): Promise<{ items: PostCategoryBadge[]; lastModified: Date }> {
+  const rows = await db.selectFrom('categories as category')
+    .innerJoin('post_category_assignments as assignment', (join) => join
+      .onRef('assignment.category_id', '=', 'category.id')
+      .onRef('assignment.owner_id', '=', 'category.owner_id'))
+    .innerJoin('posts as post', (join) => join
+      .onRef('post.translation_group_id', '=', 'assignment.translation_group_id')
+      .onRef('post.owner_id', '=', 'assignment.owner_id'))
+    .select([
+      'category.id',
+      'category.name',
+      'category.is_default',
+      'category.updated_at as category_updated_at',
+      'assignment.created_at as assignment_created_at',
+      'post.updated_at as post_updated_at',
+    ])
+    .where('category.owner_id', '=', ownerId)
+    .where('post.locale', '=', locale)
+    .where('post.status', '=', 'published')
+    .orderBy('category.is_default', 'desc')
+    .orderBy('category.name')
+    .orderBy('category.id')
+    .execute();
+  const items = new Map<string, PostCategoryBadge>();
+  let modified = baseline.getTime();
+  for (const row of rows) {
+    if (!items.has(row.id)) items.set(row.id, { id: row.id, name: row.name });
+    modified = Math.max(
+      modified,
+      row.category_updated_at.getTime(),
+      row.assignment_created_at.getTime(),
+      row.post_updated_at.getTime(),
+    );
+  }
+  return { items: [...items.values()], lastModified: new Date(modified) };
 }
 
 export async function createCategory(ownerId: string, requestedName: string): Promise<PostCategory> {
