@@ -27,6 +27,7 @@ docker-compose.override.yaml
 /.hallmark/
 /.impeccable/
 /.superpowers/
+/.zvec-grep/
 /docs/superpowers/
 test-results/
 
