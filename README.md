@@ -41,6 +41,8 @@ The replacement foundation runs alongside the existing Supabase CMS. PostgreSQL,
 
 Use Node.js 22 or newer and Docker Desktop with Compose v2. The default local ports are `4321` (TomeCMS), `5432` (PostgreSQL), `9000` (AIStor S3 API), and `9001` (AIStor console). Keep these services bound to loopback. When a port is occupied, supply `APP_PORT`, `POSTGRES_PORT`, `MINIO_PORT`, or `MINIO_CONSOLE_PORT` to bootstrap, for example `POSTGRES_PORT=55433 node scripts/bootstrap-core.mjs --force`; this refreshes dependent generated URLs while preserving secrets. Hand-editing only a port in `.env.local` also requires updating its dependent URL (`DATABASE_URL`, `TOME_CMS_PUBLIC_URL`, or `S3_ENDPOINT` and `MEDIA_PUBLIC_URL`). Explicit custom URLs are preserved.
 
+`TOME_CMS_PUBLIC_URL` is the Passkey relying-party and origin boundary. Development HTTP is allowed only at the exact `localhost` hostname, for example `http://localhost:4321`; IP loopback origins such as `http://127.0.0.1` and `http://[::1]` are rejected. Changing the scheme, hostname, or port after registering credentials can make existing Passkeys unusable and lock out the owner.
+
 `.env.local` is the local runtime and Compose environment file. The bootstrap can create it with permissions `0600`; keep real secrets out of Git. The `MINIO_LICENSE_FILE` value must be an absolute path to a readable, non-empty AIStor Free license file stored outside this repository. Obtain an AIStor Free license from MinIO, save the downloaded file outside the checkout, and pass its path to the first bootstrap command; the repository does not contain or provide a license.
 
 After installing dependencies and saving the external license outside the checkout, initialize a first checkout by setting the path in the current shell and then running:
@@ -238,6 +240,22 @@ For each article, write a specific title, add a concise meta description when th
 
 After deploying a public site, submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools. Search indexing, rich results, and AI citations remain decisions made by each search or answer engine.
 
+## Recover Passkey access
+
+Before relying on a primary device, register a spare Passkey in Admin Security and securely store the displayed recovery codes outside that device. If neither is available, inspect the configured local site and owner without changing anything:
+
+```sh
+npm run admin:recover
+```
+
+After verifying the target, explicitly start recovery:
+
+```sh
+npm run admin:recover -- --execute
+```
+
+Execution revokes active sessions and prints a one-time, ten-minute replacement-Passkey URL. Keep that URL, its context, recovery codes, installation tokens, and environment contents out of logs, tickets, and shared shell history.
+
 ## Reset the owner password
 
 From the project directory, run:
@@ -362,7 +380,7 @@ Only after the backups and migrations are complete, deploy and restart TomeCMS:
 
 The service listens on `127.0.0.1:4321`.
 
-The script creates the Nginx reverse proxy configuration. Configure HTTPS with the certificate tooling used on the server; production installation is blocked over plain HTTP.
+The script creates the Nginx reverse proxy configuration. Configure HTTPS with the certificate tooling used on the server; VPS installation and Passkey registration or sign-in are blocked over plain HTTP.
 
 After deployment, open `https://your-domain/install`. When the wizard asks for the token, read it on the VPS:
 
@@ -400,7 +418,19 @@ sudo systemctl status tome-cms
 sudo journalctl -u tome-cms -n 100
 ```
 
-Owner recovery ships with every VPS release. Inspect the target with `sudo -u tomecms npm --prefix /opt/tome-cms/current run admin:recover`, then repeat with `-- --execute` to create the one-time recovery link.
+Owner recovery ships with every VPS release. Inspect the target without making changes:
+
+```sh
+sudo -u tomecms npm --prefix /opt/tome-cms/current run admin:recover
+```
+
+After verifying the displayed site and owner, explicitly create the one-time recovery link:
+
+```sh
+sudo -u tomecms npm --prefix /opt/tome-cms/current run admin:recover -- --execute
+```
+
+Run recovery only in a private terminal and do not copy the one-time URL or its context into logs or tickets.
 
 ## Project structure
 
