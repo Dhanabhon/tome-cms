@@ -26,6 +26,8 @@ const valid = {
 test('accepts the canonical self-hosted environment', () => {
   assert.equal(parseServerEnv(valid).DATABASE_POOL_MAX, 10);
   assert.equal(parseServerEnv(valid).TOME_CMS_FRONTEND_MODE, 'bundled');
+  assert.equal(parseServerEnv(valid).TOME_CMS_UPDATE_MODE, 'check-only');
+  assert.equal(parseServerEnv(valid).TOME_CMS_UPDATER_SOCKET, '/run/tome-cms/updater.sock');
   assert.equal(parseServerEnv({ ...valid, TOME_CMS_PUBLIC_URL: 'https://cms.example.com/' }).TOME_CMS_PUBLIC_URL, 'https://cms.example.com');
 });
 
@@ -40,6 +42,8 @@ test('rejects missing secrets, malformed URLs, and production HTTP', () => {
     MEDIA_PUBLIC_URL: 'http://media.example.com/tomecms-media/',
   }));
   assert.throws(() => parseServerEnv({ ...valid, S3_BUCKET: '../media' }));
+  assert.throws(() => parseServerEnv({ ...valid, TOME_CMS_UPDATE_MODE: 'root' }));
+  assert.throws(() => parseServerEnv({ ...valid, TOME_CMS_UPDATER_SOCKET: '../../docker.sock' }));
   assert.throws(() => parseServerEnv({ ...valid, TOME_CMS_PUBLIC_URL: 'http://localhost:4321/install' }));
   for (const host of ['seaweedfs', '127.0.0.1', '10.0.0.1', 'host.docker.internal']) {
     assert.throws(() => parseServerEnv({
