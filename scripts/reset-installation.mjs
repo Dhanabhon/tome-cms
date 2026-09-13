@@ -1,58 +1,34 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import process from 'node:process';
+import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { sql } from 'kysely';
+import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
+import { pathToFileURL } from 'node:url';
 
-import { createClient } from '@supabase/supabase-js';
+import { isTomeObjectKey } from '../src/server/media/keys.ts';
 
-import {
-  adminKey,
-  ensureSupabaseAdminEnvironment,
-  supabaseOrigin,
-} from './lib/supabase-environment.mjs';
-
-const BUCKET = 'blog-media';
-const PAGE_SIZE = 1_000;
-const RESET_TABLES = [
-  { label: 'Navigation items', name: 'navigation_items' },
-  { label: 'Pages', name: 'pages' },
-  { label: 'Posts', name: 'posts' },
-  { label: 'Media records', name: 'media_items' },
-  { label: 'Media folders', name: 'media_folders' },
-];
-
-function confirmationPhrase(origin) {
-  return `RESET ${origin}`;
-}
-
-function parseOptions(args) {
-  if (args.length === 0) return { dryRun: true };
-  if (args.length === 1 && args[0] === '--dry-run') return { dryRun: true };
-  if (args.length === 1 && args[0] === '--execute') return { dryRun: false };
+export function parseResetOptions(args) {
+  if (!args.length || (args.length === 1 && args[0] === '--dry-run')) return { execute: false };
+  if (args.length === 1 && args[0] === '--execute') return { execute: true };
   throw new Error('Usage: npm run admin:reset-installation [-- --dry-run|--execute]');
 }
 
-function selfTest() {
-  assert.equal(adminKey({ SUPABASE_SECRET_KEY: 'current', SUPABASE_SERVICE_ROLE_KEY: 'legacy' }), 'current');
-  assert.equal(adminKey({ SUPABASE_SERVICE_ROLE_KEY: 'legacy' }), 'legacy');
-  assert.equal(confirmationPhrase('https://example.supabase.co'), 'RESET https://example.supabase.co');
-  assert.equal(confirmationPhrase('http://127.0.0.1:54321'), 'RESET http://127.0.0.1:54321');
-  assert.equal(supabaseOrigin('http://127.0.0.1:54321/'), 'http://127.0.0.1:54321');
-  assert.throws(() => supabaseOrigin('http://supabase.example.com'), /Use HTTPS/);
-  assert.equal(pathWithin('owner-id', 'image.png'), 'owner-id/image.png');
-  assert.deepEqual(parseOptions([]), { dryRun: true });
-  assert.deepEqual(parseOptions(['--dry-run']), { dryRun: true });
-  assert.deepEqual(parseOptions(['--execute']), { dryRun: false });
-  assert.throws(() => parseOptions(['--yes']), /Usage/);
-  assert.deepEqual(RESET_TABLES, [
-    { label: 'Navigation items', name: 'navigation_items' },
-    { label: 'Pages', name: 'pages' },
-    { label: 'Posts', name: 'posts' },
-    { label: 'Media records', name: 'media_items' },
-    { label: 'Media folders', name: 'media_folders' },
-  ]);
-  console.log('Installation reset self-check passed.');
+export function databaseName(databaseUrl) {
+  const name = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+  if (!name) throw new Error('DATABASE_URL must include a database name.');
+  return name;
+}
+
+export function resetConfirmation(origin, database, bucket) {
+  return `RESET ${origin} ${database} ${bucket}`;
+}
+
+function isStorageNotFound(error) {
+  return error && typeof error === 'object' && (
+    error.name === 'NoSuchKey' || error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404
+  );
 }
 
 async function ask(question) {
@@ -64,166 +40,157 @@ async function ask(question) {
   }
 }
 
-function pathWithin(prefix, name) {
-  return prefix ? `${prefix}/${name}` : name;
+async function inventory(database) {
+  const result = await sql`
+    select
+      (select count(*)::integer from "user") as users,
+      (select count(*)::integer from session) as sessions,
+      (select count(*)::integer from passkey) as passkeys,
+      (select count(*)::integer from recovery_codes) as recovery_codes,
+      (select count(*)::integer from installation_enrollments) as enrollments,
+      (select count(*)::integer from posts) as posts,
+      (select count(*)::integer from pages) as pages,
+      (select count(*)::integer from categories) as categories,
+      (select count(*)::integer from navigation_items) as navigation_items,
+      (select count(*)::integer from media_folders) as media_folders,
+      (select count(*)::integer from media_items where state = 'ready') as media_ready,
+      (select count(*)::integer from media_items where state = 'deleting') as media_deleting,
+      (select count(*)::integer from media_items where state = 'delete_failed') as media_delete_failed,
+      (select count(*)::integer from media_upload_reservations where state = 'pending') as reservations_pending,
+      (select count(*)::integer from media_upload_reservations where state = 'expired') as reservations_expired,
+      (select count(*)::integer from media_upload_reservations where expires_at > current_timestamp) as active_upload_signatures
+  `.execute(database);
+  return result.rows[0];
 }
 
-async function listStoragePaths(bucket) {
-  const folders = [''];
-  const paths = [];
+async function knownObjects(database) {
+  const media = await database.selectFrom('media_items').select(['id', 'object_key']).execute();
+  const reservations = await database.selectFrom('media_upload_reservations').select(['id', 'object_key']).execute();
+  const objects = new Map();
+  for (const row of [...media, ...reservations]) {
+    const ids = objects.get(row.object_key) ?? [];
+    ids.push(row.id);
+    objects.set(row.object_key, ids);
+  }
+  return [...objects].map(([key, ids]) => ({ ids, key })).sort((left, right) => left.key.localeCompare(right.key));
+}
 
-  for (let folderIndex = 0; folderIndex < folders.length; folderIndex += 1) {
-    const prefix = folders[folderIndex];
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data, error } = await bucket.list(prefix, {
-        limit: PAGE_SIZE,
-        offset,
-        sortBy: { column: 'name', order: 'asc' },
-      });
-      if (error) throw new Error(`Could not list ${BUCKET} Storage: ${error.message}`);
+function sameObjectKeys(left, right) {
+  return left.length === right.length && left.every((item, index) => item.key === right[index]?.key);
+}
 
-      for (const entry of data) {
-        const path = pathWithin(prefix, entry.name);
-        if (entry.id) paths.push(path);
-        else folders.push(path);
-      }
-      if (data.length < PAGE_SIZE) break;
+async function deleteAndVerifyObjects(storage, bucket, objects) {
+  for (const [index, object] of objects.entries()) {
+    if (!isTomeObjectKey(object.key)) throw new Error(`Media object ${index + 1} has an unsafe key; database data was preserved.`);
+    try {
+      await storage.send(new DeleteObjectCommand({ Bucket: bucket, Key: object.key }));
+      await storage.send(new HeadObjectCommand({ Bucket: bucket, Key: object.key }));
+      throw new Error('Object remained after deletion.');
+    } catch (error) {
+      if (!isStorageNotFound(error)) throw new Error(`Could not remove media object ${index + 1}; database data was preserved.`);
     }
   }
-
-  return paths;
 }
 
-async function rowCount(supabase, table) {
-  const { count, error } = await supabase.from(table).select('id', { count: 'exact', head: true });
-  if (error) throw new Error(`Could not count ${table}: ${error.message}`);
-  return count ?? 0;
+async function resetDatabase(database, expectedObjects, verifyObjectsAbsent) {
+  await database.transaction().execute(async (transaction) => {
+    await sql`
+      lock table
+        "user", session, account, verification, passkey, installation_enrollments,
+        recovery_codes, security_rate_limits, site_settings, post_translation_groups,
+        page_translation_groups, categories, posts, pages, post_category_assignments,
+        navigation_items, media_folders, media_items, media_upload_reservations
+      in access exclusive mode
+    `.execute(transaction);
+    const currentObjects = await knownObjects(transaction);
+    if (!sameObjectKeys(expectedObjects, currentObjects)) {
+      throw new Error('TomeCMS data changed during reset; database data was preserved. Stop the app and run reset again.');
+    }
+    await verifyObjectsAbsent();
+    await sql`
+      truncate table
+        session, account, verification, passkey, installation_enrollments,
+        recovery_codes, security_rate_limits, site_settings, post_category_assignments,
+        navigation_items, posts, pages, categories, post_translation_groups,
+        page_translation_groups, media_upload_reservations, media_items, media_folders, "user"
+    `.execute(transaction);
+  });
 }
 
-async function deleteRows(supabase, table) {
-  const { error } = await supabase.from(table).delete().not('id', 'is', null);
-  if (error) throw new Error(`Could not delete ${table}: ${error.message}`);
-}
-
-async function deleteStorage(bucket, paths) {
-  for (let index = 0; index < paths.length; index += PAGE_SIZE) {
-    const { error } = await bucket.remove(paths.slice(index, index + PAGE_SIZE));
-    if (error) throw new Error(`Could not delete ${BUCKET} Storage: ${error.message}`);
-  }
-}
-
-async function restoreSettings(supabase, settings, cause) {
-  const { error } = await supabase.from('site_settings').insert(settings);
-  if (error) {
-    throw new Error(`${cause} The installer marker could not be restored: ${error.message}`);
-  }
-  throw new Error(`${cause} The installer marker was restored; fix the error and run the reset again.`);
+function selfTest() {
+  assert.deepEqual(parseResetOptions([]), { execute: false });
+  assert.deepEqual(parseResetOptions(['--dry-run']), { execute: false });
+  assert.deepEqual(parseResetOptions(['--execute']), { execute: true });
+  assert.throws(() => parseResetOptions(['--yes']), /Usage/);
+  assert.equal(databaseName('postgresql://user:secret@127.0.0.1:5432/tomecms'), 'tomecms');
+  assert.equal(
+    resetConfirmation('https://cms.example.com', 'tomecms', 'tomecms-media'),
+    'RESET https://cms.example.com tomecms tomecms-media',
+  );
+  assert.equal(isTomeObjectKey('owners/123e4567-e89b-42d3-a456-426614174000/2026/09/123e4567-e89b-42d3-a456-426614174001.webp'), true);
+  assert.equal(isTomeObjectKey('../other-bucket/private'), false);
+  console.log('Installation reset self-check passed.');
 }
 
 async function main() {
-  const { dryRun } = parseOptions(process.argv.slice(2));
-  ensureSupabaseAdminEnvironment(import.meta.url);
-
-  const projectOrigin = supabaseOrigin(process.env.PUBLIC_SUPABASE_URL);
-
-  const supabase = createClient(projectOrigin, adminKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const { data: settings, error: settingsError } = await supabase
-    .from('site_settings')
-    .select('owner_id, site_name')
-    .eq('id', true)
-    .maybeSingle();
-  if (settingsError) throw new Error(`Could not read site settings: ${settingsError.message}`);
-  if (!settings) {
-    console.log('TomeCMS is already waiting for the Wizard Installer. No changes were made.');
-    return;
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.admin.getUserById(settings.owner_id);
-  if (userError) throw new Error(`Could not read the owner account: ${userError.message}`);
-  if (!user?.email) throw new Error('The configured owner account has no email address.');
-
-  const bucket = supabase.storage.from(BUCKET);
-  const [tableCounts, storagePaths] = await Promise.all([
-    Promise.all(RESET_TABLES.map((table) => rowCount(supabase, table.name))),
-    listStoragePaths(bucket),
+  const options = parseResetOptions(process.argv.slice(2));
+  const [{ db, closeDatabase }, { getServerEnv }, { s3, s3Bucket }] = await Promise.all([
+    import('../src/server/db/client.ts'),
+    import('../src/server/env.ts'),
+    import('../src/server/media/storage.ts'),
   ]);
-
-  console.log('TomeCMS reset preview');
-  console.log(`Supabase: ${projectOrigin}`);
-  console.log(`Site: ${settings.site_name}`);
-  console.log(`Owner: ${user.email}`);
-  RESET_TABLES.forEach((table, index) => console.log(`${table.label}: ${tableCounts[index]}`));
-  console.log(`Stored files: ${storagePaths.length}`);
-
-  if (dryRun) {
-    console.log('Dry run complete. No changes were made.');
-    return;
+  try {
+    const env = getServerEnv();
+    const origin = new URL(env.TOME_CMS_PUBLIC_URL).origin;
+    const database = databaseName(env.DATABASE_URL);
+    const [counts, objects, settings] = await Promise.all([
+      inventory(db),
+      knownObjects(db),
+      db.selectFrom('site_settings').select(['site_name', 'owner_id']).where('id', '=', true).executeTakeFirst(),
+    ]);
+    console.log('TomeCMS reset preview');
+    console.log(`Site origin: ${origin}`);
+    console.log(`Database: ${database}`);
+    console.log(`Bucket: ${s3Bucket}`);
+    if (settings) console.log(`Site: ${settings.site_name}`);
+    for (const [label, value] of Object.entries(counts)) console.log(`${label}: ${value}`);
+    console.log(`Known objects: ${objects.length}`);
+    if (!options.execute) {
+      console.log('Dry run complete. No changes were made.');
+      return;
+    }
+    if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error('Run this command in an interactive terminal.');
+    if (Number(counts.active_upload_signatures) > 0) {
+      throw new Error('Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.');
+    }
+    const expected = resetConfirmation(origin, database, s3Bucket);
+    console.log('This permanently deletes TomeCMS content, media, sessions, recovery data, and owner accounts.');
+    if (await ask(`Type "${expected}" to continue: `) !== expected) {
+      console.log('Cancelled. No changes were made.');
+      return;
+    }
+    await deleteAndVerifyObjects(s3, s3Bucket, objects);
+    await resetDatabase(db, objects, () => deleteAndVerifyObjects(s3, s3Bucket, objects));
+    const [remainingSettings, remainingObjects] = await Promise.all([
+      db.selectFrom('site_settings').select('id').executeTakeFirst(),
+      knownObjects(db),
+    ]);
+    if (remainingSettings || remainingObjects.length) throw new Error('Reset verification failed.');
+    console.log('Reset complete. Restart TomeCMS and open /install.');
+    console.log('Use the existing TOME_CMS_INSTALL_TOKEN from .env.local.');
+  } finally {
+    s3.destroy();
+    await closeDatabase();
   }
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error('Run this command in an interactive terminal so the destructive reset can be confirmed.');
-  }
-
-  console.log('This permanently deletes the items above and the configured owner account.');
-  console.log('Close Admin tabs and stop TomeCMS before continuing.');
-  const expected = confirmationPhrase(projectOrigin);
-  const confirmation = await ask(`Type "${expected}" to continue: `);
-  if (confirmation !== expected) {
-    console.log('Cancelled. No changes were made.');
-    return;
-  }
-
-  await deleteStorage(bucket, storagePaths);
-  if ((await listStoragePaths(bucket)).length) {
-    throw new Error(`${BUCKET} changed during reset. Stop active clients and run the reset again.`);
-  }
-
-  for (const table of RESET_TABLES) await deleteRows(supabase, table.name);
-
-  const { data: settingsBackup, error: backupError } = await supabase
-    .from('site_settings')
-    .select('*')
-    .eq('id', true)
-    .single();
-  if (backupError) throw new Error(`Could not prepare the installer marker: ${backupError.message}`);
-
-  const { data: deletedSettings, error: deleteSettingsError } = await supabase
-    .from('site_settings')
-    .delete()
-    .eq('id', true)
-    .select('id')
-    .maybeSingle();
-  if (deleteSettingsError) throw new Error(`Could not delete site_settings: ${deleteSettingsError.message}`);
-  if (!deletedSettings) throw new Error('The installer marker disappeared during reset.');
-
-  const remaining = await Promise.all(
-    [...RESET_TABLES.map((table) => table.name), 'site_settings'].map((table) => rowCount(supabase, table)),
-  );
-  if (remaining.some(Boolean)) {
-    await restoreSettings(supabase, settingsBackup, 'TomeCMS data changed during reset.');
-  }
-
-  const { error: deleteUserError } = await supabase.auth.admin.deleteUser(settings.owner_id);
-  if (deleteUserError) {
-    await restoreSettings(supabase, settingsBackup, `Could not delete the owner account: ${deleteUserError.message}.`);
-  }
-
-  console.log('Reset complete. Restart TomeCMS and open /install.');
-  console.log('Use the existing TOME_CMS_INSTALL_TOKEN from the environment file.');
-  console.log('Previously issued access tokens can remain valid until they expire.');
 }
 
 if (process.argv[2] === '--self-test') {
   selfTest();
 } else if (process.argv[2] === '--help') {
   console.log('Usage: npm run admin:reset-installation [-- --dry-run|--execute]');
-} else {
+} else if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((error) => {
-    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Error: ${error instanceof Error ? error.message : 'Installation reset failed.'}`);
     process.exitCode = 1;
   });
 }

@@ -1,8 +1,8 @@
 # TomeCMS
 
-TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private React editor. Public Pages, articles, Header, and Footer render on the server and send no application JavaScript. Better Auth protects the Admin, while PostgreSQL stores site settings, Posts, Pages, Categories, and Navigation.
+TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private React editor. Public Pages, articles, Header, and Footer render on the server and send no application JavaScript. Better Auth protects the Admin, PostgreSQL stores content and media metadata, and an S3-compatible bucket stores image bytes.
 
-> **Migration status:** this branch is not a release. File Manager metadata and objects still use the legacy Supabase path until the S3 migration plan lands. Do not deploy it as TomeCMS 0.2.0 or remove Supabase from an existing installation yet.
+> **Migration status:** this branch is not a release. The File Manager now uses PostgreSQL and S3-compatible storage, but the versioned Headless Content API and final legacy Supabase removal are still in progress. Do not deploy it as TomeCMS 0.2.0 yet.
 
 ## What is included
 
@@ -11,13 +11,13 @@ TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private 
 - Standalone Pages and independently ordered Header (MenuBar) and Footer navigation
 - Novel editor with formatting, slash commands, and image uploads
 - Debounced draft saving
-- Admin shell routes for Posts, Pages, Navigation, Files, Profile, and Settings; focused Post and Page editors are outside that shell
+- Admin shell routes for Posts, Pages, Navigation, File Manager, Profile, and Settings; focused Post and Page editors are outside that shell
 - Manual Thai (TH) and English (EN) editions with independent draft, publish, and unpublish states
 - Localized public routes at `/<locale>`, `/<locale>/blog/<slug>`, and `/<locale>/<slug>`, with legacy blog routes redirected to their localized equivalents
 - Owner-only Preview that saves and opens the newest draft
 - Profile details reused by the global post author block
 - Better Auth Passkeys and owner-scoped PostgreSQL services
-- Temporary Supabase-backed File Manager pending the S3 cutover
+- S3-compatible File Manager with folders, search, upload progress, stable media URLs, and reference-safe deletion
 - A secure first-run installer for site settings and the owner account
 - SEO, GEO, and AEO foundations with canonical URLs, social metadata, structured data, and automatic discovery files
 - Sanitized HTML output for public articles
@@ -30,17 +30,14 @@ Before using either local setup helper, prepare:
 - A local copy of this repository. Open your terminal in the `tome-cms` directory containing `package.json`.
 - [Node.js](https://nodejs.org/en/download) and npm. Choose a supported LTS release; TomeCMS requires Node.js 22 or newer.
 - Docker Desktop installed and running. Follow the operating-system instructions below.
-- The [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), temporarily required only when testing the legacy File Manager during this migration.
 - An internet connection for downloading dependencies and Docker images on the first run.
-- Available ports: `4321` for TomeCMS and `54321` through `54324` for the configured local Supabase services. If a port is occupied, stop the conflicting app or local stack first.
+- Available ports: `4321` for TomeCMS, `5432` for PostgreSQL, `9000` for the S3 API, and `9001` for the storage console. If a port is occupied, use the bootstrap overrides described below.
 
-The helper creates the Supabase containers and storage volumes, downloads their images, and configures the database. You do not need to create these manually, write a Docker Compose file, or create a hosted Supabase project. Docker runs Supabase; TomeCMS runs on your computer through Node.js.
-
-A hosted or self-hosted Supabase project is only needed for the [external connection option](#connect-supabase-cloud-or-self-hosted).
+The core bootstrap creates the PostgreSQL and licensed AIStor containers, persistent volumes, media bucket, and exact bucket CORS policy. TomeCMS runs on your computer through Node.js in local development.
 
 ## Development architecture
 
-The active application now uses Better Auth and PostgreSQL/Kysely for installation, owner sessions, site settings, Posts, Pages, Categories, Navigation, bundled public reads, and the sitemap. Supabase remains only behind the unfinished File Manager endpoints and historical migration files. S3/MinIO replaces that final runtime dependency in the next plan; the versioned Headless Content API and final Supabase removal follow afterward.
+The active application uses Better Auth and PostgreSQL/Kysely for installation, owner sessions, site settings, Posts, Pages, Categories, Navigation, File Manager metadata, bundled public reads, and the sitemap. Image bytes use the single configured S3-compatible endpoint. Browser uploads receive only a short-lived signed URL for one generated object key; S3 credentials remain server-only.
 
 Use Node.js 22 or newer and Docker Desktop with Compose v2. The default local ports are `4321` (TomeCMS), `5432` (PostgreSQL), `9000` (AIStor S3 API), and `9001` (AIStor console). Keep these services bound to loopback. When a port is occupied, supply `APP_PORT`, `POSTGRES_PORT`, `MINIO_PORT`, or `MINIO_CONSOLE_PORT` to bootstrap, for example `POSTGRES_PORT=55433 node scripts/bootstrap-core.mjs --force`; this refreshes dependent generated URLs while preserving secrets. Hand-editing only a port in `.env.local` also requires updating its dependent URL (`DATABASE_URL`, `TOME_CMS_PUBLIC_URL`, or `S3_ENDPOINT` and `MEDIA_PUBLIC_URL`). Explicit custom URLs are preserved.
 
@@ -58,17 +55,17 @@ npm run db:migrate
 
 If `.env.local` already exists and only its license path needs correction, preserve its other values with `MINIO_LICENSE_FILE=/absolute/path/to/aistor-free.license node scripts/bootstrap-core.mjs --force`; `--force` merges the supplied value and does not rotate existing secrets.
 
-The bootstrap validates Node, Docker, Compose, ports, environment ownership, and the external license before starting PostgreSQL and licensed AIStor. It writes no license into the repository. `npm run test:integration:foundation` starts only disposable PostgreSQL and reports storage as deferred; it does not prove AIStor runtime or S3 readiness.
+The bootstrap validates Node, Docker, Compose, ports, environment ownership, and the external license before starting PostgreSQL and licensed AIStor. It writes no license into the repository. Bucket setup allows anonymous image reads and permits browser `PUT`, `HEAD`, and `GET` only from the exact `TOME_CMS_PUBLIC_URL` origin. `npm run test:integration:foundation` starts only disposable PostgreSQL unless a storage-specific test explicitly starts AIStor; it does not prove a real licensed AIStor runtime by itself.
 
 Production bootstrap (`--production`) requires public HTTPS application and storage URLs and uses the bundled Compose PostgreSQL database. Its host-side `DATABASE_URL` must match the generated URL for `POSTGRES_PASSWORD` and `POSTGRES_PORT`; the application uses `postgres:5432` inside Compose to reach that same database. Custom database targets are supported only for local development in this foundation release.
 
-During this intermediate branch, File Manager testing still requires `PUBLIC_SUPABASE_URL`, a `PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or legacy `PUBLIC_SUPABASE_ANON_KEY`), and a runtime `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`). These values are no longer used for owner authentication, content, settings, Navigation, or public rendering. Production deployment remains blocked until the S3 and final cutover plans remove this split runtime.
+Transitional Supabase files and production-preflight compatibility remain until the final cutover task deletes them. The current File Manager, owner authentication, content, settings, Navigation, and public rendering no longer use Supabase at runtime.
 
 The application exposes `GET /health/live` for a process liveness response and `GET /health/ready` for dependency readiness. Readiness returns HTTP `200` only when the foundation is ready, otherwise `503`; neither route exposes topology, credentials, or other secrets.
 
 ## Run it locally
 
-For the migration branch, initialize PostgreSQL and AIStor with `node scripts/bootstrap-core.mjs`, apply `npm run db:migrate`, then use `npm run dev`. The older `dev:macos` and `dev:windows` helpers still describe the legacy all-Supabase runtime and are not a validation path for this branch; they will be replaced with the completed PostgreSQL/S3 workflow in the File Manager plan.
+For the migration branch, initialize PostgreSQL and AIStor with `node scripts/bootstrap-core.mjs`, apply `npm run db:migrate`, then use `npm run dev`. The older `dev:macos` and `dev:windows` helpers still describe the legacy all-Supabase runtime and are not a validation path for this branch; they will be replaced during the final operations cutover.
 
 ### Legacy Supabase helper reference
 
@@ -208,15 +205,16 @@ npm run build       # Build the production server
 npm run preview     # Run the production build locally
 npm run check       # Check Astro, TypeScript, and the helper scripts
 npm run admin:reset-installation # Preview a reset to the Wizard Installer
+npm run media:cleanup # Preview expired uploads and failed deletions
 npm run admin:reset-password # Reset the installed owner password
-npm run test:e2e:media # Run focused File Library and public blog regressions
+npm run test:e2e:media # Run focused File Manager and public blog regressions
 npm run test:e2e:publishing # Run focused multilingual publishing regressions
 npm run test:e2e:pages # Run Pages, Navigation, public blog, and admin shell regressions
 ```
 
 Run `npm run test:e2e:media` and `npm run test:e2e:publishing` after the local Supabase stack is ready. On macOS, start Docker Desktop and use `npm run dev:macos`; the helper applies pending local migrations automatically.
 
-For `npm run test:e2e:pages`, use an installed local development site with all pending migrations applied, the `blog-media` bucket, and `.env.local` containing the Supabase URL, public key, and server admin key. Complete the Wizard Installer first: the browser tests temporarily lease the existing `site_settings` owner and restore it afterward. Use a development database because tests create and remove accounts and content. Install the locked dependencies with `npm ci` and the Playwright browsers with `npx playwright install chromium webkit`, then run:
+The legacy browser suites still contain Supabase fixtures and are not a release gate for this migration branch. They will be replaced by PostgreSQL/S3 fixtures during the final cutover. Install the locked dependencies with `npm ci` and the Playwright browsers with `npx playwright install chromium webkit` before running any focused suite:
 
 ```sh
 npm run test:e2e:pages
@@ -283,9 +281,9 @@ For a custom environment file, set `TOMECMS_ENV_FILE` to its path before running
 
 ## Reset TomeCMS to the Wizard Installer
 
-This reset permanently deletes all TomeCMS Navigation items, Pages, Posts, File Library records and folders, every object in the dedicated `blog-media` bucket, site settings, and the configured owner account. The preview lists Navigation and Page counts, and content rows are deleted in that order before Posts and file records. It keeps the Supabase project, database schema, migrations, bucket, environment file, and installation token.
+This reset permanently deletes all TomeCMS content, File Manager metadata and folders, every known object in the configured S3 bucket, site settings, sessions, recovery data, and owner accounts. It keeps the PostgreSQL schema and Kysely migration history, S3 bucket, `.env.local`, and installation token.
 
-Back up Postgres and Supabase Storage first. Close every Admin tab and stop TomeCMS so an active editor cannot write during the reset. Apply all pending migrations, then preview the exact target and record counts without changing anything:
+Back up PostgreSQL and the S3 bucket first. Close every Admin tab and stop TomeCMS so an active editor cannot write during the reset. Apply all pending migrations, then preview the exact site origin, database, bucket, and record counts without changing anything:
 
 ```sh
 npm run admin:reset-installation -- --dry-run
@@ -297,19 +295,28 @@ Run the destructive reset only after checking that preview:
 npm run admin:reset-installation -- --execute
 ```
 
-The default command is also a dry run. Destructive mode requires the explicit `--execute` option and then requires you to type `RESET <supabase-origin>` exactly, including the scheme and any port. It supports local, Supabase Cloud, and Self-hosted connections and accepts current or legacy admin key names. Remote connections must use HTTPS; plain HTTP is accepted only for loopback development. For `/etc/tome-cms/tome-cms.env`, run it with `sudo`; use `TOMECMS_ENV_FILE` for any other path.
+The default command is also a dry run. Destructive mode requires `--execute`, an interactive terminal, and the exact phrase `RESET <site-origin> <database-name> <bucket>`. If a recently issued signed upload URL is still valid, the reset stops before changing anything; keep TomeCMS stopped, wait five minutes, and retry. Object keys must match TomeCMS's generated prefix, and database deletion starts only after every known object is removed and verified absent.
 
-If the command exits after deletion begins, keep TomeCMS stopped. Restore the Postgres and `blog-media` Storage backups from the same recovery point, rerun the dry run to verify the restored counts, then retry with `--execute`. Database backups do not replace a separate Storage backup.
+If object storage is unavailable, the installer marker and database data are preserved. Some objects may already be gone, but rerunning the command is safe. If a database failure occurs after object deletion, keep TomeCMS stopped, restore PostgreSQL and S3 from the same recovery point, and rerun the dry run. A database-only backup is incomplete.
 
-After completion, restart TomeCMS, open `/install`, and use the existing `TOME_CMS_INSTALL_TOKEN`. The old owner's refresh sessions are removed with the account, but an already-issued access token can remain valid until its expiry.
+After completion, restart TomeCMS, open `/install`, and use the existing `TOME_CMS_INSTALL_TOKEN`. All stored Better Auth sessions are removed with the accounts.
 
-## File Library
+## File Manager
 
 Authenticated owners manage images at `/admin/media`. Version 1 accepts images only: JPEG, PNG, WebP, GIF, and AVIF, with a hard limit of 8 MB per file. SVG, video, audio, PDFs, and other documents are not supported.
 
-On this intermediate branch, those File Manager operations still call Supabase and are not part of the PostgreSQL content cutover. The next migration plan moves their metadata to PostgreSQL and bytes to the configured S3-compatible bucket before this branch can be treated as deployable.
+The browser first reserves a generated object key, uploads directly with a short-lived signed URL, and asks TomeCMS to verify the size, MIME type, checksum, and image dimensions. Only verified files appear in File Manager. Posts, Pages, covers, and avatars store stable TomeCMS media IDs instead of provider URLs, so the delivery origin can change without rewriting content.
 
 For cover images, use a 1600 × 900 px canvas when possible, with a recommended minimum of 1200 × 675 px. Aim for 2 MB or less for faster delivery; the hard upload limit remains 8 MB.
+
+Failed deletions and expired unfinished uploads remain visible to the maintenance command. Preview them first, then clean them only from an interactive terminal:
+
+```sh
+npm run media:cleanup
+npm run media:cleanup -- --execute
+```
+
+Execution requires `CLEAN <site-origin> <bucket>` exactly. The command processes at most 1,000 database-selected TomeCMS objects per run and never scans or deletes arbitrary bucket paths.
 
 ## Pages and Navigation
 
@@ -333,7 +340,7 @@ Draft Page menu items remain saved but hidden publicly. Publishing makes them vi
 | `/sitemap.xml` | Published canonical URLs with accurate modification dates |
 | `/robots.txt` | Crawler rules and sitemap discovery, including OAI-SearchBot |
 | `/admin` | Sign-in and post dashboard |
-| `/admin/media` | Authenticated image File Library |
+| `/admin/media` | Authenticated image File Manager |
 | `/admin/new` | New post editor |
 | `/admin/edit/[id]` | Existing post editor |
 | `/admin/pages` | Authenticated Page list |
@@ -422,7 +429,7 @@ For every later deployment:
 
 Never seed or reset production. `supabase db reset` is only for deliberately disposable local development data.
 
-TomeCMS continues to use Supabase Storage in managed and self-hosted deployments. An external S3-compatible backend is configured by the operator through Supabase Storage; TomeCMS adds no MinIO container, S3 SDK, or S3 credentials to browser code.
+TomeCMS stores images through its server-side S3 client and includes licensed AIStor in the bundled Compose topology. Browser code receives only short-lived single-object upload URLs and never receives S3 credentials.
 
 Check the service when needed:
 
