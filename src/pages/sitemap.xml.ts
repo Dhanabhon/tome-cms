@@ -2,12 +2,10 @@ import type { APIRoute } from 'astro';
 
 import { pagePath, postPath } from '../lib/i18n';
 import { getPublicSiteUrl } from '../lib/seo';
+import { escapeXml } from '../lib/xml';
 import { listPublishedPages, listPublishedPosts } from '../server/content/published';
 import { getSiteSettings } from '../server/content/settings';
 import { POST_LOCALES } from '../types/cms';
-
-const escapeXml = (value: string) =>
-  value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character]!);
 
 export const GET: APIRoute = async ({ request, site }) => {
   try {

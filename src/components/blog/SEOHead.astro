@@ -42,6 +42,7 @@ const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '
 
 <title>{title}</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="alternate" type="application/rss+xml" title={`${siteName ?? 'TomeCMS'} RSS`} href="/rss.xml" />
 <meta name="description" content={description} />
 {author && <meta name="author" content={author} />}
 {robots && <meta name="robots" content={robots} />}
