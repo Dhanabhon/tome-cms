@@ -32,6 +32,7 @@ export const postListQuerySchema = listQuerySchema.extend({
 }).strict();
 
 export const detailQuerySchema = z.object({ locale: localeQuerySchema }).strict();
+export const emptyQuerySchema = z.object({}).strict();
 export const publicContentSlugSchema = normalizedContentSlugSchema;
 
 export function parsePublicQuery<TSchema extends z.ZodType>(

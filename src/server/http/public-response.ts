@@ -57,3 +57,27 @@ export function privatePreviewJson(request: Request, value: unknown, startedAt?:
     },
   });
 }
+
+export function publicOptions(request: Request, startedAt = performance.now()): Response {
+  const requestId = randomUUID();
+  logPublicRequest(request, requestId, 204, startedAt);
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Headers': 'If-Modified-Since, If-None-Match',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Max-Age': '86400',
+      Allow: 'GET, OPTIONS',
+      'Cache-Control': 'public, max-age=86400',
+      'X-Request-ID': requestId,
+    },
+    status: 204,
+  });
+}
+
+export function nextPublicUrl(requestUrl: string, cursor: string | null): string | null {
+  if (!cursor) return null;
+  const url = new URL(requestUrl);
+  url.searchParams.set('cursor', cursor);
+  return url.toString();
+}
