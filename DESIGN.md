@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: "TomeCMS Mint 2026"
-description: "TomeCMS uses a calm mint-and-teal palette anchored by reference mint (#c5e5e4), reference teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) carries CTAs and links, while deep evergreen (#0f3d3a) grounds dark surfaces. The existing NotionInter hierarchy, 12-column grid, dual-radius language, and progressive shadows remain unchanged."
+description: "TomeCMS uses a calm mint-and-teal palette anchored by reference mint (#c5e5e4), reference teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) carries CTAs and links, while deep evergreen (#0f3d3a) grounds dark surfaces. The existing IBM Plex Sans Thai hierarchy, 12-column grid, dual-radius language, and progressive shadows remain unchanged."
 colors:
   surface-white: "#ffffff"
   surface-base: "#f2f8f7"
@@ -16,62 +16,62 @@ colors:
   border-subtle: "#0f3d3a"
 typography:
   display-hero:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "64px"
     fontWeight: "700"
     lineHeight: "64px"
     letterSpacing: "-1.875px"
   display-large:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "54px"
     fontWeight: "700"
     lineHeight: "56px"
     letterSpacing: "-1.875px"
   heading-xl:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "48px"
     fontWeight: "400"
     lineHeight: "72px"
   heading-l:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "40px"
     fontWeight: "400"
     lineHeight: "60px"
   heading-m:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "22px"
     fontWeight: "700"
     lineHeight: "28px"
     letterSpacing: "-0.25px"
   heading-s:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "20px"
     fontWeight: "600"
     lineHeight: "28px"
     letterSpacing: "-0.125px"
   body-regular:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "16px"
     fontWeight: "400"
     lineHeight: "24px"
   body-large:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "20px"
     fontWeight: "400"
     lineHeight: "30px"
   label-medium:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "14px"
     fontWeight: "500"
     lineHeight: "20px"
   label-small:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "12px"
     fontWeight: "500"
     lineHeight: "16px"
     letterSpacing: "0.125px"
   nav-link:
-    fontFamily: "NotionInter"
+    fontFamily: "IBM Plex Sans Thai"
     fontSize: "16px"
     fontWeight: "500"
     lineHeight: "24px"
@@ -107,10 +107,10 @@ spacing:
 
 ## Overview
 
-TomeCMS pairs white and pale-mint surfaces with deep evergreen anchors, using the reference artwork's mint (#c5e5e4), teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) drives CTAs and links. The existing NotionInter hierarchy, 12-column grid with 28px gutters, dual-radius language, and progressive shadow system remain the structural foundation.
+TomeCMS pairs white and pale-mint surfaces with deep evergreen anchors, using the reference artwork's mint (#c5e5e4), teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) drives CTAs and links. The existing IBM Plex Sans Thai hierarchy, 12-column grid with 28px gutters, dual-radius language, and progressive shadow system remain the structural foundation.
 
 **Signature traits:**
-- Single-family weight hierarchy: Builds hierarchy from NotionInter across 4 weights rather than multiple families.
+- Single-family weight hierarchy: Builds hierarchy from IBM Plex Sans Thai across 4 weights rather than multiple families.
 - Soft, rounded geometry: Generous corner rounding up to 9999px.
 
 ## Colors
@@ -144,24 +144,24 @@ The palette uses 11 validated color tokens across one theme profile. Semantic ro
 
 ## Typography
 
-Typography uses NotionInter across extracted hierarchy roles. Keep hierarchy mapped to these token rows before adding decorative type styles.
+Typography uses IBM Plex Sans Thai across extracted hierarchy roles. Keep hierarchy mapped to these token rows before adding decorative type styles.
 
-Uses NotionInter throughout for a uniform feel. Weight range spans bold, regular, semi-bold, medium. Sizes range from 12px to 64px.
+Uses IBM Plex Sans Thai throughout for a uniform feel. Weight range spans bold, regular, semi-bold, medium. Sizes range from 12px to 64px.
 
 ### Type Scale Evidence
 | Role | Font | Size | Weight | Line Height | Letter Spacing | Stack / Features | Notes |
 |------|------|------|--------|-------------|----------------|------------------|-------|
-| Hero headline (probe-confirmed h1 at 64px; CSSOM shows 54px w700 / 56px ls:-1.875px as closest match) | NotionInter | 64px | 700 | 64px | -1.875px | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Section hero headings, large marketing titles | NotionInter | 54px | 700 | 56px | -1.875px | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Large section headings | NotionInter | 48px | 400 | 72px | normal | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Mid-page section headings | NotionInter | 40px | 400 | 60px | normal | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Card titles, feature headings | NotionInter | 22px | 700 | 28px | -0.25px | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Sub-section headings, callout titles | NotionInter | 20px | 600 | 28px | -0.125px | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Primary body text, paragraph content (highest frequency: 443 hits) | NotionInter | 16px | 400 | 24px | normal | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Hero subheadline, lead paragraph text | NotionInter | 20px | 400 | 30px | normal | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Navigation labels, button text, UI labels (90 hits) | NotionInter | 14px | 500 | 20px | normal | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Badges, tags, small metadata labels | NotionInter | 12px | 500 | 16px | 0.125px | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Global navigation links (probe-confirmed: 16px w500) | NotionInter | 16px | 500 | 24px | normal | NotionInter, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Hero headline (probe-confirmed h1 at 64px; CSSOM shows 54px w700 / 56px ls:-1.875px as closest match) | IBM Plex Sans Thai | 64px | 700 | 64px | -1.875px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Section hero headings, large marketing titles | IBM Plex Sans Thai | 54px | 700 | 56px | -1.875px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Large section headings | IBM Plex Sans Thai | 48px | 400 | 72px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Mid-page section headings | IBM Plex Sans Thai | 40px | 400 | 60px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Card titles, feature headings | IBM Plex Sans Thai | 22px | 700 | 28px | -0.25px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Sub-section headings, callout titles | IBM Plex Sans Thai | 20px | 600 | 28px | -0.125px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Primary body text, paragraph content (highest frequency: 443 hits) | IBM Plex Sans Thai | 16px | 400 | 24px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Hero subheadline, lead paragraph text | IBM Plex Sans Thai | 20px | 400 | 30px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Navigation labels, button text, UI labels (90 hits) | IBM Plex Sans Thai | 14px | 500 | 20px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Badges, tags, small metadata labels | IBM Plex Sans Thai | 12px | 500 | 16px | 0.125px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Global navigation links (probe-confirmed: 16px w500) | IBM Plex Sans Thai | 16px | 500 | 24px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
 
 ## Layout
 
