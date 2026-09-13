@@ -32,7 +32,7 @@ test('accepts the canonical self-hosted environment', () => {
 test('rejects missing secrets, malformed URLs, and production HTTP', () => {
   assert.throws(() => parseServerEnv({ ...valid, DATABASE_URL: '' }));
   assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', TOME_CMS_PUBLIC_URL: 'http://cms.example.com' }));
-  assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'http://minio:9000' }));
+  assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'http://seaweedfs:8333' }));
   assert.throws(() => parseServerEnv({
     ...valid,
     NODE_ENV: 'production',
@@ -41,7 +41,7 @@ test('rejects missing secrets, malformed URLs, and production HTTP', () => {
   }));
   assert.throws(() => parseServerEnv({ ...valid, S3_BUCKET: '../media' }));
   assert.throws(() => parseServerEnv({ ...valid, TOME_CMS_PUBLIC_URL: 'http://localhost:4321/install' }));
-  for (const host of ['minio', '127.0.0.1', '10.0.0.1', 'host.docker.internal']) {
+  for (const host of ['seaweedfs', '127.0.0.1', '10.0.0.1', 'host.docker.internal']) {
     assert.throws(() => parseServerEnv({
       ...valid,
       NODE_ENV: 'production',

@@ -5,34 +5,23 @@ import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { parseOptions, renderEnvironment, writeEnvironment, verifyLicense, makeEnvironment } from '../../scripts/bootstrap-core.mjs';
-
-test('test-license CLI fails before startup without printing supplied secrets', () => {
-  const result = spawnSync(process.execPath, ['scripts/bootstrap-core.mjs', '--check-test-license'], {
-    env: { ...process.env, MINIO_LICENSE_FILE: '', S3_SECRET_ACCESS_KEY: 'PRIVATE_TEST_SENTINEL' }, encoding: 'utf8',
-  });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /MINIO_LICENSE_FILE/);
-  assert.doesNotMatch(result.stdout + result.stderr, /PRIVATE_TEST_SENTINEL/);
-});
+import { parseOptions, renderEnvironment, writeEnvironment, makeEnvironment } from '../../scripts/bootstrap-core.mjs';
 
 test('bootstrap options default to local, select production and reject unknown flags', () => {
-  assert.deepEqual(parseOptions([]), { production: false, force: false, checkTestLicense: false });
+  assert.deepEqual(parseOptions([]), { production: false, force: false });
   assert.equal(parseOptions(['--production', '--force']).production, true);
   assert.equal(parseOptions(['--production', '--force']).force, true);
   assert.throws(() => parseOptions(['--produciton']), /Unknown option/);
 });
 
 test('environment renders required values once with literal secrets and rejects injection', () => {
-  const values = makeEnvironment({ MINIO_LICENSE_FILE: '/external/aistor.license' }, false);
+  const values = makeEnvironment({}, false);
   const rendered = renderEnvironment(values);
-  assert.deepEqual(parseEnv(rendered), values);
-  assert.equal(rendered.match(/^MINIO_LICENSE_FILE=/gm)?.length, 1);
+  assert.deepEqual({ ...parseEnv(rendered) }, values);
   for (const key of ['TOME_CMS_INSTALL_TOKEN', 'BETTER_AUTH_SECRET', 'TOME_CMS_CONTEXT_SECRET', 'TOME_CMS_RECOVERY_PEPPER', 'POSTGRES_PASSWORD', 'S3_SECRET_ACCESS_KEY']) {
     assert.match(values[key], /^[A-Za-z0-9_-]{43}$/);
     assert.equal(rendered.match(new RegExp(`^${key}=`, 'gm'))?.length, 1);
   }
-  assert.throws(() => renderEnvironment({ ...values, MINIO_LICENSE_FILE: 'relative' }), /MINIO_LICENSE_FILE/);
   assert.throws(() => renderEnvironment({ ...values, BETTER_AUTH_SECRET: '' }), /BETTER_AUTH_SECRET/);
   assert.throws(() => renderEnvironment({ ...values, BAD: "one\nBAD=two" }), /BAD/);
   assert.throws(() => renderEnvironment({ ...values, 'BAD\nKEY': 'value' }), /key/);
@@ -40,7 +29,7 @@ test('environment renders required values once with literal secrets and rejects 
 });
 
 test('existing secrets survive reruns and production requires explicit HTTPS URLs', () => {
-  const original = makeEnvironment({ MINIO_LICENSE_FILE: '/external/license' }, false);
+  const original = makeEnvironment({}, false);
   assert.deepEqual(makeEnvironment(original, false), original);
   assert.throws(() => makeEnvironment(original, true), /HTTPS/);
   const production = makeEnvironment({ ...original, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://s3.example.com/tomecms-media/' }, true);
@@ -49,8 +38,8 @@ test('existing secrets survive reruns and production requires explicit HTTPS URL
 });
 
 test('changed inputs refresh generated URLs while preserving explicit custom URLs', () => {
-  const original = makeEnvironment({ MINIO_LICENSE_FILE: '/external/license' }, false);
-  const changes = { POSTGRES_PORT: '55433', MINIO_PORT: '59002', APP_PORT: '44321', S3_BUCKET: 'other-media' };
+  const original = makeEnvironment({}, false);
+  const changes = { POSTGRES_PORT: '55433', S3_PORT: '59002', APP_PORT: '44321', S3_BUCKET: 'other-media' };
   const changed = makeEnvironment(changes, false, original);
   assert.equal(new URL(changed.DATABASE_URL).port, '55433');
   assert.equal(changed.S3_ENDPOINT, 'http://127.0.0.1:59002');
@@ -71,25 +60,39 @@ test('changed inputs refresh generated URLs while preserving explicit custom URL
   assert.deepEqual(makeEnvironment({}, false, changed), changed);
 });
 
+test('legacy AIStor settings migrate without carrying license requirements forward', () => {
+  const migrated = makeEnvironment({}, false, {
+    ...makeEnvironment({}, false),
+    MINIO_PORT: '59002',
+    MINIO_CONSOLE_PORT: '59003',
+    MINIO_LICENSE_FILE: '/external/license',
+    S3_ENDPOINT: 'http://127.0.0.1:59002',
+    MEDIA_PUBLIC_URL: 'http://127.0.0.1:59002/tomecms-media/',
+  });
+  assert.equal(migrated.S3_PORT, '59002');
+  assert.equal(migrated.S3_ENDPOINT, 'http://127.0.0.1:59002');
+  for (const key of ['MINIO_PORT', 'MINIO_CONSOLE_PORT', 'MINIO_LICENSE_FILE']) assert.equal(migrated[key], undefined);
+});
+
 test('production rejects Docker service and loopback endpoints even with HTTPS', () => {
-  const input = { MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
-  for (const host of ['minio', 'MINIO.', 'postgres', 'app', 'minio-init', 'localhost', 'example.localhost', '127.0.0.1', '127.2.3.4', '2130706433', '[::1]', '[::ffff:127.0.0.1]', '0.0.0.0', '[::]', 'host.docker.internal']) {
+  const input = { TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
+  for (const host of ['seaweedfs', 'postgres', 'app', 'localhost', 'example.localhost', '127.0.0.1', '127.2.3.4', '2130706433', '[::1]', '[::ffff:127.0.0.1]', '0.0.0.0', '[::]', 'host.docker.internal']) {
     assert.throws(() => makeEnvironment({ ...input, S3_ENDPOINT: `https://${host}:9000` }, true), /browser-reachable/);
   }
-  assert.throws(() => makeEnvironment({ ...input, MEDIA_PUBLIC_URL: 'https://minio:9000/media/' }, true), /browser-reachable/);
+  assert.throws(() => makeEnvironment({ ...input, MEDIA_PUBLIC_URL: 'https://seaweedfs:8333/media/' }, true), /browser-reachable/);
   assert.equal(makeEnvironment(input, true).S3_ENDPOINT, input.S3_ENDPOINT);
 });
 
 test('public URL stays an exact origin for Passkeys and bucket CORS', () => {
   for (const suffix of ['/admin', '?preview=1', '#install']) {
-    assert.throws(() => makeEnvironment({ MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: `http://localhost:4321${suffix}` }, false), /origin without/);
+    assert.throws(() => makeEnvironment({ TOME_CMS_PUBLIC_URL: `http://localhost:4321${suffix}` }, false), /origin without/);
   }
-  assert.equal(makeEnvironment({ MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'http://localhost:4321/' }, false).TOME_CMS_PUBLIC_URL, 'http://localhost:4321');
+  assert.equal(makeEnvironment({ TOME_CMS_PUBLIC_URL: 'http://localhost:4321/' }, false).TOME_CMS_PUBLIC_URL, 'http://localhost:4321');
 });
 
 test('production public-host policy rejects local suffixes and non-public IP ranges in every public URL', () => {
   const input = {
-    MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'https://cms.example.com',
+    TOME_CMS_PUBLIC_URL: 'https://cms.example.com',
     S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://cdn.example.com/media/',
   };
   const blocked = [
@@ -107,7 +110,7 @@ test('production public-host policy rejects local suffixes and non-public IP ran
     for (const host of blocked) {
       assert.throws(() => makeEnvironment({ ...input, [key]: `https://${host}:9000` }, true), /browser-reachable/, `${key}: ${host}`);
     }
-    for (const host of ['cms.example.com', 'minio.local.example.com', '8.8.8.8', '100.63.255.254', '100.128.0.1', '172.15.255.254', '172.32.0.1', '198.17.255.254', '198.20.0.1', '[2001:4860:4860::8888]', '[2606:4700:4700::1111]']) {
+    for (const host of ['cms.example.com', 'storage.local.example.com', '8.8.8.8', '100.63.255.254', '100.128.0.1', '172.15.255.254', '172.32.0.1', '198.17.255.254', '198.20.0.1', '[2001:4860:4860::8888]', '[2606:4700:4700::1111]']) {
       assert.equal(makeEnvironment({ ...input, [key]: `https://${host}` }, true)[key], `https://${host}`);
     }
   }
@@ -129,31 +132,28 @@ test('production transitions keep migrations and the app on the bundled Compose 
   assert.throws(() => makeEnvironment({ POSTGRES_PORT: '55433', DATABASE_URL: local.DATABASE_URL }, true, local), /bundled Compose database/);
 });
 
-test('bootstrap waits for services, requires synchronous bucket initialization, then migrates and starts the app', async (context) => {
+test('bootstrap waits for SeaweedFS, then migrates and starts the app', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-startup-test-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const repository = join(directory, 'repo');
   await mkdir(join(repository, 'scripts'), { recursive: true });
   const script = join(repository, 'scripts/bootstrap-core.mjs');
   await copyFile(new URL('../../scripts/bootstrap-core.mjs', import.meta.url), script);
-  const license = join(directory, 'fixture.license');
-  await writeFile(license, 'test fixture; commands are mocked, storage is never started');
   const log = join(directory, 'commands.log');
-  await writeFile(join(directory, 'docker'), '#!/bin/sh\nprintf "docker %s\\n" "$*" >> "$COMMAND_LOG"\ncase "$*" in *" ps "*) printf "[]";; *" up "*" postgres minio"*) [ "$FAIL_STEP" != services ] || exit 7;; *" run "*" minio-init"*) [ "$FAIL_STEP" != initializer ] || exit 7;; *" run "*" app npm run db:migrate"*) [ "$FAIL_STEP" != migration ] || exit 7;; esac\n', { mode: 0o700 });
+  await writeFile(join(directory, 'docker'), '#!/bin/sh\nprintf "docker %s\\n" "$*" >> "$COMMAND_LOG"\ncase "$*" in *" ps "*) printf "[]";; *" up "*" postgres seaweedfs"*) [ "$FAIL_STEP" != services ] || exit 7;; *" run "*" app npm run db:migrate"*) [ "$FAIL_STEP" != migration ] || exit 7;; esac\n', { mode: 0o700 });
   await writeFile(join(directory, 'npm'), '#!/bin/sh\nprintf "npm %s\\n" "$*" >> "$COMMAND_LOG"\n[ "$FAIL_STEP" != migration ]\n', { mode: 0o700 });
   const expected = [
-    'docker compose -f compose.yaml --env-file .env.local pull postgres minio minio-init',
-    'docker compose -f compose.yaml --env-file .env.local up -d --wait postgres minio',
-    'docker compose -f compose.yaml --env-file .env.local run --rm --no-deps minio-init',
+    'docker compose -f compose.yaml --env-file .env.local pull postgres seaweedfs',
+    'docker compose -f compose.yaml --env-file .env.local up -d --wait postgres seaweedfs',
     'docker compose -f compose.yaml --env-file .env.local --profile production build app',
     'docker compose -f compose.yaml --env-file .env.local --profile production run --rm --no-deps app npm run db:migrate',
     'docker compose -f compose.yaml --env-file .env.local --profile production up -d --wait --no-deps app',
   ];
-  for (const [step, count] of [['services', 2], ['initializer', 3], ['migration', 5], ['', 6]] as const) {
+  for (const [step, count] of [['services', 2], ['migration', 4], ['', 5]] as const) {
     await context.test(step || 'success', async () => {
       await writeFile(log, '');
       const result = spawnSync(process.execPath, [await realpath(script), '--production', '--force'], {
-        env: { PATH: directory, COMMAND_LOG: log, FAIL_STEP: step, MINIO_LICENSE_FILE: license, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', POSTGRES_PORT: '55441', MINIO_PORT: '55442', MINIO_CONSOLE_PORT: '55443', APP_PORT: '55444', DATABASE_CONNECTION_TIMEOUT_MS: '4000', DATABASE_QUERY_TIMEOUT_MS: '90000' },
+        env: { PATH: directory, COMMAND_LOG: log, FAIL_STEP: step, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', POSTGRES_PORT: '55441', S3_PORT: '55442', APP_PORT: '55444', DATABASE_CONNECTION_TIMEOUT_MS: '4000', DATABASE_QUERY_TIMEOUT_MS: '90000' },
         encoding: 'utf8', timeout: 10_000,
       });
       assert.equal(result.status, step ? 1 : 0, 'bootstrap returns the required command status');
@@ -166,7 +166,7 @@ test('bootstrap waits for services, requires synchronous bucket initialization, 
   }
 });
 
-test('empty and comment-only existing env files stop the CLI before license checks or startup', async (context) => {
+test('empty and comment-only existing env files stop the CLI before startup', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-empty-env-test-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
   await mkdir(join(directory, 'scripts'));
@@ -174,14 +174,14 @@ test('empty and comment-only existing env files stop the CLI before license chec
   await copyFile(new URL('../../scripts/bootstrap-core.mjs', import.meta.url), script);
   for (const content of ['', '# existing configuration\n']) {
     await writeFile(join(directory, '.env.local'), content, { mode: 0o600 });
-    const result = spawnSync(process.execPath, [await realpath(script)], { env: { PATH: '', MINIO_LICENSE_FILE: '/missing/external/license' }, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [await realpath(script)], { env: { PATH: '' }, encoding: 'utf8' });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /Existing .env.local needs updates.*--force/);
     assert.doesNotMatch(result.stdout, /Starting/);
     assert.equal(await readFile(join(directory, '.env.local'), 'utf8'), content);
-    const forced = spawnSync(process.execPath, [await realpath(script), '--force'], { env: { PATH: '', MINIO_LICENSE_FILE: '/missing/external/license' }, encoding: 'utf8' });
+    const forced = spawnSync(process.execPath, [await realpath(script), '--force'], { env: { PATH: '' }, encoding: 'utf8' });
     assert.equal(forced.status, 1);
-    assert.match(forced.stderr, /MINIO_LICENSE_FILE must be readable/);
+    assert.match(forced.stderr, /docker info failed/);
     assert.equal(await readFile(join(directory, '.env.local'), 'utf8'), content);
   }
 });
@@ -200,21 +200,4 @@ test('environment file is private and never overwritten without force, including
   await symlink(path, link);
   await assert.rejects(writeEnvironment(link, 'third', true));
   assert.equal(await readFile(path, 'utf8'), 'second');
-});
-
-test('license must be a nonempty readable regular file outside repo, even through symlinks', async (context) => {
-  const directory = await mkdtemp(join(tmpdir(), 'tomecms-license-test-'));
-  context.after(() => rm(directory, { recursive: true, force: true }));
-  const license = join(directory, 'test.license');
-  await writeFile(license, 'test fixture, not a real license');
-  assert.equal(await verifyLicense(license, join(directory, 'repo')), await realpath(license));
-  await assert.rejects(verifyLicense(undefined, directory), /MINIO_LICENSE_FILE/);
-  await assert.rejects(verifyLicense('relative', directory), /absolute/);
-  await assert.rejects(verifyLicense('/dev/null', directory), /regular/);
-  await assert.rejects(verifyLicense(license, directory), /outside/);
-  const link = join(directory, 'alias');
-  await symlink(license, link);
-  await assert.rejects(verifyLicense(link, directory), /outside/);
-  await mkdir(join(directory, '.git'));
-  await assert.rejects(verifyLicense(license, join(directory, '.worktrees', 'nested')), /outside/);
 });

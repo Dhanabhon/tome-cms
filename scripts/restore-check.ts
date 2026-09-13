@@ -122,16 +122,14 @@ function restoredCounts(project: string, env: NodeJS.ProcessEnv): BackupManifest
 async function main(): Promise<void> {
   const options = parseRestoreOptions(process.argv.slice(2));
   const manifest = await verifyBackup(options.backup);
-  if (!process.env.MINIO_LICENSE_FILE) throw new Error('MINIO_LICENSE_FILE must name a real external license.');
-  const env = { ...process.env, MINIO_LICENSE_FILE: process.env.MINIO_LICENSE_FILE };
+  const env = process.env;
   if (compose(options.project, ['ps', '-aq'], env, true)) throw new Error('The disposable Compose project already has containers.');
 
   let started = false;
   let failure: unknown;
   try {
     started = true;
-    compose(options.project, ['up', '-d', '--wait', '--wait-timeout', '90', 'postgres', 'minio'], env);
-    compose(options.project, ['run', '--rm', '--no-deps', 'minio-init'], env);
+    compose(options.project, ['up', '-d', '--wait', '--wait-timeout', '90', 'postgres', 'seaweedfs'], env);
     await restoreDatabase(options.project, options.backup, env);
     const keys = await restoreObjects(options.backup, manifest);
     compose(options.project, ['exec', '-T', 'postgres', 'pg_isready', '--username=tomecms_test', '--dbname=tomecms_test'], env);

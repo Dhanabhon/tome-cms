@@ -12,6 +12,7 @@ dist/
 # Local Compose state and overrides
 minio-data/
 postgres-data/
+seaweedfs-data/
 compose.override.yml
 compose.override.yaml
 docker-compose.override.yml
