@@ -10,7 +10,7 @@ async function prepare(page: Page, owner: TestOwner) {
   await signInAdmin(page, owner);
   const categories: PostCategory[] = [];
   for (const name of ['Zebra', 'Alpha']) {
-    const response = await page.request.post('/api/categories', { data: { name } });
+    const response = await page.request.post('/api/admin/categories', { data: { name } });
     expect(response.status()).toBe(201);
     categories.push((await response.json()).category);
   }
@@ -67,7 +67,7 @@ for (const action of ['autosave', 'publish'] as const) {
       page.on('request', (request) => {
         if (new URL(request.url()).pathname === '/api/posts') contentMethods.push(request.method());
       });
-      await page.route('**/api/posts/categories', async (route) => {
+      await page.route('**/api/admin/posts/categories', async (route) => {
         const { postId } = route.request().postDataJSON();
         const { data, error } = await owner.client.from('posts').select('id, title, status').eq('id', postId).single();
         expect(error).toBeNull();
@@ -109,7 +109,7 @@ test('category changes during membership save remain dirty and serialize the nex
     const snapshots: string[][] = [];
     let active = 0;
     let maximumActive = 0;
-    await page.route('**/api/posts/categories', async (route) => {
+    await page.route('**/api/admin/posts/categories', async (route) => {
       active += 1;
       maximumActive = Math.max(maximumActive, active);
       snapshots.push(route.request().postDataJSON().categoryIds);
@@ -187,7 +187,7 @@ test('Manage categories saves dirty content before navigation and stays open aft
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('checkbox', { name: 'Alpha', exact: true }).check();
     let fail = true;
-    await page.route('**/api/posts/categories', (route) => fail
+    await page.route('**/api/admin/posts/categories', (route) => fail
       ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Post Categories could not be saved.' }) })
       : route.continue());
     await page.getByRole('button', { name: 'Manage categories', exact: true }).click();
