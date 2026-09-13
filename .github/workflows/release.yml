@@ -80,11 +80,21 @@ jobs:
           printf 'value=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Attest OCI image
+        id: image-attestation
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.image-digest.outputs.value }}
           push-to-registry: true
+
+      - name: Copy OCI attestation bundle
+        env:
+          BUNDLE_PATH: ${{ steps.image-attestation.outputs.bundle-path }}
+        run: |
+          set -eu
+          test -n "$BUNDLE_PATH"
+          test -f "$BUNDLE_PATH"
+          cp "$BUNDLE_PATH" tomecms-image.attestation.json
 
       - name: Generate release manifest
         env:
@@ -105,12 +115,22 @@ jobs:
             --output update-manifest.json
 
       - name: Attest release manifest
+        id: manifest-attestation
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: update-manifest.json
+
+      - name: Copy manifest attestation bundle
+        env:
+          BUNDLE_PATH: ${{ steps.manifest-attestation.outputs.bundle-path }}
+        run: |
+          set -eu
+          test -n "$BUNDLE_PATH"
+          test -f "$BUNDLE_PATH"
+          cp "$BUNDLE_PATH" update-manifest.attestation.json
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" update-manifest.json --generate-notes --title "TomeCMS ${TAG#v}"
+        run: gh release create "$TAG" update-manifest.json tomecms-image.attestation.json update-manifest.attestation.json --generate-notes --title "TomeCMS ${TAG#v}"
