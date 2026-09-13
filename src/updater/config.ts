@@ -63,9 +63,10 @@ function assertSafePath(value: unknown, root: string, inspectPath: PathInspector
   const tail = relative(root, value);
   if (isAbsolute(tail) || tail === '..' || tail.startsWith(`..${sep}`)) throw invalidConfig();
 
-  let candidate = root;
-  for (const component of ['', ...tail.split(sep).filter(Boolean)]) {
-    if (component) candidate = join(candidate, component);
+  const filesystemRoot = parse(value).root;
+  let candidate = filesystemRoot;
+  for (const component of relative(filesystemRoot, value).split(sep).filter(Boolean)) {
+    candidate = join(candidate, component);
     try {
       if (inspectPath(candidate).isSymbolicLink()) throw invalidConfig();
     } catch (error) {
