@@ -5,7 +5,7 @@ export type AdminErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 429 | 5
 export class HttpError extends Error {
   override name = 'HttpError';
 
-  constructor(readonly status: AdminErrorStatus, message: string) {
+  constructor(readonly status: AdminErrorStatus, message: string, readonly details?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -18,7 +18,7 @@ function postgresCode(error: unknown): string | null {
 export function adminErrorResponse(error: unknown, requestId: string): Response {
   const headers = { 'Cache-Control': 'no-store', 'X-Request-ID': requestId };
   if (error instanceof HttpError) {
-    return Response.json({ error: error.message, requestId }, { headers, status: error.status });
+    return Response.json({ ...error.details, error: error.message, requestId }, { headers, status: error.status });
   }
   if (error instanceof ZodError) {
     return Response.json({

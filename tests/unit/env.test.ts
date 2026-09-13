@@ -32,6 +32,12 @@ test('rejects missing secrets, malformed URLs, and production HTTP', () => {
   assert.throws(() => parseServerEnv({ ...valid, DATABASE_URL: '' }));
   assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', TOME_CMS_PUBLIC_URL: 'http://cms.example.com' }));
   assert.throws(() => parseServerEnv({ ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'http://minio:9000' }));
+  assert.throws(() => parseServerEnv({
+    ...valid,
+    NODE_ENV: 'production',
+    S3_ENDPOINT: 'https://s3.example.com',
+    MEDIA_PUBLIC_URL: 'http://media.example.com/tomecms-media/',
+  }));
   assert.throws(() => parseServerEnv({ ...valid, S3_BUCKET: '../media' }));
 });
 

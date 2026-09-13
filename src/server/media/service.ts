@@ -8,12 +8,12 @@ import {
   type GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { Selectable } from 'kysely';
+import { sql, type Selectable, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_BYTES, type SupportedImageType } from '../../lib/media';
 import { db } from '../db/client';
-import type { MediaItemTable, MediaUploadReservationTable } from '../db/types';
+import type { Database, MediaFolderTable, MediaItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { inspectImage } from './image';
 import { createObjectKey } from './keys';
@@ -32,8 +32,22 @@ export const reserveUploadSchema = z.object({
 }).strict();
 
 export const finalizeUploadSchema = z.object({}).strict();
+export const mediaListInputSchema = z.object({
+  folderId: z.uuid().nullable().optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  search: z.string().trim().max(100).default(''),
+}).strict();
+export const mediaFolderCreateSchema = z.object({ name: z.string().trim().min(1).max(80) }).strict();
+export const mediaFolderUpdateSchema = mediaFolderCreateSchema.extend({ id: z.uuid() });
+export const mediaFolderDeleteSchema = z.object({ id: z.uuid() }).strict();
+export const mediaMutationSchema = z.object({
+  altText: z.string().trim().max(300),
+  folderId: z.uuid().nullable(),
+}).strict();
 
 export type ReserveUploadInput = z.infer<typeof reserveUploadSchema>;
+export type MediaListInput = z.infer<typeof mediaListInputSchema>;
+export type MediaMutation = z.infer<typeof mediaMutationSchema>;
 
 export interface UploadReservationResponse {
   id: string;
@@ -48,7 +62,6 @@ export interface UploadReservationResponse {
 export interface ReadyMedia {
   id: string;
   folder_id: string | null;
-  object_key: string;
   original_name: string;
   mime_type: SupportedImageType;
   size_bytes: number;
@@ -58,7 +71,19 @@ export interface ReadyMedia {
   alt_text: string | null;
   created_at: string;
   updated_at: string;
-  stablePath: string;
+  publicUrl: string;
+}
+
+export interface MediaFolder {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MediaPage {
+  hasMore: boolean;
+  items: ReadyMedia[];
 }
 
 class InvalidUploadError extends Error {
@@ -73,7 +98,6 @@ function readyMedia(row: Selectable<MediaItemTable>): ReadyMedia {
   return {
     id: row.id,
     folder_id: row.folder_id,
-    object_key: row.object_key,
     original_name: row.original_name,
     mime_type: row.mime_type,
     size_bytes: size,
@@ -83,7 +107,16 @@ function readyMedia(row: Selectable<MediaItemTable>): ReadyMedia {
     alt_text: row.alt_text,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
-    stablePath: stableMediaPath(row.id),
+    publicUrl: stableMediaPath(row.id),
+  };
+}
+
+function mediaFolder(row: Selectable<MediaFolderTable>): MediaFolder {
+  return {
+    id: row.id,
+    name: row.name,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
   };
 }
 
@@ -112,12 +145,15 @@ async function expireInvalidReservation(ownerId: string, reservationId: string, 
     .where('id', '=', reservationId).where('owner_id', '=', ownerId).where('state', '=', 'pending').execute();
 }
 
+async function assertOwnedFolder(ownerId: string, folderId: string | null): Promise<void> {
+  if (!folderId) return;
+  const folder = await db.selectFrom('media_folders').select('id')
+    .where('id', '=', folderId).where('owner_id', '=', ownerId).executeTakeFirst();
+  if (!folder) throw new HttpError(400, 'Choose a folder from this site.');
+}
+
 export async function reserveUpload(ownerId: string, input: ReserveUploadInput): Promise<UploadReservationResponse> {
-  if (input.folderId) {
-    const folder = await db.selectFrom('media_folders').select('id')
-      .where('id', '=', input.folderId).where('owner_id', '=', ownerId).executeTakeFirst();
-    if (!folder) throw new HttpError(400, 'Choose a folder from this site.');
-  }
+  await assertOwnedFolder(ownerId, input.folderId);
   const objectKey = createObjectKey(ownerId, input.mimeType);
   const expiresAt = new Date(Date.now() + 300_000);
   const reservation = await db.insertInto('media_upload_reservations').values({
@@ -230,4 +266,131 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
     }
     throw error;
   }
+}
+
+const MEDIA_PAGE_SIZE = 48;
+
+export async function listMedia(ownerId: string, input: MediaListInput): Promise<MediaPage> {
+  let query = db.selectFrom('media_items').selectAll()
+    .where('owner_id', '=', ownerId).where('state', '=', 'ready');
+  if (input.folderId === null) query = query.where('folder_id', 'is', null);
+  else if (input.folderId) query = query.where('folder_id', '=', input.folderId);
+  const words = input.search.replace(/[^\p{L}\p{N}\s-]/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  if (words.length) {
+    const pattern = `%${words.join('%')}%`;
+    query = query.where((expression) => expression.or([
+      expression('original_name', 'ilike', pattern),
+      expression('alt_text', 'ilike', pattern),
+    ]));
+  }
+  const rows = await query.orderBy('created_at', 'desc').orderBy('id', 'desc')
+    .limit(MEDIA_PAGE_SIZE + 1).offset((input.page - 1) * MEDIA_PAGE_SIZE).execute();
+  return { hasMore: rows.length > MEDIA_PAGE_SIZE, items: rows.slice(0, MEDIA_PAGE_SIZE).map(readyMedia) };
+}
+
+export async function listFolders(ownerId: string): Promise<MediaFolder[]> {
+  return (await db.selectFrom('media_folders').selectAll().where('owner_id', '=', ownerId)
+    .orderBy(sql`lower(name)`).orderBy('id').execute()).map(mediaFolder);
+}
+
+export async function createFolder(ownerId: string, name: string): Promise<MediaFolder> {
+  return mediaFolder(await db.insertInto('media_folders').values({ owner_id: ownerId, name })
+    .returningAll().executeTakeFirstOrThrow());
+}
+
+export async function renameFolder(ownerId: string, id: string, name: string): Promise<MediaFolder> {
+  const row = await db.updateTable('media_folders').set({ name })
+    .where('id', '=', id).where('owner_id', '=', ownerId).returningAll().executeTakeFirst();
+  if (!row) throw new HttpError(404, 'Folder not found.');
+  return mediaFolder(row);
+}
+
+export async function deleteFolder(ownerId: string, id: string): Promise<void> {
+  const row = await db.deleteFrom('media_folders').where('id', '=', id).where('owner_id', '=', ownerId)
+    .returning('id').executeTakeFirst();
+  if (!row) throw new HttpError(404, 'Folder not found.');
+}
+
+export async function updateMedia(ownerId: string, id: string, input: MediaMutation): Promise<ReadyMedia> {
+  await assertOwnedFolder(ownerId, input.folderId);
+  const row = await db.updateTable('media_items').set({
+    alt_text: input.altText || null,
+    folder_id: input.folderId,
+  }).where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'ready')
+    .returningAll().executeTakeFirst();
+  if (!row) throw new HttpError(404, 'Media not found.');
+  return readyMedia(row);
+}
+
+interface MediaReferences {
+  counts: { pageContent: number; postContent: number; postCovers: number; profile: number };
+  pages: Array<{ id: string; title: string }>;
+  posts: Array<{ id: string; title: string }>;
+  profile: boolean;
+}
+
+function contentReferencesMedia(id: string) {
+  return sql<boolean>`jsonb_path_exists(
+    content_json,
+    '$.**.attrs.mediaId ? (@ == $mediaId)',
+    jsonb_build_object('mediaId', to_jsonb(${id}::text))
+  )`;
+}
+
+async function findMediaReferences(
+  trx: Transaction<Database>,
+  ownerId: string,
+  id: string,
+): Promise<MediaReferences> {
+  const [coverPosts, contentPosts, pages, profile] = await Promise.all([
+    trx.selectFrom('posts').select(['id', 'title']).where('owner_id', '=', ownerId).where('cover_media_id', '=', id).execute(),
+    trx.selectFrom('posts').select(['id', 'title']).where('owner_id', '=', ownerId).where(contentReferencesMedia(id)).execute(),
+    trx.selectFrom('pages').select(['id', 'title']).where('owner_id', '=', ownerId).where(contentReferencesMedia(id)).execute(),
+    trx.selectFrom('site_settings').select('id').where('owner_id', '=', ownerId).where('author_avatar_media_id', '=', id).executeTakeFirst(),
+  ]);
+  const posts = [...new Map([...coverPosts, ...contentPosts].map((post) => [post.id, post])).values()];
+  return {
+    counts: { pageContent: pages.length, postContent: contentPosts.length, postCovers: coverPosts.length, profile: profile ? 1 : 0 },
+    pages,
+    posts,
+    profile: Boolean(profile),
+  };
+}
+
+function referenceCount(references: MediaReferences): number {
+  return Object.values(references.counts).reduce((total, count) => total + count, 0);
+}
+
+function storageErrorCode(error: unknown): string {
+  if (typeof error !== 'object' || error === null || !('name' in error) || typeof error.name !== 'string') return 'StorageError';
+  return /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(error.name) ? error.name : 'StorageError';
+}
+
+export async function deleteMedia(ownerId: string, id: string): Promise<void> {
+  const objectKey = await db.transaction().execute(async (trx) => {
+    const item = await trx.selectFrom('media_items').selectAll()
+      .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
+    if (!item) throw new HttpError(404, 'Media not found.');
+    const references = await findMediaReferences(trx, ownerId, id);
+    const count = referenceCount(references);
+    if (count) {
+      throw new HttpError(409, `This image is still used in ${count} location${count === 1 ? '' : 's'}.`, { references });
+    }
+    if (item.state !== 'deleting') {
+      await trx.updateTable('media_items').set({ state: 'deleting', delete_error_code: null })
+        .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirstOrThrow();
+    }
+    return item.object_key;
+  });
+
+  try {
+    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: objectKey }));
+  } catch (error) {
+    if (!isNotFound(error)) {
+      await db.updateTable('media_items').set({ state: 'delete_failed', delete_error_code: storageErrorCode(error) })
+        .where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'deleting').execute();
+      throw new HttpError(503, 'Storage is temporarily unavailable. Try deleting the image again.');
+    }
+  }
+  await db.deleteFrom('media_items').where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'deleting').execute();
 }

@@ -29,6 +29,9 @@ const serverEnvSchema = z.object({
   if (value.NODE_ENV === 'production' && URL.canParse(value.S3_ENDPOINT) && new URL(value.S3_ENDPOINT).protocol !== 'https:') {
     context.addIssue({ code: 'custom', path: ['S3_ENDPOINT'], message: 'Production signed uploads require a public HTTPS S3 endpoint.' });
   }
+  if (value.NODE_ENV === 'production' && URL.canParse(value.MEDIA_PUBLIC_URL) && new URL(value.MEDIA_PUBLIC_URL).protocol !== 'https:') {
+    context.addIssue({ code: 'custom', path: ['MEDIA_PUBLIC_URL'], message: 'Production media delivery requires HTTPS.' });
+  }
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

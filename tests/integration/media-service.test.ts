@@ -12,7 +12,19 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const { HttpError } = await import('../../src/server/http/errors');
-  const { finalizeUpload, reserveUpload, reserveUploadSchema } = await import('../../src/server/media/service');
+  const {
+    createFolder,
+    deleteFolder,
+    deleteMedia,
+    finalizeUpload,
+    listFolders,
+    listMedia,
+    mediaListInputSchema,
+    renameFolder,
+    reserveUpload,
+    reserveUploadSchema,
+    updateMedia,
+  } = await import('../../src/server/media/service');
   const { s3 } = await import('../../src/server/media/storage');
   context.after(closeDatabase);
 
@@ -20,6 +32,10 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   const ownerId = randomUUID();
   await db.insertInto('user').values({
     id: ownerId, name: 'Media Owner', email: 'media@example.invalid', emailVerified: true, image: null, role: 'owner',
+  }).execute();
+  await db.insertInto('site_settings').values({
+    id: true, owner_id: ownerId, site_name: 'Media Test', default_locale: 'en', timezone: 'UTC',
+    admin_path: '/admin', author_avatar_media_id: null,
   }).execute();
   const folder = await db.insertInto('media_folders').values({ owner_id: ownerId, name: 'Covers' })
     .returning('id').executeTakeFirstOrThrow();
@@ -30,6 +46,7 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
 
   const objects = new Map<string, { body: Buffer; mimeType: string }>();
   const deleted = new Set<string>();
+  const failedDeletes = new Set<string>();
   const transport = s3 as unknown as { send(command: object): Promise<object> };
   const originalSend = transport.send;
   transport.send = async (command) => {
@@ -37,6 +54,7 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
       ? command.input : {};
     const key = typeof input.Key === 'string' ? input.Key : '';
     if (command instanceof DeleteObjectCommand) {
+      if (failedDeletes.has(key)) throw Object.assign(new Error('offline'), { name: 'ServiceUnavailable' });
       objects.delete(key);
       deleted.add(key);
       return {};
@@ -65,8 +83,8 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   objects.set(storedReservation.object_key, { body: png, mimeType: 'image/png' });
 
   const item = await finalizeUpload(ownerId, reservation.id);
-  assert.deepEqual({ width: item.width, height: item.height, stablePath: item.stablePath }, {
-    width: 2, height: 1, stablePath: `/media/${item.id}`,
+  assert.deepEqual({ width: item.width, height: item.height, publicUrl: item.publicUrl }, {
+    width: 2, height: 1, publicUrl: `/media/${item.id}`,
   });
   assert.equal((await db.selectFrom('media_upload_reservations').select('state')
     .where('id', '=', reservation.id).executeTakeFirstOrThrow()).state, 'finalized');
@@ -86,4 +104,58 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   assert.equal((await db.selectFrom('media_upload_reservations').select('state')
     .where('id', '=', badReservation.id).executeTakeFirstOrThrow()).state, 'expired');
   assert.equal(await db.selectFrom('media_items').select('id').where('id', '=', badReservation.id).executeTakeFirst(), undefined);
+
+  const archive = await createFolder(ownerId, 'Archive');
+  await assert.rejects(createFolder(ownerId, 'archive'), { code: '23505' });
+  assert.equal((await renameFolder(ownerId, archive.id, 'Published')).name, 'Published');
+  assert.deepEqual((await listFolders(ownerId)).map((entry) => entry.name), ['Covers', 'Published']);
+  await updateMedia(ownerId, item.id, { altText: 'Green cover', folderId: archive.id });
+  const page = await listMedia(ownerId, mediaListInputSchema.parse({ folderId: archive.id, page: 1, search: 'green cover' }));
+  assert.deepEqual(page.items.map((entry) => entry.id), [item.id]);
+  await deleteFolder(ownerId, archive.id);
+  assert.equal((await listMedia(ownerId, mediaListInputSchema.parse({ folderId: null, page: 1, search: '' }))).items[0]?.folder_id, null);
+
+  const imageContent = {
+    type: 'doc' as const,
+    content: [{ type: 'image', attrs: { mediaId: item.id, src: item.publicUrl } }],
+  };
+  const postGroupId = randomUUID();
+  const pageGroupId = randomUUID();
+  const category = await db.insertInto('categories').values({ owner_id: ownerId, name: 'Uncategorized', is_default: true })
+    .returning('id').executeTakeFirstOrThrow();
+  const { post, contentPage } = await db.transaction().execute(async (trx) => {
+    await trx.insertInto('post_translation_groups').values({ id: postGroupId, owner_id: ownerId }).execute();
+    await trx.insertInto('page_translation_groups').values({ id: pageGroupId, owner_id: ownerId }).execute();
+    const post = await trx.insertInto('posts').values({
+      translation_group_id: postGroupId, locale: 'en', title: 'Referenced Post', slug: 'referenced-post',
+      cover_media_id: item.id, content_json: imageContent, content_html: `<img src="${item.publicUrl}">`,
+      meta_title: null, meta_description: null, status: 'draft', published_at: null, owner_id: ownerId,
+    }).returning('id').executeTakeFirstOrThrow();
+    const contentPage = await trx.insertInto('pages').values({
+      translation_group_id: pageGroupId, locale: 'en', title: 'Referenced Page', slug: 'referenced-page',
+      content_json: imageContent, content_html: `<img src="${item.publicUrl}">`, meta_title: null,
+      meta_description: null, status: 'draft', published_at: null, owner_id: ownerId,
+    }).returning('id').executeTakeFirstOrThrow();
+    await trx.insertInto('post_category_assignments').values({
+      translation_group_id: postGroupId, category_id: category.id, owner_id: ownerId,
+    }).execute();
+    return { contentPage, post };
+  });
+  await db.updateTable('site_settings').set({ author_avatar_media_id: item.id }).where('id', '=', true).execute();
+  await assert.rejects(deleteMedia(ownerId, item.id), (error: unknown) => {
+    if (!(error instanceof HttpError) || error.status !== 409) return false;
+    const references = error.details?.references as { counts?: Record<string, number> } | undefined;
+    return references?.counts?.postCovers === 1 && references.counts.postContent === 1
+      && references.counts.pageContent === 1 && references.counts.profile === 1;
+  });
+  await db.updateTable('site_settings').set({ author_avatar_media_id: null }).where('id', '=', true).execute();
+  await db.deleteFrom('posts').where('id', '=', post.id).execute();
+  await db.deleteFrom('pages').where('id', '=', contentPage.id).execute();
+  failedDeletes.add(storedReservation.object_key);
+  await assert.rejects(deleteMedia(ownerId, item.id), (error: unknown) => error instanceof HttpError && error.status === 503);
+  assert.equal((await db.selectFrom('media_items').select('state').where('id', '=', item.id).executeTakeFirstOrThrow()).state, 'delete_failed');
+  failedDeletes.delete(storedReservation.object_key);
+  await deleteMedia(ownerId, item.id);
+  assert.equal(await db.selectFrom('media_items').select('id').where('id', '=', item.id).executeTakeFirst(), undefined);
+  assert.ok(deleted.has(storedReservation.object_key));
 });
