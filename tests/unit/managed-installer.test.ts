@@ -348,8 +348,8 @@ test('installed updater service uses an empty private Docker credential director
   assert.equal((await stat(dockerConfig)).mode & 0o777, 0o700);
   assert.deepEqual(await readdir(dockerConfig), []);
   const service = await readFile(join(f.prefix, 'etc/systemd/system/tomecms-updater.service'), 'utf8');
-  assert.match(service, /^Environment=HOME=\/nonexistent DOCKER_CONFIG=\/var\/lib\/tome-cms\/updater\/docker-public$/m);
-  assert.match(service, /^UnsetEnvironment=DOCKER_AUTH_CONFIG REGISTRY_AUTH_FILE DOCKER_CONTENT_TRUST DOCKER_CONTENT_TRUST_SERVER DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE$/m);
+  assert.match(service, /^Environment=HOME=\/nonexistent DOCKER_CONFIG=\/var\/lib\/tome-cms\/updater\/docker-public DOCKER_HOST=unix:\/\/\/var\/run\/docker\.sock$/m);
+  assert.match(service, /^UnsetEnvironment=DOCKER_CONTEXT DOCKER_CERT_PATH DOCKER_TLS DOCKER_TLS_VERIFY DOCKER_AUTH_CONFIG REGISTRY_AUTH_FILE DOCKER_CONTENT_TRUST DOCKER_CONTENT_TRUST_SERVER DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE$/m);
 });
 
 test('account setup failures roll back only this installer identity and permit retry', async t => {

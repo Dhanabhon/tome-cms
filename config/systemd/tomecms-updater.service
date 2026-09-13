@@ -9,8 +9,8 @@ Type=simple
 User=tomecms-updater
 Group=tomecms-updater
 SupplementaryGroups=docker
-Environment=HOME=/nonexistent DOCKER_CONFIG=/var/lib/tome-cms/updater/docker-public
-UnsetEnvironment=DOCKER_AUTH_CONFIG REGISTRY_AUTH_FILE DOCKER_CONTENT_TRUST DOCKER_CONTENT_TRUST_SERVER DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE
+Environment=HOME=/nonexistent DOCKER_CONFIG=/var/lib/tome-cms/updater/docker-public DOCKER_HOST=unix:///var/run/docker.sock
+UnsetEnvironment=DOCKER_CONTEXT DOCKER_CERT_PATH DOCKER_TLS DOCKER_TLS_VERIFY DOCKER_AUTH_CONFIG REGISTRY_AUTH_FILE DOCKER_CONTENT_TRUST DOCKER_CONTENT_TRUST_SERVER DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE
 ExecStart=/usr/bin/node /opt/tome-cms/updater/updater/main.js /etc/tome-cms/updater.json
 Restart=on-failure
 RestartSec=5
