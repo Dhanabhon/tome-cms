@@ -115,7 +115,6 @@ export interface PostMutationInput {
   slug?: string;
   coverImage?: string | null;
   contentJson: EditorDocument;
-  contentHtml: string;
   metaTitle?: string | null;
   metaDescription?: string | null;
   status: PostStatus;
@@ -178,7 +177,6 @@ export interface PageMutationInput {
   title: string;
   slug?: string;
   contentJson: EditorDocument;
-  contentHtml: string;
   metaTitle?: string | null;
   metaDescription?: string | null;
   status: PageStatus;

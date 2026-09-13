@@ -24,7 +24,6 @@ interface EditorProps {
 
 interface EditorDraft {
   categoryIds: string[];
-  contentHtml: string;
   contentJson: JSONContent;
   coverImage: string | null;
   metaDescription: string | null;
@@ -69,7 +68,6 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPost?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
-  const [contentHtml, setContentHtml] = useState(initialPost?.content_html ?? '<p></p>');
   const [postStatus, setPostStatus] = useState<PostStatus>(initialPost?.status ?? 'draft');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -79,11 +77,11 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
-    categoryIds, contentHtml, contentJson, coverImage: coverImage || null,
+    categoryIds, contentJson, coverImage: coverImage || null,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    categoryIds, contentHtml, contentJson, coverImage: coverImage || null,
+    categoryIds, contentJson, coverImage: coverImage || null,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -221,7 +219,7 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentHtml, contentJson, coverImage, metaDescription, metaTitle, categoryIds]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, coverImage, metaDescription, metaTitle, categoryIds]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -366,9 +364,8 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
             value={title}
           />
 
-          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson, nextContentHtml) => {
+          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson) => {
             setContentJson(nextContentJson);
-            setContentHtml(nextContentHtml);
             markDirty();
           }} />
         </article>

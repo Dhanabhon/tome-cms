@@ -19,7 +19,6 @@ interface PageEditorProps {
 }
 
 interface PageEditorDraft {
-  contentHtml: string;
   contentJson: JSONContent;
   metaDescription: string | null;
   metaTitle: string | null;
@@ -60,7 +59,6 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
   const [metaTitle, setMetaTitle] = useState(initialPage?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPage?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPage?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
-  const [contentHtml, setContentHtml] = useState(initialPage?.content_html ?? '<p></p>');
   const [pageStatus, setPageStatus] = useState<PageStatus>(initialPage?.status ?? 'draft');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -69,11 +67,11 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<PageEditorDraft>({
-    contentHtml, contentJson,
+    contentJson,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    contentHtml, contentJson,
+    contentJson,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -204,7 +202,7 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentHtml, contentJson, metaDescription, metaTitle]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, metaDescription, metaTitle]);
 
   const saveBefore = async (action: (page: Page) => void, status?: PageStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -314,9 +312,8 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
             value={title}
           />
 
-          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson, nextContentHtml) => {
+          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson) => {
             setContentJson(nextContentJson);
-            setContentHtml(nextContentHtml);
             markDirty();
           }} />
         </article>

@@ -2,39 +2,26 @@ import type { APIRoute } from 'astro';
 import slugify from 'slugify';
 import { z } from 'zod';
 
-import { editorDocumentSchema, hasMeaningfulContent, hasMeaningfulHtml, MAX_DOCUMENT_BYTES, sanitizedContentHtmlSchema } from '../../../lib/editor-content';
+import { editorContentInputSchema, hasMeaningfulContent, hasMeaningfulHtml } from '../../../lib/editor-content';
 import { getSiteSettings } from '../../../lib/installation';
 import { authenticate } from '../../../lib/supabase';
+import { prepareEditorContent, ValidationError, type StoredEditorContent } from '../../../server/content/editor';
 import { POST_LOCALES, POST_STATUSES, type PostInsert, type PostLocale, type PostStatus, type PostUpdate } from '../../../types/cms';
 
 const nullableText = (max: number) => z.union([z.string().trim().max(max), z.null()]).optional();
 const httpUrl = z.url({ protocol: /^https?$/, error: 'Use an HTTP or HTTPS URL.' });
 const nullableUrl = z.union([httpUrl, z.literal(''), z.null()]).optional();
-const postSchema = z
-  .object({
+const postSchema = editorContentInputSchema
+  .safeExtend({
     title: z.string().trim().min(1).max(200),
     slug: z.union([z.string().trim().max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), z.literal('')]).optional(),
     coverImage: nullableUrl,
-    contentJson: editorDocumentSchema,
-    contentHtml: sanitizedContentHtmlSchema,
     metaTitle: nullableText(70),
     metaDescription: nullableText(320),
     status: z.enum(['draft', 'published']),
-  })
-  .strict()
-  .superRefine(({ contentJson }, context) => {
-    if (JSON.stringify(contentJson).length > MAX_DOCUMENT_BYTES) {
-      context.addIssue({ code: 'custom', message: 'Content JSON is too large.', path: ['contentJson'] });
-    }
   });
 
-const publishablePostSchema = postSchema.superRefine(({ contentJson, contentHtml, status }, context) => {
-  if (status === 'published' && (!hasMeaningfulContent(contentJson) || !hasMeaningfulHtml(contentHtml))) {
-    context.addIssue({ code: 'custom', message: 'Add content before publishing.', path: ['contentJson'] });
-  }
-});
-
-const createSchema = publishablePostSchema
+const createSchema = postSchema
   .safeExtend({
     locale: z.enum(POST_LOCALES).optional(),
     sourcePostId: z.uuid().optional(),
@@ -45,11 +32,12 @@ const createSchema = publishablePostSchema
     }
   });
 
-const updateSchema = publishablePostSchema.safeExtend({ id: z.uuid() });
+const updateSchema = postSchema.safeExtend({ id: z.uuid() });
 const statusSchema = z.object({ id: z.uuid(), status: z.enum(POST_STATUSES) }).strict();
 
 function postValues(
   input: z.infer<typeof postSchema>,
+  content: StoredEditorContent,
   serverValues: { authorId?: string; locale?: PostLocale; translationGroupId?: string } = {},
 ): PostInsert | PostUpdate {
   const generatedSlug = slugify(input.slug || input.title, { lower: true, strict: true, trim: true });
@@ -62,12 +50,27 @@ function postValues(
     title: input.title,
     slug,
     cover_image: input.coverImage || null,
-    content_json: input.contentJson,
-    content_html: input.contentHtml,
+    content_json: content.contentJson,
+    content_html: content.contentHtml,
     meta_title: input.metaTitle || null,
     meta_description: input.metaDescription || null,
     status: input.status as PostStatus,
   };
+}
+
+function preparePostContent(input: z.infer<typeof postSchema>): { content: StoredEditorContent } | { response: Response } {
+  try {
+    const content = prepareEditorContent({ contentJson: input.contentJson });
+    if (input.status === 'published' && (!hasMeaningfulContent(content.contentJson) || !hasMeaningfulHtml(content.contentHtml))) {
+      return { response: Response.json({ error: 'Add content before publishing.' }, { status: 400 }) };
+    }
+    return { content };
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return { response: Response.json({ error: 'Invalid post payload.', issues: { contentJson: error.message } }, { status: 400 }) };
+    }
+    throw error;
+  }
 }
 
 function parseError(error: z.ZodError) {
@@ -135,6 +138,8 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     if ('response' in json) return json.response;
     const parsed = createSchema.safeParse(json.body);
     if (!parsed.success) return parseError(parsed.error);
+    const prepared = preparePostContent(parsed.data);
+    if ('response' in prepared) return prepared.response;
 
     let values: PostInsert;
     if (parsed.data.sourcePostId) {
@@ -155,6 +160,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
           ...parsed.data,
           coverImage: parsed.data.coverImage === undefined ? source.cover_image : parsed.data.coverImage,
         },
+        prepared.content,
         {
           authorId: auth.user.id,
           locale: parsed.data.locale,
@@ -167,7 +173,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         return Response.json({ error: 'The site settings could not be loaded.' }, { status: 500 });
       }
 
-      values = postValues(parsed.data, { authorId: auth.user.id, locale: settings.default_locale }) as PostInsert;
+      values = postValues(parsed.data, prepared.content, { authorId: auth.user.id, locale: settings.default_locale }) as PostInsert;
     }
 
     const { data, error } = await auth.supabase
@@ -193,11 +199,13 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
     if ('response' in json) return json.response;
     const parsed = updateSchema.safeParse(json.body);
     if (!parsed.success) return parseError(parsed.error);
+    const prepared = preparePostContent(parsed.data);
+    if ('response' in prepared) return prepared.response;
 
     const { id, ...input } = parsed.data;
     const { data, error } = await auth.supabase
       .from('posts')
-      .update(postValues(input) as PostUpdate)
+      .update(postValues(input, prepared.content) as PostUpdate)
       .eq('id', id)
       .eq('author_id', auth.user.id)
       .select()

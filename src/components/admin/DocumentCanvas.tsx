@@ -23,7 +23,7 @@ import SlashCommands, { slashCommand } from './SlashCommands';
 
 interface DocumentCanvasProps {
   initialContent: JSONContent;
-  onChange: (contentJson: JSONContent, contentHtml: string) => void;
+  onChange: (contentJson: JSONContent) => void;
 }
 
 const editorImage = TiptapImage.extend({
@@ -134,7 +134,7 @@ export default function DocumentCanvas({ initialContent, onChange }: DocumentCan
         }}
         extensions={extensions}
         initialContent={initialContent}
-        onUpdate={({ editor }) => onChange(editor.getJSON(), editor.getHTML())}
+        onUpdate={({ editor }) => onChange(editor.getJSON())}
       >
         <SlashCommands />
         <FormattingBubble />

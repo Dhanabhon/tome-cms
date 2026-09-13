@@ -22,6 +22,10 @@ export const editorDocumentSchema: z.ZodType<EditorDocument> = z.object({
   content: z.array(editorNodeSchema()).optional(),
 });
 
+export const editorContentInputSchema = z.object({
+  contentJson: editorDocumentSchema,
+}).strict();
+
 const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: [
     'p',
@@ -58,7 +62,8 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
 export const sanitizedContentHtmlSchema: z.ZodType<string> = z
   .string()
   .max(MAX_DOCUMENT_BYTES)
-  .transform((html) => sanitizeHtml(html, sanitizeOptions));
+  .transform((html) => sanitizeHtml(html, sanitizeOptions))
+  .pipe(z.string().max(MAX_DOCUMENT_BYTES));
 
 const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList']);
 
