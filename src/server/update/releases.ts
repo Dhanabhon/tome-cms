@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 import {
   OFFICIAL_REPOSITORY,
   UPDATE_MANIFEST_ASSET,
@@ -47,8 +49,9 @@ export async function fetchLatestRelease(
     !/^sha256:[0-9a-f]{64}$/.test(release.assets[0].digest)
   ) throw new Error('Invalid official release');
 
-  const manifestResponse = await fetchJson(fetcher, manifestUrl);
-  const manifest = parseUpdateManifest(manifestResponse.json);
+  const manifestResponse = await fetchBytes(fetcher, manifestUrl);
+  verifyDigest(manifestResponse.bytes, release.assets[0].digest);
+  const manifest = parseUpdateManifest(JSON.parse(new TextDecoder().decode(manifestResponse.bytes)));
   if (manifest.version !== version) throw new Error('Release tag does not match manifest');
 
   return {
@@ -61,6 +64,11 @@ export async function fetchLatestRelease(
 }
 
 async function fetchJson(fetcher: typeof fetch, url: string, etag?: string, allowNotModified = false): Promise<{ json: unknown; etag: string | null }> {
+  const response = await fetchBytes(fetcher, url, etag, allowNotModified);
+  return { json: JSON.parse(new TextDecoder().decode(response.bytes)), etag: response.etag };
+}
+
+async function fetchBytes(fetcher: typeof fetch, url: string, etag?: string, allowNotModified = false): Promise<{ bytes: Uint8Array; etag: string | null }> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': GITHUB_API_VERSION,
@@ -72,10 +80,10 @@ async function fetchJson(fetcher: typeof fetch, url: string, etag?: string, allo
   });
   if (allowNotModified && response.status === 304) throw new ReleaseNotModifiedError();
   if (!response.ok) throw new Error(`Official release request failed (${response.status})`);
-  return { json: JSON.parse(await boundedText(response)), etag: response.headers.get('etag') };
+  return { bytes: await boundedBytes(response), etag: response.headers.get('etag') };
 }
 
-async function boundedText(response: Response): Promise<string> {
+async function boundedBytes(response: Response): Promise<Uint8Array> {
   const contentLength = response.headers.get('content-length');
   if (contentLength !== null && (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_RESPONSE_BYTES)) {
     throw new Error('Official release response is too large');
@@ -96,7 +104,15 @@ async function boundedText(response: Response): Promise<string> {
   } finally {
     reader.releaseLock();
   }
-  return new TextDecoder().decode(Buffer.concat(chunks));
+  return Buffer.concat(chunks);
+}
+
+function verifyDigest(bytes: Uint8Array, digest: string): void {
+  const actual = createHash('sha256').update(bytes).digest();
+  const expected = Buffer.from(digest.slice('sha256:'.length), 'hex');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+    throw new Error('Official release asset digest mismatch');
+  }
 }
 
 function releaseDetails(value: unknown): {

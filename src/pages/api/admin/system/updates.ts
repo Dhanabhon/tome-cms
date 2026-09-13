@@ -66,8 +66,11 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     const updater = await managedStatus();
     const capability = getManagedInstallability(check, updater);
     if (!capability.installable) throw new HttpError(409, capability.reason);
-    const job = await requestUpdate({ socketPath: environment.TOME_CMS_UPDATER_SOCKET, version: action.version, requestId });
-    return Response.json({ job, requestId }, { status: 202, headers: headers(requestId) });
+    const result = await requestUpdate({ socketPath: environment.TOME_CMS_UPDATER_SOCKET, version: action.version, requestId });
+    return Response.json({ ...result, requestId }, {
+      status: result.outcome === 'accepted' ? 202 : 200,
+      headers: headers(requestId),
+    });
   } catch (error) {
     if (error instanceof RateLimitExceededError) {
       return Response.json({ error: error.message, requestId }, {

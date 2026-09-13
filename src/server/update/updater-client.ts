@@ -3,7 +3,6 @@ import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
 import { compareStableVersions, parseStableVersion, type UpdateManifest } from '../../update/contracts.js';
-import type { PublicUpdateJob } from '../../updater/state.js';
 import { HttpError } from '../http/errors.js';
 
 export const UPDATER_RESPONSE_LIMIT = 4 * 1024;
@@ -51,8 +50,12 @@ const statusSchema = z.object({
   job: jobSchema.nullable(),
 }).strict();
 
-export type UpdaterStatus = z.infer<typeof statusSchema> | { managed: false };
-export function parseUpdaterStatus(value: unknown): z.infer<typeof statusSchema> {
+type ManagedUpdaterStatus = z.infer<typeof statusSchema>;
+export type UpdaterStatus = ManagedUpdaterStatus | { managed: false };
+export type UpdateRequestResult =
+  | { outcome: 'accepted'; job: NonNullable<ManagedUpdaterStatus['job']> }
+  | { outcome: 'already_installed'; installed: ManagedUpdaterStatus['installed'] };
+export function parseUpdaterStatus(value: unknown): ManagedUpdaterStatus {
   return statusSchema.parse(value);
 }
 
@@ -91,7 +94,7 @@ export async function getUpdaterStatus(options: SocketOptions = {}): Promise<Upd
   }
 }
 
-export async function requestUpdate(options: SocketOptions & { version: string; requestId: string }): Promise<PublicUpdateJob> {
+export async function requestUpdate(options: SocketOptions & { version: string; requestId: string }): Promise<UpdateRequestResult> {
   const body = { version: stableVersion.parse(options.version), requestId: uuid.parse(options.requestId) };
   try {
     const response = await socketRequest('POST', '/v1/apply', options, body);
@@ -100,10 +103,15 @@ export async function requestUpdate(options: SocketOptions & { version: string; 
       throw new HttpError(409, refusal.error === 'update_in_progress'
         ? 'An update is already in progress.' : 'Manual recovery is required.');
     }
+    if (response.status === 200) {
+      const status = parseUpdaterStatus(response.body);
+      if (status.installed.version !== body.version) throw new Error('Unexpected installed version');
+      return { outcome: 'already_installed', installed: status.installed };
+    }
     if (response.status !== 202) throw new Error('Unexpected updater response');
     const job = jobSchema.parse(response.body);
     if (job.targetVersion !== body.version) throw new Error('Unexpected update target');
-    return job;
+    return { outcome: 'accepted', job };
   } catch (error) {
     if (error instanceof HttpError) throw error;
     throw new HttpError(503, 'Managed updater unavailable. Try again shortly.');
