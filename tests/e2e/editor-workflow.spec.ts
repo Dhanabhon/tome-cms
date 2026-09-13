@@ -28,7 +28,7 @@ test('preview opens immediately with the newest draft and requires its owner', a
     await expect(previewButton).toBeDisabled();
     await expect(previewButton).toHaveAccessibleDescription('Add a title before opening Preview.');
     await expect(previewButton).not.toHaveAttribute('title');
-    const profile = await page.request.put('/api/profile', { data: {
+    const profile = await page.request.put('/api/admin/profile', { data: {
       authorAvatarMediaId: null, authorBioEn: 'Current English profile', authorBioTh: 'ประวัติล่าสุด',
       authorLinks: [], authorName: 'Current preview author',
     } });

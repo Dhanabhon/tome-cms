@@ -1,8 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { localePath, otherLocale, postPath } from '../../lib/i18n';
-import { getSiteSettings } from '../../lib/installation';
-import { createServerSupabaseClient } from '../../lib/supabase';
+import { getPublishedPost } from '../../server/content/published';
+import { getSiteSettings } from '../../server/content/settings';
 import type { Post } from '../../types/cms';
 
 const slug = Astro.params.slug;
@@ -13,28 +13,8 @@ let loadError = false;
 
 try {
   if (slug) {
-    const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*')
-      .eq('locale', defaultLocale)
-      .eq('slug', slug)
-      .eq('status', 'published')
-      .maybeSingle();
-    if (error) throw error;
-    post = data;
-
-    if (!post) {
-      const { data: fallback, error: fallbackError } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('locale', otherLocale(defaultLocale))
-        .eq('slug', slug)
-        .eq('status', 'published')
-        .maybeSingle();
-      if (fallbackError) throw fallbackError;
-      post = fallback;
-    }
+    post = await getPublishedPost(defaultLocale, slug)
+      ?? await getPublishedPost(otherLocale(defaultLocale), slug);
   }
 } catch (error) {
   console.error('Legacy blog post query failed:', error);

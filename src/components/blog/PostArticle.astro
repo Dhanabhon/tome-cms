@@ -1,16 +1,17 @@
 ---
 import { localePath } from '../../lib/i18n';
-import type { Post, PublicAuthorProfile, SiteSettings } from '../../types/cms';
+import type { Post, PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../types/cms';
 import AuthorBlock from './AuthorBlock.astro';
 
 interface Props {
   post: Post;
+  categories?: PostCategoryBadge[];
   preview?: boolean;
   profile?: PublicAuthorProfile | null;
-  settings: SiteSettings;
+  settings: Pick<SiteSettings, 'site_name' | 'timezone'>;
 }
 
-const { post, preview = false, profile, settings } = Astro.props;
+const { categories = [], post, preview = false, profile, settings } = Astro.props;
 const formatter = new Intl.DateTimeFormat(post.locale === 'th' ? 'th-TH' : 'en', {
   day: 'numeric',
   month: 'long',
@@ -39,6 +40,11 @@ const showModifiedDate = !preview && new Date(modifiedAt).getTime() - new Date(p
         </>
       )}
     </div>
+    {categories.length > 0 && (
+      <ul class="mt-5 flex flex-wrap gap-2" aria-label="Categories">
+        {categories.map((category) => <li class="rounded-full bg-soft px-3 py-1 text-xs font-medium text-accent">{category.name}</li>)}
+      </ul>
+    )}
   </header>
   {post.cover_image && (
     <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />

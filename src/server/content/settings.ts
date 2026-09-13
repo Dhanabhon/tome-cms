@@ -5,6 +5,7 @@ import type { AuthorLink, Json } from '../../types/cms';
 import { db } from '../db/client';
 import type { SiteSettingsTable } from '../db/types';
 import { HttpError } from '../http/errors';
+import { invalidatePublicNavigationCache } from './navigation';
 
 const httpUrl = z.string().trim().pipe(z.url({ protocol: /^https?$/, error: 'Use an HTTP or HTTPS URL.' }));
 const authorLinksSchema = z.array(z.object({
@@ -89,7 +90,9 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
     .where(versionMatches(input.updatedAt))
     .returningAll()
     .executeTakeFirst();
-  return row ? normalizeSettings(row) : missingOrStale(ownerId);
+  if (!row) return missingOrStale(ownerId);
+  invalidatePublicNavigationCache();
+  return normalizeSettings(row);
 }
 
 export async function updateOwnerProfile(ownerId: string, input: ProfileMutation): Promise<SiteSettings> {

@@ -1,7 +1,6 @@
 import type { APIContext, MiddlewareHandler, MiddlewareNext } from 'astro';
 
 import { adminSignInPath, matchAdminPath, normalizeAdminPath } from './lib/admin';
-import { isInstalled } from './lib/installation';
 import type { OwnerSession } from './server/auth/session';
 import type { SiteSettings } from './server/content/site-settings';
 
@@ -80,12 +79,6 @@ async function routeConfiguredAdmin(
   return next();
 }
 
-const legacyRequest: MiddlewareHandler = async (context, next) => {
-  if (isSetupBypass(context.url.pathname)) return next();
-  if (await isInstalled()) return next();
-  return installationRequired(context);
-};
-
 export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) => {
   if (isSetupBypass(context.url.pathname) || isHeadlessStablePath(context.url.pathname)) return next();
   const { getSiteSettings } = await import('./server/content/site-settings');
@@ -94,7 +87,4 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
   return routeConfiguredAdmin(context, next, settings);
 };
 
-const requestHandlers = { headless: preparedHeadlessRequest, legacy: legacyRequest } as const;
-
-// Plan 3 cutover: select `headless` only after every Admin page and API uses PostgreSQL.
-export const onRequest: MiddlewareHandler = requestHandlers.legacy;
+export const onRequest: MiddlewareHandler = preparedHeadlessRequest;

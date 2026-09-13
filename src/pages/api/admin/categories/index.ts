@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
 import { assertSameOrigin } from '../../../../server/auth/origin';
-import { requireOwner } from '../../../../server/auth/session';
+import { requireInstalledOwner } from '../../../../server/auth/session';
 import { createCategory, deleteCategory, listCategories, renameCategory } from '../../../../server/content/categories';
 import { getServerEnv } from '../../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../../server/http/errors';
@@ -33,7 +33,7 @@ function success(body: unknown, requestId: string, status = 200): Response {
 export const GET: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    const current = await requireOwner(request.headers);
+    const current = await requireInstalledOwner(request.headers);
     guardOrigin(request);
     return success({ categories: await listCategories(current.user.id) }, requestId);
   } catch (error) {
@@ -44,7 +44,7 @@ export const GET: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    const current = await requireOwner(request.headers);
+    const current = await requireInstalledOwner(request.headers);
     guardOrigin(request);
     const input = await parseJson(request, createSchema);
     return success({ category: { ...await createCategory(current.user.id, input.name), postCount: 0 } }, requestId, 201);
@@ -56,7 +56,7 @@ export const POST: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    const current = await requireOwner(request.headers);
+    const current = await requireInstalledOwner(request.headers);
     guardOrigin(request);
     const input = await parseJson(request, updateSchema);
     return success({ category: await renameCategory(current.user.id, input.id, input.name) }, requestId);
@@ -68,7 +68,7 @@ export const PUT: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    const current = await requireOwner(request.headers);
+    const current = await requireInstalledOwner(request.headers);
     guardOrigin(request);
     const input = await parseJson(request, deleteSchema);
     const result = await deleteCategory(current.user.id, input.id);

@@ -215,7 +215,7 @@ test('sitemap lists every published owner Page edition and fails closed if eithe
         }
         return originalFetch(input, init);
       };
-      const failed = await GET(createContext({ request: new Request(response.url()), defaultLocale: locale, locals: {} }));
+      const failed = await GET(createContext({ request: new Request(response.url()), defaultLocale: locale, locals: { session: null, user: null } }));
       expect(failed.status, table).toBe(503);
       expect(failed.headers.get('cache-control')).toBe('no-store');
       expect(await failed.text()).toBe('Sitemap is temporarily unavailable.\n');
@@ -253,7 +253,7 @@ test('independent locale menus and Page visibility work on desktop and native mo
         const contact: NavigationMutationItem = { kind: 'custom', label: `${edition.locale} Contact${suffix}`, pageId: null, url: location === 'header' ? `/${edition.locale}#contact` : 'https://example.com/contact' };
         const items = location === 'header' ? [home, about, contact] : [contact, about, home];
         if (edition.id === source.id) items.splice(1, 0, { kind: 'page', label: 'Hidden Page', pageId: draft.id, url: null });
-        expect((await page.request.put('/api/navigation', { data: { items, locale: edition.locale, location } })).status()).toBe(200);
+        expect((await page.request.put('/api/admin/navigation', { data: { items, locale: edition.locale, location } })).status()).toBe(200);
       }
     }
 
@@ -337,7 +337,7 @@ test('independent locale menus and Page visibility work on desktop and native mo
     await expect(publicPage.getByRole('navigation', { name: 'Primary', exact: true }).getByRole('link')).toHaveCount(3);
 
     const longLabel = 'Long navigation label '.repeat(4).slice(0, 80);
-    expect((await page.request.put('/api/navigation', {
+    expect((await page.request.put('/api/admin/navigation', {
       data: { locale, location: 'header', items: [{ kind: 'custom', label: longLabel, pageId: null, url: '/contact' }] },
     })).status()).toBe(200);
     await publicPage.setViewportSize({ width: 320, height: 900 });

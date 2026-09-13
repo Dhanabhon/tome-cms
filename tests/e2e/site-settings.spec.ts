@@ -91,7 +91,7 @@ test('Profile and Settings forms save, persist, and retain edits on failure', as
     await expect(page.getByRole('status')).toHaveText('Saved.');
     await page.reload();
     await expect(page.getByRole('img', { name: 'Author avatar' })).toHaveCount(0);
-    await page.route('**/api/profile', (route) => route.fulfill({ status: 500, json: { error: 'Profile save failed.' } }));
+    await page.route('**/api/admin/profile', (route) => route.fulfill({ status: 500, json: { error: 'Profile save failed.' } }));
     await page.getByLabel('Author name').fill('Unsaved profile');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveText('Profile save failed.');
@@ -117,7 +117,7 @@ test('Profile and Settings forms save, persist, and retain edits on failure', as
     await expect(page.getByText('A multilingual publication.', { exact: true })).toHaveCount(0);
     await page.goto('/admin/settings');
     let submissions = 0;
-    await page.route('**/api/settings', async (route) => {
+    await page.route('**/api/admin/settings', async (route) => {
       submissions++;
       await new Promise((resolve) => setTimeout(resolve, 500));
       await route.fulfill({ status: 500, json: { error: 'Settings save failed.' } });
@@ -150,7 +150,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
 
     anonymousContext = await browser.newContext();
     const anonymousRequest = anonymousContext.request;
-    const anonymousProfile = await anonymousRequest.put('/api/profile', {
+    const anonymousProfile = await anonymousRequest.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: null,
         authorBioEn: '',
@@ -160,7 +160,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       },
     });
     expect(anonymousProfile.status()).toBe(401);
-    const anonymousSettings = await anonymousRequest.put('/api/settings', {
+    const anonymousSettings = await anonymousRequest.put('/api/admin/settings', {
       data: {
         defaultLocale: 'th',
         siteDescription: '',
@@ -179,7 +179,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       expect(forbidden.status()).toBe(404);
       expect(await forbidden.text()).not.toContain('class="admin-shell"');
     }
-    const foreignProfile = await foreignPage.request.put('/api/profile', {
+    const foreignProfile = await foreignPage.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: null,
         authorBioEn: '',
@@ -189,7 +189,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       },
     });
     expect(foreignProfile.status()).toBe(404);
-    const foreignSettings = await foreignPage.request.put('/api/settings', {
+    const foreignSettings = await foreignPage.request.put('/api/admin/settings', {
       data: {
         defaultLocale: 'th',
         siteDescription: '',
@@ -219,7 +219,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
     expect(browserSettings.error).toBeNull();
     expect(browserSettings.data).toEqual([]);
 
-    const savedProfile = await page.request.put('/api/profile', {
+    const savedProfile = await page.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: null,
         authorBioEn: 'English bio',
@@ -237,7 +237,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       author_name: 'Tome Owner',
     });
 
-    const invalidProtocol = await page.request.put('/api/profile', {
+    const invalidProtocol = await page.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: null,
         authorBioEn: '',
@@ -248,7 +248,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
     });
     expect(invalidProtocol.status()).toBe(400);
 
-    const malformedUrl = await page.request.put('/api/profile', {
+    const malformedUrl = await page.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: null,
         authorBioEn: '',
@@ -263,7 +263,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       [{ label: ' ', url: 'https://example.com' }],
       Array.from({ length: 6 }, (_, index) => ({ label: `Link ${index}`, url: `https://example.com/${index}` })),
     ]) {
-      const invalidLinks = await page.request.put('/api/profile', {
+      const invalidLinks = await page.request.put('/api/admin/profile', {
         data: {
           authorAvatarMediaId: null,
           authorBioEn: '',
@@ -275,7 +275,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       expect(invalidLinks.status()).toBe(400);
     }
 
-    const foreignAvatar = await page.request.put('/api/profile', {
+    const foreignAvatar = await page.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: foreignMediaId,
         authorBioEn: '',
@@ -289,7 +289,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
     const profilePayload = {
       authorAvatarMediaId: null, authorBioEn: '', authorBioTh: '', authorLinks: [], authorName: 'Tome Owner',
     };
-    const missingAvatar = await page.request.put('/api/profile', {
+    const missingAvatar = await page.request.put('/api/admin/profile', {
       data: { ...profilePayload, authorAvatarMediaId: crypto.randomUUID() },
     });
     expect(missingAvatar.status()).toBe(404);
@@ -300,7 +300,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       { defaultLocale: 'en', siteDescription: 'Cross-surface description', timezone: 'UTC' },
       { authorLinks: [{ label: 'Website', url: 'https://example.com', extra: true }] },
     ]) {
-      const rejectedProfile = await page.request.put('/api/profile', { data: { ...profilePayload, ...extra } });
+      const rejectedProfile = await page.request.put('/api/admin/profile', { data: { ...profilePayload, ...extra } });
       expect(rejectedProfile.status()).toBe(400);
     }
 
@@ -324,7 +324,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
     });
     if (postError) throw postError;
 
-    const savedSettings = await page.request.put('/api/settings', {
+    const savedSettings = await page.request.put('/api/admin/settings', {
       data: {
         defaultLocale: newLocale,
         siteDescription: 'A multilingual publication.',
@@ -342,7 +342,7 @@ test('only the configured owner can update strict Profile and Settings fields', 
       timezone: 'UTC',
     });
 
-    const ownerInjection = await page.request.put('/api/settings', {
+    const ownerInjection = await page.request.put('/api/admin/settings', {
       data: {
         defaultLocale: newLocale,
         owner_id: foreignOwner.id,

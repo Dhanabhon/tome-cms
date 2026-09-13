@@ -38,7 +38,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     setFieldErrors({});
     setStatus('');
     try {
-      const response = await fetch('/api/settings', {
+      const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, timezone, updatedAt }),

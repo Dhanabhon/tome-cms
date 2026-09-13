@@ -2,11 +2,15 @@
 import PostArticle from '../../../components/blog/PostArticle.astro';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, postPath } from '../../../lib/i18n';
-import { getSiteSettings } from '../../../lib/installation';
 import { postExcerpt } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
-import { createServerSupabaseClient } from '../../../lib/supabase';
-import type { Post, PostAlternate, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
+import {
+  getPublishedPost,
+  listPublishedPostAlternates,
+  listPublishedPostCategories,
+} from '../../../server/content/published';
+import { getSiteSettings } from '../../../server/content/settings';
+import type { Post, PostAlternate, PostCategoryBadge, PublicAuthorProfile } from '../../../types/cms';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
@@ -16,53 +20,33 @@ const locale = localeValue;
 const slug = Astro.params.slug;
 const settings = await getSiteSettings();
 const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
-const articleSettings: SiteSettings = settings ?? {
-  author_avatar_media_id: null,
+const articleSettings = settings ?? {
   author_bio_en: '',
   author_bio_th: '',
   author_links: [],
   author_name: '',
-  default_locale: locale,
-  id: true,
-  installed_at: '',
-  owner_id: '',
-  site_description: '',
   site_name: 'TomeCMS',
-  tagline: '',
   timezone: 'UTC',
-  updated_at: '',
 };
 let post: Post | null = null;
 let profile: PublicAuthorProfile | null = null;
 let availableLocales: PostAlternate[] = [];
+let categories: PostCategoryBadge[] = [];
 let loadError = false;
 
 try {
   if (!slug) {
     Astro.response.status = 404;
   } else {
-    const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*')
-      .eq('locale', locale)
-      .eq('slug', slug)
-      .eq('status', 'published')
-      .maybeSingle();
-
-    if (error) throw error;
-    post = data;
+    post = await getPublishedPost(locale, slug);
     if (!post) {
       Astro.response.status = 404;
     } else {
-      const { data: editions, error: editionsError } = await supabase
-        .from('posts')
-        .select('locale, slug')
-        .eq('translation_group_id', post.translation_group_id)
-        .eq('status', 'published');
-      if (editionsError) throw editionsError;
-      availableLocales = editions.map((edition) => ({ href: postPath(edition), locale: edition.locale }));
-      profile = await getPublicAuthorProfile(articleSettings, post.locale);
+      [availableLocales, categories, profile] = await Promise.all([
+        listPublishedPostAlternates(post.translation_group_id),
+        listPublishedPostCategories(post.translation_group_id),
+        getPublicAuthorProfile(articleSettings, post.locale),
+      ]);
     }
   }
 } catch (error) {
@@ -94,7 +78,7 @@ const xDefaultHref = settings
   xDefaultHref={xDefaultHref}
 >
   {post ? (
-    <PostArticle post={post} profile={profile} settings={articleSettings} />
+    <PostArticle categories={categories} post={post} profile={profile} settings={articleSettings} />
   ) : (
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
       <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>

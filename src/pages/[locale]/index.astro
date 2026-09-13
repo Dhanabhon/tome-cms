@@ -1,8 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, postPath } from '../../lib/i18n';
-import { getSiteSettings } from '../../lib/installation';
-import { createServerSupabaseClient } from '../../lib/supabase';
+import { listPublishedPosts } from '../../server/content/published';
+import { getSiteSettings } from '../../server/content/settings';
 import type { Post, PostAlternate } from '../../types/cms';
 
 const localeValue = Astro.params.locale;
@@ -17,16 +17,7 @@ const siteDescription = settings?.site_description || 'A quiet place for thought
 const tagline = settings?.tagline?.trim();
 
 try {
-  const supabase = createServerSupabaseClient(Astro.cookies, Astro.request);
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('locale', locale)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false });
-
-  if (error) throw error;
-  posts = data;
+  posts = await listPublishedPosts({ locale });
 } catch (error) {
   console.error('Homepage post query failed:', error);
   Astro.response.status = 500;

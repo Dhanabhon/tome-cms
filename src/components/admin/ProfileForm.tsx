@@ -39,7 +39,7 @@ export default function ProfileForm({ initialSettings }: ProfileFormProps) {
     setFieldErrors({});
     setStatus('');
     try {
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/admin/profile', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ authorAvatarMediaId: null, authorBioEn, authorBioTh, authorLinks, authorName, updatedAt }),
