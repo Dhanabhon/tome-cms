@@ -100,7 +100,7 @@ jobs:
             --released-at "$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')" \
             --minimum-direct-upgrade-from 1.0.0 \
             --minimum-updater-version 1.0.0 \
-            --target-migration 007_preview_tokens \
+            --target-migration 008_update_rate_limit_actions \
             --rollback-safe-from 1.0.0 \
             --output update-manifest.json
 
