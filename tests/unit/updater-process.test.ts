@@ -48,6 +48,38 @@ test('redacts mixed-case Go HTML-safe JSON secret representations', () => {
   assert.equal(redactDiagnosticText(encoded, [secret]), '[redacted]');
 });
 
+test('redacts every representation before applying the diagnostic boundary', () => {
+  const urlSecret = 'boundary secret+/with?&=value';
+  const jsonSecret = 'boundary-"secret\\value-long';
+  const goSecret = 'boundary-<secret>&\u2028\u2029-long';
+  const base64Secret = 'secret-\u0fc0-secret-boundary';
+  const standardBase64 = Buffer.from(base64Secret).toString('base64');
+  const urlSafeBase64 = standardBase64.replace(/\+/g, '-').replace(/\//g, '_');
+  const cases = [
+    ['raw', urlSecret, urlSecret],
+    ['URL component', urlSecret, encodeURIComponent(urlSecret)],
+    ['URL', urlSecret, encodeURI(urlSecret)],
+    ['form', urlSecret, new URLSearchParams({ value: urlSecret }).toString().slice('value='.length)],
+    ['JSON', jsonSecret, JSON.stringify(jsonSecret).slice(1, -1)],
+    ['Go JSON', goSecret, 'boundary-\\u003Csecret\\u003e\\u0026\\u2028\\u2029-long'],
+    ['standard base64 padded', base64Secret, standardBase64],
+    ['standard base64 unpadded', base64Secret, standardBase64.replace(/=+$/, '')],
+    ['URL-safe base64 padded', base64Secret, urlSafeBase64],
+    ['URL-safe base64 unpadded', base64Secret, urlSafeBase64.replace(/=+$/, '')],
+  ] as const;
+  const prefix = 'x'.repeat(4 * 1024 - 16);
+
+  assert.notEqual(standardBase64, urlSafeBase64);
+  assert.match(standardBase64, /=+$/);
+  for (const [label, secret, representation] of cases) {
+    assert.ok(Buffer.byteLength(representation) > 16, `${label} must cross the boundary`);
+    const diagnostic = redactDiagnosticText(`${prefix}${representation}`, [secret]);
+    assert.equal(diagnostic, `${prefix}[redacted]`, label);
+    assert.ok(Buffer.byteLength(diagnostic!) <= 4 * 1024, label);
+    assert.ok(Buffer.byteLength(JSON.stringify(diagnostic)) - 2 <= 4 * 1024, label);
+  }
+});
+
 test('accepts only canonical literal managed secret assignments', () => {
   const runtimeSecret = 'runtime-secret-value';
   const configuredSecret = 'configured-secret-value';
