@@ -13,7 +13,7 @@ import {
   UPDATE_MANIFEST_ATTESTATION_ASSET,
 } from '../../src/update/contracts.js';
 import type { UpdaterConfig } from '../../src/updater/config.js';
-import type { CommandResult } from '../../src/updater/process.js';
+import type { CommandDiagnosticContext, CommandResult } from '../../src/updater/process.js';
 import type { InstalledState } from '../../src/updater/state.js';
 import { runPreflight, verifyTargetRelease, type VerifyDependencies } from '../../src/updater/verify.js';
 
@@ -463,6 +463,43 @@ test('preflight uses fixed read-only command arguments and accepts healthy Compo
 
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('journals bounded fixed stages for Docker preflight failures and timeouts', async (t) => {
+  const { root, config } = await hostFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const secret = 'preflight-private-secret-value';
+  const diagnostics: CommandDiagnosticContext = {
+    jobId: '2cb65d31-2210-4cee-ab70-df64178948de', targetVersion: '1.0.1', secrets: [secret],
+  };
+  const originalError = console.error;
+  try {
+    for (const scenario of [
+      { stage: 'verify.docker_engine', matches: (args: readonly string[]) => args[0] === 'version', result: commandResult(1) },
+      { stage: 'verify.compose_cli', matches: (args: readonly string[]) => args[0] === 'compose' && args[1] === 'version',
+        result: { code: 124, stdout: secret, stderr: encodeURIComponent(secret), timedOut: true, signal: 'SIGKILL' } },
+      { stage: 'verify.compose_health', matches: (args: readonly string[]) => args.includes('ps'), result: commandResult(1, secret) },
+    ] as const) {
+      const messages: string[] = [];
+      console.error = (message: unknown) => { messages.push(String(message)); };
+      const deps = dependencies();
+      const run = deps.runCommand;
+      deps.runCommand = async (executable, args, options) => scenario.matches(args)
+        ? scenario.result : run(executable, args, options);
+      await assert.rejects(runPreflight({
+        installed, target: manifest, updaterVersion: '1.0.0', config, dependencies: deps, diagnostics,
+      }), /preflight/i);
+      assert.equal(messages.length, 1);
+      const entry = JSON.parse(messages[0]!);
+      assert.equal(entry.stage, scenario.stage);
+      assert.equal(entry.executable, 'docker');
+      assert.equal('args' in entry, false);
+      assert.equal(messages[0]!.includes(secret), false);
+      assert.equal(entry.timedOut, scenario.result.code === 124);
+    }
+  } finally {
+    console.error = originalError;
   }
 });
 
