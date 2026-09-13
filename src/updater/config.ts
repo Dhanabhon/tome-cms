@@ -1,5 +1,5 @@
 import { lstatSync } from 'node:fs';
-import { isAbsolute, normalize, parse } from 'node:path';
+import { isAbsolute, join, normalize, parse, relative, sep } from 'node:path';
 
 export interface UpdaterConfig {
   configVersion: 1;
@@ -30,8 +30,19 @@ const fixed = {
 
 const keys = [...Object.keys(fixed), 'minimumFreeBytes'];
 const minimumFreeBytes = 5 * 1024 ** 3;
+const pathRoots = {
+  composeFile: '/opt/tome-cms',
+  environmentFile: '/etc/tome-cms',
+  imageEnvironmentFile: '/var/lib/tome-cms/updater',
+  stateDirectory: '/var/lib/tome-cms/updater',
+  backupDirectory: '/var/backups/tome-cms',
+  socketPath: '/run/tome-cms',
+  statusPath: '/run/tome-cms',
+} as const;
 
-export function parseUpdaterConfig(value: unknown): UpdaterConfig {
+type PathInspector = (path: string) => { isSymbolicLink(): boolean };
+
+export function parseUpdaterConfig(value: unknown, inspectPath: PathInspector = lstatSync): UpdaterConfig {
   if (!isRecord(value) || !hasExactKeys(value, keys)) throw invalidConfig();
   for (const [key, expected] of Object.entries(fixed)) {
     if (value[key] !== expected) throw invalidConfig();
@@ -39,21 +50,27 @@ export function parseUpdaterConfig(value: unknown): UpdaterConfig {
   if (!Number.isSafeInteger(value.minimumFreeBytes) || (value.minimumFreeBytes as number) < minimumFreeBytes) {
     throw invalidConfig();
   }
-  for (const key of ['composeFile', 'environmentFile', 'imageEnvironmentFile', 'stateDirectory', 'backupDirectory', 'socketPath', 'statusPath']) {
-    assertSafePath(value[key]);
+  for (const [key, root] of Object.entries(pathRoots)) {
+    assertSafePath(value[key], root, inspectPath);
   }
   return { ...value } as unknown as UpdaterConfig;
 }
 
-function assertSafePath(value: unknown): asserts value is string {
+function assertSafePath(value: unknown, root: string, inspectPath: PathInspector): asserts value is string {
   if (typeof value !== 'string' || !isAbsolute(value) || normalize(value) !== value || parse(value).root === value) {
     throw invalidConfig();
   }
-  try {
-    if (lstatSync(value).isSymbolicLink()) throw invalidConfig();
-  } catch (error) {
-    if (!(error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'EACCES'))) {
-      throw error;
+  const tail = relative(root, value);
+  if (isAbsolute(tail) || tail === '..' || tail.startsWith(`..${sep}`)) throw invalidConfig();
+
+  let candidate = root;
+  for (const component of ['', ...tail.split(sep).filter(Boolean)]) {
+    if (component) candidate = join(candidate, component);
+    try {
+      if (inspectPath(candidate).isSymbolicLink()) throw invalidConfig();
+    } catch (error) {
+      if (hasCode(error, 'ENOENT')) return;
+      throw invalidConfig();
     }
   }
 }
@@ -66,6 +83,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   const actual = Object.keys(value);
   return actual.length === expected.length && actual.every((key) => expected.includes(key));
+}
+
+function hasCode(value: unknown, code: string): boolean {
+  return value instanceof Error && 'code' in value && value.code === code;
 }
 
 function invalidConfig(): Error {
