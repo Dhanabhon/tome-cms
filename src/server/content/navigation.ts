@@ -8,6 +8,7 @@ import {
   type NavigationItem,
   type Page,
   type PageLocale,
+  type PublicNavigation,
   type PublicNavigationItem,
 } from '../../types/cms';
 import { db } from '../db/client';
@@ -38,11 +39,6 @@ export const navigationMenuSchema = z.object({
 
 export type NavigationMenuMutation = z.infer<typeof navigationMenuSchema>;
 export type NavigationPageSummary = Pick<Page, 'id' | 'translation_group_id' | 'locale' | 'title' | 'slug' | 'status'>;
-
-export interface PublicNavigation {
-  footer: PublicNavigationItem[];
-  header: PublicNavigationItem[];
-}
 
 function navigationItem(row: Selectable<NavigationItemTable>): NavigationItem {
   return {

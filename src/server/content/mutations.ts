@@ -6,8 +6,11 @@ import type { PostStatus } from '../../types/cms';
 import { HttpError } from '../http/errors';
 import { prepareEditorContent, ValidationError, type StoredEditorContent } from './editor';
 
+export const normalizedContentSlugSchema = z.string().trim().min(1).max(160)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
 const contentSlugSchema = z.union([
-  z.string().trim().max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  normalizedContentSlugSchema,
   z.literal(''),
 ]);
 

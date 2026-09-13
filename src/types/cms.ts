@@ -219,6 +219,11 @@ export interface PublicNavigationItem {
   label: string;
 }
 
+export interface PublicNavigation {
+  footer: PublicNavigationItem[];
+  header: PublicNavigationItem[];
+}
+
 export type NavigationItemInsert = Pick<NavigationItem, 'owner_id' | 'locale' | 'location' | 'kind' | 'label' | 'position'>
   & Partial<Pick<NavigationItem, 'id' | 'page_id' | 'url' | 'created_at' | 'updated_at'>>;
 export type NavigationItemUpdate = Partial<Omit<NavigationItemInsert, 'id' | 'owner_id' | 'created_at'>>;
@@ -376,6 +381,104 @@ export interface UploadImageOptions {
   altText?: string | null;
   folderId?: string | null;
   onProgress?: (percent: number) => void;
+}
+
+export interface PublicMedia {
+  altText: string | null;
+  height: number;
+  id: string;
+  mimeType: SupportedImageType;
+  sizeBytes: number;
+  url: string;
+  width: number;
+}
+
+export interface PublicTranslation {
+  href: string;
+  locale: PostLocale;
+}
+
+export interface PublicCategory {
+  id: string;
+  name: string;
+}
+
+export interface PublicSeo {
+  description: string | null;
+  title: string | null;
+}
+
+export interface PublicPost {
+  categories: PublicCategory[];
+  contentHtml: string;
+  contentJson: EditorDocument;
+  coverImage: PublicMedia | null;
+  createdAt: string;
+  id: string;
+  locale: PostLocale;
+  media: PublicMedia[];
+  publishedAt: string | null;
+  seo: PublicSeo;
+  slug: string;
+  status: PostStatus;
+  title: string;
+  translationGroupId: string;
+  translations: PublicTranslation[];
+  updatedAt: string;
+}
+
+export interface PublicPage {
+  contentHtml: string;
+  contentJson: EditorDocument;
+  createdAt: string;
+  id: string;
+  locale: PageLocale;
+  media: PublicMedia[];
+  publishedAt: string | null;
+  seo: PublicSeo;
+  slug: string;
+  status: PageStatus;
+  title: string;
+  translationGroupId: string;
+  translations: PublicTranslation[];
+  updatedAt: string;
+}
+
+export interface PublicAuthor {
+  avatar: PublicMedia | null;
+  bio: { en: string; th: string };
+  links: AuthorLink[];
+  name: string;
+}
+
+export interface PublicSite {
+  author: PublicAuthor | null;
+  defaultLocale: PostLocale;
+  description: string;
+  name: string;
+  supportedLocales: ['th', 'en'];
+  tagline: string;
+  timezone: SiteSettings['timezone'];
+  updatedAt: string;
+}
+
+export interface PublicListMeta {
+  hasMore: boolean;
+  limit: number;
+  locale: PostLocale;
+}
+
+export interface PublicListLinks {
+  next: string | null;
+}
+
+export interface ProblemDetails {
+  detail: string;
+  instance: string;
+  requestId: string;
+  status: number;
+  title: string;
+  type: string;
 }
 
 type PostRow = { [Key in keyof Post]: Post[Key] };
