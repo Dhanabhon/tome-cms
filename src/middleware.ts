@@ -70,6 +70,10 @@ async function routeConfiguredAdmin(
   const adminPath = normalizeAdminPath(settings.admin_path);
 
   if (pathname === '/api/admin' || pathname.startsWith('/api/admin/')) {
+    const { getServerEnv } = await import('./server/env');
+    const { updateMaintenanceResponse } = await import('./server/update/maintenance');
+    const maintenance = await updateMaintenanceResponse(context.request, getServerEnv().TOME_CMS_UPDATE_MODE);
+    if (maintenance) return maintenance;
     await setBetterAuthLocals(context, settings.owner_id);
     return next();
   }

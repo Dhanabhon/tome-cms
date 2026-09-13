@@ -1,17 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import type { APIRoute } from 'astro';
-import { sql } from 'kysely';
 
+import { FreshSessionRequiredError, requireFreshOwnerSession } from '../../../../server/auth/fresh-session';
 import { assertSameOrigin } from '../../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../../server/auth/rate-limit';
 import { RecoveryCodeError, regenerateRecoveryCodes } from '../../../../server/auth/recovery';
 import { HttpError, requireInstalledOwner } from '../../../../server/auth/session';
-import { db } from '../../../../server/db/client';
 import { getServerEnv } from '../../../../server/env';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
-const FRESH_SESSION_SECONDS = 5 * 60;
 
 function problem(request: Request, status: number, title: string, detail: string, requestId: string): Response {
   return Response.json({ type: 'about:blank', title, status, detail, instance: new URL(request.url).pathname, requestId }, {
@@ -26,18 +24,11 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     assertSameOrigin(request, configuredOrigin);
     await enforceRateLimit('recovery', clientAddress);
     const current = await requireInstalledOwner(request.headers);
-    const fresh = await db.selectFrom('session')
-      .select('id')
-      .where('id', '=', current.session.id)
-      .where('token', '=', current.session.token)
-      .where('userId', '=', current.user.id)
-      .where('expiresAt', '>', sql<Date>`CURRENT_TIMESTAMP`)
-      .where('createdAt', '>=', sql<Date>`CURRENT_TIMESTAMP - (${FRESH_SESSION_SECONDS} * interval '1 second')`)
-      .executeTakeFirst();
-    if (!fresh) return problem(request, 403, 'Fresh verification required', 'Verify a Passkey and try again.', requestId);
+    await requireFreshOwnerSession(current);
     const recoveryCodes = await regenerateRecoveryCodes(current.user.id);
     return Response.json({ recoveryCodes }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
+    if (error instanceof FreshSessionRequiredError) return problem(request, 403, 'Fresh verification required', error.message, requestId);
     if (error instanceof RateLimitExceededError) {
       const response = problem(request, 429, 'Too many requests', 'Try again later.', requestId);
       response.headers.set('Retry-After', String(error.retryAfter));
