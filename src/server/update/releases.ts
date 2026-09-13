@@ -1,0 +1,126 @@
+import {
+  OFFICIAL_REPOSITORY,
+  UPDATE_MANIFEST_ASSET,
+  parseStableVersion,
+  parseUpdateManifest,
+  type UpdateManifest,
+} from '../../update/contracts.js';
+
+const GITHUB_API_VERSION = '2022-11-28';
+const LATEST_RELEASE_URL = `https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases/latest`;
+const MAX_RESPONSE_BYTES = 512 * 1024;
+
+export interface LatestRelease {
+  manifest: UpdateManifest;
+  publishedAt: string;
+  releaseUrl: string;
+  manifestAssetDigest: string;
+  etag: string | null;
+}
+
+export interface FetchLatestReleaseOptions {
+  fetcher?: typeof fetch;
+  etag?: string;
+}
+
+export async function fetchLatestRelease(
+  options: FetchLatestReleaseOptions = {},
+): Promise<LatestRelease> {
+  const fetcher = options.fetcher ?? fetch;
+  const releaseResponse = await fetchJson(fetcher, LATEST_RELEASE_URL);
+  const release = releaseDetails(releaseResponse.json);
+  const version = parseStableVersion(release.tagName.slice(1)).raw;
+  const releaseUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/${release.tagName}`;
+  const manifestUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/${release.tagName}/${UPDATE_MANIFEST_ASSET}`;
+
+  if (
+    release.draft || release.prerelease || !release.immutable ||
+    release.htmlUrl !== releaseUrl || !validPublishedAt(release.publishedAt) ||
+    release.assets.length !== 1 || release.assets[0].url !== manifestUrl ||
+    !/^sha256:[0-9a-f]{64}$/.test(release.assets[0].digest)
+  ) throw new Error('Invalid official release');
+
+  const manifestResponse = await fetchJson(fetcher, manifestUrl, options.etag);
+  const manifest = parseUpdateManifest(manifestResponse.json);
+  if (manifest.version !== version) throw new Error('Release tag does not match manifest');
+
+  return {
+    manifest,
+    publishedAt: release.publishedAt,
+    releaseUrl,
+    manifestAssetDigest: release.assets[0].digest,
+    etag: manifestResponse.etag,
+  };
+}
+
+async function fetchJson(fetcher: typeof fetch, url: string, etag?: string): Promise<{ json: unknown; etag: string | null }> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': GITHUB_API_VERSION,
+  };
+  if (etag) headers['If-None-Match'] = etag;
+  const response = await fetcher(url, {
+    headers,
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`Official release request failed (${response.status})`);
+  return { json: JSON.parse(await boundedText(response)), etag: response.headers.get('etag') };
+}
+
+async function boundedText(response: Response): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength !== null && (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_RESPONSE_BYTES)) {
+    throw new Error('Official release response is too large');
+  }
+  if (!response.body) throw new Error('Official release response has no body');
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) throw new Error('Official release response is too large');
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+function releaseDetails(value: unknown): {
+  tagName: string;
+  draft: boolean;
+  prerelease: boolean;
+  immutable: boolean;
+  publishedAt: string;
+  htmlUrl: string;
+  assets: Array<{ name: string; url: string; digest: string }>;
+} {
+  if (!isRecord(value)) throw new Error('Invalid official release');
+  const { tag_name, draft, prerelease, immutable, published_at, html_url, assets } = value;
+  if (
+    typeof tag_name !== 'string' || !/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(tag_name) ||
+    typeof draft !== 'boolean' || typeof prerelease !== 'boolean' || typeof immutable !== 'boolean' ||
+    typeof published_at !== 'string' || typeof html_url !== 'string' || !Array.isArray(assets)
+  ) throw new Error('Invalid official release');
+  return {
+    tagName: tag_name, draft, prerelease, immutable, publishedAt: published_at, htmlUrl: html_url,
+    assets: assets.filter(isRecord).filter((asset) => asset.name === UPDATE_MANIFEST_ASSET).map((asset) => ({
+      name: asset.name as string,
+      url: typeof asset.browser_download_url === 'string' ? asset.browser_download_url : '',
+      digest: typeof asset.digest === 'string' ? asset.digest : '',
+    })),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validPublishedAt(value: string): boolean {
+  return Number.isFinite(Date.parse(value));
+}
