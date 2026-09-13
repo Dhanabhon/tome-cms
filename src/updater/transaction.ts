@@ -80,7 +80,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
   try {
     const identity = updaterIdentity();
     // Target-dependent preflight belongs to verifyTargetRelease, which invokes Task 7's full gate.
-    await localPreflight(config, installed);
+    await localPreflight(config, installed, dependencies);
     errorCode = 'release_unavailable';
     await state.transitionJob(job.id, 'verifying');
     verified = await dependencies.verifyTargetRelease({
@@ -173,20 +173,12 @@ export async function reconcileUpdate(input: {
     // Docker CLI death does not imply container death, including after a host-service restart.
     for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies);
     const configured = await readFile(input.config.imageEnvironmentFile, 'utf8');
-    const command = commandRunner(dependencies);
-    const containerId = (await command([...composePrefix(input.config), 'ps', '--quiet', 'app'], 30_000)).trim();
-    if (!/^[0-9a-f]{64}$/.test(containerId)) throw new Error('Invalid running container');
-    const inspection: unknown = JSON.parse(await command(['inspect', '--type', 'container', containerId], 30_000));
-    if (!Array.isArray(inspection) || inspection.length !== 1) throw new Error('Invalid container inspection');
-    const container = inspection[0];
-    if (container?.State?.Running !== true || typeof container?.Config?.Image !== 'string') {
-      throw new Error('Application is not running');
-    }
+    const runningImage = await inspectRunningApp(input.config, dependencies);
     const targetRunning = job.targetImageDigest !== null &&
       configured === imageEnvironment(job.targetImageDigest) &&
-      container.Config.Image === `${OFFICIAL_IMAGE_REPOSITORY}@${job.targetImageDigest}`;
+      runningImage === `${OFFICIAL_IMAGE_REPOSITORY}@${job.targetImageDigest}`;
     const previousRunning = configured === imageEnvironment(job.previousImageDigest) &&
-      container.Config.Image === `${OFFICIAL_IMAGE_REPOSITORY}@${job.previousImageDigest}`;
+      runningImage === `${OFFICIAL_IMAGE_REPOSITORY}@${job.previousImageDigest}`;
     if (!targetRunning && !previousRunning) throw new Error('Application image disagrees');
     await awaitReadiness(input.config, dependencies);
     const installed = await input.state.readInstalled();
@@ -285,7 +277,7 @@ function updaterIdentity(): string {
   return `${uid}:${gid}`;
 }
 
-async function localPreflight(config: UpdaterConfig, installed: InstalledState): Promise<void> {
+async function localPreflight(config: UpdaterConfig, installed: InstalledState, dependencies: UpdateDependencies): Promise<void> {
   for (const [path, directory] of [
     [config.composeFile, false], [config.environmentFile, false], [config.imageEnvironmentFile, false],
     [config.stateDirectory, true], [config.backupDirectory, true],
@@ -298,6 +290,37 @@ async function localPreflight(config: UpdaterConfig, installed: InstalledState):
   if (await readFile(config.imageEnvironmentFile, 'utf8') !== imageEnvironment(installed.imageDigest)) {
     throw new Error('Installed and configured image disagree');
   }
+  if (await inspectRunningApp(config, dependencies) !== `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`) {
+    throw new Error('Running application image does not match installed image');
+  }
+}
+
+async function inspectRunningApp(config: UpdaterConfig, dependencies: UpdateDependencies): Promise<string> {
+  const command = commandRunner(dependencies);
+  const containerIds = (await command([...composePrefix(config), 'ps', '--quiet', 'app'], 30_000)).trim().split(/\s+/).filter(Boolean);
+  if (containerIds.length !== 1 || !/^[0-9a-f]{64}$/.test(containerIds[0]!)) {
+    throw new Error('Expected exactly one valid running application container');
+  }
+  let inspection: unknown;
+  try {
+    inspection = JSON.parse(await command(['inspect', '--type', 'container', containerIds[0]!], 30_000));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error('Application container inspection is not valid JSON');
+    throw error;
+  }
+  if (!Array.isArray(inspection) || inspection.length !== 1 || !inspection[0] || typeof inspection[0] !== 'object') {
+    throw new Error('Application container inspection must contain exactly one container');
+  }
+  const container = inspection[0] as Record<string, unknown>;
+  const state = container.State;
+  const containerConfig = container.Config;
+  if (!state || typeof state !== 'object' || Array.isArray(state) ||
+    (state as Record<string, unknown>).Running !== true) throw new Error('Application container is not running');
+  if (!containerConfig || typeof containerConfig !== 'object' || Array.isArray(containerConfig) ||
+    typeof (containerConfig as Record<string, unknown>).Image !== 'string') {
+    throw new Error('Application container image is unavailable');
+  }
+  return (containerConfig as Record<string, unknown>).Image as string;
 }
 
 function verifyMigrationInventory(output: string, target: string): void {
