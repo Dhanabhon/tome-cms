@@ -46,7 +46,7 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
   }).success, false);
   assert.equal(profileMutationSchema.safeParse({
     authorAvatarMediaId: crypto.randomUUID(), authorBioEn: '', authorBioTh: '', authorLinks: [], authorName: '', updatedAt: initial?.updated_at.toISOString(),
-  }).success, false, 'media remains unavailable until the File Manager migration');
+  }).success, true, 'the PostgreSQL File Manager accepts media identities');
 
   const settings = await updateSiteSettings('owner-a', {
     defaultLocale: 'en',

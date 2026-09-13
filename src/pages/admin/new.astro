@@ -14,7 +14,7 @@ import type { PostCategory, PostLocale, PostTranslationSummary } from '../../typ
 
 let errorMessage: string | null = null;
 let locale: PostLocale | null = null;
-let sourcePost: { id: string } | undefined;
+let sourcePost: { cover_image: string | null; cover_media_id: string | null; id: string } | undefined;
 let translations: PostTranslationSummary[] = [];
 let categories: PostCategory[] = [];
 let initialCategoryIds: string[] = [];
@@ -45,7 +45,7 @@ try {
       errorMessage = 'Post not found.';
     } else {
       locale = targetLocale;
-      sourcePost = { id: source.id };
+      sourcePost = { cover_image: source.cover_image, cover_media_id: source.cover_media_id, id: source.id };
       initialCategoryIds = await categoryIdsForPost(current.user.id, source.id);
       translations = editions;
     }

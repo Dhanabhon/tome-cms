@@ -11,6 +11,8 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test');
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
+  const { createPage } = await import('../../src/server/content/pages');
+  const { createPost } = await import('../../src/server/content/posts');
   const { HttpError } = await import('../../src/server/http/errors');
   const {
     createFolder,
@@ -117,30 +119,21 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
 
   const imageContent = {
     type: 'doc' as const,
-    content: [{ type: 'image', attrs: { mediaId: item.id, src: item.publicUrl } }],
+    content: [{ type: 'image', attrs: { src: item.publicUrl } }],
   };
-  const postGroupId = randomUUID();
-  const pageGroupId = randomUUID();
   const category = await db.insertInto('categories').values({ owner_id: ownerId, name: 'Uncategorized', is_default: true })
     .returning('id').executeTakeFirstOrThrow();
-  const { post, contentPage } = await db.transaction().execute(async (trx) => {
-    await trx.insertInto('post_translation_groups').values({ id: postGroupId, owner_id: ownerId }).execute();
-    await trx.insertInto('page_translation_groups').values({ id: pageGroupId, owner_id: ownerId }).execute();
-    const post = await trx.insertInto('posts').values({
-      translation_group_id: postGroupId, locale: 'en', title: 'Referenced Post', slug: 'referenced-post',
-      cover_media_id: item.id, content_json: imageContent, content_html: `<img src="${item.publicUrl}">`,
-      meta_title: null, meta_description: null, status: 'draft', published_at: null, owner_id: ownerId,
-    }).returning('id').executeTakeFirstOrThrow();
-    const contentPage = await trx.insertInto('pages').values({
-      translation_group_id: pageGroupId, locale: 'en', title: 'Referenced Page', slug: 'referenced-page',
-      content_json: imageContent, content_html: `<img src="${item.publicUrl}">`, meta_title: null,
-      meta_description: null, status: 'draft', published_at: null, owner_id: ownerId,
-    }).returning('id').executeTakeFirstOrThrow();
-    await trx.insertInto('post_category_assignments').values({
-      translation_group_id: postGroupId, category_id: category.id, owner_id: ownerId,
-    }).execute();
-    return { contentPage, post };
+  const post = await createPost(ownerId, {
+    categoryIds: [category.id], coverMediaId: item.id, contentJson: imageContent, metaDescription: null,
+    metaTitle: null, slug: 'referenced-post', status: 'draft', title: 'Referenced Post',
   });
+  const contentPage = await createPage(ownerId, {
+    contentJson: imageContent, metaDescription: null, metaTitle: null,
+    slug: 'referenced-page', status: 'draft', title: 'Referenced Page',
+  });
+  assert.equal(post.cover_media_id, item.id);
+  assert.equal(post.content_json.content?.[0]?.attrs?.mediaId, item.id);
+  assert.equal(contentPage.content_json.content?.[0]?.attrs?.mediaId, item.id);
   await db.updateTable('site_settings').set({ author_avatar_media_id: item.id }).where('id', '=', true).execute();
   await assert.rejects(deleteMedia(ownerId, item.id), (error: unknown) => {
     if (!(error instanceof HttpError) || error.status !== 409) return false;

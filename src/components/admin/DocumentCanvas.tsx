@@ -27,6 +27,16 @@ interface DocumentCanvasProps {
 }
 
 const editorImage = TiptapImage.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      mediaId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-media-id'),
+        renderHTML: ({ mediaId }) => typeof mediaId === 'string' ? { 'data-media-id': mediaId } : {},
+      },
+    };
+  },
   addProseMirrorPlugins() {
     return [UploadImagesPlugin({ imageClass: 'rounded-lg opacity-50' })];
   },

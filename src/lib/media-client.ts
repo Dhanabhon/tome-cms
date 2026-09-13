@@ -1,6 +1,10 @@
-import { imageDimensions, imageExtension, validateImageFile } from './media';
-import { createBrowserSupabaseClient } from './supabase';
-import type { MediaAsset, MediaFolder, MediaItem, SupportedImageType, UploadImageOptions } from '../types/cms';
+import { validateImageFile } from './media';
+import type {
+  MediaAsset,
+  MediaFolder,
+  MediaReferences,
+  UploadImageOptions,
+} from '../types/cms';
 
 export const MEDIA_PAGE_SIZE = 48;
 
@@ -20,143 +24,125 @@ export interface MediaDraft {
   folderId: string;
 }
 
-export function publicMediaUrl(storagePath: string) {
-  return createBrowserSupabaseClient().storage.from('blog-media').getPublicUrl(storagePath).data.publicUrl;
+interface UploadReservation {
+  expiresAt: string;
+  headers: { 'content-type': string; 'x-amz-checksum-sha256': string };
+  id: string;
+  uploadUrl: string;
 }
 
-function toAsset(item: MediaItem): MediaAsset {
-  return { ...item, publicUrl: publicMediaUrl(item.storage_path) };
+export class MediaRequestError extends Error {
+  constructor(message: string, readonly references?: MediaReferences) {
+    super(message);
+  }
 }
 
-async function mutationUser() {
-  const supabase = createBrowserSupabaseClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw error ?? new Error('Sign in before changing media.');
-  return { supabase, user: data.user };
+function errorMessage(payload: unknown): string | null {
+  return typeof payload === 'object' && payload !== null && 'error' in payload && typeof payload.error === 'string'
+    ? payload.error : null;
 }
 
-function categoryError(error: { code?: string; message: string }) {
-  if (error.code === '23505') return new Error('A category with this name already exists.');
-  return error;
+function errorReferences(payload: unknown): MediaReferences | undefined {
+  if (typeof payload !== 'object' || payload === null || !('references' in payload)
+    || typeof payload.references !== 'object' || payload.references === null) return undefined;
+  return payload.references as MediaReferences;
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new MediaRequestError(errorMessage(payload) ?? 'The request could not be completed.', errorReferences(payload));
+  return payload as T;
+}
+
+async function sendJson<T>(path: string, method: 'POST' | 'PUT' | 'DELETE', body: unknown): Promise<T> {
+  return readJson<T>(await fetch(path, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }));
+}
+
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function sha256(file: File): Promise<string> {
+  return bytesToBase64(new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer())));
+}
+
+function uploadToStorage(
+  reservation: UploadReservation,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('PUT', reservation.uploadUrl);
+    request.timeout = 120_000;
+    for (const [name, value] of Object.entries(reservation.headers)) request.setRequestHeader(name, value);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+    request.onload = () => request.status >= 200 && request.status < 300
+      ? resolve()
+      : reject(new Error('Storage rejected the upload. Try again.'));
+    request.onerror = () => reject(new Error('The upload could not reach storage. Try again.'));
+    request.ontimeout = () => reject(new Error('The upload timed out. Try again.'));
+    request.send(file);
+  });
 }
 
 export async function listMediaFolders(): Promise<MediaFolder[]> {
-  const { data, error } = await createBrowserSupabaseClient().from('media_folders').select('*').order('name');
-  if (error) throw error;
-  return data;
+  return (await readJson<{ folders: MediaFolder[] }>(await fetch('/api/admin/media/folders'))).folders;
 }
 
 export async function createMediaFolder(name: string): Promise<MediaFolder> {
-  const { supabase, user } = await mutationUser();
-  const { data, error } = await supabase
-    .from('media_folders')
-    .insert({ name: name.trim(), owner_id: user.id })
-    .select('*')
-    .single();
-  if (error) throw categoryError(error);
-  return data;
+  return (await sendJson<{ folder: MediaFolder }>('/api/admin/media/folders', 'POST', { name })).folder;
 }
 
 export async function renameMediaFolder(id: string, name: string): Promise<MediaFolder> {
-  const { supabase, user } = await mutationUser();
-  const { data, error } = await supabase
-    .from('media_folders')
-    .update({ name: name.trim() })
-    .eq('id', id)
-    .eq('owner_id', user.id)
-    .select('*')
-    .single();
-  if (error) throw categoryError(error);
-  return data;
+  return (await sendJson<{ folder: MediaFolder }>('/api/admin/media/folders', 'PUT', { id, name })).folder;
 }
 
-export async function deleteMediaFolder(id: string) {
-  const { supabase, user } = await mutationUser();
-  const { error } = await supabase.from('media_folders').delete().eq('id', id).eq('owner_id', user.id);
-  if (error) throw error;
+export async function deleteMediaFolder(id: string): Promise<void> {
+  await sendJson('/api/admin/media/folders', 'DELETE', { id });
 }
 
-export async function saveMediaDraft(id: string, draft: MediaDraft): Promise<MediaItem> {
-  const { supabase, user } = await mutationUser();
-  if (draft.altText.length > 300) throw new Error('Alt text must be 300 characters or fewer.');
-  const { data, error } = await supabase
-    .from('media_items')
-    .update({ alt_text: draft.altText.trim() || null, folder_id: draft.folderId || null })
-    .eq('id', id)
-    .eq('owner_id', user.id)
-    .select('*')
-    .single();
-  if (error) throw error;
-  return data;
+export async function saveMediaDraft(id: string, draft: MediaDraft): Promise<MediaAsset> {
+  return (await sendJson<{ item: MediaAsset }>(`/api/admin/media/${id}`, 'PUT', {
+    altText: draft.altText,
+    folderId: draft.folderId || null,
+  })).item;
+}
+
+export async function deleteMedia(id: string): Promise<void> {
+  await readJson(await fetch(`/api/admin/media/${id}`, { method: 'DELETE' }));
 }
 
 export async function listMedia(input: ListMediaInput = {}): Promise<MediaPage> {
-  const page = Math.max(1, Math.floor(input.page ?? 1));
-  const start = (page - 1) * MEDIA_PAGE_SIZE;
-  const searchTerm = input.search
-    ?.trim()
-    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .slice(0, 100);
-  const searchPattern = searchTerm?.trim().replace(/\s+/g, '%');
-  let query = createBrowserSupabaseClient()
-    .from('media_items')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .range(start, start + MEDIA_PAGE_SIZE);
-
-  if (input.folderId === null) query = query.is('folder_id', null);
-  else if (input.folderId) query = query.eq('folder_id', input.folderId);
-  if (searchPattern) {
-    query = query.or(`original_name.ilike.%${searchPattern}%,alt_text.ilike.%${searchPattern}%`);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return {
-    hasMore: data.length > MEDIA_PAGE_SIZE,
-    items: data.slice(0, MEDIA_PAGE_SIZE).map(toAsset),
-  };
+  const params = new URLSearchParams({ page: String(input.page ?? 1) });
+  if (input.search) params.set('search', input.search);
+  if (input.folderId === null) params.set('folderId', 'unfiled');
+  else if (input.folderId) params.set('folderId', input.folderId);
+  return readJson<MediaPage>(await fetch(`/api/admin/media?${params}`));
 }
 
 export async function uploadImage(file: File, options: UploadImageOptions = {}): Promise<MediaAsset> {
   validateImageFile(file);
-  const dimensions = await imageDimensions(file);
-  const supabase = createBrowserSupabaseClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw userError ?? new Error('Sign in before uploading images.');
-
-  const extension = imageExtension(file.type);
-  if (!extension) throw new Error('Unsupported image type.');
-  const storagePath = `${userData.user.id}/${crypto.randomUUID()}.${extension}`;
-  const { error: uploadError } = await supabase.storage.from('blog-media').upload(storagePath, file, {
-    cacheControl: '31536000',
-    contentType: file.type,
-    upsert: false,
-  });
-  if (uploadError) throw uploadError;
-
-  const { data, error: metadataError } = await supabase
-    .from('media_items')
-    .insert({
-      alt_text: options.altText?.trim() || null,
-      folder_id: options.folderId ?? null,
-      height: dimensions.height,
-      mime_type: file.type as SupportedImageType,
-      original_name: file.name,
-      owner_id: userData.user.id,
-      size_bytes: file.size,
-      storage_path: storagePath,
-      width: dimensions.width,
-    })
-    .select('*')
-    .single();
-
-  if (metadataError) {
-    const { error: cleanupError } = await supabase.storage.from('blog-media').remove([storagePath]);
-    if (cleanupError) throw new Error(`${metadataError.message} Cleanup also failed: ${cleanupError.message}`);
-    throw metadataError;
-  }
-
-  return { ...data, publicUrl: publicMediaUrl(data.storage_path) };
+  const checksumSha256 = await sha256(file);
+  const reservation = (await sendJson<{ reservation: UploadReservation }>('/api/admin/media/uploads', 'POST', {
+    originalName: file.name,
+    mimeType: file.type,
+    sizeBytes: file.size,
+    checksumSha256,
+    folderId: options.folderId ?? null,
+    altText: options.altText ?? '',
+  })).reservation;
+  await uploadToStorage(reservation, file, options.onProgress);
+  options.onProgress?.(100);
+  return (await sendJson<{ item: MediaAsset }>(`/api/admin/media/uploads/${reservation.id}/finalize`, 'POST', {})).item;
 }

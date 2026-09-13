@@ -7,10 +7,11 @@ import {
   hasMeaningfulHtml,
   MAX_DOCUMENT_BYTES,
 } from '../../src/lib/editor-content';
-import { prepareEditorContent, ValidationError } from '../../src/server/content/editor';
+import { editorMediaIds, prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 
 test('server renders, sanitizes, and bounds editor content', () => {
+  const mediaId = '11111111-1111-4111-8111-111111111111';
   const contentJson: EditorDocument = {
     type: 'doc',
     content: [
@@ -29,6 +30,7 @@ test('server renders, sanitizes, and bounds editor content', () => {
       { type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Quote' }] }] },
       { type: 'codeBlock', content: [{ type: 'text', text: 'const x = 1;' }] },
       { type: 'image', attrs: { src: 'https://example.com/image.webp', alt: 'Example' } },
+      { type: 'image', attrs: { src: `/media/${mediaId}`, alt: 'Stored image' } },
     ],
   };
 
@@ -41,6 +43,9 @@ test('server renders, sanitizes, and bounds editor content', () => {
   assert.match(prepared.contentHtml, /<blockquote><p>Quote<\/p><\/blockquote>/);
   assert.match(prepared.contentHtml, /<pre><code>const x = 1;<\/code><\/pre>/);
   assert.match(prepared.contentHtml, /<img src="https:\/\/example\.com\/image\.webp" alt="Example" \/>/);
+  assert.match(prepared.contentHtml, new RegExp(`<img src="/media/${mediaId}" alt="Stored image" \\/>`));
+  assert.deepEqual(editorMediaIds(prepared.contentJson), [mediaId]);
+  assert.equal(prepared.contentJson.content?.at(-1)?.attrs?.mediaId, mediaId);
   assert.equal(prepareEditorContent({ contentJson }).contentHtml, prepared.contentHtml);
 
   const unsafe = prepareEditorContent({
@@ -52,11 +57,16 @@ test('server renders, sanitizes, and bounds editor content', () => {
           attrs: { onclick: 'alert(1)' },
           content: [{ type: 'text', text: 'Unsafe', marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)', onmouseover: 'alert(1)' } }] }],
         },
-        { type: 'image', attrs: { src: 'javascript:alert(1)', onerror: 'alert(1)' } },
       ],
     },
   });
   assert.doesNotMatch(unsafe.contentHtml, /javascript:|onclick|onerror|onmouseover/i);
+  assert.throws(() => prepareEditorContent({
+    contentJson: { type: 'doc', content: [{ type: 'image', attrs: { src: 'javascript:alert(1)' } }] },
+  }), ValidationError);
+  assert.throws(() => prepareEditorContent({
+    contentJson: { type: 'doc', content: [{ type: 'image', attrs: { mediaId: crypto.randomUUID(), src: `/media/${mediaId}` } }] },
+  }), ValidationError);
   assert.throws(
     () => prepareEditorContent({ contentJson: { type: 'doc', content: [{ type: 'unsupported' }] } }),
     ValidationError,

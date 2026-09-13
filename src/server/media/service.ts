@@ -8,7 +8,7 @@ import {
   type GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { sql, type Selectable, type Transaction } from 'kysely';
+import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_BYTES, type SupportedImageType } from '../../lib/media';
@@ -65,7 +65,6 @@ export interface ReadyMedia {
   original_name: string;
   mime_type: SupportedImageType;
   size_bytes: number;
-  checksum_sha256: string;
   width: number;
   height: number;
   alt_text: string | null;
@@ -76,6 +75,7 @@ export interface ReadyMedia {
 
 export interface MediaFolder {
   id: string;
+  owner_id: string;
   name: string;
   created_at: string;
   updated_at: string;
@@ -101,7 +101,6 @@ function readyMedia(row: Selectable<MediaItemTable>): ReadyMedia {
     original_name: row.original_name,
     mime_type: row.mime_type,
     size_bytes: size,
-    checksum_sha256: row.checksum_sha256,
     width: row.width,
     height: row.height,
     alt_text: row.alt_text,
@@ -114,6 +113,7 @@ function readyMedia(row: Selectable<MediaItemTable>): ReadyMedia {
 function mediaFolder(row: Selectable<MediaFolderTable>): MediaFolder {
   return {
     id: row.id,
+    owner_id: row.owner_id,
     name: row.name,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -269,6 +269,18 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
 }
 
 const MEDIA_PAGE_SIZE = 48;
+
+export async function assertReadyMediaReferences(
+  database: Kysely<Database>,
+  ownerId: string,
+  ids: string[],
+): Promise<void> {
+  const unique = [...new Set(ids)];
+  if (!unique.length) return;
+  const rows = await database.selectFrom('media_items').select('id')
+    .where('owner_id', '=', ownerId).where('state', '=', 'ready').where('id', 'in', unique).forShare().execute();
+  if (rows.length !== unique.length) throw new HttpError(400, 'Choose media from this site.');
+}
 
 export async function listMedia(ownerId: string, input: MediaListInput): Promise<MediaPage> {
   let query = db.selectFrom('media_items').selectAll()

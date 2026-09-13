@@ -6,6 +6,7 @@ import { adminLoginPath } from '../../lib/admin';
 import { requireOwner } from '../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
+import { stableMediaPath } from '../../server/media/url';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
@@ -39,7 +40,11 @@ try {
     <AdminShell active="profile" adminPath={settings.admin_path} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
         <header class="admin-page__head"><div><h1>Profile</h1><p>Your name, avatar, and author biography.</p></div></header>
-        <ProfileForm client:load initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
+        <ProfileForm
+          client:load
+          initialAvatarUrl={settings.author_avatar_media_id ? stableMediaPath(settings.author_avatar_media_id) : null}
+          initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }}
+        />
       </section>
     </AdminShell>
   )}

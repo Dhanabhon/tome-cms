@@ -140,7 +140,10 @@ export default function BlockInsertMenu() {
       .chain()
       .focus()
       .setTextSelection(position)
-      .setImage({ alt: asset.alt_text || asset.original_name, src: asset.publicUrl })
+      .insertContent({
+        type: 'image',
+        attrs: { alt: asset.alt_text || asset.original_name, mediaId: asset.id, src: asset.publicUrl, title: asset.original_name },
+      })
       .run();
   };
 
