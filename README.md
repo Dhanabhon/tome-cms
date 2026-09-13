@@ -1,6 +1,8 @@
 # TomeCMS
 
-TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private React editor. Public Pages, articles, Header, and Footer render on the server and send no application JavaScript. The admin area uses Novel for block editing and Supabase for authentication, content, navigation, and image storage.
+TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private React editor. Public Pages, articles, Header, and Footer render on the server and send no application JavaScript. Better Auth protects the Admin, while PostgreSQL stores site settings, Posts, Pages, Categories, and Navigation.
+
+> **Migration status:** this branch is not a release. File Manager metadata and objects still use the legacy Supabase path until the S3 migration plan lands. Do not deploy it as TomeCMS 0.2.0 or remove Supabase from an existing installation yet.
 
 ## What is included
 
@@ -14,7 +16,8 @@ TomeCMS is a small Astro CMS for blog posts and standalone Pages with a private 
 - Localized public routes at `/<locale>`, `/<locale>/blog/<slug>`, and `/<locale>/<slug>`, with legacy blog routes redirected to their localized equivalents
 - Owner-only Preview that saves and opens the newest draft
 - Profile details reused by the global post author block
-- Supabase authentication, Row Level Security, and Storage policies
+- Better Auth Passkeys and owner-scoped PostgreSQL services
+- Temporary Supabase-backed File Manager pending the S3 cutover
 - A secure first-run installer for site settings and the owner account
 - SEO, GEO, and AEO foundations with canonical URLs, social metadata, structured data, and automatic discovery files
 - Sanitized HTML output for public articles
@@ -27,7 +30,7 @@ Before using either local setup helper, prepare:
 - A local copy of this repository. Open your terminal in the `tome-cms` directory containing `package.json`.
 - [Node.js](https://nodejs.org/en/download) and npm. Choose a supported LTS release; TomeCMS requires Node.js 22 or newer.
 - Docker Desktop installed and running. Follow the operating-system instructions below.
-- The [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), installed with Homebrew on macOS or Scoop on Windows so the `supabase` command is available in your terminal.
+- The [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), temporarily required only when testing the legacy File Manager during this migration.
 - An internet connection for downloading dependencies and Docker images on the first run.
 - Available ports: `4321` for TomeCMS and `54321` through `54324` for the configured local Supabase services. If a port is occupied, stop the conflicting app or local stack first.
 
@@ -37,7 +40,7 @@ A hosted or self-hosted Supabase project is only needed for the [external connec
 
 ## Development architecture
 
-The replacement foundation runs alongside the existing Supabase CMS. PostgreSQL, Kysely migrations, Docker Compose v2, and the health endpoints are available now; the application still uses Supabase for authentication, content, navigation, and media until all five migration plans are complete. This is foundation work, not a Supabase cutover or a 0.2.0 release.
+The active application now uses Better Auth and PostgreSQL/Kysely for installation, owner sessions, site settings, Posts, Pages, Categories, Navigation, bundled public reads, and the sitemap. Supabase remains only behind the unfinished File Manager endpoints and historical migration files. S3/MinIO replaces that final runtime dependency in the next plan; the versioned Headless Content API and final Supabase removal follow afterward.
 
 Use Node.js 22 or newer and Docker Desktop with Compose v2. The default local ports are `4321` (TomeCMS), `5432` (PostgreSQL), `9000` (AIStor S3 API), and `9001` (AIStor console). Keep these services bound to loopback. When a port is occupied, supply `APP_PORT`, `POSTGRES_PORT`, `MINIO_PORT`, or `MINIO_CONSOLE_PORT` to bootstrap, for example `POSTGRES_PORT=55433 node scripts/bootstrap-core.mjs --force`; this refreshes dependent generated URLs while preserving secrets. Hand-editing only a port in `.env.local` also requires updating its dependent URL (`DATABASE_URL`, `TOME_CMS_PUBLIC_URL`, or `S3_ENDPOINT` and `MEDIA_PUBLIC_URL`). Explicit custom URLs are preserved.
 
@@ -59,15 +62,19 @@ The bootstrap validates Node, Docker, Compose, ports, environment ownership, and
 
 Production bootstrap (`--production`) requires public HTTPS application and storage URLs and uses the bundled Compose PostgreSQL database. Its host-side `DATABASE_URL` must match the generated URL for `POSTGRES_PASSWORD` and `POSTGRES_PORT`; the application uses `postgres:5432` inside Compose to reach that same database. Custom database targets are supported only for local development in this foundation release.
 
-Until Supabase cutover, production also requires `PUBLIC_SUPABASE_URL`, a `PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or legacy `PUBLIC_SUPABASE_ANON_KEY`), and a runtime `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`). Bootstrap accepts these from the shell or preserves them from `.env.local`. Only the public values become Docker build arguments; privileged keys are supplied at runtime through `.env.local`. Production bootstrap rebuilds the app after services, bucket initialization, and migrations succeed so public configuration changes reach the compiled CMS.
+During this intermediate branch, File Manager testing still requires `PUBLIC_SUPABASE_URL`, a `PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or legacy `PUBLIC_SUPABASE_ANON_KEY`), and a runtime `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`). These values are no longer used for owner authentication, content, settings, Navigation, or public rendering. Production deployment remains blocked until the S3 and final cutover plans remove this split runtime.
 
 The application exposes `GET /health/live` for a process liveness response and `GET /health/ready` for dependency readiness. Readiness returns HTTP `200` only when the foundation is ready, otherwise `503`; neither route exposes topology, credentials, or other secrets.
 
 ## Run it locally
 
-Choose the command for your operating system. The helper checks the required tools, starts the Supabase services TomeCMS needs, applies pending migrations, prepares `.env.local`, and launches the site. The first run may take a few minutes while Docker downloads the Supabase images.
+For the migration branch, initialize PostgreSQL and AIStor with `node scripts/bootstrap-core.mjs`, apply `npm run db:migrate`, then use `npm run dev`. The older `dev:macos` and `dev:windows` helpers still describe the legacy all-Supabase runtime and are not a validation path for this branch; they will be replaced with the completed PostgreSQL/S3 workflow in the File Manager plan.
 
-### macOS
+### Legacy Supabase helper reference
+
+The operating-system helpers below are retained for the 0.1.x runtime and legacy File Manager debugging. They start Supabase, not the new PostgreSQL/AIStor stack, and do not boot this migration branch by themselves.
+
+#### macOS
 
 1. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/), choosing the download for your Mac's Apple silicon or Intel chip.
 2. Open Docker from Applications, complete its first-launch setup, and wait until the Docker engine is running. Keep Docker Desktop open while using TomeCMS.
@@ -88,7 +95,7 @@ Once those checks pass, run:
 npm run dev:macos
 ```
 
-### Windows
+#### Windows
 
 1. Install [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/) with WSL 2 enabled and use Linux containers.
 2. Start Docker Desktop, complete its first-launch setup, and wait until the Docker engine is running.
@@ -300,6 +307,8 @@ After completion, restart TomeCMS, open `/install`, and use the existing `TOME_C
 
 Authenticated owners manage images at `/admin/media`. Version 1 accepts images only: JPEG, PNG, WebP, GIF, and AVIF, with a hard limit of 8 MB per file. SVG, video, audio, PDFs, and other documents are not supported.
 
+On this intermediate branch, those File Manager operations still call Supabase and are not part of the PostgreSQL content cutover. The next migration plan moves their metadata to PostgreSQL and bytes to the configured S3-compatible bucket before this branch can be treated as deployable.
+
 For cover images, use a 1600 × 900 px canvas when possible, with a recommended minimum of 1200 × 675 px. Aim for 2 MB or less for faster delivery; the hard upload limit remains 8 MB.
 
 ## Pages and Navigation
@@ -334,10 +343,14 @@ Draft Page menu items remain saved but hidden publicly. Publishing makes them vi
 | `/admin/navigation` | Header/Footer menus by language |
 | `/install` | First-run installation wizard |
 | `/api/install/status` | Installer readiness check |
-| `/api/install` | One-time installation endpoint |
-| `/api/posts` | Authenticated post API |
-| `/api/pages` | Authenticated Page list, CRUD, translation, and publication API |
-| `/api/navigation` | Authenticated menu list and replacement API |
+| `/api/install/enroll` | Begin the one-time Passkey installation ceremony |
+| `/api/install/finalize` | Finalize the owner and site installation |
+| `/api/admin/posts` | Authenticated Post list, CRUD, translation, and publication API |
+| `/api/admin/pages` | Authenticated Page list, CRUD, translation, and publication API |
+| `/api/admin/categories` | Authenticated Category management API |
+| `/api/admin/navigation` | Authenticated menu list and replacement API |
+| `/api/admin/settings` | Authenticated site settings API |
+| `/api/admin/profile` | Authenticated author profile API |
 | `/api/upload` | Retired upload endpoint; returns `410 Gone` |
 
 ## Deploy to a VPS
@@ -438,7 +451,8 @@ Run recovery only in a private terminal and do not copy the one-time URL or its 
 src/components/admin/   React editor and upload helpers
 src/components/blog/    Public blog components
 src/layouts/            Public and admin layouts
-src/lib/                Supabase clients
+src/server/             Better Auth, PostgreSQL services, migrations, and server boundaries
+src/lib/                Browser-safe helpers plus the temporary Supabase media client
 src/pages/              Blog, admin, and API routes
 src/types/              CMS types
 supabase/migrations/    Database and storage setup
