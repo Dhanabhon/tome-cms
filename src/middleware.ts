@@ -11,6 +11,21 @@ const SETUP_PATHS = new Set([
   '/api/install/finalize',
 ]);
 
+const LOCALIZED_HOME = /^\/(?:th|en)\/?$/;
+const LOCALIZED_POST = /^\/(?:th|en)\/blog\/[^/]+\/?$/;
+const LOCALIZED_PAGE = /^\/(?:th|en)\/(?!blog(?:\/|$))[^/]+\/?$/;
+const LEGACY_POST = /^\/blog\/[^/]+\/?$/;
+
+export function isBundledFrontendPath(pathname: string): boolean {
+  return pathname === '/'
+    || pathname === '/sitemap.xml'
+    || pathname === '/rss.xml'
+    || LOCALIZED_HOME.test(pathname)
+    || LOCALIZED_POST.test(pathname)
+    || LOCALIZED_PAGE.test(pathname)
+    || LEGACY_POST.test(pathname);
+}
+
 function isSetupBypass(pathname: string): boolean {
   return SETUP_PATHS.has(pathname)
     || pathname === '/api/auth'
@@ -84,6 +99,15 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
   const { getSiteSettings } = await import('./server/content/site-settings');
   const settings = await getSiteSettings();
   if (!settings) return installationRequired(context);
+  if (isBundledFrontendPath(context.url.pathname)) {
+    const { getServerEnv } = await import('./server/env');
+    if (getServerEnv().TOME_CMS_FRONTEND_MODE === 'headless') {
+      return new Response('Not found.\n', {
+        headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' },
+        status: 404,
+      });
+    }
+  }
   return routeConfiguredAdmin(context, next, settings);
 };
 
