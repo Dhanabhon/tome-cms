@@ -115,11 +115,16 @@ export interface PgDumpInvocation {
 
 export function directPgDumpInvocation(databaseUrl: string): PgDumpInvocation {
   const url = new URL(databaseUrl);
-  const queryPasswords = [...url.searchParams]
-    .filter(([key]) => key === 'password')
-    .map(([, value]) => value);
-  const password = queryPasswords.at(-1) ?? decodeURIComponent(url.password);
-  url.searchParams.delete('password');
+  let queryPassword = '';
+  const query = url.search.slice(1).split('&').filter((pair) => {
+    const separator = pair.indexOf('=');
+    const key = decodeURIComponent(pair.slice(0, separator < 0 ? pair.length : separator).replace(/\+/g, ' '));
+    if (key !== 'password') return true;
+    queryPassword = decodeURIComponent((separator < 0 ? '' : pair.slice(separator + 1)).replace(/\+/g, ' '));
+    return false;
+  }).join('&');
+  const password = queryPassword || decodeURIComponent(url.password);
+  url.search = query ? `?${query}` : '';
   url.password = '';
   const { DATABASE_URL: _databaseUrl, PGPASSWORD: _password, ...env } = process.env;
   return {
