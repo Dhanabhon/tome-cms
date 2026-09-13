@@ -2,10 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, readFile, realpath, rename, unlink } from 'node:fs/promises';
 import { dirname, join, posix, relative, resolve, sep } from 'node:path';
+import { parseEnv } from 'node:util';
 
 import { compareStableVersions, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
-import { runCommand } from './process.js';
+import { redactDiagnosticText, runCommand, type CommandResult } from './process.js';
 import type { InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
 import { runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
 
@@ -25,6 +26,20 @@ const defaults: UpdateDependencies = {
 const active = new WeakSet<UpdaterStateStore>();
 const terminal = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery']);
 const migrationInventoryScript = "import { migrations } from '/app/src/server/db/migrator.ts'; process.stdout.write(JSON.stringify(Object.keys(migrations)));";
+const secretName = /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/i;
+
+type CommandStage =
+  | 'preflight.app.list' | 'preflight.app.inspect' | 'download.image'
+  | 'verify.migration_inventory' | 'quiesce.stop_app' | 'backup.create'
+  | 'migration.apply' | 'restart.start_app' | 'rollback.start_app'
+  | 'cleanup.one_shot.list' | 'cleanup.one_shot.remove'
+  | 'reconcile.app.list' | 'reconcile.app.inspect';
+
+interface DiagnosticContext {
+  jobId: string;
+  targetVersion: string;
+  secrets: readonly string[] | null;
+}
 
 type UpdateInput = {
   version: string;
@@ -70,7 +85,8 @@ export async function applyUpdate(input: UpdateInput): Promise<UpdateJob> {
 async function transact(input: UpdateInput, installed: InstalledState, job: UpdateJob): Promise<UpdateJob> {
   const { config, state } = input;
   const dependencies = { ...defaults, ...input.dependencies };
-  const command = commandRunner(dependencies);
+  const diagnostics: DiagnosticContext = { jobId: job.id, targetVersion: job.targetVersion, secrets: null };
+  const command = commandRunner(dependencies, diagnostics);
   const compose = composePrefix(config);
   const names = oneShotNames(config.projectName, job.id);
   let verified: VerifiedRelease | undefined;
@@ -80,20 +96,20 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
   try {
     const identity = updaterIdentity();
     // Target-dependent preflight belongs to verifyTargetRelease, which invokes Task 7's full gate.
-    await localPreflight(config, installed, dependencies);
+    await localPreflight(config, installed, dependencies, diagnostics);
     errorCode = 'release_unavailable';
     await state.transitionJob(job.id, 'verifying');
     verified = await dependencies.verifyTargetRelease({
       version: input.version, installed, updaterVersion: input.updaterVersion, config,
     });
     await state.transitionJob(job.id, 'downloading', { targetImageDigest: verified.manifest.image.digest });
-    await command(['pull', verified.imageReference], 15 * 60_000);
+    await command('download.image', ['pull', verified.imageReference], 15 * 60_000);
     errorCode = 'incompatible_update';
     const inventory = await runOneShot(names.inventory, [
       'run', '--rm', '--name', names.inventory, '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
       '--security-opt', 'no-new-privileges', '--entrypoint', 'node', verified.imageReference,
       '--import', 'tsx', '--input-type=module', '-e', migrationInventoryScript,
-    ], 30_000, dependencies);
+    ], 30_000, dependencies, diagnostics, 'verify.migration_inventory');
     verifyMigrationInventory(inventory, verified.manifest.compatibility.targetMigration);
 
     errorCode = 'backup_failed';
@@ -101,13 +117,13 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await state.transitionJob(job.id, 'quiescing');
     quiesced = true;
     await dependencies.sleep(2_000);
-    await command([...compose, 'stop', '--timeout', '30', 'app'], 30_000);
+    await command('quiesce.stop_app', [...compose, 'stop', '--timeout', '30', 'app'], 30_000);
     await state.transitionJob(job.id, 'backing_up');
     const output = await runOneShot(names.backup, [
       ...compose, 'run', '--rm', '--name', names.backup, '--no-deps', '--user', identity,
       '--volume', `${config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--',
       '--offline', '--direct', '--json', '--output-root', '/backups',
-    ], 60 * 60_000, dependencies);
+    ], 60 * 60_000, dependencies, diagnostics, 'backup.create');
     const backup = await validateBackup(output, config, installed.version);
     // Persist the recovery reference before image selection can change (including a crash here).
     await state.recordBackup(job.id, backup);
@@ -116,10 +132,10 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await state.transitionJob(job.id, 'migrating');
     migrationStarted = true;
     await runOneShot(names.migration, [...compose, 'run', '--rm', '--name', names.migration, '--no-deps',
-      'app', 'npm', 'run', 'db:migrate'], 15 * 60_000, dependencies);
+      'app', 'npm', 'run', 'db:migrate'], 15 * 60_000, dependencies, diagnostics, 'migration.apply');
     errorCode = 'health_failed';
     await state.transitionJob(job.id, 'restarting');
-    await startApp(config, dependencies);
+    await startApp(config, dependencies, diagnostics, 'restart.start_app');
     await state.transitionJob(job.id, 'health_check');
     await awaitReadiness(config, dependencies);
     await state.writeInstalled({ ...installed, version: input.version,
@@ -136,7 +152,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
       await state.transitionJob(job.id, 'rolling_back', { errorCode });
       if (quiesced) {
         await writeImageEnvironment(config.imageEnvironmentFile, installed.imageDigest);
-        await startApp(config, dependencies);
+        await startApp(config, dependencies, diagnostics, 'rollback.start_app');
         await awaitReadiness(config, dependencies);
         // installed.json may have committed immediately before the final status write failed.
         if ((await state.readInstalled()).imageDigest !== installed.imageDigest) await state.writeInstalled(installed);
@@ -157,10 +173,13 @@ export async function reconcileUpdate(input: {
 }): Promise<UpdateJob | null> {
   const job = await input.state.readJob();
   const dependencies = { ...defaults, ...input.dependencies };
+  const diagnostics: DiagnosticContext | null = job ? {
+    jobId: job.id, targetVersion: job.targetVersion, secrets: await diagnosticSecrets(input.config.environmentFile).catch(() => null),
+  } : null;
   if (!job || terminal.has(job.phase)) {
     if (job?.phase === 'failed_manual_recovery') {
       try {
-        for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies);
+        for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies, false, diagnostics!);
         console.info('Manual-recovery one-shot cleanup verified; operator repair still required');
       } catch {
         console.error('Manual-recovery one-shot cleanup could not be verified');
@@ -171,9 +190,9 @@ export async function reconcileUpdate(input: {
   }
   try {
     // Docker CLI death does not imply container death, including after a host-service restart.
-    for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies);
+    for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies, false, diagnostics!);
     const configured = await readFile(input.config.imageEnvironmentFile, 'utf8');
-    const runningImage = await inspectRunningApp(input.config, dependencies);
+    const runningImage = await inspectRunningApp(input.config, dependencies, diagnostics!, 'reconcile');
     const targetRunning = job.targetImageDigest !== null &&
       configured === imageEnvironment(job.targetImageDigest) &&
       runningImage === `${OFFICIAL_IMAGE_REPOSITORY}@${job.targetImageDigest}`;
@@ -224,30 +243,42 @@ class OneShotCleanupError extends Error {
   constructor() { super('One-shot container cleanup could not be verified'); }
 }
 
-async function runOneShot(name: string, args: readonly string[], timeoutMs: number, dependencies: UpdateDependencies): Promise<string> {
+async function runOneShot(
+  name: string,
+  args: readonly string[],
+  timeoutMs: number,
+  dependencies: UpdateDependencies,
+  diagnostics: DiagnosticContext,
+  stage: CommandStage,
+): Promise<string> {
   let output: string;
   try {
-    output = await commandRunner(dependencies)(args, timeoutMs);
+    output = await commandRunner(dependencies, diagnostics)(stage, args, timeoutMs);
   } catch (error) {
-    await cleanOneShot(name, dependencies, true);
+    await cleanOneShot(name, dependencies, true, diagnostics);
     throw error;
   }
   // --rm should have completed before the attached CLI exits successfully.
-  if (await cleanOneShot(name, dependencies)) throw new Error('One-shot container outlived successful CLI');
+  if (await cleanOneShot(name, dependencies, false, diagnostics)) throw new Error('One-shot container outlived successful CLI');
   return output;
 }
 
-async function cleanOneShot(name: string, dependencies: UpdateDependencies, force = false): Promise<boolean> {
-  const command = commandRunner(dependencies);
+async function cleanOneShot(
+  name: string,
+  dependencies: UpdateDependencies,
+  force: boolean,
+  diagnostics: DiagnosticContext,
+): Promise<boolean> {
+  const command = commandRunner(dependencies, diagnostics);
   const probe = ['ps', '--all', '--filter', `name=^/${name}$`, '--format', '{{.Names}}'];
-  const remove = () => dependencies.runCommand('docker', ['rm', '--force', name], { timeoutMs: 30_000 }).catch(() => undefined);
+  const remove = () => command('cleanup.one_shot.remove', ['rm', '--force', name], 30_000).catch(() => undefined);
   try {
     if (force) await remove();
-    const output = (await command(probe, 30_000)).trim();
+    const output = (await command('cleanup.one_shot.list', probe, 30_000)).trim();
     if (!output) return false;
     if (output !== name || force) throw new OneShotCleanupError();
     await remove();
-    if ((await command(probe, 30_000)).trim()) throw new OneShotCleanupError();
+    if ((await command('cleanup.one_shot.list', probe, 30_000)).trim()) throw new OneShotCleanupError();
     return true;
   } catch {
     // A failed removal is safe only if a successful daemon query proves absence.
@@ -260,12 +291,42 @@ function composePrefix(config: UpdaterConfig): string[] {
     '--env-file', config.environmentFile, '--env-file', config.imageEnvironmentFile];
 }
 
-function commandRunner(dependencies: UpdateDependencies) {
-  return async (args: readonly string[], timeoutMs: number): Promise<string> => {
-    const result = await dependencies.runCommand('docker', args, { timeoutMs });
-    if (result.code !== 0) throw new Error('Updater command failed');
+function commandRunner(dependencies: UpdateDependencies, diagnostics: DiagnosticContext) {
+  return async (stage: CommandStage, args: readonly string[], timeoutMs: number): Promise<string> => {
+    let result: CommandResult;
+    try {
+      result = await dependencies.runCommand('docker', args, { timeoutMs });
+    } catch {
+      logCommandFailure(diagnostics, stage, null);
+      throw new Error('Updater command failed');
+    }
+    if (result.code !== 0) {
+      logCommandFailure(diagnostics, stage, result);
+      throw new Error('Updater command failed');
+    }
     return result.stdout;
   };
+}
+
+function logCommandFailure(diagnostics: DiagnosticContext, stage: CommandStage, result: CommandResult | null): void {
+  const timedOut = result !== null && (result.timedOut ?? result.code === 124);
+  const streams = diagnostics.secrets === null
+    ? { stdout: '[omitted: secrets unavailable]', stderr: '[omitted: secrets unavailable]' }
+    : {
+        stdout: redactDiagnosticText(result?.stdout, diagnostics.secrets),
+        stderr: redactDiagnosticText(result?.stderr, diagnostics.secrets),
+      };
+  try {
+    console.error(JSON.stringify({
+      event: 'updater_command_failed', jobId: diagnostics.jobId, targetVersion: diagnostics.targetVersion,
+      executable: 'docker', stage, errorClass: result === null ? 'spawn_error' :
+        (timedOut ? 'timeout' : 'exit_nonzero'),
+      exitCode: result?.code ?? null, timedOut,
+      signal: result?.signal ?? null, ...streams,
+    }));
+  } catch {
+    // Diagnostics must never replace transaction cleanup or rollback.
+  }
 }
 
 function updaterIdentity(): string {
@@ -277,7 +338,12 @@ function updaterIdentity(): string {
   return `${uid}:${gid}`;
 }
 
-async function localPreflight(config: UpdaterConfig, installed: InstalledState, dependencies: UpdateDependencies): Promise<void> {
+async function localPreflight(
+  config: UpdaterConfig,
+  installed: InstalledState,
+  dependencies: UpdateDependencies,
+  diagnostics: DiagnosticContext,
+): Promise<void> {
   for (const [path, directory] of [
     [config.composeFile, false], [config.environmentFile, false], [config.imageEnvironmentFile, false],
     [config.stateDirectory, true], [config.backupDirectory, true],
@@ -287,23 +353,30 @@ async function localPreflight(config: UpdaterConfig, installed: InstalledState, 
       throw new Error('Invalid managed prerequisite');
     }
   }
+  diagnostics.secrets = await diagnosticSecrets(config.environmentFile);
   if (await readFile(config.imageEnvironmentFile, 'utf8') !== imageEnvironment(installed.imageDigest)) {
     throw new Error('Installed and configured image disagree');
   }
-  if (await inspectRunningApp(config, dependencies) !== `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`) {
+  if (await inspectRunningApp(config, dependencies, diagnostics, 'preflight') !== `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`) {
     throw new Error('Running application image does not match installed image');
   }
 }
 
-async function inspectRunningApp(config: UpdaterConfig, dependencies: UpdateDependencies): Promise<string> {
-  const command = commandRunner(dependencies);
-  const containerIds = (await command([...composePrefix(config), 'ps', '--quiet', 'app'], 30_000)).trim().split(/\s+/).filter(Boolean);
+async function inspectRunningApp(
+  config: UpdaterConfig,
+  dependencies: UpdateDependencies,
+  diagnostics: DiagnosticContext,
+  phase: 'preflight' | 'reconcile',
+): Promise<string> {
+  const command = commandRunner(dependencies, diagnostics);
+  const containerIds = (await command(`${phase}.app.list`, [...composePrefix(config), 'ps', '--quiet', 'app'], 30_000))
+    .trim().split(/\s+/).filter(Boolean);
   if (containerIds.length !== 1 || !/^[0-9a-f]{64}$/.test(containerIds[0]!)) {
     throw new Error('Expected exactly one valid running application container');
   }
   let inspection: unknown;
   try {
-    inspection = JSON.parse(await command(['inspect', '--type', 'container', containerIds[0]!], 30_000));
+    inspection = JSON.parse(await command(`${phase}.app.inspect`, ['inspect', '--type', 'container', containerIds[0]!], 30_000));
   } catch (error) {
     if (error instanceof SyntaxError) throw new Error('Application container inspection is not valid JSON');
     throw error;
@@ -321,6 +394,25 @@ async function inspectRunningApp(config: UpdaterConfig, dependencies: UpdateDepe
     throw new Error('Application container image is unavailable');
   }
   return (containerConfig as Record<string, unknown>).Image as string;
+}
+
+async function diagnosticSecrets(environmentFile: string): Promise<string[]> {
+  const configured = parseEnv(await readFile(environmentFile, 'utf8'));
+  const values: string[] = [];
+  for (const [name, value] of [...Object.entries(process.env), ...Object.entries(configured)]) {
+    if (!value || !secretName.test(name)) continue;
+    values.push(value);
+    if (name.toUpperCase().includes('DATABASE_URL')) {
+      try {
+        const url = new URL(value);
+        if (url.password) values.push(url.password, decodeURIComponent(url.password));
+        for (const [key, parameter] of url.searchParams) {
+          if (parameter && secretName.test(key)) values.push(parameter);
+        }
+      } catch { /* The full malformed value is still redacted. */ }
+    }
+  }
+  return [...new Set(values)];
 }
 
 function verifyMigrationInventory(output: string, target: string): void {
@@ -391,8 +483,14 @@ async function writeImageEnvironment(path: string, digest: string): Promise<void
   }
 }
 
-async function startApp(config: UpdaterConfig, dependencies: UpdateDependencies): Promise<void> {
-  await commandRunner(dependencies)([...composePrefix(config), 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '90', 'app'], 90_000);
+async function startApp(
+  config: UpdaterConfig,
+  dependencies: UpdateDependencies,
+  diagnostics: DiagnosticContext,
+  stage: 'restart.start_app' | 'rollback.start_app',
+): Promise<void> {
+  await commandRunner(dependencies, diagnostics)(stage,
+    [...composePrefix(config), 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '90', 'app'], 90_000);
 }
 
 async function awaitReadiness(config: UpdaterConfig, dependencies: UpdateDependencies): Promise<void> {

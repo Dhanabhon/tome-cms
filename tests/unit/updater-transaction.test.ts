@@ -11,7 +11,7 @@ import test from 'node:test';
 import { OFFICIAL_IMAGE_REPOSITORY, type UpdateManifest } from '../../src/update/contracts.js';
 import type { UpdaterConfig } from '../../src/updater/config.js';
 import { createUpdaterServer, removeStaleUpdaterSocket } from '../../src/updater/server.js';
-import { createUpdaterStateStore, type InstalledState } from '../../src/updater/state.js';
+import { createUpdaterStateStore, toPublicUpdateJob, type InstalledState } from '../../src/updater/state.js';
 import { applyUpdate, reconcileUpdate, type UpdateDependencies } from '../../src/updater/transaction.js';
 
 const previous: InstalledState = {
@@ -187,6 +187,49 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   assert.deepEqual(commands[4], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-migration`, '--no-deps', 'app', 'npm', 'run', 'db:migrate'], timeoutMs: 900000 });
   assert.deepEqual(commands[5], { args: [...prefix, 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '90', 'app'], timeoutMs: 90000 });
   assert.deepEqual(f.lifecycle, ['inventory', 'backup', 'migration'].map((kind) => `check:tomecms-update-${job.id}-${kind}`));
+});
+
+test('journals one bounded stage diagnostic while public update state stays enumerated', async (t) => {
+  const f = await fixture(t);
+  const secret = 'private:"value+/ with spaces?&=';
+  const runtimeSecret = 'runtime-private-token-with-a-distinct-value';
+  process.env.TOME_CMS_RUNTIME_SECRET = runtimeSecret;
+  t.after(() => { delete process.env.TOME_CMS_RUNTIME_SECRET; });
+  await writeFile(f.input.config.environmentFile, `TOME_CMS_INSTALL_TOKEN='${secret}'\n`);
+  const forms = [secret, runtimeSecret].flatMap((value) => [value, encodeURIComponent(value), encodeURI(value),
+    new URLSearchParams({ value }).toString().slice('value='.length),
+    JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'),
+    Buffer.from(value).toString('base64url')]);
+  const run = f.input.dependencies.runCommand;
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    if (args.includes('db:migrate')) {
+      return { code: 124, timedOut: true, signal: 'SIGKILL',
+        stdout: `${forms.join('\n')}\n${'x'.repeat(16 * 1024)}`, stderr: forms.join('\n') };
+    }
+    return run(executable, args, options);
+  };
+  const messages: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { messages.push(String(message)); });
+
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(messages.length, 1);
+  const diagnostic = JSON.parse(messages[0]!) as Record<string, unknown>;
+  assert.deepEqual({ event: diagnostic.event, jobId: diagnostic.jobId, targetVersion: diagnostic.targetVersion,
+    executable: diagnostic.executable, stage: diagnostic.stage, exitCode: diagnostic.exitCode,
+    timedOut: diagnostic.timedOut, signal: diagnostic.signal }, {
+    event: 'updater_command_failed', jobId: job.id, targetVersion: '1.0.1', executable: 'docker',
+    stage: 'migration.apply', exitCode: 124, timedOut: true, signal: 'SIGKILL',
+  });
+  assert.equal('args' in diagnostic, false);
+  assert.ok(forms.every((form) => !messages[0]!.includes(form)));
+  assert.ok(Buffer.byteLength(String(diagnostic.stdout)) <= 4 * 1024);
+  assert.ok(Buffer.byteLength(String(diagnostic.stderr)) <= 4 * 1024);
+  assert.ok(Buffer.byteLength(messages[0]!) < 16 * 1024);
+  const publicJob = JSON.stringify(toPublicUpdateJob(job));
+  assert.ok(forms.every((form) => !publicJob.includes(form)));
+  assert.equal(publicJob.includes('stdout'), false);
+  assert.equal(publicJob.includes('stderr'), false);
 });
 
 test('uses the configured project identity for Compose and one-shot resources', async (t) => {
