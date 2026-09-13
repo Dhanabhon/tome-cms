@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  release:
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+      packages: write
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/dhanabhon/tome-cms
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate tag and package version
+        id: release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Tag must be vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          PACKAGE_VERSION="$(node -p 'require(\"./package.json\").version')"
+          test "$VERSION" = "$PACKAGE_VERSION"
+          printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check
+        run: npm run check
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable multi-architecture image
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            TOME_CMS_VERSION=${{ steps.release.outputs.version }}
+            TOME_CMS_COMMIT_SHA=${{ github.sha }}
+          outputs: type=image,name=${{ env.IMAGE }},push=true,push-by-digest=true,name-canonical=true
+
+      - name: Capture immutable image digest
+        id: image-digest
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -eu
+          case "$DIGEST" in sha256:[0-9a-f][0-9a-f]*) ;; *) exit 1 ;; esac
+          printf 'value=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Attest OCI image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.image-digest.outputs.value }}
+          push-to-registry: true
+
+      - name: Generate release manifest
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          COMMIT: ${{ github.sha }}
+          DIGEST: ${{ steps.image-digest.outputs.value }}
+        run: |
+          npm run release:manifest -- \
+            --package-version "$VERSION" \
+            --tag "v$VERSION" \
+            --commit "$COMMIT" \
+            --digest "$DIGEST" \
+            --released-at "$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')" \
+            --minimum-direct-upgrade-from 1.0.0 \
+            --minimum-updater-version 1.0.0 \
+            --target-migration 007_preview_tokens \
+            --rollback-safe-from 1.0.0 \
+            --output update-manifest.json
+
+      - name: Attest release manifest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: update-manifest.json
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" update-manifest.json --generate-notes --title "TomeCMS ${TAG#v}"
