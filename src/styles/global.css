@@ -38,6 +38,11 @@
 .admin-shell-email { overflow-wrap: anywhere; color: var(--color-muted); font-size: var(--text-xs); }
 .admin-shell-account .admin-form-error:empty { display: none; }
 .admin-form-page { max-width: 52rem; }
+.update-card { display: grid; gap: var(--space-md); margin-top: var(--space-xl); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-border); background: var(--color-paper); }
+.update-version { margin: var(--space-2xs) 0 0; color: var(--color-muted); }
+.update-status { margin: 0; color: var(--color-ink-2); font-weight: 600; }
+.update-status[data-status='available'] { color: var(--color-accent); }
+.update-status[data-status='manual-transition'], .update-status[data-status='unavailable'] { color: var(--color-error-ink); }
 .admin-settings-form { display: grid; gap: var(--space-md); margin-top: var(--space-xl); }
 .admin-settings-form fieldset { display: grid; min-width: 0; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
 .admin-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
