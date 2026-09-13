@@ -42,7 +42,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     setError('');
     setLiveStatus(`Creating “${name}”…`);
     try {
-      const response = await fetch('/api/categories', {
+      const response = await fetch('/api/admin/categories', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -72,7 +72,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     setError('');
     setLiveStatus(`Renaming Category to “${name}”…`);
     try {
-      const response = await fetch('/api/categories', {
+      const response = await fetch('/api/admin/categories', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, name }),
@@ -113,7 +113,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
     setLiveStatus(`Deleting “${category.name}”…`);
     let affectedPosts: number | null = null;
     try {
-      const response = await fetch('/api/categories', {
+      const response = await fetch('/api/admin/categories', {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id: category.id }),
@@ -127,7 +127,7 @@ export default function CategoryManager({ initialCategories }: CategoryManagerPr
       setCategories((current) => current.filter(({ id }) => id !== category.id));
       while (true) {
         const refreshRevision = categoryRevision.current;
-        const refreshResponse = await fetch('/api/categories');
+        const refreshResponse = await fetch('/api/admin/categories');
         const refreshBody = await refreshResponse.json().catch(() => null) as { categories?: PostCategorySummary[]; error?: string } | null;
         if (refreshRevision !== categoryRevision.current) continue;
         if (!refreshResponse.ok || !refreshBody?.categories) {

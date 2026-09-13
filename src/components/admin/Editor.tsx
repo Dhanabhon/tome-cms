@@ -112,7 +112,7 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
     postId.current = savedPost.id;
     // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
-    const membershipResponse = await fetch('/api/posts/categories', {
+    const membershipResponse = await fetch('/api/admin/posts/categories', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ postId: savedPost.id, categoryIds: selectedCategoryIds }),

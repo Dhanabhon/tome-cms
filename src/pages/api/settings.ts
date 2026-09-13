@@ -14,12 +14,12 @@ const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 export const PUT: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
+    const current = await requireOwner(request.headers);
     try {
       assertSameOrigin(request, configuredOrigin);
     } catch {
       throw new HttpError(403, 'Request origin is not allowed.');
     }
-    const current = await requireOwner(request.headers);
     const input = await parseJson(request, siteSettingsMutationSchema);
     const settings = await updateSiteSettings(current.user.id, input);
     return Response.json({ settings }, {

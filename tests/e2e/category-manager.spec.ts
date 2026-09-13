@@ -68,7 +68,7 @@ test('creates and renames alphabetically while preserving recoverable input and 
     const input = page.getByLabel('Category name', { exact: true });
     let releaseCreate = () => {};
     const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
       await createGate;
       await route.continue();
@@ -94,7 +94,7 @@ test('creates and renames alphabetically while preserving recoverable input and 
     const renameInput = page.getByLabel('Category name for Alpha');
     await expect(renameInput).toBeFocused();
     await renameInput.fill('Beta');
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'PUT') return route.continue();
       await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Rename is temporarily unavailable.' }) });
     }, { times: 1 });
@@ -128,7 +128,7 @@ test('keeps every overlapping action pending until its own request completes', a
     await page.goto('/admin/categories');
 
     const renameGate = new Promise<void>((resolve) => { releaseRename = resolve; });
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'PUT') return route.continue();
       await renameGate;
       await route.continue();
@@ -168,7 +168,7 @@ test('a completed rename does not discard a newer inline edit', async ({ page })
     await page.goto('/admin/categories');
 
     const renameGate = new Promise<void>((resolve) => { releaseRename = resolve; });
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'PUT') return route.continue();
       await renameGate;
       await route.continue();
@@ -205,7 +205,7 @@ test('a stale deletion refresh cannot overwrite a newer successful mutation', as
     const refreshCaptured = new Promise<void>((resolve) => { markRefreshCaptured = resolve; });
     const refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
     let capturedFirstRefresh = false;
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'GET' || capturedFirstRefresh) return route.continue();
       capturedFirstRefresh = true;
       const staleResponse = await route.fetch();
@@ -284,7 +284,7 @@ test('confirms non-optimistic deletion, supports retry, and fits long names at 3
     await expect(categoryRow(page, 'Research')).toBeVisible();
     await expect(deleteButton).toBeFocused();
 
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'DELETE') return route.continue();
       await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Delete is temporarily unavailable.' }) });
     }, { times: 1 });
@@ -296,7 +296,7 @@ test('confirms non-optimistic deletion, supports retry, and fits long names at 3
 
     let releaseDelete = () => {};
     const deleteGate = new Promise<void>((resolve) => { releaseDelete = resolve; });
-    await page.route('**/api/categories', async (route) => {
+    await page.route('**/api/admin/categories', async (route) => {
       if (route.request().method() !== 'DELETE') return route.continue();
       await deleteGate;
       await route.continue();

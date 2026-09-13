@@ -40,19 +40,19 @@ async function cleanup(...owners: TestOwner[]) {
 test('requires authentication and rejects malformed or server-owned payloads', async ({ page, request }) => {
   const id = crypto.randomUUID();
   for (const response of [
-    await request.get('/api/categories'),
-    await request.post('/api/categories', { data: { name: 'News' } }),
-    await request.put('/api/categories', { data: { id, name: 'News' } }),
-    await request.delete('/api/categories', { data: { id } }),
-    await request.put('/api/posts/categories', { data: { postId: id, categoryIds: [] } }),
+    await request.get('/api/admin/categories'),
+    await request.post('/api/admin/categories', { data: { name: 'News' } }),
+    await request.put('/api/admin/categories', { data: { id, name: 'News' } }),
+    await request.delete('/api/admin/categories', { data: { id } }),
+    await request.put('/api/admin/posts/categories', { data: { postId: id, categoryIds: [] } }),
   ]) expect(response.status()).toBe(401);
 
   const owner = await createOwner('category-validation');
   try {
     await signInAdmin(page, owner);
-    for (const path of ['/api/categories', '/api/posts/categories']) {
+    for (const path of ['/api/admin/categories', '/api/admin/posts/categories']) {
       const malformed = await page.request.fetch(path, {
-        method: path === '/api/categories' ? 'POST' : 'PUT',
+        method: path === '/api/admin/categories' ? 'POST' : 'PUT',
         data: Buffer.from('{'),
         headers: { 'content-type': 'application/json' },
       });
@@ -60,20 +60,20 @@ test('requires authentication and rejects malformed or server-owned payloads', a
     }
 
     for (const field of ['owner_id', 'ownerId', 'translation_group_id', 'is_default']) {
-      const response = await page.request.post('/api/categories', { data: { name: 'News', [field]: owner.id } });
+      const response = await page.request.post('/api/admin/categories', { data: { name: 'News', [field]: owner.id } });
       expect(response.status(), field).toBe(400);
     }
 
     const invalidCategoryRequests = [
-      page.request.post('/api/categories', { data: { name: '' } }),
-      page.request.post('/api/categories', { data: { name: '   ' } }),
-      page.request.post('/api/categories', { data: { name: 'x'.repeat(81) } }),
-      page.request.put('/api/categories', { data: { id: 'invalid', name: 'News' } }),
-      page.request.put('/api/categories', { data: { id, name: ' ' } }),
-      page.request.put('/api/categories', { data: { id, name: 'x'.repeat(81) } }),
-      page.request.put('/api/categories', { data: { id, name: 'News', ownerId: owner.id } }),
-      page.request.delete('/api/categories', { data: { id: 'invalid' } }),
-      page.request.delete('/api/categories', { data: { id, owner_id: owner.id } }),
+      page.request.post('/api/admin/categories', { data: { name: '' } }),
+      page.request.post('/api/admin/categories', { data: { name: '   ' } }),
+      page.request.post('/api/admin/categories', { data: { name: 'x'.repeat(81) } }),
+      page.request.put('/api/admin/categories', { data: { id: 'invalid', name: 'News' } }),
+      page.request.put('/api/admin/categories', { data: { id, name: ' ' } }),
+      page.request.put('/api/admin/categories', { data: { id, name: 'x'.repeat(81) } }),
+      page.request.put('/api/admin/categories', { data: { id, name: 'News', ownerId: owner.id } }),
+      page.request.delete('/api/admin/categories', { data: { id: 'invalid' } }),
+      page.request.delete('/api/admin/categories', { data: { id, owner_id: owner.id } }),
     ];
     for (const response of await Promise.all(invalidCategoryRequests)) expect(response.status()).toBe(400);
 
@@ -86,7 +86,7 @@ test('requires authentication and rejects malformed or server-owned payloads', a
       { postId: id, categoryIds: [], owner_id: owner.id },
     ];
     for (const data of invalidMemberships) {
-      expect((await page.request.put('/api/posts/categories', { data })).status(), JSON.stringify(data)).toBe(400);
+      expect((await page.request.put('/api/admin/posts/categories', { data })).status(), JSON.stringify(data)).toBe(400);
     }
   } finally {
     await cleanup(owner);
@@ -119,7 +119,7 @@ test('returns every Category and counts assignments beyond Data API row limits',
     if (assignmentError) throw assignmentError;
 
     await signInAdmin(page, owner);
-    const response = await page.request.get('/api/categories');
+    const response = await page.request.get('/api/admin/categories');
     expect(response.status()).toBe(200);
     const listed = (await response.json()).categories as Array<PostCategory & { postCount: number }>;
     expect.soft(listed).toHaveLength(102);
@@ -142,26 +142,26 @@ test('lists logical-group counts and scopes Category create, rename, and delete'
     if (foreignError || !foreignCategory) throw foreignError ?? new Error('Foreign Category was not created.');
 
     await signInAdmin(page, owner);
-    const alphaResponse = await page.request.post('/api/categories', { data: { name: '  Alpha  ' } });
+    const alphaResponse = await page.request.post('/api/admin/categories', { data: { name: '  Alpha  ' } });
     expect(alphaResponse.status()).toBe(201);
     const alpha = (await alphaResponse.json()).category as PostCategory & { postCount: number };
     expect(alpha).toMatchObject({ name: 'Alpha', owner_id: owner.id, is_default: false, postCount: 0 });
-    const zetaResponse = await page.request.post('/api/categories', { data: { name: 'Zeta' } });
+    const zetaResponse = await page.request.post('/api/admin/categories', { data: { name: 'Zeta' } });
     expect(zetaResponse.status()).toBe(201);
     const zeta = (await zetaResponse.json()).category as PostCategory;
 
-    const duplicate = await page.request.post('/api/categories', { data: { name: 'aLPHa' } });
+    const duplicate = await page.request.post('/api/admin/categories', { data: { name: 'aLPHa' } });
     expect(duplicate.status()).toBe(409);
     expect(await duplicate.text()).not.toMatch(/categories_owner_name_key|duplicate key|23505/i);
 
-    expect((await page.request.put('/api/posts/categories', {
+    expect((await page.request.put('/api/admin/posts/categories', {
       data: { postId: firstPost.id, categoryIds: [alpha.id] },
     })).status()).toBe(200);
-    expect((await page.request.put('/api/posts/categories', {
+    expect((await page.request.put('/api/admin/posts/categories', {
       data: { postId: secondPost.id, categoryIds: [alpha.id, zeta.id] },
     })).status()).toBe(200);
 
-    const listed = await page.request.get('/api/categories');
+    const listed = await page.request.get('/api/admin/categories');
     expect(listed.status()).toBe(200);
     const categories = (await listed.json()).categories as Array<PostCategory & { postCount: number }>;
     expect(categories.map(({ name, postCount }) => ({ name, postCount }))).toEqual([
@@ -171,19 +171,19 @@ test('lists logical-group counts and scopes Category create, rename, and delete'
     ]);
 
     const fallback = categories[0];
-    const renamed = await page.request.put('/api/categories', { data: { id: zeta.id, name: '  Beta  ' } });
+    const renamed = await page.request.put('/api/admin/categories', { data: { id: zeta.id, name: '  Beta  ' } });
     expect(renamed.status()).toBe(200);
     expect((await renamed.json()).category.name).toBe('Beta');
-    expect((await page.request.put('/api/categories', { data: { id: zeta.id, name: 'ALPHA' } })).status()).toBe(409);
-    expect((await page.request.put('/api/categories', { data: { id: zeta.id, name: 'Uncategorized' } })).status()).toBe(409);
-    expect((await page.request.put('/api/categories', { data: { id: fallback.id, name: 'Renamed default' } })).status()).toBe(409);
+    expect((await page.request.put('/api/admin/categories', { data: { id: zeta.id, name: 'ALPHA' } })).status()).toBe(409);
+    expect((await page.request.put('/api/admin/categories', { data: { id: zeta.id, name: 'Uncategorized' } })).status()).toBe(409);
+    expect((await page.request.put('/api/admin/categories', { data: { id: fallback.id, name: 'Renamed default' } })).status()).toBe(409);
     for (const target of [foreignCategory.id, crypto.randomUUID()]) {
-      expect((await page.request.put('/api/categories', { data: { id: target, name: 'Hidden' } })).status()).toBe(404);
-      expect((await page.request.delete('/api/categories', { data: { id: target } })).status()).toBe(404);
+      expect((await page.request.put('/api/admin/categories', { data: { id: target, name: 'Hidden' } })).status()).toBe(404);
+      expect((await page.request.delete('/api/admin/categories', { data: { id: target } })).status()).toBe(404);
     }
-    expect((await page.request.delete('/api/categories', { data: { id: fallback.id } })).status()).toBe(409);
+    expect((await page.request.delete('/api/admin/categories', { data: { id: fallback.id } })).status()).toBe(409);
 
-    const removed = await page.request.delete('/api/categories', { data: { id: alpha.id } });
+    const removed = await page.request.delete('/api/admin/categories', { data: { id: alpha.id } });
     expect(removed.status()).toBe(200);
     expect(await removed.json()).toEqual({ affectedPosts: 2 });
     expect(await categoryIds(owner, firstPost.translation_group_id)).toEqual([fallback.id]);
@@ -215,13 +215,13 @@ test('replaces Post membership atomically and hides foreign Posts and Categories
     const [first, second] = categories;
     await signInAdmin(page, owner);
 
-    const selected = await page.request.put('/api/posts/categories', {
+    const selected = await page.request.put('/api/admin/posts/categories', {
       data: { postId: post.id, categoryIds: [first.id] },
     });
     expect(selected.status()).toBe(200);
     expect(await selected.json()).toEqual({ categoryIds: [first.id] });
 
-    const { PUT } = await vite.ssrLoadModule('/src/pages/api/posts/categories.ts') as { PUT: APIRoute };
+    const { PUT } = await vite.ssrLoadModule('/src/pages/api/admin/posts/categories.ts') as { PUT: APIRoute };
     const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
     globalThis.fetch = async (input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
@@ -233,22 +233,22 @@ test('replaces Post membership atomically and hides foreign Posts and Categories
       return originalFetch(input, init);
     };
     const failed = await PUT(createContext({
-      request: new Request(new URL('/api/posts/categories', page.url()), {
+      request: new Request(new URL('/api/admin/posts/categories', page.url()), {
         method: 'PUT', headers: { cookie, 'content-type': 'application/json' },
         body: JSON.stringify({ postId: post.id, categoryIds: [second.id] }),
-      }), defaultLocale: 'en', locals: {},
+      }), defaultLocale: 'en', locals: { session: null, user: null },
     }));
     expect(failed.status).toBe(400);
     expect(await categoryIds(owner, post.translation_group_id)).toEqual([first.id]);
     globalThis.fetch = originalFetch;
 
     for (const target of [foreignPost.id, crypto.randomUUID()]) {
-      expect((await page.request.put('/api/posts/categories', {
+      expect((await page.request.put('/api/admin/posts/categories', {
         data: { postId: target, categoryIds: [] },
       })).status()).toBe(404);
     }
     for (const categoryId of [foreignCategory.id, crypto.randomUUID()]) {
-      expect((await page.request.put('/api/posts/categories', {
+      expect((await page.request.put('/api/admin/posts/categories', {
         data: { postId: post.id, categoryIds: [categoryId] },
       })).status()).toBe(400);
       expect(await categoryIds(owner, post.translation_group_id)).toEqual([first.id]);
@@ -271,8 +271,8 @@ test('maps provider failures to generic responses without leaking server details
   try {
     const post = await createPost(owner);
     await signInAdmin(page, owner);
-    const categoryHandlers = await vite.ssrLoadModule('/src/pages/api/categories/index.ts') as Record<'GET' | 'POST' | 'PUT' | 'DELETE', APIRoute>;
-    const membershipHandlers = await vite.ssrLoadModule('/src/pages/api/posts/categories.ts') as { PUT: APIRoute };
+    const categoryHandlers = await vite.ssrLoadModule('/src/pages/api/admin/categories/index.ts') as Record<'GET' | 'POST' | 'PUT' | 'DELETE', APIRoute>;
+    const membershipHandlers = await vite.ssrLoadModule('/src/pages/api/admin/posts/categories.ts') as { PUT: APIRoute };
     const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
     const privateDetails = `Supabase categories post_category_assignments SQL relation key token ${owner.id}`;
     globalThis.fetch = async (input, init) => {
@@ -293,10 +293,10 @@ test('maps provider failures to generic responses without leaking server details
     ] as const;
     for (const [method, handler, body] of calls) {
       const response = await handler(createContext({
-        request: new Request(new URL(method === 'PUT' && body && 'postId' in body ? '/api/posts/categories' : '/api/categories', page.url()), {
+        request: new Request(new URL(method === 'PUT' && body && 'postId' in body ? '/api/admin/posts/categories' : '/api/admin/categories', page.url()), {
           method, headers: { cookie, 'content-type': 'application/json' },
           ...(body ? { body: JSON.stringify(body) } : {}),
-        }), defaultLocale: 'en', locals: {},
+        }), defaultLocale: 'en', locals: { session: null, user: null },
       }));
       expect(response.status).toBe(500);
       const text = await response.text();
