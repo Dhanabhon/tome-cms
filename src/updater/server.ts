@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { lstat, unlink } from 'node:fs/promises';
+import { createConnection } from 'node:net';
 
 import { parseStableVersion } from '../update/contracts.js';
 import { toPublicUpdateJob, type UpdateJob, type UpdaterStateStore } from './state.js';
@@ -10,10 +12,37 @@ export interface ApplyRequest {
 
 const bodyLimit = 4 * 1024;
 
+export async function removeStaleUpdaterSocket(path: string): Promise<void> {
+  let metadata;
+  try { metadata = await lstat(path); } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return;
+    throw error;
+  }
+  if (!metadata.isSocket()) throw new Error('Updater socket path is not a socket');
+  await new Promise<void>((resolve, reject) => {
+    const socket = createConnection(path);
+    socket.setTimeout(1000);
+    socket.once('connect', () => { socket.destroy(); reject(new Error('Updater is already listening')); });
+    socket.once('timeout', () => { socket.destroy(); reject(new Error('Updater socket probe timed out')); });
+    socket.once('error', (error) => {
+      socket.destroy();
+      if ('code' in error && error.code === 'ECONNREFUSED') resolve();
+      else reject(error);
+    });
+  });
+  const current = await lstat(path);
+  if (!current.isSocket() || current.ino !== metadata.ino || current.dev !== metadata.dev) {
+    throw new Error('Updater socket changed during startup');
+  }
+  await unlink(path);
+}
+
 export function createUpdaterServer(input: {
   state: UpdaterStateStore;
   apply: (request: ApplyRequest) => Promise<UpdateJob>;
+  execute?: (request: ApplyRequest) => Promise<UpdateJob>;
 }): ReturnType<typeof createServer> {
+  let active = false;
   return createServer(async (request, response) => {
     try {
       if (request.url === '/v1/status' && request.method === 'GET') {
@@ -21,10 +50,33 @@ export function createUpdaterServer(input: {
       }
       if (request.url === '/v1/apply' && request.method === 'POST') {
         const applyRequest = parseApplyRequest(await readBody(request));
-        const current = await input.state.readJob();
-        if (current && !isTerminal(current.phase)) return json(response, 409, { error: 'update_in_progress' });
-        const job = await input.apply(applyRequest);
-        return json(response, 202, toPublicUpdateJob(job));
+        if (active) return json(response, 409, { error: 'update_in_progress' });
+        active = true;
+        let dispatched = false;
+        try {
+          const current = await input.state.readJob();
+          if (current?.phase === 'failed_manual_recovery') return json(response, 409, { error: 'manual_recovery_required' });
+          if (current && !isTerminal(current.phase)) return json(response, 409, { error: 'update_in_progress' });
+          if ((await input.state.readInstalled()).version === applyRequest.version) {
+            return json(response, 200, await publicStatus(input.state));
+          }
+          const job = await input.apply(applyRequest);
+          json(response, 202, toPublicUpdateJob(job));
+          if (input.execute) {
+            dispatched = true;
+            // Reserve durably before 202; run independently of the request/socket lifetime.
+            void Promise.resolve().then(() => input.execute!(applyRequest)).catch(async () => {
+              const latest = await input.state.readJob();
+              if (latest?.id === job.id && !isTerminal(latest.phase)) {
+                await input.state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' });
+              }
+            }).catch(() => { console.error('Updater recovery state could not be persisted'); })
+              .finally(() => { active = false; });
+          }
+          return;
+        } finally {
+          if (!dispatched) active = false;
+        }
       }
       if (request.url === '/v1/status' || request.url === '/v1/apply') {
         return json(response, 405, { error: 'method_not_allowed' });
@@ -34,6 +86,9 @@ export function createUpdaterServer(input: {
       if (error instanceof RequestError) return json(response, error.status, { error: error.code });
       if (error instanceof Error && /already active/i.test(error.message)) {
         return json(response, 409, { error: 'update_in_progress' });
+      }
+      if (error instanceof Error && /manual recovery/i.test(error.message)) {
+        return json(response, 409, { error: 'manual_recovery_required' });
       }
       return json(response, 500, { error: 'updater_unavailable' });
     }
