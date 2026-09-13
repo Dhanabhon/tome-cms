@@ -139,15 +139,17 @@ test('bootstrap waits for services, requires synchronous bucket initialization, 
   const license = join(directory, 'fixture.license');
   await writeFile(license, 'test fixture; commands are mocked, storage is never started');
   const log = join(directory, 'commands.log');
-  await writeFile(join(directory, 'docker'), '#!/bin/sh\nprintf "docker %s\\n" "$*" >> "$COMMAND_LOG"\ncase "$*" in *" ps "*) printf "[]";; *" up "*" postgres minio"*) [ "$FAIL_STEP" != services ] || exit 7;; *" run "*" minio-init"*) [ "$FAIL_STEP" != initializer ] || exit 7;; esac\n', { mode: 0o700 });
+  await writeFile(join(directory, 'docker'), '#!/bin/sh\nprintf "docker %s\\n" "$*" >> "$COMMAND_LOG"\ncase "$*" in *" ps "*) printf "[]";; *" up "*" postgres minio"*) [ "$FAIL_STEP" != services ] || exit 7;; *" run "*" minio-init"*) [ "$FAIL_STEP" != initializer ] || exit 7;; *" run "*" app npm run db:migrate"*) [ "$FAIL_STEP" != migration ] || exit 7;; esac\n', { mode: 0o700 });
   await writeFile(join(directory, 'npm'), '#!/bin/sh\nprintf "npm %s\\n" "$*" >> "$COMMAND_LOG"\n[ "$FAIL_STEP" != migration ]\n', { mode: 0o700 });
   const expected = [
+    'docker compose -f compose.yaml --env-file .env.local pull postgres minio minio-init',
     'docker compose -f compose.yaml --env-file .env.local up -d --wait postgres minio',
     'docker compose -f compose.yaml --env-file .env.local run --rm --no-deps minio-init',
-    'npm run db:migrate',
-    'docker compose -f compose.yaml --env-file .env.local --profile production up -d --wait --no-deps --build app',
+    'docker compose -f compose.yaml --env-file .env.local --profile production build app',
+    'docker compose -f compose.yaml --env-file .env.local --profile production run --rm --no-deps app npm run db:migrate',
+    'docker compose -f compose.yaml --env-file .env.local --profile production up -d --wait --no-deps app',
   ];
-  for (const [step, count] of [['services', 1], ['initializer', 2], ['migration', 3], ['', 4]] as const) {
+  for (const [step, count] of [['services', 2], ['initializer', 3], ['migration', 5], ['', 6]] as const) {
     await context.test(step || 'success', async () => {
       await writeFile(log, '');
       const result = spawnSync(process.execPath, [await realpath(script), '--production', '--force'], {
@@ -155,7 +157,7 @@ test('bootstrap waits for services, requires synchronous bucket initialization, 
         encoding: 'utf8', timeout: 10_000,
       });
       assert.equal(result.status, step ? 1 : 0, 'bootstrap returns the required command status');
-      const commands = (await readFile(log, 'utf8')).trim().split('\n').filter(line => / (up|run) /.test(line));
+      const commands = (await readFile(log, 'utf8')).trim().split('\n').filter(line => / (pull|up|run|build) /.test(line));
       assert.deepEqual(commands, expected.slice(0, count));
       const values = parseEnv(await readFile(join(repository, '.env.local'), 'utf8'));
       assert.equal(values.DATABASE_CONNECTION_TIMEOUT_MS, '4000');

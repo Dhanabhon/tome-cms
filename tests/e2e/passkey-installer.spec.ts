@@ -100,7 +100,7 @@ test('six-step installer preserves safe values and registers a primary Passkey',
         json: {
           installed: false,
           ready: true,
-          checks: { database: 'ready', migrations: 'ready', storage: 'deferred', relyingParty: 'ready' },
+          checks: { database: 'ready', migrations: 'ready', storage: 'ready', relyingParty: 'ready' },
           rp: { id: 'localhost', name: 'TomeCMS', origin: statusAttempts === 1 ? 'http://localhost:65530' : origin },
         },
         status: 200,

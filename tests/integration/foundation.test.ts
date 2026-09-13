@@ -15,11 +15,11 @@ test('foundation cleanup runs for the exact disposable project after startup fai
   const log = join(directory, 'docker.log');
   await writeFile(join(directory, 'docker'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FOUNDATION_COMMAND_LOG"\ncase "$*" in *" up "*) exit 7;; esac\n', { mode: 0o700 });
   const result = spawnSync(process.execPath, ['scripts/test-foundation.mjs'], {
-    env: { ...process.env, PATH: directory, FOUNDATION_COMMAND_LOG: log }, encoding: 'utf8', timeout: 10_000,
+    env: { ...process.env, PATH: directory, FOUNDATION_COMMAND_LOG: log, MINIO_LICENSE_FILE: '/dev/null' }, encoding: 'utf8', timeout: 10_000,
   });
   assert.equal(result.status, 1);
   assert.deepEqual((await readFile(log, 'utf8')).trim().split('\n'), [
-    'compose -p tomecms-foundation-test -f compose.test.yaml up -d --wait --wait-timeout 90 postgres',
+    'compose -p tomecms-foundation-test -f compose.test.yaml up -d --wait --wait-timeout 90 postgres minio',
     'compose -p tomecms-foundation-test -f compose.test.yaml down --volumes --remove-orphans',
   ]);
 });
@@ -31,7 +31,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
   const { migrateToLatest, pendingMigrationNames } = await import('../../src/server/db/migrator');
   context.after(closeDatabase);
   assert.deepEqual((await sql<{ value: number }>`select 1 as value`.execute(db)).rows, [{ value: 1 }]);
-  assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content']);
+  assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content', '006_media', '007_preview_tokens']);
   assert.equal((await sql<{ name: string | null }>`select to_regclass('public.kysely_migration') as name`.execute(db)).rows[0].name, null);
   await migrateToLatest();
   await migrateToLatest();
@@ -39,7 +39,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
 
   const { checkReadiness } = await import('../../src/server/health');
   assert.deepEqual(await checkReadiness(), {
-    status: 'ready', checks: { database: 'ready', migrations: 'ready', storage: 'deferred' },
+    status: 'ready', checks: { database: 'ready', migrations: 'ready', storage: 'ready' },
   });
 
   await context.test('idle pool backend termination stays alive, redacts output, and reconnects', () => {
@@ -141,9 +141,12 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
       assert.equal(pool.waitingCount, 1);
       const results = await Promise.all(requests);
       assert.ok(performance.now() - started < 300, 'readiness must return before the occupied connection is released');
-      for (const result of results) assert.deepEqual(result, {
-        status: 'not-ready', checks: { database: 'unavailable', migrations: 'unavailable', storage: 'deferred' },
-      });
+      for (const result of results) {
+        assert.equal(result.status, 'not-ready');
+        assert.equal(result.checks.database, 'unavailable');
+        assert.equal(result.checks.migrations, 'unavailable');
+        assert.ok(['ready', 'unavailable'].includes(result.checks.storage));
+      }
     } finally {
       clearTimeout(fallback);
       // The fallback release also makes a broken timeout implementation finish its red test.
@@ -169,7 +172,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
     assert.equal(ready.status, 200);
     assert.equal(ready.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await ready.json(), {
-      status: 'ready', checks: { database: 'ready', migrations: 'ready', storage: 'deferred' },
+      status: 'ready', checks: { database: 'ready', migrations: 'ready', storage: 'ready' },
     });
     for (const path of ['/admin', '/health/live/extra', '/health/ready/extra']) {
       const response = await request(path);
@@ -184,9 +187,9 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
         assert.equal(pending.status, 503);
         assert.equal(pending.headers.get('cache-control'), 'no-store');
         assert.deepEqual(await pending.json(), {
-          status: 'not-ready', checks: { database: 'ready', migrations: 'pending', storage: 'deferred' },
+          status: 'not-ready', checks: { database: 'ready', migrations: 'pending', storage: 'ready' },
         });
-        assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content']);
+        assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content', '006_media', '007_preview_tokens']);
       } finally {
         for (const row of removed.rows) {
           await sql`insert into kysely_migration (name, timestamp) values (${row.name}, ${row.timestamp})`.execute(db);
@@ -201,7 +204,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
         await locker.query('begin');
         await locker.query('lock table kysely_migration in access exclusive mode');
         const snapshot = await checkReadiness(AbortSignal.timeout(50));
-        const expected = { status: 'not-ready', checks: { database: 'ready', migrations: 'unavailable', storage: 'deferred' } };
+        const expected = { status: 'not-ready', checks: { database: 'ready', migrations: 'unavailable', storage: 'ready' } };
         assert.deepEqual(snapshot, expected);
         const started = performance.now();
         const timedOut = await request('/health/ready');
@@ -221,10 +224,12 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
   });
 
   await context.test('aborted and unavailable database checks expose no secrets', async () => {
-    const unavailable = { status: 'not-ready', checks: { database: 'unavailable', migrations: 'unavailable', storage: 'deferred' } };
+    const unavailable = { status: 'not-ready', checks: { database: 'unavailable', migrations: 'unavailable', storage: 'unavailable' } };
     assert.deepEqual(await checkReadiness(AbortSignal.abort(new Error('PRIVATE_SENTINEL'))), unavailable);
     await closeDatabase();
-    assert.deepEqual(await checkReadiness(), unavailable);
+    assert.deepEqual(await checkReadiness(), {
+      status: 'not-ready', checks: { database: 'unavailable', migrations: 'unavailable', storage: 'ready' },
+    });
   });
 });
 
@@ -243,6 +248,6 @@ test('liveness is independent of configuration and readiness hides validation fa
   assert.equal(result.stderr, '');
   assert.deepEqual(JSON.parse(result.stdout), [
     { status: 200, body: { status: 'live' } },
-    { status: 503, body: { status: 'not-ready', checks: { database: 'unavailable', migrations: 'unavailable', storage: 'deferred' } } },
+    { status: 503, body: { status: 'not-ready', checks: { database: 'unavailable', migrations: 'unavailable', storage: 'unavailable' } } },
   ]);
 });

@@ -204,12 +204,18 @@ async function main() {
     throw new Error('Environment file appeared during bootstrap; rerun to verify it before startup.');
   }
   const compose = ['compose', '-f', 'compose.yaml', '--env-file', '.env.local'];
+  if (options.production) run('docker', [...compose, 'pull', 'postgres', 'minio', 'minio-init'], env);
   console.log('Starting PostgreSQL and licensed AIStor…');
   run('docker', [...compose, 'up', '-d', '--wait', 'postgres', 'minio'], env);
   run('docker', [...compose, 'run', '--rm', '--no-deps', 'minio-init'], env);
   console.log('Applying database migrations…');
-  run('npm', ['run', 'db:migrate'], env);
-  if (options.production) run('docker', [...compose, '--profile', 'production', 'up', '-d', '--wait', '--no-deps', '--build', 'app'], env);
+  if (options.production) {
+    run('docker', [...compose, '--profile', 'production', 'build', 'app'], env);
+    run('docker', [...compose, '--profile', 'production', 'run', '--rm', '--no-deps', 'app', 'npm', 'run', 'db:migrate'], env);
+    run('docker', [...compose, '--profile', 'production', 'up', '-d', '--wait', '--no-deps', 'app'], env);
+  } else {
+    run('npm', ['run', 'db:migrate'], env);
+  }
   console.log(`Installer: ${values.TOME_CMS_PUBLIC_URL.replace(/\/$/, '')}/install`);
   console.log(`Installation token: ${values.TOME_CMS_INSTALL_TOKEN}`);
   if (!options.production) console.log('Start the application with npm run dev.');
