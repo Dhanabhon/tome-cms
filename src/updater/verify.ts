@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { lstat, mkdtemp, readFile, rm, statfs, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, statfs, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,7 +9,9 @@ import {
   OFFICIAL_REPOSITORY,
   parseStableVersion,
   parseUpdateManifest,
+  UPDATE_IMAGE_ATTESTATION_ASSET,
   UPDATE_MANIFEST_ASSET,
+  UPDATE_MANIFEST_ATTESTATION_ASSET,
   type UpdateManifest,
 } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
@@ -21,6 +23,12 @@ const responseLimit = 512 * 1024;
 const requestTimeoutMs = 5_000;
 const commandTimeoutMs = 30_000;
 const attestationTimeoutMs = 5 * 60_000;
+const releaseWorkflow = 'Dhanabhon/tome-cms/.github/workflows/release.yml';
+const githubEnvironmentKeys = [
+  'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN',
+  'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST',
+  'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO',
+] as const;
 
 export interface VerifiedRelease {
   manifest: UpdateManifest;
@@ -56,25 +64,44 @@ export async function verifyTargetRelease(input: {
   const tag = `v${version}`;
   const releaseUrl = `https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases/tags/${tag}`;
   const release = releaseDetails(await fetchJson(dependencies.fetcher, releaseUrl), version, dependencies.now());
-  const manifestBytes = await fetchBytes(dependencies.fetcher, release.manifestUrl);
-  verifyDigest(manifestBytes, release.digest);
+  const [manifestBytes, manifestBundleBytes, imageBundleBytes] = await Promise.all([
+    fetchBytes(dependencies.fetcher, release.manifest.url),
+    fetchBytes(dependencies.fetcher, release.manifestBundle.url),
+    fetchBytes(dependencies.fetcher, release.imageBundle.url),
+  ]);
+  verifyDigest(manifestBytes, release.manifest.digest);
+  verifyDigest(manifestBundleBytes, release.manifestBundle.digest);
+  verifyDigest(imageBundleBytes, release.imageBundle.digest);
 
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-update-'));
   const manifestPath = join(directory, UPDATE_MANIFEST_ASSET);
+  const manifestBundlePath = join(directory, UPDATE_MANIFEST_ATTESTATION_ASSET);
+  const imageBundlePath = join(directory, UPDATE_IMAGE_ATTESTATION_ASSET);
   try {
     await writeFile(manifestPath, manifestBytes, { flag: 'wx', mode: 0o600 });
-    await successfulCommand(dependencies, 'gh', [
-      'attestation', 'verify', manifestPath, '-R', OFFICIAL_REPOSITORY,
-    ], attestationTimeoutMs, 'Manifest attestation verification failed');
+    await writeFile(manifestBundlePath, manifestBundleBytes, { flag: 'wx', mode: 0o600 });
+    await writeFile(imageBundlePath, imageBundleBytes, { flag: 'wx', mode: 0o600 });
 
-    const manifest = parseManifestBytes(manifestBytes);
-    if (manifest.version !== version) throw new Error('Release version does not match manifest');
-    assertCompatibility(input.installed, manifest, input.updaterVersion);
+    const policy = [
+      '-R', OFFICIAL_REPOSITORY,
+      '--signer-workflow', releaseWorkflow,
+      '--source-ref', `refs/tags/${tag}`,
+      '--deny-self-hosted-runners',
+    ] as const;
+    const { manifest, imageReference } = await withIsolatedGhEnvironment(input.config.stateDirectory, async (environment) => {
+      await successfulCommand(dependencies, 'gh', [
+        'attestation', 'verify', manifestPath, '--bundle', manifestBundlePath, ...policy,
+      ], attestationTimeoutMs, 'Manifest attestation verification failed', environment);
 
-    const imageReference = `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`;
-    await successfulCommand(dependencies, 'gh', [
-      'attestation', 'verify', `oci://${imageReference}`, '-R', OFFICIAL_REPOSITORY,
-    ], attestationTimeoutMs, 'Image attestation verification failed');
+      const manifest = parseManifestBytes(manifestBytes);
+      if (manifest.version !== version) throw new Error('Release version does not match manifest');
+      assertCompatibility(input.installed, manifest, input.updaterVersion);
+      const imageReference = `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`;
+      await successfulCommand(dependencies, 'gh', [
+        'attestation', 'verify', `oci://${imageReference}`, '--bundle', imageBundlePath, ...policy,
+      ], attestationTimeoutMs, 'Image attestation verification failed', environment);
+      return { manifest, imageReference };
+    });
 
     await runPreflight({
       installed: input.installed,
@@ -103,7 +130,8 @@ export async function runPreflight(input: {
 
   await successfulCommand(dependencies, 'docker', ['version'], commandTimeoutMs, 'Docker Engine preflight failed');
   await successfulCommand(dependencies, 'docker', ['compose', 'version'], commandTimeoutMs, 'Docker Compose preflight failed');
-  await successfulCommand(dependencies, 'gh', ['version'], commandTimeoutMs, 'GitHub CLI preflight failed');
+  await withIsolatedGhEnvironment(input.config.stateDirectory, (environment) =>
+    successfulCommand(dependencies, 'gh', ['version'], commandTimeoutMs, 'GitHub CLI preflight failed', environment));
 
   const compose = [
     'compose', '-p', 'tomecms', '-f', input.config.composeFile,
@@ -168,24 +196,62 @@ async function fetchBytes(fetcher: typeof fetch, url: string): Promise<Uint8Arra
   return Buffer.concat(chunks, size);
 }
 
-function releaseDetails(value: unknown, version: string, now: Date): { manifestUrl: string; digest: string } {
+interface ReleaseAsset {
+  url: string;
+  digest: string;
+}
+
+function releaseDetails(value: unknown, version: string, now: Date): {
+  manifest: ReleaseAsset;
+  manifestBundle: ReleaseAsset;
+  imageBundle: ReleaseAsset;
+} {
   if (!isRecord(value)) throw invalidRelease();
   const tag = `v${version}`;
   const publishedAt = typeof value.published_at === 'string' ? Date.parse(value.published_at) : Number.NaN;
   const expectedReleaseUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/${tag}`;
-  const manifestUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/${tag}/${UPDATE_MANIFEST_ASSET}`;
   if (
     value.tag_name !== tag || value.draft !== false || value.prerelease !== false || value.immutable !== true ||
     value.html_url !== expectedReleaseUrl || !Number.isFinite(publishedAt) || publishedAt > now.getTime() ||
     !Array.isArray(value.assets)
   ) throw invalidRelease();
 
-  const assets = value.assets.filter(isRecord).filter((asset) => asset.name === UPDATE_MANIFEST_ASSET);
-  if (assets.length !== 1 || assets[0].browser_download_url !== manifestUrl ||
-    typeof assets[0].digest !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(assets[0].digest)) {
-    throw invalidRelease();
+  const assets = value.assets.filter(isRecord);
+  const officialAsset = (name: string): ReleaseAsset => {
+    const matches = assets.filter((asset) => asset.name === name);
+    const expectedUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/${tag}/${name}`;
+    if (matches.length !== 1 || matches[0].browser_download_url !== expectedUrl ||
+      typeof matches[0].digest !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(matches[0].digest)) {
+      throw invalidRelease();
+    }
+    return { url: expectedUrl, digest: matches[0].digest };
+  };
+  return {
+    manifest: officialAsset(UPDATE_MANIFEST_ASSET),
+    manifestBundle: officialAsset(UPDATE_MANIFEST_ATTESTATION_ASSET),
+    imageBundle: officialAsset(UPDATE_IMAGE_ATTESTATION_ASSET),
+  };
+}
+
+async function withIsolatedGhEnvironment<T>(
+  stateDirectory: string,
+  operation: (environment: NodeJS.ProcessEnv) => Promise<T>,
+): Promise<T> {
+  const directory = await mkdtemp(join(stateDirectory, '.gh-'));
+  const configDirectory = join(directory, 'config');
+  const cacheDirectory = join(directory, 'cache');
+  try {
+    await mkdir(configDirectory, { mode: 0o700 });
+    await mkdir(cacheDirectory, { mode: 0o700 });
+    const environment = { ...process.env };
+    for (const name of githubEnvironmentKeys) delete environment[name];
+    environment.GH_CONFIG_DIR = configDirectory;
+    environment.XDG_CACHE_HOME = cacheDirectory;
+    environment.GH_PROMPT_DISABLED = '1';
+    return await operation(environment);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
-  return { manifestUrl, digest: assets[0].digest };
 }
 
 function verifyDigest(bytes: Uint8Array, digest: string): void {
@@ -253,8 +319,10 @@ async function successfulCommand(
   args: readonly string[],
   timeoutMs: number,
   message: string,
+  environment?: NodeJS.ProcessEnv,
 ): Promise<CommandResult> {
-  const result = await dependencies.runCommand(executable, args, { timeoutMs });
+  const result = await dependencies.runCommand(executable, args,
+    environment ? { timeoutMs, env: environment } : { timeoutMs });
   if (result.code !== 0) throw new Error(message);
   return result;
 }

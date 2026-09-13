@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -8,7 +8,9 @@ import test from 'node:test';
 import {
   OFFICIAL_IMAGE_REPOSITORY,
   OFFICIAL_REPOSITORY,
+  UPDATE_IMAGE_ATTESTATION_ASSET,
   type UpdateManifest,
+  UPDATE_MANIFEST_ATTESTATION_ASSET,
 } from '../../src/update/contracts.js';
 import type { UpdaterConfig } from '../../src/updater/config.js';
 import type { CommandResult } from '../../src/updater/process.js';
@@ -85,20 +87,26 @@ function composeHealth(): string {
 
 function releaseFor(value: unknown, override: Record<string, unknown> = {}) {
   const bytes = Buffer.from(JSON.stringify(value));
-  const digest = createHash('sha256').update(bytes).digest('hex');
+  const manifestBundleBytes = Buffer.from('manifest-attestation-bundle');
+  const imageBundleBytes = Buffer.from('image-attestation-bundle');
   const version = typeof value === 'object' && value !== null && 'version' in value &&
     typeof value.version === 'string' ? value.version : '1.0.1';
+  const asset = (name: string, body: Uint8Array) => ({
+    name,
+    browser_download_url: `https://github.com/Dhanabhon/tome-cms/releases/download/v${version}/${name}`,
+    digest: `sha256:${createHash('sha256').update(body).digest('hex')}`,
+  });
   return {
-    bytes,
+    bytes, manifestBundleBytes, imageBundleBytes,
     release: {
       tag_name: `v${version}`, draft: false, prerelease: false, immutable: true,
       published_at: '2026-09-20T10:01:00.000Z',
       html_url: `https://github.com/Dhanabhon/tome-cms/releases/tag/v${version}`,
-      assets: [{
-        name: 'update-manifest.json',
-        browser_download_url: `https://github.com/Dhanabhon/tome-cms/releases/download/v${version}/update-manifest.json`,
-        digest: `sha256:${digest}`,
-      }],
+      assets: [
+        asset('update-manifest.json', bytes),
+        asset(UPDATE_MANIFEST_ATTESTATION_ASSET, manifestBundleBytes),
+        asset(UPDATE_IMAGE_ATTESTATION_ASSET, imageBundleBytes),
+      ],
       ...override,
     },
   };
@@ -112,11 +120,18 @@ function dependencies(input: {
   availableBytes?: number;
   platform?: string;
   manifestBytes?: Uint8Array;
+  downloads?: Record<string, Uint8Array>;
 } = {}): VerifyDependencies {
   const events = input.events ?? [];
   const fixture = releaseFor(input.value ?? manifest);
   const release = input.release ?? fixture.release;
   const manifestBytes = input.manifestBytes ?? fixture.bytes;
+  const downloads: Record<string, Uint8Array> = {
+    'update-manifest.json': manifestBytes,
+    [UPDATE_MANIFEST_ATTESTATION_ASSET]: fixture.manifestBundleBytes,
+    [UPDATE_IMAGE_ATTESTATION_ASSET]: fixture.imageBundleBytes,
+    ...input.downloads,
+  };
   return {
     fetcher: async (request, init) => {
       const url = String(request);
@@ -130,8 +145,11 @@ function dependencies(input: {
         return Response.json(release);
       }
       if (url.includes('/releases/download/')) {
-        events.push('github:manifest');
-        return new Response(Buffer.from(manifestBytes));
+        const name = url.split('/').at(-1)!;
+        events.push(`github:${name}`);
+        const body = downloads[name];
+        if (!body) throw new Error(`Unexpected download: ${name}`);
+        return new Response(Buffer.from(body));
       }
       if (url === 'http://127.0.0.1:4321/health/ready') {
         events.push('health');
@@ -165,50 +183,99 @@ function dependencies(input: {
 test('verifies the exact immutable release, attestations, compatibility and preflight in order', async () => {
   const { root, config } = await hostFixture();
   const events: string[] = [];
-  let manifestPath = '';
+  const privatePaths = new Set<string>();
+  const ghDirectories = new Set<string>();
   const deps = dependencies({ events });
   const originalRun = deps.runCommand;
   deps.runCommand = async (executable, args, options) => {
-    if (executable === 'gh' && args[0] === 'attestation' && !args[2]?.startsWith('oci://')) {
-      manifestPath = args[2];
-      assert.deepEqual(args.slice(0, 2), ['attestation', 'verify']);
-      assert.deepEqual(args.slice(3), ['-R', OFFICIAL_REPOSITORY]);
-      assert.deepEqual(await readFile(manifestPath), releaseFor(manifest).bytes);
-    }
-    if (executable === 'gh' && args[2]?.startsWith('oci://')) {
-      assert.deepEqual(args, [
-        'attestation', 'verify', `oci://${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`,
-        '-R', OFFICIAL_REPOSITORY,
-      ]);
+    if (executable === 'gh') {
+      assert.ok(options.env);
+      for (const name of [
+        'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN',
+        'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST',
+        'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO',
+      ]) assert.equal(options.env[name], undefined);
+      for (const name of ['GH_CONFIG_DIR', 'XDG_CACHE_HOME']) {
+        const directory: string | undefined = options.env[name];
+        if (typeof directory !== 'string') assert.fail(`${name} was not isolated`);
+        assert.ok(directory.startsWith(`${config.stateDirectory}/`));
+        assert.equal((await stat(directory)).mode & 0o777, 0o700);
+        ghDirectories.add(directory);
+      }
+
+      if (args[0] === 'attestation') {
+        const image = args[2]?.startsWith('oci://');
+        const bundleIndex = args.indexOf('--bundle');
+        assert.ok(bundleIndex > 0);
+        const subject = args[2];
+        const bundlePath = args[bundleIndex + 1];
+        privatePaths.add(bundlePath);
+        if (!image) privatePaths.add(subject);
+        assert.deepEqual(args, [
+          'attestation', 'verify', image
+            ? `oci://${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`
+            : subject,
+          '--bundle', bundlePath,
+          '-R', OFFICIAL_REPOSITORY,
+          '--signer-workflow', 'Dhanabhon/tome-cms/.github/workflows/release.yml',
+          '--source-ref', 'refs/tags/v1.0.1',
+          '--deny-self-hosted-runners',
+        ]);
+        const expected = image ? releaseFor(manifest).imageBundleBytes : releaseFor(manifest).manifestBundleBytes;
+        assert.deepEqual(await readFile(bundlePath), expected);
+        if (!image) assert.deepEqual(await readFile(subject), releaseFor(manifest).bytes);
+      }
     }
     return originalRun(executable, args, options);
   };
 
+  const inherited = Object.fromEntries([
+    'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN',
+    'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST',
+    'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO',
+    'GH_CONFIG_DIR', 'XDG_CACHE_HOME',
+  ].map((name) => [name, process.env[name]]));
+  for (const name of Object.keys(inherited)) process.env[name] = 'attacker-controlled';
   try {
     const verified = await verifyTargetRelease({
       version: '1.0.1', installed, updaterVersion: '1.0.0', config, dependencies: deps,
     });
     assert.equal(verified.manifest.version, '1.0.1');
     assert.equal(verified.imageReference, `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`);
-    assert.equal(verified.manifestPath, manifestPath);
+    assert.equal(privatePaths.has(verified.manifestPath), true);
     assert.deepEqual(events, [
-      'github:release:v1.0.1', 'github:manifest', 'gh:manifest-attestation',
+      'github:release:v1.0.1', 'github:update-manifest.json',
+      `github:${UPDATE_MANIFEST_ATTESTATION_ASSET}`, `github:${UPDATE_IMAGE_ATTESTATION_ASSET}`,
+      'gh:manifest-attestation',
       'gh:image-attestation', 'health', 'disk', 'platform',
     ]);
-    await assert.rejects(readFile(manifestPath), { code: 'ENOENT' });
+    for (const path of [...privatePaths, ...ghDirectories]) await assert.rejects(stat(path), { code: 'ENOENT' });
   } finally {
+    for (const [name, value] of Object.entries(inherited)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test('rejects mutable metadata, duplicate official assets and asset digest mismatch before attestation', async () => {
+test('rejects missing, duplicate or redirected bundle assets before attestation', async () => {
   const { root, config } = await hostFixture();
   try {
     const fixture = releaseFor(manifest);
-    const duplicate = [...fixture.release.assets, { ...fixture.release.assets[0] }];
+    const manifestBundle = fixture.release.assets.find((asset) => asset.name === UPDATE_MANIFEST_ATTESTATION_ASSET)!;
+    const imageBundle = fixture.release.assets.find((asset) => asset.name === UPDATE_IMAGE_ATTESTATION_ASSET)!;
     for (const release of [
       { ...fixture.release, immutable: false },
-      { ...fixture.release, assets: duplicate },
+      { ...fixture.release, assets: [...fixture.release.assets, { ...fixture.release.assets[0] }] },
+      { ...fixture.release, assets: fixture.release.assets.filter((asset) => asset !== manifestBundle) },
+      { ...fixture.release, assets: [...fixture.release.assets, { ...imageBundle }] },
+      { ...fixture.release, assets: fixture.release.assets.map((asset) => asset === manifestBundle
+        ? { ...asset, browser_download_url: `${asset.browser_download_url}?redirected=1` }
+        : asset) },
+      { ...fixture.release, assets: fixture.release.assets.map((asset) => asset === imageBundle
+        ? { ...asset, digest: `sha512:${'f'.repeat(128)}` }
+        : asset) },
     ]) {
       const events: string[] = [];
       await assert.rejects(verifyTargetRelease({
@@ -218,18 +285,22 @@ test('rejects mutable metadata, duplicate official assets and asset digest misma
       assert.equal(events.some((event) => event.startsWith('gh:')), false);
     }
 
-    const events: string[] = [];
-    await assert.rejects(verifyTargetRelease({
-      version: '1.0.1', installed, updaterVersion: '1.0.0', config,
-      dependencies: dependencies({
-        release: {
-          ...fixture.release,
-          assets: [{ ...fixture.release.assets[0], digest: `sha256:${'f'.repeat(64)}` }],
-        },
-        events,
-      }),
-    }), /digest/i);
-    assert.equal(events.some((event) => event.startsWith('gh:')), false);
+    for (const assetWithDigest of [fixture.release.assets[0], manifestBundle, imageBundle]) {
+      const events: string[] = [];
+      await assert.rejects(verifyTargetRelease({
+        version: '1.0.1', installed, updaterVersion: '1.0.0', config,
+        dependencies: dependencies({
+          release: {
+            ...fixture.release,
+            assets: fixture.release.assets.map((asset) => asset === assetWithDigest
+              ? { ...asset, digest: `sha256:${'f'.repeat(64)}` }
+              : asset),
+          },
+          events,
+        }),
+      }), /digest/i);
+      assert.equal(events.some((event) => event.startsWith('gh:')), false);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -253,6 +324,13 @@ test('bounds release responses and validates the requested version before fetchi
       version: '1.0.1/../../latest', installed, updaterVersion: '1.0.0', config, dependencies: deps,
     }), /stable version/i);
     assert.equal(calls, 0);
+
+    const bundleDeps = dependencies({
+      downloads: { [UPDATE_MANIFEST_ATTESTATION_ASSET]: Buffer.alloc(512 * 1024 + 1) },
+    });
+    await assert.rejects(verifyTargetRelease({
+      version: '1.0.1', installed, updaterVersion: '1.0.0', config, dependencies: bundleDeps,
+    }), /too large/i);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -262,18 +340,22 @@ test('fails closed when either attestation fails and always removes its private 
   const { root, config } = await hostFixture();
   try {
     for (const commandFailure of ['manifest', 'image'] as const) {
-      let privatePath = '';
+      const privatePaths = new Set<string>();
       const deps = dependencies({ commandFailure });
       const run = deps.runCommand;
       deps.runCommand = async (executable, args, options) => {
-        if (executable === 'gh' && args[0] === 'attestation' && !args[2]?.startsWith('oci://')) privatePath = args[2];
+        if (executable === 'gh' && args[0] === 'attestation') {
+          if (!args[2]?.startsWith('oci://')) privatePaths.add(args[2]);
+          const bundleIndex = args.indexOf('--bundle');
+          if (bundleIndex >= 0) privatePaths.add(args[bundleIndex + 1]);
+        }
         return run(executable, args, options);
       };
       await assert.rejects(verifyTargetRelease({
         version: '1.0.1', installed, updaterVersion: '1.0.0', config, dependencies: deps,
       }), /attestation/i);
-      assert.ok(privatePath);
-      await assert.rejects(readFile(privatePath), { code: 'ENOENT' });
+      assert.ok(privatePaths.size >= 2);
+      for (const path of privatePaths) await assert.rejects(readFile(path), { code: 'ENOENT' });
     }
   } finally {
     await rm(root, { recursive: true, force: true });

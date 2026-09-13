@@ -1,6 +1,8 @@
 export const OFFICIAL_REPOSITORY = 'Dhanabhon/tome-cms' as const;
 export const OFFICIAL_IMAGE_REPOSITORY = 'ghcr.io/dhanabhon/tome-cms' as const;
 export const UPDATE_MANIFEST_ASSET = 'update-manifest.json' as const;
+export const UPDATE_MANIFEST_ATTESTATION_ASSET = 'update-manifest.attestation.json' as const;
+export const UPDATE_IMAGE_ATTESTATION_ASSET = 'tomecms-image.attestation.json' as const;
 
 const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const migrationKeyPattern = /^\d{3}_[a-z]+(?:_[a-z0-9]+)*$/;
