@@ -1,6 +1,6 @@
 import { compareStableVersions, parseStableVersion } from '../../update/contracts.js';
 import { getBuildInfo } from './current.js';
-import { fetchLatestRelease, type LatestRelease } from './releases.js';
+import { fetchLatestRelease, ReleaseNotModifiedError, type LatestRelease } from './releases.js';
 
 const CACHE_SECONDS = 6 * 60 * 60;
 
@@ -47,7 +47,13 @@ export async function refreshUpdateStatus(options: UpdateServiceOptions = {}): P
     activeCache.etag = latest.etag;
     activeCache.expiresAt = now().getTime() + CACHE_SECONDS * 1_000;
     return value;
-  } catch {
+  } catch (error) {
+    if (error instanceof ReleaseNotModifiedError && activeCache.value) {
+      const value = { ...activeCache.value, checkedAt };
+      activeCache.value = value;
+      activeCache.expiresAt = now().getTime() + CACHE_SECONDS * 1_000;
+      return value;
+    }
     return activeCache.value ?? {
       checkedAt,
       currentVersion,

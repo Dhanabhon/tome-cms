@@ -7,6 +7,7 @@ import * as sessionCredentialRecovery from './migrations/004_session_credential_
 import * as content from './migrations/005_content';
 import * as media from './migrations/006_media';
 import * as previewTokens from './migrations/007_preview_tokens';
+import * as updateRateLimitActions from './migrations/008_update_rate_limit_actions';
 
 export const migrations = {
   '001_system': system,
@@ -16,6 +17,7 @@ export const migrations = {
   '005_content': content,
   '006_media': media,
   '007_preview_tokens': previewTokens,
+  '008_update_rate_limit_actions': updateRateLimitActions,
 } as const;
 
 const provider: MigrationProvider = {

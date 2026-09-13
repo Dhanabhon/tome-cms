@@ -234,6 +234,13 @@ test('passkey and installer database contract', async (context) => {
     await enforceRateLimit('install', clientAddress);
     assert.equal((await db.selectFrom('security_rate_limits').select('attempts')
       .where('key_hash', '=', row.key_hash).executeTakeFirstOrThrow()).attempts, 1);
+
+    for (const [action, remaining] of [['update-check', 5], ['update-apply', 2]] as const) {
+      assert.equal((await enforceRateLimit(action, `${action}-address`)).remaining, remaining);
+      assert.deepEqual((await sql<{ action: string; attempts: number }>`
+        select action, attempts from security_rate_limits where action = ${action}
+      `.execute(db)).rows, [{ action, attempts: 1 }]);
+    }
   });
 
   await context.test('singleton site settings enforce locale, timezone and reserved admin paths', async () => {
