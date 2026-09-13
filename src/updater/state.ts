@@ -47,6 +47,9 @@ export interface UpdaterStateStore {
   writeInstalled(value: InstalledState): Promise<void>;
   readJob(): Promise<UpdateJob | null>;
   createJob(input: Pick<UpdateJob, 'requestId' | 'targetVersion'>): Promise<UpdateJob>;
+  recordBackup(id: string, backup: Pick<UpdateJob, 'backupDirectory' | 'backupCreatedAt'>): Promise<UpdateJob>;
+  /** Boot-only terminalization after the caller verifies image identity and readiness. */
+  reconcileJob(id: string, phase: 'succeeded' | 'rolled_back' | 'failed_manual_recovery'): Promise<UpdateJob>;
   transitionJob(id: string, phase: UpdatePhase, patch?: Partial<Pick<UpdateJob,
     'targetImageDigest' | 'finishedAt' | 'errorCode' | 'backupDirectory' | 'backupCreatedAt'
   >>): Promise<UpdateJob>;
@@ -149,6 +152,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
     createJob(input) {
       return exclusive(async () => {
         const existing = await readJob();
+        if (existing?.phase === 'failed_manual_recovery') throw new Error('Manual recovery is required');
         if (existing && !terminalPhases.has(existing.phase)) throw new Error('An update job is already active');
         parseStableVersion(input.targetVersion);
         if (!uuid(input.requestId)) throw new Error('Invalid update request ID');
@@ -163,6 +167,34 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         };
         await atomicJson(jobPath, job, 0o600);
         await writeStatus(installed, job);
+        return job;
+      });
+    },
+    recordBackup(id, backup) {
+      return exclusive(async () => {
+        const current = await readJob();
+        if (!current || current.id !== id || current.phase !== 'backing_up') throw new Error('Invalid backup job phase');
+        if (!isRecord(backup) || !hasExactKeys(backup, ['backupDirectory', 'backupCreatedAt']) ||
+          backup.backupDirectory === null || backup.backupCreatedAt === null) throw new Error('Invalid backup record');
+        const job = parseJob({ ...current, ...backup });
+        await atomicJson(jobPath, job, 0o600);
+        await writeStatus(await readInstalled(), job);
+        return job;
+      });
+    },
+    reconcileJob(id, phase) {
+      return exclusive(async () => {
+        if (!terminalPhases.has(phase)) throw new Error('Invalid reconciliation phase');
+        const current = await readJob();
+        if (!current || current.id !== id) throw new Error('Update job not found');
+        if (terminalPhases.has(current.phase)) throw new Error('Update job is terminal');
+        const job = parseJob({ ...current, phase,
+          completedSteps: completedSteps[phase] ?? current.completedSteps,
+          message: messages[phase], finishedAt: new Date().toISOString(),
+          errorCode: phase === 'failed_manual_recovery' ? 'manual_recovery_required' : current.errorCode,
+        });
+        await atomicJson(jobPath, job, 0o600);
+        await writeStatus(await readInstalled(), job);
         return job;
       });
     },

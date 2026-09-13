@@ -90,3 +90,27 @@ test('rejects malformed or extended installed and job records', async () => {
   await writeFile(jobPath, JSON.stringify({ ...job, message: 'raw child output' }));
   await assert.rejects(() => store.readJob(), /job state/i);
 });
+
+test('manual recovery blocks new durable jobs, including after reopening the store', async () => {
+  const { stateDirectory, statusPath, store } = await fixture();
+  await store.writeInstalled(installed);
+  const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  await store.transitionJob(job.id, 'failed_manual_recovery');
+  const reopened = createUpdaterStateStore({ stateDirectory, statusPath } as UpdaterConfig);
+  await assert.rejects(() => reopened.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.2' }), /manual recovery/i);
+});
+
+test('records backup before image selection and permits explicit boot reconciliation without fake forward steps', async () => {
+  const { store } = await fixture();
+  await store.writeInstalled(installed);
+  const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  const backup = { backupDirectory: '/var/backups/tome-cms/backup-1', backupCreatedAt: '2026-09-20T10:01:00.000Z' };
+  await assert.rejects(() => store.recordBackup(job.id, backup), /phase/i);
+  for (const phase of ['verifying', 'downloading', 'quiescing', 'backing_up'] as const) await store.transitionJob(job.id, phase);
+  await store.recordBackup(job.id, backup);
+  assert.equal((await store.readJob())?.phase, 'backing_up');
+  assert.equal((await store.readJob())?.backupDirectory, backup.backupDirectory);
+  await store.reconcileJob(job.id, 'succeeded');
+  assert.equal((await store.readJob())?.completedSteps, 8);
+  await assert.rejects(() => store.reconcileJob(job.id, 'rolled_back'), /terminal/i);
+});
