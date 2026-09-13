@@ -38,6 +38,16 @@ test('redacts overlapping patterns once and fails closed for unsafe short secret
   assert.equal(redactDiagnosticText('must not be logged', ['short']), null);
 });
 
+test('redacts mixed-case Go HTML-safe JSON secret representations', () => {
+  assert.equal(
+    redactDiagnosticText('abcdefgh\\u003cijklmnop', ['abcdefgh<ijklmnop']),
+    '[redacted]',
+  );
+  const secret = 'abcdefgh<ijklmnop>qrstuvwx&yzABCDEF\u2028ghijklmn\u2029opqrstuv';
+  const encoded = 'abcdefgh\\u003Cijklmnop\\u003eqrstuvwx\\u0026yzABCDEF\\u2028ghijklmn\\u2029opqrstuv';
+  assert.equal(redactDiagnosticText(encoded, [secret]), '[redacted]');
+});
+
 test('accepts only canonical literal managed secret assignments', () => {
   const runtimeSecret = 'runtime-secret-value';
   const configuredSecret = 'configured-secret-value';
