@@ -11,7 +11,7 @@ function errorClass(error: unknown, status: number): string | null {
   return status >= 400 ? 'http_error' : null;
 }
 
-function safePathname(request: Request): string {
+export function safePathname(request: Request): string {
   const segments = new URL(request.url).pathname.split('/');
   const preview = segments.lastIndexOf('preview');
   if (preview >= 0 && segments[preview + 1]) segments[preview + 1] = '[redacted]';

@@ -33,6 +33,7 @@ export interface Database {
   media_folders: MediaFolderTable;
   media_items: MediaItemTable;
   media_upload_reservations: MediaUploadReservationTable;
+  preview_tokens: PreviewTokenTable;
 }
 
 export interface UserTable {
@@ -243,5 +244,16 @@ export interface MediaUploadReservationTable {
   state: ReservationState;
   expires_at: RequiredTimestamp;
   finalized_at: Timestamp | null;
+  created_at: Timestamp;
+}
+
+export interface PreviewTokenTable {
+  id: string;
+  owner_id: string;
+  token_hash: string;
+  content_type: 'post' | 'page';
+  content_id: string;
+  expires_at: Timestamp;
+  revoked_at: Timestamp | null;
   created_at: Timestamp;
 }

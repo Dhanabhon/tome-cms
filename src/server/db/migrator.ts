@@ -6,6 +6,7 @@ import * as securityRecovery from './migrations/003_security_recovery';
 import * as sessionCredentialRecovery from './migrations/004_session_credential_recovery';
 import * as content from './migrations/005_content';
 import * as media from './migrations/006_media';
+import * as previewTokens from './migrations/007_preview_tokens';
 
 export const migrations = {
   '001_system': system,
@@ -14,6 +15,7 @@ export const migrations = {
   '004_session_credential_recovery': sessionCredentialRecovery,
   '005_content': content,
   '006_media': media,
+  '007_preview_tokens': previewTokens,
 } as const;
 
 const provider: MigrationProvider = {

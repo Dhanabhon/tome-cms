@@ -4,7 +4,7 @@ import { ZodError } from 'zod';
 
 import { problemDetailsSchema } from './public-schemas';
 import { HttpError } from './errors';
-import { logPublicRequest } from './request-log';
+import { logPublicRequest, safePathname } from './request-log';
 
 export type PublicErrorStatus = 400 | 404 | 429 | 500 | 503;
 
@@ -20,7 +20,7 @@ export function problem(
   request: Request,
   status: PublicErrorStatus,
   detail: string,
-  options: { error?: unknown; startedAt?: number } = {},
+  options: { cors?: boolean; error?: unknown; startedAt?: number } = {},
 ): Response {
   const requestId = randomUUID();
   const body = problemDetailsSchema.parse({
@@ -28,19 +28,18 @@ export function problem(
     title: titles[status],
     status,
     detail,
-    instance: new URL(request.url).pathname,
+    instance: safePathname(request),
     requestId,
   });
   logPublicRequest(request, requestId, status, options.startedAt, options.error);
-  return new Response(JSON.stringify(body), {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/problem+json; charset=utf-8',
-      'X-Request-ID': requestId,
-    },
-    status,
+  const headers = new Headers({
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/problem+json; charset=utf-8',
+    'Referrer-Policy': 'no-referrer',
+    'X-Request-ID': requestId,
   });
+  if (options.cors !== false) headers.set('Access-Control-Allow-Origin', '*');
+  return new Response(JSON.stringify(body), { headers, status });
 }
 
 export function publicError(request: Request, error: unknown, startedAt?: number): Response {
@@ -51,4 +50,14 @@ export function publicError(request: Request, error: unknown, startedAt?: number
     return problem(request, error.status as Exclude<PublicErrorStatus, 500>, error.message, { error, startedAt });
   }
   return problem(request, 500, 'The request could not be completed.', { error, startedAt });
+}
+
+export function privatePreviewError(request: Request, error: unknown, startedAt?: number): Response {
+  const missing = error instanceof HttpError && error.status === 404;
+  return problem(
+    request,
+    missing ? 404 : 500,
+    missing ? 'Preview not found.' : 'The preview could not be loaded.',
+    { cors: false, error, startedAt },
+  );
 }

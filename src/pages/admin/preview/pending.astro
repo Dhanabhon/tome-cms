@@ -3,7 +3,12 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { safeAdminReturnTo } from '../../../lib/admin';
 import { getSiteSettings } from '../../../server/content/settings';
 
-const saveError = Astro.url.searchParams.get('state') === 'save-error';
+const state = Astro.url.searchParams.get('state');
+const errorMessage = state === 'save-error'
+  ? 'The latest draft could not be saved.'
+  : state === 'preview-error'
+    ? 'The Preview link could not be created.'
+    : null;
 const adminPath = (await getSiteSettings())?.admin_path ?? '/admin';
 const returnTo = safeAdminReturnTo(Astro.url.searchParams.get('returnTo'), adminPath);
 ---
@@ -11,9 +16,9 @@ const returnTo = safeAdminReturnTo(Astro.url.searchParams.get('returnTo'), admin
 <AdminLayout adminPath={adminPath} title="Draft preview">
   <main class="admin-preview-pending">
     <h1>Draft preview</h1>
-    {saveError ? (
+    {errorMessage ? (
       <>
-        <p role="alert">The latest draft could not be saved.</p>
+        <p role="alert">{errorMessage}</p>
         <div class="admin-preview-bar">
           <button class="admin-button admin-button--primary" type="button" data-preview-retry>Try again</button>
           <a class="admin-button admin-button--secondary" href={returnTo}>Return to editor</a>
