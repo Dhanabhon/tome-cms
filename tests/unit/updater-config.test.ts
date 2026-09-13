@@ -23,6 +23,7 @@ test('accepts only the fixed managed updater configuration', () => {
 
   for (const invalid of [
     { ...validConfig, projectName: 'customer-input' },
+    { ...validConfig, projectName: 'tomecms-test-abc123def456' },
     { ...validConfig, composeFile: '/tmp/compose.yaml' },
     { ...validConfig, composeFile: '/opt/tome-cms/../compose.yaml' },
     { ...validConfig, stateDirectory: '/' },

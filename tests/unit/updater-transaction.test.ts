@@ -26,6 +26,7 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
   const root = await mkdtemp(join(tmpdir(), 'tomecms-transaction-'));
   context.after(() => rm(root, { recursive: true, force: true }));
   const config = {
+    projectName: 'tomecms',
     stateDirectory: join(root, 'state'), statusPath: join(root, 'status.json'),
     imageEnvironmentFile: join(root, 'image.env'), backupDirectory: join(root, 'backups'),
     composeFile: join(root, 'compose.yaml'), environmentFile: join(root, 'app.env'),
@@ -177,6 +178,20 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   assert.deepEqual(commands[4], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-migration`, '--no-deps', 'app', 'npm', 'run', 'db:migrate'], timeoutMs: 900000 });
   assert.deepEqual(commands[5], { args: [...prefix, 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '90', 'app'], timeoutMs: 90000 });
   assert.deepEqual(f.lifecycle, ['inventory', 'backup', 'migration'].map((kind) => `check:tomecms-update-${job.id}-${kind}`));
+});
+
+test('uses the configured project identity for Compose and one-shot resources', async (t) => {
+  const f = await fixture(t);
+  const project = 'tomecms-test-abc123def456';
+  Object.defineProperty(f.input.config, 'projectName', { value: project });
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'succeeded');
+  for (const { args } of f.commands.filter(({ args }) => args[0] === 'compose')) {
+    assert.deepEqual(args.slice(0, 3), ['compose', '-p', project]);
+  }
+  for (const kind of ['inventory', 'backup', 'migration']) {
+    assert.ok(f.lifecycle.includes(`check:${project}-update-${job.id}-${kind}`));
+  }
 });
 
 for (const stage of ['migrations', 'backup', 'migrate']) {

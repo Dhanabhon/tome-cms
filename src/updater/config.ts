@@ -3,7 +3,7 @@ import { isAbsolute, join, normalize, parse, relative, sep } from 'node:path';
 
 export interface UpdaterConfig {
   configVersion: 1;
-  projectName: 'tomecms';
+  projectName: 'tomecms' | `tomecms-test-${string}`;
   composeFile: string;
   environmentFile: string;
   imageEnvironmentFile: string;

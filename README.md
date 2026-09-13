@@ -331,7 +331,11 @@ npm run check
 npm run build
 ```
 
-The foundation readiness check and full integration runner start PostgreSQL plus SeaweedFS under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only. The managed-update operation harness uses the real Unix updater server, state store, verifier, and transaction with stateful doubles at the external GitHub/Docker boundaries. It creates only `tomecms-test-*` temporary paths, invokes no host Docker resources, and removes its socket/state/backup fixtures in `test.after()`. Real `linux/amd64` and `linux/arm64` VPS runs remain mandatory release gates.
+The foundation readiness check and full integration runner start PostgreSQL plus SeaweedFS under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only.
+
+The managed-update operation harness requires a running Docker Engine with Compose, the pinned PostgreSQL 17 and SeaweedFS 4.46 images (or pull access for them), and a Go compiler for its dependency-free fixture server. It builds local `1.0.0`/`1.0.1` scratch images and starts real app, PostgreSQL, SeaweedFS, network, and volumes under one random `tomecms-test-*` Compose project. The real Unix updater server then performs Compose stop/run/up/ps, backup, migration, readiness, inspection, image switch, and rollback against that disposable stack. Only public GitHub downloads/attestation execution, mapping the immutable official digest to the local fixture image, and the target migration-inventory probe are substituted. A pre-registered `test.after()` removes the exact labelled test resources and fails if any matching container, network, volume, image, or temporary root remains; guarded commands reject the production `tomecms` project and fixed production paths.
+
+This local operation check is not a release-host acceptance. Genuine public GitHub/GHCR verification, systemd installation and socket permissions, HTTPS Wizard/Passkey/content/media flows, and disposable Ubuntu `linux/amd64` plus `linux/arm64` update/rollback runs remain mandatory external release gates.
 
 ## Project layout
 

@@ -466,6 +466,25 @@ test('preflight uses fixed read-only command arguments and accepts healthy Compo
   }
 });
 
+test('preflight scopes Compose inspection to the configured project identity', async () => {
+  const { root, config } = await hostFixture();
+  try {
+    const project = 'tomecms-test-abc123def456';
+    Object.defineProperty(config, 'projectName', { value: project });
+    const calls: string[][] = [];
+    const deps = dependencies();
+    deps.runCommand = async (executable, args) => {
+      calls.push([executable, ...args]);
+      return commandResult(0, args.includes('ps') ? composeHealth() : 'ok');
+    };
+    await runPreflight({ installed, target: manifest, updaterVersion: '1.0.0', config, dependencies: deps });
+    assert.ok(calls.some((call) => call[0] === 'docker' && call[1] === 'compose' &&
+      call[2] === '-p' && call[3] === project && call.includes('ps')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('preflight rejects malformed, missing and unhealthy Compose records', async () => {
   const { root, config } = await hostFixture();
   try {

@@ -134,7 +134,7 @@ export async function runPreflight(input: {
     successfulCommand(dependencies, 'gh', ['version'], commandTimeoutMs, 'GitHub CLI preflight failed', environment));
 
   const compose = [
-    'compose', '-p', 'tomecms', '-f', input.config.composeFile,
+    'compose', '-p', input.config.projectName, '-f', input.config.composeFile,
     '--env-file', input.config.environmentFile,
     '--env-file', input.config.imageEnvironmentFile,
   ] as const;
