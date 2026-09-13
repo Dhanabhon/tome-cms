@@ -45,6 +45,10 @@ const serverEnvSchema = z.object({
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   MEDIA_PUBLIC_URL: z.url({ protocol: /^https?$/ }),
   TOME_CMS_FRONTEND_MODE: z.enum(['bundled', 'headless']).default('bundled'),
+  TOME_CMS_UPDATE_MODE: z.enum(['check-only', 'managed']).default('check-only'),
+  TOME_CMS_UPDATER_SOCKET: z.string()
+    .regex(/^\/run\/tome-cms\/[a-z0-9.-]+\.sock$/)
+    .default('/run/tome-cms/updater.sock'),
 }).superRefine((value, context) => {
   if (URL.canParse(value.TOME_CMS_PUBLIC_URL)) {
     const publicUrl = new URL(value.TOME_CMS_PUBLIC_URL);

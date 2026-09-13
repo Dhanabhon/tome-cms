@@ -1,5 +1,10 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
+ARG TOME_CMS_VERSION
+ARG TOME_CMS_COMMIT_SHA
+LABEL org.opencontainers.image.source="https://github.com/Dhanabhon/tome-cms" \
+      org.opencontainers.image.version=$TOME_CMS_VERSION \
+      org.opencontainers.image.revision=$TOME_CMS_COMMIT_SHA
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
@@ -7,7 +12,14 @@ RUN npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=4321
+ARG TOME_CMS_VERSION
+ARG TOME_CMS_COMMIT_SHA
+LABEL org.opencontainers.image.source="https://github.com/Dhanabhon/tome-cms" \
+      org.opencontainers.image.version=$TOME_CMS_VERSION \
+      org.opencontainers.image.revision=$TOME_CMS_COMMIT_SHA
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=4321 \
+    TOME_CMS_VERSION=$TOME_CMS_VERSION \
+    TOME_CMS_COMMIT_SHA=$TOME_CMS_COMMIT_SHA
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=builder --chown=node:node /app/dist ./dist
