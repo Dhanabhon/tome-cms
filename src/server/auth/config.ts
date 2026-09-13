@@ -83,7 +83,8 @@ export const auth = betterAuth({
     registration: {
       requireSession: false,
       resolveUser: ({ context }) => resolveEnrollmentUserByReference({ reference: context }),
-      afterVerification: async ({ context, ctx, user }) => {
+      afterVerification: async ({ context, ctx, user, verification }) => {
+        if (ctx.body.response.id !== verification.registrationInfo?.credential.id) throw new Error('Passkey credential verification failed.');
         if (context) {
           const purpose = await assertEnrollmentReference({
             reference: context,
