@@ -159,7 +159,7 @@ async function fixture(t: TestContext) {
   const log = join(root, 'commands.jsonl');
   const ghLog = join(root, 'gh.jsonl');
   const dockerLog = join(root, 'docker.jsonl');
-  const env = { PATH: bin, COMMAND_LOG: log, GH_EVENT_LOG: ghLog, DOCKER_EVENT_LOG: dockerLog, IDENTITY_STATE: join(root, 'identity'), RELEASE_FIXTURE: releaseFile, MANIFEST_FIXTURE: manifestFile, MANIFEST_BUNDLE_FIXTURE: bundleFiles[0], IMAGE_BUNDLE_FIXTURE: bundleFiles[1], INSTALL_FIXTURE_ROOT: prefix,
+  const env = { PATH: bin, HOME: join(root, 'home'), COMMAND_LOG: log, GH_EVENT_LOG: ghLog, DOCKER_EVENT_LOG: dockerLog, IDENTITY_STATE: join(root, 'identity'), RELEASE_FIXTURE: releaseFile, MANIFEST_FIXTURE: manifestFile, MANIFEST_BUNDLE_FIXTURE: bundleFiles[0], IMAGE_BUNDLE_FIXTURE: bundleFiles[1], INSTALL_FIXTURE_ROOT: prefix,
     TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://media.example.com' };
   return { root, source, prefix, bin, log, ghLog, dockerLog, release, releaseFile, manifestFile, bundleFiles,
     run: (args: string[] = ['--dry-run'], extra: Record<string, string> = {}) => spawnSync('/bin/bash', ['-c', 'umask 077; exec /bin/bash "$@"', 'managed-test', join(source, 'scripts/install-managed-vps.sh'), ...args, '--version', '1.0.0', '--root-prefix', prefix], { cwd: source, env: { ...env, ...extra }, encoding: 'utf8', timeout: 20_000 }),
@@ -235,7 +235,7 @@ test('installer verifies downloaded bundles with fixed provenance and isolated w
   }
 });
 
-test('registry access ignores ambient credentials without replacing daemon selectors', async t => {
+test('registry access ignores ambient credentials on the supported local Docker daemon', async t => {
   const f = await fixture(t);
   const hostileHome = join(f.root, 'hostile-home');
   const hostileConfig = join(f.root, 'hostile-docker');
@@ -252,9 +252,7 @@ test('registry access ignores ambient credentials without replacing daemon selec
     DOCKER_CONTENT_TRUST_SERVER: 'https://attacker.example',
     DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: 'repository-secret',
     DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE: 'root-secret',
-    DOCKER_HOST: 'tcp://docker.example:2376',
-    DOCKER_TLS_VERIFY: '1',
-    DOCKER_CERT_PATH: '/operator/docker-certs',
+    DOCKER_HOST: 'unix:///var/run/docker.sock',
   };
   const result = f.run([], inherited);
   assert.equal(result.status, 0, result.stderr);
@@ -292,19 +290,53 @@ test('named Docker context is resolved before its credential-bearing config is i
   }), { mode: 0o600 });
   await writeFile(join(hostileConfig, 'contexts/meta', contextId, 'meta.json'), JSON.stringify({
     Name: contextName,
-    Endpoints: { docker: { Host: 'unix:///run/operator-docker.sock', SkipTLSVerify: false } },
+    Endpoints: { docker: { Host: 'unix:///var/run/docker.sock', SkipTLSVerify: false } },
   }), { mode: 0o600 });
-  const result = f.run(['--dry-run'], {
+  const result = f.run([], {
     HOME: hostileHome,
     DOCKER_CONFIG: hostileConfig,
     DOCKER_AUTH_CONFIG: '{"auths":{"ghcr.io":{"auth":"customer-env"}}}',
   });
   assert.equal(result.status, 0, result.stderr);
   for (const event of await f.dockerEvents()) {
-    assert.equal(event.env.DOCKER_HOST, 'unix:///run/operator-docker.sock');
+    assert.equal(event.env.DOCKER_HOST, 'unix:///var/run/docker.sock');
     assert.equal(event.env.DOCKER_CONTEXT, null);
     assert.notEqual(event.env.DOCKER_CONFIG, hostileConfig);
     assert.deepEqual(event.config, { mode: 0o700, entries: [] });
+  }
+});
+
+test('remote and alternate Docker endpoints fail before installation mutation', async t => {
+  for (const [name, endpoint, named] of [
+    ['TCP', 'tcp://docker.example:2376', false],
+    ['SSH', 'ssh://docker.example', false],
+    ['alternate Unix socket', 'unix:///run/operator-docker.sock', false],
+    ['named remote context', 'tcp://docker.example:2376', true],
+  ] as const) {
+    await t.test(name, async t => {
+      const f = await fixture(t);
+      const extra: Record<string, string> = {};
+      if (named) {
+        const contextName = 'production';
+        const contextId = createHash('sha256').update(contextName).digest('hex');
+        const dockerConfig = join(f.root, 'hostile-docker');
+        await mkdir(join(dockerConfig, 'contexts/meta', contextId), { recursive: true, mode: 0o700 });
+        await writeFile(join(dockerConfig, 'config.json'), JSON.stringify({
+          auths: { 'ghcr.io': { auth: 'customer-config' } },
+          currentContext: contextName,
+        }), { mode: 0o600 });
+        await writeFile(join(dockerConfig, 'contexts/meta', contextId, 'meta.json'), JSON.stringify({
+          Name: contextName,
+          Endpoints: { docker: { Host: endpoint, SkipTLSVerify: false } },
+        }), { mode: 0o600 });
+        extra.DOCKER_CONFIG = dockerConfig;
+      } else extra.DOCKER_HOST = endpoint;
+      const result = f.run([], extra);
+      assert.equal(result.status, 1, result.stdout);
+      assert.match(result.stderr, /Managed installation requires the local Docker daemon at unix:\/\/\/var\/run\/docker\.sock\./);
+      assert.deepEqual(await readdir(f.prefix), ['bin']);
+      assert.ok(!(await f.commands()).some(args => args[0] === 'docker'));
+    });
   }
 });
 

@@ -222,6 +222,15 @@ async function preserveDockerConnection() {
   }
 }
 
+function requireLocalDockerConnection() {
+  const supported = 'unix:///var/run/docker.sock';
+  if ((childEnv.DOCKER_HOST || supported) !== supported) {
+    throw new Error(`Managed installation requires the local Docker daemon at ${supported}.`);
+  }
+  childEnv.DOCKER_HOST = supported;
+  for (const key of ['DOCKER_CONTEXT', 'DOCKER_CERT_PATH', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY']) delete childEnv[key];
+}
+
 function fetchPublic(url) {
   return run('curl', ['--disable', '--fail', '--silent', '--show-error', '--location', '--proto', '=https', '--proto-redir', '=https', '--max-time', '5', '--max-filesize', '524288', url], 10_000, false, true);
 }
@@ -289,6 +298,7 @@ async function main() {
     if (info && (target.kind !== 'directory' || !info.isDirectory() || (await readdir(path)).length)) throw new Error('Managed installation requires fresh empty destinations; existing files are retained.');
   }
   await preserveDockerConnection();
+  requireLocalDockerConnection();
   temporary = await mkdtemp(join(prefix || tmpdir(), 'tomecms-install-'));
   childEnv.HOME = join(temporary, 'home');
   childEnv.DOCKER_CONFIG = join(temporary, 'docker-config');
