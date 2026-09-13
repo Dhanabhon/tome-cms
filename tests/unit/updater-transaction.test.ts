@@ -232,6 +232,39 @@ test('journals one bounded stage diagnostic while public update state stays enum
   assert.equal(publicJob.includes('stderr'), false);
 });
 
+test('unsafe diagnostic secrets and logger errors cannot interrupt rollback', async (t) => {
+  for (const loggerThrows of [false, true]) {
+    const f = await fixture(t);
+    f.fail('migrate');
+    process.env.RUNTIME_API_KEY = 'short';
+    t.after(() => { delete process.env.RUNTIME_API_KEY; });
+    const messages: string[] = [];
+    t.mock.method(console, 'error', (message: unknown) => {
+      if (loggerThrows) throw new Error('journal unavailable');
+      messages.push(String(message));
+    });
+    const job = await applyUpdate(f.input);
+    assert.equal(job.phase, 'rolled_back');
+    assert.ok(f.events.includes('start-previous'));
+    if (!loggerThrows) {
+      assert.equal(messages.length, 1);
+      const entry = JSON.parse(messages[0]!);
+      assert.match(entry.stdout, /omitted/i);
+      assert.match(entry.stderr, /omitted/i);
+    }
+    t.mock.restoreAll();
+  }
+});
+
+test('rejects interpolated managed secrets before running Docker', async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.input.config.environmentFile, 'TOME_CMS_INSTALL_TOKEN=${RUNTIME_SECRET}\n');
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(job.errorCode, 'preflight_failed');
+  assert.deepEqual(f.commands, []);
+});
+
 test('uses the configured project identity for Compose and one-shot resources', async (t) => {
   const f = await fixture(t);
   const project = 'tomecms-test-abc123def456';

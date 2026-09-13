@@ -15,7 +15,15 @@ import {
   type UpdateManifest,
 } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
-import { runCommand, type CommandResult } from './process.js';
+import {
+  parseManagedDiagnosticSecrets,
+  runCheckedCommand,
+  runCommand,
+  type CommandDiagnosticContext,
+  type CommandDiagnosticStage,
+  type CommandExecutable,
+  type CommandResult,
+} from './process.js';
 import type { InstalledState } from './state.js';
 
 const githubApiVersion = '2022-11-28';
@@ -57,6 +65,7 @@ export async function verifyTargetRelease(input: {
   installed: InstalledState;
   updaterVersion: string;
   config: UpdaterConfig;
+  diagnostics?: CommandDiagnosticContext;
   dependencies?: VerifyDependencies;
 }): Promise<VerifiedRelease> {
   const version = parseStableVersion(input.version).raw;
@@ -94,11 +103,13 @@ export async function verifyTargetRelease(input: {
     const imageReference = await withIsolatedGhEnvironment(input.config.stateDirectory, async (environment) => {
       await successfulCommand(dependencies, 'gh', [
         'attestation', 'verify', manifestPath, '--bundle', manifestBundlePath, ...policy,
-      ], attestationTimeoutMs, 'Manifest attestation verification failed', environment);
+      ], attestationTimeoutMs, 'Manifest attestation verification failed',
+      'verify.manifest_attestation', input.diagnostics, environment);
       const imageReference = `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`;
       await successfulCommand(dependencies, 'gh', [
         'attestation', 'verify', `oci://${imageReference}`, '--bundle', imageBundlePath, ...policy,
-      ], attestationTimeoutMs, 'Image attestation verification failed', environment);
+      ], attestationTimeoutMs, 'Image attestation verification failed',
+      'verify.image_attestation', input.diagnostics, environment);
       return imageReference;
     });
     assertCompatibility(input.installed, manifest, input.updaterVersion);
@@ -108,6 +119,7 @@ export async function verifyTargetRelease(input: {
       target: manifest,
       updaterVersion: input.updaterVersion,
       config: input.config,
+      diagnostics: input.diagnostics,
       dependencies,
     });
     return { manifest, manifestPath, imageReference };
@@ -121,17 +133,27 @@ export async function runPreflight(input: {
   target: UpdateManifest;
   updaterVersion: string;
   config: UpdaterConfig;
+  diagnostics?: CommandDiagnosticContext;
   dependencies?: VerifyDependencies;
 }): Promise<void> {
   const dependencies = { ...defaults, ...input.dependencies };
   assertCompatibility(input.installed, input.target, input.updaterVersion);
   await verifyManagedFiles(input.config);
+  const diagnosticSecrets = parseManagedDiagnosticSecrets(await readFile(input.config.environmentFile, 'utf8'));
+  if (input.diagnostics) {
+    input.diagnostics.secrets = input.diagnostics.secrets === null
+      ? diagnosticSecrets
+      : [...new Set([...input.diagnostics.secrets, ...diagnosticSecrets])];
+  }
   await verifyConfiguredImage(input.config, input.installed.imageDigest);
 
-  await successfulCommand(dependencies, 'docker', ['version'], commandTimeoutMs, 'Docker Engine preflight failed');
-  await successfulCommand(dependencies, 'docker', ['compose', 'version'], commandTimeoutMs, 'Docker Compose preflight failed');
+  await successfulCommand(dependencies, 'docker', ['version'], commandTimeoutMs, 'Docker Engine preflight failed',
+    'verify.docker_engine', input.diagnostics);
+  await successfulCommand(dependencies, 'docker', ['compose', 'version'], commandTimeoutMs,
+    'Docker Compose preflight failed', 'verify.compose_cli', input.diagnostics);
   await withIsolatedGhEnvironment(input.config.stateDirectory, (environment) =>
-    successfulCommand(dependencies, 'gh', ['version'], commandTimeoutMs, 'GitHub CLI preflight failed', environment));
+    successfulCommand(dependencies, 'gh', ['version'], commandTimeoutMs, 'GitHub CLI preflight failed',
+      'verify.gh_cli', input.diagnostics, environment));
 
   const compose = [
     'compose', '-p', input.config.projectName, '-f', input.config.composeFile,
@@ -140,7 +162,7 @@ export async function runPreflight(input: {
   ] as const;
   const health = await successfulCommand(dependencies, 'docker', [
     ...compose, 'ps', '--format', 'json', 'app', 'postgres', 'seaweedfs',
-  ], commandTimeoutMs, 'Compose service preflight failed');
+  ], commandTimeoutMs, 'Compose service preflight failed', 'verify.compose_health', input.diagnostics);
   verifyComposeHealth(health.stdout);
 
   const readiness = await dependencies.fetcher(input.config.appHealthUrl, {
@@ -315,16 +337,23 @@ async function verifyConfiguredImage(config: UpdaterConfig, installedDigest: str
 
 async function successfulCommand(
   dependencies: VerifyDependencies,
-  executable: string,
+  executable: CommandExecutable,
   args: readonly string[],
   timeoutMs: number,
   message: string,
+  stage: CommandDiagnosticStage,
+  diagnostics?: CommandDiagnosticContext,
   environment?: NodeJS.ProcessEnv,
 ): Promise<CommandResult> {
-  const result = await dependencies.runCommand(executable, args,
-    environment ? { timeoutMs, env: environment } : { timeoutMs });
-  if (result.code !== 0) throw new Error(message);
-  return result;
+  return runCheckedCommand(
+    dependencies.runCommand,
+    executable,
+    args,
+    environment ? { timeoutMs, env: environment } : { timeoutMs },
+    diagnostics,
+    stage,
+    message,
+  );
 }
 
 function verifyComposeHealth(output: string): void {
