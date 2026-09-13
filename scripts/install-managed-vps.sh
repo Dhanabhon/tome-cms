@@ -6,8 +6,8 @@ exec node --import tsx --input-type=module - "$@" <<'NODE'
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, closeSync, fchmodSync, fsyncSync, openSync, renameSync, writeFileSync } from 'node:fs';
-import { access, chmod, cp, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, rmdir, unlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { access, chmod, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, rmdir, unlink } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { makeEnvironment, renderEnvironment } from './scripts/bootstrap-core.mjs';
 import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
@@ -16,11 +16,15 @@ const source = process.cwd();
 let dryRun = false;
 let prefix = '';
 let version;
-let persisted = false;
-let migrationStarted = false;
+let recoveryReady = false;
 let temporary;
-const createdEmpty = [];
+let createdGroup = false;
+let createdUser = false;
+const pendingFiles = [];
+const createdFiles = [];
 const createdDirectories = [];
+const createdDirectorySet = new Set();
+const modifiedDirectories = [];
 const executables = {};
 const diagnosticName = `/var/log/tome-cms/install-${randomUUID()}.json`;
 const diagnosticFailures = [];
@@ -28,9 +32,9 @@ let diagnosticSaved = false;
 let diagnosticSaveFailed = false;
 let redactions = [];
 const childEnv = { ...process.env };
-// Public release access must work without a customer credential or remote Docker context.
-for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST', 'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO', 'GH_CONFIG_DIR', 'XDG_CACHE_HOME', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES']) delete childEnv[key];
-childEnv.DOCKER_HOST = 'unix:///var/run/docker.sock';
+const inheritedDockerConfig = resolve(process.env.DOCKER_CONFIG || join(process.env.HOME || homedir(), '.docker'));
+// Public release access must work without customer GitHub or registry credentials.
+for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST', 'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO', 'GH_CONFIG_DIR', 'XDG_CACHE_HOME', 'HOME', 'DOCKER_CONFIG', 'DOCKER_AUTH_CONFIG', 'REGISTRY_AUTH_FILE', 'DOCKER_CONTENT_TRUST', 'DOCKER_CONTENT_TRUST_SERVER', 'DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE', 'DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES']) delete childEnv[key];
 delete childEnv.TOME_CMS_APP_IMAGE;
 const at = path => prefix ? join(prefix, path) : path;
 const destinations = [
@@ -44,6 +48,7 @@ const destinations = [
   ['/etc/tome-cms/updater.json', '0644', 'root:root', 'file'],
   ['/var/lib/tome-cms', '0700', 'tomecms-updater:tomecms-updater', 'directory'],
   ['/var/lib/tome-cms/updater', '0700', 'tomecms-updater:tomecms-updater', 'directory'],
+  ['/var/lib/tome-cms/updater/docker-public', '0700', 'tomecms-updater:tomecms-updater', 'directory'],
   ['/var/lib/tome-cms/updater/image.env', '0600', 'tomecms-updater:tomecms-updater', 'file'],
   ['/var/lib/tome-cms/updater/installed.json', '0600', 'tomecms-updater:tomecms-updater', 'file'],
   ['/var/backups/tome-cms', '0700', 'tomecms-updater:tomecms-updater', 'directory'],
@@ -70,6 +75,11 @@ function run(name, args, timeout = 30_000, optional = false, raw = false) {
   return raw ? result.stdout : result.stdout.trim();
 }
 
+function cleanupCommand(name, args) {
+  const result = spawnSync(executables[name], args, { cwd: source, env: childEnv, encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] });
+  return !result.error && result.status === 0;
+}
+
 function rememberSecrets(values) {
   const secrets = Object.entries(values).filter(([key, value]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && value).map(([, value]) => value);
   const containerDatabase = new URL(values.DATABASE_URL);
@@ -88,7 +98,7 @@ function privateText(value, limit = 4096) {
 }
 
 function saveDiagnostic(command, args, result) {
-  if (!persisted || diagnosticFailures.length >= 4) return;
+  if (!recoveryReady || diagnosticFailures.length >= 4) return;
   diagnosticFailures.push({
     command, args: privateText(args.join(' '), 2048), exitCode: result.status ?? null,
     signal: result.signal ?? null, errorCode: result.error?.code ?? null,
@@ -125,17 +135,24 @@ async function safePath(path) {
   return absolute;
 }
 
+async function unlinkCreated(file) {
+  const info = await lstat(file.path).catch(error => { if (error.code !== 'ENOENT') throw error; });
+  if (info?.isFile() && info.dev === file.dev && info.ino === file.ino) await unlink(file.path);
+}
+
 async function writeAtomic(path, content, mode, owner) {
   const target = await safePath(path);
   const pending = `${target}.${randomUUID()}.tmp`;
   const handle = await open(pending, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, Number.parseInt(mode, 8));
-  createdEmpty.push(pending);
+  const identity = await handle.stat();
+  pendingFiles.push({ path: pending, dev: identity.dev, ino: identity.ino });
   try {
     await handle.writeFile(content);
     await handle.chmod(Number.parseInt(mode, 8));
     await handle.sync();
     run('chown', [owner, pending]);
     await rename(pending, target);
+    createdFiles.push({ path: target, dev: identity.dev, ino: identity.ino });
   } finally { await handle.close(); }
 }
 
@@ -144,7 +161,65 @@ async function ensureDirectory(path) {
   await ensureDirectory(dirname(path));
   await mkdir(path, { mode: 0o755 });
   createdDirectories.push(path);
+  createdDirectorySet.add(path);
   await chmod(path, 0o755);
+}
+
+async function installTree(from, to) {
+  const info = await lstat(from);
+  if (info.isSymbolicLink() || (!info.isFile() && !info.isDirectory())) throw new Error('Compiled updater must contain only regular files and directories.');
+  if (info.isDirectory()) {
+    await ensureDirectory(await safePath(to));
+    for (const name of await readdir(from)) await installTree(join(from, name), join(to, name));
+    return;
+  }
+  await writeAtomic(to, await readFile(from), '0644', 'root:root');
+}
+
+async function readDockerJson(path, maximumBytes) {
+  try {
+    const info = await lstat(path);
+    if (!info.isFile() || info.size > maximumBytes) throw new Error('Invalid Docker client context.');
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    throw new Error('Invalid Docker client context.');
+  }
+}
+
+async function preserveDockerConnection() {
+  let context = childEnv.DOCKER_CONTEXT;
+  if (!context && !childEnv.DOCKER_HOST) {
+    const configPath = join(inheritedDockerConfig, 'config.json');
+    const info = await lstat(configPath).catch(error => { if (error.code !== 'ENOENT') throw error; });
+    if (info) {
+      const config = await readDockerJson(configPath, 512 * 1024);
+      if (config?.currentContext !== undefined && typeof config.currentContext !== 'string') throw new Error('Invalid Docker client context.');
+      context = config?.currentContext;
+    }
+  }
+  if (!context) return;
+  delete childEnv.DOCKER_CONTEXT;
+  if (context === 'default') {
+    delete childEnv.DOCKER_HOST;
+    for (const key of ['DOCKER_CERT_PATH', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY']) delete childEnv[key];
+    return;
+  }
+  if (context.length > 256 || context.includes('\0')) throw new Error('Invalid Docker client context.');
+  const id = createHash('sha256').update(context).digest('hex');
+  const metadataPath = join(inheritedDockerConfig, 'contexts', 'meta', id, 'meta.json');
+  const metadata = await readDockerJson(metadataPath, 64 * 1024);
+  const endpoint = metadata?.Name === context ? metadata?.Endpoints?.docker : undefined;
+  if (typeof endpoint?.Host !== 'string' || !/^(unix|tcp|ssh):\/\//.test(endpoint.Host)) throw new Error('Invalid Docker client context.');
+  childEnv.DOCKER_HOST = endpoint.Host;
+  for (const key of ['DOCKER_CERT_PATH', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY']) delete childEnv[key];
+  const tlsPath = join(inheritedDockerConfig, 'contexts', 'tls', id, 'docker');
+  const tls = await lstat(tlsPath).catch(error => { if (error.code !== 'ENOENT') throw error; });
+  if (tls) {
+    if (!tls.isDirectory()) throw new Error('Invalid Docker client context TLS data.');
+    childEnv.DOCKER_CERT_PATH = tlsPath;
+    childEnv.DOCKER_TLS = '1';
+    if (endpoint.SkipTLSVerify !== true) childEnv.DOCKER_TLS_VERIFY = '1';
+  }
 }
 
 function fetchPublic(url) {
@@ -180,7 +255,7 @@ async function main() {
   if (compareStableVersions(version, '1.0.0') < 0) throw new Error('Managed installation requires a stable release from 1.0.0 onward.');
   if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Node 22+ is required.');
   if (prefix && (!isAbsolute(prefix) || resolve(prefix) !== prefix || prefix === '/')) throw new Error('Invalid root prefix.');
-  for (const name of ['uname', 'id', 'getent', 'groupadd', 'useradd', 'chown', 'git', 'docker', 'gh', 'npm', 'curl', 'systemctl']) {
+  for (const name of ['uname', 'id', 'getent', 'groupadd', 'groupdel', 'useradd', 'userdel', 'chown', 'git', 'docker', 'gh', 'npm', 'curl', 'systemctl']) {
     const candidates = prefix ? [join(prefix, 'bin', name)] : (process.env.PATH || '').split(':').filter(Boolean).map(path => join(path, name));
     for (const candidate of candidates) {
       if (await access(candidate, constants.X_OK).then(() => true, () => false)) {
@@ -212,6 +287,17 @@ async function main() {
     const path = await safePath(target.path);
     const info = await lstat(path).catch(error => { if (error.code !== 'ENOENT') throw error; });
     if (info && (target.kind !== 'directory' || !info.isDirectory() || (await readdir(path)).length)) throw new Error('Managed installation requires fresh empty destinations; existing files are retained.');
+  }
+  await preserveDockerConnection();
+  temporary = await mkdtemp(join(prefix || tmpdir(), 'tomecms-install-'));
+  childEnv.HOME = join(temporary, 'home');
+  childEnv.DOCKER_CONFIG = join(temporary, 'docker-config');
+  childEnv.GH_CONFIG_DIR = join(temporary, 'gh-config');
+  childEnv.XDG_CACHE_HOME = join(temporary, 'gh-cache');
+  childEnv.GH_PROMPT_DISABLED = '1';
+  for (const directory of [childEnv.HOME, childEnv.DOCKER_CONFIG, childEnv.GH_CONFIG_DIR, childEnv.XDG_CACHE_HOME]) {
+    await mkdir(directory, { mode: 0o700 });
+    await chmod(directory, 0o700);
   }
   run('docker', ['info']);
   run('docker', ['compose', 'version']);
@@ -246,17 +332,9 @@ async function main() {
   if ([compatibility.composeContract, compatibility.environmentContract, compatibility.updaterProtocol].some(value => value !== 1) ||
       compareStableVersions(compatibility.minimumUpdaterVersion, '1.0.0') > 0) throw new Error('Manual updater contract upgrade is required.');
   await access(join(source, 'src/server/db/migrations', `${compatibility.targetMigration}.ts`)).catch(() => { throw new Error('Target migration is not shipped in this checkout.'); });
-  temporary = await mkdtemp(join(prefix || tmpdir(), 'tomecms-install-'));
   for (const asset of assets) {
     const handle = await open(join(temporary, asset.name), 'wx', 0o600);
     try { await handle.writeFile(asset.bytes); await handle.chmod(0o600); } finally { await handle.close(); }
-  }
-  childEnv.GH_CONFIG_DIR = join(temporary, 'gh-config');
-  childEnv.XDG_CACHE_HOME = join(temporary, 'gh-cache');
-  childEnv.GH_PROMPT_DISABLED = '1';
-  for (const directory of [childEnv.GH_CONFIG_DIR, childEnv.XDG_CACHE_HOME]) {
-    await mkdir(directory, { mode: 0o700 });
-    await chmod(directory, 0o700);
   }
   const policy = ['-R', OFFICIAL_REPOSITORY, '--signer-workflow', `${OFFICIAL_REPOSITORY}/.github/workflows/release.yml`, '--source-ref', `refs/tags/v${version}`, '--source-digest', commit, '--deny-self-hosted-runners'];
   run('gh', ['attestation', 'verify', join(temporary, UPDATE_MANIFEST_ASSET), '--bundle', join(temporary, UPDATE_MANIFEST_ATTESTATION_ASSET), ...policy], 300_000);
@@ -286,30 +364,24 @@ async function main() {
     '--import', 'tsx', '--input-type=module', '-e', "import { migrations } from '/app/src/server/db/migrator.ts'; process.stdout.write(JSON.stringify(Object.keys(migrations)));" ]));
   if (!Array.isArray(inventory) || inventory.at(-1) !== compatibility.targetMigration) throw new Error('Target image migration inventory mismatch.');
   run('groupadd', ['--system', 'tomecms-updater']);
+  createdGroup = true;
   run('useradd', ['--system', '--gid', 'tomecms-updater', '--groups', 'docker', '--home-dir', '/nonexistent', '--no-create-home', '--shell', '/usr/sbin/nologin', 'tomecms-updater']);
+  createdUser = true;
   const gid = run('id', ['-g', 'tomecms-updater']);
   if (!/^[1-9]\d*$/.test(gid) || !Number.isSafeInteger(Number(gid))) throw new Error('Invalid updater group ID.');
   values.TOME_CMS_UPDATER_GID = gid;
   for (const target of destinations.filter(item => item.kind === 'directory')) {
     const path = await safePath(target.path);
     await ensureDirectory(path);
+    if (!createdDirectorySet.has(path)) {
+      const info = await lstat(path);
+      modifiedDirectories.push({ path, mode: info.mode & 0o7777, uid: info.uid, gid: info.gid });
+    }
     await chmod(path, Number.parseInt(target.mode, 8));
     run('chown', [target.owner, path]);
   }
-  // Once generated credentials exist, retain them on every failure so Docker data stays recoverable.
   await writeAtomic(config.environmentFile, renderEnvironment(values), '0640', 'root:tomecms-updater');
-  persisted = true;
-  for (const name of await readdir(compiled)) {
-    await cp(join(compiled, name), at(`/opt/tome-cms/updater/${name}`), { recursive: true, dereference: false, errorOnExist: true, force: false });
-  }
-  async function secureCode(path) {
-    const info = await lstat(path);
-    if (info.isSymbolicLink() || (!info.isFile() && !info.isDirectory())) throw new Error('Compiled updater must contain only regular files and directories.');
-    await chmod(path, info.isDirectory() ? 0o755 : 0o644);
-    run('chown', ['root:root', path]);
-    if (info.isDirectory()) for (const name of await readdir(path)) await secureCode(join(path, name));
-  }
-  await secureCode(at('/opt/tome-cms/updater'));
+  await installTree(compiled, '/opt/tome-cms/updater');
   await writeAtomic('/opt/tome-cms/updater/package.json', '{"type":"module"}\n', '0644', 'root:root');
   for (const [path, from] of [[config.composeFile, 'compose.managed.yaml'], ['/opt/tome-cms/config/seaweedfs-s3.json', 'config/seaweedfs-s3.json'], ['/etc/systemd/system/tomecms-updater.service', 'config/systemd/tomecms-updater.service']]) {
     await ensureDirectory(dirname(at(path)));
@@ -318,12 +390,13 @@ async function main() {
   await writeAtomic('/etc/tome-cms/updater.json', `${JSON.stringify(config, null, 2)}\n`, '0644', 'root:root');
   await writeAtomic(config.imageEnvironmentFile, `TOME_CMS_APP_IMAGE='${image}'\n`, '0600', 'tomecms-updater:tomecms-updater');
   await writeAtomic(`${config.stateDirectory}/installed.json`, `${JSON.stringify({ version, imageDigest: manifest.image.digest, composeContract: 1, environmentContract: 1, updaterProtocol: 1, installedAt: new Date().toISOString() })}\n`, '0600', 'tomecms-updater:tomecms-updater');
+  for (const path of [config.composeFile, config.environmentFile, config.imageEnvironmentFile, `${config.stateDirectory}/installed.json`, '/etc/tome-cms/updater.json', '/etc/systemd/system/tomecms-updater.service', '/opt/tome-cms/updater/updater/main.js']) await access(at(path));
+  recoveryReady = true;
   const compose = ['compose', '-p', 'tomecms', '-f', at(config.composeFile), '--env-file', at(config.environmentFile), '--env-file', at(config.imageEnvironmentFile)];
   // Ambient shell settings must not override the files the updater will use on subsequent runs.
   for (const key of Object.keys(values)) delete childEnv[key];
   run('docker', [...compose, 'config', '--quiet']);
   run('docker', [...compose, 'up', '-d', '--wait', '--wait-timeout', '90', 'postgres', 'seaweedfs'], 120_000);
-  migrationStarted = true;
   runContainer(compose, 'migration', ['--rm', '--no-deps', '--pull', 'never', 'app', 'npm', 'run', 'db:migrate'], 900_000);
   run('docker', [...compose, 'up', '-d', '--wait', '--wait-timeout', '90', '--no-deps', '--pull', 'never', 'app'], 120_000);
   run('curl', ['--disable', '--fail', '--silent', '--show-error', '--max-time', '5', config.appHealthUrl], 10_000);
@@ -338,20 +411,27 @@ async function main() {
 
 try { await main(); }
 catch (error) {
-  if (persisted && !diagnosticFailures.length) saveDiagnostic('installer', [], { stderr: error instanceof Error ? error.message : 'Managed installation failed.' });
-  console.error(persisted ? 'Managed installation failed; inspect the private diagnostics.' : privateText(error instanceof Error ? error.message : 'Managed installation failed.'));
-  if (persisted || migrationStarted) {
+  if (recoveryReady && !diagnosticFailures.length) saveDiagnostic('installer', [], { stderr: error instanceof Error ? error.message : 'Managed installation failed.' });
+  console.error(recoveryReady ? 'Managed installation failed; inspect the private diagnostics.' : privateText(error instanceof Error ? error.message : 'Managed installation failed.'));
+  if (recoveryReady) {
     console.error('Configuration, credentials, images, volumes and logs retained. Manual recovery: sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml --env-file /etc/tome-cms/tome-cms.env --env-file /var/lib/tome-cms/updater/image.env logs --tail 100');
     if (diagnosticSaved) console.error(`Private installer diagnostics: ${at(diagnosticName)}`);
     if (diagnosticSaveFailed) console.error('Private installer diagnostics could not be fully saved.');
   }
   process.exitCode = 1;
 } finally {
-  // Only remove this invocation's empty temporary files/directories; never Docker data or credentials.
-  for (const path of createdEmpty) {
-    if (await lstat(path).then(info => info.isFile() && info.size === 0, () => false)) await unlink(path);
+  for (const file of pendingFiles) await unlinkCreated(file).catch(() => {});
+  if (!recoveryReady) {
+    for (const file of createdFiles.reverse()) await unlinkCreated(file).catch(() => {});
+    for (const directory of modifiedDirectories.reverse()) {
+      if (!cleanupCommand('chown', [`${directory.uid}:${directory.gid}`, directory.path])) console.error(`Installer rollback could not restore ownership for ${directory.path}.`);
+      await chmod(directory.path, directory.mode).catch(() => console.error(`Installer rollback could not restore permissions for ${directory.path}.`));
+    }
+    for (const path of createdDirectories.reverse()) await rmdir(path).catch(() => {});
+    const userRemoved = !createdUser || cleanupCommand('userdel', ['tomecms-updater']);
+    if (!userRemoved) console.error('Installer rollback could not remove the tomecms-updater user.');
+    if (createdGroup && (!userRemoved || !cleanupCommand('groupdel', ['tomecms-updater']))) console.error('Installer rollback could not remove the tomecms-updater group.');
   }
-  if (!persisted) for (const path of createdDirectories.reverse()) await rmdir(path).catch(() => {});
   if (temporary) {
     // This exact directory was exclusively created above and contains only the fetched manifest/build output.
     await rm(temporary, { recursive: true, force: true });
