@@ -72,6 +72,8 @@ export async function verifyTargetRelease(input: {
   verifyDigest(manifestBytes, release.manifest.digest);
   verifyDigest(manifestBundleBytes, release.manifestBundle.digest);
   verifyDigest(imageBundleBytes, release.imageBundle.digest);
+  const manifest = parseManifestBytes(manifestBytes);
+  if (manifest.version !== version) throw new Error('Release version does not match manifest');
 
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-update-'));
   const manifestPath = join(directory, UPDATE_MANIFEST_ASSET);
@@ -86,22 +88,20 @@ export async function verifyTargetRelease(input: {
       '-R', OFFICIAL_REPOSITORY,
       '--signer-workflow', releaseWorkflow,
       '--source-ref', `refs/tags/${tag}`,
+      '--source-digest', manifest.source.commit,
       '--deny-self-hosted-runners',
     ] as const;
-    const { manifest, imageReference } = await withIsolatedGhEnvironment(input.config.stateDirectory, async (environment) => {
+    const imageReference = await withIsolatedGhEnvironment(input.config.stateDirectory, async (environment) => {
       await successfulCommand(dependencies, 'gh', [
         'attestation', 'verify', manifestPath, '--bundle', manifestBundlePath, ...policy,
       ], attestationTimeoutMs, 'Manifest attestation verification failed', environment);
-
-      const manifest = parseManifestBytes(manifestBytes);
-      if (manifest.version !== version) throw new Error('Release version does not match manifest');
-      assertCompatibility(input.installed, manifest, input.updaterVersion);
       const imageReference = `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`;
       await successfulCommand(dependencies, 'gh', [
         'attestation', 'verify', `oci://${imageReference}`, '--bundle', imageBundlePath, ...policy,
       ], attestationTimeoutMs, 'Image attestation verification failed', environment);
-      return { manifest, imageReference };
+      return imageReference;
     });
+    assertCompatibility(input.installed, manifest, input.updaterVersion);
 
     await runPreflight({
       installed: input.installed,

@@ -219,6 +219,7 @@ test('verifies the exact immutable release, attestations, compatibility and pref
           '-R', OFFICIAL_REPOSITORY,
           '--signer-workflow', 'Dhanabhon/tome-cms/.github/workflows/release.yml',
           '--source-ref', 'refs/tags/v1.0.1',
+          '--source-digest', manifest.source.commit,
           '--deny-self-hosted-runners',
         ]);
         const expected = image ? releaseFor(manifest).imageBundleBytes : releaseFor(manifest).manifestBundleBytes;
@@ -362,7 +363,7 @@ test('fails closed when either attestation fails and always removes its private 
   }
 });
 
-test('rejects every incompatible direct upgrade before image attestation', async () => {
+test('verifies both attestations before rejecting an incompatible direct upgrade', async () => {
   const { root, config } = await hostFixture();
   try {
     const cases: Array<{ value: unknown; version?: string; current?: InstalledState; updater?: string }> = [
@@ -384,7 +385,7 @@ test('rejects every incompatible direct upgrade before image attestation', async
         updaterVersion: entry.updater ?? '1.0.0', config,
         dependencies: dependencies({ value: entry.value, events }),
       }), /compatib|version|upgrade|rollback|contract/i);
-      assert.equal(events.includes('gh:image-attestation'), false);
+      assert.equal(events.includes('gh:image-attestation'), true);
     }
   } finally {
     await rm(root, { recursive: true, force: true });
