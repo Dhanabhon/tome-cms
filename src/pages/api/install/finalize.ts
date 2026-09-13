@@ -118,6 +118,11 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
         author_bio_th: '',
         author_bio_en: '',
       }).execute();
+      await sql`
+        insert into categories (owner_id, name, is_default)
+        values (${ownerId}, 'Uncategorized', true)
+        on conflict (owner_id) where is_default do nothing
+      `.execute(trx);
 
       const recoveryCodes = await storeRecoveryCodes(ownerId, trx);
 

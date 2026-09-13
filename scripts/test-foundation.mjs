@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const cwd = fileURLToPath(new URL('..', import.meta.url));
 const compose = ['compose', '-p', 'tomecms-foundation-test', '-f', 'compose.test.yaml'];
+const testFiles = process.argv.slice(2);
 // Plan 1 starts only PostgreSQL. Plan 4 must require a real license before starting storage.
 const composeEnv = { ...process.env, MINIO_LICENSE_FILE: '/dev/null' };
 const testEnv = {
@@ -51,7 +52,9 @@ function run(command, args, env, timeout, signal) {
 
 try {
   await run('docker', [...compose, 'up', '-d', '--wait', '--wait-timeout', '90', 'postgres'], composeEnv, 180_000, controller.signal);
-  await run(process.execPath, ['--import', 'tsx', '--test', 'tests/integration/foundation.test.ts'], testEnv, 120_000, controller.signal);
+  await run(process.execPath, [
+    '--import', 'tsx', '--test', ...(testFiles.length ? testFiles : ['tests/integration/foundation.test.ts']),
+  ], testEnv, 120_000, controller.signal);
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
