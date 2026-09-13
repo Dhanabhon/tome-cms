@@ -1,12 +1,14 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { safeAdminReturnTo } from '../../../lib/admin';
+import { getSiteSettings } from '../../../server/content/settings';
 
 const saveError = Astro.url.searchParams.get('state') === 'save-error';
-const returnTo = safeAdminReturnTo(Astro.url.searchParams.get('returnTo'));
+const adminPath = (await getSiteSettings())?.admin_path ?? '/admin';
+const returnTo = safeAdminReturnTo(Astro.url.searchParams.get('returnTo'), adminPath);
 ---
 
-<AdminLayout title="Draft preview">
+<AdminLayout adminPath={adminPath} title="Draft preview">
   <main class="admin-preview-pending">
     <h1>Draft preview</h1>
     {saveError ? (

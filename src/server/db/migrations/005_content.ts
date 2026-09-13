@@ -170,7 +170,13 @@ export async function up(db: Kysely<Database>): Promise<void> {
     create function tomecms_set_content_timestamps() returns trigger
     language plpgsql as $$
     begin
-      new.updated_at = current_timestamp;
+      new.updated_at = case
+        when tg_op = 'INSERT' then date_trunc('milliseconds', clock_timestamp())
+        else greatest(
+          date_trunc('milliseconds', clock_timestamp()),
+          date_trunc('milliseconds', old.updated_at) + interval '1 millisecond'
+        )
+      end;
       if new.status = 'draft' then
         new.published_at = null;
       elsif tg_op = 'INSERT' or old.status is distinct from 'published' then

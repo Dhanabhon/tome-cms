@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { ACCEPTED_IMAGE_TYPES, COVER_IMAGE_GUIDANCE } from '../../lib/media';
-import type { MediaAsset, PostCategory } from '../../types/cms';
-import MediaPicker from './MediaPicker';
+import type { PostCategory } from '../../types/cms';
 
 interface PostSettingsDrawerProps {
   categories: PostCategory[];
-  coverAsset: MediaAsset | null;
-  coverImage: string;
   errorMessage: string | null;
   metaDescription: string;
   metaTitle: string;
@@ -15,26 +11,20 @@ interface PostSettingsDrawerProps {
   onChangeMetaDescription: (value: string) => void;
   onChangeMetaTitle: (value: string) => void;
   onChangeSlug: (value: string) => void;
-  onChooseCover: (asset: MediaAsset) => void;
   onClose: () => void;
   onManageCategories: () => void;
-  onRemoveCover: () => void;
-  onUploadCover: (file: File, input: HTMLInputElement) => Promise<void>;
   open: boolean;
   selectedCategoryIds: string[];
   slug: string;
-  uploadingCover: boolean;
 }
 
 export default function PostSettingsDrawer({
-  categories, coverAsset, coverImage, errorMessage, metaDescription, metaTitle,
-  onChangeCategories, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug, onChooseCover,
-  onClose, onManageCategories, onRemoveCover, onUploadCover, open, selectedCategoryIds, slug, uploadingCover,
+  categories, errorMessage, metaDescription, metaTitle,
+  onChangeCategories, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
+  onClose, onManageCategories, open, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
-  const coverPickerTrigger = useRef<HTMLButtonElement>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     const element = dialog.current;
@@ -48,11 +38,6 @@ export default function PostSettingsDrawer({
     };
   }, [open]);
 
-  const lowResolution = coverAsset && (
-    coverAsset.width < COVER_IMAGE_GUIDANCE.recommendedMinWidth
-    || coverAsset.height < COVER_IMAGE_GUIDANCE.recommendedMinHeight
-  );
-
   return (
     <dialog aria-label="Post settings" className="admin-editor-settings" onCancel={(event) => {
       if (event.target !== event.currentTarget) return;
@@ -60,7 +45,7 @@ export default function PostSettingsDrawer({
       onClose();
     }} ref={dialog}>
       <div className="admin-editor-settings__head">
-        <div><h2>Post settings</h2><p>URL, search and answer previews, and cover image.</p></div>
+        <div><h2>Post settings</h2><p>URL, Categories, search, and answer previews.</p></div>
         <button autoFocus aria-label="Close settings" className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">Close</button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
@@ -97,33 +82,6 @@ export default function PostSettingsDrawer({
         <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder="A concise summary or direct answer" value={metaDescription} />
         <small>Shown below the article title and reused in search and social metadata.</small>
       </label>
-      <div className="admin-field">
-        <span>Cover image</span>
-        <div className="admin-cover-actions">
-          <button className="admin-button admin-button--secondary" onClick={() => setPickerOpen(true)} ref={coverPickerTrigger} type="button">Choose from library</button>
-          <label className="admin-upload" data-state={uploadingCover ? 'loading' : undefined}>
-            <input aria-label="Upload new" className="sr-only" accept={ACCEPTED_IMAGE_TYPES.join(',')} disabled={uploadingCover} onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              if (file) void onUploadCover(file, event.currentTarget);
-            }} type="file" />
-            {uploadingCover ? 'Uploading…' : 'Upload new'}
-          </label>
-          {coverImage && <button className="admin-button admin-button--secondary" onClick={onRemoveCover} type="button">Remove</button>}
-        </div>
-        <input name="coverImage" type="hidden" value={coverImage} />
-        <p className="admin-cover-help">
-          Recommended: {COVER_IMAGE_GUIDANCE.recommendedWidth} × {COVER_IMAGE_GUIDANCE.recommendedHeight} px (16:9).
-          {' '}Minimum: {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.
-          {' '}Best: WebP or JPEG; PNG and AVIF are also supported. GIF is accepted but discouraged for covers, especially when animated.
-          {' '}Aim for {COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024} MB or less; {COVER_IMAGE_GUIDANCE.hardLimitBytes / 1024 / 1024} MB maximum.
-        </p>
-        {lowResolution && <p className="admin-cover-warning" role="status">This image is below the recommended minimum of {COVER_IMAGE_GUIDANCE.recommendedMinWidth} × {COVER_IMAGE_GUIDANCE.recommendedMinHeight} px.</p>}
-        {coverImage && <img alt="Current cover" className="admin-cover-preview" src={coverImage} />}
-      </div>
-      {pickerOpen && <MediaPicker onCancel={() => setPickerOpen(false)} onSelect={(asset) => {
-        setPickerOpen(false);
-        onChooseCover(asset);
-      }} returnFocus={coverPickerTrigger.current} />}
     </dialog>
   );
 }

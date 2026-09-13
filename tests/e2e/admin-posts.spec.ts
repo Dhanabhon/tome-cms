@@ -19,10 +19,10 @@ test('PATCH rejects a draft autosaved after publication validation reads its rev
     await expect(page.locator('select')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     const draft = { title: 'Concurrent draft', slug: `revision-${crypto.randomUUID()}`, status: 'draft', contentJson: content, contentHtml: '<p>A complete story.</p>' };
-    const created = await page.request.post('/api/posts', { data: draft });
+    const created = await page.request.post('/api/admin/posts', { data: draft });
     expect(created.status()).toBe(201);
     const { post } = await created.json();
-    const { PATCH } = await vite.ssrLoadModule('/src/pages/api/posts/index.ts');
+    const { PATCH } = await vite.ssrLoadModule('/src/pages/api/admin/posts/index.ts');
     let autosaved = false;
     // Interleave a real PUT after the real DB read returns, before PATCH receives its snapshot.
     globalThis.fetch = async (input, init) => {
@@ -30,17 +30,17 @@ test('PATCH rejects a draft autosaved after publication validation reads its rev
       const url = new URL(input instanceof Request ? input.url : String(input));
       if (!autosaved && (init?.method ?? 'GET') === 'GET' && url.pathname === '/rest/v1/posts' && url.searchParams.get('id') === `eq.${post.id}`) {
         autosaved = true;
-        const saved = await page.request.put('/api/posts', { data: { ...draft, id: post.id, contentJson: { type: 'doc', content: [] }, contentHtml: '' } });
+        const saved = await page.request.put('/api/admin/posts', { data: { ...draft, id: post.id, contentJson: { type: 'doc', content: [] }, contentHtml: '' } });
         expect(saved.status()).toBe(200);
       }
       return response;
     };
     const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
-    const request = new Request(new URL('/api/posts', page.url()), {
+    const request = new Request(new URL('/api/admin/posts', page.url()), {
       method: 'PATCH', headers: { cookie, 'content-type': 'application/json' },
       body: JSON.stringify({ id: post.id, status: 'published' }),
     });
-    const response = await PATCH(createContext({ request, defaultLocale: 'en', locals: {} }));
+    const response = await PATCH(createContext({ request, defaultLocale: 'en', locals: { session: null, user: null } }));
     expect(autosaved).toBe(true);
     expect(response.status).toBe(409);
     expect((await response.json()).error).toMatch(/changed.*reload/i);
@@ -150,7 +150,7 @@ test('row actions publish, unpublish and confirm deletion of only one edition; f
     await expect(row).toHaveCount(1);
     await row.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(deleteDialog).toContainText('TH');
-    const deleteRequest = page.waitForRequest((request) => request.method() === 'DELETE' && new URL(request.url()).pathname === '/api/posts');
+    const deleteRequest = page.waitForRequest((request) => request.method() === 'DELETE' && new URL(request.url()).pathname === '/api/admin/posts');
     await deleteDialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(row).toHaveCount(0);
     expect(await (await deleteRequest).headerValue('content-type')).toBe('application/json');
@@ -173,17 +173,17 @@ test('PATCH validates ownership, strict payload and both document and rendered c
   const owner = await createOwner('story-status');
   const foreign = await createOwner('story-foreign');
   try {
-    expect((await request.patch('/api/posts', { data: { id: crypto.randomUUID(), status: 'published' } })).status()).toBe(401);
+    expect((await request.patch('/api/admin/posts', { data: { id: crypto.randomUUID(), status: 'published' } })).status()).toBe(401);
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     const { data: other } = await admin.from('posts').insert({ author_id: foreign.id, title: 'Foreign', locale: 'en', slug: `foreign-${crypto.randomUUID()}`, status: 'published', content_json: content, content_html: '<p>Text</p>' }).select('id').single();
     for (const id of [other!.id, crypto.randomUUID()]) {
-      expect((await page.request.patch('/api/posts', { data: { id, status: 'draft' } })).status()).toBe(404);
+      expect((await page.request.patch('/api/admin/posts', { data: { id, status: 'draft' } })).status()).toBe(404);
     }
     for (const data of [{ id: 'invalid', status: 'draft' }, { id: other!.id, status: 'bad' }, { id: other!.id, status: 'draft', title: 'Override' }]) {
-      expect((await page.request.patch('/api/posts', { data })).status()).toBe(400);
+      expect((await page.request.patch('/api/admin/posts', { data })).status()).toBe(400);
     }
-    expect((await page.request.patch('/api/posts', { data: '{', headers: { 'content-type': 'application/json' } })).status()).toBe(400);
+    expect((await page.request.patch('/api/admin/posts', { data: '{', headers: { 'content-type': 'application/json' } })).status()).toBe(400);
     for (const body of [
       { contentJson: content, contentHtml: '<script>alert(1)</script>' },
       { contentJson: content, contentHtml: '<p>&nbsp; &#8203;</p>' },
@@ -191,10 +191,10 @@ test('PATCH validates ownership, strict payload and both document and rendered c
       { contentJson: { type: 'doc', content: [{ type: 'image' }] }, contentHtml: '<img src="https://">' },
       { contentJson: { type: 'doc', content: [{ type: 'image', attrs: { src: '/cover.jpg' } }] }, contentHtml: '<img src="/cover.jpg">' },
     ]) {
-      const created = await page.request.post('/api/posts', { data: { ...body, title: 'Draft', slug: `render-${crypto.randomUUID()}`, status: 'draft' } });
+      const created = await page.request.post('/api/admin/posts', { data: { ...body, title: 'Draft', slug: `render-${crypto.randomUUID()}`, status: 'draft' } });
       expect(created.status()).toBe(201);
       const { post } = await created.json();
-      const result = await page.request.patch('/api/posts', { data: { id: post.id, status: 'published' } });
+      const result = await page.request.patch('/api/admin/posts', { data: { id: post.id, status: 'published' } });
       expect(result.status()).toBe(body.contentHtml.includes('/cover.jpg') ? 200 : 400);
     }
     expect((await admin.from('posts').select('status').eq('id', other!.id).single()).data?.status).toBe('published');

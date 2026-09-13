@@ -83,14 +83,14 @@ test('preview queues behind an active save and renders only the newest version',
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', { data: { ...draftBody('Preview race', `preview-race-${crypto.randomUUID()}`), status: 'published' } });
+    const response = await page.request.post('/api/admin/posts', { data: { ...draftBody('Preview race', `preview-race-${crypto.randomUUID()}`), status: 'published' } });
     expect(response.ok()).toBe(true);
     const { post } = await response.json();
     await page.goto(`/admin/edit/${post.id}`);
     let firstSave = true;
     let inFlight = 0;
     let maximumInFlight = 0;
-    await page.route('**/api/posts', async (route) => {
+    await page.route('**/api/admin/posts', async (route) => {
       inFlight += 1;
       maximumInFlight = Math.max(maximumInFlight, inFlight);
       if (firstSave) { firstSave = false; await gate; }
@@ -127,13 +127,13 @@ for (const destination of ['Back to Posts', 'existing edition', 'missing edition
       try {
         await signInAdmin(page, owner);
         await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-        const response = await page.request.post('/api/posts', { data: draftBody('Action lifecycle', `lifecycle-${crypto.randomUUID()}`) });
+        const response = await page.request.post('/api/admin/posts', { data: draftBody('Action lifecycle', `lifecycle-${crypto.randomUUID()}`) });
         expect(response.status()).toBe(201);
         const { post } = await response.json();
         const target = post.locale === 'th' ? 'en' : 'th';
         let destinationPath = destination === 'Back to Posts' ? '/admin' : `/admin/new?sourcePostId=${post.id}&locale=${target}`;
         if (destination === 'existing edition') {
-          const sibling = await page.request.post('/api/posts', { data: {
+          const sibling = await page.request.post('/api/admin/posts', { data: {
             ...draftBody('Existing edition', `lifecycle-edition-${crypto.randomUUID()}`), locale: target, sourcePostId: post.id,
           } });
           expect(sibling.status()).toBe(201);
@@ -142,7 +142,7 @@ for (const destination of ['Back to Posts', 'existing edition', 'missing edition
         await page.goto(`/admin/edit/${post.id}`);
         let inFlight = 0;
         let maximumInFlight = 0;
-        await page.route('**/api/posts', async (route) => {
+        await page.route('**/api/admin/posts', async (route) => {
           inFlight += 1;
           maximumInFlight = Math.max(maximumInFlight, inFlight);
           await saveGate;
@@ -180,7 +180,7 @@ for (const destination of ['Back to Posts', 'existing edition', 'missing edition
           await navigation.click({ noWaitAfter: true });
         }
         await expect(page).toHaveURL(new URL(destinationPath, page.url()).href);
-        const saved = await page.request.get('/api/posts');
+        const saved = await page.request.get('/api/admin/posts');
         expect((await saved.json()).posts.find((savedPost: { id: string }) => savedPost.id === post.id)).toMatchObject({
           status: 'draft', content_html: '<p>Newest lifecycle draft</p>',
         });
@@ -207,13 +207,13 @@ for (const destination of ['clean Back', 'saved Back', 'existing edition', 'miss
       try {
         await signInAdmin(page, owner);
         await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-        const response = await page.request.post('/api/posts', { data: draftBody('Cancelled navigation', `cancelled-${crypto.randomUUID()}`) });
+        const response = await page.request.post('/api/admin/posts', { data: draftBody('Cancelled navigation', `cancelled-${crypto.randomUUID()}`) });
         expect(response.status()).toBe(201);
         const { post } = await response.json();
         const target = post.locale === 'th' ? 'en' : 'th';
         let destinationPath = destination.endsWith('Back') ? '/admin' : `/admin/new?sourcePostId=${post.id}&locale=${target}`;
         if (destination === 'existing edition') {
-          const sibling = await page.request.post('/api/posts', { data: {
+          const sibling = await page.request.post('/api/admin/posts', { data: {
             ...draftBody('Cancelled edition', `cancelled-edition-${crypto.randomUUID()}`), locale: target, sourcePostId: post.id,
           } });
           expect(sibling.status()).toBe(201);
@@ -288,12 +288,12 @@ test('preview waits for Publish queued behind a delayed draft save and preserves
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', { data: draftBody('Publish preview race', `publish-preview-${crypto.randomUUID()}`) });
+    const response = await page.request.post('/api/admin/posts', { data: draftBody('Publish preview race', `publish-preview-${crypto.randomUUID()}`) });
     expect(response.ok()).toBe(true);
     const { post } = await response.json();
     await page.goto(`/admin/edit/${post.id}`);
     const statuses: string[] = [];
-    await page.route('**/api/posts', async (route) => {
+    await page.route('**/api/admin/posts', async (route) => {
       statuses.push(route.request().postDataJSON().status);
       if (statuses.length === 1) await gate;
       return route.continue();
@@ -330,13 +330,13 @@ test('preview save failure persists with same-tab retry and a safe return link',
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', { data: draftBody('Retry preview', `preview-retry-${crypto.randomUUID()}`) });
+    const response = await page.request.post('/api/admin/posts', { data: draftBody('Retry preview', `preview-retry-${crypto.randomUUID()}`) });
     expect(response.ok()).toBe(true);
     const { post } = await response.json();
     await page.goto(`/admin/edit/${post.id}`);
     let rejectSave = true;
     let saves = 0;
-    await page.route('**/api/posts', async (route) => {
+    await page.route('**/api/admin/posts', async (route) => {
       saves += 1;
       if (rejectSave) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Forced preview save failure' }) });
       await retryGate;
@@ -392,11 +392,11 @@ test('Back modifier clicks leave an accepted preview and its editor open', async
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', { data: draftBody('Modifier preview', `modifier-${crypto.randomUUID()}`) });
+    const response = await page.request.post('/api/admin/posts', { data: draftBody('Modifier preview', `modifier-${crypto.randomUUID()}`) });
     expect(response.status()).toBe(201);
     const { post } = await response.json();
     await page.goto(`/admin/edit/${post.id}`);
-    await page.route('**/api/posts', async (route) => { await saveGate; return route.continue(); });
+    await page.route('**/api/admin/posts', async (route) => { await saveGate; return route.continue(); });
     await page.locator('.ProseMirror').fill('Modifier-safe preview body');
     const popupPromise = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -430,7 +430,7 @@ test('preview reports a blocked popup without starting a save', async ({ page })
     await page.clock.install();
     await page.clock.pauseAt(new Date(Date.now() + 1_000));
     let saves = 0;
-    page.on('request', (request) => { if (request.url().endsWith('/api/posts')) saves += 1; });
+    page.on('request', (request) => { if (request.url().endsWith('/api/admin/posts')) saves += 1; });
     await page.getByLabel('Post title').fill('Blocked popup draft');
     await page.evaluate(() => { window.open = () => null; });
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -608,11 +608,11 @@ test('publishing surfaces stay within the required project-specific viewports', 
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const sourceResponse = await page.request.post('/api/posts', { data: { ...draftBody('Viewport source', sourceSlug), status: 'published' } });
+    const sourceResponse = await page.request.post('/api/admin/posts', { data: { ...draftBody('Viewport source', sourceSlug), status: 'published' } });
     expect(sourceResponse.ok()).toBe(true);
     const { post: source } = await sourceResponse.json();
     const siblingLocale = source.locale === 'th' ? 'en' : 'th';
-    const siblingResponse = await page.request.post('/api/posts', { data: {
+    const siblingResponse = await page.request.post('/api/admin/posts', { data: {
       ...draftBody('Viewport sibling', siblingSlug), locale: siblingLocale, sourcePostId: source.id, status: 'published',
     } });
     expect(siblingResponse.ok()).toBe(true);
@@ -686,14 +686,14 @@ test('edition navigation serializes delayed saves and keeps the newest text', as
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', { data: draftBody('Race source', `race-${crypto.randomUUID()}`) });
+    const response = await page.request.post('/api/admin/posts', { data: draftBody('Race source', `race-${crypto.randomUUID()}`) });
     expect(response.ok()).toBe(true);
     const { post } = await response.json();
     await page.goto(`/admin/edit/${post.id}`);
     let firstSave = true;
     let inFlight = 0;
     let maximumInFlight = 0;
-    await page.route('**/api/posts', async (route) => {
+    await page.route('**/api/admin/posts', async (route) => {
       if (route.request().method() !== 'PUT') return route.continue();
       inFlight += 1;
       maximumInFlight = Math.max(maximumInFlight, inFlight);
@@ -735,7 +735,7 @@ test('failed save stops leaving and retry preserves edits before Back to Posts',
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
     await page.goto('/admin/new');
     let rejectSave = true;
-    await page.route('**/api/posts', async (route) => {
+    await page.route('**/api/admin/posts', async (route) => {
       if (rejectSave) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Forced save failure' }) });
       await retryGate;
       return route.continue();
@@ -753,7 +753,7 @@ test('failed save stops leaving and retry preserves edits before Back to Posts',
     await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('Forced save failure');
     await expect(page.getByRole('button', { name: 'Retry save' })).toBeVisible();
-    const retry = page.waitForRequest((request) => request.url().endsWith('/api/posts') && request.method() === 'POST');
+    const retry = page.waitForRequest((request) => request.url().endsWith('/api/admin/posts') && request.method() === 'POST');
     await page.getByRole('button', { name: 'Retry save' }).click();
     await retry;
     await expect(page.locator('.admin-save-state').getByText('Save failed', { exact: true })).toBeVisible();
@@ -782,14 +782,14 @@ test('manual translation saves its edition and publishes only that edition', asy
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', { data: draftBody('Original draft', `original-${crypto.randomUUID()}`) });
+    const response = await page.request.post('/api/admin/posts', { data: draftBody('Original draft', `original-${crypto.randomUUID()}`) });
     expect(response.ok()).toBe(true);
     const { post: source } = await response.json();
     const target = source.locale === 'th' ? 'en' : 'th';
     await page.goto(`/admin/new?sourcePostId=${source.id}&locale=${target}`);
     await expect(page.getByLabel('Post title')).toHaveValue('');
     const title = `Manual edition ${crypto.randomUUID()}`;
-    const creation = page.waitForRequest((request) => request.url().endsWith('/api/posts') && request.method() === 'POST');
+    const creation = page.waitForRequest((request) => request.url().endsWith('/api/admin/posts') && request.method() === 'POST');
     await page.getByLabel('Post title').fill(title);
     await page.locator('.ProseMirror').fill('Manually written translation');
     const request = await creation;

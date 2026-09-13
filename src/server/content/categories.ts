@@ -136,31 +136,39 @@ export async function replacePostCategories(ownerId: string, postId: string, req
     if (!post) throw new HttpError(404, 'Post not found.');
     await trx.selectFrom('post_translation_groups').select('id')
       .where('id', '=', post.translation_group_id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
-
-    const ids = [...new Set(requestedIds)];
-    if (ids.length !== requestedIds.length || ids.length > 20) {
-      throw new HttpError(400, 'Choose up to 20 unique Categories.');
-    }
-    const selected = ids.length
-      ? await trx.selectFrom('categories').select(['id', 'is_default'])
-          .where('owner_id', '=', ownerId).where('id', 'in', ids).orderBy('id').forKeyShare().execute()
-      : [];
-    if (selected.length !== ids.length) throw new HttpError(400, 'Choose Categories that belong to this site.');
-    const customIds = selected.filter(({ is_default }) => !is_default).map(({ id }) => id);
-    const categoryIds = customIds.length ? customIds : [
-      (await trx.selectFrom('categories').select('id')
-        .where('owner_id', '=', ownerId).where('is_default', '=', true).executeTakeFirstOrThrow()).id,
-    ];
-
-    await trx.deleteFrom('post_category_assignments')
-      .where('translation_group_id', '=', post.translation_group_id).execute();
-    await trx.insertInto('post_category_assignments').values(categoryIds.map((categoryId) => ({
-      translation_group_id: post.translation_group_id,
-      category_id: categoryId,
-      owner_id: ownerId,
-    }))).execute();
-    return categoryIds.sort();
+    return replacePostGroupCategories(trx, ownerId, post.translation_group_id, requestedIds);
   });
+}
+
+export async function replacePostGroupCategories(
+  trx: Transaction<Database>,
+  ownerId: string,
+  translationGroupId: string,
+  requestedIds: string[],
+): Promise<string[]> {
+  const ids = [...new Set(requestedIds)];
+  if (ids.length !== requestedIds.length || ids.length > 20) {
+    throw new HttpError(400, 'Choose up to 20 unique Categories.');
+  }
+  const selected = ids.length
+    ? await trx.selectFrom('categories').select(['id', 'is_default'])
+        .where('owner_id', '=', ownerId).where('id', 'in', ids).orderBy('id').forKeyShare().execute()
+    : [];
+  if (selected.length !== ids.length) throw new HttpError(400, 'Choose Categories that belong to this site.');
+  const customIds = selected.filter(({ is_default }) => !is_default).map(({ id }) => id);
+  const categoryIds = customIds.length ? customIds : [
+    (await trx.selectFrom('categories').select('id')
+      .where('owner_id', '=', ownerId).where('is_default', '=', true).executeTakeFirstOrThrow()).id,
+  ];
+
+  await trx.deleteFrom('post_category_assignments')
+    .where('translation_group_id', '=', translationGroupId).execute();
+  await trx.insertInto('post_category_assignments').values(categoryIds.map((categoryId) => ({
+    translation_group_id: translationGroupId,
+    category_id: categoryId,
+    owner_id: ownerId,
+  }))).execute();
+  return categoryIds.sort();
 }
 
 export async function categoryIdsForPost(ownerId: string, postId: string): Promise<string[]> {

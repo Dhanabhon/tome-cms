@@ -2,18 +2,18 @@ import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
-import { uploadImage } from '../../lib/media-client';
-import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
+import { adminHref } from '../../lib/admin';
+import { POST_LOCALES, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
 interface EditorSourcePost {
-  coverImage: string | null;
   id: string;
 }
 
 interface EditorProps {
+  adminPath: string;
   categories: PostCategory[];
   initialCategoryIds: string[];
   initialPost?: Omit<Post, 'translation_group_id'>;
@@ -25,7 +25,6 @@ interface EditorProps {
 interface EditorDraft {
   categoryIds: string[];
   contentJson: JSONContent;
-  coverImage: string | null;
   metaDescription: string | null;
   metaTitle: string | null;
   slug: string;
@@ -49,39 +48,34 @@ function readPost(payload: unknown): Post | null {
   return typeof post === 'object' && post !== null && 'id' in post ? (post as Post) : null;
 }
 
-export default function Editor({ categories, initialCategoryIds, initialPost, locale, sourcePost, translations }: EditorProps) {
+export default function Editor({ adminPath, categories, initialCategoryIds, initialPost, locale, sourcePost, translations }: EditorProps) {
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
+  const updatedAt = useRef(initialPost?.updated_at);
   const slugTouched = useRef(Boolean(initialPost));
   const actionPending = useRef<boolean | 'navigation'>(false);
   const postStatusRef = useRef<PostStatus>(initialPost?.status ?? 'draft');
   const autosaveTimer = useRef<number>();
-  const coverOperation = useRef(0);
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
   const [categoryIds, setCategoryIds] = useState(() => selectCategories(categories, initialCategoryIds));
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
-  const [coverImage, setCoverImage] = useState(
-    initialPost?.cover_image ?? sourcePost?.coverImage ?? '',
-  );
-  const [coverAsset, setCoverAsset] = useState<MediaAsset | null>(null);
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPost?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
   const [postStatus, setPostStatus] = useState<PostStatus>(initialPost?.status ?? 'draft');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [uploadingCover, setUploadingCover] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [languageEditions, setLanguageEditions] = useState(translations);
   const [isActionPending, setIsActionPending] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
-    categoryIds, contentJson, coverImage: coverImage || null,
+    categoryIds, contentJson,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    categoryIds, contentJson, coverImage: coverImage || null,
+    categoryIds, contentJson,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -93,14 +87,15 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
 
   const save = useCallback(async (draft: EditorDraft, status?: PostStatus): Promise<Post> => {
     const id = postId.current;
-    const { categoryIds: selectedCategoryIds, ...contentDraft } = draft;
-    const response = await fetch('/api/posts', {
+    if (id && !updatedAt.current) throw new Error('Reload this post before saving again.');
+    const response = await fetch('/api/admin/posts', {
       method: id ? 'PUT' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        ...(id ? { id } : {}),
+        ...(id ? { id, updatedAt: updatedAt.current } : {}),
         ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
-        ...contentDraft,
+        ...draft,
+        coverMediaId: null,
         status: status ?? postStatusRef.current,
       }),
     });
@@ -109,16 +104,11 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
 
     const savedPost = readPost(payload);
     if (!savedPost) throw new Error('The server returned an invalid post.');
+    const wasNew = !postId.current;
     postId.current = savedPost.id;
+    updatedAt.current = savedPost.updated_at;
     // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
-    const membershipResponse = await fetch('/api/admin/posts/categories', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ postId: savedPost.id, categoryIds: selectedCategoryIds }),
-    });
-    const membershipPayload: unknown = await membershipResponse.json();
-    if (!membershipResponse.ok) throw new Error(readApiError(membershipPayload) ?? 'Post Categories could not be saved.');
     setErrorMessage(null);
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPost.slug };
@@ -130,9 +120,9 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
       { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
     ].sort((left, right) => left.locale.localeCompare(right.locale)));
 
-    if (!initialPost) window.history.replaceState({}, '', `/admin/edit/${savedPost.id}`);
+    if (wasNew) window.history.replaceState({}, '', adminHref({ admin_path: adminPath }, `/edit/${savedPost.id}`));
     return savedPost;
-  }, [initialPost, locale, sourcePost]);
+  }, [adminPath, locale, sourcePost]);
 
   const handleSaveError = useCallback((error: unknown) => {
     setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
@@ -146,7 +136,7 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
 
   const previewDraft = useCallback(async (target?: Window | null) => {
     if (actionPending.current) return;
-    const previewWindow = target ?? window.open('/admin/preview/pending', '_blank');
+    const previewWindow = target ?? window.open(adminHref({ admin_path: adminPath }, '/preview/pending'), '_blank');
     if (!previewWindow) {
       setErrorMessage('Allow pop-ups for this site to open Preview.');
       return;
@@ -158,17 +148,17 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
     try {
       let saved = await persist();
       while (dirtyRef.current) saved = await persist();
-      if (!previewWindow.closed) previewWindow.location.replace(`/admin/preview/${saved.id}`);
+      if (!previewWindow.closed) previewWindow.location.replace(adminHref({ admin_path: adminPath }, `/preview/${saved.id}`));
     } catch {
-      const returnTo = postId.current ? `/admin/edit/${postId.current}` : window.location.pathname + window.location.search;
+      const returnTo = postId.current ? adminHref({ admin_path: adminPath }, `/edit/${postId.current}`) : window.location.pathname + window.location.search;
       if (!previewWindow.closed) previewWindow.location.replace(
-        `/admin/preview/pending?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
+        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
       );
     } finally {
       actionPending.current = false;
       setIsActionPending(false);
     }
-  }, [persist]);
+  }, [adminPath, persist]);
 
   const restoreNavigation = useCallback(() => {
     if (actionPending.current !== 'navigation') return;
@@ -219,7 +209,7 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentJson, coverImage, metaDescription, metaTitle, categoryIds]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, metaDescription, metaTitle, categoryIds]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -256,47 +246,12 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
     markDirty();
   };
 
-  const selectCover = async (file?: File, input?: HTMLInputElement) => {
-    if (!file) return;
-    const operation = ++coverOperation.current;
-    setUploadingCover(true);
-
-    try {
-      const asset = await uploadImage(file);
-      if (operation !== coverOperation.current) return;
-      setCoverImage(asset.publicUrl);
-      setCoverAsset(asset);
-      markDirty();
-    } catch (error) {
-      if (operation === coverOperation.current) {
-        setErrorMessage(error instanceof Error ? error.message : 'The cover image could not be uploaded.');
-      }
-    } finally {
-      if (input) input.value = '';
-      setUploadingCover(false);
-    }
-  };
-
-  const chooseCover = (asset: MediaAsset) => {
-    coverOperation.current += 1;
-    setCoverImage(asset.publicUrl);
-    setCoverAsset(asset);
-    markDirty();
-  };
-
-  const removeCover = () => {
-    coverOperation.current += 1;
-    setCoverImage('');
-    setCoverAsset(null);
-    markDirty();
-  };
-
   return (
     <div className="admin-editor">
       <header className="admin-editor-bar">
         <div className="admin-editor-bar__inner">
           <div className="admin-editor-bar__start">
-            <a aria-disabled={isActionPending || undefined} className="admin-toolbar-link" href="/admin" onClick={(event) => {
+            <a aria-disabled={isActionPending || undefined} className="admin-toolbar-link" href={adminHref({ admin_path: adminPath })} onClick={(event) => {
               if (event.metaKey || event.ctrlKey || event.shiftKey) return;
               if (actionPending.current) {
                 event.preventDefault();
@@ -304,7 +259,7 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
               }
               if (dirtyRef.current || pendingCount.current) {
                 event.preventDefault();
-                void saveBefore(() => window.location.assign('/admin'), undefined, true);
+                void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath })), undefined, true);
               } else {
                 actionPending.current = 'navigation';
                 setIsActionPending(true);
@@ -325,7 +280,9 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
                 return current
                   ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>
                   : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
-                    window.location.assign(translation ? `/admin/edit/${translation.id}` : `/admin/new?sourcePostId=${saved.id}&locale=${language}`);
+                    window.location.assign(translation
+                      ? adminHref({ admin_path: adminPath }, `/edit/${translation.id}`)
+                      : adminHref({ admin_path: adminPath }, `/new?sourcePostId=${saved.id}&locale=${language}`));
                   }, undefined, true)} type="button">{label}</button>;
               })}
             </nav>
@@ -372,8 +329,6 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
 
         <PostSettingsDrawer
           categories={categories}
-          coverAsset={coverAsset}
-          coverImage={coverImage}
           errorMessage={errorMessage}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
@@ -381,15 +336,11 @@ export default function Editor({ categories, initialCategoryIds, initialPost, lo
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
-          onChooseCover={chooseCover}
           onClose={() => setSettingsOpen(false)}
-          onManageCategories={() => void saveBefore(() => window.location.assign('/admin/categories'), undefined, true)}
-          onRemoveCover={removeCover}
-          onUploadCover={selectCover}
+          onManageCategories={() => void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath }, '/categories')), undefined, true)}
           open={settingsOpen}
           selectedCategoryIds={categoryIds}
           slug={slug}
-          uploadingCover={uploadingCover}
         />
       </div>
     </div>

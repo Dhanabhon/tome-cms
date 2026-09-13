@@ -9,7 +9,7 @@ const contentHtml = '<h1>Body heading</h1><p onclick="steal()">Visible without J
 const contentJson = { type: 'doc' as const, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Visible without JavaScript.' }] }] };
 
 async function createPage(request: APIRequestContext, locale: PageLocale, slug: string, sourcePageId?: string, status = 'published') {
-  const response = await request.post('/api/pages', {
+  const response = await request.post('/api/admin/pages', {
     data: { contentHtml, contentJson, ...(sourcePageId ? { locale, sourcePageId } : {}), metaTitle: `${locale} Page metadata`, slug, status, title: `${locale} Public Page` },
   });
   expect(response.status(), await response.text()).toBe(201);
@@ -135,7 +135,7 @@ test('published Pages have exact-locale owner-scoped HTML and WebPage metadata w
       await expect(publicPage.getByText('Foreign private edition')).toHaveCount(0);
     }
 
-    expect((await page.request.patch('/api/pages', { data: { id: sibling.id, status: 'published' } })).status()).toBe(200);
+    expect((await page.request.patch('/api/admin/pages', { data: { id: sibling.id, status: 'published' } })).status()).toBe(200);
     await publicPage.goto(`/${locale}/${slug}`);
     await expect(publicPage.locator('link[rel="alternate"]')).toHaveCount(3);
     await expect(publicPage.locator(`link[hreflang="${siblingLocale}"]`)).toHaveAttribute('href', new URL(`/${siblingLocale}/${slug}`, canonical).href);
@@ -144,7 +144,7 @@ test('published Pages have exact-locale owner-scoped HTML and WebPage metadata w
     await expect(publicPage.locator('html')).toHaveAttribute('lang', siblingLocale);
     await expect(publicPage.getByRole('heading', { level: 1 })).toHaveText(`${siblingLocale} Public Page`);
 
-    expect((await page.request.patch('/api/pages', { data: { id: source.id, status: 'draft' } })).status()).toBe(200);
+    expect((await page.request.patch('/api/admin/pages', { data: { id: source.id, status: 'draft' } })).status()).toBe(200);
     await publicPage.reload();
     await expect(publicPage.locator('link[rel="alternate"]')).toHaveCount(1);
     await expect(publicPage.locator('link[hreflang="x-default"]')).toHaveCount(0);
@@ -311,23 +311,23 @@ test('independent locale menus and Page visibility work on desktop and native mo
     await publicPage.emulateMedia({ reducedMotion: 'reduce' });
     await expect(publicPage.getByRole('navigation', { name: 'Primary', exact: true }).getByRole('link').first()).toHaveCSS('transition-duration', '0s');
 
-    expect((await page.request.patch('/api/pages', { data: { id: draft.id, status: 'published' } })).status()).toBe(200);
+    expect((await page.request.patch('/api/admin/pages', { data: { id: draft.id, status: 'published' } })).status()).toBe(200);
     await expect.poll(async () => {
       await publicPage.reload();
       return publicPage.getByRole('navigation', { name: 'Primary', exact: true }).getByRole('link', { name: 'Hidden Page' }).count();
     }, { timeout: 7_000 }).toBe(1);
-    expect((await page.request.patch('/api/pages', { data: { id: draft.id, status: 'draft' } })).status()).toBe(200);
+    expect((await page.request.patch('/api/admin/pages', { data: { id: draft.id, status: 'draft' } })).status()).toBe(200);
     expect((await publicPage.request.get(`/${locale}/${draft.slug}`)).status()).toBe(404);
     await expect.poll(async () => {
       await publicPage.reload();
       return publicPage.getByRole('link', { name: 'Hidden Page' }).count();
     }, { timeout: 7_000 }).toBe(0);
-    expect((await page.request.patch('/api/pages', { data: { id: draft.id, status: 'published' } })).status()).toBe(200);
+    expect((await page.request.patch('/api/admin/pages', { data: { id: draft.id, status: 'published' } })).status()).toBe(200);
     await expect.poll(async () => {
       await publicPage.reload();
       return publicPage.getByRole('link', { name: 'Hidden Page' }).count();
     }, { timeout: 7_000 }).toBe(2);
-    expect((await page.request.delete(`/api/pages?id=${draft.id}`)).status()).toBe(204);
+    expect((await page.request.delete(`/api/admin/pages?id=${draft.id}`)).status()).toBe(204);
     expect((await publicPage.request.get(`/${locale}/${draft.slug}`)).status()).toBe(404);
     await expect.poll(async () => {
       await publicPage.reload();

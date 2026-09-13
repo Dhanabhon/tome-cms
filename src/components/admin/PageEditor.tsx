@@ -2,6 +2,7 @@ import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
+import { adminHref } from '../../lib/admin';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PageSettingsDrawer from './PageSettingsDrawer';
@@ -12,6 +13,7 @@ interface EditorSourcePage {
 }
 
 interface PageEditorProps {
+  adminPath: string;
   initialPage?: Omit<Page, 'translation_group_id'>;
   locale: PageLocale;
   sourcePage?: EditorSourcePage;
@@ -46,9 +48,10 @@ function readPage(payload: unknown): Page | null {
   return typeof page === 'object' && page !== null && 'id' in page ? (page as Page) : null;
 }
 
-export default function PageEditor({ initialPage, locale, sourcePage, translations }: PageEditorProps) {
+export default function PageEditor({ adminPath, initialPage, locale, sourcePage, translations }: PageEditorProps) {
   const fallbackSlug = useRef(`page-${crypto.randomUUID().slice(0, 8)}`);
   const pageId = useRef(initialPage?.id);
+  const updatedAt = useRef(initialPage?.updated_at);
   const slugTouched = useRef(Boolean(initialPage));
   const actionPending = useRef<boolean | 'navigation'>(false);
   const pageStatusRef = useRef<PageStatus>(initialPage?.status ?? 'draft');
@@ -83,11 +86,12 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
 
   const save = useCallback(async (draft: PageEditorDraft, status?: PageStatus): Promise<Page> => {
     const id = pageId.current;
-    const response = await fetch('/api/pages', {
+    if (id && !updatedAt.current) throw new Error('Reload this page before saving again.');
+    const response = await fetch('/api/admin/pages', {
       method: id ? 'PUT' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        ...(id ? { id } : {}),
+        ...(id ? { id, updatedAt: updatedAt.current } : {}),
         ...(!id && sourcePage ? { locale, sourcePageId: sourcePage.id } : {}),
         ...draft,
         status: status ?? pageStatusRef.current,
@@ -102,6 +106,7 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
 
     const wasNew = !pageId.current;
     pageId.current = savedPage.id;
+    updatedAt.current = savedPage.updated_at;
     pageStatusRef.current = savedPage.status;
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPage.slug };
@@ -113,9 +118,9 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
       { id: savedPage.id, locale: savedPage.locale, status: savedPage.status, title: savedPage.title },
     ].sort((left, right) => left.locale.localeCompare(right.locale)));
 
-    if (wasNew) window.history.replaceState({}, '', `/admin/pages/edit/${savedPage.id}`);
+    if (wasNew) window.history.replaceState({}, '', adminHref({ admin_path: adminPath }, `/pages/edit/${savedPage.id}`));
     return savedPage;
-  }, [locale, sourcePage]);
+  }, [adminPath, locale, sourcePage]);
 
   const handleSaveError = useCallback((error: unknown) => {
     setErrorMessage(error instanceof Error ? error.message : 'The page could not be saved.');
@@ -129,7 +134,7 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
 
   const previewDraft = useCallback(async (target?: Window | null) => {
     if (actionPending.current) return;
-    const previewWindow = target ?? window.open('/admin/preview/pending', '_blank');
+    const previewWindow = target ?? window.open(adminHref({ admin_path: adminPath }, '/preview/pending'), '_blank');
     if (!previewWindow) {
       setErrorMessage('Allow pop-ups for this site to open Preview.');
       return;
@@ -141,17 +146,17 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
     try {
       let saved = await persist();
       while (dirtyRef.current) saved = await persist();
-      if (!previewWindow.closed) previewWindow.location.replace(`/admin/pages/preview/${saved.id}`);
+      if (!previewWindow.closed) previewWindow.location.replace(adminHref({ admin_path: adminPath }, `/pages/preview/${saved.id}`));
     } catch {
-      const returnTo = pageId.current ? `/admin/pages/edit/${pageId.current}` : window.location.pathname + window.location.search;
+      const returnTo = pageId.current ? adminHref({ admin_path: adminPath }, `/pages/edit/${pageId.current}`) : window.location.pathname + window.location.search;
       if (!previewWindow.closed) previewWindow.location.replace(
-        `/admin/preview/pending?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
+        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
       );
     } finally {
       actionPending.current = false;
       setIsActionPending(false);
     }
-  }, [persist]);
+  }, [adminPath, persist]);
 
   const restoreNavigation = useCallback(() => {
     if (actionPending.current !== 'navigation') return;
@@ -244,7 +249,7 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
       <header className="admin-editor-bar">
         <div className="admin-editor-bar__inner">
           <div className="admin-editor-bar__start">
-            <a aria-disabled={isActionPending || undefined} className="admin-toolbar-link" href="/admin/pages" onClick={(event) => {
+            <a aria-disabled={isActionPending || undefined} className="admin-toolbar-link" href={adminHref({ admin_path: adminPath }, '/pages')} onClick={(event) => {
               if (event.metaKey || event.ctrlKey || event.shiftKey) return;
               if (actionPending.current) {
                 event.preventDefault();
@@ -252,7 +257,7 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
               }
               if (dirtyRef.current || pendingCount.current) {
                 event.preventDefault();
-                void saveBefore(() => window.location.assign('/admin/pages'), undefined, true);
+                void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath }, '/pages')), undefined, true);
               } else {
                 actionPending.current = 'navigation';
                 setIsActionPending(true);
@@ -273,7 +278,9 @@ export default function PageEditor({ initialPage, locale, sourcePage, translatio
                 return current
                   ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>
                   : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
-                    window.location.assign(translation ? `/admin/pages/edit/${translation.id}` : `/admin/pages/new?sourcePageId=${saved.id}&locale=${language}`);
+                    window.location.assign(translation
+                      ? adminHref({ admin_path: adminPath }, `/pages/edit/${translation.id}`)
+                      : adminHref({ admin_path: adminPath }, `/pages/new?sourcePageId=${saved.id}&locale=${language}`));
                   }, undefined, true)} type="button">{label}</button>;
               })}
             </nav>

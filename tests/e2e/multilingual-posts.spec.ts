@@ -88,7 +88,7 @@ test('malformed POST and PUT editor payloads return validation errors', async ({
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const created = await page.request.post('/api/posts', { data: valid });
+    const created = await page.request.post('/api/admin/posts', { data: valid });
     expect(created.status()).toBe(201);
     const { post } = await created.json();
 
@@ -103,7 +103,7 @@ test('malformed POST and PUT editor payloads return validation errors', async ({
         { contentJson: { type: 'doc', content: [{ type: 'text', text: 42 }] } },
         { contentJson: { type: 'doc', content: [deeplyNested] } },
       ]) {
-        const response = await page.request[method]('/api/posts', {
+        const response = await page.request[method]('/api/admin/posts', {
           data: { ...valid, slug: `invalid-${crypto.randomUUID()}`, status: 'published', ...invalid, ...(method === 'put' ? { id: post.id } : {}) },
         });
         expect(response.status(), `${method}: ${JSON.stringify(invalid)}`).toBe(400);
@@ -126,7 +126,7 @@ for (const method of ['post', 'put'] as const) {
       try {
         await signInAdmin(page, owner);
         await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-        const created = await page.request.post('/api/posts', { data: valid });
+        const created = await page.request.post('/api/admin/posts', { data: valid });
         expect(created.status()).toBe(201);
         const { post } = await created.json();
         for (const attrs of [
@@ -144,13 +144,13 @@ for (const method of ['post', 'put'] as const) {
           // Build raw request JSON so the test client cannot overflow while stringifying deep attrs.
           const body = `${fields.slice(0, -1)},"contentJson":${document}}`;
           expect(Buffer.byteLength(body)).toBeLessThan(1_000_000);
-          const response = await page.request[method]('/api/posts', {
+          const response = await page.request[method]('/api/admin/posts', {
             headers: { 'content-type': 'application/json' }, data: body,
           });
           expect.soft(response.status()).toBe(400);
           expect.soft((await response.json()).error).toBe('Invalid post payload.');
         }
-        const saved = await page.request.get('/api/posts');
+        const saved = await page.request.get('/api/admin/posts');
         expect((await saved.json()).posts).toEqual([post]);
       } finally {
         await admin.from('posts').delete().eq('author_id', owner.id);
@@ -167,7 +167,7 @@ test('publishing requires meaningful sanitized HTML and accepts rendered image-o
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const created = await page.request.post('/api/posts', { data: valid });
+    const created = await page.request.post('/api/admin/posts', { data: valid });
     expect(created.status()).toBe(201);
     const { post } = await created.json();
     for (const method of ['post', 'put'] as const) {
@@ -180,13 +180,13 @@ test('publishing requires meaningful sanitized HTML and accepts rendered image-o
         { contentJson: imageDocument, contentHtml: '<img src="javascript:alert(1)">' },
         { contentJson: imageDocument, contentHtml: '<img src="https://">' },
       ]) {
-        const response = await page.request[method]('/api/posts', {
+        const response = await page.request[method]('/api/admin/posts', {
           data: { ...valid, slug: `invalid-${crypto.randomUUID()}`, status: 'published', ...invalid, ...(method === 'put' ? { id: post.id } : {}) },
         });
         expect(response.status(), `${method}: ${JSON.stringify(invalid)}`).toBe(400);
         expect((await response.json()).issues.properties.contentJson.errors).toContain('Add content before publishing.');
       }
-      const response = await page.request[method]('/api/posts', {
+      const response = await page.request[method]('/api/admin/posts', {
         data: {
           ...valid,
           slug: `image-only-${crypto.randomUUID()}`,
@@ -201,7 +201,7 @@ test('publishing requires meaningful sanitized HTML and accepts rendered image-o
       expect(imagePost.content_html).toContain('src="https://example.com/image.jpg"');
       expect(imagePost.content_html).not.toContain('onerror');
 
-      const relativeImage = await page.request[method]('/api/posts', {
+      const relativeImage = await page.request[method]('/api/admin/posts', {
         data: {
           ...valid,
           slug: `relative-image-${crypto.randomUUID()}`,
@@ -233,7 +233,7 @@ test('normal posts receive the configured locale and an independent translation 
 
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const response = await page.request.post('/api/posts', {
+    const response = await page.request.post('/api/admin/posts', {
       data: {
         contentHtml: '<p>Existing content</p>',
         contentJson: { content: [{ content: [{ text: 'Existing content', type: 'text' }], type: 'paragraph' }], type: 'doc' },
@@ -274,7 +274,7 @@ test('linked editions use server-derived groups and reject invalid translation r
   try {
     await signInAdmin(page, owner);
     await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
-    const sourceResponse = await page.request.post('/api/posts', {
+    const sourceResponse = await page.request.post('/api/admin/posts', {
       data: { ...draftBody('Thai source', sharedSlug), coverImage: 'https://example.com/source-cover.jpg' },
     });
     expect(sourceResponse.status()).toBe(201);
@@ -285,7 +285,7 @@ test('linked editions use server-derived groups and reject invalid translation r
       cover_image: string | null;
     };
 
-    const translationResponse = await page.request.post('/api/posts', {
+    const translationResponse = await page.request.post('/api/admin/posts', {
       data: {
         ...draftBody('English edition', sharedSlug),
         locale: source.locale === 'th' ? 'en' : 'th',
@@ -302,7 +302,7 @@ test('linked editions use server-derived groups and reject invalid translation r
     expect(translation.locale).not.toBe(source.locale);
     expect(translation.cover_image).toBe(source.cover_image);
 
-    const duplicate = await page.request.post('/api/posts', {
+    const duplicate = await page.request.post('/api/admin/posts', {
       data: {
         ...draftBody('Duplicate edition', `duplicate-${crypto.randomUUID()}`),
         locale: translation.locale,
@@ -327,29 +327,29 @@ test('linked editions use server-derived groups and reject invalid translation r
     expect(foreignPostError).toBeNull();
     if (!foreignPost) throw new Error('Foreign source was not created.');
 
-    const foreignSource = await page.request.post('/api/posts', {
+    const foreignSource = await page.request.post('/api/admin/posts', {
       data: { ...draftBody('Foreign edition', `foreign-edition-${crypto.randomUUID()}`), locale: 'en', sourcePostId: foreignPost.id },
     });
     expect(foreignSource.status()).toBe(404);
 
-    const invalidLocale = await page.request.post('/api/posts', {
+    const invalidLocale = await page.request.post('/api/admin/posts', {
       data: { ...draftBody('Invalid locale', `invalid-locale-${crypto.randomUUID()}`), locale: 'fr', sourcePostId: source.id },
     });
     expect(invalidLocale.status()).toBe(400);
 
-    const invalidCover = await page.request.post('/api/posts', {
+    const invalidCover = await page.request.post('/api/admin/posts', {
       data: { ...draftBody('Invalid cover', `invalid-cover-${crypto.randomUUID()}`), coverImage: 'javascript:alert(1)' },
     });
     expect(invalidCover.status()).toBe(400);
 
     for (const field of ['author_id', 'owner_id', 'translation_group_id']) {
-      const protectedField = await page.request.post('/api/posts', {
+      const protectedField = await page.request.post('/api/admin/posts', {
         data: { ...draftBody(`Protected ${field}`, `protected-${crypto.randomUUID()}`), [field]: crypto.randomUUID() },
       });
       expect(protectedField.status()).toBe(400);
     }
 
-    const emptyPublished = await page.request.post('/api/posts', {
+    const emptyPublished = await page.request.post('/api/admin/posts', {
       data: {
         contentHtml: '<p></p>',
         contentJson: { content: [{ type: 'paragraph' }], type: 'doc' },

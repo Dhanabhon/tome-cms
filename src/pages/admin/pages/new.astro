@@ -5,75 +5,62 @@ import PageEditor from '../../../components/admin/PageEditor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminLoginPath } from '../../../lib/admin';
 import { isPostLocale } from '../../../lib/i18n';
-import { getSiteSettings } from '../../../lib/installation';
-import { authenticate } from '../../../lib/supabase';
+import { requireInstalledOwner } from '../../../server/auth/session';
+import { getPage, listPageTranslations } from '../../../server/content/pages';
+import { getSiteSettings, type SiteSettings } from '../../../server/content/settings';
+import { HttpError } from '../../../server/http/errors';
 import type { PageLocale, PageTranslationSummary } from '../../../types/cms';
 
 let errorMessage: string | null = null;
 let locale: PageLocale | null = null;
 let sourcePage: { id: string } | undefined;
 let translations: PageTranslationSummary[] = [];
+let settings: SiteSettings | null = null;
 
 try {
-  const auth = await authenticate(Astro.cookies, Astro.request);
-  if (!auth) {
-    Astro.response.status = 302;
-    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
-  } else {
-    const settings = await getSiteSettings();
-    if (!settings) throw new Error('Site settings not found.');
+  settings = await getSiteSettings();
+  const current = await requireInstalledOwner(Astro.request.headers);
+  if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, 'Site settings not found.');
 
-    const sourcePageId = Astro.url.searchParams.get('sourcePageId');
-    const targetLocale = Astro.url.searchParams.get('locale');
-    const parsedSourcePageId = z.uuid().safeParse(sourcePageId);
-    if (!Astro.url.searchParams.has('sourcePageId') && !Astro.url.searchParams.has('locale')) {
-      locale = settings.default_locale;
-    } else if (!parsedSourcePageId.success || !isPostLocale(targetLocale)) {
+  const sourcePageId = Astro.url.searchParams.get('sourcePageId');
+  const targetLocale = Astro.url.searchParams.get('locale');
+  const parsedSourcePageId = z.uuid().safeParse(sourcePageId);
+  if (!Astro.url.searchParams.has('sourcePageId') && !Astro.url.searchParams.has('locale')) {
+    locale = settings.default_locale;
+  } else if (!parsedSourcePageId.success || !isPostLocale(targetLocale)) {
+    Astro.response.status = 404;
+    errorMessage = 'Page not found.';
+  } else {
+    const source = await getPage(current.user.id, parsedSourcePageId.data);
+    const editions = source ? await listPageTranslations(current.user.id, source.translation_group_id) : [];
+    const existing = editions.find((edition) => edition.locale === targetLocale);
+    if (!source || source.locale === targetLocale || existing) {
       Astro.response.status = 404;
       errorMessage = 'Page not found.';
     } else {
-      const { data: source, error } = await auth.supabase
-        .from('pages')
-        .select('id, locale, status, title, translation_group_id')
-        .eq('id', parsedSourcePageId.data)
-        .eq('author_id', auth.user.id)
-        .maybeSingle();
-      if (error) throw error;
-
-      const { data: existing, error: existingError } = source
-        ? await auth.supabase
-            .from('pages')
-            .select('id')
-            .eq('translation_group_id', source.translation_group_id)
-            .eq('locale', targetLocale)
-            .eq('author_id', auth.user.id)
-            .maybeSingle()
-        : { data: null, error: null };
-      if (existingError) throw existingError;
-
-      if (!source || source.locale === targetLocale || existing) {
-        Astro.response.status = 404;
-        errorMessage = 'Page not found.';
-      } else {
-        locale = targetLocale;
-        sourcePage = { id: source.id };
-        translations = [{ id: source.id, locale: source.locale, status: source.status, title: source.title }];
-      }
+      locale = targetLocale;
+      sourcePage = { id: source.id };
+      translations = editions;
     }
   }
 } catch (error) {
-  console.error('New page authentication failed:', error);
-  Astro.response.status = 500;
-  errorMessage = 'The editor is temporarily unavailable.';
+  if (error instanceof HttpError && error.status === 401) {
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path ?? '/admin'));
+  } else {
+    console.error('New page loading failed.');
+    Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
+    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The editor is temporarily unavailable.';
+  }
 }
 ---
 
-<AdminLayout title="New page">
+<AdminLayout adminPath={settings?.admin_path ?? '/admin'} title="New page">
   <main>
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
     ) : locale ? (
-      <PageEditor client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
+      <PageEditor adminPath={settings?.admin_path ?? '/admin'} client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </PageEditor>
     ) : null}
