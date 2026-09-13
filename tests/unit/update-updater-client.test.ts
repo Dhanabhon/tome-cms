@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
+import { getApplyResponseAction } from '../../src/components/admin/UpdateManager';
 import { getManagedInstallability, getUpdaterStatus, parseUpdaterStatus, requestUpdate } from '../../src/server/update/updater-client.js';
 
 const job = {
@@ -18,6 +19,18 @@ const status = {
   protocolVersion: 1, updaterVersion: '1.0.0', managed: true,
   installed: { version: '1.0.0', imageDigest: `sha256:${'a'.repeat(64)}` }, job,
 };
+
+test('late apply replies preserve observed active jobs and cannot regress terminal polling state', () => {
+  assert.equal(getApplyResponseAction(null, true), 'stop');
+  assert.equal(getApplyResponseAction(null, false), 'continue');
+  for (const definiteRefusal of [true, false]) {
+    assert.equal(getApplyResponseAction({ phase: 'preflight' }, definiteRefusal), 'preserve');
+    assert.equal(getApplyResponseAction({ phase: 'health_check' }, definiteRefusal), 'preserve');
+    for (const phase of ['succeeded', 'rolled_back', 'failed_manual_recovery'] as const) {
+      assert.equal(getApplyResponseAction({ phase }, definiteRefusal), 'ignore');
+    }
+  }
+});
 
 async function socketServer(context: TestContext, listener: RequestListener) {
   const root = await mkdtemp(join(tmpdir(), 'tome-bridge-'));

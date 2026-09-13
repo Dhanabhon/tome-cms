@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
+import type { PublicUpdateJob } from '../../updater/state';
 
 type UpdateCheck = {
   checkedAt: string;
@@ -16,6 +17,11 @@ type UpdateCheck = {
 };
 
 const terminalPhases = ['succeeded', 'rolled_back', 'failed_manual_recovery'];
+
+export function getApplyResponseAction(observedJob: Pick<PublicUpdateJob, 'phase'> | null, definiteRefusal: boolean) {
+  if (observedJob) return terminalPhases.includes(observedJob.phase) ? 'ignore' : 'preserve';
+  return definiteRefusal ? 'stop' : 'continue';
+}
 const steps = [
   ['preflight', 'Check prerequisites'], ['verifying', 'Verify the official update'],
   ['downloading', 'Download update'], ['quiescing', 'Prepare maintenance'],
@@ -48,6 +54,7 @@ export default function UpdateManager() {
   const [reconnecting, setReconnecting] = useState(false);
   const [watch, setWatch] = useState<{ targetVersion: string; previousJobId?: string } | null>(null);
   const mounted = useRef(true);
+  const observedJob = useRef<PublicUpdateJob | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     setBusy(true);
@@ -94,9 +101,13 @@ export default function UpdateManager() {
         setReconnecting(false);
         failures = 0;
         const job = result.updater.job;
-        if (job && job.targetVersion === watch.targetVersion && job.id !== watch.previousJobId && terminalPhases.includes(job.phase)) {
-          setWatch(null);
-          return;
+        if (job && job.id !== watch.previousJobId) {
+          observedJob.current = job;
+          if (terminalPhases.includes(job.phase)) {
+            setError('');
+            setWatch(null);
+            return;
+          }
         }
       } catch {
         if (controller.signal.aborted) return;
@@ -124,25 +135,28 @@ export default function UpdateManager() {
       if (assertion.error || !assertion.data) throw new Error('No Passkey was accepted. Verify a Passkey and try again.');
       if (!mounted.current) return;
       const previousJobId = check.updater?.managed ? check.updater.job?.id : undefined;
+      observedJob.current = null;
       setWatch({ targetVersion: version, previousJobId });
-      let response: Response;
+      let response: Response | null = null;
       try {
         response = await fetch('/api/admin/system/updates', {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ action: 'apply', version }), signal: AbortSignal.timeout(10_000),
         });
-      } catch {
-        if (mounted.current) setReconnecting(true);
+      } catch { /* Polling determines whether an ambiguous request was accepted. */ }
+      const result = await response?.json().catch(() => null);
+      if (!mounted.current) return;
+      const definiteRefusal = !!response && !response.ok && response.status < 500 && typeof result?.error === 'string';
+      const action = getApplyResponseAction(observedJob.current, definiteRefusal);
+      if (action === 'ignore') return;
+      if (definiteRefusal) {
+        if (action === 'stop') setWatch(null);
+        setError(result.error);
         return;
       }
-      const result = await response.json().catch(() => null);
-      if (!mounted.current) return;
-      if (!response.ok && response.status < 500 && result?.error) {
-        setWatch(null);
-        throw new Error(result.error);
-      }
+      if (action === 'preserve') return;
       // A lost/invalid response can follow an accepted job; keep reading durable status.
-      if (response.status !== 202 || !result?.job) { setReconnecting(true); return; }
+      if (response?.status !== 202 || !result?.job) { setReconnecting(true); return; }
       setCheck((current) => current && current.updater.managed
         && (!current.updater.job || current.updater.job.id === previousJobId)
         ? { ...current, updater: { ...current.updater, job: result.job } } : current);
