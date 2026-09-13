@@ -41,7 +41,7 @@ export const updatePostSchema = contentMutationSchema.safeExtend({
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 
-function post(row: Selectable<PostTable>): Post {
+export function postFromRow(row: Selectable<PostTable>): Post {
   return {
     id: row.id,
     title: row.title,
@@ -73,13 +73,13 @@ function writeConflict(error: unknown): never {
 
 export async function listPosts(ownerId: string): Promise<Post[]> {
   return (await db.selectFrom('posts').selectAll()
-    .where('owner_id', '=', ownerId).orderBy('updated_at', 'desc').orderBy('id').execute()).map(post);
+    .where('owner_id', '=', ownerId).orderBy('updated_at', 'desc').orderBy('id').execute()).map(postFromRow);
 }
 
 export async function getPost(ownerId: string, id: string): Promise<Post | null> {
   const row = await db.selectFrom('posts').selectAll()
     .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
-  return row ? post(row) : null;
+  return row ? postFromRow(row) : null;
 }
 
 export async function listPostTranslations(ownerId: string, translationGroupId: string): Promise<PostTranslationSummary[]> {
@@ -134,7 +134,7 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
       await replacePostGroupCategories(trx, ownerId, translationGroupId, input.categoryIds);
       return created;
     });
-    return post(row);
+    return postFromRow(row);
   } catch (error) {
     return writeConflict(error);
   }
@@ -165,7 +165,7 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
       await replacePostGroupCategories(trx, ownerId, current.translation_group_id, input.categoryIds);
       return updated;
     });
-    return post(row);
+    return postFromRow(row);
   } catch (error) {
     return writeConflict(error);
   }
@@ -189,7 +189,7 @@ export async function updatePostStatus(
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
   });
-  return post(row);
+  return postFromRow(row);
 }
 
 export async function deletePost(ownerId: string, id: string, updatedAt: string): Promise<void> {

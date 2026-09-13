@@ -3,28 +3,37 @@ import MediaLibrary from '../../components/admin/MediaLibrary';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import { adminLoginPath } from '../../lib/admin';
-import { getSiteSettings } from '../../lib/installation';
-import { authenticate } from '../../lib/supabase';
+import { requireInstalledOwner } from '../../server/auth/session';
+import { getSiteSettings, type SiteSettings } from '../../server/content/settings';
+import { HttpError } from '../../server/http/errors';
 
 let userEmail: string | null = null;
 let errorMessage: string | null = null;
-let settings = null;
+let settings: SiteSettings | null = null;
 let authRequired = false;
 
 try {
-  const auth = await authenticate(Astro.cookies, Astro.request);
-  if (!auth) {
-    authRequired = true;
-    Astro.response.status = 302;
-    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  settings = await getSiteSettings();
+  const current = await requireInstalledOwner(Astro.request.headers);
+  if (!settings) {
+    Astro.response.status = 404;
+    errorMessage = 'The file library was not found.';
   } else {
-    userEmail = auth.user.email ?? null;
-    settings = await getSiteSettings();
+    userEmail = current.user.email;
   }
 } catch (error) {
-  console.error('File Library authentication failed:', error);
-  Astro.response.status = 500;
-  errorMessage = 'The file library is temporarily unavailable.';
+  if (error instanceof HttpError && error.status === 401) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path));
+  } else if (error instanceof HttpError && error.status === 403) {
+    Astro.response.status = 404;
+    errorMessage = 'The file library was not found.';
+  } else {
+    console.error('File Library page failed to load.');
+    Astro.response.status = 500;
+    errorMessage = 'The file library is temporarily unavailable.';
+  }
 }
 ---
 
@@ -32,7 +41,7 @@ try {
   {authRequired || errorMessage ? (
     <main><p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p></main>
   ) : (
-    <AdminShell active="media" siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+    <AdminShell active="media" adminPath={settings?.admin_path} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
     <MediaLibrary client:only="react" mode="manage" />
     </AdminShell>
   )}

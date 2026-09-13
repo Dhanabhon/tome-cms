@@ -1,6 +1,6 @@
 ---
-import { getSiteSettings } from '../lib/installation';
 import { localePath } from '../lib/i18n';
+import { getSiteSettings } from '../server/content/settings';
 
 const settings = await getSiteSettings();
 Astro.response.status = 302;

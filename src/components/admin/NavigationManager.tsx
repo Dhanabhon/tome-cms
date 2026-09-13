@@ -46,7 +46,7 @@ export default function NavigationManager() {
     setLoading(true);
     setLoadError('');
     try {
-      const response = await fetch('/api/navigation');
+      const response = await fetch('/api/admin/navigation');
       if (!response.ok) throw new Error('Navigation could not be loaded. Please try again.');
       const result = await response.json() as { items: SavedItem[]; pages: PageSummary[] };
       const next = emptyMenus();
@@ -171,7 +171,7 @@ export default function NavigationManager() {
     setSaveError('');
     setStatus('Saving menu…');
     try {
-      const response = await fetch('/api/navigation', {
+      const response = await fetch('/api/admin/navigation', {
         method: 'PUT', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ locale, location, items: items.map(({ id: _id, ...item }) => item) }),
       });

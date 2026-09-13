@@ -67,7 +67,7 @@ test('localized published editions render without public JavaScript', async ({ b
       width: 1,
     });
     if (avatarInsertError) throw avatarInsertError;
-    const profileResponse = await page.request.put('/api/profile', {
+    const profileResponse = await page.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: avatarId,
         authorBioEn: 'English bio',
@@ -179,7 +179,7 @@ test('localized published editions render without public JavaScript', async ({ b
     await expect(englishAuthor.getByText('English bio')).toBeVisible();
     await expect(englishAuthor.getByText('ประวัติภาษาไทย')).toHaveCount(0);
 
-    const clearedProfile = await page.request.put('/api/profile', {
+    const clearedProfile = await page.request.put('/api/admin/profile', {
       data: {
         authorAvatarMediaId: avatarId,
         authorBioEn: 'English bio',

@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
 import { assertSameOrigin } from '../../../../server/auth/origin';
-import { requireOwner } from '../../../../server/auth/session';
+import { requireInstalledOwner } from '../../../../server/auth/session';
 import { replacePostCategories } from '../../../../server/content/categories';
 import { getServerEnv } from '../../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../../server/http/errors';
@@ -23,7 +23,7 @@ const membershipSchema = z.object({
 export const PUT: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    const current = await requireOwner(request.headers);
+    const current = await requireInstalledOwner(request.headers);
     try {
       assertSameOrigin(request, configuredOrigin);
     } catch {

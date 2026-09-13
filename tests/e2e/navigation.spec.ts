@@ -47,8 +47,8 @@ async function cleanup(...owners: TestOwner[]) {
 }
 
 test('navigation requires authentication', async ({ request }) => {
-  expect((await request.get('/api/navigation')).status()).toBe(401);
-  expect((await request.put('/api/navigation', { data: menu([]) })).status()).toBe(401);
+  expect((await request.get('/api/admin/navigation')).status()).toBe(401);
+  expect((await request.put('/api/admin/navigation', { data: menu([]) })).status()).toBe(401);
 });
 
 test('navigation manager redirects unauthenticated visitors', async ({ page }) => {
@@ -66,7 +66,7 @@ test('navigation manager recovers loading and save failures without losing local
   let saves = 0;
   try {
     await signInAdmin(page, owner);
-    await page.route('**/api/navigation', async (route) => {
+    await page.route('**/api/admin/navigation', async (route) => {
       if (route.request().method() === 'GET' && ++loads === 1) {
         await loadGate;
         await route.fulfill({ status: 500, json: { error: 'Navigation could not be loaded or saved.' } });
@@ -144,7 +144,7 @@ test('navigation manager keeps four independent menus and page labels, with exac
     await page.getByRole('textbox', { name: 'Item 1 label' }).fill('Footer about');
     await page.getByRole('button', { name: 'Save menu', exact: true }).click();
     await expect(page.getByRole('status')).toHaveText('Menu saved.');
-    const savedFooter = (await page.request.get('/api/navigation').then((response) => response.json())).items as NavigationItem[];
+    const savedFooter = (await page.request.get('/api/admin/navigation').then((response) => response.json())).items as NavigationItem[];
     expect(savedFooter.map(({ label, location, locale }) => ({ label, location, locale }))).toEqual([{ label: 'Footer about', location: 'footer', locale: 'th' }]);
     await expect(page.getByRole('tab', { name: 'MenuBar', exact: true })).toContainText('Unsaved');
     await page.getByRole('tab', { name: 'English', exact: true }).click();
@@ -273,13 +273,13 @@ test('navigation returns only owned summaries and saves four independent ordered
     });
     if (error) throw error;
     await signInAdmin(page, owner);
-    const initial = await page.request.get('/api/navigation');
+    const initial = await page.request.get('/api/admin/navigation');
     expect(initial.status()).toBe(200);
     expect(await initial.json()).toEqual({ items: [], pages: [draft] });
 
     for (const locale of ['th', 'en']) {
       for (const location of ['header', 'footer']) {
-        const response = await page.request.put('/api/navigation', {
+        const response = await page.request.put('/api/admin/navigation', {
           data: menu([custom(`/${locale}/${location}`), home(` ${locale} ${location} `)], locale, location),
         });
         expect(response.status()).toBe(200);
@@ -289,9 +289,9 @@ test('navigation returns only owned summaries and saves four independent ordered
         expect(JSON.stringify(body)).not.toMatch(/owner_id|author_id|content_html|content_json/);
       }
     }
-    const draftResponse = await page.request.put('/api/navigation', { data: menu([pageItem(draft.id)]) });
+    const draftResponse = await page.request.put('/api/admin/navigation', { data: menu([pageItem(draft.id)]) });
     expect(draftResponse.status()).toBe(200);
-    const listed = await page.request.get('/api/navigation');
+    const listed = await page.request.get('/api/admin/navigation');
     const body = await listed.json();
     expect(body.pages).toEqual([draft]);
     expect(body.items.map((item: NavigationItem) => `${item.locale}/${item.location}/${item.position}`)).toEqual([
@@ -312,10 +312,10 @@ test('navigation rejects malformed, oversized, mismatched and duplicate payloads
     const english = await seedPage(owner, 'en');
     const foreignPage = await seedPage(foreign, 'th', 'published');
     await signInAdmin(page, owner);
-    const saved = await page.request.put('/api/navigation', { data: menu([home()]) });
+    const saved = await page.request.put('/api/admin/navigation', { data: menu([home()]) });
     expect(saved.status()).toBe(200);
     const original = (await saved.json()).items;
-    expect((await page.request.put('/api/navigation', {
+    expect((await page.request.put('/api/admin/navigation', {
       data: Buffer.from('{'), headers: { 'content-type': 'application/json' },
     })).status()).toBe(400);
 
@@ -339,11 +339,11 @@ test('navigation rejects malformed, oversized, mismatched and duplicate payloads
         `https://example.com/${'ก'.repeat(300)}`].map((url) => menu([custom(url)])),
     ];
     for (const data of invalid) {
-      const response = await page.request.put('/api/navigation', { data });
+      const response = await page.request.put('/api/admin/navigation', { data });
       expect(response.status(), JSON.stringify(data)).toBe(400);
       expect(await response.text()).not.toContain(foreign.id);
     }
-    const listed = await page.request.get('/api/navigation');
+    const listed = await page.request.get('/api/admin/navigation');
     expect((await listed.json()).items).toEqual(original);
   } finally {
     await cleanup(owner, foreign);
@@ -354,7 +354,7 @@ test('navigation accepts label/item limits and normalizes safe URLs', async ({ p
   const owner = await createOwner('navigation-normalize');
   try {
     await signInAdmin(page, owner);
-    const response = await page.request.put('/api/navigation', {
+    const response = await page.request.put('/api/admin/navigation', {
       data: menu([
         custom(' HTTPS://EXAMPLE.COM:443/a/../b?x=1#part ', 'a'.repeat(80)),
         custom('http://EXAMPLE.COM:80'), custom(' /th/about?x=1#part '),
@@ -367,12 +367,12 @@ test('navigation accepts label/item limits and normalizes safe URLs', async ({ p
       'https://example.com/b?x=1#part', 'http://example.com/', '/th/about?x=1#part', '/' + 'a'.repeat(2047),
       'https://example.com/short',
     ]);
-    const maximum = await page.request.put('/api/navigation', {
+    const maximum = await page.request.put('/api/admin/navigation', {
       data: menu(Array.from({ length: 50 }, (_, index) => custom(`/item-${index}`))),
     });
     expect(maximum.status()).toBe(200);
     expect((await maximum.json()).items).toHaveLength(50);
-    const emptied = await page.request.put('/api/navigation', { data: menu([]) });
+    const emptied = await page.request.put('/api/admin/navigation', { data: menu([]) });
     expect(emptied.status()).toBe(200);
     expect(await emptied.json()).toEqual({ items: [] });
   } finally {
@@ -390,7 +390,7 @@ test('navigation maps provider authentication rejection to 401 for GET and PUT w
   const originalFetch = globalThis.fetch;
   try {
     await signInAdmin(page, owner);
-    const { GET, PUT } = await vite.ssrLoadModule('/src/pages/api/navigation/index.ts') as { GET: APIRoute; PUT: APIRoute };
+    const { GET, PUT } = await vite.ssrLoadModule('/src/pages/api/admin/navigation/index.ts') as { GET: APIRoute; PUT: APIRoute };
     const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
     for (const status of [401, 403, 500]) {
       globalThis.fetch = async (input, init) => {
@@ -405,10 +405,10 @@ test('navigation maps provider authentication rejection to 401 for GET and PUT w
       };
       for (const [method, handler] of [['GET', GET], ['PUT', PUT]] as const) {
         const response = await handler(createContext({
-          request: new Request(new URL('/api/navigation', page.url()), {
+          request: new Request(new URL('/api/admin/navigation', page.url()), {
             method, headers: { cookie, 'content-type': 'application/json' },
             ...(method === 'PUT' ? { body: JSON.stringify(menu([])) } : {}),
-          }), defaultLocale: 'en', locals: {},
+          }), defaultLocale: 'en', locals: { session: null, user: null },
         }));
         expect(response.status, `${method}, provider status ${status}`).toBe(status === 500 ? 500 : 401);
         expect(await response.json()).toEqual({
@@ -433,16 +433,16 @@ test('navigation RPC failure rolls back replacement and unexpected errors stay g
   const originalFetch = globalThis.fetch;
   try {
     await signInAdmin(page, owner);
-    const saved = await page.request.put('/api/navigation', { data: menu([home('Saved')]) });
+    const saved = await page.request.put('/api/admin/navigation', { data: menu([home('Saved')]) });
     expect(saved.status()).toBe(200);
     const original = (await saved.json()).items;
-    const { PUT, GET } = await vite.ssrLoadModule('/src/pages/api/navigation/index.ts') as { PUT: APIRoute; GET: APIRoute };
+    const { PUT, GET } = await vite.ssrLoadModule('/src/pages/api/admin/navigation/index.ts') as { PUT: APIRoute; GET: APIRoute };
     const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
     const context = (method: string) => createContext({
-      request: new Request(new URL('/api/navigation', page.url()), {
+      request: new Request(new URL('/api/admin/navigation', page.url()), {
         method, headers: { cookie, 'content-type': 'application/json' },
         ...(method === 'PUT' ? { body: JSON.stringify(menu([home('Changed')])) } : {}),
-      }), defaultLocale: 'en', locals: {},
+      }), defaultLocale: 'en', locals: { session: null, user: null },
     });
     globalThis.fetch = async (input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
@@ -455,7 +455,7 @@ test('navigation RPC failure rolls back replacement and unexpected errors stay g
     };
     const failed = await PUT(context('PUT'));
     expect(failed.status).toBe(400);
-    expect((await page.request.get('/api/navigation').then((response) => response.json())).items).toEqual(original);
+    expect((await page.request.get('/api/admin/navigation').then((response) => response.json())).items).toEqual(original);
 
     globalThis.fetch = async (input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
@@ -492,10 +492,10 @@ test('public resolver filters owner and published locale, caches for five second
     const draft = await seedPage(owner, 'th');
     await seedPage(foreign, 'th', 'published');
     await signInAdmin(page, owner);
-    expect((await page.request.put('/api/navigation', { data: menu([home(), pageItem(draft.id), pageItem(published.id), custom('/contact')]) })).status()).toBe(200);
-    expect((await page.request.put('/api/navigation', { data: menu([home('English')], 'en') })).status()).toBe(200);
-    expect((await page.request.put('/api/navigation', { data: menu([custom('https://example.com')], 'th', 'footer') })).status()).toBe(200);
-    const { getPublicNavigation, invalidatePublicNavigationCache } = await vite.ssrLoadModule('/src/lib/navigation.ts') as {
+    expect((await page.request.put('/api/admin/navigation', { data: menu([home(), pageItem(draft.id), pageItem(published.id), custom('/contact')]) })).status()).toBe(200);
+    expect((await page.request.put('/api/admin/navigation', { data: menu([home('English')], 'en') })).status()).toBe(200);
+    expect((await page.request.put('/api/admin/navigation', { data: menu([custom('https://example.com')], 'th', 'footer') })).status()).toBe(200);
+    const { getPublicNavigation, invalidatePublicNavigationCache } = await vite.ssrLoadModule('/src/server/content/navigation.ts') as {
       getPublicNavigation: (locale: PageLocale) => Promise<{ header: PublicNavigationItem[]; footer: PublicNavigationItem[] }>;
       invalidatePublicNavigationCache: () => void;
     };
@@ -531,12 +531,12 @@ test('public resolver filters owner and published locale, caches for five second
       timeout: 6_000, intervals: [250],
     }).toBe(4);
 
-    const { PUT } = await vite.ssrLoadModule('/src/pages/api/navigation/index.ts') as { PUT: APIRoute };
+    const { PUT } = await vite.ssrLoadModule('/src/pages/api/admin/navigation/index.ts') as { PUT: APIRoute };
     const cookie = (await page.context().cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
     const response = await PUT(createContext({
-      request: new Request(new URL('/api/navigation', page.url()), {
+      request: new Request(new URL('/api/admin/navigation', page.url()), {
         method: 'PUT', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(menu([home('Updated')])),
-      }), defaultLocale: 'en', locals: {},
+      }), defaultLocale: 'en', locals: { session: null, user: null },
     }));
     expect(response.status).toBe(200);
     expect((await getPublicNavigation('th')).header).toEqual([{ href: '/th', label: 'Updated', kind: 'home' }]);
@@ -561,9 +561,9 @@ test('public resolver filters owner and published locale, caches for five second
     try {
       await readStarted;
       const replacement = await PUT(createContext({
-        request: new Request(new URL('/api/navigation', page.url()), {
+        request: new Request(new URL('/api/admin/navigation', page.url()), {
           method: 'PUT', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(menu([home('Newest')])),
-        }), defaultLocale: 'en', locals: {},
+        }), defaultLocale: 'en', locals: { session: null, user: null },
       }));
       expect(replacement.status).toBe(200);
     } finally {

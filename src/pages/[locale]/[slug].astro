@@ -2,9 +2,9 @@
 import PageArticle from '../../components/blog/PageArticle.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, pagePath } from '../../lib/i18n';
-import { getSiteSettings } from '../../lib/installation';
 import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
-import { createServiceRoleSupabaseClient } from '../../lib/supabase';
+import { getPublishedPage, listPublishedPageAlternates } from '../../server/content/published';
+import { getSiteSettings } from '../../server/content/settings';
 import type { Page, PostAlternate } from '../../types/cms';
 
 const settings = await getSiteSettings();
@@ -20,21 +20,11 @@ try {
   if (!isPostLocale(localeValue) || !slug || RESERVED_PAGE_SLUGS.has(slug)) {
     Astro.response.status = 404;
   } else {
-    if (!settings) throw new Error('Site settings are unavailable.');
-    const supabase = createServiceRoleSupabaseClient();
-    const { data, error } = await supabase.from('pages').select('*')
-      .eq('locale', locale).eq('slug', slug).eq('author_id', settings.owner_id)
-      .eq('status', 'published').maybeSingle();
-    if (error) throw error;
-    page = data;
+    page = await getPublishedPage(locale, slug);
     if (!page) {
       Astro.response.status = 404;
     } else {
-      const { data: editions, error: editionsError } = await supabase.from('pages').select('locale, slug')
-        .eq('translation_group_id', page.translation_group_id).eq('author_id', settings.owner_id)
-        .eq('status', 'published');
-      if (editionsError) throw editionsError;
-      availableLocales = editions.map((edition) => ({ href: pagePath(edition), locale: edition.locale }));
+      availableLocales = await listPublishedPageAlternates(page.translation_group_id);
     }
   }
 } catch (error) {

@@ -15,6 +15,7 @@ import {
   normalizedContentSlug,
   prepareContent,
 } from './mutations';
+import { invalidatePublicNavigationCache } from './navigation';
 
 export const createPageSchema = contentMutationSchema.omit({ updatedAt: true }).safeExtend({
   locale: z.enum(['th', 'en']).optional(),
@@ -33,7 +34,7 @@ export const updatePageSchema = contentMutationSchema.safeExtend({
 export type CreatePageInput = z.infer<typeof createPageSchema>;
 export type UpdatePageInput = z.infer<typeof updatePageSchema>;
 
-function page(row: Selectable<PageTable>): Page {
+export function pageFromRow(row: Selectable<PageTable>): Page {
   return {
     id: row.id,
     translation_group_id: row.translation_group_id,
@@ -65,13 +66,13 @@ function writeConflict(error: unknown): never {
 
 export async function listPages(ownerId: string): Promise<Page[]> {
   return (await db.selectFrom('pages').selectAll()
-    .where('owner_id', '=', ownerId).orderBy('updated_at', 'desc').orderBy('id').execute()).map(page);
+    .where('owner_id', '=', ownerId).orderBy('updated_at', 'desc').orderBy('id').execute()).map(pageFromRow);
 }
 
 export async function getPage(ownerId: string, id: string): Promise<Page | null> {
   const row = await db.selectFrom('pages').selectAll()
     .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
-  return row ? page(row) : null;
+  return row ? pageFromRow(row) : null;
 }
 
 export async function listPageTranslations(ownerId: string, translationGroupId: string): Promise<PageTranslationSummary[]> {
@@ -119,7 +120,8 @@ export async function createPage(ownerId: string, input: CreatePageInput): Promi
         owner_id: ownerId,
       }).returningAll().executeTakeFirstOrThrow();
     });
-    return page(row);
+    invalidatePublicNavigationCache();
+    return pageFromRow(row);
   } catch (error) {
     return writeConflict(error);
   }
@@ -143,7 +145,8 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
         status: input.status,
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
     });
-    return page(row);
+    invalidatePublicNavigationCache();
+    return pageFromRow(row);
   } catch (error) {
     return writeConflict(error);
   }
@@ -167,7 +170,8 @@ export async function updatePageStatus(
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
   });
-  return page(row);
+  invalidatePublicNavigationCache();
+  return pageFromRow(row);
 }
 
 export async function deletePage(ownerId: string, id: string, updatedAt: string): Promise<void> {
@@ -186,4 +190,5 @@ export async function deletePage(ownerId: string, id: string, updatedAt: string)
         .where('id', '=', current.translation_group_id).where('owner_id', '=', ownerId).executeTakeFirstOrThrow();
     }
   });
+  invalidatePublicNavigationCache();
 }

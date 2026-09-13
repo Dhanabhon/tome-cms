@@ -2,9 +2,9 @@
 import Header from '../components/blog/Header.astro';
 import Footer from '../components/blog/Footer.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
-import { getSiteSettings } from '../lib/installation';
-import { getPublicNavigation } from '../lib/navigation';
 import { getPublicSiteUrl } from '../lib/seo';
+import { getPublicNavigation } from '../server/content/navigation';
+import { getSiteSettings } from '../server/content/settings';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
 
