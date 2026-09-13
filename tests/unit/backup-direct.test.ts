@@ -26,10 +26,10 @@ test('direct pg_dump removes query passwords and keeps non-secret options', () =
   try {
     for (const { databaseUrl, password, secrets, retained } of [
       {
-        databaseUrl: 'postgresql://tomecms@postgres:5432/tomecms?sslmode=require&%70assword=query%2Dsecret&application_name=backup',
+        databaseUrl: 'postgresql://tomecms@postgres:5432/tomecms?sslmode=require&options=-c%20statement_timeout%3D1000&%70assword=query%2Dsecret&application_name=backup',
         password: 'query-secret',
         secrets: ['query-secret', 'parent-secret'],
-        retained: ['sslmode=require', 'application_name=backup'],
+        retained: ['sslmode=require', 'options=-c%20statement_timeout%3D1000', 'application_name=backup'],
       },
       {
         databaseUrl: 'postgresql://tomecms:userinfo-secret@postgres:5432/tomecms?password=query-secret',
@@ -41,6 +41,18 @@ test('direct pg_dump removes query passwords and keeps non-secret options', () =
         databaseUrl: 'postgresql://tomecms@postgres:5432/tomecms?password=first-secret&password=last-secret&sslmode=require',
         password: 'last-secret',
         secrets: ['first-secret', 'last-secret', 'parent-secret'],
+        retained: ['sslmode=require'],
+      },
+      {
+        databaseUrl: 'postgresql://tomecms:userinfo-secret@postgres:5432/tomecms?password=',
+        password: 'userinfo-secret',
+        secrets: ['userinfo-secret', 'parent-secret'],
+        retained: [],
+      },
+      {
+        databaseUrl: 'postgresql://tomecms:userinfo-secret@postgres:5432/tomecms?password=first-secret&password=&sslmode=require',
+        password: 'userinfo-secret',
+        secrets: ['userinfo-secret', 'first-secret', 'parent-secret'],
         retained: ['sslmode=require'],
       },
     ]) {
