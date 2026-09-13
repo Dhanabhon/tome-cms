@@ -78,6 +78,7 @@ export interface Post {
   slug: string;
   locale: PostLocale;
   translation_group_id: string;
+  cover_media_id: string | null;
   cover_image: string | null;
   content_json: EditorDocument;
   content_html: string;
@@ -96,6 +97,7 @@ export interface PostInsert {
   slug: string;
   locale: PostLocale;
   translation_group_id?: string;
+  cover_media_id?: string | null;
   cover_image?: string | null;
   content_json: EditorDocument;
   content_html: string;
@@ -112,7 +114,7 @@ export type PostUpdate = Partial<Omit<PostInsert, 'id' | 'author_id' | 'created_
 
 export interface PostMutationInput {
   categoryIds: string[];
-  coverMediaId: null;
+  coverMediaId: string | null;
   title: string;
   slug: string;
   contentJson: EditorDocument;
@@ -349,13 +351,31 @@ export interface MediaItemUpdate {
   width?: number;
 }
 
-export interface MediaAsset extends MediaItem {
+export interface MediaAsset {
+  alt_text: string | null;
+  created_at: string;
+  folder_id: string | null;
+  height: number;
+  id: string;
+  mime_type: SupportedImageType;
+  original_name: string;
   publicUrl: string;
+  size_bytes: number;
+  updated_at: string;
+  width: number;
+}
+
+export interface MediaReferences {
+  counts: { pageContent: number; postContent: number; postCovers: number; profile: number };
+  pages: Array<{ id: string; title: string }>;
+  posts: Array<{ id: string; title: string }>;
+  profile: boolean;
 }
 
 export interface UploadImageOptions {
   altText?: string | null;
   folderId?: string | null;
+  onProgress?: (percent: number) => void;
 }
 
 type PostRow = { [Key in keyof Post]: Post[Key] };

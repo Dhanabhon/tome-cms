@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 
 import type { AuthorLink, SiteSettings } from '../../types/cms';
+import MediaPicker from './MediaPicker';
 
 interface ProfileFormProps {
+  initialAvatarUrl: string | null;
   initialSettings: Pick<SiteSettings,
-    'author_bio_en' | 'author_bio_th' | 'author_links' | 'author_name' | 'updated_at'
+    'author_avatar_media_id' | 'author_bio_en' | 'author_bio_th' | 'author_links' | 'author_name' | 'updated_at'
   >;
 }
 
@@ -20,8 +22,12 @@ interface SaveResult {
   settings?: { updated_at?: string };
 }
 
-export default function ProfileForm({ initialSettings }: ProfileFormProps) {
+export default function ProfileForm({ initialAvatarUrl, initialSettings }: ProfileFormProps) {
+  const avatarButton = useRef<HTMLButtonElement>(null);
   const [authorName, setAuthorName] = useState(initialSettings.author_name);
+  const [authorAvatarMediaId, setAuthorAvatarMediaId] = useState(initialSettings.author_avatar_media_id);
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [authorBioEn, setAuthorBioEn] = useState(initialSettings.author_bio_en);
   const [authorBioTh, setAuthorBioTh] = useState(initialSettings.author_bio_th);
   const [authorLinks, setAuthorLinks] = useState<AuthorLink[]>(initialSettings.author_links);
@@ -42,7 +48,7 @@ export default function ProfileForm({ initialSettings }: ProfileFormProps) {
       const response = await fetch('/api/admin/profile', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ authorAvatarMediaId: null, authorBioEn, authorBioTh, authorLinks, authorName, updatedAt }),
+        body: JSON.stringify({ authorAvatarMediaId, authorBioEn, authorBioTh, authorLinks, authorName, updatedAt }),
       });
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
@@ -76,9 +82,24 @@ export default function ProfileForm({ initialSettings }: ProfileFormProps) {
       }}>
         <fieldset disabled={saving}>
           <div className="profile-avatar">
-            <span>No avatar selected</span>
-            <p>Avatar selection will return with the PostgreSQL File Manager migration.</p>
+            {avatarUrl ? <img alt="" src={avatarUrl} /> : <span>No avatar selected</span>}
+            <div className="admin-cover-actions">
+              <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setAvatarPickerOpen(true)} ref={avatarButton} type="button">
+                {avatarUrl ? 'Change avatar' : 'Choose avatar'}
+              </button>
+              {avatarUrl && <button className="admin-button admin-button--secondary" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); setStatus(''); }} type="button">Remove</button>}
+            </div>
           </div>
+          {avatarPickerOpen && <MediaPicker
+            onCancel={() => setAvatarPickerOpen(false)}
+            onSelect={(asset) => {
+              setAuthorAvatarMediaId(asset.id);
+              setAvatarUrl(asset.publicUrl);
+              setAvatarPickerOpen(false);
+              setStatus('');
+            }}
+            returnFocus={avatarButton.current}
+          />}
           <div className="admin-field">
             <label htmlFor="authorName">Author name</label>
             <input className="admin-control" id="authorName" name="authorName" aria-invalid={Boolean(fieldErrors.authorName)} aria-describedby="authorName-error" maxLength={120} value={authorName} onChange={(event) => setAuthorName(event.target.value)} />

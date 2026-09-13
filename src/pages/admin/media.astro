@@ -17,7 +17,7 @@ try {
   const current = await requireInstalledOwner(Astro.request.headers);
   if (!settings) {
     Astro.response.status = 404;
-    errorMessage = 'The file library was not found.';
+    errorMessage = 'The File Manager was not found.';
   } else {
     userEmail = current.user.email;
   }
@@ -28,16 +28,16 @@ try {
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path));
   } else if (error instanceof HttpError && error.status === 403) {
     Astro.response.status = 404;
-    errorMessage = 'The file library was not found.';
+    errorMessage = 'The File Manager was not found.';
   } else {
-    console.error('File Library page failed to load.');
+    console.error('File Manager page failed to load.');
     Astro.response.status = 500;
-    errorMessage = 'The file library is temporarily unavailable.';
+    errorMessage = 'The File Manager is temporarily unavailable.';
   }
 }
 ---
 
-<AdminLayout title="File Library">
+<AdminLayout title="File Manager">
   {authRequired || errorMessage ? (
     <main><p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p></main>
   ) : (

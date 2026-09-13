@@ -7,7 +7,10 @@ import type { Post, PostLocale, PostTranslationSummary } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database, PostTable } from '../db/types';
 import { HttpError } from '../http/errors';
+import { assertReadyMediaReferences } from '../media/service';
+import { stableMediaPath } from '../media/url';
 import { replacePostGroupCategories } from './categories';
+import { editorMediaIds } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -22,7 +25,7 @@ const categoryIdsSchema = z.array(z.uuid()).max(20).superRefine((ids, context) =
 
 export const createPostSchema = contentMutationSchema.omit({ updatedAt: true }).safeExtend({
   categoryIds: categoryIdsSchema,
-  coverMediaId: z.null(),
+  coverMediaId: z.uuid().nullable(),
   locale: z.enum(['th', 'en']).optional(),
   sourcePostId: z.uuid().optional(),
 }).superRefine(({ locale, sourcePostId }, context) => {
@@ -33,7 +36,7 @@ export const createPostSchema = contentMutationSchema.omit({ updatedAt: true }).
 
 export const updatePostSchema = contentMutationSchema.safeExtend({
   categoryIds: categoryIdsSchema,
-  coverMediaId: z.null(),
+  coverMediaId: z.uuid().nullable(),
   id: z.uuid(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
@@ -48,7 +51,8 @@ export function postFromRow(row: Selectable<PostTable>): Post {
     slug: row.slug,
     locale: row.locale,
     translation_group_id: row.translation_group_id,
-    cover_image: null,
+    cover_media_id: row.cover_media_id,
+    cover_image: row.cover_media_id ? stableMediaPath(row.cover_media_id) : null,
     content_json: row.content_json,
     content_html: row.content_html,
     meta_title: row.meta_title,
@@ -96,16 +100,15 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
       await lockOwner(trx, ownerId);
       let translationGroupId: string = randomUUID();
       let locale: PostLocale;
-      let coverMediaId: string | null = null;
+      const coverMediaId = input.coverMediaId;
 
       if (input.sourcePostId && input.locale) {
-        const source = await trx.selectFrom('posts').select(['cover_media_id', 'locale', 'translation_group_id'])
+        const source = await trx.selectFrom('posts').select(['locale', 'translation_group_id'])
           .where('id', '=', input.sourcePostId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
         if (!source) throw new HttpError(404, 'Post not found.');
         if (source.locale === input.locale) throw new HttpError(409, 'That language edition already exists.');
         translationGroupId = source.translation_group_id;
         locale = input.locale;
-        coverMediaId = source.cover_media_id;
         await trx.selectFrom('post_translation_groups').select('id')
           .where('id', '=', translationGroupId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
       } else {
@@ -115,6 +118,11 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         locale = settings.default_locale;
         await trx.insertInto('post_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
       }
+
+      await assertReadyMediaReferences(trx, ownerId, [
+        ...editorMediaIds(content.contentJson),
+        ...(coverMediaId ? [coverMediaId] : []),
+      ]);
 
       const created = await trx.insertInto('posts').values({
         id,
@@ -149,13 +157,17 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         .where('id', '=', input.id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!current) throw new HttpError(404, 'Post not found.');
       assertCurrentVersion(current.updated_at, input.updatedAt, 'post');
+      await assertReadyMediaReferences(trx, ownerId, [
+        ...editorMediaIds(content.contentJson),
+        ...(input.coverMediaId ? [input.coverMediaId] : []),
+      ]);
       await trx.selectFrom('post_translation_groups').select('id')
         .where('id', '=', current.translation_group_id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
 
       const updated = await trx.updateTable('posts').set({
         title: input.title,
         slug: normalizedContentSlug('post', input.slug, input.title, input.id),
-        cover_media_id: null,
+        cover_media_id: input.coverMediaId,
         content_json: content.contentJson,
         content_html: content.contentHtml,
         meta_title: input.metaTitle,

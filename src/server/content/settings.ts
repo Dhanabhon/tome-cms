@@ -5,6 +5,7 @@ import type { AuthorLink, Json } from '../../types/cms';
 import { db } from '../db/client';
 import type { SiteSettingsTable } from '../db/types';
 import { HttpError } from '../http/errors';
+import { assertReadyMediaReferences } from '../media/service';
 import { invalidatePublicNavigationCache } from './navigation';
 
 const httpUrl = z.string().trim().pipe(z.url({ protocol: /^https?$/, error: 'Use an HTTP or HTTPS URL.' }));
@@ -23,7 +24,7 @@ export const siteSettingsMutationSchema = z.object({
 }).strict();
 
 export const profileMutationSchema = z.object({
-  authorAvatarMediaId: z.null(),
+  authorAvatarMediaId: z.uuid().nullable(),
   authorBioEn: z.string().trim().max(1000),
   authorBioTh: z.string().trim().max(1000),
   authorLinks: authorLinksSchema,
@@ -96,6 +97,7 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
 }
 
 export async function updateOwnerProfile(ownerId: string, input: ProfileMutation): Promise<SiteSettings> {
+  await assertReadyMediaReferences(db, ownerId, input.authorAvatarMediaId ? [input.authorAvatarMediaId] : []);
   const row = await db.updateTable('site_settings')
     .set({
       author_name: input.authorName,

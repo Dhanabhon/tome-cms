@@ -8,6 +8,8 @@ import type { Page, PageLocale, PageTranslationSummary } from '../../types/cms';
 import { db } from '../db/client';
 import type { PageTable } from '../db/types';
 import { HttpError } from '../http/errors';
+import { assertReadyMediaReferences } from '../media/service';
+import { editorMediaIds } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -105,6 +107,8 @@ export async function createPage(ownerId: string, input: CreatePageInput): Promi
         await trx.insertInto('page_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
       }
 
+      await assertReadyMediaReferences(trx, ownerId, editorMediaIds(content.contentJson));
+
       return trx.insertInto('pages').values({
         id,
         translation_group_id: translationGroupId,
@@ -135,6 +139,7 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
         .where('id', '=', input.id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!current) throw new HttpError(404, 'Page not found.');
       assertCurrentVersion(current.updated_at, input.updatedAt, 'page');
+      await assertReadyMediaReferences(trx, ownerId, editorMediaIds(content.contentJson));
       return trx.updateTable('pages').set({
         title: input.title,
         slug: pageSlug({ id: input.id, requested: input.slug, title: input.title }),

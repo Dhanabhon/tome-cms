@@ -43,7 +43,7 @@ export default function MediaPicker({ onCancel, onSelect, returnFocus }: MediaPi
 
   return (
     <dialog
-      aria-label="File library"
+      aria-label="File Manager"
       className="media-picker"
       onCancel={(event) => {
         event.preventDefault();

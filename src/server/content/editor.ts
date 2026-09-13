@@ -9,7 +9,21 @@ import {
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
-import type { EditorDocument } from '../../types/cms';
+import type { EditorDocument, EditorNode } from '../../types/cms';
+import { isUuid } from '../media/keys';
+
+const mediaImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      mediaId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-media-id'),
+        renderHTML: () => ({}),
+      },
+    };
+  },
+});
 
 const MAX_DOCUMENT_DEPTH = 100;
 const rawEditorContentInputSchema = z.object({ contentJson: z.unknown() }).strict();
@@ -26,7 +40,7 @@ const extensions = [
     openOnClick: false,
     HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
   }),
-  Image.configure({
+  mediaImage.configure({
     allowBase64: false,
     HTMLAttributes: { class: 'rounded-lg' },
   }),
@@ -39,6 +53,50 @@ export class ValidationError extends Error {
 export interface StoredEditorContent {
   contentJson: EditorDocument;
   contentHtml: string;
+}
+
+function normalizeMediaNodes(document: EditorDocument): void {
+  const pending: EditorNode[] = [document];
+  while (pending.length) {
+    const node = pending.pop();
+    if (!node) break;
+    if (node.type === 'image') {
+      const attrs = node.attrs ?? {};
+      const src = attrs.src;
+      if (typeof src !== 'string') throw new ValidationError('Images require a valid source.');
+      const stable = /^\/media\/([^/?#]+)$/.exec(src);
+      if (stable && isUuid(stable[1] ?? '')) {
+        const mediaId = stable[1]!.toLowerCase();
+        if (attrs.mediaId !== undefined && attrs.mediaId !== null && attrs.mediaId !== mediaId) {
+          throw new ValidationError('Image identity does not match its source.');
+        }
+        node.attrs = { ...attrs, mediaId, src: `/media/${mediaId}` };
+      } else {
+        let legacy: URL;
+        try {
+          legacy = new URL(src);
+        } catch {
+          throw new ValidationError('Images require a valid source.');
+        }
+        if ((legacy.protocol !== 'http:' && legacy.protocol !== 'https:') || (attrs.mediaId !== undefined && attrs.mediaId !== null)) {
+          throw new ValidationError('Images require a valid source.');
+        }
+      }
+    }
+    pending.push(...(node.content ?? []));
+  }
+}
+
+export function editorMediaIds(document: EditorDocument): string[] {
+  const ids = new Set<string>();
+  const pending: EditorNode[] = [document];
+  while (pending.length) {
+    const node = pending.pop();
+    if (!node) break;
+    if (node.type === 'image' && typeof node.attrs?.mediaId === 'string') ids.add(node.attrs.mediaId);
+    pending.push(...(node.content ?? []));
+  }
+  return [...ids];
 }
 
 function assertJsonBounds(value: unknown): void {
@@ -93,5 +151,6 @@ export function prepareEditorContent(input: unknown): StoredEditorContent {
   const raw = rawEditorContentInputSchema.parse(input);
   assertJsonBounds(raw.contentJson);
   const { contentJson } = editorContentInputSchema.parse(input);
+  normalizeMediaNodes(contentJson);
   return { contentJson, contentHtml: renderEditorHtml(contentJson) };
 }

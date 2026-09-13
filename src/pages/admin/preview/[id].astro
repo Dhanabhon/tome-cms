@@ -4,6 +4,7 @@ import { z } from 'zod';
 import PostArticle from '../../../components/blog/PostArticle.astro';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminHref } from '../../../lib/admin';
+import { getPublicAuthorProfile } from '../../../lib/profile';
 import { requireInstalledOwner } from '../../../server/auth/session';
 import { getPost } from '../../../server/content/posts';
 import { getSiteSettings } from '../../../server/content/settings';
@@ -37,11 +38,11 @@ try {
         installed_at: storedSettings.installed_at.toISOString(),
         updated_at: storedSettings.updated_at.toISOString(),
       };
-      profile = {
-        avatarUrl: null,
-        bio: post.locale === 'th' ? storedSettings.author_bio_th : storedSettings.author_bio_en,
-        links: storedSettings.author_links,
-        name: storedSettings.author_name || storedSettings.site_name,
+      profile = await getPublicAuthorProfile(storedSettings, post.locale) ?? {
+        avatarUrl: storedSettings.author_avatar_media_id ? `/media/${storedSettings.author_avatar_media_id}` : null,
+        bio: '',
+        links: [],
+        name: storedSettings.site_name,
       };
     }
   }

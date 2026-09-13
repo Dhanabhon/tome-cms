@@ -3,12 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { adminHref } from '../../lib/admin';
-import { POST_LOCALES, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
+import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
 interface EditorSourcePost {
+  cover_image: string | null;
+  cover_media_id: string | null;
   id: string;
 }
 
@@ -25,6 +27,7 @@ interface EditorProps {
 interface EditorDraft {
   categoryIds: string[];
   contentJson: JSONContent;
+  coverMediaId: string | null;
   metaDescription: string | null;
   metaTitle: string | null;
   slug: string;
@@ -59,6 +62,8 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
   const [categoryIds, setCategoryIds] = useState(() => selectCategories(categories, initialCategoryIds));
+  const [coverMediaId, setCoverMediaId] = useState(initialPost?.cover_media_id ?? sourcePost?.cover_media_id ?? null);
+  const [coverImage, setCoverImage] = useState(initialPost?.cover_image ?? sourcePost?.cover_image ?? null);
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
@@ -71,11 +76,11 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
-    categoryIds, contentJson,
+    categoryIds, contentJson, coverMediaId,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    categoryIds, contentJson,
+    categoryIds, contentJson, coverMediaId,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -95,7 +100,6 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
         ...(id ? { id, updatedAt: updatedAt.current } : {}),
         ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
         ...draft,
-        coverMediaId: null,
         status: status ?? postStatusRef.current,
       }),
     });
@@ -113,6 +117,11 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPost.slug };
       setSlug(savedPost.slug);
+    }
+    if (draftRef.current.coverMediaId === draft.coverMediaId) {
+      draftRef.current = { ...draftRef.current, coverMediaId: savedPost.cover_media_id };
+      setCoverMediaId(savedPost.cover_media_id);
+      setCoverImage(savedPost.cover_image);
     }
     setPostStatus(savedPost.status);
     setLanguageEditions((current) => [
@@ -209,7 +218,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentJson, metaDescription, metaTitle, categoryIds]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, metaDescription, metaTitle, categoryIds, coverMediaId]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -329,10 +338,16 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
         <PostSettingsDrawer
           categories={categories}
+          coverImage={coverImage}
           errorMessage={errorMessage}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
           onChangeCategories={(selected) => { setCategoryIds(selectCategories(categories, selected)); markDirty(); }}
+          onChangeCover={(asset: MediaAsset | null) => {
+            setCoverMediaId(asset?.id ?? null);
+            setCoverImage(asset?.publicUrl ?? null);
+            markDirty();
+          }}
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
