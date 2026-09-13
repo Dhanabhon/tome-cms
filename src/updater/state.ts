@@ -46,6 +46,7 @@ export interface UpdaterStateStore {
   readInstalled(): Promise<InstalledState>;
   writeInstalled(value: InstalledState): Promise<void>;
   readJob(): Promise<UpdateJob | null>;
+  refreshStatus(): Promise<UpdateJob | null>;
   createJob(input: Pick<UpdateJob, 'requestId' | 'targetVersion'>): Promise<UpdateJob>;
   recordBackup(id: string, backup: Pick<UpdateJob, 'backupDirectory' | 'backupCreatedAt'>): Promise<UpdateJob>;
   /** Boot-only terminalization after the caller verifies image identity and readiness. */
@@ -142,6 +143,13 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
   return {
     readInstalled,
     readJob,
+    refreshStatus() {
+      return exclusive(async () => {
+        const job = await readJob();
+        await writeStatus(await readInstalled(), job);
+        return job;
+      });
+    },
     writeInstalled(value) {
       return exclusive(async () => {
         const installed = parseInstalled(value);

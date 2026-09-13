@@ -114,3 +114,18 @@ test('records backup before image selection and permits explicit boot reconcilia
   assert.equal((await store.readJob())?.completedSteps, 8);
   await assert.rejects(() => store.reconcileJob(job.id, 'rolled_back'), /terminal/i);
 });
+
+test('refreshes runtime mirror from durable state without changing installed or terminal job files', async () => {
+  const { store, stateDirectory, statusPath } = await fixture();
+  await store.writeInstalled(installed);
+  const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  await store.reconcileJob(job.id, 'succeeded');
+  const installedPath = join(stateDirectory, 'installed.json');
+  const jobPath = join(stateDirectory, 'job.json');
+  const before = [await stat(installedPath), await stat(jobPath)];
+  await writeFile(statusPath, JSON.stringify({ job: { phase: 'health_check' } }));
+  assert.equal((await store.refreshStatus())?.phase, 'succeeded');
+  assert.equal(JSON.parse(await readFile(statusPath, 'utf8')).job.phase, 'succeeded');
+  const after = [await stat(installedPath), await stat(jobPath)];
+  assert.deepEqual(after.map((value) => [value.ino, value.mtimeMs]), before.map((value) => [value.ino, value.mtimeMs]));
+});
