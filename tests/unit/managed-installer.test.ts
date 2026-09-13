@@ -11,6 +11,9 @@ const repository = resolve(import.meta.dirname, '../..');
 const commit = 'a'.repeat(40);
 const digest = `sha256:${'b'.repeat(64)}`;
 const image = `ghcr.io/dhanabhon/tome-cms@${digest}`;
+const bundleNames = ['update-manifest.attestation.json', 'tomecms-image.attestation.json'] as const;
+const bundleBytes = ['{"bundle":"manifest"}\n', '{"bundle":"image"}\n'];
+const githubOverrides = ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST', 'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO'];
 const manifest = {
   format: 'tomecms-update', manifestVersion: 1, product: 'tomecms', channel: 'stable', version: '1.0.0',
   releasedAt: '2026-09-01T00:00:00.000Z', source: { repository: 'Dhanabhon/tome-cms', commit },
@@ -25,7 +28,16 @@ const fs = require('node:fs'); const path = require('node:path');
 const name = path.basename(process.argv[1]); const args = process.argv.slice(2); const text = args.join(' ');
 fs.appendFileSync(process.env.COMMAND_LOG, JSON.stringify([name, ...args]) + '\\n');
 const fail = process.env.FAIL_STEP;
-if (fail && (name + ' ' + text).includes(fail)) process.exit(7);
+if (fail && (name + ' ' + text).includes(fail)) {
+  if (process.env.FAIL_PRIVATE_DETAILS) {
+    const values = require('node:util').parseEnv(fs.readFileSync(path.join(process.env.INSTALL_FIXTURE_ROOT, 'etc/tome-cms/tome-cms.env'), 'utf8'));
+    const sensitive = Object.entries(values).filter(([key]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key)).map(([, value]) => value);
+    const forms = sensitive.flatMap(value => [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'), Buffer.from(value).toString('base64url')]);
+    process.stdout.write('Migration 008_update_rate_limit_actions started\\n' + forms.join('\\n') + '\\n');
+    process.stderr.write('SQLSTATE 23505: duplicate migration record\\n' + forms.join('\\n') + '\\n' + 'x'.repeat(20000));
+  }
+  process.exit(7);
+}
 let output = '';
 if (name === 'uname') output = args[0] === '-s' ? (process.env.HOST_OS || 'Linux') : (process.env.HOST_ARCH || 'x86_64');
 if (name === 'id') output = args[0] === '-u' ? (process.env.HOST_UID || '0') : '994';
@@ -42,14 +54,34 @@ if (name === 'curl') {
   if (args.includes('--unix-socket')) output = JSON.stringify({ protocolVersion: 1, updaterVersion: '1.0.0', managed: true, installed: { version: '1.0.0', imageDigest: '${digest}' }, job: null });
   else if (text.includes('/health/ready')) output = '{}';
   else if (text.includes('/releases/tags/')) output = fs.readFileSync(process.env.RELEASE_FIXTURE, 'utf8');
-  else if (text.includes('/releases/download/')) output = fs.readFileSync(process.env.MANIFEST_FIXTURE, 'utf8');
+  else if (text.includes('/releases/download/')) {
+    const file = path.basename(args.at(-1));
+    const files = { 'update-manifest.json': process.env.MANIFEST_FIXTURE, 'update-manifest.attestation.json': process.env.MANIFEST_BUNDLE_FIXTURE, 'tomecms-image.attestation.json': process.env.IMAGE_BUNDLE_FIXTURE };
+    if (!files[file]) process.exit(8);
+    output = fs.readFileSync(files[file], 'utf8');
+  }
   else output = JSON.stringify({ private: process.env.PRIVATE_REPO === '1', visibility: 'public', full_name: 'Dhanabhon/tome-cms' });
 }
 if (name === 'docker') {
+  if (args[0] === 'rm' && process.env.FAIL_PRIVATE_DETAILS) {
+    const logRoot = path.join(process.env.INSTALL_FIXTURE_ROOT, 'var/log/tome-cms');
+    const logs = fs.readdirSync(logRoot).filter(file => file.startsWith('install-'));
+    fs.appendFileSync(process.env.COMMAND_LOG, JSON.stringify(['diagnostics-before-cleanup', logs.length ? fs.readFileSync(path.join(logRoot, logs[0]), 'utf8') : '']) + '\\n');
+  }
   if (text.includes('--env-file') && process.env.TOME_CMS_APP_IMAGE) process.exit(9);
   if (text.startsWith('ps ') || text.startsWith('volume ls ')) output = process.env.ORPHAN_MIGRATION && text.includes('name=^tomecms-install-migration-') ? 'owned-container-id' : (process.env.EXISTING_DOCKER || '');
   else if (text.startsWith('image inspect ')) output = JSON.stringify([{ RepoDigests: ['${image}'], Os: 'linux', Architecture: process.env.IMAGE_ARCH || 'amd64', Config: { Labels: { 'org.opencontainers.image.version': '1.0.0', 'org.opencontainers.image.revision': '${commit}' } } }]);
   else if (text.includes('migrator.ts')) output = '["008_update_rate_limit_actions"]';
+}
+if (name === 'gh' && args[0] === 'attestation') {
+  const bundle = args.includes('--bundle') ? args[args.indexOf('--bundle') + 1] : '';
+  const directory = bundle ? path.dirname(bundle) : (args[2].startsWith('oci:') ? '' : path.dirname(args[2]));
+  const names = ['update-manifest.json', 'update-manifest.attestation.json', 'tomecms-image.attestation.json'];
+  const assets = names.map(name => { const file = path.join(directory, name); return directory && fs.existsSync(file) ? { name, mode: fs.statSync(file).mode & 0o777, bytes: fs.readFileSync(file, 'utf8') } : { name }; });
+  const env = Object.fromEntries(${JSON.stringify([...githubOverrides, 'GH_CONFIG_DIR', 'XDG_CACHE_HOME', 'GH_PROMPT_DISABLED'])}.map(name => [name, process.env[name] || null]));
+  const modes = ['GH_CONFIG_DIR', 'XDG_CACHE_HOME'].map(key => env[key] && fs.existsSync(env[key]) ? fs.statSync(env[key]).mode & 0o777 : null);
+  for (const key of ['GH_CONFIG_DIR', 'XDG_CACHE_HOME']) if (env[key] && fs.existsSync(env[key])) fs.writeFileSync(path.join(env[key], 'write-probe'), 'private cache', { mode: 0o600 });
+  fs.appendFileSync(process.env.GH_EVENT_LOG, JSON.stringify({ args, directory, assets, env, modes }) + '\\n');
 }
 if (name === 'systemctl' && text === 'enable --now tomecms-updater.service') {
   const root = process.env.INSTALL_FIXTURE_ROOT;
@@ -90,15 +122,18 @@ async function fixture(t: TestContext) {
   await symlink(process.execPath, join(bin, 'node'));
   const manifestFile = join(root, 'manifest.json');
   const releaseFile = join(root, 'release.json');
+  const bundleFiles = bundleNames.map(name => join(root, name));
   const bytes = JSON.stringify(manifest) + '\n';
   const release = { tag_name: 'v1.0.0', draft: false, prerelease: false, immutable: true, html_url: manifest.releaseNotesUrl, published_at: manifest.releasedAt,
-    assets: [{ name: 'update-manifest.json', browser_download_url: 'https://github.com/Dhanabhon/tome-cms/releases/download/v1.0.0/update-manifest.json', digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` }] };
+    assets: [{ name: 'update-manifest.json', browser_download_url: 'https://github.com/Dhanabhon/tome-cms/releases/download/v1.0.0/update-manifest.json', digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` }, ...bundleNames.map((name, i) => ({ name, browser_download_url: `https://github.com/Dhanabhon/tome-cms/releases/download/v1.0.0/${name}`, digest: `sha256:${createHash('sha256').update(bundleBytes[i]).digest('hex')}` }))] };
   await writeFile(manifestFile, bytes);
+  for (let i = 0; i < bundleFiles.length; i++) await writeFile(bundleFiles[i], bundleBytes[i]);
   await writeFile(releaseFile, JSON.stringify(release));
   const log = join(root, 'commands.jsonl');
-  const env = { PATH: bin, COMMAND_LOG: log, RELEASE_FIXTURE: releaseFile, MANIFEST_FIXTURE: manifestFile, INSTALL_FIXTURE_ROOT: prefix,
+  const ghLog = join(root, 'gh.jsonl');
+  const env = { PATH: bin, COMMAND_LOG: log, GH_EVENT_LOG: ghLog, RELEASE_FIXTURE: releaseFile, MANIFEST_FIXTURE: manifestFile, MANIFEST_BUNDLE_FIXTURE: bundleFiles[0], IMAGE_BUNDLE_FIXTURE: bundleFiles[1], INSTALL_FIXTURE_ROOT: prefix,
     TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://media.example.com' };
-  return { root, source, prefix, bin, log, release, releaseFile, manifestFile,
+  return { root, source, prefix, bin, log, ghLog, release, releaseFile, manifestFile, bundleFiles,
     run: (args: string[] = ['--dry-run'], extra: Record<string, string> = {}) => spawnSync('/bin/bash', ['-c', 'umask 077; exec /bin/bash "$@"', 'managed-test', join(source, 'scripts/install-managed-vps.sh'), ...args, '--version', '1.0.0', '--root-prefix', prefix], { cwd: source, env: { ...env, ...extra }, encoding: 'utf8', timeout: 20_000 }),
     commands: async () => (await readFile(log, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line) as string[]),
     deploy: (args: string[], extra: Record<string, string> = {}) => spawnSync('/bin/bash', [join(source, 'scripts/deploy-vps.sh'), ...args], { cwd: source, env: { ...env, ...extra }, encoding: 'utf8', timeout: 20_000 }),
@@ -142,6 +177,62 @@ test('dry-run verifies a matching release and prints a fixed plan without instal
   assert.deepEqual(await readdir(f.prefix), ['bin']);
 });
 
+test('installer verifies downloaded bundles with fixed provenance and isolated writable GitHub directories', async t => {
+  const f = await fixture(t);
+  const inherited = Object.fromEntries([...githubOverrides, 'GH_CONFIG_DIR', 'XDG_CACHE_HOME'].map(name => [name, 'must-not-reach-gh']));
+  const result = f.run(['--dry-run'], inherited);
+  assert.equal(result.status, 0, result.stderr);
+  const events = (await readFile(f.ghLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(events.length, 2);
+  for (const [index, event] of events.entries()) {
+    assert.deepEqual(event.args, ['attestation', 'verify', index ? `oci://${image}` : join(event.directory, 'update-manifest.json'), '--bundle', join(event.directory, bundleNames[index]), '-R', 'Dhanabhon/tome-cms', '--signer-workflow', 'Dhanabhon/tome-cms/.github/workflows/release.yml', '--source-ref', 'refs/tags/v1.0.0', '--source-digest', commit, '--deny-self-hosted-runners']);
+    assert.deepEqual(event.assets.map((asset: { mode: number }) => asset.mode), [0o600, 0o600, 0o600]);
+    assert.deepEqual(event.assets.map((asset: { bytes: string }) => asset.bytes), [await readFile(f.manifestFile, 'utf8'), ...bundleBytes]);
+    for (const key of githubOverrides) assert.equal(event.env[key], null, key);
+    assert.equal(event.env.GH_PROMPT_DISABLED, '1');
+    assert.deepEqual(event.modes, [0o700, 0o700]);
+    for (const key of ['GH_CONFIG_DIR', 'XDG_CACHE_HOME']) {
+      assert.equal(dirname(event.env[key]), event.directory);
+      await assert.rejects(access(event.env[key]));
+    }
+    await assert.rejects(access(event.directory));
+  }
+  const downloads = (await f.commands()).filter(args => args[0] === 'curl' && args.at(-1)?.includes('/releases/download/'));
+  assert.deepEqual(downloads.map(args => args.at(-1)), ['update-manifest.json', ...bundleNames].map(name => `https://github.com/Dhanabhon/tome-cms/releases/download/v1.0.0/${name}`));
+  for (const args of downloads) {
+    assert.equal(args[args.indexOf('--max-filesize') + 1], '524288');
+    assert.equal(args[args.indexOf('--max-time') + 1], '5');
+  }
+});
+
+test('missing, duplicate, redirected, invalid and oversized bundles fail closed before verification or mutation', async t => {
+  for (const [index, name] of bundleNames.entries()) {
+    for (const mutation of ['missing', 'duplicate', 'url', 'digest', 'bytes', 'oversized']) {
+      await t.test(`${name}: ${mutation}`, async t => {
+        const f = await fixture(t);
+        const asset = f.release.assets[index + 1];
+        if (mutation === 'missing') f.release.assets.splice(index + 1, 1);
+        if (mutation === 'duplicate') f.release.assets.push(asset);
+        if (mutation === 'url') asset.browser_download_url = asset.browser_download_url.replace('v1.0.0', 'v1.0.1');
+        if (mutation === 'digest') asset.digest = 'sha256:invalid';
+        if (mutation === 'bytes') await writeFile(f.bundleFiles[index], 'forged bundle');
+        if (mutation === 'oversized') {
+          const bytes = 'x'.repeat(524289);
+          await writeFile(f.bundleFiles[index], bytes);
+          asset.digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+        }
+        await writeFile(f.releaseFile, JSON.stringify(f.release));
+        const result = f.run();
+        assert.equal(result.status, 1, `${mutation}: ${result.stdout}`);
+        const commands = await f.commands();
+        assert.ok(!commands.some(args => args[0] === 'gh' && args[1] === 'attestation'));
+        assert.ok(!commands.some(args => ['npm', 'useradd', 'groupadd'].includes(args[0])));
+        assert.deepEqual(await readdir(f.prefix), ['bin']);
+      });
+    }
+  }
+});
+
 test('production wrapper delegates only matching stable tagged production installs', async t => {
   const f = await fixture(t);
   const managed = f.deploy(['--dry-run', '--root-prefix', f.prefix]);
@@ -160,7 +251,7 @@ test('installer rejects unsafe prerequisites before any deployment mutation', as
     [{ HOST_OS: 'Darwin' }, /Linux/], [{ HOST_ARCH: 'riscv64' }, /architecture/],
     [{ SOURCE_TAG: 'v1.0.1' }, /tag/], [{ SOURCE_DIRTY: ' M scripts/installer' }, /clean/],
     [{ PRIVATE_REPO: '1' }, /public/], [{ FAIL_STEP: 'docker compose version' }, /docker/],
-    [{ FAIL_STEP: 'gh attestation verify oci:' }, /gh/], [{ EXISTING_DOCKER: 'tomecms_postgres-data' }, /fresh/],
+    [{ FAIL_STEP: 'gh attestation verify /' }, /gh/], [{ FAIL_STEP: 'gh attestation verify oci:' }, /gh/], [{ EXISTING_DOCKER: 'tomecms_postgres-data' }, /fresh/],
   ] as Array<[Record<string, string>, RegExp]>) {
     await t.test(JSON.stringify(extra), async t => {
       const f = await fixture(t);
@@ -191,7 +282,7 @@ test('manifest, package, asset digest, source commit and release immutability mu
         if (change === 'contract') value.compatibility.composeContract = 2;
         const bytes = JSON.stringify(change === 'unknown' ? { ...value, command: 'bad' } : value);
         await writeFile(f.manifestFile, bytes);
-        await writeFile(f.releaseFile, JSON.stringify({ ...f.release, assets: [{ ...f.release.assets[0], digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` }] }));
+        await writeFile(f.releaseFile, JSON.stringify({ ...f.release, assets: [{ ...f.release.assets[0], digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}` }, ...f.release.assets.slice(1)] }));
       }
       const result = f.run();
       assert.equal(result.status, 1, result.stdout);
@@ -254,6 +345,41 @@ test('a failed migration cleans only its named one-shot container and retains re
   assert.match(removal[3], /^tomecms-install-migration-[0-9a-f-]{36}$/);
   await access(join(f.prefix, 'etc/tome-cms/tome-cms.env'));
   assert.match(result.stderr, /retained/);
+});
+
+test('bounded private failure diagnostics survive migration cleanup and redact raw and encoded secrets', async t => {
+  const f = await fixture(t);
+  const sentinel = 'S3_SENTINEL_sensitive+slash/space and"quote=abcdefgh';
+  const result = f.run([], { FAIL_STEP: 'app npm run db:migrate', ORPHAN_MIGRATION: '1', FAIL_PRIVATE_DETAILS: '1', S3_SECRET_ACCESS_KEY: sentinel });
+  assert.equal(result.status, 1);
+  const files = await readdir(join(f.prefix, 'var/log/tome-cms'));
+  assert.equal(files.length, 1);
+  assert.match(files[0], /^install-[0-9a-f-]{36}\.json$/);
+  const path = join(f.prefix, 'var/log/tome-cms', files[0]);
+  assert.equal((await stat(path)).mode & 0o777, 0o600);
+  const text = await readFile(path, 'utf8');
+  assert.ok(Buffer.byteLength(text) <= 256 * 1024);
+  const diagnostic = JSON.parse(text);
+  assert.equal(diagnostic.failures[0].command, 'docker');
+  assert.equal(diagnostic.failures[0].exitCode, 7);
+  assert.match(diagnostic.failures[0].args, /app npm run db:migrate/);
+  assert.match(diagnostic.failures[0].stdout, /Migration 008_update_rate_limit_actions started/);
+  assert.match(diagnostic.failures[0].stderr, /SQLSTATE 23505: duplicate migration record/);
+  const values = parseEnv(await readFile(join(f.prefix, 'etc/tome-cms/tome-cms.env'), 'utf8'));
+  for (const [key, value] of Object.entries(values)) {
+    if (!/PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) || !value) continue;
+    for (const secret of [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'), Buffer.from(value).toString('base64url')]) {
+      assert.ok(!JSON.stringify(diagnostic.failures).includes(JSON.stringify(secret).slice(1, -1)), `${key} must be redacted`);
+    }
+  }
+  const output = result.stdout + result.stderr;
+  assert.ok(!output.includes(sentinel));
+  assert.doesNotMatch(output, /SQLSTATE 23505|Migration 008_update_rate_limit_actions started/);
+  assert.ok(output.includes(path));
+  const commands = await f.commands();
+  const beforeCleanup = commands.find(args => args[0] === 'diagnostics-before-cleanup');
+  assert.ok(beforeCleanup?.[1].includes('SQLSTATE 23505'));
+  assert.ok(commands.some(args => args[0] === 'docker' && args[1] === 'rm' && args[2] === '--force'));
 });
 
 test('installer builds into a clean output directory instead of installing stale ignored build files', async t => {

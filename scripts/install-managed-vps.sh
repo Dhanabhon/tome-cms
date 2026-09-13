@@ -5,12 +5,12 @@ cd -- "${BASH_SOURCE[0]%/*}/.."
 exec node --import tsx --input-type=module - "$@" <<'NODE'
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, closeSync, fchmodSync, fsyncSync, openSync, renameSync, writeFileSync } from 'node:fs';
 import { access, chmod, cp, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, rmdir, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { makeEnvironment, renderEnvironment } from './scripts/bootstrap-core.mjs';
-import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest } from './src/update/contracts.ts';
+import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
 
 const source = process.cwd();
 let dryRun = false;
@@ -22,9 +22,14 @@ let temporary;
 const createdEmpty = [];
 const createdDirectories = [];
 const executables = {};
+const diagnosticName = `/var/log/tome-cms/install-${randomUUID()}.json`;
+const diagnosticFailures = [];
+let diagnosticSaved = false;
+let diagnosticSaveFailed = false;
+let redactions = [];
 const childEnv = { ...process.env };
 // Public release access must work without a customer credential or remote Docker context.
-for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES']) delete childEnv[key];
+for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST', 'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO', 'GH_CONFIG_DIR', 'XDG_CACHE_HOME', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES']) delete childEnv[key];
 childEnv.DOCKER_HOST = 'unix:///var/run/docker.sock';
 delete childEnv.TOME_CMS_APP_IMAGE;
 const at = path => prefix ? join(prefix, path) : path;
@@ -59,9 +64,53 @@ function run(name, args, timeout = 30_000, optional = false, raw = false) {
   const result = spawnSync(executables[name], args, { cwd: source, env: childEnv, encoding: 'utf8', timeout, maxBuffer: 512 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
   if (result.error || result.status !== 0) {
     if (optional && !result.error && result.status === 2) return '';
+    saveDiagnostic(name, args, result);
     throw new Error(`${name} ${args[0]} failed; inspect the service privately.`);
   }
   return raw ? result.stdout : result.stdout.trim();
+}
+
+function rememberSecrets(values) {
+  const secrets = Object.entries(values).filter(([key, value]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && value).map(([, value]) => value);
+  const containerDatabase = new URL(values.DATABASE_URL);
+  containerDatabase.hostname = 'postgres';
+  containerDatabase.port = '5432';
+  secrets.push(containerDatabase.href);
+  redactions = [...new Set(secrets.flatMap(value => [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'), Buffer.from(value).toString('base64url')]))];
+  redactions.push(...redactions.map(value => value.replace(/%[0-9A-F]{2}/g, encoded => encoded.toLowerCase())));
+  redactions.sort((left, right) => right.length - left.length);
+}
+
+function privateText(value, limit = 4096) {
+  let text = String(value ?? '');
+  for (const secret of redactions) text = text.split(secret).join('[redacted]');
+  return Buffer.from(text).subarray(0, limit).toString('utf8');
+}
+
+function saveDiagnostic(command, args, result) {
+  if (!persisted || diagnosticFailures.length >= 4) return;
+  diagnosticFailures.push({
+    command, args: privateText(args.join(' '), 2048), exitCode: result.status ?? null,
+    signal: result.signal ?? null, errorCode: result.error?.code ?? null,
+    stdout: privateText(result.stdout), stderr: privateText(result.stderr),
+  });
+  const pending = `${at(diagnosticName)}.${randomUUID()}.tmp`;
+  let descriptor;
+  try {
+    descriptor = openSync(pending, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    // Four entries, 2 KiB argv and 4 KiB per stream: JSON remains below 256 KiB even after escaping.
+    writeFileSync(descriptor, JSON.stringify({ version: 1, failures: diagnosticFailures }) + '\n');
+    fchmodSync(descriptor, 0o600);
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+    renameSync(pending, at(diagnosticName));
+    diagnosticSaved = true;
+  } catch {
+    diagnosticSaveFailed = true;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
 }
 
 async function safePath(path) {
@@ -176,14 +225,20 @@ async function main() {
   if (publicRepo.full_name !== OFFICIAL_REPOSITORY || publicRepo.private !== false || publicRepo.visibility !== 'public') throw new Error('Official repository must be public.');
   const release = JSON.parse(fetchPublic(`https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases/tags/v${version}`));
   const releaseUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/v${version}`;
-  const manifestUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/v${version}/update-manifest.json`;
   const published = Date.parse(release.published_at);
-  const assets = Array.isArray(release.assets) ? release.assets.filter(asset => asset?.name === 'update-manifest.json') : [];
   if (release.tag_name !== `v${version}` || release.draft !== false || release.prerelease !== false || release.immutable !== true ||
-      release.html_url !== releaseUrl || !Number.isFinite(published) || published > Date.now() || assets.length !== 1 ||
-      assets[0].browser_download_url !== manifestUrl || !/^sha256:[0-9a-f]{64}$/.test(assets[0].digest)) throw new Error('Invalid or non-immutable official release.');
-  const bytes = fetchPublic(manifestUrl);
-  if (`sha256:${createHash('sha256').update(bytes).digest('hex')}` !== assets[0].digest) throw new Error('Release asset digest mismatch.');
+      release.html_url !== releaseUrl || !Number.isFinite(published) || published > Date.now() || !Array.isArray(release.assets)) throw new Error('Invalid or non-immutable official release.');
+  const assets = [UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET].map(name => {
+    const matches = release.assets.filter(asset => asset?.name === name);
+    const url = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/v${version}/${name}`;
+    if (matches.length !== 1 || matches[0].browser_download_url !== url || typeof matches[0].digest !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(matches[0].digest)) throw new Error('Invalid official release asset.');
+    return { name, url, digest: matches[0].digest };
+  });
+  for (const asset of assets) {
+    asset.bytes = fetchPublic(asset.url);
+    if (Buffer.byteLength(asset.bytes) > 512 * 1024 || `sha256:${createHash('sha256').update(asset.bytes).digest('hex')}` !== asset.digest) throw new Error('Release asset digest or size mismatch.');
+  }
+  const bytes = assets[0].bytes;
   const manifest = parseUpdateManifest(JSON.parse(bytes));
   if (manifest.version !== version || manifest.source.commit !== commit || !manifest.image.platforms.includes(platform) ||
       Date.parse(manifest.releasedAt) > Date.now()) throw new Error('Manifest version, source commit or platform mismatch.');
@@ -192,12 +247,21 @@ async function main() {
       compareStableVersions(compatibility.minimumUpdaterVersion, '1.0.0') > 0) throw new Error('Manual updater contract upgrade is required.');
   await access(join(source, 'src/server/db/migrations', `${compatibility.targetMigration}.ts`)).catch(() => { throw new Error('Target migration is not shipped in this checkout.'); });
   temporary = await mkdtemp(join(prefix || tmpdir(), 'tomecms-install-'));
-  const manifestPath = join(temporary, 'update-manifest.json');
-  const handle = await open(manifestPath, 'wx', 0o600);
-  try { await handle.writeFile(bytes); } finally { await handle.close(); }
-  run('gh', ['attestation', 'verify', manifestPath, '-R', OFFICIAL_REPOSITORY], 300_000);
+  for (const asset of assets) {
+    const handle = await open(join(temporary, asset.name), 'wx', 0o600);
+    try { await handle.writeFile(asset.bytes); await handle.chmod(0o600); } finally { await handle.close(); }
+  }
+  childEnv.GH_CONFIG_DIR = join(temporary, 'gh-config');
+  childEnv.XDG_CACHE_HOME = join(temporary, 'gh-cache');
+  childEnv.GH_PROMPT_DISABLED = '1';
+  for (const directory of [childEnv.GH_CONFIG_DIR, childEnv.XDG_CACHE_HOME]) {
+    await mkdir(directory, { mode: 0o700 });
+    await chmod(directory, 0o700);
+  }
+  const policy = ['-R', OFFICIAL_REPOSITORY, '--signer-workflow', `${OFFICIAL_REPOSITORY}/.github/workflows/release.yml`, '--source-ref', `refs/tags/v${version}`, '--source-digest', commit, '--deny-self-hosted-runners'];
+  run('gh', ['attestation', 'verify', join(temporary, UPDATE_MANIFEST_ASSET), '--bundle', join(temporary, UPDATE_MANIFEST_ATTESTATION_ASSET), ...policy], 300_000);
   const image = `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`;
-  run('gh', ['attestation', 'verify', `oci://${image}`, '-R', OFFICIAL_REPOSITORY], 300_000);
+  run('gh', ['attestation', 'verify', `oci://${image}`, '--bundle', join(temporary, UPDATE_IMAGE_ATTESTATION_ASSET), ...policy], 300_000);
   const inputKeys = ['POSTGRES_PASSWORD', 'POSTGRES_PORT', 'S3_PORT', 'APP_PORT', 'DATABASE_URL', 'DATABASE_POOL_MAX', 'DATABASE_CONNECTION_TIMEOUT_MS', 'DATABASE_QUERY_TIMEOUT_MS',
     'TOME_CMS_PUBLIC_URL', 'TOME_CMS_INSTALL_TOKEN', 'TOME_CMS_CONTEXT_SECRET', 'TOME_CMS_RECOVERY_PEPPER', 'TOME_CMS_FRONTEND_MODE', 'BETTER_AUTH_SECRET',
     'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'S3_BUCKET', 'S3_FORCE_PATH_STYLE', 'MEDIA_PUBLIC_URL'];
@@ -206,6 +270,7 @@ async function main() {
   if (values.APP_PORT && values.APP_PORT !== '4321') throw new Error('Managed contract requires APP_PORT=4321.');
   // Validate every value before any install mutation, without printing secrets.
   renderEnvironment(values);
+  rememberSecrets(values);
   if (dryRun) {
     console.log(JSON.stringify({ version, platform, image, user: 'tomecms-updater', group: 'tomecms-updater', destinations, steps }));
     return;
@@ -273,9 +338,12 @@ async function main() {
 
 try { await main(); }
 catch (error) {
-  console.error(error instanceof Error ? error.message : 'Managed installation failed.');
+  if (persisted && !diagnosticFailures.length) saveDiagnostic('installer', [], { stderr: error instanceof Error ? error.message : 'Managed installation failed.' });
+  console.error(persisted ? 'Managed installation failed; inspect the private diagnostics.' : privateText(error instanceof Error ? error.message : 'Managed installation failed.'));
   if (persisted || migrationStarted) {
     console.error('Configuration, credentials, images, volumes and logs retained. Manual recovery: sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml --env-file /etc/tome-cms/tome-cms.env --env-file /var/lib/tome-cms/updater/image.env logs --tail 100');
+    if (diagnosticSaved) console.error(`Private installer diagnostics: ${at(diagnosticName)}`);
+    if (diagnosticSaveFailed) console.error('Private installer diagnostics could not be fully saved.');
   }
   process.exitCode = 1;
 } finally {
