@@ -72,7 +72,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
   const dependencies = { ...defaults, ...input.dependencies };
   const command = commandRunner(dependencies);
   const compose = composePrefix(config);
-  const names = oneShotNames(job.id);
+  const names = oneShotNames(config.projectName, job.id);
   let verified: VerifiedRelease | undefined;
   let quiesced = false;
   let migrationStarted = false;
@@ -160,7 +160,7 @@ export async function reconcileUpdate(input: {
   if (!job || terminal.has(job.phase)) {
     if (job?.phase === 'failed_manual_recovery') {
       try {
-        for (const name of Object.values(oneShotNames(job.id))) await cleanOneShot(name, dependencies);
+        for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies);
         console.info('Manual-recovery one-shot cleanup verified; operator repair still required');
       } catch {
         console.error('Manual-recovery one-shot cleanup could not be verified');
@@ -171,7 +171,7 @@ export async function reconcileUpdate(input: {
   }
   try {
     // Docker CLI death does not imply container death, including after a host-service restart.
-    for (const name of Object.values(oneShotNames(job.id))) await cleanOneShot(name, dependencies);
+    for (const name of Object.values(oneShotNames(input.config.projectName, job.id))) await cleanOneShot(name, dependencies);
     const configured = await readFile(input.config.imageEnvironmentFile, 'utf8');
     const command = commandRunner(dependencies);
     const containerId = (await command([...composePrefix(input.config), 'ps', '--quiet', 'app'], 30_000)).trim();
@@ -220,11 +220,11 @@ async function finishJob(state: UpdaterStateStore, id: string, persist: () => Pr
   }
 }
 
-function oneShotNames(id: string): { inventory: string; backup: string; migration: string } {
+function oneShotNames(projectName: UpdaterConfig['projectName'], id: string): { inventory: string; backup: string; migration: string } {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw new Error('Invalid updater job ID');
   }
-  const prefix = `tomecms-update-${id.toLowerCase()}`;
+  const prefix = `${projectName}-update-${id.toLowerCase()}`;
   return { inventory: `${prefix}-inventory`, backup: `${prefix}-backup`, migration: `${prefix}-migration` };
 }
 
@@ -264,7 +264,7 @@ async function cleanOneShot(name: string, dependencies: UpdateDependencies, forc
 }
 
 function composePrefix(config: UpdaterConfig): string[] {
-  return ['compose', '-p', 'tomecms', '-f', config.composeFile,
+  return ['compose', '-p', config.projectName, '-f', config.composeFile,
     '--env-file', config.environmentFile, '--env-file', config.imageEnvironmentFile];
 }
 
