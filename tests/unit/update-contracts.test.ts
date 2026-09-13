@@ -45,3 +45,24 @@ test('accepts only the closed official manifest contract', () => {
     { ...manifest, releaseNotesUrl: 'https://evil.example/v1.0.1' },
   ]) assert.throws(() => parseUpdateManifest(invalid));
 });
+
+test('fails closed for malformed manifest values', () => {
+  assert.equal(parseUpdateManifest({
+    ...manifest,
+    compatibility: { ...manifest.compatibility, targetMigration: '008_future_schema' },
+  }).compatibility.targetMigration, '008_future_schema');
+
+  const invalidCases: Array<[name: string, invalid: unknown]> = [
+    ['noncanonical timestamp', { ...manifest, releasedAt: '2026-09-20T10:00:00Z' }],
+    ['invalid commit', { ...manifest, source: { ...manifest.source, commit: 'A'.repeat(40) } }],
+    ['invalid digest', { ...manifest, image: { ...manifest.image, digest: `sha256:${'a'.repeat(63)}` } }],
+    ['nested unknown key', { ...manifest, source: { ...manifest.source, extra: true } }],
+    ['empty platforms', { ...manifest, image: { ...manifest.image, platforms: [] } }],
+    ['unsupported platform', { ...manifest, image: { ...manifest.image, platforms: ['linux/386'] } }],
+    ['invalid compatibility version', { ...manifest, compatibility: { ...manifest.compatibility, rollbackSafeFrom: 'v1.0.0' } }],
+    ['invalid migration key', { ...manifest, compatibility: { ...manifest.compatibility, targetMigration: '007-preview-tokens' } }],
+    ['zero contract', { ...manifest, compatibility: { ...manifest.compatibility, composeContract: 0 } }],
+    ['unsafe contract', { ...manifest, compatibility: { ...manifest.compatibility, updaterProtocol: Number.MAX_SAFE_INTEGER + 1 } }],
+  ];
+  for (const [name, invalid] of invalidCases) assert.throws(() => parseUpdateManifest(invalid), name);
+});
