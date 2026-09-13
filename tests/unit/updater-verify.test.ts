@@ -76,11 +76,11 @@ function commandResult(code = 0, stdout = ''): CommandResult {
 }
 
 function composeHealth(): string {
-  return JSON.stringify([
+  return [
     { Service: 'app', State: 'running', Health: 'healthy' },
     { Service: 'postgres', State: 'running', Health: 'healthy' },
     { Service: 'seaweedfs', State: 'running', Health: 'healthy' },
-  ]);
+  ].map((record) => JSON.stringify(record)).join('\n');
 }
 
 function releaseFor(value: unknown, override: Record<string, unknown> = {}) {
@@ -358,7 +358,7 @@ test('preflight rejects unsupported platforms and insufficient disk without muta
   }
 });
 
-test('preflight uses fixed read-only command arguments and rejects unhealthy services', async () => {
+test('preflight uses fixed read-only command arguments and accepts healthy Compose NDJSON', async () => {
   const { root, config } = await hostFixture();
   try {
     const calls: Array<[string, readonly string[], number]> = [];
@@ -378,12 +378,34 @@ test('preflight uses fixed read-only command arguments and rejects unhealthy ser
     ]);
     assert.ok(calls.every(([, , timeout]) => timeout > 0));
 
-    deps.runCommand = async (_executable, args) => commandResult(0, args.includes('ps')
-      ? JSON.stringify([{ Service: 'app', State: 'running', Health: 'unhealthy' }])
-      : 'ok');
-    await assert.rejects(runPreflight({
-      installed, target: manifest, updaterVersion: '1.0.0', config, dependencies: deps,
-    }), /healthy|preflight/i);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('preflight rejects malformed, missing and unhealthy Compose records', async () => {
+  const { root, config } = await hostFixture();
+  try {
+    const invalid = [
+      `${composeHealth()}\nnot-json`,
+      `${composeHealth()}\n{}`,
+      [
+        { Service: 'app', State: 'running', Health: 'healthy' },
+        { Service: 'postgres', State: 'running', Health: 'healthy' },
+      ].map((record) => JSON.stringify(record)).join('\n'),
+      [
+        { Service: 'app', State: 'running', Health: 'healthy' },
+        { Service: 'postgres', State: 'running', Health: 'unhealthy' },
+        { Service: 'seaweedfs', State: 'running', Health: 'healthy' },
+      ].map((record) => JSON.stringify(record)).join('\n'),
+    ];
+    for (const output of invalid) {
+      const deps = dependencies();
+      deps.runCommand = async (_executable, args) => commandResult(0, args.includes('ps') ? output : 'ok');
+      await assert.rejects(runPreflight({
+        installed, target: manifest, updaterVersion: '1.0.0', config, dependencies: deps,
+      }), /compose|healthy/i);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

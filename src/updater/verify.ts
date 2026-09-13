@@ -264,15 +264,22 @@ function verifyComposeHealth(output: string): void {
   try {
     value = JSON.parse(output);
   } catch {
-    throw new Error('Invalid Compose health response');
+    try {
+      value = output.split(/\r?\n/).filter((line) => line.trim()).map((line) => JSON.parse(line));
+    } catch {
+      throw new Error('Invalid Compose health response');
+    }
   }
   if (!Array.isArray(value)) throw new Error('Invalid Compose health response');
   const required = new Set(['app', 'postgres', 'seaweedfs']);
   for (const service of value) {
-    if (!isRecord(service) || typeof service.Service !== 'string') continue;
-    if (required.has(service.Service) && service.State === 'running' && service.Health === 'healthy') {
-      required.delete(service.Service);
+    if (!isRecord(service) || typeof service.Service !== 'string' || !required.has(service.Service)) {
+      throw new Error('Invalid Compose health response');
     }
+    if (service.State !== 'running' || service.Health !== 'healthy') {
+      throw new Error('Compose services are not healthy');
+    }
+    required.delete(service.Service);
   }
   if (required.size > 0) throw new Error('Compose services are not healthy');
 }
