@@ -246,4 +246,83 @@ test('Published query services paginate, enrich, and isolate the installed site'
   const changedNavigation = await getPublicNavigationSnapshot('th');
   assert.ok(changedNavigation.lastModified > navigation.lastModified);
   assert.equal(changedNavigation.navigation.header[0]?.label, 'Start');
+
+  const { dev } = await import('astro');
+  const server = await dev({
+    server: { host: '127.0.0.1', port: 0 },
+    vite: { cacheDir: 'node_modules/.vite-content-api-test' },
+    logLevel: 'silent',
+  });
+  try {
+    const origin = `http://127.0.0.1:${server.address.port}`;
+    const request = (path: string, init?: RequestInit) => fetch(`${origin}${path}`, {
+      ...init,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    const siteResponse = await request('/api/v1/content/site');
+    assert.equal(siteResponse.status, 200);
+    assert.equal(siteResponse.headers.get('access-control-allow-origin'), '*');
+    assert.equal(siteResponse.headers.has('set-cookie'), false);
+    const siteBody = await siteResponse.json() as { data: { name: string; author: { avatar: { altText: string } } } };
+    assert.equal(siteBody.data.name, 'Published Test');
+    assert.equal(siteBody.data.author.avatar.altText, 'Updated cover');
+
+    const postsResponse = await request('/api/v1/content/posts?locale=th&limit=1', {
+      headers: { Cookie: 'session=must-not-be-used' },
+    });
+    assert.equal(postsResponse.status, 200);
+    assert.equal(postsResponse.headers.has('set-cookie'), false);
+    const postsBody = await postsResponse.json() as {
+      data: Array<{ id: string }>;
+      links: { next: string | null };
+      meta: { hasMore: boolean; limit: number; locale: string };
+    };
+    assert.deepEqual(postsBody.data.map(({ id }) => id), [postIds.three]);
+    assert.deepEqual(postsBody.meta, { hasMore: true, limit: 1, locale: 'th' });
+    assert.ok(postsBody.links.next?.startsWith(`${origin}/api/v1/content/posts?`));
+    assert.equal((await request(new URL(postsBody.links.next!).pathname + new URL(postsBody.links.next!).search)).status, 200);
+
+    const etag = postsResponse.headers.get('etag');
+    assert.ok(etag);
+    const unchanged = await request('/api/v1/content/posts?locale=th&limit=1', { headers: { 'If-None-Match': etag } });
+    assert.equal(unchanged.status, 304);
+    assert.equal(await unchanged.text(), '');
+
+    const detail = await request('/api/v1/content/posts/three?locale=th');
+    assert.equal(detail.status, 200);
+    assert.equal((await detail.json() as { data: { coverImage: { id: string } } }).data.coverImage.id, mediaId);
+    assert.equal((await request('/api/v1/content/posts/draft?locale=th')).status, 404);
+    assert.equal((await request('/api/v1/content/pages/secret?locale=th')).status, 404);
+    assert.equal((await request('/api/v1/content/pages/contact?locale=th')).status, 200);
+
+    const categories = await request('/api/v1/content/categories?locale=th');
+    assert.deepEqual(
+      (await categories.json() as { data: Array<{ name: string }> }).data.map(({ name }) => name),
+      ['Uncategorized', 'Updates'],
+    );
+    const menu = await request('/api/v1/content/navigation?locale=th');
+    assert.equal((await menu.json() as { data: { header: Array<{ label: string }> } }).data.header[0]?.label, 'Start');
+
+    for (const path of [
+      '/api/v1/content/posts?locale=th&locale=en',
+      '/api/v1/content/posts?locale=th&limit=51',
+      '/api/v1/content/site?unknown=1',
+    ]) {
+      const invalid = await request(path);
+      assert.equal(invalid.status, 400);
+      assert.match(invalid.headers.get('content-type') ?? '', /^application\/problem\+json/);
+      assert.equal(invalid.headers.get('access-control-allow-origin'), '*');
+    }
+
+    const options = await request('/api/v1/content/posts', {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://client.example', 'Access-Control-Request-Method': 'GET' },
+    });
+    assert.equal(options.status, 204);
+    assert.match(options.headers.get('access-control-allow-methods') ?? '', /GET/);
+  } finally {
+    await server.stop();
+  }
 });

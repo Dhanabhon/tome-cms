@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { HttpError } from '../../src/server/http/errors';
 import { problem, publicError } from '../../src/server/http/problem';
-import { privatePreviewJson, publicJson } from '../../src/server/http/public-response';
+import { privatePreviewJson, publicJson, publicOptions } from '../../src/server/http/public-response';
 
 function captureLogs<T>(operation: () => T): { logs: string[]; value: T } {
   const logs: string[] = [];
@@ -102,4 +102,10 @@ test('public JSON supports validators while previews stay private and redact tok
   assert.match(preview.logs[0]!, /\/preview\/\[redacted\]/);
   assert.equal(preview.logs[0]!.includes('private-token'), false);
   assert.equal(preview.logs[0]!.includes('private-cursor'), false);
+
+  const options = captureLogs(() => publicOptions(new Request('https://cms.example/api/v1/content/posts'))).value;
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get('access-control-allow-methods'), 'GET, OPTIONS');
+  assert.equal(options.headers.get('access-control-allow-origin'), '*');
+  assert.equal(options.headers.has('set-cookie'), false);
 });
