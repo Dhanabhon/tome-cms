@@ -10,6 +10,16 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RELEASES_DIR="${DEPLOY_ROOT}/releases"
 CURRENT_LINK="${DEPLOY_ROOT}/current"
 SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
+RECOVERY_RELEASE_FILES=(
+  scripts/recover-owner.mjs
+  scripts/recover-owner.ts
+  src/server/auth/context.ts
+  src/server/auth/enrollment.ts
+  src/server/auth/recovery.ts
+  src/server/db/client.ts
+  src/server/db/types.ts
+  src/server/env.ts
+)
 
 if (( EUID == 0 )); then
   SUDO=()
@@ -55,7 +65,7 @@ if [[ ! "$node_major" =~ ^[0-9]+$ ]] || (( node_major < 22 )); then
   fail "Node.js 22 or newer is required."
 fi
 
-for source_file in package.json package-lock.json astro.config.mjs scripts/configure-supabase.sh; do
+for source_file in package.json package-lock.json astro.config.mjs scripts/configure-supabase.sh "${RECOVERY_RELEASE_FILES[@]}"; do
   [[ -f "${SOURCE_DIR}/${source_file}" ]] || fail "Run this script from a complete TomeCMS checkout."
 done
 
@@ -104,15 +114,22 @@ APP_GROUP="$(id -gn "$APP_USER")"
 NODE_BIN="$(command -v node)"
 as_app_user "$NODE_BIN" --version >/dev/null 2>&1 || fail "Node at ${NODE_BIN} is not executable by ${APP_USER}; install Node system-wide."
 "${SUDO[@]}" install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$RELEASES_DIR"
-"${SUDO[@]}" chown root:"$APP_GROUP" "$ENV_FILE"
+"${SUDO[@]}" chown root:"$APP_GROUP" "$(dirname "$ENV_FILE")" "$ENV_FILE"
+"${SUDO[@]}" chmod 0750 "$(dirname "$ENV_FILE")"
 "${SUDO[@]}" chmod 0640 "$ENV_FILE"
+as_app_user test -r "$ENV_FILE" || fail "${APP_USER} cannot read ${ENV_FILE}."
 
 release_id="$(date -u +%Y%m%d%H%M%S)-$$"
 release_dir="${RELEASES_DIR}/${release_id}"
 "${SUDO[@]}" install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$release_dir"
 "${SUDO[@]}" cp -R dist package.json package-lock.json "$release_dir/"
+for source_file in "${RECOVERY_RELEASE_FILES[@]}"; do
+  "${SUDO[@]}" install -D -o "$APP_USER" -g "$APP_GROUP" -m 0640 "${SOURCE_DIR}/${source_file}" "${release_dir}/${source_file}"
+  "${SUDO[@]}" test -f "${release_dir}/${source_file}" || fail "Release is missing ${source_file}."
+done
 "${SUDO[@]}" chown -R "$APP_USER:$APP_GROUP" "$release_dir"
 as_app_user env HOME="$release_dir" PATH="$PATH" npm ci --omit=dev --ignore-scripts --prefix "$release_dir"
+as_app_user env HOME="$release_dir" PATH="$PATH" npm --prefix "$release_dir" run admin:recover -- --self-test
 
 unit_tmp="$(mktemp)"
 trap 'rm -f "$unit_tmp"' EXIT

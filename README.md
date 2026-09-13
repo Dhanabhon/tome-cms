@@ -400,6 +400,8 @@ sudo systemctl status tome-cms
 sudo journalctl -u tome-cms -n 100
 ```
 
+Owner recovery ships with every VPS release. Inspect the target with `sudo -u tomecms npm --prefix /opt/tome-cms/current run admin:recover`, then repeat with `-- --execute` to create the one-time recovery link.
+
 ## Project structure
 
 ```text

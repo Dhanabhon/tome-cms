@@ -152,6 +152,16 @@ export async function assertInstalledOwnerCredential<Options extends BetterAuthO
   });
   if (!credential) throw new Error('Installed owner authorization failed.');
   await assertInstalledOwner({ userId: credential.userId, fallbackAdapter: input.fallbackAdapter });
+  const activeRecovery = await adapter.count({
+    model: 'installationEnrollment',
+    where: [
+      { field: 'pendingUserId', value: credential.userId },
+      { field: 'purpose', value: 'recovery' },
+      { field: 'consumedAt', value: null },
+      { field: 'expiresAt', operator: 'gt', value: new Date() },
+    ],
+  });
+  if (activeRecovery > 0) throw new Error('Installed owner authorization failed.');
 }
 
 export async function createEnrollment(input: {

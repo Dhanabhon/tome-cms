@@ -170,6 +170,10 @@ export async function consumeRecoveryEnrollmentReference<Options extends BetterA
   if (!consumed) throw new RecoveryCodeError();
 
   await adapter.deleteMany({
+    model: 'session',
+    where: [{ field: 'userId', value: input.ownerId }],
+  });
+  await adapter.deleteMany({
     model: 'passkey',
     where: [{ field: 'userId', value: input.ownerId }],
   });
