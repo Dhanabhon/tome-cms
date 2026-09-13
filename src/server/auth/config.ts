@@ -19,6 +19,31 @@ if (!isSupportedPasskeyOrigin(publicUrl, env.NODE_ENV)) {
   throw new Error('Passkeys require HTTPS, or http://localhost during local development. IP-address RP IDs are not supported.');
 }
 
+const SESSION_CREATING_PASSKEY_PATHS = new Set([
+  '/passkey/verify-registration',
+  '/passkey/verify-authentication',
+]);
+
+function sessionCredentialId(path: string | undefined, body: unknown): string {
+  const response = body && typeof body === 'object' && 'response' in body
+    ? (body as { response?: unknown }).response
+    : undefined;
+  const credentialId = response && typeof response === 'object' && 'id' in response
+    ? (response as { id?: unknown }).id
+    : undefined;
+  if (
+    !path
+    || !SESSION_CREATING_PASSKEY_PATHS.has(path)
+    || typeof credentialId !== 'string'
+    || credentialId.length < 1
+    || credentialId.length > 2_048
+    || !/^[A-Za-z0-9_-]+$/.test(credentialId)
+  ) {
+    throw new Error('Passkey session credential is invalid.');
+  }
+  return credentialId;
+}
+
 export const auth = betterAuth({
   baseURL: publicUrl.origin,
   database: pool,
@@ -27,6 +52,30 @@ export const auth = betterAuth({
   trustedOrigins: [publicUrl.origin],
   disabledPaths: ['/passkey/delete-passkey'],
   user: { additionalFields: { role: { type: 'string', required: true, defaultValue: 'owner', input: false } } },
+  session: {
+    additionalFields: {
+      credentialId: {
+        type: 'string',
+        required: true,
+        input: false,
+        returned: false,
+        fieldName: 'credential_id',
+        references: { model: 'passkey', field: 'credentialID', onDelete: 'cascade' },
+      },
+    },
+  },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session, context) => ({
+          data: {
+            ...session,
+            credentialId: sessionCredentialId(context?.path, context?.body),
+          },
+        }),
+      },
+    },
+  },
   plugins: [enrollmentStoragePlugin, passkey({
     origin: publicUrl.origin,
     rpID: publicUrl.hostname,
