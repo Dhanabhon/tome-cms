@@ -3,15 +3,7 @@ export const OFFICIAL_IMAGE_REPOSITORY = 'ghcr.io/dhanabhon/tome-cms' as const;
 export const UPDATE_MANIFEST_ASSET = 'update-manifest.json' as const;
 
 const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const shippedMigrations = new Set([
-  '001_system',
-  '002_auth_installer',
-  '003_security_recovery',
-  '004_session_credential_recovery',
-  '005_content',
-  '006_media',
-  '007_preview_tokens',
-]);
+const migrationKeyPattern = /^\d{3}_[a-z]+(?:_[a-z0-9]+)*$/;
 const platformValues = new Set(['linux/amd64', 'linux/arm64'] as const);
 
 export interface StableVersion {
@@ -98,7 +90,7 @@ export function parseUpdateManifest(value: unknown): UpdateManifest {
   const rollbackSafeFrom = stableVersion(compatibility.rollbackSafeFrom);
   if (
     typeof compatibility.targetMigration !== 'string' ||
-    !shippedMigrations.has(compatibility.targetMigration) ||
+    !migrationKeyPattern.test(compatibility.targetMigration) ||
     !positiveInteger(compatibility.composeContract) ||
     !positiveInteger(compatibility.environmentContract) ||
     !positiveInteger(compatibility.updaterProtocol) ||
