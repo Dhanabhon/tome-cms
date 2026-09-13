@@ -23,11 +23,18 @@ export interface FetchLatestReleaseOptions {
   etag?: string;
 }
 
+export class ReleaseNotModifiedError extends Error {
+  constructor() {
+    super('Official release has not changed');
+    this.name = 'ReleaseNotModifiedError';
+  }
+}
+
 export async function fetchLatestRelease(
   options: FetchLatestReleaseOptions = {},
 ): Promise<LatestRelease> {
   const fetcher = options.fetcher ?? fetch;
-  const releaseResponse = await fetchJson(fetcher, LATEST_RELEASE_URL);
+  const releaseResponse = await fetchJson(fetcher, LATEST_RELEASE_URL, options.etag, true);
   const release = releaseDetails(releaseResponse.json);
   const version = parseStableVersion(release.tagName.slice(1)).raw;
   const releaseUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/${release.tagName}`;
@@ -40,7 +47,7 @@ export async function fetchLatestRelease(
     !/^sha256:[0-9a-f]{64}$/.test(release.assets[0].digest)
   ) throw new Error('Invalid official release');
 
-  const manifestResponse = await fetchJson(fetcher, manifestUrl, options.etag);
+  const manifestResponse = await fetchJson(fetcher, manifestUrl);
   const manifest = parseUpdateManifest(manifestResponse.json);
   if (manifest.version !== version) throw new Error('Release tag does not match manifest');
 
@@ -49,11 +56,11 @@ export async function fetchLatestRelease(
     publishedAt: release.publishedAt,
     releaseUrl,
     manifestAssetDigest: release.assets[0].digest,
-    etag: manifestResponse.etag,
+    etag: releaseResponse.etag,
   };
 }
 
-async function fetchJson(fetcher: typeof fetch, url: string, etag?: string): Promise<{ json: unknown; etag: string | null }> {
+async function fetchJson(fetcher: typeof fetch, url: string, etag?: string, allowNotModified = false): Promise<{ json: unknown; etag: string | null }> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': GITHUB_API_VERSION,
@@ -63,6 +70,7 @@ async function fetchJson(fetcher: typeof fetch, url: string, etag?: string): Pro
     headers,
     signal: AbortSignal.timeout(5_000),
   });
+  if (allowNotModified && response.status === 304) throw new ReleaseNotModifiedError();
   if (!response.ok) throw new Error(`Official release request failed (${response.status})`);
   return { json: JSON.parse(await boundedText(response)), etag: response.headers.get('etag') };
 }

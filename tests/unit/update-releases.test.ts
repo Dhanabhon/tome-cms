@@ -35,7 +35,7 @@ const validRelease = {
 
 function releaseFetch(release: object, manifest: object = validManifest): typeof fetch {
   return async (input) => String(input).endsWith('/releases/latest')
-    ? Response.json(release)
+    ? Response.json(release, { headers: { etag: '"release-1"' } })
     : Response.json(manifest, { headers: { etag: '"manifest-1"' } });
 }
 
@@ -43,7 +43,7 @@ test('loads one immutable stable release and verifies asset metadata', async () 
   const calls: string[] = [];
   const fakeFetch: typeof fetch = async (input) => {
     const url = String(input); calls.push(url);
-    if (url.endsWith('/releases/latest')) return Response.json(validRelease);
+    if (url.endsWith('/releases/latest')) return Response.json(validRelease, { headers: { etag: '"release-1"' } });
     return new Response(JSON.stringify(globalThis.structuredClone(validManifest)), {
       headers: { 'content-type': 'application/json', etag: '"manifest-1"' },
     });
@@ -51,6 +51,7 @@ test('loads one immutable stable release and verifies asset metadata', async () 
   const result = await fetchLatestRelease({ fetcher: fakeFetch });
   assert.equal(result.manifest.version, '1.0.1');
   assert.equal(result.manifestAssetDigest, validRelease.assets[0].digest);
+  assert.equal(result.etag, '"release-1"');
   assert.equal(calls.length, 2);
 });
 
@@ -71,14 +72,19 @@ test('caches a successful check, sends its ETag on refresh, and retains it on fa
   const cache: UpdateCache = { value: null, etag: null, expiresAt: 0 };
   let now = new Date('2026-09-20T10:00:00.000Z');
   let fail = false;
+  let notModified = false;
   const calls: Array<{ url: string; etag: string | null }> = [];
   const fetcher: typeof fetch = async (input, init) => {
     const url = String(input);
     calls.push({ url, etag: new Headers(init?.headers).get('if-none-match') });
     if (fail) return new Response(null, { status: 503 });
-    return url.endsWith('/releases/latest')
-      ? Response.json(validRelease)
-      : Response.json(validManifest, { headers: { etag: '"manifest-1"' } });
+    if (url.endsWith('/releases/latest')) {
+      if (notModified && new Headers(init?.headers).get('if-none-match') === '"release-1"') {
+        return new Response(null, { status: 304 });
+      }
+      return Response.json(validRelease, { headers: { etag: '"release-1"' } });
+    }
+    return Response.json(validManifest, { headers: { etag: '"manifest-1"' } });
   };
   const options = { fetcher, cache, now: () => now };
 
@@ -89,10 +95,15 @@ test('caches a successful check, sends its ETag on refresh, and retains it on fa
   assert.equal(calls.length, 2);
 
   now = new Date('2026-09-20T11:00:00.000Z');
-  await refreshUpdateStatus(options);
-  assert.equal(calls.length, 4);
-  assert.equal(calls[3].etag, '"manifest-1"');
+  notModified = true;
+  const revalidated = await refreshUpdateStatus(options);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[2].url.endsWith('/releases/latest'), true);
+  assert.equal(calls[2].etag, '"release-1"');
+  assert.equal(revalidated.checkedAt, now.toISOString());
+  assert.equal(cache.expiresAt, now.getTime() + 6 * 60 * 60 * 1_000);
 
+  notModified = false;
   fail = true;
   assert.deepEqual(await refreshUpdateStatus(options), cache.value);
   assert.equal(cache.value?.availability, 'manual-transition');
