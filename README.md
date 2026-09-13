@@ -2,7 +2,7 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the `0.2.0` clean-install cutover is implemented, and its type/build/focused operations checks pass. The Astro security upgrade, full licensed integration/browser matrix, and real-host HTTPS Passkey acceptance are still release gates, so do not treat this branch as production-ready yet. See the [0.2.0 release notes](docs/releases/0.2.0.md).
+> **Development status:** the `0.2.0` clean-install cutover is implemented, and its type/build/focused operations checks pass. The Astro security upgrade, full integration/browser matrix, and real-host HTTPS Passkey acceptance are still release gates, so do not treat this branch as production-ready yet. See the [0.2.0 release notes](docs/releases/0.2.0.md).
 
 ## What is included
 
@@ -23,10 +23,11 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 | Admin UI | React islands and Tiptap/Novel |
 | Database | PostgreSQL 17 through Kysely |
 | Authentication | Better Auth with Passkeys |
-| Media | S3-compatible storage; local Compose uses licensed AIStor |
+| Media | S3-compatible storage; local/self-hosted Compose uses SeaweedFS 4.46 |
 | Deployment | Docker Compose |
 
 Database migrations live in `src/server/db/migrations/` and are applied with `npm run db:migrate`.
+The bundled SeaweedFS service is a single-node default for local development and a single VPS. Point the same S3 settings at external object storage when high availability or multi-node operations are required.
 
 ## Prerequisites
 
@@ -37,8 +38,7 @@ Install these before the first run:
 - macOS with Docker Desktop running
 - Node.js 22 or newer and npm
 - Git
-- A readable AIStor license file stored **outside** this repository
-- Free local ports `4321`, `5432`, `9000`, and `9001`
+- Free local ports `4321`, `5432`, and `9000`
 
 Check the main tools:
 
@@ -51,17 +51,17 @@ docker compose version
 
 ### Windows — secondary local workflow
 
-Use Windows 11 with Docker Desktop, Node.js 22+, npm, Git, PowerShell, and the same external AIStor license requirement. The Windows helper follows the same bootstrap flow, but macOS is the currently validated development path.
+Use Windows 11 with Docker Desktop, Node.js 22+, npm, Git, and PowerShell. The Windows helper follows the same bootstrap flow, but macOS is the currently validated development path.
 
 ## First local installation on macOS
 
 From the project directory:
 
 ```sh
-MINIO_LICENSE_FILE=/absolute/path/outside/the/repository/aistor.license npm run dev:macos
+npm run dev:macos
 ```
 
-The helper installs locked packages when needed, creates a private `.env.local`, starts PostgreSQL and object storage, initializes the bucket, applies migrations, prints the installation token, and starts Astro.
+The helper installs locked packages when needed, creates a private `.env.local`, starts PostgreSQL and SeaweedFS, creates the media bucket, applies migrations, prints the installation token, and starts Astro. No storage account or license file is required.
 
 Open [http://localhost:4321/install](http://localhost:4321/install). If you need the token again:
 
@@ -78,7 +78,7 @@ npm run infra:down
 If an existing `.env.local` needs newly generated fields, review it first and then merge safe defaults while preserving secrets:
 
 ```sh
-MINIO_LICENSE_FILE=/absolute/path/to/aistor.license npm run dev:macos -- --force
+npm run dev:macos -- --force
 ```
 
 ## First local installation on Windows
@@ -86,7 +86,6 @@ MINIO_LICENSE_FILE=/absolute/path/to/aistor.license npm run dev:macos -- --force
 In PowerShell:
 
 ```powershell
-$env:MINIO_LICENSE_FILE = 'C:\absolute\path\outside\the\repository\aistor.license'
 npm run dev:windows
 ```
 
@@ -97,7 +96,7 @@ The Wizard and installation-token flow are identical to macOS. The token is also
 Use this when you want infrastructure and Astro in separate terminals:
 
 ```sh
-MINIO_LICENSE_FILE=/absolute/path/to/aistor.license npm run bootstrap:core
+npm run bootstrap:core
 npm run dev
 ```
 
@@ -129,10 +128,9 @@ S3_BUCKET=tomecms-media
 S3_FORCE_PATH_STYLE=true
 MEDIA_PUBLIC_URL=http://127.0.0.1:9000/tomecms-media/
 TOME_CMS_FRONTEND_MODE=bundled
-MINIO_LICENSE_FILE=/absolute/path/outside/the/repository/aistor.license
 ```
 
-Never commit `.env.local`, credentials, license files, database dumps, or object-storage backups. The bootstrap writes `.env.local` with owner-only permissions on macOS/Linux.
+Never commit `.env.local`, credentials, database dumps, or object-storage backups. The bootstrap writes `.env.local` with owner-only permissions on macOS/Linux.
 
 ## Bundled and Headless modes
 
@@ -207,22 +205,20 @@ npm run backup -- --offline --output-root /absolute/path/outside/the/repository/
 Verify a backup by restoring it into a uniquely named disposable Compose project:
 
 ```sh
-MINIO_LICENSE_FILE=/absolute/path/to/aistor.license \
-  npm run restore:check -- \
+npm run restore:check -- \
   --backup /absolute/path/to/tomecms-backups/tomecms-20260913T120000000Z \
   --project tomecms-restore-check-20260913
 ```
 
-The check validates checksums, restores PostgreSQL and every object, compares record/object inventories, and always removes the disposable containers and volumes. It never targets the normal `tomecms` project. Keep local ports `55432`, `59000`, and `59001` free while it runs.
+The check validates checksums, restores PostgreSQL and every object, compares record/object inventories, and always removes the disposable containers and volumes. It never targets the normal `tomecms` project. Keep local ports `55432` and `59000` free while it runs.
 
 ## VPS deployment preview
 
-This branch uses Docker Compose for PostgreSQL, object storage, and the application. The helper requires a Linux VPS with Node.js 22+, Docker Engine with Compose, Git, and a readable external AIStor license. Before deploying, configure public DNS and TLS reverse proxies for both the CMS origin and the S3 endpoint. The script does not edit firewall rules or obtain certificates.
+This branch uses Docker Compose for PostgreSQL, SeaweedFS, and the application. The helper requires a Linux VPS with Node.js 22+, Docker Engine with Compose, and Git. Before deploying, configure public DNS and TLS reverse proxies for both the CMS origin and the S3 endpoint. The script does not edit firewall rules or obtain certificates.
 
 Example from a clean checkout:
 
 ```sh
-export MINIO_LICENSE_FILE=/srv/tomecms-secrets/aistor.license
 export TOME_CMS_PUBLIC_URL=https://cms.example.com
 export S3_ENDPOINT=https://media.example.com
 export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
@@ -250,7 +246,7 @@ npm run check
 npm run build
 ```
 
-The foundation readiness check and full integration runner require `MINIO_LICENSE_FILE` to point to a real external license. They start PostgreSQL plus object storage under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only.
+The foundation readiness check and full integration runner start PostgreSQL plus SeaweedFS under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only.
 
 ## Project layout
 

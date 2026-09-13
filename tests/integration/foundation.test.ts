@@ -5,9 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
+import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { sql } from 'kysely';
 import { Client } from 'pg';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 test('foundation cleanup runs for the exact disposable project after startup fails', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'tomecms-foundation-wrapper-'));
@@ -15,11 +17,11 @@ test('foundation cleanup runs for the exact disposable project after startup fai
   const log = join(directory, 'docker.log');
   await writeFile(join(directory, 'docker'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FOUNDATION_COMMAND_LOG"\ncase "$*" in *" up "*) exit 7;; esac\n', { mode: 0o700 });
   const result = spawnSync(process.execPath, ['scripts/test-foundation.mjs'], {
-    env: { ...process.env, PATH: directory, FOUNDATION_COMMAND_LOG: log, MINIO_LICENSE_FILE: '/dev/null' }, encoding: 'utf8', timeout: 10_000,
+    env: { ...process.env, PATH: directory, FOUNDATION_COMMAND_LOG: log }, encoding: 'utf8', timeout: 10_000,
   });
   assert.equal(result.status, 1);
   assert.deepEqual((await readFile(log, 'utf8')).trim().split('\n'), [
-    'compose -p tomecms-foundation-test -f compose.test.yaml up -d --wait --wait-timeout 90 postgres minio',
+    'compose -p tomecms-foundation-test -f compose.test.yaml up -d --wait --wait-timeout 90 postgres seaweedfs',
     'compose -p tomecms-foundation-test -f compose.test.yaml down --volumes --remove-orphans',
   ]);
 });
@@ -40,6 +42,44 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
   const { checkReadiness } = await import('../../src/server/health');
   assert.deepEqual(await checkReadiness(), {
     status: 'ready', checks: { database: 'ready', migrations: 'ready', storage: 'ready' },
+  });
+
+  await context.test('SeaweedFS supports the browser upload and public media contract', async () => {
+    const { getServerEnv } = await import('../../src/server/env');
+    const { s3, s3Bucket } = await import('../../src/server/media/storage');
+    const env = getServerEnv();
+    const key = `verification/${randomUUID()}.txt`;
+    const body = Buffer.from('TomeCMS SeaweedFS contract');
+    const checksum = createHash('sha256').update(body).digest('base64');
+    try {
+      const command = new PutObjectCommand({ Bucket: s3Bucket, Key: key, ContentType: 'text/plain', ChecksumSHA256: checksum });
+      const uploadUrl = await getSignedUrl(s3, command, {
+        expiresIn: 60,
+        signableHeaders: new Set(['content-type']),
+        unhoistableHeaders: new Set(['x-amz-checksum-sha256']),
+      });
+      const corsHeaders = {
+        origin: env.TOME_CMS_PUBLIC_URL,
+        'access-control-request-method': 'PUT',
+        'access-control-request-headers': 'content-type,x-amz-checksum-sha256',
+      };
+      const preflight = await fetch(uploadUrl, { method: 'OPTIONS', headers: corsHeaders });
+      assert.equal(preflight.status, 200);
+      assert.equal(preflight.headers.get('access-control-allow-origin'), env.TOME_CMS_PUBLIC_URL);
+      const upload = await fetch(uploadUrl, {
+        method: 'PUT', body,
+        headers: { origin: env.TOME_CMS_PUBLIC_URL, 'content-type': 'text/plain', 'x-amz-checksum-sha256': checksum },
+      });
+      assert.equal(upload.status, 200);
+      const head = await s3.send(new HeadObjectCommand({ Bucket: s3Bucket, Key: key, ChecksumMode: 'ENABLED' }));
+      assert.equal(head.ContentLength, body.length);
+      assert.equal(head.ContentType, 'text/plain');
+      const download = await fetch(new URL(key, env.MEDIA_PUBLIC_URL));
+      assert.equal(download.status, 200);
+      assert.deepEqual(Buffer.from(await download.arrayBuffer()), body);
+    } finally {
+      await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }));
+    }
   });
 
   await context.test('idle pool backend termination stays alive, redacts output, and reconnects', () => {

@@ -14,41 +14,33 @@ services:
       retries: 20
     volumes: ["postgres-data:/var/lib/postgresql/data"]
     ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
-  minio:
-    image: quay.io/minio/aistor/minio:RELEASE.2026-08-07T18-34-35Z
-    command: server /data --console-address :9001 --license /minio.license
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.46
+    command:
+      - mini
+      - -dir=/data
+      - -bucket=${S3_BUCKET}
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -s3.allowedOrigins=${TOME_CMS_PUBLIC_URL}
+      - -admin.ui=false
+      - -webdav=false
+      - -s3.port.iceberg=0
+      - -s3.port.lance=0
+      - -master.telemetry=false
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-sS", "--max-time", "2", "-o", "/dev/null", "http://127.0.0.1:8333/"]
       interval: 3s
       timeout: 3s
       retries: 20
-    volumes: ["minio-data:/data"]
+    volumes: ["seaweedfs-data:/data"]
     configs:
-      - source: minio-license
-        target: /minio.license
-    ports: ["127.0.0.1:${MINIO_PORT:-9000}:9000", "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"]
-  minio-init:
-    image: quay.io/minio/aistor/mc:RELEASE.2026-03-12T04-18-55Z
-    depends_on:
-      minio: { condition: service_healthy }
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -eu
-        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY"
-        mc mb --ignore-existing "local/$$S3_BUCKET"
-        mc anonymous set download "local/$$S3_BUCKET"
-        printf '%s\n' '<CORSConfiguration>' '<CORSRule>' "<AllowedOrigin>$${TOME_CMS_PUBLIC_URL%/}</AllowedOrigin>" '<AllowedMethod>PUT</AllowedMethod>' '<AllowedMethod>HEAD</AllowedMethod>' '<AllowedMethod>GET</AllowedMethod>' '<AllowedHeader>content-type</AllowedHeader>' '<AllowedHeader>x-amz-checksum-sha256</AllowedHeader>' '<ExposeHeader>ETag</ExposeHeader>' '<ExposeHeader>x-amz-checksum-sha256</ExposeHeader>' '<MaxAgeSeconds>3600</MaxAgeSeconds>' '</CORSRule>' '</CORSConfiguration>' > /tmp/tomecms-cors.xml
-        mc cors set "local/$$S3_BUCKET" /tmp/tomecms-cors.xml
-    environment:
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET}
-      TOME_CMS_PUBLIC_URL: ${TOME_CMS_PUBLIC_URL}
+      - source: seaweedfs-s3-config
+        target: /etc/seaweedfs/s3.json
+    ports: ["127.0.0.1:${S3_PORT:-9000}:8333"]
   app:
     profiles: ["production"]
     build:
@@ -61,12 +53,12 @@ services:
       NODE_ENV: production
     depends_on:
       postgres: { condition: service_healthy }
-      minio-init: { condition: service_completed_successfully }
+      seaweedfs: { condition: service_healthy }
     restart: unless-stopped
     ports: ["127.0.0.1:${APP_PORT:-4321}:4321"]
 volumes:
   postgres-data:
-  minio-data:
+  seaweedfs-data:
 configs:
-  minio-license:
-    file: ${MINIO_LICENSE_FILE:?Set MINIO_LICENSE_FILE to an external AIStor license}
+  seaweedfs-s3-config:
+    file: ./config/seaweedfs-s3.json

@@ -13,7 +13,7 @@ const testFiles = runAll
   : requested.length ? requested : ['tests/integration/foundation.test.ts'];
 const requiresStorage = runAll || testFiles.includes('tests/integration/foundation.test.ts');
 // Database-only focused checks do not start storage; readiness and the full gate do.
-const composeEnv = { ...process.env, MINIO_LICENSE_FILE: requiresStorage ? process.env.MINIO_LICENSE_FILE : '/dev/null' };
+const composeEnv = process.env;
 const testEnv = {
   ...process.env,
   NODE_ENV: 'test',
@@ -22,7 +22,7 @@ const testEnv = {
   DATABASE_POOL_MAX: '1',
   DATABASE_CONNECTION_TIMEOUT_MS: '200',
   DATABASE_QUERY_TIMEOUT_MS: '300',
-  TOME_CMS_PUBLIC_URL: 'http://127.0.0.1:4321',
+  TOME_CMS_PUBLIC_URL: 'http://localhost:4321',
   TOME_CMS_INSTALL_TOKEN: 'foundation-test-install-token-only',
   BETTER_AUTH_SECRET: 'foundation-test-auth-secret-only-32',
   TOME_CMS_CONTEXT_SECRET: 'foundation-test-context-secret-only',
@@ -54,10 +54,8 @@ function run(command, args, env, timeout, signal) {
 }
 
 try {
-  if (requiresStorage && !process.env.MINIO_LICENSE_FILE) throw new Error('MINIO_LICENSE_FILE is required for storage integration checks.');
-  const services = requiresStorage ? ['postgres', 'minio'] : ['postgres'];
+  const services = requiresStorage ? ['postgres', 'seaweedfs'] : ['postgres'];
   await run('docker', [...compose, 'up', '-d', '--wait', '--wait-timeout', '90', ...services], composeEnv, 180_000, controller.signal);
-  if (requiresStorage) await run('docker', [...compose, 'run', '--rm', '--no-deps', 'minio-init'], composeEnv, 120_000, controller.signal);
   await run(process.execPath, [
     '--import', 'tsx', '--test', '--test-concurrency=1', ...testFiles,
   ], testEnv, 600_000, controller.signal);

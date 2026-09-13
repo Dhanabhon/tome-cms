@@ -7,7 +7,7 @@ Status: Approved
 
 TomeCMS is currently an Astro 5 standalone Node application with server-rendered public pages, React-based Admin islands, a Novel/Tiptap editor, and Supabase for authentication, Postgres access, Row Level Security, and media storage. The browser uses the Supabase client for authentication and some media operations, while public Astro routes query Supabase directly.
 
-This design removes Supabase and turns TomeCMS into a headless-capable CMS without discarding the existing public theme or editing experience. PostgreSQL becomes the only metadata and content database. Media uses an S3-compatible object store, with MinIO supplied for local and VPS installations. The built-in Astro Blog remains enabled by default as a first-party consumer of the same published-content services exposed through a versioned REST API.
+This design removes Supabase and turns TomeCMS into a headless-capable CMS without discarding the existing public theme or editing experience. PostgreSQL becomes the only metadata and content database. Media uses an S3-compatible object store, with SeaweedFS supplied for local and VPS installations. The built-in Astro Blog remains enabled by default as a first-party consumer of the same published-content services exposed through a versioned REST API.
 
 The migration is a clean reinstall for the pre-1.0 product. It does not import existing Supabase accounts, rows, sessions, or objects.
 
@@ -15,7 +15,7 @@ The migration is a clean reinstall for the pre-1.0 product. It does not import e
 
 - TomeCMS is headless-capable, not API-only. The bundled Astro Blog remains an optional frontend.
 - The canonical deployment is Node.js, PostgreSQL, and S3-compatible storage.
-- Local development and the default VPS deployment use Docker Compose for PostgreSQL and MinIO.
+- Local development and the default VPS deployment use Docker Compose for PostgreSQL and SeaweedFS.
 - Astro runs on the macOS host during development for fast HMR; the production application runs in a container.
 - Existing Astro 5, React 18, Tailwind 3, Novel/Tiptap, and TipTap JSON remain during the backend migration.
 - Better Auth provides database-backed sessions and passkey-first authentication.
@@ -23,7 +23,7 @@ The migration is a clean reinstall for the pre-1.0 product. It does not import e
 - Account recovery uses spare Passkeys, one-time recovery codes, and a local CLI recovery flow.
 - Content types remain fixed: Posts, Pages, Categories, Navigation, Media, and Site Settings.
 - PostgreSQL access uses Kysely and `pg`. Runtime schema creation and a visual schema builder are out of scope.
-- Media uses one S3 client configured by endpoint. MinIO, Cloudflare R2, AWS S3, and other compatible providers do not receive separate adapters.
+- Media uses one S3 client configured by endpoint. SeaweedFS, Cloudflare R2, AWS S3, and other compatible providers do not receive separate adapters.
 - Rich content retains both TipTap JSON and server-generated sanitized HTML.
 - Public content uses a versioned read-only REST API with an OpenAPI document.
 - Public Published content is readable without an API key. Draft preview uses a short-lived scoped token.
@@ -78,7 +78,7 @@ The migration is a clean reinstall for the pre-1.0 product. It does not import e
                                     +-------------+        +----------------+
                                     |                                      |
                          +----------v-----------+                +---------v---------+
-                         | PostgreSQL           |                | S3 / MinIO        |
+                         | PostgreSQL           |                | S3 / SeaweedFS    |
                          | content/auth/session |                | media objects     |
                          +----------------------+                +-------------------+
 ```
@@ -173,7 +173,7 @@ Navigation remains locale-specific and location-specific for Header and Footer. 
 - Checksum, width, and height.
 - Folder, owner, and timestamps.
 
-The database does not store a provider-specific public URL. Responses resolve the URL from `MEDIA_PUBLIC_URL` and the object key. Content documents refer to stable media identity or resolved public paths rather than MinIO hostnames.
+The database does not store a provider-specific public URL. Responses resolve the URL from `MEDIA_PUBLIC_URL` and the object key. Content documents refer to stable media identity or resolved public paths rather than SeaweedFS hostnames.
 
 `media_upload_reservations` records the expected key, MIME type, size limit, expiry, and finalization status for signed uploads. Expired reservations and unclaimed objects are removed by an explicit maintenance command.
 
@@ -207,8 +207,8 @@ The macOS helper:
 
 1. Checks Node, npm, Docker, Compose, required ports, and filesystem permissions.
 2. Creates a protected environment file without overwriting a user-managed file.
-3. Generates database, MinIO, Better Auth, recovery, and installation secrets.
-4. Starts PostgreSQL and MinIO and waits for health checks.
+3. Generates database, S3, Better Auth, recovery, and installation secrets.
+4. Starts PostgreSQL and SeaweedFS and waits for health checks.
 5. Creates the media bucket and its public-read policy.
 6. Runs all migrations.
 7. Starts Astro on the host and displays the Installer URL and installation token.
@@ -312,8 +312,7 @@ The production Compose topology contains:
 
 - `app`: the built Astro standalone Node server.
 - `postgres`: a pinned PostgreSQL major with a persistent volume and health check.
-- `minio`: S3-compatible storage with a persistent volume and health check.
-- `minio-init`: a one-shot bucket and policy initializer.
+- `seaweedfs`: S3-compatible storage with a persistent volume, startup bucket creation, public media reads, and a health check.
 
 The existing reverse-proxy model remains responsible for TLS, canonical host forwarding, compression, and request-size limits. The application trusts forwarded headers only from the documented proxy topology and still uses the configured public URL for security-sensitive origins.
 
@@ -328,7 +327,7 @@ The reset command defaults to a dry run, reports content/object/account counts, 
 The migration proceeds in vertical slices on an isolated implementation branch:
 
 1. Freeze existing behavior with focused service and route contract tests.
-2. Add PostgreSQL/MinIO Compose, environment validation, Kysely, and migrations.
+2. Add PostgreSQL/SeaweedFS Compose, environment validation, Kysely, and migrations.
 3. Add Better Auth, Passkey enrollment, sessions, recovery codes, and Admin-route protection.
 4. Move Site Settings and installer state to PostgreSQL.
 5. Move Categories and Post assignments.
@@ -358,7 +357,7 @@ OpenAPI output is generated from the same runtime schemas used by route validati
 
 ### Integration tests
 
-Integration tests use disposable PostgreSQL and MinIO Compose services rather than mocked SQL or object storage. They verify migrations, constraints, transactions, signed uploads, finalization, cleanup, deletion recovery, Category invariants, concurrent updates, and Published-only queries.
+Integration tests use disposable PostgreSQL and SeaweedFS Compose services rather than mocked SQL or object storage. They verify migrations, constraints, transactions, signed uploads, finalization, cleanup, deletion recovery, Category invariants, concurrent updates, and Published-only queries.
 
 ### Browser tests
 

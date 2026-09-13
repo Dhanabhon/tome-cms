@@ -1,20 +1,20 @@
 import { randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
-import { access, lstat, open, readFile, realpath, rename, stat, unlink } from 'node:fs/promises';
+import { lstat, open, readFile, rename, unlink } from 'node:fs/promises';
 import { createServer, isIP } from 'node:net';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseEnv } from 'node:util';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const secrets = ['POSTGRES_PASSWORD', 'S3_SECRET_ACCESS_KEY', 'TOME_CMS_INSTALL_TOKEN', 'BETTER_AUTH_SECRET', 'TOME_CMS_CONTEXT_SECRET', 'TOME_CMS_RECOVERY_PEPPER'];
-const required = [...secrets, 'DATABASE_URL', 'TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_BUCKET', 'S3_FORCE_PATH_STYLE', 'MEDIA_PUBLIC_URL', 'MINIO_LICENSE_FILE'];
+const required = [...secrets, 'DATABASE_URL', 'TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_BUCKET', 'S3_FORCE_PATH_STYLE', 'MEDIA_PUBLIC_URL'];
 const optional = ['DATABASE_POOL_MAX', 'DATABASE_CONNECTION_TIMEOUT_MS', 'DATABASE_QUERY_TIMEOUT_MS'];
 
 export function parseOptions(args) {
-  const options = { production: false, force: false, checkTestLicense: false };
-  const flags = { '--production': 'production', '--force': 'force', '--check-test-license': 'checkTestLicense' };
+  const options = { production: false, force: false };
+  const flags = { '--production': 'production', '--force': 'force' };
   for (const arg of args) {
     if (!Object.hasOwn(flags, arg)) throw new Error(`Unknown option: ${arg}`);
     options[flags[arg]] = true;
@@ -26,7 +26,7 @@ function localUrls(values) {
   return {
     DATABASE_URL: `postgresql://tomecms:${values.POSTGRES_PASSWORD}@127.0.0.1:${values.POSTGRES_PORT || 5432}/tomecms`,
     TOME_CMS_PUBLIC_URL: `http://localhost:${values.APP_PORT || 4321}`,
-    S3_ENDPOINT: `http://127.0.0.1:${values.MINIO_PORT || 9000}`,
+    S3_ENDPOINT: `http://127.0.0.1:${values.S3_PORT || values.MINIO_PORT || 9000}`,
   };
 }
 
@@ -55,6 +55,8 @@ function isPublicHost(host) {
 
 export function makeEnvironment(input, production, existing = {}) {
   const values = { ...existing, ...input };
+  if (!values.S3_PORT && values.MINIO_PORT) values.S3_PORT = values.MINIO_PORT;
+  for (const key of ['MINIO_PORT', 'MINIO_CONSOLE_PORT', 'MINIO_LICENSE_FILE']) delete values[key];
   for (const key of secrets) values[key] ||= randomBytes(32).toString('base64url');
   if (!/^[A-Za-z0-9_-]+$/.test(values.POSTGRES_PASSWORD)) throw new Error('POSTGRES_PASSWORD must use URL-safe letters, digits, underscores or hyphens.');
   const previousDefaults = localUrls(existing);
@@ -95,7 +97,6 @@ export function renderEnvironment(values) {
   for (const key of required) if (!values[key]) throw new Error(`${key} is required.`);
   for (const key of secrets) if (values[key].length < (key === 'S3_SECRET_ACCESS_KEY' || key === 'POSTGRES_PASSWORD' ? 8 : 32)) throw new Error(`${key} is too short.`);
   if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(values.S3_BUCKET)) throw new Error('S3_BUCKET is invalid.');
-  if (!isAbsolute(values.MINIO_LICENSE_FILE)) throw new Error('MINIO_LICENSE_FILE must be absolute.');
   return Object.entries(values).map(([key, value]) => {
     if (!/^[A-Z][A-Z0-9_]*$/.test(key)) throw new Error('Invalid environment key.');
     if (typeof value !== 'string' || /['\r\n\0]/.test(value)) throw new Error(`Unsupported characters in ${key}.`);
@@ -127,25 +128,6 @@ export async function writeEnvironment(path, content, force = false) {
   return true;
 }
 
-export async function verifyLicense(path, repository = root) {
-  if (!path || !isAbsolute(path)) throw new Error('MINIO_LICENSE_FILE must be an absolute path to a readable external license.');
-  let resolved, details;
-  try {
-    resolved = await realpath(path);
-    details = await stat(resolved);
-    await access(resolved, constants.R_OK);
-  } catch { throw new Error('MINIO_LICENSE_FILE must be readable.'); }
-  if (!details.isFile() || details.size === 0) throw new Error('MINIO_LICENSE_FILE must be a nonempty regular file.');
-  let boundary = await realpath(repository).catch(() => resolve(repository));
-  // A nested worktree still belongs to its enclosing repository.
-  for (let parent = dirname(boundary); parent !== dirname(parent); parent = dirname(parent)) {
-    if (await lstat(resolve(parent, '.git')).catch(() => null)) boundary = await realpath(parent);
-  }
-  const within = relative(boundary, resolved);
-  if (within === '' || (!within.startsWith(`..${sep}`) && !isAbsolute(within))) throw new Error('MINIO_LICENSE_FILE must be outside the repository.');
-  return resolved;
-}
-
 function run(command, args, env = process.env) {
   const result = spawnSync(command, args, { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   // Child errors can include resolved Compose secrets or database URLs.
@@ -156,7 +138,7 @@ function run(command, args, env = process.env) {
 async function verifyPorts(values, compose, env) {
   const containers = run('docker', [...compose, 'ps', '--format', 'json'], env).trim();
   const owned = containers ? (containers.startsWith('[') ? JSON.parse(containers) : containers.split('\n').map(line => JSON.parse(line))) : [];
-  const ports = ['POSTGRES_PORT', 'MINIO_PORT', 'MINIO_CONSOLE_PORT', 'APP_PORT'].map((key, i) => Number(values[key] || [5432, 9000, 9001, 4321][i]));
+  const ports = ['POSTGRES_PORT', 'S3_PORT', 'APP_PORT'].map((key, i) => Number(values[key] || [5432, 9000, 4321][i]));
   if (new Set(ports).size !== ports.length || ports.some(port => !Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('Ports must be distinct integers from 1 to 65535.');
   for (const port of ports) {
     if (owned.some(container => container.Publishers?.some(publisher => publisher.PublishedPort === port))) continue;
@@ -171,11 +153,6 @@ async function verifyPorts(values, compose, env) {
 async function main() {
   const options = parseOptions(process.argv.slice(2));
   if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Node 22 or newer is required.');
-  if (options.checkTestLicense) {
-    await verifyLicense(process.env.MINIO_LICENSE_FILE);
-    console.log('External test license is readable; AIStor must still validate it at startup.');
-    return;
-  }
   const path = resolve(root, '.env.local');
   let existing = {};
   let existingFile = false;
@@ -186,12 +163,11 @@ async function main() {
     if ((details.mode & 0o077) !== 0 && !options.force) throw new Error('Set .env.local permissions to 0600 before continuing.');
     existing = parseEnv(await readFile(path, 'utf8'));
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  const overrides = Object.fromEntries(Object.entries(process.env).filter(([key]) => required.includes(key) || optional.includes(key) || /^(POSTGRES_PORT|MINIO_PORT|MINIO_CONSOLE_PORT|APP_PORT)$/.test(key)));
+  const overrides = Object.fromEntries(Object.entries(process.env).filter(([key]) => required.includes(key) || optional.includes(key) || /^(POSTGRES_PORT|S3_PORT|APP_PORT)$/.test(key)));
   const values = makeEnvironment(overrides, options.production, existing);
   if (existingFile && !options.force && Object.entries(values).some(([key, value]) => existing[key] !== value)) {
     throw new Error('Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.');
   }
-  await verifyLicense(values.MINIO_LICENSE_FILE);
   const rendered = renderEnvironment(values);
   run('docker', ['info']);
   run('docker', ['compose', 'version']);
@@ -204,10 +180,9 @@ async function main() {
     throw new Error('Environment file appeared during bootstrap; rerun to verify it before startup.');
   }
   const compose = ['compose', '-f', 'compose.yaml', '--env-file', '.env.local'];
-  if (options.production) run('docker', [...compose, 'pull', 'postgres', 'minio', 'minio-init'], env);
-  console.log('Starting PostgreSQL and licensed AIStor…');
-  run('docker', [...compose, 'up', '-d', '--wait', 'postgres', 'minio'], env);
-  run('docker', [...compose, 'run', '--rm', '--no-deps', 'minio-init'], env);
+  if (options.production) run('docker', [...compose, 'pull', 'postgres', 'seaweedfs'], env);
+  console.log('Starting PostgreSQL and SeaweedFS…');
+  run('docker', [...compose, 'up', '-d', '--wait', 'postgres', 'seaweedfs'], env);
   console.log('Applying database migrations…');
   if (options.production) {
     run('docker', [...compose, '--profile', 'production', 'build', 'app'], env);

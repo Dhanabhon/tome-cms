@@ -19,5 +19,6 @@ supabase
 **/*.log
 postgres-data
 minio-data
+seaweedfs-data
 volumes
 .DS_Store
