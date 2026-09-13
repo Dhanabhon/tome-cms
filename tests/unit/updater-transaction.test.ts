@@ -65,7 +65,9 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
   } as UpdateManifest;
   let failure = '';
   let readiness = true;
-  let runningDigest = targetDigest;
+  let runningDigest = previous.imageDigest;
+  let runningContainerIds = `${'c'.repeat(64)}\n`;
+  let inspectionOutput: string | undefined;
   let migrationOutput = JSON.stringify(['001_system', '999_future_migration']);
   let backupOutput = JSON.stringify(report);
   let interrupted = '';
@@ -102,8 +104,8 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
       if (args[0] === 'pull') event = 'pull';
       else if (args[0] === 'run') { event = 'migrations'; stdout = migrationOutput; }
       else if (args[0] === 'inspect') {
-        event = 'inspect'; stdout = JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: { Running: true } }]);
-      } else if (args.includes('ps')) { event = 'ps'; stdout = `${'c'.repeat(64)}\n`; }
+        event = 'inspect'; stdout = inspectionOutput ?? JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: { Running: true } }]);
+      } else if (args.includes('ps')) { event = 'ps'; stdout = runningContainerIds; }
       else if (args.includes('stop')) event = 'stop';
       else if (args.includes('backup')) {
         event = 'backup'; stdout = backupOutput;
@@ -149,6 +151,8 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     leaveOnSuccess: (stage: string) => { successfulLeftover = stage; },
     fail: (value: string) => { failure = value; }, unready: () => { readiness = false; },
     running: (digest: string) => { runningDigest = digest; },
+    runningContainers: (value: string) => { runningContainerIds = value; },
+    inspection: (value: string) => { inspectionOutput = value; },
     migrations: (value: string) => { migrationOutput = value; },
     backupOutput: (value: string) => { backupOutput = value; },
   };
@@ -158,7 +162,7 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   const f = await fixture(t);
   const job = await applyUpdate(f.input);
   assert.equal(job.phase, 'succeeded');
-  assert.deepEqual(f.events, ['state:preflight', 'state:verifying', 'verify', 'state:downloading',
+  assert.deepEqual(f.events, ['state:preflight', 'ps', 'inspect', 'state:verifying', 'verify', 'state:downloading',
     'pull', 'migrations', 'state:quiescing', 'drain:2000', 'stop', 'state:backing_up', 'backup',
     'state:migrating', 'migrate', 'state:restarting', 'start-target', 'state:health_check',
     'health-target', 'installed:1.0.1', 'state:succeeded']);
@@ -167,7 +171,12 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   assert.ok(await readFile(join(f.backup, 'manifest.json')));
   const prefix = ['compose', '-p', 'tomecms', '-f', f.input.config.composeFile,
     '--env-file', f.input.config.environmentFile, '--env-file', f.input.config.imageEnvironmentFile];
-  const commands = f.commands.filter(({ args }) => args[0] !== 'ps' && args[0] !== 'rm');
+  assert.deepEqual(f.commands.slice(0, 2), [
+    { args: [...prefix, 'ps', '--quiet', 'app'], timeoutMs: 30000 },
+    { args: ['inspect', '--type', 'container', 'c'.repeat(64)], timeoutMs: 30000 },
+  ]);
+  const commands = f.commands.filter(({ args }) => args[0] !== 'ps' && args[0] !== 'rm' &&
+    args[0] !== 'inspect' && !args.includes('ps'));
   assert.deepEqual(commands[0], { args: ['pull', targetImage], timeoutMs: 900000 });
   assert.ok(commands[1].args.includes(targetImage));
   assert.ok(commands[1].args.includes(`tomecms-update-${job.id}-inventory`));
@@ -406,6 +415,40 @@ test('root identity and mismatched local image fail before verification or Docke
   assert.equal((await applyUpdate(mismatch.input)).phase, 'rolled_back');
   assert.deepEqual(mismatch.commands, []);
 });
+
+test('running image drift fails preflight before verification, backup, or quiescing', async (t) => {
+  const f = await fixture(t);
+  f.running(targetDigest);
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(job.errorCode, 'preflight_failed');
+  assert.equal(f.events.includes('verify'), false);
+  assert.equal(f.events.includes('state:quiescing'), false);
+  assert.equal(f.events.includes('stop'), false);
+  assert.equal(f.events.includes('backup'), false);
+  assert.deepEqual(f.commands.map(({ args }) => args[0] === 'compose' ? args.at(-3) : args[0]), ['ps', 'inspect']);
+});
+
+for (const scenario of [
+  { name: 'missing container ID', ids: '' },
+  { name: 'invalid container ID', ids: 'not-a-container-id\n' },
+  { name: 'multiple container IDs', ids: `${'c'.repeat(64)}\n${'d'.repeat(64)}\n` },
+  { name: 'malformed inspection JSON', inspection: '{' },
+  { name: 'stopped container', inspection: JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${previous.imageDigest}` }, State: { Running: false } }]) },
+] as const) {
+  test(`rejects ${scenario.name} before update side effects`, async (t) => {
+    const f = await fixture(t);
+    if (typeof scenario.ids === 'string') f.runningContainers(scenario.ids);
+    if (typeof scenario.inspection === 'string') f.inspection(scenario.inspection);
+    const job = await applyUpdate(f.input);
+    assert.equal(job.phase, 'rolled_back');
+    assert.equal(job.errorCode, 'preflight_failed');
+    assert.equal(f.events.includes('verify'), false);
+    assert.equal(f.events.includes('state:quiescing'), false);
+    assert.equal(f.events.includes('stop'), false);
+    assert.equal(f.events.includes('backup'), false);
+  });
+}
 
 for (const stage of ['stop', 'migrate', 'start-target']) test(`${stage} failure performs compatible rollback without repeating migration`, async (t) => {
   const f = await fixture(t); f.fail(stage);
