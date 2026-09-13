@@ -77,7 +77,7 @@ test('localized published editions render without public JavaScript', async ({ b
       },
     });
     expect(profileResponse.status()).toBe(200);
-    const createSourceResponse = await page.request.post('/api/posts', {
+    const createSourceResponse = await page.request.post('/api/admin/posts', {
       data: {
         ...postBody(
           'Public media regression',
@@ -91,7 +91,7 @@ test('localized published editions render without public JavaScript', async ({ b
     const source = (await createSourceResponse.json()).post as Post;
 
     const siblingLocale = source.locale === 'th' ? 'en' : 'th';
-    const createSiblingResponse = await page.request.post('/api/posts', {
+    const createSiblingResponse = await page.request.post('/api/admin/posts', {
       data: {
         ...postBody('Linked public edition', slug, '<h2>Linked public edition</h2><p>Visible without JavaScript.</p>'),
         locale: siblingLocale,
@@ -233,7 +233,7 @@ test('localized published editions render without public JavaScript', async ({ b
     expect(html).not.toContain('alert("unsafe")');
     expect(html).toContain('Public media regression');
 
-    const unpublishResponse = await page.request.put('/api/posts', {
+    const unpublishResponse = await page.request.put('/api/admin/posts', {
       data: {
         ...postBody(sibling.title, sibling.slug, sibling.content_html),
         id: sibling.id,

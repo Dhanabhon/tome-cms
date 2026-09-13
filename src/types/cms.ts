@@ -111,15 +111,17 @@ export interface PostInsert {
 export type PostUpdate = Partial<Omit<PostInsert, 'id' | 'author_id' | 'created_at'>>;
 
 export interface PostMutationInput {
+  categoryIds: string[];
+  coverMediaId: null;
   title: string;
-  slug?: string;
-  coverImage?: string | null;
+  slug: string;
   contentJson: EditorDocument;
-  metaTitle?: string | null;
-  metaDescription?: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
   status: PostStatus;
   locale?: PostLocale;
   sourcePostId?: string;
+  updatedAt?: string;
 }
 
 export interface PostAlternate {
@@ -175,13 +177,14 @@ export type PageUpdate = Partial<Omit<PageInsert, 'id' | 'author_id' | 'created_
 
 export interface PageMutationInput {
   title: string;
-  slug?: string;
+  slug: string;
   contentJson: EditorDocument;
-  metaTitle?: string | null;
-  metaDescription?: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
   status: PageStatus;
   locale?: PageLocale;
   sourcePageId?: string;
+  updatedAt?: string;
 }
 
 export type NavigationLocation = 'header' | 'footer';

@@ -44,7 +44,7 @@ test('Page autosave serializes changes, replaces history, and saves before creat
     let inFlight = 0;
     let maximumInFlight = 0;
     let creates = 0;
-    await page.route('**/api/pages', async (route) => {
+    await page.route('**/api/admin/pages', async (route) => {
       if (!['POST', 'PUT'].includes(route.request().method())) return route.continue();
       if (route.request().method() === 'POST') creates += 1;
       inFlight += 1;
@@ -77,7 +77,7 @@ test('Page autosave serializes changes, replaces history, and saves before creat
     const { data: beforeTranslation } = await owner.client.from('pages').select('*').eq('translation_group_id', source.translation_group_id);
     expect(beforeTranslation).toHaveLength(1);
     expect(beforeTranslation?.[0].content_html).toBe('<p>Saved before language switch</p>');
-    const creation = page.waitForRequest((request) => request.url().endsWith('/api/pages') && request.method() === 'POST');
+    const creation = page.waitForRequest((request) => request.url().endsWith('/api/admin/pages') && request.method() === 'POST');
     await page.getByLabel('Page title').fill('Manual Page translation');
     await page.locator('.ProseMirror').fill('Translated body');
     await page.getByRole('button', { name: 'Publish', exact: true }).click();
@@ -105,7 +105,7 @@ test('Page autosave bounds generated slugs for long valid titles', async ({ page
   try {
     await signInAdmin(page, owner);
     await page.goto('/admin/pages/new');
-    const savedResponse = page.waitForResponse((response) => response.url().endsWith('/api/pages') && response.request().method() === 'POST');
+    const savedResponse = page.waitForResponse((response) => response.url().endsWith('/api/admin/pages') && response.request().method() === 'POST');
     await page.getByLabel('Page title').fill(title);
     await page.locator('.ProseMirror').fill('A Page with a full-length title.');
     expect((await savedResponse).status()).toBe(201);
@@ -134,7 +134,7 @@ test('Page Preview opens immediately, flushes the newest draft, and scopes sanit
     const button = page.getByRole('button', { name: 'Preview', exact: true });
     await expect(button).toBeDisabled();
     await expect(button).toHaveAccessibleDescription('Add a title before opening Preview.');
-    await page.route('**/api/pages', async (route) => { await gate; await route.continue(); });
+    await page.route('**/api/admin/pages', async (route) => { await gate; await route.continue(); });
     await page.getByLabel('Page title').fill('Page preview title');
     await page.locator('.ProseMirror').fill('Newest unsaved Page body');
     const popupPromise = page.waitForEvent('popup');

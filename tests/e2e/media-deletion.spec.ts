@@ -292,7 +292,7 @@ test.describe('media deletion', () => {
         const media = await createMedia(owner, `${status}-page.png`);
         await signIn(page, owner);
         // DocumentCanvas serializes the Media Picker's setImage({ src, alt }) as an image node.
-        const created = await page.request.post('/api/pages', { data: {
+        const created = await page.request.post('/api/admin/pages', { data: {
           title: `${status} image page`, slug: `media-page-${crypto.randomUUID()}`, status,
           contentJson: { type: 'doc', content: [{ type: 'image', attrs: { src: media.publicUrl, alt: 'Page image' } }] },
           contentHtml: `<img class="rounded-lg" src="${media.publicUrl}" alt="Page image">`,

@@ -51,7 +51,7 @@ const links = [
 </div>
 
 <script>
-  import { createBrowserSupabaseClient } from '../../lib/supabase';
+  import { authClient } from '../../lib/auth-client';
   import { confirmUi } from '../../lib/ui-dialog';
 
   const opener = document.querySelector<HTMLButtonElement>('[data-nav-open]');
@@ -87,8 +87,8 @@ const links = [
       const message = button.parentElement?.querySelector('[data-sign-out-error]');
       if (message) message.textContent = '';
       try {
-        const { error } = await createBrowserSupabaseClient().auth.signOut();
-        if (error) throw error;
+        const result = await authClient.signOut();
+        if (result.error) throw result.error;
         window.location.assign(document.querySelector<HTMLElement>('.admin-shell')?.dataset.adminPath ?? '/admin');
       } catch {
         if (message) message.textContent = 'Unable to sign out. Please try again.';

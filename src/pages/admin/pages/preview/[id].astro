@@ -3,11 +3,16 @@ import { z } from 'zod';
 
 import PageArticle from '../../../../components/blog/PageArticle.astro';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
-import { authenticate } from '../../../../lib/supabase';
+import { adminHref } from '../../../../lib/admin';
+import { requireInstalledOwner } from '../../../../server/auth/session';
+import { getPage } from '../../../../server/content/pages';
+import { getSiteSettings } from '../../../../server/content/settings';
+import { HttpError } from '../../../../server/http/errors';
 import type { Page } from '../../../../types/cms';
 
 let page: Page | null = null;
 let errorMessage: string | null = null;
+let adminPath = '/admin';
 const id = z.uuid().safeParse(Astro.params.id);
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
@@ -16,39 +21,35 @@ try {
     Astro.response.status = 404;
     errorMessage = 'Page not found.';
   } else {
-    const auth = await authenticate(Astro.cookies, Astro.request);
-    if (!auth) {
-      Astro.response.status = 401;
-      errorMessage = 'Sign in to preview this page.';
-    } else {
-      const { data, error } = await auth.supabase
-        .from('pages')
-        .select('*')
-        .eq('id', id.data)
-        .eq('author_id', auth.user.id)
-        .maybeSingle();
-      if (error) throw error;
-      page = data;
-      if (!page) {
-        Astro.response.status = 404;
-        errorMessage = 'Page not found.';
-      }
+    const current = await requireInstalledOwner(Astro.request.headers);
+    const settings = await getSiteSettings();
+    if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, 'Page not found.');
+    adminPath = settings.admin_path;
+    page = await getPage(current.user.id, id.data);
+    if (!page) {
+      Astro.response.status = 404;
+      errorMessage = 'Page not found.';
     }
   }
 } catch (error) {
-  console.error('Page preview query failed:', error);
-  Astro.response.status = 500;
-  errorMessage = 'The preview is temporarily unavailable.';
+  if (error instanceof HttpError && error.status === 401) {
+    Astro.response.status = 401;
+    errorMessage = 'Sign in to preview this page.';
+  } else {
+    console.error('Page preview query failed.');
+    Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
+    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The preview is temporarily unavailable.';
+  }
 }
 ---
 
-<AdminLayout lang={page?.locale} title={page ? `Preview: ${page.title}` : 'Draft preview'}>
+<AdminLayout adminPath={adminPath} lang={page?.locale} title={page ? `Preview: ${page.title}` : 'Draft preview'}>
   <main>
     {errorMessage ? <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p> : page ? (
       <>
         <div class="admin-preview-bar">
           <span>Page preview</span>
-          <a class="admin-button admin-button--secondary" href={`/admin/pages/edit/${page.id}`}>Edit page</a>
+          <a class="admin-button admin-button--secondary" href={adminHref({ admin_path: adminPath }, `/pages/edit/${page.id}`)}>Edit page</a>
         </div>
         <PageArticle page={page} preview />
       </>

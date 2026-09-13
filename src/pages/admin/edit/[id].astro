@@ -4,8 +4,11 @@ import { z } from 'zod';
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminLoginPath } from '../../../lib/admin';
-import { getCategoryIdsForPost, getOwnerCategories } from '../../../lib/categories';
-import { authenticate } from '../../../lib/supabase';
+import { requireInstalledOwner } from '../../../server/auth/session';
+import { categoryIdsForPost, listCategories } from '../../../server/content/categories';
+import { getPost, listPostTranslations } from '../../../server/content/posts';
+import { getSiteSettings, type SiteSettings } from '../../../server/content/settings';
+import { HttpError } from '../../../server/http/errors';
 import type { Post, PostCategory, PostTranslationSummary } from '../../../types/cms';
 
 let post: Post | null = null;
@@ -14,6 +17,7 @@ let translations: PostTranslationSummary[] = [];
 let categories: PostCategory[] = [];
 let initialCategoryIds: string[] = [];
 let errorMessage: string | null = null;
+let settings: SiteSettings | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
 
 try {
@@ -21,52 +25,39 @@ try {
     Astro.response.status = 404;
     errorMessage = 'Post not found.';
   } else {
-    const auth = await authenticate(Astro.cookies, Astro.request);
-    if (!auth) {
-      Astro.response.status = 302;
-      Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+    settings = await getSiteSettings();
+    const current = await requireInstalledOwner(Astro.request.headers);
+    if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, 'Post not found.');
+    post = await getPost(current.user.id, id.data);
+    if (!post) {
+      Astro.response.status = 404;
+      errorMessage = 'Post not found.';
     } else {
-      const { data, error } = await auth.supabase
-        .from('posts')
-        .select('*')
-        .eq('id', id.data)
-        .eq('author_id', auth.user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      post = data;
-      if (!post) {
-        Astro.response.status = 404;
-        errorMessage = 'Post not found.';
-      } else {
-        categories = await getOwnerCategories(auth.supabase, auth.user.id);
-        const membership = await getCategoryIdsForPost(auth.supabase, auth.user.id, post.id);
-        if (membership === null) throw new Error('Post membership not found.');
-        initialCategoryIds = membership;
-        const { data: translationData, error: translationsError } = await auth.supabase
-          .from('posts')
-          .select('id, locale, status, title')
-          .eq('translation_group_id', post.translation_group_id)
-          .eq('author_id', auth.user.id)
-          .order('locale');
-        if (translationsError) throw translationsError;
-        translations = translationData;
-        const { translation_group_id: _translationGroupId, ...safePost } = post;
-        editorPost = safePost;
-      }
+      [categories, initialCategoryIds, translations] = await Promise.all([
+        listCategories(current.user.id),
+        categoryIdsForPost(current.user.id, post.id),
+        listPostTranslations(current.user.id, post.translation_group_id),
+      ]);
+      const { translation_group_id: _translationGroupId, ...safePost } = post;
+      editorPost = safePost;
     }
   }
 } catch (error) {
-  console.error('Post editor query failed:', error);
-  Astro.response.status = 500;
-  errorMessage = 'The editor is temporarily unavailable.';
+  if (error instanceof HttpError && error.status === 401) {
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path ?? '/admin'));
+  } else {
+    console.error('Post editor query failed.');
+    Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
+    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The editor is temporarily unavailable.';
+  }
 }
 ---
 
-<AdminLayout title={post?.title ?? 'Edit post'}>
+<AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
-      <Editor client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
+      <Editor adminPath={settings?.admin_path ?? '/admin'} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </Editor>
     ) : (

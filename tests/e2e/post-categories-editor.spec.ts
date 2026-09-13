@@ -65,7 +65,7 @@ for (const action of ['autosave', 'publish'] as const) {
       const contentMethods: string[] = [];
       const storedBeforeMembership: { id: string; title: string; status: string }[] = [];
       page.on('request', (request) => {
-        if (new URL(request.url()).pathname === '/api/posts') contentMethods.push(request.method());
+        if (new URL(request.url()).pathname === '/api/admin/posts') contentMethods.push(request.method());
       });
       await page.route('**/api/admin/posts/categories', async (route) => {
         const { postId } = route.request().postDataJSON();
