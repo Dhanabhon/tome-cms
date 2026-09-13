@@ -25,8 +25,8 @@ export default {
         surface: 'var(--color-surface)',
       },
       fontFamily: {
-        display: ['NotionInter', 'Inter', 'IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['NotionInter', 'Inter', 'IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         md: '6px',
@@ -48,7 +48,7 @@ export default {
             '--tw-prose-code': 'var(--color-ink)',
             '--tw-prose-pre-code': 'var(--color-paper-2)',
             '--tw-prose-pre-bg': 'var(--color-hero)',
-            fontFamily: ['NotionInter', 'Inter', 'IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'].join(', '),
+            fontFamily: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'].join(', '),
             h2: {
               fontSize: '22px',
               fontWeight: '700',
