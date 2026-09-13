@@ -7,7 +7,7 @@
     "bootstrap:core": "node scripts/bootstrap-core.mjs",
     "admin:reset-installation": "node scripts/reset-installation.mjs",
     "admin:reset-password": "node scripts/reset-admin-password.mjs",
-    "admin:recover": "node --env-file-if-exists=.env.local --import tsx scripts/recover-owner.ts",
+    "admin:recover": "node scripts/recover-owner.mjs",
     "configure:supabase": "./scripts/configure-supabase.sh",
     "dev": "astro dev",
     "dev:macos": "./scripts/dev-local-macos.sh",
@@ -45,6 +45,7 @@
     "sanitize-html": "^2.17.0",
     "slugify": "^1.6.9",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.23.13",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -55,7 +56,6 @@
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@types/sanitize-html": "^2.16.1",
-    "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   },
   "engines": {

@@ -36,7 +36,12 @@ test('recovery is one-time, revokes sessions, replaces credentials, and preserve
     hashRecoveryCode,
     regenerateRecoveryCodes,
   } = await import('../../src/server/auth/recovery');
-  const oldEnrollment = await (await import('../../src/server/auth/enrollment')).createEnrollment({
+  const { assertInstalledOwnerCredential, createEnrollment } = await import('../../src/server/auth/enrollment');
+  const { auth } = await import('../../src/server/auth/config');
+  const authContext = await auth.$context;
+  await assertInstalledOwnerCredential({ credentialId: 'primary-credential', fallbackAdapter: authContext.adapter });
+
+  const oldEnrollment = await createEnrollment({
     email: 'owner@example.invalid', pendingUserId: 'owner', purpose: 'recovery',
   });
   const codes = await regenerateRecoveryCodes('owner');
@@ -53,10 +58,14 @@ test('recovery is one-time, revokes sessions, replaces credentials, and preserve
   const { hashEnrollmentContext, verifyEnrollmentContext } = await import('../../src/server/auth/context');
   assert.ok((await db.selectFrom('installation_enrollments').select('consumed_at').where('context_hash', '=', hashEnrollmentContext(oldEnrollment.context)).executeTakeFirstOrThrow()).consumed_at instanceof Date);
   const claims = verifyEnrollmentContext(recovery.context, 'recovery', process.env.TOME_CMS_CONTEXT_SECRET!);
+  await assert.rejects(assertInstalledOwnerCredential({
+    credentialId: 'primary-credential', fallbackAdapter: authContext.adapter,
+  }), /authorization failed/i);
+  await db.insertInto('session').values({
+    id: 'race-session', token: 'race-token', userId: 'owner', expiresAt: new Date(Date.now() + 60_000), updatedAt: new Date(), ipAddress: null, userAgent: null,
+  }).execute();
 
-  const { auth } = await import('../../src/server/auth/config');
-  const authContext = await auth.$context;
-  await runWithTransaction(authContext.adapter, async () => {
+  const replacementSession = await runWithTransaction(authContext.adapter, async () => {
     await consumeRecoveryEnrollmentReference({ reference: claims.id, ownerId: 'owner', fallbackAdapter: authContext.adapter });
     const adapter = await getCurrentAdapter(authContext.adapter);
     await adapter.create({
@@ -64,8 +73,10 @@ test('recovery is one-time, revokes sessions, replaces credentials, and preserve
       forceAllowId: true,
       data: { id: 'replacement', name: 'Recovery passkey', publicKey: 'replacement-key', userId: 'owner', credentialID: 'replacement-credential', counter: 0, deviceType: 'singleDevice', backedUp: false, transports: '', createdAt: new Date(), aaguid: null },
     });
+    return authContext.internalAdapter.createSession('owner');
   });
   assert.deepEqual((await db.selectFrom('passkey').select('id').where('userId', '=', 'owner').execute()).map(({ id }) => id), ['replacement']);
+  assert.deepEqual((await db.selectFrom('session').select('id').where('userId', '=', 'owner').execute()).map(({ id }) => id), [replacementSession.id]);
   await assert.rejects(runWithTransaction(authContext.adapter, () => consumeRecoveryEnrollmentReference({
     reference: claims.id, ownerId: 'owner', fallbackAdapter: authContext.adapter,
   })), /invalid or expired/i);
