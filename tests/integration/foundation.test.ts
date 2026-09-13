@@ -31,7 +31,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
   const { migrateToLatest, pendingMigrationNames } = await import('../../src/server/db/migrator');
   context.after(closeDatabase);
   assert.deepEqual((await sql<{ value: number }>`select 1 as value`.execute(db)).rows, [{ value: 1 }]);
-  assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery']);
+  assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content']);
   assert.equal((await sql<{ name: string | null }>`select to_regclass('public.kysely_migration') as name`.execute(db)).rows[0].name, null);
   await migrateToLatest();
   await migrateToLatest();
@@ -186,7 +186,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
         assert.deepEqual(await pending.json(), {
           status: 'not-ready', checks: { database: 'ready', migrations: 'pending', storage: 'deferred' },
         });
-        assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery']);
+        assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content']);
       } finally {
         for (const row of removed.rows) {
           await sql`insert into kysely_migration (name, timestamp) values (${row.name}, ${row.timestamp})`.execute(db);
