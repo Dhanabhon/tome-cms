@@ -96,6 +96,7 @@ test('passkey and installer database contract', async (context) => {
     }).execute();
     await db.insertInto('session').values({
       id: 'pending-boundary-session', token: sessionToken, userId: boundaryUserId,
+      credential_id: 'pending-boundary-credential',
       expiresAt: new Date(Date.now() + 60_000), updatedAt: new Date(),
       ipAddress: null, userAgent: null,
     }).execute();
@@ -282,9 +283,9 @@ test('passkey and installer database contract', async (context) => {
   });
 
   await context.test('deleting a user cascades vendor credentials, sessions and owned installer state', async () => {
-    await sql`insert into session (id, "expiresAt", token, "updatedAt", "userId") values ('session', now() + interval '1 hour', 'session-fixture', now(), 'owner')`.execute(db);
     await sql`insert into account (id, "accountId", "providerId", "userId", "updatedAt") values ('account', 'account-fixture', 'test-only', 'owner', now())`.execute(db);
     await sql`insert into passkey (id, "publicKey", "userId", "credentialID", counter, "deviceType", "backedUp") values ('passkey', 'public-key-fixture', 'owner', 'credential-fixture', 0, 'singleDevice', false)`.execute(db);
+    await sql`insert into session (id, "expiresAt", token, "updatedAt", "userId", credential_id) values ('session', now() + interval '1 hour', 'session-fixture', now(), 'owner', 'credential-fixture')`.execute(db);
     await sql`delete from "user" where id = 'owner'`.execute(db);
     for (const table of ['session', 'account', 'passkey', 'installation_enrollments', 'recovery_codes', 'site_settings']) {
       assert.equal((await sql<{ count: number }>`select count(*)::int as count from ${sql.table(table)}`.execute(db)).rows[0].count, 0, `${table} cascades`);

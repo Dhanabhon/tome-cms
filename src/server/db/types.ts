@@ -42,6 +42,7 @@ export interface SessionTable {
   ipAddress: string | null;
   userAgent: string | null;
   userId: string;
+  credential_id: string;
 }
 
 export interface AccountTable {

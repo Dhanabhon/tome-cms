@@ -149,10 +149,13 @@ export async function consumeRecoveryEnrollmentReference<Options extends BetterA
   fallbackAdapter: DBTransactionAdapter<Options>;
 }): Promise<void> {
   const adapter = await getCurrentAdapter(input.fallbackAdapter);
-  const settings = await adapter.findOne<AdapterSiteOwner>({
+  // This update deliberately leaves the value unchanged: inside Better Auth's
+  // registration transaction it locks the singleton row also used by the
+  // session-insert guard and recovery issuance.
+  const settings = await adapter.update<AdapterSiteOwner>({
     model: 'siteSettings',
     where: [{ field: 'ownerId', value: input.ownerId }],
-    select: ['ownerId'],
+    update: { ownerId: input.ownerId },
   });
   if (!settings || settings.ownerId !== input.ownerId) throw new RecoveryCodeError();
 
