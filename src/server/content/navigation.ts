@@ -9,7 +9,6 @@ import {
   type Page,
   type PageLocale,
   type PublicNavigation,
-  type PublicNavigationItem,
 } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database, NavigationItemTable } from '../db/types';
