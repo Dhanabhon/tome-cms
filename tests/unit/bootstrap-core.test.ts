@@ -7,12 +7,6 @@ import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { parseOptions, renderEnvironment, writeEnvironment, verifyLicense, makeEnvironment } from '../../scripts/bootstrap-core.mjs';
 
-const transitional = {
-  PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
-  PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'public-test-only',
-  SUPABASE_SECRET_KEY: 's'.repeat(32),
-};
-
 test('test-license CLI fails before startup without printing supplied secrets', () => {
   const result = spawnSync(process.execPath, ['scripts/bootstrap-core.mjs', '--check-test-license'], {
     env: { ...process.env, MINIO_LICENSE_FILE: '', S3_SECRET_ACCESS_KEY: 'PRIVATE_TEST_SENTINEL' }, encoding: 'utf8',
@@ -49,7 +43,7 @@ test('existing secrets survive reruns and production requires explicit HTTPS URL
   const original = makeEnvironment({ MINIO_LICENSE_FILE: '/external/license' }, false);
   assert.deepEqual(makeEnvironment(original, false), original);
   assert.throws(() => makeEnvironment(original, true), /HTTPS/);
-  const production = makeEnvironment({ ...original, ...transitional, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://s3.example.com/tomecms-media/' }, true);
+  const production = makeEnvironment({ ...original, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://s3.example.com/tomecms-media/' }, true);
   assert.equal(production.NODE_ENV, 'production');
   assert.equal(production.BETTER_AUTH_SECRET, original.BETTER_AUTH_SECRET);
 });
@@ -78,7 +72,7 @@ test('changed inputs refresh generated URLs while preserving explicit custom URL
 });
 
 test('production rejects Docker service and loopback endpoints even with HTTPS', () => {
-  const input = { ...transitional, MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
+  const input = { MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
   for (const host of ['minio', 'MINIO.', 'postgres', 'app', 'minio-init', 'localhost', 'example.localhost', '127.0.0.1', '127.2.3.4', '2130706433', '[::1]', '[::ffff:127.0.0.1]', '0.0.0.0', '[::]', 'host.docker.internal']) {
     assert.throws(() => makeEnvironment({ ...input, S3_ENDPOINT: `https://${host}:9000` }, true), /browser-reachable/);
   }
@@ -95,7 +89,6 @@ test('public URL stays an exact origin for Passkeys and bucket CORS', () => {
 
 test('production public-host policy rejects local suffixes and non-public IP ranges in every public URL', () => {
   const input = {
-    ...transitional,
     MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'https://cms.example.com',
     S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://cdn.example.com/media/',
   };
@@ -122,7 +115,7 @@ test('production public-host policy rejects local suffixes and non-public IP ran
 });
 
 test('production transitions keep migrations and the app on the bundled Compose database', () => {
-  const input = { ...transitional, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
+  const input = { TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
   const local = makeEnvironment(input, false);
   const production = makeEnvironment({}, true, local);
   assert.equal(production.DATABASE_URL, local.DATABASE_URL);
@@ -134,18 +127,6 @@ test('production transitions keep migrations and the app on the bundled Compose 
   assert.throws(() => makeEnvironment({ DATABASE_URL: custom }, true, local), /bundled Compose database/);
   assert.throws(() => makeEnvironment({}, true, { ...local, DATABASE_URL: custom }), /bundled Compose database/);
   assert.throws(() => makeEnvironment({ POSTGRES_PORT: '55433', DATABASE_URL: local.DATABASE_URL }, true, local), /bundled Compose database/);
-});
-
-test('production requires and preserves current or legacy transitional Supabase configuration', () => {
-  const input = { ...transitional, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
-  for (const key of Object.keys(transitional)) {
-    assert.throws(() => makeEnvironment({ ...input, [key]: '' }, true), /^Error: Production Supabase configuration is required\.$/);
-  }
-  const legacy = { ...input, PUBLIC_SUPABASE_PUBLISHABLE_KEY: '', SUPABASE_SECRET_KEY: '', PUBLIC_SUPABASE_ANON_KEY: 'public-legacy-test-only', SUPABASE_SERVICE_ROLE_KEY: 'l'.repeat(32) };
-  const values = makeEnvironment(legacy, true);
-  assert.deepEqual(makeEnvironment({}, true, values), values);
-  assert.equal(values.PUBLIC_SUPABASE_ANON_KEY, legacy.PUBLIC_SUPABASE_ANON_KEY);
-  assert.equal(values.SUPABASE_SERVICE_ROLE_KEY, legacy.SUPABASE_SERVICE_ROLE_KEY);
 });
 
 test('bootstrap waits for services, requires synchronous bucket initialization, then migrates and starts the app', async (context) => {
@@ -170,15 +151,13 @@ test('bootstrap waits for services, requires synchronous bucket initialization, 
     await context.test(step || 'success', async () => {
       await writeFile(log, '');
       const result = spawnSync(process.execPath, [await realpath(script), '--production', '--force'], {
-        env: { PATH: directory, COMMAND_LOG: log, FAIL_STEP: step, ...transitional, MINIO_LICENSE_FILE: license, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', POSTGRES_PORT: '55441', MINIO_PORT: '55442', MINIO_CONSOLE_PORT: '55443', APP_PORT: '55444', DATABASE_CONNECTION_TIMEOUT_MS: '4000', DATABASE_QUERY_TIMEOUT_MS: '90000' },
+        env: { PATH: directory, COMMAND_LOG: log, FAIL_STEP: step, MINIO_LICENSE_FILE: license, TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com', POSTGRES_PORT: '55441', MINIO_PORT: '55442', MINIO_CONSOLE_PORT: '55443', APP_PORT: '55444', DATABASE_CONNECTION_TIMEOUT_MS: '4000', DATABASE_QUERY_TIMEOUT_MS: '90000' },
         encoding: 'utf8', timeout: 10_000,
       });
       assert.equal(result.status, step ? 1 : 0, 'bootstrap returns the required command status');
       const commands = (await readFile(log, 'utf8')).trim().split('\n').filter(line => / (up|run) /.test(line));
       assert.deepEqual(commands, expected.slice(0, count));
       const values = parseEnv(await readFile(join(repository, '.env.local'), 'utf8'));
-      assert.equal(values.PUBLIC_SUPABASE_URL, transitional.PUBLIC_SUPABASE_URL);
-      assert.ok(values.SUPABASE_SECRET_KEY === transitional.SUPABASE_SECRET_KEY);
       assert.equal(values.DATABASE_CONNECTION_TIMEOUT_MS, '4000');
       assert.equal(values.DATABASE_QUERY_TIMEOUT_MS, '90000');
     });

@@ -3,9 +3,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ARG PUBLIC_SUPABASE_URL
-ARG PUBLIC_SUPABASE_PUBLISHABLE_KEY
-ARG PUBLIC_SUPABASE_ANON_KEY
 RUN npm run build
 
 FROM node:22-alpine AS runtime

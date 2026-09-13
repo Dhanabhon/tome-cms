@@ -9,11 +9,6 @@ const composeEnv = { ...process.env, MINIO_LICENSE_FILE: '/dev/null' };
 const testEnv = {
   ...process.env,
   NODE_ENV: 'test',
-  PUBLIC_SUPABASE_URL: '',
-  PUBLIC_SUPABASE_ANON_KEY: '',
-  PUBLIC_SUPABASE_PUBLISHABLE_KEY: '',
-  SUPABASE_SECRET_KEY: '',
-  SUPABASE_SERVICE_ROLE_KEY: '',
   ASTRO_TELEMETRY_DISABLED: '1',
   DATABASE_URL: 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test',
   DATABASE_POOL_MAX: '1',

@@ -36,7 +36,3 @@ public/brand/*-brand-kit.png
 # OS and logs
 .DS_Store
 *.log
-
-# Supabase CLI state
-supabase/.branches/
-supabase/.temp/
