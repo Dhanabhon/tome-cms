@@ -1,0 +1,30 @@
+[Unit]
+Description=TomeCMS managed application updater
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tomecms-updater
+Group=tomecms-updater
+SupplementaryGroups=docker
+ExecStart=/usr/bin/node /opt/tome-cms/updater/updater/main.js /etc/tome-cms/updater.json
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/tome-cms /var/backups/tome-cms /run/tome-cms
+RuntimeDirectory=tome-cms
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+StateDirectory=tome-cms
+StateDirectoryMode=0700
+LogsDirectory=tome-cms
+LogsDirectoryMode=0700
+
+[Install]
+WantedBy=multi-user.target

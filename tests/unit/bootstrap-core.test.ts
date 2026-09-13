@@ -37,6 +37,19 @@ test('existing secrets survive reruns and production requires explicit HTTPS URL
   assert.equal(production.BETTER_AUTH_SECRET, original.BETTER_AUTH_SECRET);
 });
 
+test('only managed production generation enables the updater and preserves secrets', () => {
+  const input = { TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://s3.example.com' };
+  const original = makeEnvironment(input, false);
+  assert.equal(original.TOME_CMS_UPDATE_MODE, 'check-only');
+  assert.equal(makeEnvironment({ ...input, TOME_CMS_UPDATE_MODE: 'managed' }, true).TOME_CMS_UPDATE_MODE, 'check-only');
+  const managed = makeEnvironment(input, true, original, true);
+  assert.equal(managed.TOME_CMS_UPDATE_MODE, 'managed');
+  assert.equal(managed.TOME_CMS_UPDATER_SOCKET, '/run/tome-cms/updater.sock');
+  assert.equal(managed.BETTER_AUTH_SECRET, original.BETTER_AUTH_SECRET);
+  assert.equal(makeEnvironment({}, false, managed).TOME_CMS_UPDATE_MODE, 'check-only');
+  assert.throws(() => makeEnvironment({}, false, {}, true), /production/);
+});
+
 test('changed inputs refresh generated URLs while preserving explicit custom URLs', () => {
   const original = makeEnvironment({}, false);
   const changes = { POSTGRES_PORT: '55433', S3_PORT: '59002', APP_PORT: '44321', S3_BUCKET: 'other-media' };

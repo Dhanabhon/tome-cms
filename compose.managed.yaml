@@ -1,0 +1,69 @@
+name: tomecms
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tomecms
+      POSTGRES_USER: tomecms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tomecms -d tomecms"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.46
+    command:
+      - mini
+      - -dir=/data
+      - -bucket=${S3_BUCKET}
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -s3.allowedOrigins=${TOME_CMS_PUBLIC_URL}
+      - -admin.ui=false
+      - -webdav=false
+      - -s3.port.iceberg=0
+      - -s3.port.lance=0
+      - -master.telemetry=false
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sS", "--max-time", "2", "-o", "/dev/null", "http://127.0.0.1:8333/"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes: ["seaweedfs-data:/data"]
+    configs:
+      - source: seaweedfs-s3-config
+        target: /etc/seaweedfs/s3.json
+    ports: ["127.0.0.1:${S3_PORT:-9000}:8333"]
+  app:
+    image: ${TOME_CMS_APP_IMAGE:?TOME_CMS_APP_IMAGE must be an official digest}
+    env_file: /etc/tome-cms/tome-cms.env
+    environment:
+      DATABASE_URL: postgresql://tomecms:${POSTGRES_PASSWORD}@postgres:5432/tomecms
+      NODE_ENV: production
+      TOME_CMS_UPDATE_MODE: managed
+      TOME_CMS_UPDATER_SOCKET: /run/tome-cms/updater.sock
+    volumes:
+      - /run/tome-cms:/run/tome-cms
+    group_add:
+      - ${TOME_CMS_UPDATER_GID:?TOME_CMS_UPDATER_GID is required}
+    depends_on:
+      postgres: { condition: service_healthy }
+      seaweedfs: { condition: service_healthy }
+    restart: unless-stopped
+    ports: ["127.0.0.1:${APP_PORT:-4321}:4321"]
+volumes:
+  postgres-data:
+    name: tomecms_postgres-data
+  seaweedfs-data:
+    name: tomecms_seaweedfs-data
+configs:
+  seaweedfs-s3-config:
+    file: /opt/tome-cms/config/seaweedfs-s3.json
