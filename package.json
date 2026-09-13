@@ -14,6 +14,7 @@
     "dev:macos": "./scripts/dev-local-macos.sh",
     "dev:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-local-windows.ps1",
     "build": "astro build",
+    "build:updater": "tsc -p tsconfig.updater.json",
     "preview": "astro preview",
     "version": "npm run check && npm run build",
     "check": "astro check && node --import tsx scripts/reset-installation.mjs --self-test && node --import tsx scripts/backup.ts --self-test && node --import tsx scripts/restore-check.ts --self-test && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",

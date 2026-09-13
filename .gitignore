@@ -1,5 +1,6 @@
 node_modules/
 dist/
+/dist-updater/
 .astro/
 
 # Local environment
