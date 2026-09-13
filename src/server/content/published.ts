@@ -62,7 +62,7 @@ function newer(...values: Array<Date | string | null | undefined>): Date {
   return new Date(Math.max(0, ...values.map((value) => value ? new Date(value).getTime() : 0)));
 }
 
-async function enrichPosts(ownerId: string, posts: Post[]): Promise<PublishedPost[]> {
+export async function enrichPosts(ownerId: string, posts: Post[]): Promise<PublishedPost[]> {
   if (!posts.length) return [];
   const groupIds = [...new Set(posts.map(({ translation_group_id }) => translation_group_id))];
   const mediaIds = [...new Set(posts.flatMap((post) => [
@@ -141,7 +141,7 @@ async function enrichPosts(ownerId: string, posts: Post[]): Promise<PublishedPos
   });
 }
 
-async function enrichPages(ownerId: string, pages: Page[]): Promise<PublishedPage[]> {
+export async function enrichPages(ownerId: string, pages: Page[]): Promise<PublishedPage[]> {
   if (!pages.length) return [];
   const groupIds = [...new Set(pages.map(({ translation_group_id }) => translation_group_id))];
   const mediaIds = [...new Set(pages.flatMap((page) => editorMediaIds(page.content_json)))];

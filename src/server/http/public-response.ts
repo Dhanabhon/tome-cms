@@ -53,6 +53,7 @@ export function privatePreviewJson(request: Request, value: unknown, startedAt?:
     headers: {
       'Cache-Control': 'private, no-store',
       'Content-Type': 'application/json; charset=utf-8',
+      'Referrer-Policy': 'no-referrer',
       'X-Request-ID': requestId,
     },
   });

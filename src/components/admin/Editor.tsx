@@ -6,6 +6,7 @@ import { adminHref } from '../../lib/admin';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
+import createPreviewUrl from './createPreviewUrl';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
 interface EditorSourcePost {
@@ -154,14 +155,17 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
     actionPending.current = true;
     setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
+    let failureState = 'save-error';
     try {
       let saved = await persist();
       while (dirtyRef.current) saved = await persist();
-      if (!previewWindow.closed) previewWindow.location.replace(adminHref({ admin_path: adminPath }, `/preview/${saved.id}`));
+      failureState = 'preview-error';
+      const previewUrl = await createPreviewUrl('post', saved.id);
+      if (!previewWindow.closed) previewWindow.location.replace(previewUrl);
     } catch {
       const returnTo = postId.current ? adminHref({ admin_path: adminPath }, `/edit/${postId.current}`) : window.location.pathname + window.location.search;
       if (!previewWindow.closed) previewWindow.location.replace(
-        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
+        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=${failureState}&returnTo=${encodeURIComponent(returnTo)}`,
       );
     } finally {
       actionPending.current = false;
