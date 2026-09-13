@@ -72,6 +72,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
   const dependencies = { ...defaults, ...input.dependencies };
   const command = commandRunner(dependencies);
   const compose = composePrefix(config);
+  const names = oneShotNames(job.id);
   let verified: VerifiedRelease | undefined;
   let quiesced = false;
   let migrationStarted = false;
@@ -88,11 +89,11 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await state.transitionJob(job.id, 'downloading', { targetImageDigest: verified.manifest.image.digest });
     await command(['pull', verified.imageReference], 15 * 60_000);
     errorCode = 'incompatible_update';
-    const inventory = await command([
-      'run', '--rm', '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
+    const inventory = await runOneShot(names.inventory, [
+      'run', '--rm', '--name', names.inventory, '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
       '--security-opt', 'no-new-privileges', '--entrypoint', 'node', verified.imageReference,
       '--import', 'tsx', '--input-type=module', '-e', migrationInventoryScript,
-    ], 30_000);
+    ], 30_000, dependencies);
     verifyMigrationInventory(inventory, verified.manifest.compatibility.targetMigration);
 
     errorCode = 'backup_failed';
@@ -102,11 +103,11 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await dependencies.sleep(2_000);
     await command([...compose, 'stop', '--timeout', '30', 'app'], 30_000);
     await state.transitionJob(job.id, 'backing_up');
-    const output = await command([
-      ...compose, 'run', '--rm', '--no-deps', '--user', identity,
+    const output = await runOneShot(names.backup, [
+      ...compose, 'run', '--rm', '--name', names.backup, '--no-deps', '--user', identity,
       '--volume', `${config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--',
       '--offline', '--direct', '--json', '--output-root', '/backups',
-    ], 60 * 60_000);
+    ], 60 * 60_000, dependencies);
     const backup = await validateBackup(output, config, installed.version);
     // Persist the recovery reference before image selection can change (including a crash here).
     await state.recordBackup(job.id, backup);
@@ -114,7 +115,8 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     errorCode = 'migration_failed';
     await state.transitionJob(job.id, 'migrating');
     migrationStarted = true;
-    await command([...compose, 'run', '--rm', '--no-deps', 'app', 'npm', 'run', 'db:migrate'], 15 * 60_000);
+    await runOneShot(names.migration, [...compose, 'run', '--rm', '--name', names.migration, '--no-deps',
+      'app', 'npm', 'run', 'db:migrate'], 15 * 60_000, dependencies);
     errorCode = 'health_failed';
     await state.transitionJob(job.id, 'restarting');
     await startApp(config, dependencies);
@@ -122,11 +124,13 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await awaitReadiness(config, dependencies);
     await state.writeInstalled({ ...installed, version: input.version,
       imageDigest: verified.manifest.image.digest, installedAt: dependencies.now().toISOString() });
-    return await state.transitionJob(job.id, 'succeeded');
-  } catch {
-    if (quiesced && migrationStarted && (!verified ||
-      compareStableVersions(installed.version, verified.manifest.compatibility.rollbackSafeFrom) < 0)) {
-      return state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' });
+    return await finishJob(state, job.id, () => state.transitionJob(job.id, 'succeeded'));
+  } catch (error) {
+    const committed = await repairCommittedTerminal(state, job.id);
+    if (committed) return committed;
+    if (error instanceof OneShotCleanupError || (quiesced && migrationStarted && (!verified ||
+      compareStableVersions(installed.version, verified.manifest.compatibility.rollbackSafeFrom) < 0))) {
+      return finishJob(state, job.id, () => state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' }));
     }
     try {
       await state.transitionJob(job.id, 'rolling_back', { errorCode });
@@ -137,9 +141,11 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
         // installed.json may have committed immediately before the final status write failed.
         if ((await state.readInstalled()).imageDigest !== installed.imageDigest) await state.writeInstalled(installed);
       }
-      return await state.transitionJob(job.id, 'rolled_back', { errorCode });
+      return await finishJob(state, job.id, () => state.transitionJob(job.id, 'rolled_back', { errorCode }));
     } catch {
-      return state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' });
+      const committed = await repairCommittedTerminal(state, job.id);
+      if (committed) return committed;
+      return finishJob(state, job.id, () => state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' }));
     }
   }
 }
@@ -150,13 +156,22 @@ export async function reconcileUpdate(input: {
   dependencies?: UpdateDependencies;
 }): Promise<UpdateJob | null> {
   const job = await input.state.readJob();
-  if (!job || terminal.has(job.phase)) {
-    // /run is volatile across host reboots; rebuild the sanitized mirror from durable state.
-    await input.state.writeInstalled(await input.state.readInstalled());
-    return job;
-  }
   const dependencies = { ...defaults, ...input.dependencies };
+  if (!job || terminal.has(job.phase)) {
+    if (job?.phase === 'failed_manual_recovery') {
+      try {
+        for (const name of Object.values(oneShotNames(job.id))) await cleanOneShot(name, dependencies);
+        console.info('Manual-recovery one-shot cleanup verified; operator repair still required');
+      } catch {
+        console.error('Manual-recovery one-shot cleanup could not be verified');
+      }
+    }
+    // /run is volatile across host reboots; rebuild the sanitized mirror from durable state.
+    return input.state.refreshStatus();
+  }
   try {
+    // Docker CLI death does not imply container death, including after a host-service restart.
+    for (const name of Object.values(oneShotNames(job.id))) await cleanOneShot(name, dependencies);
     const configured = await readFile(input.config.imageEnvironmentFile, 'utf8');
     const command = commandRunner(dependencies);
     const containerId = (await command([...composePrefix(input.config), 'ps', '--quiet', 'app'], 30_000)).trim();
@@ -180,9 +195,71 @@ export async function reconcileUpdate(input: {
     if (installed.version !== version || installed.imageDigest !== imageDigest) {
       await input.state.writeInstalled({ ...installed, version, imageDigest, installedAt: dependencies.now().toISOString() });
     }
-    return await input.state.reconcileJob(job.id, targetRunning ? 'succeeded' : 'rolled_back');
+    return await finishJob(input.state, job.id, () => input.state.reconcileJob(job.id, targetRunning ? 'succeeded' : 'rolled_back'));
   } catch {
-    return input.state.reconcileJob(job.id, 'failed_manual_recovery');
+    const committed = await repairCommittedTerminal(input.state, job.id);
+    if (committed) return committed;
+    return finishJob(input.state, job.id, () => input.state.reconcileJob(job.id, 'failed_manual_recovery'));
+  }
+}
+
+async function repairCommittedTerminal(state: UpdaterStateStore, id: string): Promise<UpdateJob | null> {
+  const durable = await state.readJob();
+  if (!durable || durable.id !== id || !terminal.has(durable.phase)) return null;
+  // The job rename may have succeeded even when its subsequent runtime mirror write failed.
+  await state.refreshStatus();
+  return durable;
+}
+
+async function finishJob(state: UpdaterStateStore, id: string, persist: () => Promise<UpdateJob>): Promise<UpdateJob> {
+  try { return await persist(); }
+  catch (error) {
+    const committed = await repairCommittedTerminal(state, id);
+    if (committed) return committed;
+    throw error;
+  }
+}
+
+function oneShotNames(id: string): { inventory: string; backup: string; migration: string } {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error('Invalid updater job ID');
+  }
+  const prefix = `tomecms-update-${id.toLowerCase()}`;
+  return { inventory: `${prefix}-inventory`, backup: `${prefix}-backup`, migration: `${prefix}-migration` };
+}
+
+class OneShotCleanupError extends Error {
+  constructor() { super('One-shot container cleanup could not be verified'); }
+}
+
+async function runOneShot(name: string, args: readonly string[], timeoutMs: number, dependencies: UpdateDependencies): Promise<string> {
+  let output: string;
+  try {
+    output = await commandRunner(dependencies)(args, timeoutMs);
+  } catch (error) {
+    await cleanOneShot(name, dependencies, true);
+    throw error;
+  }
+  // --rm should have completed before the attached CLI exits successfully.
+  if (await cleanOneShot(name, dependencies)) throw new Error('One-shot container outlived successful CLI');
+  return output;
+}
+
+async function cleanOneShot(name: string, dependencies: UpdateDependencies, force = false): Promise<boolean> {
+  const command = commandRunner(dependencies);
+  const probe = ['ps', '--all', '--filter', `name=^/${name}$`, '--format', '{{.Names}}'];
+  const remove = () => dependencies.runCommand('docker', ['rm', '--force', name], { timeoutMs: 30_000 }).catch(() => undefined);
+  try {
+    if (force) await remove();
+    const output = (await command(probe, 30_000)).trim();
+    if (!output) return false;
+    if (output !== name || force) throw new OneShotCleanupError();
+    await remove();
+    if ((await command(probe, 30_000)).trim()) throw new OneShotCleanupError();
+    return true;
+  } catch {
+    // A failed removal is safe only if a successful daemon query proves absence.
+    throw new OneShotCleanupError();
   }
 }
 

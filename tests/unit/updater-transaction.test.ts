@@ -67,6 +67,12 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
   let runningDigest = targetDigest;
   let migrationOutput = JSON.stringify(['001_system', '999_future_migration']);
   let backupOutput = JSON.stringify(report);
+  let interrupted = '';
+  let rejectInterrupted = false;
+  let cleanupFails = false;
+  let successfulLeftover = '';
+  const containers = new Set<string>();
+  const lifecycle: string[] = [];
   const commands: Array<{ args: readonly string[]; timeoutMs: number }> = [];
   const dependencies: UpdateDependencies = {
     runPreflight: async () => { events.push('preflight'); },
@@ -78,6 +84,18 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     runCommand: async (executable, args, options) => {
       assert.equal(executable, 'docker');
       commands.push({ args, timeoutMs: options.timeoutMs });
+      if (args[0] === 'ps') {
+        const filter = args[args.indexOf('--filter') + 1];
+        const name = filter.slice('name=^/'.length, -1);
+        lifecycle.push(`check:${name}`);
+        return { code: 0, stdout: containers.has(name) ? `${name}\n` : '', stderr: '' };
+      }
+      if (args[0] === 'rm') {
+        const name = args.at(-1)!;
+        lifecycle.push(`remove:${name}`);
+        if (!cleanupFails) containers.delete(name);
+        return { code: cleanupFails ? 1 : 0, stdout: '', stderr: '' };
+      }
       let event: string;
       let stdout = '';
       if (args[0] === 'pull') event = 'pull';
@@ -91,10 +109,20 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
         assert.equal(await readFile(config.imageEnvironmentFile, 'utf8'), imageEnv(previous.imageDigest));
       } else if (args.includes('db:migrate')) event = 'migrate';
       else if (args.includes('up')) {
+        assert.equal(containers.size, 0, 'must prove all one-shot containers absent before starting app');
         const selected = await readFile(config.imageEnvironmentFile, 'utf8');
         event = selected === imageEnv(targetDigest) ? 'start-target' : 'start-previous';
       } else throw new Error(`Unexpected command ${args.join(' ')}`);
       events.push(event);
+      if (event === interrupted || event === successfulLeftover) {
+        const name = args[args.indexOf('--name') + 1];
+        assert.match(name, /^tomecms-update-[0-9a-f-]{36}-(backup|migration|inventory)$/);
+        containers.add(name);
+        if (event === interrupted) {
+          if (rejectInterrupted) throw new Error('CLI interrupted');
+          return { code: 124, stdout: '', stderr: 'CLI timeout' };
+        }
+      }
       if (failure === event) return { code: 1, stdout: '', stderr: 'private failure' };
       return { code: 0, stdout, stderr: '' };
     },
@@ -114,7 +142,10 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     now: () => new Date('2026-09-20T10:02:00.000Z'),
   };
   const input = { version: '1.0.1', requestId: randomUUID(), updaterVersion: '1.0.0', config, state, dependencies };
-  return { input, root, state, events, commands, backup, report, manifest,
+  return { input, root, state, events, commands, backup, report, manifest, containers, lifecycle,
+    interrupt: (stage: string, reject = false) => { interrupted = stage; rejectInterrupted = reject; },
+    failCleanup: () => { cleanupFails = true; },
+    leaveOnSuccess: (stage: string) => { successfulLeftover = stage; },
     fail: (value: string) => { failure = value; }, unready: () => { readiness = false; },
     running: (digest: string) => { runningDigest = digest; },
     migrations: (value: string) => { migrationOutput = value; },
@@ -135,14 +166,131 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   assert.ok(await readFile(join(f.backup, 'manifest.json')));
   const prefix = ['compose', '-p', 'tomecms', '-f', f.input.config.composeFile,
     '--env-file', f.input.config.environmentFile, '--env-file', f.input.config.imageEnvironmentFile];
-  assert.deepEqual(f.commands[0], { args: ['pull', targetImage], timeoutMs: 900000 });
-  assert.ok(f.commands[1].args.includes(targetImage));
-  assert.ok(!f.commands[1].args.includes('sh'));
-  assert.deepEqual(f.commands[2], { args: [...prefix, 'stop', '--timeout', '30', 'app'], timeoutMs: 30000 });
-  assert.deepEqual(f.commands[3], { args: [...prefix, 'run', '--rm', '--no-deps', '--user', `${process.getuid!()}:${process.getgid!()}`,
+  const commands = f.commands.filter(({ args }) => args[0] !== 'ps' && args[0] !== 'rm');
+  assert.deepEqual(commands[0], { args: ['pull', targetImage], timeoutMs: 900000 });
+  assert.ok(commands[1].args.includes(targetImage));
+  assert.ok(commands[1].args.includes(`tomecms-update-${job.id}-inventory`));
+  assert.ok(!commands[1].args.includes('sh'));
+  assert.deepEqual(commands[2], { args: [...prefix, 'stop', '--timeout', '30', 'app'], timeoutMs: 30000 });
+  assert.deepEqual(commands[3], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-backup`, '--no-deps', '--user', `${process.getuid!()}:${process.getgid!()}`,
     '--volume', `${f.input.config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--', '--offline', '--direct', '--json', '--output-root', '/backups'], timeoutMs: 3600000 });
-  assert.deepEqual(f.commands[4], { args: [...prefix, 'run', '--rm', '--no-deps', 'app', 'npm', 'run', 'db:migrate'], timeoutMs: 900000 });
-  assert.deepEqual(f.commands[5], { args: [...prefix, 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '90', 'app'], timeoutMs: 90000 });
+  assert.deepEqual(commands[4], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-migration`, '--no-deps', 'app', 'npm', 'run', 'db:migrate'], timeoutMs: 900000 });
+  assert.deepEqual(commands[5], { args: [...prefix, 'up', '-d', '--no-deps', '--wait', '--wait-timeout', '90', 'app'], timeoutMs: 90000 });
+  assert.deepEqual(f.lifecycle, ['inventory', 'backup', 'migration'].map((kind) => `check:tomecms-update-${job.id}-${kind}`));
+});
+
+for (const stage of ['migrations', 'backup', 'migrate']) {
+  for (const reject of [false, true]) test(`${stage} CLI interruption cleans named container before releasing or restarting`, async (t) => {
+    const f = await fixture(t); f.interrupt(stage, reject);
+    const job = await applyUpdate(f.input);
+    assert.equal(job.phase, 'rolled_back');
+    assert.equal(f.containers.size, 0);
+    const kind = stage === 'migrations' ? 'inventory' : stage === 'migrate' ? 'migration' : 'backup';
+    assert.ok(f.lifecycle.includes(`remove:tomecms-update-${job.id}-${kind}`));
+    if (stage === 'migrations') assert.equal(f.events.includes('stop'), false);
+    else assert.ok(f.events.includes('start-previous'));
+  });
+  test(`${stage} cleanup failure requires manual recovery without restarting app`, async (t) => {
+    const f = await fixture(t); f.interrupt(stage); f.failCleanup();
+    const job = await applyUpdate(f.input);
+    assert.equal(job.phase, 'failed_manual_recovery');
+    assert.equal(f.containers.size, 1);
+    assert.equal(f.events.includes('start-previous'), false);
+    assert.equal(f.events.includes('state:rolled_back'), false);
+    await assert.rejects(() => applyUpdate({ ...f.input, requestId: randomUUID() }), /manual recovery/i);
+  });
+}
+
+test('successful CLI exit cannot pass while its one-shot container still exists', async (t) => {
+  const f = await fixture(t); f.leaveOnSuccess('backup');
+  assert.equal((await applyUpdate(f.input)).phase, 'rolled_back');
+  assert.equal(f.containers.size, 0);
+  assert.equal(f.events.includes('migrate'), false);
+});
+
+test('boot cleans interrupted job one-shots before readiness, or requires manual recovery', async (t) => {
+  for (const failed of [false, true]) {
+    const f = await fixture(t);
+    const job = await f.state.createJob({ requestId: f.input.requestId, targetVersion: '1.0.1' });
+    for (const kind of ['backup', 'migration', 'inventory']) f.containers.add(`tomecms-update-${job.id}-${kind}`);
+    f.running(previous.imageDigest);
+    if (failed) f.failCleanup();
+    const result = await reconcileUpdate(f.input);
+    assert.equal(result?.phase, failed ? 'failed_manual_recovery' : 'rolled_back');
+    if (failed) assert.equal(f.events.includes('health-previous'), false);
+    else assert.equal(f.containers.size, 0);
+  }
+});
+
+test('repairs runtime mirror after durable succeeded commits, without rolling back installed target', async (t) => {
+  const f = await fixture(t);
+  const transition = f.state.transitionJob.bind(f.state);
+  let injected = false;
+  f.state.transitionJob = async (...args) => {
+    if (args[1] !== 'succeeded') return transition(...args);
+    const statusPath = f.input.config.statusPath;
+    // Force only the runtime write to fail after the durable job rename succeeds.
+    f.input.config.statusPath = join(f.input.config.environmentFile, 'not-a-directory');
+    try { return await transition(...args); }
+    finally { f.input.config.statusPath = statusPath; injected = true; }
+  };
+  const result = await applyUpdate(f.input);
+  assert.ok(injected);
+  assert.equal(result.phase, 'succeeded');
+  assert.equal((await f.state.readInstalled()).imageDigest, targetDigest);
+  assert.equal(JSON.parse(await readFile(f.input.config.statusPath, 'utf8')).job.phase, 'succeeded');
+  assert.equal(f.events.includes('start-previous'), false);
+  assert.equal(f.events.includes('state:rolling_back'), false);
+  const commandCount = f.commands.length;
+  await writeFile(f.input.config.statusPath, JSON.stringify({ job: { phase: 'health_check' } }));
+  assert.equal((await reconcileUpdate(f.input))?.phase, 'succeeded');
+  assert.equal(JSON.parse(await readFile(f.input.config.statusPath, 'utf8')).job.phase, 'succeeded');
+  assert.equal(f.commands.length, commandCount);
+});
+
+test('failure to query one-shot absence blocks rollback even after successful removal', async (t) => {
+  const f = await fixture(t); f.interrupt('migrate');
+  const run = f.input.dependencies.runCommand;
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    if (args[0] === 'ps' && args.some((arg) => arg.endsWith('-migration$'))) {
+      return { code: 1, stdout: '', stderr: 'daemon unavailable' };
+    }
+    return run(executable, args, options);
+  };
+  assert.equal((await applyUpdate(f.input)).phase, 'failed_manual_recovery');
+  assert.equal(f.events.includes('start-previous'), false);
+  assert.equal(f.containers.size, 0);
+});
+
+test('socket fallback repairs a terminal manual-recovery mirror write failure', async (t) => {
+  const f = await fixture(t);
+  const transition = f.state.transitionJob.bind(f.state);
+  f.state.transitionJob = async (...args) => {
+    if (args[1] !== 'failed_manual_recovery') return transition(...args);
+    const statusPath = f.input.config.statusPath;
+    f.input.config.statusPath = join(f.input.config.environmentFile, 'not-a-directory');
+    try { return await transition(...args); }
+    finally { f.input.config.statusPath = statusPath; }
+  };
+  let refreshed!: () => void;
+  const repaired = new Promise<void>((resolve) => { refreshed = resolve; });
+  const refresh = f.state.refreshStatus.bind(f.state);
+  f.state.refreshStatus = async () => { const result = await refresh(); refreshed(); return result; };
+  const server = createUpdaterServer({ state: f.state,
+    apply: ({ version, requestId }) => f.state.createJob({ targetVersion: version, requestId }),
+    execute: async () => { throw new Error('Transaction interrupted'); },
+  });
+  const socketPath = join(f.root, 'fallback.sock');
+  server.listen(socketPath); await once(server, 'listening');
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  const accepted = await new Promise<number>((resolve, reject) => {
+    const req = request({ socketPath, path: '/v1/apply', method: 'POST' }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode!)); });
+    req.on('error', reject); req.end(JSON.stringify({ version: '1.0.1', requestId: randomUUID() }));
+  });
+  assert.equal(accepted, 202);
+  await repaired;
+  assert.equal((await f.state.readJob())?.phase, 'failed_manual_recovery');
+  assert.equal(JSON.parse(await readFile(f.input.config.statusPath, 'utf8')).job.phase, 'failed_manual_recovery');
 });
 
 for (const failure of ['verify', 'pull', 'migrations']) test(`${failure} failure leaves app and installed image untouched`, async (t) => {
@@ -259,14 +407,17 @@ test('concurrent direct callers cannot adopt the same preflight reservation twic
   assert.equal(f.events.filter((e) => e === 'migrate').length, 1);
 });
 
-test('boot rebuilds a missing runtime mirror and keeps manual recovery durable without commands', async (t) => {
+test('boot rebuilds a missing runtime mirror and keeps manual recovery durable after cleanup', async (t) => {
   const f = await fixture(t);
   const job = await f.state.createJob({ requestId: randomUUID(), targetVersion: '1.0.1' });
   await f.state.transitionJob(job.id, 'failed_manual_recovery');
+  f.containers.add(`tomecms-update-${job.id}-migration`);
   await rm(f.input.config.statusPath);
   assert.equal((await reconcileUpdate(f.input))?.phase, 'failed_manual_recovery');
   assert.equal(JSON.parse(await readFile(f.input.config.statusPath, 'utf8')).job.phase, 'failed_manual_recovery');
-  assert.deepEqual(f.commands, []);
+  assert.equal(f.containers.size, 0);
+  assert.ok(f.commands.every(({ args }) => args[0] === 'ps' || args[0] === 'rm'));
+  await assert.rejects(() => f.state.createJob({ requestId: randomUUID(), targetVersion: '1.0.2' }), /manual recovery/i);
 });
 
 test('socket cleanup refuses non-sockets and live listeners', async (t) => {

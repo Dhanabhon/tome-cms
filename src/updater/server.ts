@@ -69,7 +69,13 @@ export function createUpdaterServer(input: {
               const latest = await input.state.readJob();
               if (latest?.id === job.id && !isTerminal(latest.phase)) {
                 await input.state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' });
+              } else if (latest?.id === job.id) {
+                await input.state.refreshStatus();
               }
+            }).catch(async (error) => {
+              const latest = await input.state.readJob();
+              if (latest?.id === job.id && isTerminal(latest.phase)) return input.state.refreshStatus();
+              throw error;
             }).catch(() => { console.error('Updater recovery state could not be persisted'); })
               .finally(() => { active = false; });
           }
