@@ -11,6 +11,7 @@ import { sql } from 'kysely';
 import { z } from 'zod';
 
 import { isTomeObjectKey } from '../src/server/media/keys';
+import type { ServerEnv } from '../src/server/env';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
@@ -50,16 +51,27 @@ export function safeBackupRoot(input: string, root = repository): string {
   return output;
 }
 
-export function parseBackupOptions(args: string[]): { offline: true; outputRoot: string } {
+export interface BackupOptions {
+  offline: true;
+  direct: boolean;
+  json: boolean;
+  outputRoot: string;
+}
+
+export function parseBackupOptions(args: string[]): BackupOptions {
   let offline = false;
+  let direct = false;
+  let json = false;
   let outputRoot = '';
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === '--offline') offline = true;
+    else if (args[index] === '--direct') direct = true;
+    else if (args[index] === '--json') json = true;
     else if (args[index] === '--output-root' && args[index + 1]) outputRoot = args[++index]!;
-    else throw new Error('Usage: npm run backup -- --offline --output-root /absolute/backup/path');
+    else throw new Error('Usage: npm run backup -- --offline [--direct] [--json] --output-root /absolute/backup/path');
   }
-  if (!offline || !outputRoot) throw new Error('Usage: npm run backup -- --offline --output-root /absolute/backup/path');
-  return { offline: true, outputRoot: safeBackupRoot(outputRoot) };
+  if (!offline || !outputRoot) throw new Error('Usage: npm run backup -- --offline [--direct] [--json] --output-root /absolute/backup/path');
+  return { offline: true, direct, json, outputRoot: safeBackupRoot(outputRoot) };
 }
 
 export async function sha256File(path: string): Promise<string> {
@@ -84,6 +96,43 @@ async function dumpDatabase(destination: string): Promise<void> {
     'pg_dump', '--host=127.0.0.1', '--username=tomecms', '--dbname=tomecms',
     '--format=custom', '--no-owner', '--no-privileges',
   ], { cwd: repository, stdio: ['ignore', 'pipe', 'ignore'] });
+  child.stdout.pipe(output);
+  const [code] = await Promise.all([
+    new Promise<number | null>((resolveExit, reject) => {
+      child.once('error', reject);
+      child.once('close', resolveExit);
+    }),
+    finished(output),
+  ]);
+  if (code !== 0) throw new Error('Database dump failed.');
+}
+
+export interface PgDumpInvocation {
+  executable: 'pg_dump';
+  args: string[];
+  env: NodeJS.ProcessEnv;
+}
+
+export function directPgDumpInvocation(databaseUrl: string): PgDumpInvocation {
+  const url = new URL(databaseUrl);
+  const password = decodeURIComponent(url.password);
+  url.password = '';
+  const { DATABASE_URL: _databaseUrl, PGPASSWORD: _password, ...env } = process.env;
+  return {
+    executable: 'pg_dump',
+    args: [`--dbname=${url}`, '--format=custom', '--no-owner', '--no-privileges'],
+    env: { ...env, PGPASSWORD: password },
+  };
+}
+
+async function dumpDatabaseDirect(destination: string, databaseUrl: string): Promise<void> {
+  const output = createWriteStream(destination, { flags: 'wx', mode: 0o600 });
+  const invocation = directPgDumpInvocation(databaseUrl);
+  const child = spawn(invocation.executable, invocation.args, {
+    cwd: repository,
+    env: invocation.env,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
   child.stdout.pipe(output);
   const [code] = await Promise.all([
     new Promise<number | null>((resolveExit, reject) => {
@@ -143,25 +192,35 @@ async function mirrorObjects(destination: string): Promise<BackupManifest['objec
 }
 
 async function main(): Promise<void> {
-  const { outputRoot } = parseBackupOptions(process.argv.slice(2));
+  const options = parseBackupOptions(process.argv.slice(2));
+  const { outputRoot } = options;
   await mkdir(outputRoot, { recursive: true, mode: 0o700 });
   const verifiedRoot = safeBackupRoot(await realpath(outputRoot), await realpath(repository));
-  if (composeOutput(['ps', '-q', 'app'])) throw new Error('Stop the Compose application before taking an offline backup.');
+  if (!options.direct && composeOutput(['ps', '-q', 'app'])) throw new Error('Stop the Compose application before taking an offline backup.');
 
   const createdAt = new Date();
   const destination = join(verifiedRoot, `tomecms-${createdAt.toISOString().replace(/[-:.]/g, '')}`);
   await mkdir(destination, { mode: 0o700 });
   const databaseFile = join(destination, 'database.dump');
-  await dumpDatabase(databaseFile);
+  let env: ServerEnv | undefined;
+  if (options.direct) {
+    const { getServerEnv } = await import('../src/server/env');
+    env = getServerEnv();
+    await dumpDatabaseDirect(databaseFile, env.DATABASE_URL);
+  } else {
+    await dumpDatabase(databaseFile);
+  }
   const [records, objects] = await Promise.all([
     recordCounts(),
     mirrorObjects(join(destination, 'objects')),
   ]);
-  const [{ getServerEnv }, packageJson] = await Promise.all([
-    import('../src/server/env'),
+  const [packageJson] = await Promise.all([
     readFile(join(repository, 'package.json'), 'utf8').then((value) => z.object({ version: z.string() }).parse(JSON.parse(value))),
   ]);
-  const env = getServerEnv();
+  if (!env) {
+    const { getServerEnv } = await import('../src/server/env');
+    env = getServerEnv();
+  }
   const database = decodeURIComponent(new URL(env.DATABASE_URL).pathname.slice(1));
   const manifest = backupManifestSchema.parse({
     format: 'tomecms-backup',
@@ -178,9 +237,14 @@ async function main(): Promise<void> {
     records,
     objects,
   });
-  await writeFile(join(destination, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-  console.log(`Backup complete: ${destination}`);
-  console.log(`Database records: ${records.posts + records.pages}; media objects: ${objects.length}`);
+  const manifestPath = join(destination, 'manifest.json');
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+  if (options.json) {
+    console.log(JSON.stringify({ backupDirectory: destination, manifestSha256: await sha256File(manifestPath) }));
+  } else {
+    console.log(`Backup complete: ${destination}`);
+    console.log(`Database records: ${records.posts + records.pages}; media objects: ${objects.length}`);
+  }
 }
 
 function selfTest(): void {

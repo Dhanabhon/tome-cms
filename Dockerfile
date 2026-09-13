@@ -22,10 +22,13 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=4321 \
     TOME_CMS_COMMIT_SHA=$TOME_CMS_COMMIT_SHA
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN apk add --no-cache postgresql-client
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/scripts/db-migrate.ts ./scripts/db-migrate.ts
+COPY --from=builder --chown=node:node /app/scripts/backup.ts ./scripts/backup.ts
 COPY --from=builder --chown=node:node /app/src/server/db ./src/server/db
 COPY --from=builder --chown=node:node /app/src/server/env.ts ./src/server/env.ts
+COPY --from=builder --chown=node:node /app/src/server/media ./src/server/media
 USER node
 EXPOSE 4321
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
