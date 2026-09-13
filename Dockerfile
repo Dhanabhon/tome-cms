@@ -29,6 +29,8 @@ COPY --from=builder --chown=node:node /app/scripts/backup.ts ./scripts/backup.ts
 COPY --from=builder --chown=node:node /app/src/server/db ./src/server/db
 COPY --from=builder --chown=node:node /app/src/server/env.ts ./src/server/env.ts
 COPY --from=builder --chown=node:node /app/src/server/media ./src/server/media
+COPY --from=builder --chown=node:node /app/src/lib/media.ts ./src/lib/media.ts
+RUN node --import tsx scripts/backup.ts --self-test
 USER node
 EXPOSE 4321
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

@@ -19,3 +19,40 @@ test('direct pg_dump keeps the database password out of argv', () => {
   assert.equal(invocation.env.DATABASE_URL, undefined);
   assert.deepEqual(invocation.args.slice(1), ['--format=custom', '--no-owner', '--no-privileges']);
 });
+
+test('direct pg_dump removes query passwords and keeps non-secret options', () => {
+  const parentPassword = process.env.PGPASSWORD;
+  process.env.PGPASSWORD = 'parent-secret';
+  try {
+    for (const { databaseUrl, password, secrets, retained } of [
+      {
+        databaseUrl: 'postgresql://tomecms@postgres:5432/tomecms?sslmode=require&%70assword=query%2Dsecret&application_name=backup',
+        password: 'query-secret',
+        secrets: ['query-secret', 'parent-secret'],
+        retained: ['sslmode=require', 'application_name=backup'],
+      },
+      {
+        databaseUrl: 'postgresql://tomecms:userinfo-secret@postgres:5432/tomecms?password=query-secret',
+        password: 'query-secret',
+        secrets: ['userinfo-secret', 'query-secret', 'parent-secret'],
+        retained: [],
+      },
+      {
+        databaseUrl: 'postgresql://tomecms@postgres:5432/tomecms?password=first-secret&password=last-secret&sslmode=require',
+        password: 'last-secret',
+        secrets: ['first-secret', 'last-secret', 'parent-secret'],
+        retained: ['sslmode=require'],
+      },
+    ]) {
+      const invocation = directPgDumpInvocation(databaseUrl);
+      const args = invocation.args.join(' ');
+
+      assert.equal(invocation.env.PGPASSWORD, password);
+      for (const secret of secrets) assert.ok(!args.includes(secret));
+      for (const option of retained) assert.ok(args.includes(option));
+    }
+  } finally {
+    if (parentPassword === undefined) delete process.env.PGPASSWORD;
+    else process.env.PGPASSWORD = parentPassword;
+  }
+});
