@@ -2,39 +2,26 @@ import type { APIRoute } from 'astro';
 import { isAuthError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { editorDocumentSchema, hasMeaningfulContent, hasMeaningfulHtml, MAX_DOCUMENT_BYTES, sanitizedContentHtmlSchema } from '../../../lib/editor-content';
+import { editorContentInputSchema, hasMeaningfulContent, hasMeaningfulHtml } from '../../../lib/editor-content';
 import { getSiteSettings } from '../../../lib/installation';
 import { RESERVED_PAGE_SLUGS, resolvePageSlug } from '../../../lib/pages';
 import { authenticate } from '../../../lib/supabase';
+import { prepareEditorContent, ValidationError, type StoredEditorContent } from '../../../server/content/editor';
 import { POST_LOCALES, POST_STATUSES, type PageInsert, type PageLocale, type PageStatus, type PageUpdate } from '../../../types/cms';
 
-const pageSchema = z
-  .object({
+const pageSchema = editorContentInputSchema
+  .safeExtend({
     title: z.string().trim().min(1).max(200),
     slug: z.union([
       z.string().trim().max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
       z.literal(''),
     ]).optional(),
-    contentJson: editorDocumentSchema,
-    contentHtml: sanitizedContentHtmlSchema,
     metaTitle: z.union([z.string().trim().max(70), z.null()]).optional(),
     metaDescription: z.union([z.string().trim().max(320), z.null()]).optional(),
     status: z.enum(POST_STATUSES),
-  })
-  .strict()
-  .superRefine(({ contentJson }, context) => {
-    if (JSON.stringify(contentJson).length > MAX_DOCUMENT_BYTES) {
-      context.addIssue({ code: 'custom', message: 'Content JSON is too large.', path: ['contentJson'] });
-    }
   });
 
-const publishablePageSchema = pageSchema.superRefine(({ contentJson, contentHtml, status }, context) => {
-  if (status === 'published' && (!hasMeaningfulContent(contentJson) || !hasMeaningfulHtml(contentHtml))) {
-    context.addIssue({ code: 'custom', message: 'Add content before publishing.', path: ['contentJson'] });
-  }
-});
-
-const createSchema = publishablePageSchema
+const createSchema = pageSchema
   .safeExtend({
     locale: z.enum(POST_LOCALES).optional(),
     sourcePageId: z.uuid().optional(),
@@ -45,12 +32,13 @@ const createSchema = publishablePageSchema
     }
   });
 
-const updateSchema = publishablePageSchema.safeExtend({ id: z.uuid() });
+const updateSchema = pageSchema.safeExtend({ id: z.uuid() });
 const statusSchema = z.object({ id: z.uuid(), status: z.enum(POST_STATUSES) }).strict();
 
 function pageValues(
   input: z.infer<typeof pageSchema>,
   slug: string,
+  content: StoredEditorContent,
   serverValues: { authorId?: string; locale?: PageLocale; translationGroupId?: string } = {},
 ): PageInsert | PageUpdate {
   return {
@@ -59,12 +47,27 @@ function pageValues(
     ...(serverValues.translationGroupId ? { translation_group_id: serverValues.translationGroupId } : {}),
     title: input.title,
     slug,
-    content_json: input.contentJson,
-    content_html: input.contentHtml,
+    content_json: content.contentJson,
+    content_html: content.contentHtml,
     meta_title: input.metaTitle || null,
     meta_description: input.metaDescription || null,
     status: input.status as PageStatus,
   };
+}
+
+function preparePageContent(input: z.infer<typeof pageSchema>): { content: StoredEditorContent } | { response: Response } {
+  try {
+    const content = prepareEditorContent({ contentJson: input.contentJson });
+    if (input.status === 'published' && (!hasMeaningfulContent(content.contentJson) || !hasMeaningfulHtml(content.contentHtml))) {
+      return { response: Response.json({ error: 'Add content before publishing.' }, { status: 400 }) };
+    }
+    return { content };
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return { response: Response.json({ error: 'Invalid page payload.', issues: { contentJson: error.message } }, { status: 400 }) };
+    }
+    throw error;
+  }
 }
 
 function parseError(error: z.ZodError) {
@@ -143,6 +146,8 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     if ('response' in json) return json.response;
     const parsed = createSchema.safeParse(json.body);
     if (!parsed.success) return parseError(parsed.error);
+    const prepared = preparePageContent(parsed.data);
+    if ('response' in prepared) return prepared.response;
     const slug = resolvePageSlug(parsed.data.slug, parsed.data.title);
     const reserved = reservedSlugError(slug);
     if (reserved) return reserved;
@@ -160,7 +165,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       if (source.locale === parsed.data.locale) {
         return Response.json({ error: 'That language edition already exists.' }, { status: 409 });
       }
-      values = pageValues(parsed.data, slug, {
+      values = pageValues(parsed.data, slug, prepared.content, {
         authorId: auth.user.id,
         locale: parsed.data.locale,
         translationGroupId: source.translation_group_id,
@@ -170,7 +175,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       if (!settings) {
         return Response.json({ error: 'The site settings could not be loaded.' }, { status: 500 });
       }
-      values = pageValues(parsed.data, slug, {
+      values = pageValues(parsed.data, slug, prepared.content, {
         authorId: auth.user.id,
         locale: settings.default_locale,
       }) as PageInsert;
@@ -193,6 +198,8 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
     if ('response' in json) return json.response;
     const parsed = updateSchema.safeParse(json.body);
     if (!parsed.success) return parseError(parsed.error);
+    const prepared = preparePageContent(parsed.data);
+    if ('response' in prepared) return prepared.response;
     const { id, ...input } = parsed.data;
     const slug = resolvePageSlug(input.slug, input.title);
     const reserved = reservedSlugError(slug);
@@ -200,7 +207,7 @@ export const PUT: APIRoute = async ({ cookies, request }) => {
 
     const { data, error } = await auth.supabase
       .from('pages')
-      .update(pageValues(input, slug) as PageUpdate)
+      .update(pageValues(input, slug, prepared.content) as PageUpdate)
       .eq('id', id)
       .eq('author_id', auth.user.id)
       .select()
