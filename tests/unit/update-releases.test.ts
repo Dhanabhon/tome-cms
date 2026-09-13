@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { fetchLatestRelease } from '../../src/server/update/releases.js';
@@ -21,6 +22,7 @@ const validManifest = {
   },
   releaseNotesUrl: 'https://github.com/Dhanabhon/tome-cms/releases/tag/v1.0.1',
 };
+const validManifestDigest = `sha256:${createHash('sha256').update(JSON.stringify(validManifest)).digest('hex')}`;
 
 const validRelease = {
   tag_name: 'v1.0.1', draft: false, prerelease: false, immutable: true,
@@ -29,7 +31,7 @@ const validRelease = {
   assets: [{
     name: 'update-manifest.json',
     browser_download_url: 'https://github.com/Dhanabhon/tome-cms/releases/download/v1.0.1/update-manifest.json',
-    digest: `sha256:${'b'.repeat(64)}`,
+    digest: validManifestDigest,
   }],
 };
 
@@ -53,6 +55,15 @@ test('loads one immutable stable release and verifies asset metadata', async () 
   assert.equal(result.manifestAssetDigest, validRelease.assets[0].digest);
   assert.equal(result.etag, '"release-1"');
   assert.equal(calls.length, 2);
+});
+
+test('rejects downloaded manifest bytes that do not match the release asset digest', async () => {
+  await assert.rejects(fetchLatestRelease({
+    fetcher: releaseFetch({
+      ...validRelease,
+      assets: [{ ...validRelease.assets[0], digest: `sha256:${'f'.repeat(64)}` }],
+    }),
+  }), /digest/i);
 });
 
 test('rejects drafts, prereleases, mutable releases, duplicate assets and mismatched tags', async () => {

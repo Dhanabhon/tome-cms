@@ -17,10 +17,12 @@ type UpdateCheck = {
 };
 
 const terminalPhases = ['succeeded', 'rolled_back', 'failed_manual_recovery'];
+type ApplyResponseKind = 'refused' | 'ambiguous' | 'already_installed';
 
-export function getApplyResponseAction(observedJob: Pick<PublicUpdateJob, 'phase'> | null, definiteRefusal: boolean) {
+export function getApplyResponseAction(observedJob: Pick<PublicUpdateJob, 'phase'> | null, response: ApplyResponseKind) {
   if (observedJob) return terminalPhases.includes(observedJob.phase) ? 'ignore' : 'preserve';
-  return definiteRefusal ? 'stop' : 'continue';
+  if (response === 'already_installed') return 'refresh';
+  return response === 'refused' ? 'stop' : 'continue';
 }
 const steps = [
   ['preflight', 'Check prerequisites'], ['verifying', 'Verify the official update'],
@@ -144,22 +146,34 @@ export default function UpdateManager() {
           body: JSON.stringify({ action: 'apply', version }), signal: AbortSignal.timeout(10_000),
         });
       } catch { /* Polling determines whether an ambiguous request was accepted. */ }
-      const result = await response?.json().catch(() => null);
+      const result = await response?.json().catch(() => null) as {
+        outcome?: unknown;
+        job?: NonNullable<Extract<UpdaterStatus, { managed: true }>['job']>;
+        error?: unknown;
+      } | null | undefined;
       if (!mounted.current) return;
       const definiteRefusal = !!response && !response.ok && response.status < 500 && typeof result?.error === 'string';
-      const action = getApplyResponseAction(observedJob.current, definiteRefusal);
+      const kind = response?.status === 200 && result?.outcome === 'already_installed'
+        ? 'already_installed' : definiteRefusal ? 'refused' : 'ambiguous';
+      const action = getApplyResponseAction(observedJob.current, kind);
       if (action === 'ignore') return;
+      if (action === 'refresh') {
+        setWatch(null);
+        await load();
+        return;
+      }
       if (definiteRefusal) {
         if (action === 'stop') setWatch(null);
-        setError(result.error);
+        setError(typeof result?.error === 'string' ? result.error : 'Update request unavailable.');
         return;
       }
       if (action === 'preserve') return;
       // A lost/invalid response can follow an accepted job; keep reading durable status.
-      if (response?.status !== 202 || !result?.job) { setReconnecting(true); return; }
+      if (response?.status !== 202 || result?.outcome !== 'accepted' || !result.job) { setReconnecting(true); return; }
+      const acceptedJob = result.job;
       setCheck((current) => current && current.updater.managed
         && (!current.updater.job || current.updater.job.id === previousJobId)
-        ? { ...current, updater: { ...current.updater, job: result.job } } : current);
+        ? { ...current, updater: { ...current.updater, job: acceptedJob } } : current);
     } catch (failure) {
       if (mounted.current) setError(failure instanceof Error ? failure.message : 'Update request unavailable.');
     } finally {

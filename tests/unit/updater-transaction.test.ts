@@ -82,7 +82,7 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     verifyTargetRelease: async () => {
       events.push('verify');
       if (failure === 'verify') throw new Error('private failure');
-      return { manifest, manifestPath: '/unused', imageReference: targetImage };
+      return { manifest, imageReference: targetImage };
     },
     runCommand: async (executable, args, options) => {
       assert.equal(executable, 'docker');

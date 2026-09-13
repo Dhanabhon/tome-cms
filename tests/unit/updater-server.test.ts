@@ -43,6 +43,13 @@ test('exposes only bounded status and exact apply requests over the Unix socket'
     installed: { version: '1.0.0', imageDigest: installed.imageDigest }, job: null,
   });
 
+  const alreadyInstalled = await unixRequest(socketPath, 'POST', '/v1/apply', {
+    version: '1.0.0', requestId: crypto.randomUUID(),
+  });
+  assert.equal(alreadyInstalled.status, 200);
+  assert.deepEqual(alreadyInstalled.json, status.json);
+  assert.deepEqual(applied, []);
+
   const apply = { version: '1.0.1', requestId: '2cb65d31-2210-4cee-ab70-df64178948de' };
   assert.equal((await unixRequest(socketPath, 'POST', '/v1/apply', apply)).status, 202);
   assert.deepEqual(applied, [apply]);

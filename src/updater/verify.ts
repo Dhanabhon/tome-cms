@@ -40,7 +40,6 @@ const githubEnvironmentKeys = [
 
 export interface VerifiedRelease {
   manifest: UpdateManifest;
-  manifestPath: string;
   imageReference: string;
 }
 
@@ -122,7 +121,7 @@ export async function verifyTargetRelease(input: {
       diagnostics: input.diagnostics,
       dependencies,
     });
-    return { manifest, manifestPath, imageReference };
+    return { manifest, imageReference };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

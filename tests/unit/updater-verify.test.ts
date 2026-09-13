@@ -243,7 +243,6 @@ test('verifies the exact immutable release, attestations, compatibility and pref
     });
     assert.equal(verified.manifest.version, '1.0.1');
     assert.equal(verified.imageReference, `${OFFICIAL_IMAGE_REPOSITORY}@${manifest.image.digest}`);
-    assert.equal(privatePaths.has(verified.manifestPath), true);
     assert.deepEqual(events, [
       'github:release:v1.0.1', 'github:update-manifest.json',
       `github:${UPDATE_MANIFEST_ATTESTATION_ASSET}`, `github:${UPDATE_IMAGE_ATTESTATION_ASSET}`,

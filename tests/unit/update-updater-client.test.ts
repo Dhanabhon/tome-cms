@@ -20,14 +20,15 @@ const status = {
   installed: { version: '1.0.0', imageDigest: `sha256:${'a'.repeat(64)}` }, job,
 };
 
-test('late apply replies preserve observed active jobs and cannot regress terminal polling state', () => {
-  assert.equal(getApplyResponseAction(null, true), 'stop');
-  assert.equal(getApplyResponseAction(null, false), 'continue');
-  for (const definiteRefusal of [true, false]) {
-    assert.equal(getApplyResponseAction({ phase: 'preflight' }, definiteRefusal), 'preserve');
-    assert.equal(getApplyResponseAction({ phase: 'health_check' }, definiteRefusal), 'preserve');
+test('late apply replies preserve observed active jobs and resolve already-installed races', () => {
+  assert.equal(getApplyResponseAction(null, 'refused'), 'stop');
+  assert.equal(getApplyResponseAction(null, 'ambiguous'), 'continue');
+  assert.equal(getApplyResponseAction(null, 'already_installed'), 'refresh');
+  for (const response of ['refused', 'ambiguous', 'already_installed'] as const) {
+    assert.equal(getApplyResponseAction({ phase: 'preflight' }, response), 'preserve');
+    assert.equal(getApplyResponseAction({ phase: 'health_check' }, response), 'preserve');
     for (const phase of ['succeeded', 'rolled_back', 'failed_manual_recovery'] as const) {
-      assert.equal(getApplyResponseAction({ phase }, definiteRefusal), 'ignore');
+      assert.equal(getApplyResponseAction({ phase }, response), 'ignore');
     }
   }
 });
@@ -65,11 +66,30 @@ test('uses Unix HTTP only, forwards exactly version and request UUID, parses acc
   });
   assert.deepEqual(await getUpdaterStatus({ socketPath }), status);
   const requestId = randomUUID();
-  assert.deepEqual(await requestUpdate({ socketPath, version: '1.0.1', requestId }), job);
+  assert.deepEqual(await requestUpdate({ socketPath, version: '1.0.1', requestId }), { outcome: 'accepted', job });
   assert.deepEqual(received, [{ version: '1.0.1', requestId }]);
   await assert.rejects(requestUpdate({ socketPath, version: 'latest', requestId }));
   await assert.rejects(requestUpdate({ socketPath, version: '1.0.1', requestId: 'invalid' }));
   assert.equal(received.length, 1);
+});
+
+test('returns an enumerated already-installed result when apply loses the completion race', async (t) => {
+  const current = {
+    ...status,
+    installed: { version: '1.0.1', imageDigest: `sha256:${'b'.repeat(64)}` },
+    job: null,
+  };
+  const socketPath = await socketServer(t, (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(current));
+  });
+  assert.deepEqual(await requestUpdate({ socketPath, version: '1.0.1', requestId: randomUUID() }), {
+    outcome: 'already_installed', installed: current.installed,
+  });
+  await assert.rejects(
+    requestUpdate({ socketPath, version: '1.0.2', requestId: randomUUID() }),
+    /unavailable/i,
+  );
 });
 
 test('missing socket is unmanaged with no TCP or Docker fallback', async () => {
