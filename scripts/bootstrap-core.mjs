@@ -76,6 +76,10 @@ export function makeEnvironment(input, production, existing = {}) {
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || (production && url.protocol !== 'https:')) {
       throw new Error(`${key} requires ${production ? 'HTTPS' : 'HTTP(S)'} without credentials; configure TLS separately.`);
     }
+    if (key === 'TOME_CMS_PUBLIC_URL' && (url.pathname !== '/' || url.search || url.hash)) {
+      throw new Error('TOME_CMS_PUBLIC_URL must be an origin without a path, query, or fragment.');
+    }
+    if (key === 'TOME_CMS_PUBLIC_URL') values[key] = url.origin;
     const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '');
     if (production && !isPublicHost(host)) {
       throw new Error(`${key} requires a browser-reachable public host; local or special-use address forms are not allowed.`);

@@ -86,6 +86,13 @@ test('production rejects Docker service and loopback endpoints even with HTTPS',
   assert.equal(makeEnvironment(input, true).S3_ENDPOINT, input.S3_ENDPOINT);
 });
 
+test('public URL stays an exact origin for Passkeys and bucket CORS', () => {
+  for (const suffix of ['/admin', '?preview=1', '#install']) {
+    assert.throws(() => makeEnvironment({ MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: `http://localhost:4321${suffix}` }, false), /origin without/);
+  }
+  assert.equal(makeEnvironment({ MINIO_LICENSE_FILE: '/external/license', TOME_CMS_PUBLIC_URL: 'http://localhost:4321/' }, false).TOME_CMS_PUBLIC_URL, 'http://localhost:4321');
+});
+
 test('production public-host policy rejects local suffixes and non-public IP ranges in every public URL', () => {
   const input = {
     ...transitional,

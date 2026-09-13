@@ -21,11 +21,14 @@ const env = {
 Object.assign(process.env, env);
 
 test('media keys and URLs keep provider details out of stored identity', async () => {
-  const { createObjectKey } = await import('../../src/server/media/keys');
+  const { createObjectKey, isTomeObjectKey } = await import('../../src/server/media/keys');
   const { resolveMediaUrl, stableMediaPath } = await import('../../src/server/media/url');
   const ownerId = '123e4567-e89b-42d3-a456-426614174000';
   const key = createObjectKey(ownerId, 'image/jpeg', new Date('2026-09-08T23:59:59Z'));
   assert.match(key, /^owners\/123e4567-e89b-42d3-a456-426614174000\/2026\/09\/[0-9a-f-]{36}\.jpg$/);
+  assert.equal(isTomeObjectKey(key), true);
+  assert.equal(isTomeObjectKey(`owners/${ownerId}/2026/13/${crypto.randomUUID()}.jpg`), false);
+  assert.equal(isTomeObjectKey('../tomecms-media/object.jpg'), false);
   assert.doesNotMatch(key, /\.\.|résumé|secret/i);
   assert.throws(() => createObjectKey('../owner', 'image/png'));
 
