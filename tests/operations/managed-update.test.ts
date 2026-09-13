@@ -165,6 +165,25 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
       } finally { await closeScenario(scenario); }
     });
 
+    await t.test('running app image drift is rejected before verification, backup, or quiescing', async () => {
+      await dockerSuccess(composeArgs(baseImageEnvironmentFile, ['up', '-d', '--no-deps', '--force-recreate', '--wait', 'app']), {
+        env: dockerEnvironment(fixture.images.target.id, false), timeoutMs: 90_000,
+      });
+      try {
+        const scenario = await createScenario('live-image-drift', fixture);
+        try {
+          const job = await install(scenario);
+          assert.equal(job.phase, 'rolled_back', scenario.errors.join('; '));
+          assert.equal(job.errorCode, 'preflight_failed');
+          assert.equal(job.backupDirectory, null);
+          assert.equal(scenario.stopCount, 0);
+          assert.equal(scenario.attestations.length, 0);
+        } finally { await closeScenario(scenario); }
+      } finally {
+        await selectApp(baseImageEnvironmentFile, fixture.images.previous.digest, fixture.images.previous.id, false);
+      }
+    });
+
     await t.test('digest plus manifest and image attestation failures occur before stop', async () => {
       for (const mode of ['bad-manifest-digest', 'bad-manifest-attestation', 'bad-image-attestation'] as const) {
         const scenario = await createScenario(mode, fixture);
@@ -243,7 +262,7 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
   });
 
 type ScenarioMode = 'success' | 'bad-manifest-digest' | 'bad-manifest-attestation' |
-  'bad-image-attestation' | 'rollback-incompatible' | 'target-unhealthy';
+  'bad-image-attestation' | 'rollback-incompatible' | 'target-unhealthy' | 'live-image-drift';
 interface FixtureImage { digest: string; id: string; tag: string; version: '1.0.0' | '1.0.1' }
 interface Fixture {
   images: { previous: FixtureImage; target: FixtureImage };
@@ -463,6 +482,13 @@ async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Sce
       scenario.errors.push(`${action ?? args[0]}: ${asError(error).message}`);
       throw error;
     }
+    if (action === 'ps' && args.includes('--quiet') && args.at(-1) === 'app') {
+      const containerIds = lines(result.stdout);
+      assert.equal(containerIds.length, 1, 'Fixture must have exactly one running app container');
+      assert.match(containerIds[0]!, /^[0-9a-f]{64}$/);
+      ownedContainerIds.add(containerIds[0]!);
+    }
+    if (args[0] === 'inspect') result = normalizeFixtureInspection(result, fixture);
     if (action === 'run') {
       scenario.errors.push(`run stdout=${JSON.stringify(result.stdout)} stderr=${JSON.stringify(result.stderr)}`);
       if (args.includes('backup')) {
@@ -834,6 +860,24 @@ function imageEnvironment(digest: string): string {
 
 function commandResult(code = 0, stdout = ''): CommandResult {
   return { code, stdout, stderr: code === 0 ? '' : 'fixture command failed' };
+}
+
+function normalizeFixtureInspection(result: CommandResult, fixture: Fixture): CommandResult {
+  const value: unknown = JSON.parse(result.stdout);
+  assert.ok(Array.isArray(value) && value.length === 1 && value[0] && typeof value[0] === 'object');
+  const container = value[0] as Record<string, unknown>;
+  const state = container.State;
+  const config = container.Config;
+  assert.ok(state && typeof state === 'object' && !Array.isArray(state));
+  assert.equal((state as Record<string, unknown>).Running, true);
+  assert.ok(config && typeof config === 'object' && !Array.isArray(config));
+  const localImage = (config as Record<string, unknown>).Image;
+  assert.equal(typeof localImage, 'string');
+  const image = Object.values(fixture.images).find((candidate) => candidate.id === localImage);
+  assert.ok(image && ownedImageIds.has(image.id), 'Inspected app must use a task-owned fixture image');
+  return { ...result, stdout: JSON.stringify([{ ...container, Config: {
+    ...(config as Record<string, unknown>), Image: `${OFFICIAL_IMAGE_REPOSITORY}@${image.digest}`,
+  } }]) };
 }
 
 function sha256(bytes: Uint8Array): string { return createHash('sha256').update(bytes).digest('hex'); }
