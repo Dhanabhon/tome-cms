@@ -12,13 +12,14 @@ const validInput = {
   digest: `sha256:${'b'.repeat(64)}`,
   releasedAt: '2026-09-20T10:00:00.000Z',
   minimumDirectUpgradeFrom: '1.0.0', minimumUpdaterVersion: '1.0.0',
-  targetMigration: '007_preview_tokens', rollbackSafeFrom: '1.0.0',
+  targetMigration: '008_update_rate_limit_actions', rollbackSafeFrom: '1.0.0',
 };
 
 test('builds the official manifest only when package, tag and digest agree', () => {
   const result = buildReleaseManifest(validInput);
   assert.equal(result.version, '1.0.1');
   assert.equal(result.image.repository, 'ghcr.io/dhanabhon/tome-cms');
+  assert.equal(result.compatibility.targetMigration, '008_update_rate_limit_actions');
   assert.throws(() => buildReleaseManifest({ ...validInput, tag: 'v1.0.2' }), /tag/i);
   assert.throws(() => buildReleaseManifest({ ...validInput, commit: 'main' }), /commit/i);
   assert.throws(() => buildReleaseManifest({ ...validInput, digest: 'sha256:bad' }), /digest/i);
