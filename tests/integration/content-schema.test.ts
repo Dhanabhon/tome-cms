@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 
-import { sql } from 'kysely';
 import { Migrator } from 'kysely/migration';
 
 import type { EditorDocument } from '../../src/types/cms';
