@@ -1,28 +1,35 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 
-import type { AuthorLink, MediaAsset, SiteSettings } from '../../types/cms';
-import MediaPicker from './MediaPicker';
+import type { AuthorLink, SiteSettings } from '../../types/cms';
 
 interface ProfileFormProps {
-  initialAvatar?: MediaAsset | null;
   initialSettings: Pick<SiteSettings,
-    'author_avatar_media_id' | 'author_bio_en' | 'author_bio_th' | 'author_links' | 'author_name'
+    'author_bio_en' | 'author_bio_th' | 'author_links' | 'author_name' | 'updated_at'
   >;
 }
 
-export default function ProfileForm({ initialAvatar = null, initialSettings }: ProfileFormProps) {
+interface IssueNode {
+  errors?: string[];
+  items?: IssueNode[];
+  properties?: Record<string, IssueNode>;
+}
+
+interface SaveResult {
+  error?: string;
+  issues?: IssueNode;
+  settings?: { updated_at?: string };
+}
+
+export default function ProfileForm({ initialSettings }: ProfileFormProps) {
   const [authorName, setAuthorName] = useState(initialSettings.author_name);
   const [authorBioEn, setAuthorBioEn] = useState(initialSettings.author_bio_en);
   const [authorBioTh, setAuthorBioTh] = useState(initialSettings.author_bio_th);
   const [authorLinks, setAuthorLinks] = useState<AuthorLink[]>(initialSettings.author_links);
-  const [authorAvatarMediaId, setAuthorAvatarMediaId] = useState(initialSettings.author_avatar_media_id);
-  const [avatar, setAvatar] = useState(initialAvatar);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
-  const pickerTrigger = useRef<HTMLButtonElement>(null);
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -35,12 +42,12 @@ export default function ProfileForm({ initialAvatar = null, initialSettings }: P
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ authorAvatarMediaId, authorBioEn, authorBioTh, authorLinks, authorName }),
+        body: JSON.stringify({ authorAvatarMediaId: null, authorBioEn, authorBioTh, authorLinks, authorName, updatedAt }),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};
-        for (const name of ['authorName', 'authorBioEn', 'authorBioTh', 'authorAvatarMediaId', 'authorLinks']) {
+        for (const name of ['authorName', 'authorBioEn', 'authorBioTh', 'authorLinks']) {
           fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
         }
         for (let index = 0; index < authorLinks.length; index++) {
@@ -51,6 +58,8 @@ export default function ProfileForm({ initialAvatar = null, initialSettings }: P
         setFieldErrors(fields);
         throw new Error(result.error ?? 'The profile could not be saved.');
       }
+      if (typeof result.settings?.updated_at !== 'string') throw new Error('The server returned an incomplete response.');
+      setUpdatedAt(result.settings.updated_at);
       setStatus('Saved.');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'The profile could not be saved.');
@@ -60,20 +69,15 @@ export default function ProfileForm({ initialAvatar = null, initialSettings }: P
   };
 
   return (
-    <>
-      <form className="admin-settings-form" noValidate onSubmit={save} onChange={(event) => {
+    <form className="admin-settings-form" noValidate onSubmit={save} onChange={(event) => {
         setStatus('');
         const name = (event.target as HTMLInputElement).name;
         setFieldErrors((current) => ({ ...current, [name]: '' }));
       }}>
         <fieldset disabled={saving}>
           <div className="profile-avatar">
-            {avatar ? <img src={avatar.publicUrl} alt="Author avatar" width="96" height="96" /> : <span>No avatar selected</span>}
-            <div className="admin-form-actions">
-              <button className="admin-button" onClick={() => setPickerOpen(true)} ref={pickerTrigger} type="button" aria-invalid={Boolean(fieldErrors.authorAvatarMediaId)} aria-describedby="authorAvatarMediaId-error">Choose avatar</button>
-              {authorAvatarMediaId && <button className="admin-button" type="button" onClick={() => { setAvatar(null); setAuthorAvatarMediaId(null); setFieldErrors((current) => ({ ...current, authorAvatarMediaId: '' })); setStatus(''); }}>Remove avatar</button>}
-            </div>
-            <p className="admin-field-error" id="authorAvatarMediaId-error" aria-live="polite">{fieldErrors.authorAvatarMediaId}</p>
+            <span>No avatar selected</span>
+            <p>Avatar selection will return with the PostgreSQL File Manager migration.</p>
           </div>
           <div className="admin-field">
             <label htmlFor="authorName">Author name</label>
@@ -117,8 +121,6 @@ export default function ProfileForm({ initialAvatar = null, initialSettings }: P
           <button className="admin-button admin-button--primary" disabled={saving} type="submit">{saving ? 'Saving…' : 'Save'}</button>
           <p role="status">{status}</p>
         </div>
-      </form>
-      {pickerOpen && <MediaPicker returnFocus={pickerTrigger.current} onCancel={() => setPickerOpen(false)} onSelect={(asset) => { setAvatar(asset); setAuthorAvatarMediaId(asset.id); setFieldErrors((current) => ({ ...current, authorAvatarMediaId: '' })); setPickerOpen(false); setStatus(''); }} />}
-    </>
+    </form>
   );
 }

@@ -4,7 +4,18 @@ import type { SiteSettings } from '../../types/cms';
 import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'timezone'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'timezone' | 'updated_at'>;
+}
+
+interface IssueNode {
+  errors?: string[];
+  properties?: Record<string, IssueNode>;
+}
+
+interface SaveResult {
+  error?: string;
+  issues?: IssueNode;
+  settings?: { updated_at?: string };
 }
 
 export default function SettingsForm({ initialSettings }: SettingsFormProps) {
@@ -13,6 +24,7 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
+  const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -29,9 +41,9 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
       const response = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, timezone }),
+        body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, timezone, updatedAt }),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};
         for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'timezone']) {
@@ -40,6 +52,8 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
         setFieldErrors(fields);
         throw new Error(result.error ?? 'The settings could not be saved.');
       }
+      if (typeof result.settings?.updated_at !== 'string') throw new Error('The server returned an incomplete response.');
+      setUpdatedAt(result.settings.updated_at);
       setStatus('Saved.');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'The settings could not be saved.');
