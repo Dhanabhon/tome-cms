@@ -227,6 +227,84 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 
 The generated `.env.local` remains local to that checkout with owner-only permissions. Deployment pulls the pinned infrastructure images, builds the application image, runs migrations in a one-shot application container, starts the production profile, and waits for `/health/ready`. Back up PostgreSQL and the object bucket together before every upgrade. Real-host HTTPS acceptance remains a release gate for `0.2.0`.
 
+## Managed VPS installation from 1.0.0
+
+The current package is still pre-`1.0.0`. The following flow is available only after the official repository and GHCR image are public and a matching, published, immutable stable release exists. The release must contain `update-manifest.json` with its GitHub SHA-256 asset digest, plus verifiable GitHub artifact attestations for both the manifest and exact image digest. Publishing a tag alone does not meet these prerequisites.
+
+Use a fresh Linux VPS (`amd64` or `arm64`) with systemd 235+, Node.js 22+ at `/usr/bin/node`, npm, Git, Docker Engine with the Compose plugin and `docker` group, GitHub CLI (`gh` with `attestation verify`), and curl. Configure public HTTPS origins for the CMS and S3 service first. No permanent GitHub token is installed. The installer requires root for the fixed directories and service account; it does not install Docker, configure DNS/TLS, or change a firewall.
+
+After `v1.0.0` is released, use a clean checkout of that exact official tag, then:
+
+```sh
+git checkout --detach v1.0.0
+npm ci
+export TOME_CMS_PUBLIC_URL=https://cms.example.com
+export S3_ENDPOINT=https://media.example.com
+export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
+./scripts/install-managed-vps.sh --dry-run --version 1.0.0
+sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL \
+  ./scripts/install-managed-vps.sh --version 1.0.0
+```
+
+The dry-run verifies public release metadata, byte-exact manifest digest, both attestations, checkout/tag/package identity, platform, prerequisites and fresh destinations; it prints one JSON plan. It creates only a temporary attestation input, which it removes. It does not build, pull, create an account, install files, or start services. Tests use copied source/release fixtures and `--root-prefix` with a complete set of executable stubs inside that prefix; this is a test boundary, not a real VPS deployment option.
+
+Installation builds the host updater from the matching checkout, pulls the official application by digest, checks its image labels/platform and migration inventory, generates secrets in `/etc/tome-cms/tome-cms.env`, starts the pinned infrastructure, runs migrations, waits for app readiness, and starts/verifies the updater socket. `APP_PORT` is fixed at `4321` by the managed health contract. The installer prints the installation URL, a command to retrieve the token privately, version, and backup directory; it never prints secret values. Existing environment files, service accounts, managed destinations or `tomecms` containers/data volumes cause it to stop. On a stable `1.0.0+` tag, `scripts/deploy-vps.sh` delegates to this same installer.
+
+Local macOS/Windows, `npm run bootstrap:core`, source builds and `compose.yaml` remain `check-only`; they may discover releases but cannot install from Admin. Web installation is a capability confirmed through the managed updater socket. Setting an environment variable alone does not provision that capability. Both bundled and Headless modes use the same managed image.
+
+The Astro container receives only `/run/tome-cms` and the dedicated updater group. It never mounts `/var/run/docker.sock`: Docker access grants host control. The separate `tomecms-updater` systemd service has Docker group membership and accepts a narrow Unix-socket protocol; it has no inbound TCP listener. Infrastructure images remain `postgres:17-alpine` and `chrislusf/seaweedfs:4.46`, with stable volumes `tomecms_postgres-data` and `tomecms_seaweedfs-data`. Routine web updates replace only the application image. Infrastructure tag changes require a separately reviewed manual release.
+
+| Location | Contents and access |
+| --- | --- |
+| `/opt/tome-cms/` | Root-owned managed Compose/config and compiled updater; service cannot write these files |
+| `/etc/tome-cms/tome-cms.env` | Secrets, `root:tomecms-updater`, `0640`; back up privately |
+| `/etc/tome-cms/updater.json` | Root-owned fixed updater configuration, `0644` |
+| `/var/lib/tome-cms/updater/` | Installed identity, job history and digest-only `image.env`; service files `0600` |
+| `/var/backups/tome-cms/` | Complete PostgreSQL + S3 update backups, service-owned `0700`; copy off-host separately |
+| `/run/tome-cms/` | Socket `0660` and sanitized status `0640`; runtime directory preserved across service restarts |
+| `/var/log/tome-cms/` | Service-owned directory; service diagnostics are in journald |
+
+Inspect the managed installation without changing it:
+
+```sh
+sudo systemctl status tomecms-updater
+sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
+sudo journalctl -u tomecms-updater -n 100 --no-pager
+sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
+```
+
+The fixed unit starts `/usr/bin/node /opt/tome-cms/updater/updater/main.js /etc/tome-cms/updater.json`; the config path is a positional argument. The host updater itself is upgraded manually, not through the website.
+
+## Managed installation recovery and pre-1.0 transition
+
+A pre-`1.0.0` installation cannot transition in place through Admin or by rerunning this fresh installer over existing data. Stop writers, create and verify a complete PostgreSQL + object-storage backup using the existing backup/restore-check procedure, and retain the existing secrets privately. Prepare a separate fresh managed `1.0.0` host, validate a manual content/data migration against its schema, and switch DNS only after HTTPS, Passkeys, content and media checks pass. Keep the old host and backup until that migration is accepted; database downgrade and automatic backup restore are not provided.
+
+If installation fails before migrations, only newly created empty temporary/config/runtime artifacts are eligible for cleanup. Generated credentials, any non-empty configuration, pulled images and Docker data are retained. After migrations start, all recovery state remains. Never delete the volumes, run `down --volumes`, or regenerate secrets to retry. Diagnose privately first:
+
+```sh
+sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml \
+  --env-file /etc/tome-cms/tome-cms.env \
+  --env-file /var/lib/tome-cms/updater/image.env logs --tail 100
+sudo journalctl -u tomecms-updater -n 100 --no-pager
+```
+
+After correcting the specific prerequisite or migration failure, the manual recovery entry point is the retained managed Compose configuration. Review migration results before rerunning the forward-only migrations, then start and verify the app before enabling the updater:
+
+```sh
+sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml \
+  --env-file /etc/tome-cms/tome-cms.env \
+  --env-file /var/lib/tome-cms/updater/image.env run --rm --no-deps --pull never app npm run db:migrate
+sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml \
+  --env-file /etc/tome-cms/tome-cms.env \
+  --env-file /var/lib/tome-cms/updater/image.env up -d --wait --no-deps --pull never app
+curl --fail http://127.0.0.1:4321/health/ready
+sudo systemctl daemon-reload
+sudo systemctl enable --now tomecms-updater
+sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
+```
+
+These are operator recovery steps, not a retry that resets the installation. A failed later web-update job marked `failed_manual_recovery` must be investigated with its preserved backup and journal; never delete job state simply to re-enable the button. Real public attestation/pull verification, a real systemd install and the `1.0.0 → 1.0.1` acceptance run on both architectures remain external release gates.
+
 ## Development checks
 
 Install locked dependencies:

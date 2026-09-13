@@ -4,6 +4,9 @@
 .worktrees
 node_modules
 dist
+dist-updater
+compose.managed.yaml
+config/systemd
 .astro
 tests
 test-results

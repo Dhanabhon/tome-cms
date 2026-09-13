@@ -53,8 +53,11 @@ function isPublicHost(host) {
     !localSuffixes.some(suffix => host === suffix || host.endsWith(`.${suffix}`));
 }
 
-export function makeEnvironment(input, production, existing = {}) {
+export function makeEnvironment(input, production, existing = {}, managed = false) {
+  if (managed && !production) throw new Error('Managed updates require production.');
   const values = { ...existing, ...input };
+  values.TOME_CMS_UPDATE_MODE = managed ? 'managed' : 'check-only';
+  values.TOME_CMS_UPDATER_SOCKET = '/run/tome-cms/updater.sock';
   if (!values.S3_PORT && values.MINIO_PORT) values.S3_PORT = values.MINIO_PORT;
   for (const key of ['MINIO_PORT', 'MINIO_CONSOLE_PORT', 'MINIO_LICENSE_FILE']) delete values[key];
   for (const key of secrets) values[key] ||= randomBytes(32).toString('base64url');
