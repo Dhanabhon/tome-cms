@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { access, copyFile, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { access, chmod, copyFile, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -14,6 +14,8 @@ const image = `ghcr.io/dhanabhon/tome-cms@${digest}`;
 const bundleNames = ['update-manifest.attestation.json', 'tomecms-image.attestation.json'] as const;
 const bundleBytes = ['{"bundle":"manifest"}\n', '{"bundle":"image"}\n'];
 const githubOverrides = ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST', 'GITHUB_HOST', 'GH_ENTERPRISE_HOST', 'GITHUB_ENTERPRISE_HOST', 'GITHUB_API_URL', 'GITHUB_GRAPHQL_URL', 'GITHUB_SERVER_URL', 'GH_REPO'];
+const dockerRegistryOverrides = ['DOCKER_AUTH_CONFIG', 'REGISTRY_AUTH_FILE', 'DOCKER_CONTENT_TRUST', 'DOCKER_CONTENT_TRUST_SERVER', 'DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE', 'DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE'];
+const dockerDaemonSelectors = ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH'];
 const manifest = {
   format: 'tomecms-update', manifestVersion: 1, product: 'tomecms', channel: 'stable', version: '1.0.0',
   releasedAt: '2026-09-01T00:00:00.000Z', source: { repository: 'Dhanabhon/tome-cms', commit },
@@ -40,10 +42,30 @@ if (fail && (name + ' ' + text).includes(fail)) {
 }
 let output = '';
 if (name === 'uname') output = args[0] === '-s' ? (process.env.HOST_OS || 'Linux') : (process.env.HOST_ARCH || 'x86_64');
-if (name === 'id') output = args[0] === '-u' ? (process.env.HOST_UID || '0') : '994';
+const identity = kind => path.join(process.env.IDENTITY_STATE, kind);
+if (name === 'id') {
+  if (args[0] === '-u') output = process.env.HOST_UID || '0';
+  else if (fs.existsSync(identity('user'))) output = '994';
+  else process.exit(1);
+}
 if (name === 'getent') {
   if (args[1] === 'docker') output = 'docker:x:993:';
+  else if (args[1] === 'tomecms-updater' && fs.existsSync(identity(args[0] === 'passwd' ? 'user' : 'group'))) output = 'tomecms-updater:x:994:';
   else process.exit(2);
+}
+if (name === 'groupadd') {
+  if (fs.existsSync(identity('group'))) process.exit(9);
+  fs.mkdirSync(process.env.IDENTITY_STATE, { recursive: true });
+  fs.writeFileSync(identity('group'), '994');
+}
+if (name === 'useradd') {
+  if (!fs.existsSync(identity('group')) || fs.existsSync(identity('user'))) process.exit(9);
+  fs.writeFileSync(identity('user'), '994');
+}
+if (name === 'userdel') fs.rmSync(identity('user'), { force: true });
+if (name === 'groupdel') {
+  if (fs.existsSync(identity('user'))) process.exit(9);
+  fs.rmSync(identity('group'), { force: true });
 }
 if (name === 'git') {
   if (args.includes('describe')) output = process.env.SOURCE_TAG || 'v1.0.0';
@@ -63,6 +85,11 @@ if (name === 'curl') {
   else output = JSON.stringify({ private: process.env.PRIVATE_REPO === '1', visibility: 'public', full_name: 'Dhanabhon/tome-cms' });
 }
 if (name === 'docker') {
+  const configPath = process.env.DOCKER_CONFIG;
+  const config = configPath && fs.existsSync(configPath) ? { mode: fs.statSync(configPath).mode & 0o777, entries: fs.readdirSync(configPath) } : null;
+  const envNames = ${JSON.stringify(['HOME', 'DOCKER_CONFIG', 'DOCKER_AUTH_CONFIG', 'REGISTRY_AUTH_FILE', 'DOCKER_CONTENT_TRUST', 'DOCKER_CONTENT_TRUST_SERVER', 'DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE', 'DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH'])};
+  const env = Object.fromEntries(envNames.map(key => [key, process.env[key] || null]));
+  fs.appendFileSync(process.env.DOCKER_EVENT_LOG, JSON.stringify({ args, env, config }) + '\\n');
   if (args[0] === 'rm' && process.env.FAIL_PRIVATE_DETAILS) {
     const logRoot = path.join(process.env.INSTALL_FIXTURE_ROOT, 'var/log/tome-cms');
     const logs = fs.readdirSync(logRoot).filter(file => file.startsWith('install-'));
@@ -78,7 +105,7 @@ if (name === 'gh' && args[0] === 'attestation') {
   const directory = bundle ? path.dirname(bundle) : (args[2].startsWith('oci:') ? '' : path.dirname(args[2]));
   const names = ['update-manifest.json', 'update-manifest.attestation.json', 'tomecms-image.attestation.json'];
   const assets = names.map(name => { const file = path.join(directory, name); return directory && fs.existsSync(file) ? { name, mode: fs.statSync(file).mode & 0o777, bytes: fs.readFileSync(file, 'utf8') } : { name }; });
-  const env = Object.fromEntries(${JSON.stringify([...githubOverrides, 'GH_CONFIG_DIR', 'XDG_CACHE_HOME', 'GH_PROMPT_DISABLED'])}.map(name => [name, process.env[name] || null]));
+  const env = Object.fromEntries(${JSON.stringify([...githubOverrides, 'GH_CONFIG_DIR', 'XDG_CACHE_HOME', 'GH_PROMPT_DISABLED', 'HOME', 'DOCKER_CONFIG', ...dockerRegistryOverrides, ...dockerDaemonSelectors])}.map(name => [name, process.env[name] || null]));
   const modes = ['GH_CONFIG_DIR', 'XDG_CACHE_HOME'].map(key => env[key] && fs.existsSync(env[key]) ? fs.statSync(env[key]).mode & 0o777 : null);
   for (const key of ['GH_CONFIG_DIR', 'XDG_CACHE_HOME']) if (env[key] && fs.existsSync(env[key])) fs.writeFileSync(path.join(env[key], 'write-probe'), 'private cache', { mode: 0o600 });
   fs.appendFileSync(process.env.GH_EVENT_LOG, JSON.stringify({ args, directory, assets, env, modes }) + '\\n');
@@ -116,7 +143,7 @@ async function fixture(t: TestContext) {
   await writeFile(join(source, 'dist-updater/updater/main.js'), 'export {};\n');
   await mkdir(join(source, 'src/server/db/migrations'), { recursive: true });
   await writeFile(join(source, 'src/server/db/migrations/008_update_rate_limit_actions.ts'), 'export {};\n');
-  for (const command of ['uname', 'id', 'getent', 'groupadd', 'useradd', 'chown', 'git', 'docker', 'gh', 'npm', 'curl', 'systemctl']) {
+  for (const command of ['uname', 'id', 'getent', 'groupadd', 'groupdel', 'useradd', 'userdel', 'chown', 'git', 'docker', 'gh', 'npm', 'curl', 'systemctl']) {
     await writeFile(join(bin, command), stub, { mode: 0o700 });
   }
   await symlink(process.execPath, join(bin, 'node'));
@@ -131,11 +158,13 @@ async function fixture(t: TestContext) {
   await writeFile(releaseFile, JSON.stringify(release));
   const log = join(root, 'commands.jsonl');
   const ghLog = join(root, 'gh.jsonl');
-  const env = { PATH: bin, COMMAND_LOG: log, GH_EVENT_LOG: ghLog, RELEASE_FIXTURE: releaseFile, MANIFEST_FIXTURE: manifestFile, MANIFEST_BUNDLE_FIXTURE: bundleFiles[0], IMAGE_BUNDLE_FIXTURE: bundleFiles[1], INSTALL_FIXTURE_ROOT: prefix,
+  const dockerLog = join(root, 'docker.jsonl');
+  const env = { PATH: bin, COMMAND_LOG: log, GH_EVENT_LOG: ghLog, DOCKER_EVENT_LOG: dockerLog, IDENTITY_STATE: join(root, 'identity'), RELEASE_FIXTURE: releaseFile, MANIFEST_FIXTURE: manifestFile, MANIFEST_BUNDLE_FIXTURE: bundleFiles[0], IMAGE_BUNDLE_FIXTURE: bundleFiles[1], INSTALL_FIXTURE_ROOT: prefix,
     TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://media.example.com' };
-  return { root, source, prefix, bin, log, ghLog, release, releaseFile, manifestFile, bundleFiles,
+  return { root, source, prefix, bin, log, ghLog, dockerLog, release, releaseFile, manifestFile, bundleFiles,
     run: (args: string[] = ['--dry-run'], extra: Record<string, string> = {}) => spawnSync('/bin/bash', ['-c', 'umask 077; exec /bin/bash "$@"', 'managed-test', join(source, 'scripts/install-managed-vps.sh'), ...args, '--version', '1.0.0', '--root-prefix', prefix], { cwd: source, env: { ...env, ...extra }, encoding: 'utf8', timeout: 20_000 }),
     commands: async () => (await readFile(log, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line) as string[]),
+    dockerEvents: async () => (await readFile(dockerLog, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line)),
     deploy: (args: string[], extra: Record<string, string> = {}) => spawnSync('/bin/bash', [join(source, 'scripts/deploy-vps.sh'), ...args], { cwd: source, env: { ...env, ...extra }, encoding: 'utf8', timeout: 20_000 }),
   };
 }
@@ -161,6 +190,7 @@ test('dry-run verifies a matching release and prints a fixed plan without instal
     ['/etc/tome-cms/updater.json', '0644', 'root:root'],
     ['/var/lib/tome-cms', '0700', 'tomecms-updater:tomecms-updater'],
     ['/var/lib/tome-cms/updater', '0700', 'tomecms-updater:tomecms-updater'],
+    ['/var/lib/tome-cms/updater/docker-public', '0700', 'tomecms-updater:tomecms-updater'],
     ['/var/lib/tome-cms/updater/image.env', '0600', 'tomecms-updater:tomecms-updater'],
     ['/var/lib/tome-cms/updater/installed.json', '0600', 'tomecms-updater:tomecms-updater'],
     ['/var/backups/tome-cms', '0700', 'tomecms-updater:tomecms-updater'],
@@ -203,6 +233,143 @@ test('installer verifies downloaded bundles with fixed provenance and isolated w
     assert.equal(args[args.indexOf('--max-filesize') + 1], '524288');
     assert.equal(args[args.indexOf('--max-time') + 1], '5');
   }
+});
+
+test('registry access ignores ambient credentials without replacing daemon selectors', async t => {
+  const f = await fixture(t);
+  const hostileHome = join(f.root, 'hostile-home');
+  const hostileConfig = join(f.root, 'hostile-docker');
+  await mkdir(join(hostileHome, '.docker'), { recursive: true, mode: 0o700 });
+  await mkdir(hostileConfig, { mode: 0o700 });
+  await writeFile(join(hostileHome, '.docker/config.json'), '{"auths":{"ghcr.io":{"auth":"customer-home"}}}\n', { mode: 0o600 });
+  await writeFile(join(hostileConfig, 'config.json'), '{"auths":{"ghcr.io":{"auth":"customer-config"}}}\n', { mode: 0o600 });
+  const inherited = {
+    HOME: hostileHome,
+    DOCKER_CONFIG: hostileConfig,
+    DOCKER_AUTH_CONFIG: '{"auths":{"ghcr.io":{"auth":"customer-env"}}}',
+    REGISTRY_AUTH_FILE: join(f.root, 'registry-auth.json'),
+    DOCKER_CONTENT_TRUST: '1',
+    DOCKER_CONTENT_TRUST_SERVER: 'https://attacker.example',
+    DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: 'repository-secret',
+    DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE: 'root-secret',
+    DOCKER_HOST: 'tcp://docker.example:2376',
+    DOCKER_TLS_VERIFY: '1',
+    DOCKER_CERT_PATH: '/operator/docker-certs',
+  };
+  const result = f.run([], inherited);
+  assert.equal(result.status, 0, result.stderr);
+  const dockerEvents = await f.dockerEvents();
+  assert.ok(dockerEvents.some(event => event.args[0] === 'pull'));
+  assert.ok(dockerEvents.some(event => event.args[0] === 'image' && event.args[1] === 'inspect'));
+  for (const event of dockerEvents) {
+    assert.notEqual(event.env.HOME, hostileHome);
+    assert.notEqual(event.env.DOCKER_CONFIG, hostileConfig);
+    assert.equal(dirname(event.env.HOME), dirname(event.env.DOCKER_CONFIG));
+    assert.deepEqual(event.config, { mode: 0o700, entries: [] });
+    for (const key of dockerRegistryOverrides) assert.equal(event.env[key], null, key);
+    for (const key of dockerDaemonSelectors) assert.equal(event.env[key], inherited[key as keyof typeof inherited] || null, key);
+  }
+  const ghEvents = (await readFile(f.ghLog, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  const imageVerification = ghEvents.find(event => event.args[2]?.startsWith('oci://'));
+  assert.ok(imageVerification);
+  assert.equal(dirname(imageVerification.env.HOME), dirname(imageVerification.env.DOCKER_CONFIG));
+  assert.notEqual(imageVerification.env.DOCKER_CONFIG, hostileConfig);
+  for (const key of dockerRegistryOverrides) assert.equal(imageVerification.env[key], null, key);
+  for (const key of dockerDaemonSelectors) assert.equal(imageVerification.env[key], inherited[key as keyof typeof inherited] || null, key);
+});
+
+test('named Docker context is resolved before its credential-bearing config is isolated', async t => {
+  const f = await fixture(t);
+  const hostileHome = join(f.root, 'hostile-home');
+  const hostileConfig = join(f.root, 'hostile-docker');
+  const contextName = 'production';
+  const contextId = createHash('sha256').update(contextName).digest('hex');
+  await mkdir(join(hostileHome, '.docker'), { recursive: true, mode: 0o700 });
+  await mkdir(join(hostileConfig, 'contexts/meta', contextId), { recursive: true, mode: 0o700 });
+  await writeFile(join(hostileConfig, 'config.json'), JSON.stringify({
+    auths: { 'ghcr.io': { auth: 'customer-config' } },
+    currentContext: contextName,
+  }), { mode: 0o600 });
+  await writeFile(join(hostileConfig, 'contexts/meta', contextId, 'meta.json'), JSON.stringify({
+    Name: contextName,
+    Endpoints: { docker: { Host: 'unix:///run/operator-docker.sock', SkipTLSVerify: false } },
+  }), { mode: 0o600 });
+  const result = f.run(['--dry-run'], {
+    HOME: hostileHome,
+    DOCKER_CONFIG: hostileConfig,
+    DOCKER_AUTH_CONFIG: '{"auths":{"ghcr.io":{"auth":"customer-env"}}}',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  for (const event of await f.dockerEvents()) {
+    assert.equal(event.env.DOCKER_HOST, 'unix:///run/operator-docker.sock');
+    assert.equal(event.env.DOCKER_CONTEXT, null);
+    assert.notEqual(event.env.DOCKER_CONFIG, hostileConfig);
+    assert.deepEqual(event.config, { mode: 0o700, entries: [] });
+  }
+});
+
+test('installed updater service uses an empty private Docker credential directory', async t => {
+  const f = await fixture(t);
+  const result = f.run([]);
+  assert.equal(result.status, 0, result.stderr);
+  const dockerConfig = join(f.prefix, 'var/lib/tome-cms/updater/docker-public');
+  assert.equal((await stat(dockerConfig)).mode & 0o777, 0o700);
+  assert.deepEqual(await readdir(dockerConfig), []);
+  const service = await readFile(join(f.prefix, 'etc/systemd/system/tomecms-updater.service'), 'utf8');
+  assert.match(service, /^Environment=HOME=\/nonexistent DOCKER_CONFIG=\/var\/lib\/tome-cms\/updater\/docker-public$/m);
+  assert.match(service, /^UnsetEnvironment=DOCKER_AUTH_CONFIG REGISTRY_AUTH_FILE DOCKER_CONTENT_TRUST DOCKER_CONTENT_TRUST_SERVER DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE$/m);
+});
+
+test('account setup failures roll back only this installer identity and permit retry', async t => {
+  for (const step of ['groupadd --system', 'useradd --system', 'id -g tomecms-updater', 'chown root:root']) {
+    await t.test(step, async t => {
+      const f = await fixture(t);
+      const failed = f.run([], { FAIL_STEP: step });
+      assert.equal(failed.status, 1, failed.stdout);
+      assert.deepEqual(await readdir(f.prefix), ['bin']);
+      const retried = f.run([]);
+      assert.equal(retried.status, 0, `${retried.stdout}\n${retried.stderr}`);
+      const commands = await f.commands();
+      assert.ok(!commands.some(args => args[0] === 'userdel' && args.join(' ') !== 'userdel tomecms-updater'));
+      assert.ok(!commands.some(args => args[0] === 'groupdel' && args.join(' ') !== 'groupdel tomecms-updater'));
+      assert.ok(!commands.some(args => /(^| )down( |$)|volume rm|image rm/.test(args.join(' '))));
+    });
+  }
+});
+
+test('incomplete recovery-set writes roll back invocation files and permit retry', async t => {
+  for (const [stage, failure] of [
+    ['environment', 'tome-cms.env.'],
+    ['updater copy', '/updater/updater/main.js'],
+    ['updater config', '/etc/tome-cms/updater.json.'],
+    ['image selection', '/updater/image.env.'],
+    ['installed state', '/updater/installed.json.'],
+  ]) {
+    await t.test(stage, async t => {
+      const f = await fixture(t);
+      const failed = f.run([], { FAIL_STEP: failure });
+      assert.equal(failed.status, 1, failed.stdout);
+      assert.doesNotMatch(failed.stderr, /Manual recovery:/);
+      assert.deepEqual(await readdir(f.prefix), ['bin']);
+      const retried = f.run([]);
+      assert.equal(retried.status, 0, `${retried.stdout}\n${retried.stderr}`);
+      const commands = await f.commands();
+      assert.ok(!commands.some(args => /(^| )down( |$)|volume rm|image rm/.test(args.join(' '))));
+    });
+  }
+});
+
+test('rollback preserves an empty destination that predates this invocation', async t => {
+  const f = await fixture(t);
+  const existing = join(f.prefix, 'etc/tome-cms');
+  await mkdir(existing, { recursive: true });
+  await chmod(existing, 0o711);
+  const failed = f.run([], { FAIL_STEP: 'tome-cms.env.' });
+  assert.equal(failed.status, 1, failed.stdout);
+  assert.equal((await stat(existing)).mode & 0o777, 0o711);
+  assert.deepEqual(await readdir(existing), []);
+  const retried = f.run([]);
+  assert.equal(retried.status, 0, `${retried.stdout}\n${retried.stderr}`);
 });
 
 test('missing, duplicate, redirected, invalid and oversized bundles fail closed before verification or mutation', async t => {
@@ -391,8 +558,16 @@ test('installer builds into a clean output directory instead of installing stale
   assert.equal(await readFile(join(f.prefix, 'opt/tome-cms/updater/updater/main.js'), 'utf8'), 'export {};\n');
 });
 
-test('pre-migration failures keep generated secrets and data; migration and readiness failures retain recovery state', async t => {
-  for (const step of ['docker pull', 'postgres seaweedfs', 'app npm run db:migrate', '/health/ready', 'systemctl enable']) {
+test('a pull failure precedes account and filesystem mutation', async t => {
+  const f = await fixture(t);
+  const result = f.run([], { FAIL_STEP: 'docker pull' });
+  assert.equal(result.status, 1);
+  assert.deepEqual(await readdir(f.prefix), ['bin']);
+  assert.doesNotMatch(result.stderr, /Manual recovery:/);
+});
+
+test('runtime failures retain every file named by recovery guidance', async t => {
+  for (const step of ['config --quiet', 'postgres seaweedfs', 'app npm run db:migrate', '/health/ready', 'systemctl enable']) {
     await t.test(step, async t => {
       const f = await fixture(t);
       const result = f.run([], { FAIL_STEP: step });
@@ -400,11 +575,16 @@ test('pre-migration failures keep generated secrets and data; migration and read
       const commands = (await f.commands()).map(args => args.join(' '));
       assert.ok(commands.some(line => line.includes(step)), `failure injection reached ${step}`);
       assert.ok(!commands.some(line => / down |volume rm|image rm/.test(line)));
-      if (step === 'docker pull') await assert.rejects(access(join(f.prefix, 'etc/tome-cms/tome-cms.env')));
-      else {
-        await access(join(f.prefix, 'etc/tome-cms/tome-cms.env'));
-        assert.match(result.stderr, /recovery|retained/i);
-      }
+      for (const path of [
+        'opt/tome-cms/compose.managed.yaml',
+        'opt/tome-cms/updater/updater/main.js',
+        'etc/tome-cms/tome-cms.env',
+        'etc/tome-cms/updater.json',
+        'etc/systemd/system/tomecms-updater.service',
+        'var/lib/tome-cms/updater/image.env',
+        'var/lib/tome-cms/updater/installed.json',
+      ]) await access(join(f.prefix, path));
+      assert.match(result.stderr, /Configuration, credentials, images, volumes and logs retained\. Manual recovery: sudo docker compose -p tomecms -f \/opt\/tome-cms\/compose\.managed\.yaml --env-file \/etc\/tome-cms\/tome-cms\.env --env-file \/var\/lib\/tome-cms\/updater\/image\.env logs --tail 100/);
     });
   }
 });
