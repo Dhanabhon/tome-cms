@@ -62,7 +62,7 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     ...postInput, slug: 'draft-post', status: 'draft', title: 'Draft Post',
   });
 
-  assert.deepEqual((await listPublishedPosts({ locale: 'th' })).map(({ id }) => id), [thaiPost.id]);
+  assert.deepEqual((await listPublishedPosts({ locale: 'th' })).items.map(({ id }) => id), [thaiPost.id]);
   assert.equal(await getPublishedPost('en', thaiPost.slug), null);
   assert.deepEqual(await listPublishedPostAlternates(thaiPost.translation_group_id), [
     { href: `/en/blog/${englishPost.slug}`, locale: 'en' },
@@ -87,7 +87,7 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     { href: `/th/${publishedPage.slug}`, locale: 'th' },
   ]);
   assert.equal(await getPublishedPage('th', draftPage.slug), null);
-  assert.equal((await listPublishedPages({ locale: 'th' })).some(({ id }) => id === draftPage.id), false);
+  assert.equal((await listPublishedPages({ locale: 'th' })).items.some(({ id }) => id === draftPage.id), false);
 
   assert.equal(navigationMenuSchema.safeParse({
     locale: 'th', location: 'header', items: [{ kind: 'custom', label: 'Bad', pageId: null, url: 'javascript:alert(1)' }],

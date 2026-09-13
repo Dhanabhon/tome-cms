@@ -300,6 +300,14 @@ export async function listMedia(ownerId: string, input: MediaListInput): Promise
   return { hasMore: rows.length > MEDIA_PAGE_SIZE, items: rows.slice(0, MEDIA_PAGE_SIZE).map(readyMedia) };
 }
 
+export async function listReadyMediaByIds(ownerId: string, requestedIds: readonly string[]): Promise<ReadyMedia[]> {
+  const ids = [...new Set(requestedIds)];
+  if (!ids.length) return [];
+  return (await db.selectFrom('media_items').selectAll()
+    .where('owner_id', '=', ownerId).where('state', '=', 'ready').where('id', 'in', ids)
+    .orderBy('id').execute()).map(readyMedia);
+}
+
 export async function listFolders(ownerId: string): Promise<MediaFolder[]> {
   return (await db.selectFrom('media_folders').selectAll().where('owner_id', '=', ownerId)
     .orderBy(sql`lower(name)`).orderBy('id').execute()).map(mediaFolder);
