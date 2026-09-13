@@ -229,9 +229,9 @@ The generated `.env.local` remains local to that checkout with owner-only permis
 
 ## Managed VPS installation from 1.0.0
 
-The current package is still pre-`1.0.0`. The following flow is available only after the official repository and GHCR image are public and a matching, published, immutable stable release exists. The release must contain `update-manifest.json` with its GitHub SHA-256 asset digest, plus verifiable GitHub artifact attestations for both the manifest and exact image digest. Publishing a tag alone does not meet these prerequisites.
+The current package is still pre-`1.0.0`. The following flow is available only after the official repository and GHCR image are public and a matching, published, immutable stable release exists. The release must contain `update-manifest.json`, `update-manifest.attestation.json`, and `tomecms-image.attestation.json`, each at its exact official tag URL with a GitHub SHA-256 asset digest. The installer verifies the two downloaded bundles against the official release workflow, source tag and commit, and rejects attestations from self-hosted runners. It does not use GitHub's default attestation API lookup. Publishing a tag alone does not meet these prerequisites.
 
-Use a fresh Linux VPS (`amd64` or `arm64`) with systemd 235+, Node.js 22+ at `/usr/bin/node`, npm, Git, Docker Engine with the Compose plugin and `docker` group, GitHub CLI (`gh` with `attestation verify`), and curl. Configure public HTTPS origins for the CMS and S3 service first. No permanent GitHub token is installed. The installer requires root for the fixed directories and service account; it does not install Docker, configure DNS/TLS, or change a firewall.
+Use a fresh Linux VPS (`amd64` or `arm64`) with systemd 235+, Node.js 22+ at `/usr/bin/node`, npm, Git, Docker Engine with the Compose plugin and `docker` group, GitHub CLI (`gh attestation verify` supporting `--bundle`, `--signer-workflow`, `--source-ref`, `--source-digest`, and `--deny-self-hosted-runners`), and curl. Configure public HTTPS origins for the CMS and S3 service first. No permanent GitHub token is installed. The installer requires root for the fixed directories and service account; it does not install Docker, configure DNS/TLS, or change a firewall.
 
 After `v1.0.0` is released, use a clean checkout of that exact official tag, then:
 
@@ -246,7 +246,7 @@ sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL \
   ./scripts/install-managed-vps.sh --version 1.0.0
 ```
 
-The dry-run verifies public release metadata, byte-exact manifest digest, both attestations, checkout/tag/package identity, platform, prerequisites and fresh destinations; it prints one JSON plan. It creates only a temporary attestation input, which it removes. It does not build, pull, create an account, install files, or start services. Tests use copied source/release fixtures and `--root-prefix` with a complete set of executable stubs inside that prefix; this is a test boundary, not a real VPS deployment option.
+The dry-run verifies public release metadata, the byte-exact digest of all three release assets, both attestations, checkout/tag/package identity, platform, prerequisites and fresh destinations; it prints one JSON plan. Downloads are bounded to 512 KiB each. It creates a private temporary directory containing the three inputs at `0600` and separate `0700` GitHub configuration/cache directories, then removes that directory. GitHub credentials and host overrides are excluded from verification. It does not build, pull, create an account, install files, or start services. Tests use copied source/release fixtures and `--root-prefix` with a complete set of executable stubs inside that prefix; this is a test boundary, not a real VPS deployment option.
 
 Installation builds the host updater from the matching checkout, pulls the official application by digest, checks its image labels/platform and migration inventory, generates secrets in `/etc/tome-cms/tome-cms.env`, starts the pinned infrastructure, runs migrations, waits for app readiness, and starts/verifies the updater socket. `APP_PORT` is fixed at `4321` by the managed health contract. The installer prints the installation URL, a command to retrieve the token privately, version, and backup directory; it never prints secret values. Existing environment files, service accounts, managed destinations or `tomecms` containers/data volumes cause it to stop. On a stable `1.0.0+` tag, `scripts/deploy-vps.sh` delegates to this same installer.
 
@@ -262,7 +262,7 @@ The Astro container receives only `/run/tome-cms` and the dedicated updater grou
 | `/var/lib/tome-cms/updater/` | Installed identity, job history and digest-only `image.env`; service files `0600` |
 | `/var/backups/tome-cms/` | Complete PostgreSQL + S3 update backups, service-owned `0700`; copy off-host separately |
 | `/run/tome-cms/` | Socket `0660` and sanitized status `0640`; runtime directory preserved across service restarts |
-| `/var/log/tome-cms/` | Service-owned directory; service diagnostics are in journald |
+| `/var/log/tome-cms/` | Service-owned directory; root-owned `install-<id>.json` failure diagnostics are `0600`; updater service diagnostics are in journald |
 
 Inspect the managed installation without changing it:
 
@@ -278,6 +278,8 @@ The fixed unit starts `/usr/bin/node /opt/tome-cms/updater/updater/main.js /etc/
 ## Managed installation recovery and pre-1.0 transition
 
 A pre-`1.0.0` installation cannot transition in place through Admin or by rerunning this fresh installer over existing data. Stop writers, create and verify a complete PostgreSQL + object-storage backup using the existing backup/restore-check procedure, and retain the existing secrets privately. Prepare a separate fresh managed `1.0.0` host, validate a manual content/data migration against its schema, and switch DNS only after HTTPS, Passkeys, content and media checks pass. Keep the old host and backup until that migration is accepted; database downgrade and automatic backup restore are not provided.
+
+After managed configuration exists, an installer failure saves bounded command/exit diagnostics and captured output to the exact private `/var/log/tome-cms/install-<id>.json` path printed in its recovery message. The file is `0600`; generated passwords, tokens, secrets, keys and database URLs are redacted, including URL, JSON and base64 encodings. At most four failures are retained, with 2 KiB of arguments and 4 KiB per output stream per failure (under 256 KiB total). Captured failure output is persisted before explicit one-shot cleanup and is not printed to the terminal. Inspect that exact file privately with `sudo less /var/log/tome-cms/install-<id>.json`; replace `<id>` with the printed identifier. An unavailable diagnostics filesystem is reported explicitly and never prevents cleanup of a possibly running migration container.
 
 If installation fails before migrations, only newly created empty temporary/config/runtime artifacts are eligible for cleanup. Generated credentials, any non-empty configuration, pulled images and Docker data are retained. After migrations start, all recovery state remains. Never delete the volumes, run `down --volumes`, or regenerate secrets to retry. Diagnose privately first:
 
