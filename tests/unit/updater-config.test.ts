@@ -1,7 +1,4 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, symlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import test from 'node:test';
 
 import { parseUpdaterConfig } from '../../src/updater/config.js';
@@ -19,9 +16,10 @@ const validConfig = {
   appHealthUrl: 'http://127.0.0.1:4321/health/ready',
   minimumFreeBytes: 5 * 1024 ** 3,
 };
+const regularPath = () => ({ isSymbolicLink: () => false });
 
 test('accepts only the fixed managed updater configuration', () => {
-  assert.deepEqual(parseUpdaterConfig(validConfig), validConfig);
+  assert.deepEqual(parseUpdaterConfig(validConfig, regularPath), validConfig);
 
   for (const invalid of [
     { ...validConfig, projectName: 'customer-input' },
@@ -33,16 +31,35 @@ test('accepts only the fixed managed updater configuration', () => {
     { ...validConfig, minimumFreeBytes: 5 * 1024 ** 3 - 1 },
     { ...validConfig, repository: 'attacker/tome-cms' },
     { ...validConfig, image: 'evil.example/tome-cms' },
-  ]) assert.throws(() => parseUpdaterConfig(invalid), /updater configuration/i);
+  ]) assert.throws(() => parseUpdaterConfig(invalid, regularPath), /updater configuration/i);
 });
 
-test('rejects non-record input and symbolic-link paths', async () => {
+test('rejects non-record input and symlinks at any existing path component', () => {
   for (const invalid of [null, [], 'config']) {
-    assert.throws(() => parseUpdaterConfig(invalid), /updater configuration/i);
+    assert.throws(() => parseUpdaterConfig(invalid, regularPath), /updater configuration/i);
   }
 
-  const directory = await mkdtemp(join(tmpdir(), 'tomecms-updater-config-'));
-  const link = join(directory, 'compose.managed.yaml');
-  await symlink('/opt/tome-cms/compose.managed.yaml', link);
-  assert.throws(() => parseUpdaterConfig({ ...validConfig, composeFile: link }), /updater configuration/i);
+  for (const symlinkPath of ['/opt/tome-cms', '/opt/tome-cms/compose.managed.yaml']) {
+    assert.throws(() => parseUpdaterConfig(validConfig, (path) => ({
+      isSymbolicLink: () => path === symlinkPath,
+    })), /updater configuration/i);
+  }
+});
+
+test('fails closed on inspection errors but permits a legitimately absent tail', () => {
+  const denied = Object.assign(new Error('permission denied'), { code: 'EACCES' });
+  assert.throws(() => parseUpdaterConfig(validConfig, (path) => {
+    if (path === '/etc/tome-cms') throw denied;
+    return regularPath();
+  }), /updater configuration/i);
+
+  const inspected: string[] = [];
+  const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
+  assert.deepEqual(parseUpdaterConfig(validConfig, (path) => {
+    inspected.push(path);
+    if (path === '/run/tome-cms') throw missing;
+    return regularPath();
+  }), validConfig);
+  assert.equal(inspected.includes('/run/tome-cms/updater.sock'), false);
+  assert.equal(inspected.includes('/run/tome-cms/status.json'), false);
 });
