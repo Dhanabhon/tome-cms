@@ -2,7 +2,7 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the `0.2.0` storage and authentication cutover is still in progress. Use a clean installation for this branch and do not treat it as a production release until the release checklist is complete.
+> **Development status:** the `0.2.0` clean-install cutover is implemented, and its type/build/focused operations checks pass. The Astro security upgrade, full licensed integration/browser matrix, and real-host HTTPS Passkey acceptance are still release gates, so do not treat this branch as production-ready yet. See the [0.2.0 release notes](docs/releases/0.2.0.md).
 
 ## What is included
 
