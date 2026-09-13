@@ -39,7 +39,12 @@ test('rejects non-record input and symlinks at any existing path component', () 
     assert.throws(() => parseUpdaterConfig(invalid, regularPath), /updater configuration/i);
   }
 
-  for (const symlinkPath of ['/opt/tome-cms', '/opt/tome-cms/compose.managed.yaml']) {
+  for (const symlinkPath of [
+    '/opt',
+    '/var/lib/tome-cms',
+    '/opt/tome-cms',
+    '/opt/tome-cms/compose.managed.yaml',
+  ]) {
     assert.throws(() => parseUpdaterConfig(validConfig, (path) => ({
       isSymbolicLink: () => path === symlinkPath,
     })), /updater configuration/i);
@@ -60,6 +65,8 @@ test('fails closed on inspection errors but permits a legitimately absent tail',
     if (path === '/run/tome-cms') throw missing;
     return regularPath();
   }), validConfig);
+  assert.equal(inspected.includes('/'), false);
+  assert.equal(inspected.includes('/run'), true);
   assert.equal(inspected.includes('/run/tome-cms/updater.sock'), false);
   assert.equal(inspected.includes('/run/tome-cms/status.json'), false);
 });
