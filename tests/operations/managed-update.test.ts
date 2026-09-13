@@ -5,7 +5,7 @@ import { mkdir, lstat, readFile, rm, statfs, writeFile } from 'node:fs/promises'
 import type { Server } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { basename, join, relative, resolve, sep } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 
 import { backupManifestSchema } from '../../scripts/backup.js';
@@ -36,10 +36,17 @@ const imageTags = {
   previous: `${projectName}-app:1.0.0`,
   target: `${projectName}-app:1.0.1`,
 } as const;
+const fixtureInterpolation = {
+  POSTGRES_PASSWORD: 'tomecms-test-only',
+  S3_BUCKET: 'tomecms-test-media',
+  S3_ACCESS_KEY_ID: 'tomecms-test-access',
+  S3_SECRET_ACCESS_KEY: 'tomecms-test-secret',
+} as const;
 const servers = new Set<Server>();
 const ownedContainerIds = new Set<string>();
 const ownedImageIds = new Set<string>();
 let composeCreated = false;
+let fixtureAppPort: number | null = null;
 
 assertSafeScope(projectName, suiteRoot);
 
@@ -94,6 +101,7 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
       assert.throws(() => assertSafeScope('tomecms', suiteRoot), /unsafe/i);
       assert.throws(() => assertSafeScope(projectName, '/var/lib/tome-cms'), /unsafe/i);
       assert.throws(() => assertDockerScope(['compose', '-p', 'tomecms', 'down']), /unsafe/i);
+      assert.throws(() => assertSafePath(resolve(suiteRoot, '..')), /unsafe/i);
       const socketPath = join(suiteRoot, 'check-only.sock');
       assert.deepEqual(getUpdateInstallability('check-only'), {
         mode: 'check-only', installable: false,
@@ -105,11 +113,43 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
     await mkdir(suiteRoot, { mode: 0o700 });
     const fixture = await buildFixture();
     await writeFixtureFiles(fixture.port, fixture.images.previous.digest);
-    composeCreated = true;
-    await dockerSuccess(composeArgs(baseImageEnvironmentFile, ['up', '-d', '--wait']), {
-      env: dockerEnvironment(fixture.images.previous.id, false), timeoutMs: 120_000,
+    await t.test('fixture interpolation overrides conflicting parent environment values', async () => {
+      const keys = [
+        'APP_PORT', 'POSTGRES_PASSWORD', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY',
+        'TOME_CMS_APP_IMAGE', 'TOME_CMS_FIXTURE_UNHEALTHY',
+      ] as const;
+      const inherited = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+      try {
+        for (const key of keys) process.env[key] = `host-secret-${key.toLowerCase()}`;
+        const environment = dockerEnvironment(fixture.images.previous.id, false);
+        assert.deepEqual(Object.fromEntries(keys.map((key) => [key, environment[key]])), {
+          APP_PORT: String(fixture.port),
+          ...fixtureInterpolation,
+          TOME_CMS_APP_IMAGE: fixture.images.previous.id,
+          TOME_CMS_FIXTURE_UNHEALTHY: '0',
+        });
+        const upArgs = composeArgs(baseImageEnvironmentFile, ['up', '-d', '--wait']);
+        assert.equal(upArgs.some((value) => value.includes('host-secret-')), false);
+        composeCreated = true;
+        await dockerSuccess(upArgs, { env: environment, timeoutMs: 120_000 });
+        const [app, postgres, seaweedfs] = await Promise.all([
+          serviceInspection('app', environment),
+          serviceInspection('postgres', environment),
+          serviceInspection('seaweedfs', environment),
+        ]);
+        assert.equal(JSON.stringify([app, postgres, seaweedfs]).includes('host-secret-'), false);
+        assert.ok(postgres.Config.Env.includes(`POSTGRES_PASSWORD=${fixtureInterpolation.POSTGRES_PASSWORD}`));
+        assert.ok(seaweedfs.Config.Env.includes(`AWS_ACCESS_KEY_ID=${fixtureInterpolation.S3_ACCESS_KEY_ID}`));
+        assert.ok(seaweedfs.Config.Env.includes(`AWS_SECRET_ACCESS_KEY=${fixtureInterpolation.S3_SECRET_ACCESS_KEY}`));
+        assert.ok(app.Config.Env.includes('FIXTURE_UNHEALTHY=0'));
+        assert.equal(app.HostConfig.PortBindings['4321/tcp']?.[0]?.HostPort, String(fixture.port));
+      } finally {
+        for (const [key, value] of Object.entries(inherited)) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
     });
-
     const infrastructure = await infrastructureSnapshot(baseImageEnvironmentFile, fixture.images.previous.id);
     const publicBefore = await publicContract(fixture.port);
     assert.deepEqual(publicBefore.body, expectedPublicSite);
@@ -225,6 +265,10 @@ interface Scenario {
 }
 interface InfrastructureSnapshot { postgres: ServiceIdentity; seaweedfs: ServiceIdentity }
 interface ServiceIdentity { containerId: string; imageId: string; volumes: string[] }
+interface ContainerInspection {
+  Config: { Env: string[] };
+  HostConfig: { PortBindings: Record<string, Array<{ HostPort: string }> | null> };
+}
 interface ResourceInventory { containers: string[]; networks: string[]; volumes: string[]; images: string[] }
 
 const expectedPublicSite = {
@@ -281,12 +325,15 @@ async function buildFixture(): Promise<Fixture> {
 }
 
 async function writeFixtureFiles(port: number, previousDigest: string): Promise<void> {
+  assert.ok(Number.isSafeInteger(port) && port > 0 && port <= 65_535);
+  fixtureAppPort = port;
   await writeFile(join(suiteRoot, 'seaweedfs-s3.json'), JSON.stringify({
     identities: [{ name: 'anonymous', actions: ['Read'] }],
   }));
   await writeFile(environmentFile, [
-    `APP_PORT=${port}`, 'POSTGRES_PASSWORD=tomecms-test-only', 'S3_BUCKET=tomecms-test-media',
-    'S3_ACCESS_KEY_ID=tomecms-test-access', 'S3_SECRET_ACCESS_KEY=tomecms-test-secret',
+    `APP_PORT=${port}`, `POSTGRES_PASSWORD=${fixtureInterpolation.POSTGRES_PASSWORD}`,
+    `S3_BUCKET=${fixtureInterpolation.S3_BUCKET}`, `S3_ACCESS_KEY_ID=${fixtureInterpolation.S3_ACCESS_KEY_ID}`,
+    `S3_SECRET_ACCESS_KEY=${fixtureInterpolation.S3_SECRET_ACCESS_KEY}`,
     'TOME_CMS_FIXTURE_UNHEALTHY=0', '',
   ].join('\n'), { mode: 0o600 });
   await writeFile(baseImageEnvironmentFile, imageEnvironment(previousDigest), { mode: 0o600 });
@@ -598,6 +645,25 @@ async function infrastructureSnapshot(imageEnvironmentFile: string, localImage: 
   };
 }
 
+async function serviceInspection(
+  service: 'app' | 'postgres' | 'seaweedfs', environment: NodeJS.ProcessEnv,
+): Promise<ContainerInspection> {
+  const idResult = await dockerSuccess(composeArgs(baseImageEnvironmentFile, ['ps', '--quiet', service]), {
+    env: environment, timeoutMs: 30_000,
+  });
+  const containerId = idResult.stdout.trim();
+  assert.match(containerId, /^[0-9a-f]{64}$/);
+  ownedContainerIds.add(containerId);
+  const result = await dockerSuccess(['inspect', '--type', 'container', containerId], { timeoutMs: 30_000 });
+  const value: unknown = JSON.parse(result.stdout);
+  assert.ok(Array.isArray(value) && value.length === 1);
+  const inspection = value[0] as Partial<ContainerInspection>;
+  assert.ok(inspection.Config && Array.isArray(inspection.Config.Env));
+  assert.ok(inspection.HostConfig && typeof inspection.HostConfig.PortBindings === 'object' &&
+    inspection.HostConfig.PortBindings !== null);
+  return inspection as ContainerInspection;
+}
+
 async function serviceIdentity(config: UpdaterConfig, service: 'postgres' | 'seaweedfs', localImage: string): Promise<ServiceIdentity> {
   const idResult = await dockerSuccess(composeFor(config, ['ps', '--quiet', service]), {
     env: dockerEnvironment(localImage, false), timeoutMs: 30_000,
@@ -653,7 +719,14 @@ function composeAction(args: readonly string[]): string | undefined {
 }
 
 function dockerEnvironment(localImage: string, unhealthy: boolean): NodeJS.ProcessEnv {
-  return { ...process.env, TOME_CMS_APP_IMAGE: localImage, TOME_CMS_FIXTURE_UNHEALTHY: unhealthy ? '1' : '0' };
+  assert.ok(fixtureAppPort !== null, 'Fixture app port is not configured');
+  return {
+    ...process.env,
+    APP_PORT: String(fixtureAppPort),
+    ...fixtureInterpolation,
+    TOME_CMS_APP_IMAGE: localImage,
+    TOME_CMS_FIXTURE_UNHEALTHY: unhealthy ? '1' : '0',
+  };
 }
 
 async function dockerSuccess(args: readonly string[], options: { env?: NodeJS.ProcessEnv; timeoutMs: number }): Promise<CommandResult> {
@@ -745,7 +818,7 @@ function assertSafeScope(project: string, root: string): void {
 
 function assertSafePath(path: string): void {
   const tail = relative(suiteRoot, resolve(path));
-  assert.ok(tail === '' || !tail.startsWith(`..${sep}`) && !tail.includes(`${sep}..${sep}`), 'Unsafe test path');
+  if (tail === '..' || isAbsolute(tail) || tail.startsWith(`..${sep}`)) throw new Error('Unsafe test path');
 }
 
 async function selectedDigest(path: string): Promise<string> {
