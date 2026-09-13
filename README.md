@@ -2,7 +2,7 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the `0.2.0` clean-install cutover is implemented, and its type/build/focused operations checks pass. The Astro security upgrade, full integration/browser matrix, and real-host HTTPS Passkey acceptance are still release gates, so do not treat this branch as production-ready yet. See the [0.2.0 release notes](docs/releases/0.2.0.md).
+> **Development status:** the package remains `0.2.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security upgrade, full integration/browser matrix, public immutable release/attestation verification, and real `amd64`/`arm64` HTTPS VPS acceptance are still release gates. See the [0.2.0 notes](docs/releases/0.2.0.md) and [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
 ## What is included
 
@@ -307,6 +307,10 @@ sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 These are operator recovery steps, not a retry that resets the installation. A failed later web-update job marked `failed_manual_recovery` must be investigated with its preserved backup and journal; never delete job state simply to re-enable the button. Real public attestation/pull verification, a real systemd install and the `1.0.0 → 1.0.1` acceptance run on both architectures remain external release gates.
 
+The first supported Admin-installed update is `1.0.0 → 1.0.1`; pre-`1.0.0` needs the manual transition above. App-image rollback is automatic only when the target manifest declares the previous version schema-compatible. Database/object restore uses the retained complete backup and remains a reviewed manual operation. Updater self-update and infrastructure updates are also manual. `1.0.0` does not include automatic updates, a beta channel, or backup pruning. The full release checklist and recovery boundary are in [the 1.0.0 release notes](docs/releases/1.0.0.md).
+
+The credential-free release path requires the three exact public assets documented above. Their downloaded attestation bundles are verified against the official release workflow, tag, and source commit; neither installation nor update stores a GitHub token.
+
 ## Development checks
 
 Install locked dependencies:
@@ -321,12 +325,13 @@ Run focused checks as needed:
 npm run test:unit
 npm run test:integration:foundation
 npm run test:integration
+npm run test:operations:update
 npm run test:e2e -- tests/e2e/passkey-installer.spec.ts --project=desktop
 npm run check
 npm run build
 ```
 
-The foundation readiness check and full integration runner start PostgreSQL plus SeaweedFS under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only.
+The foundation readiness check and full integration runner start PostgreSQL plus SeaweedFS under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only. The managed-update operation harness uses the real Unix updater server, state store, verifier, and transaction with stateful doubles at the external GitHub/Docker boundaries. It creates only `tomecms-test-*` temporary paths, invokes no host Docker resources, and removes its socket/state/backup fixtures in `test.after()`. Real `linux/amd64` and `linux/arm64` VPS runs remain mandatory release gates.
 
 ## Project layout
 
