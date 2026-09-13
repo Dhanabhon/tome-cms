@@ -199,9 +199,15 @@ function writeCommandFailure(
 function secretRepresentations(value: string): string[] {
   const base64 = Buffer.from(value).toString('base64');
   const base64Url = base64.replace(/\+/g, '-').replace(/\//g, '_');
+  const json = JSON.stringify(value).slice(1, -1);
   return [value, encodeURIComponent(value), encodeURI(value),
-    new URLSearchParams({ value }).toString().slice('value='.length), JSON.stringify(value).slice(1, -1),
+    new URLSearchParams({ value }).toString().slice('value='.length), json, htmlSafeJson(json),
     base64, base64.replace(/=+$/, ''), base64Url, base64Url.replace(/=+$/, '')];
+}
+
+function htmlSafeJson(value: string): string {
+  return value.replace(/[<>&\u2028\u2029]/gu, (character) =>
+    `\\u${character.codePointAt(0)!.toString(16).padStart(4, '0')}`);
 }
 
 function addUrlSecrets(value: string, secrets: string[]): void {
