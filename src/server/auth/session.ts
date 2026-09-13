@@ -1,17 +1,13 @@
 import { auth } from './config';
+import { HttpError } from '../http/errors';
+
+export { HttpError } from '../http/errors';
 
 type AuthSession = typeof auth.$Infer.Session;
 
 export type BetterAuthUser = AuthSession['user'];
 export type BetterAuthSession = AuthSession['session'];
 export type OwnerSession = { user: BetterAuthUser; session: BetterAuthSession };
-
-export class HttpError extends Error {
-  constructor(public readonly status: 401 | 403, message: string) {
-    super(message);
-    this.name = 'HttpError';
-  }
-}
 
 export async function getSession(headers: Headers): Promise<OwnerSession | null> {
   return auth.api.getSession({ headers, query: { disableCookieCache: true } });

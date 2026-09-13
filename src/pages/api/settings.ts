@@ -1,59 +1,31 @@
+import { randomUUID } from 'node:crypto';
+
 import type { APIRoute } from 'astro';
-import { z } from 'zod';
 
-import { getSiteSettingsForOwner, invalidateSiteSettingsCache } from '../../lib/installation';
-import { authenticate, createServiceRoleSupabaseClient } from '../../lib/supabase';
-import { POST_LOCALES } from '../../types/cms';
+import { assertSameOrigin } from '../../server/auth/origin';
+import { requireOwner } from '../../server/auth/session';
+import { siteSettingsMutationSchema, updateSiteSettings } from '../../server/content/settings';
+import { getServerEnv } from '../../server/env';
+import { adminErrorResponse, HttpError } from '../../server/http/errors';
+import { parseJson } from '../../server/http/json';
 
-const settingsSchema = z.object({
-  defaultLocale: z.enum(POST_LOCALES),
-  siteDescription: z.string().trim().max(160),
-  siteName: z.string().trim().min(1).max(120),
-  tagline: z.string().trim().max(120).optional(),
-  timezone: z.enum(['Asia/Bangkok', 'UTC']),
-}).strict();
+const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 
-export const PUT: APIRoute = async ({ cookies, request }) => {
+export const PUT: APIRoute = async ({ request }) => {
+  const requestId = randomUUID();
   try {
-    const auth = await authenticate(cookies, request);
-    if (!auth) return Response.json({ error: 'Authentication required.' }, { status: 401 });
-
-    const current = await getSiteSettingsForOwner(auth.user.id);
-    if (!current) return Response.json({ error: 'Site settings not found.' }, { status: 404 });
-
-    let body: unknown;
     try {
-      body = await request.json();
+      assertSameOrigin(request, configuredOrigin);
     } catch {
-      return Response.json({ error: 'The request body must be valid JSON.' }, { status: 400 });
+      throw new HttpError(403, 'Request origin is not allowed.');
     }
-    const parsed = settingsSchema.safeParse(body);
-    if (!parsed.success) {
-      return Response.json({ error: 'Invalid settings payload.', issues: z.treeifyError(parsed.error) }, { status: 400 });
-    }
-    const input = parsed.data;
-
-    const { data: settings, error } = await createServiceRoleSupabaseClient()
-      .from('site_settings')
-      .update({
-        default_locale: input.defaultLocale,
-        site_description: input.siteDescription,
-        site_name: input.siteName,
-        tagline: input.tagline ?? current.tagline,
-        timezone: input.timezone,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', true)
-      .eq('owner_id', auth.user.id)
-      .select()
-      .maybeSingle();
-    if (error) throw error;
-    if (!settings) return Response.json({ error: 'Site settings not found.' }, { status: 404 });
-
-    invalidateSiteSettingsCache();
-    return Response.json({ settings });
+    const current = await requireOwner(request.headers);
+    const input = await parseJson(request, siteSettingsMutationSchema);
+    const settings = await updateSiteSettings(current.user.id, input);
+    return Response.json({ settings }, {
+      headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId },
+    });
   } catch (error) {
-    console.error('Settings update error:', error);
-    return Response.json({ error: 'The settings could not be saved.' }, { status: 500 });
+    return adminErrorResponse(error, requestId);
   }
 };
