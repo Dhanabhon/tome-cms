@@ -1,7 +1,4 @@
-import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import { sql } from 'kysely';
-
-import { s3, s3Bucket } from './media/storage';
 
 export interface ReadinessResult {
   status: 'ready' | 'not-ready';
@@ -29,6 +26,10 @@ async function probe(checks: ReadinessResult['checks']): Promise<void> {
     })(),
     (async () => {
       try {
+        const [{ HeadBucketCommand }, { s3, s3Bucket }] = await Promise.all([
+          import('@aws-sdk/client-s3'),
+          import('./media/storage'),
+        ]);
         await s3.send(new HeadBucketCommand({ Bucket: s3Bucket }), { abortSignal: AbortSignal.timeout(1_500) });
         checks.storage = 'ready';
       } catch {

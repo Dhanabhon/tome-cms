@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { sql } from 'kysely';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -45,9 +45,12 @@ async function inventory(database) {
     select
       (select count(*)::integer from "user") as users,
       (select count(*)::integer from session) as sessions,
+      (select count(*)::integer from account) as accounts,
+      (select count(*)::integer from verification) as verifications,
       (select count(*)::integer from passkey) as passkeys,
       (select count(*)::integer from recovery_codes) as recovery_codes,
       (select count(*)::integer from installation_enrollments) as enrollments,
+      (select count(*)::integer from preview_tokens) as preview_tokens,
       (select count(*)::integer from posts) as posts,
       (select count(*)::integer from pages) as pages,
       (select count(*)::integer from categories) as categories,
@@ -75,6 +78,21 @@ async function knownObjects(database) {
   return [...objects].map(([key, ids]) => ({ ids, key })).sort((left, right) => left.key.localeCompare(right.key));
 }
 
+async function bucketObjectKeys(storage, bucket) {
+  const keys = [];
+  let continuationToken;
+  do {
+    const result = await storage.send(new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: continuationToken }));
+    for (const object of result.Contents ?? []) {
+      if (!object.Key || !isTomeObjectKey(object.Key)) throw new Error('The media bucket contains an unsupported object key; no changes were made.');
+      keys.push(object.Key);
+    }
+    continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined;
+    if (result.IsTruncated && !continuationToken) throw new Error('The media object inventory was incomplete; no changes were made.');
+  } while (continuationToken);
+  return keys.sort();
+}
+
 function sameObjectKeys(left, right) {
   return left.length === right.length && left.every((item, index) => item.key === right[index]?.key);
 }
@@ -92,12 +110,12 @@ async function deleteAndVerifyObjects(storage, bucket, objects) {
   }
 }
 
-async function resetDatabase(database, expectedObjects, verifyObjectsAbsent) {
+async function resetDatabase(database, expectedObjects, resetObjects) {
   await database.transaction().execute(async (transaction) => {
     await sql`
       lock table
         "user", session, account, verification, passkey, installation_enrollments,
-        recovery_codes, security_rate_limits, site_settings, post_translation_groups,
+        recovery_codes, security_rate_limits, preview_tokens, site_settings, post_translation_groups,
         page_translation_groups, categories, posts, pages, post_category_assignments,
         navigation_items, media_folders, media_items, media_upload_reservations
       in access exclusive mode
@@ -106,11 +124,11 @@ async function resetDatabase(database, expectedObjects, verifyObjectsAbsent) {
     if (!sameObjectKeys(expectedObjects, currentObjects)) {
       throw new Error('TomeCMS data changed during reset; database data was preserved. Stop the app and run reset again.');
     }
-    await verifyObjectsAbsent();
+    await resetObjects();
     await sql`
       truncate table
         session, account, verification, passkey, installation_enrollments,
-        recovery_codes, security_rate_limits, site_settings, post_category_assignments,
+        recovery_codes, security_rate_limits, preview_tokens, site_settings, post_category_assignments,
         navigation_items, posts, pages, categories, post_translation_groups,
         page_translation_groups, media_upload_reservations, media_items, media_folders, "user"
     `.execute(transaction);
@@ -143,9 +161,10 @@ async function main() {
     const env = getServerEnv();
     const origin = new URL(env.TOME_CMS_PUBLIC_URL).origin;
     const database = databaseName(env.DATABASE_URL);
-    const [counts, objects, settings] = await Promise.all([
+    const [counts, objects, bucketKeys, settings] = await Promise.all([
       inventory(db),
       knownObjects(db),
+      bucketObjectKeys(s3, s3Bucket),
       db.selectFrom('site_settings').select(['site_name', 'owner_id']).where('id', '=', true).executeTakeFirst(),
     ]);
     console.log('TomeCMS reset preview');
@@ -155,6 +174,7 @@ async function main() {
     if (settings) console.log(`Site: ${settings.site_name}`);
     for (const [label, value] of Object.entries(counts)) console.log(`${label}: ${value}`);
     console.log(`Known objects: ${objects.length}`);
+    console.log(`Bucket objects: ${bucketKeys.length}`);
     if (!options.execute) {
       console.log('Dry run complete. No changes were made.');
       return;
@@ -163,19 +183,30 @@ async function main() {
     if (Number(counts.active_upload_signatures) > 0) {
       throw new Error('Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.');
     }
+    const knownKeys = new Set(objects.map(({ key }) => key));
+    if (bucketKeys.some((key) => !knownKeys.has(key))) {
+      throw new Error('The media bucket contains objects not tracked by TomeCMS; no changes were made. Use a dedicated clean bucket.');
+    }
     const expected = resetConfirmation(origin, database, s3Bucket);
     console.log('This permanently deletes TomeCMS content, media, sessions, recovery data, and owner accounts.');
     if (await ask(`Type "${expected}" to continue: `) !== expected) {
       console.log('Cancelled. No changes were made.');
       return;
     }
-    await deleteAndVerifyObjects(s3, s3Bucket, objects);
-    await resetDatabase(db, objects, () => deleteAndVerifyObjects(s3, s3Bucket, objects));
-    const [remainingSettings, remainingObjects] = await Promise.all([
+    await resetDatabase(db, objects, async () => {
+      const currentBucketKeys = await bucketObjectKeys(s3, s3Bucket);
+      if (JSON.stringify(currentBucketKeys) !== JSON.stringify(bucketKeys)) {
+        throw new Error('Media changed during reset; database data was preserved. Stop the app and run reset again.');
+      }
+      await deleteAndVerifyObjects(s3, s3Bucket, bucketKeys.map((key) => ({ key })));
+      if ((await bucketObjectKeys(s3, s3Bucket)).length) throw new Error('Media deletion verification failed; database data was preserved.');
+    });
+    const [remainingSettings, remainingObjects, remainingBucketKeys] = await Promise.all([
       db.selectFrom('site_settings').select('id').executeTakeFirst(),
       knownObjects(db),
+      bucketObjectKeys(s3, s3Bucket),
     ]);
-    if (remainingSettings || remainingObjects.length) throw new Error('Reset verification failed.');
+    if (remainingSettings || remainingObjects.length || remainingBucketKeys.length) throw new Error('Reset verification failed.');
     console.log('Reset complete. Restart TomeCMS and open /install.');
     console.log('Use the existing TOME_CMS_INSTALL_TOKEN from .env.local.');
   } finally {

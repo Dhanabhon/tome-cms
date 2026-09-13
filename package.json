@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "bootstrap:core": "node scripts/bootstrap-core.mjs",
+    "backup": "node --env-file-if-exists=.env.local --import tsx scripts/backup.ts",
+    "restore:check": "node --env-file-if-exists=.env.local --import tsx scripts/restore-check.ts",
     "admin:reset-installation": "node --env-file-if-exists=.env.local --import tsx scripts/reset-installation.mjs",
     "admin:recover": "node scripts/recover-owner.mjs",
     "dev": "astro dev",
@@ -13,7 +15,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "version": "npm run check && npm run build",
-    "check": "astro check && node --import tsx scripts/reset-installation.mjs --self-test && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",
+    "check": "astro check && node --import tsx scripts/reset-installation.mjs --self-test && node --import tsx scripts/backup.ts --self-test && node --import tsx scripts/restore-check.ts --self-test && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh",
     "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test",
     "db:migrate": "node --env-file-if-exists=.env.local --import tsx scripts/db-migrate.ts",
     "infra:up": "docker compose --env-file .env.local up -d postgres minio minio-init",
@@ -21,6 +23,8 @@
     "media:cleanup": "node --env-file-if-exists=.env.local --import tsx scripts/media-cleanup.ts",
     "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
     "test:integration:foundation": "node scripts/test-foundation.mjs",
+    "test:integration": "node scripts/test-foundation.mjs --all",
+    "test:operations": "node --import tsx --test tests/operations/fresh-install.test.ts",
     "astro": "astro"
   },
   "dependencies": {

@@ -179,18 +179,45 @@ Use a spare Passkey or a one-time recovery code from `/recovery`. The local owne
 npm run admin:recover
 ```
 
-To return a disposable installation to the Wizard, preview the exact scope first:
+To return an installation to the Wizard, stop Astro/the production application and preview the exact scope first:
 
 ```sh
 npm run admin:reset-installation
 npm run admin:reset-installation -- --execute
 ```
 
-The execute form requires an exact interactive confirmation. It deletes application data and known media objects while retaining the schema, environment file, and installation token.
+The execute form requires an interactive terminal and the exact phrase shown in its preview. It refuses recent upload signatures or untracked bucket objects, deletes TomeCMS application/auth data and known media objects, then verifies that the site setting and object inventory are empty. The database schema, Kysely migration history, `.env.local`, and installation token remain, so restarting TomeCMS opens `/install` for a clean installation.
+
+## Backup and restore verification
+
+A database-only backup is incomplete because Post and Page media lives in object storage. Stop every writer first: stop host-run Astro with `Ctrl+C`, or stop the production application container:
+
+```sh
+docker compose -f compose.yaml --env-file .env.local stop app
+```
+
+Then create one recovery point outside the repository:
+
+```sh
+npm run backup -- --offline --output-root /absolute/path/outside/the/repository/tomecms-backups
+```
+
+`--offline` confirms that no host-run TomeCMS process is writing. The command also refuses a running Compose application. Each timestamped directory contains a custom-format PostgreSQL dump, the S3 object mirror, and a checksum manifest with configuration identifiers but no credentials. A failed or interrupted backup has no final manifest and must not be restored.
+
+Verify a backup by restoring it into a uniquely named disposable Compose project:
+
+```sh
+MINIO_LICENSE_FILE=/absolute/path/to/aistor.license \
+  npm run restore:check -- \
+  --backup /absolute/path/to/tomecms-backups/tomecms-20260913T120000000Z \
+  --project tomecms-restore-check-20260913
+```
+
+The check validates checksums, restores PostgreSQL and every object, compares record/object inventories, and always removes the disposable containers and volumes. It never targets the normal `tomecms` project. Keep local ports `55432`, `59000`, and `59001` free while it runs.
 
 ## VPS deployment preview
 
-This branch uses Docker Compose for PostgreSQL, object storage, and the application. Before deploying, configure public DNS and TLS reverse proxies for both the CMS origin and the S3 endpoint. The script does not edit firewall rules or obtain certificates.
+This branch uses Docker Compose for PostgreSQL, object storage, and the application. The helper requires a Linux VPS with Node.js 22+, Docker Engine with Compose, Git, and a readable external AIStor license. Before deploying, configure public DNS and TLS reverse proxies for both the CMS origin and the S3 endpoint. The script does not edit firewall rules or obtain certificates.
 
 Example from a clean checkout:
 
@@ -202,7 +229,7 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ./scripts/deploy-vps.sh
 ```
 
-The generated `.env.local` remains local to that checkout. Back up PostgreSQL and the object bucket together before upgrades. Production backup/restore automation and real-host HTTPS acceptance are still release gates for `0.2.0`.
+The generated `.env.local` remains local to that checkout with owner-only permissions. Deployment pulls the pinned infrastructure images, builds the application image, runs migrations in a one-shot application container, starts the production profile, and waits for `/health/ready`. Back up PostgreSQL and the object bucket together before every upgrade. Real-host HTTPS acceptance remains a release gate for `0.2.0`.
 
 ## Development checks
 
@@ -217,12 +244,13 @@ Run focused checks as needed:
 ```sh
 npm run test:unit
 npm run test:integration:foundation
+npm run test:integration
 npm run test:e2e -- tests/e2e/passkey-installer.spec.ts --project=desktop
 npm run check
 npm run build
 ```
 
-The integration runner starts an explicitly named disposable PostgreSQL Compose project and removes its volumes in `finally`.
+The foundation readiness check and full integration runner require `MINIO_LICENSE_FILE` to point to a real external license. They start PostgreSQL plus object storage under the explicitly named disposable test project and remove its volumes even after failure; the full runner executes every integration test serially. A targeted database-only file passed after `npm run test:integration:foundation -- ...` starts PostgreSQL only.
 
 ## Project layout
 
@@ -239,5 +267,6 @@ src/server/media/            S3 storage boundary and media services
 scripts/                     Bootstrap, maintenance, and deployment helpers
 tests/unit/                  Small deterministic contracts
 tests/integration/           Disposable PostgreSQL/S3 service contracts
+tests/operations/            Backup/reset/restore safety contracts
 tests/e2e/                   Browser-level installation acceptance
 ```
