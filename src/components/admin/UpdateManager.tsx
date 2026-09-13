@@ -69,6 +69,7 @@ export default function UpdateManager() {
       if (!response.ok || !result.availability) throw new Error(result.error ?? 'Update check unavailable.');
       if (!mounted.current) return;
       setCheck(result);
+      setReconnecting(false);
       if (result.updater?.managed && result.updater.job && !terminalPhases.includes(result.updater.job.phase)) {
         setWatch({ targetVersion: result.updater.job.targetVersion });
       }
