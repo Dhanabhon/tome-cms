@@ -65,41 +65,41 @@ const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'publish
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
-<AdminLayout adminPath={adminPath} lang={ownerLocale ?? 'en'} title={authRequired ? 'Sign in' : copy.posts.heading}>
+<AdminLayout adminPath={adminPath} lang={ownerLocale ?? 'en'} title={authRequired ? copy.auth.signInTitle : copy.posts.heading}>
   {authRequired ? (
     <main class="admin-auth-page">
       <header class="admin-auth-nav" aria-label="Admin sign in">
         <a class="admin-auth-brand" href="/" aria-label="TomeCMS home">
           <img class="tomecms-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
         </a>
-        <a class="admin-auth-nav__link" href="/">View site <span aria-hidden="true">↗</span></a>
+        <a class="admin-auth-nav__link" href="/">{copy.auth.viewSite} <span aria-hidden="true">↗</span></a>
       </header>
 
       <div class="admin-auth-stage">
         <section class="admin-auth-context" aria-labelledby="admin-auth-context-title">
           <div>
-            <h2 id="admin-auth-context-title">Write, preview, publish.</h2>
-            <p>Manage the work behind your site from one focused workspace.</p>
+            <h2 id="admin-auth-context-title">{copy.auth.contextTitle}</h2>
+            <p>{copy.auth.contextHint}</p>
           </div>
-          <ul aria-label="Admin workspace tools">
-            <li><strong>Draft first</strong><span>Preview every post before it goes live.</span></li>
-            <li><strong>Thai and English</strong><span>Keep both language editions together.</span></li>
-            <li><strong>One File Manager</strong><span>Organize images where you write.</span></li>
+          <ul aria-label={copy.auth.toolsLabel}>
+            <li><strong>{copy.auth.draftFirst}</strong><span>{copy.auth.draftFirstHint}</span></li>
+            <li><strong>{copy.auth.bothLanguages}</strong><span>{copy.auth.bothLanguagesHint}</span></li>
+            <li><strong>{copy.auth.oneLibrary}</strong><span>{copy.auth.oneLibraryHint}</span></li>
           </ul>
         </section>
 
         <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
           <header>
-            <h1 id="admin-auth-title">Welcome back</h1>
-            <p>Sign in with the owner account created during setup.</p>
+            <h1 id="admin-auth-title">{copy.auth.welcome}</h1>
+            <p>{copy.auth.welcomeHint}</p>
           </header>
-          <PasskeySignIn adminPath={adminPath} client:only="react" returnTo={Astro.url.searchParams.get('returnTo')} />
+          <PasskeySignIn adminPath={adminPath} ownerLocale={ownerLocale} client:only="react" returnTo={Astro.url.searchParams.get('returnTo')} />
         </section>
       </div>
 
       <footer class="admin-auth-footer">
         <span>TomeCMS</span>
-        <span>Owner administration</span>
+        <span>{copy.auth.ownerAdministration}</span>
       </footer>
     </main>
   ) : (

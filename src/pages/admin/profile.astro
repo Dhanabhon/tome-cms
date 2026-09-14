@@ -2,6 +2,7 @@
 import AdminShell from '../../components/admin/AdminShell.astro';
 import ProfileForm from '../../components/admin/ProfileForm';
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../lib/admin-i18n';
 import { adminLoginPath } from '../../lib/admin';
 import { requireOwner } from '../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
@@ -33,15 +34,19 @@ try {
     errorMessage = 'The profile is temporarily unavailable.';
   }
 }
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
 ---
 
-<AdminLayout title="Profile">
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.profile.heading}>
   {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
     <AdminShell active="profile" adminPath={settings.admin_path} locale={settings?.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
-        <header class="admin-page__head"><div><h1>Profile</h1><p>Your name, avatar, and author biography.</p></div></header>
+        <header class="admin-page__head"><div><h1>{copy.profile.heading}</h1><p>{copy.profile.subheading}</p></div></header>
         <ProfileForm
           client:load
+          ownerLocale={ownerLocale}
           initialAvatarUrl={settings.author_avatar_media_id ? stableMediaPath(settings.author_avatar_media_id) : null}
           initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }}
         />

@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 
-import type { SiteSettings } from '../../types/cms';
+import { adminCopy } from '../../lib/admin-i18n';
+import type { PostLocale, SiteSettings } from '../../types/cms';
 import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
+  ownerLocale?: PostLocale | null;
   initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'timezone' | 'updated_at'>;
 }
 
@@ -18,7 +20,8 @@ interface SaveResult {
   settings?: { updated_at?: string };
 }
 
-export default function SettingsForm({ initialSettings }: SettingsFormProps) {
+export default function SettingsForm({ initialSettings, ownerLocale }: SettingsFormProps) {
+  const copy = adminCopy(ownerLocale);
   const [siteName, setSiteName] = useState(initialSettings.site_name);
   const [tagline, setTagline] = useState(initialSettings.tagline);
   const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
@@ -50,13 +53,13 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
           fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
         }
         setFieldErrors(fields);
-        throw new Error(result.error ?? 'The settings could not be saved.');
+        throw new Error(result.error ?? copy.settings.saveFailed);
       }
-      if (typeof result.settings?.updated_at !== 'string') throw new Error('The server returned an incomplete response.');
+      if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
       setUpdatedAt(result.settings.updated_at);
-      setStatus('Saved.');
+      setStatus(copy.settings.saved);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The settings could not be saved.');
+      setError(failure instanceof Error ? failure.message : copy.settings.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -70,34 +73,34 @@ export default function SettingsForm({ initialSettings }: SettingsFormProps) {
     }}>
       <fieldset disabled={saving}>
         <div className="admin-field">
-          <label htmlFor="siteName">Site name</label>
+          <label htmlFor="siteName">{copy.settings.siteName}</label>
           <input className="admin-control" id="siteName" name="siteName" aria-invalid={Boolean(fieldErrors.siteName)} aria-describedby="siteName-error" required maxLength={120} value={siteName} onChange={(event) => setSiteName(event.target.value)} />
           <p className="admin-field-error" id="siteName-error" aria-live="polite">{fieldErrors.siteName}</p>
         </div>
         <div className="admin-field">
-          <label htmlFor="tagline">Tagline</label>
-          <input className="admin-control" id="tagline" name="tagline" aria-invalid={Boolean(fieldErrors.tagline)} aria-describedby="tagline-error" maxLength={120} placeholder="A short line about your publication" value={tagline} onChange={(event) => setTagline(event.target.value)} />
+          <label htmlFor="tagline">{copy.settings.tagline}</label>
+          <input className="admin-control" id="tagline" name="tagline" aria-invalid={Boolean(fieldErrors.tagline)} aria-describedby="tagline-error" maxLength={120} placeholder={copy.settings.taglinePlaceholder} value={tagline} onChange={(event) => setTagline(event.target.value)} />
           <p className="admin-field-error" id="tagline-error" aria-live="polite">{fieldErrors.tagline}</p>
         </div>
         <div className="admin-field">
-          <label htmlFor="siteDescription">Site description</label>
+          <label htmlFor="siteDescription">{copy.settings.siteDescription}</label>
           <textarea className="admin-control admin-control--textarea" id="siteDescription" name="siteDescription" aria-invalid={Boolean(fieldErrors.siteDescription)} aria-describedby="siteDescription-error" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} />
           <p className="admin-field-error" id="siteDescription-error" aria-live="polite">{fieldErrors.siteDescription}</p>
         </div>
         <div className="admin-field">
-          <label htmlFor="defaultLocale">Default language</label>
-          <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: 'Thai', value: 'th' }, { label: 'English', value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setStatus(''); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
+          <label htmlFor="defaultLocale">{copy.settings.defaultLanguage}</label>
+          <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: copy.filters.thai, value: 'th' }, { label: copy.filters.english, value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setStatus(''); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
           <p className="admin-field-error" id="defaultLocale-error" aria-live="polite">{fieldErrors.defaultLocale}</p>
         </div>
         <div className="admin-field">
-          <label htmlFor="timezone">Timezone</label>
+          <label htmlFor="timezone">{copy.settings.timezone}</label>
           <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
           <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
         </div>
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
       <div className="admin-form-actions">
-        <button className="admin-button admin-button--primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <button className="admin-button admin-button--primary" type="submit" disabled={saving}>{saving ? copy.settings.saving : copy.settings.save}</button>
         <p role="status">{status}</p>
       </div>
     </form>
