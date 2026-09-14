@@ -12,6 +12,7 @@ import { test } from 'node:test';
  */
 const CSS = readFileSync(new URL('../../src/styles/installer-tokens.css', import.meta.url), 'utf8');
 const BRAND_CSS = readFileSync(new URL('../../src/styles/brand.css', import.meta.url), 'utf8');
+const FAVICON = readFileSync(new URL('../../public/favicon.svg', import.meta.url), 'utf8');
 
 type Rgb = readonly [number, number, number];
 
@@ -32,6 +33,17 @@ function oklchToRgb(lightness: number, chroma: number, hueDegrees: number): Rgb 
     -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
     -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
   ].map((channel) => Math.min(1, Math.max(0, gamma(channel)))) as unknown as Rgb;
+}
+
+function hexToRgb(value: string): Rgb {
+  const digits = value.slice(1);
+  const full = digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits;
+  return [0, 2, 4].map((at) => parseInt(full.slice(at, at + 2), 16) / 255) as unknown as Rgb;
+}
+
+/** Channel bytes, so an oklch token and a hex literal can be compared as written. */
+function bytes(rgb: Rgb): string {
+  return rgb.map((channel) => Math.round(channel * 255)).join(',');
 }
 
 function contrast(foreground: Rgb, background: Rgb): number {
@@ -191,6 +203,23 @@ test('the logo keeps its green page fold in both themes', () => {
   assert.equal(readDeclarations(":root[data-theme='dark'] {").get('logo-source'), "url('/brand/tomecms-logo-reverse.png')");
   assert.match(BRAND_CSS, /content:\s*var\(--logo-source\)/);
   assert.doesNotMatch(BRAND_CSS, /filter:\s*var\(--logo-filter/);
+});
+
+test('the favicon carries the brand colours the tokens declare', () => {
+  // The favicon is the one mark that cannot reference a token: it is a static file
+  // served out of public/, outside the stylesheet entirely. So it is also the one
+  // that keeps the old palette silently after a repaint -- which is what it did,
+  // wearing the pre-green ink for a full release. Nothing else checks it.
+  const light = readTheme(':root {');
+  const fills = [...FAVICON.matchAll(/fill="(#[0-9a-fA-F]{3,6})"/g)].map(([, hex]) => hexToRgb(hex));
+  const expected = ['color-paper', 'color-ink', 'color-accent'] as const;
+
+  assert.equal(fills.length, expected.length, 'the favicon is the paper plate, the T, and the page fold');
+  expected.forEach((name, index) => {
+    const token = light.get(name);
+    assert.ok(token, `--${name} is not a literal oklch token`);
+    assert.equal(bytes(fills[index]), bytes(token), `favicon fill ${index + 1} has drifted from --${name}`);
+  });
 });
 
 test('the theme has three states, not two', () => {
