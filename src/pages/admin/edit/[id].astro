@@ -57,7 +57,7 @@ try {
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
-      <Editor adminPath={settings?.admin_path ?? '/admin'} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
+      <Editor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </Editor>
     ) : (

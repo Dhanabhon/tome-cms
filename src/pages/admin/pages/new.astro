@@ -60,7 +60,7 @@ try {
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
     ) : locale ? (
-      <PageEditor adminPath={settings?.admin_path ?? '/admin'} client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
+      <PageEditor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </PageEditor>
     ) : null}

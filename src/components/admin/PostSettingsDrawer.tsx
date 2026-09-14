@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { fill, type AdminCopy } from '../../lib/admin-i18n';
 import { COVER_IMAGE_GUIDANCE, MAX_IMAGE_BYTES } from '../../lib/media';
 import type { MediaAsset, PostCategory } from '../../types/cms';
 import MediaPicker from './MediaPicker';
 
 interface PostSettingsDrawerProps {
   categories: PostCategory[];
+  copy: AdminCopy;
   coverImage: string | null;
   errorMessage: string | null;
   metaDescription: string;
@@ -23,7 +25,7 @@ interface PostSettingsDrawerProps {
 }
 
 export default function PostSettingsDrawer({
-  categories, coverImage, errorMessage, metaDescription, metaTitle,
+  categories, copy, coverImage, errorMessage, metaDescription, metaTitle,
   onChangeCategories, onChangeCover, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
   onClose, onManageCategories, open, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
@@ -45,23 +47,23 @@ export default function PostSettingsDrawer({
   }, [open]);
 
   return (<>
-    <dialog aria-label="Post settings" className="admin-editor-settings" onCancel={(event) => {
+    <dialog aria-label={copy.drawer.postSettings} className="admin-editor-settings" onCancel={(event) => {
       if (event.target !== event.currentTarget) return;
       event.preventDefault();
       onClose();
     }} ref={dialog}>
       <div className="admin-editor-settings__head">
-        <div><h2>Post settings</h2><p>URL, Categories, search, and answer previews.</p></div>
-        <button autoFocus aria-label="Close settings" className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">Close</button>
+        <div><h2>{copy.drawer.postSettings}</h2><p>{copy.drawer.postSettingsHint}</p></div>
+        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">{copy.shell.close}</button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
       <label className="admin-field">
-        <span>Slug</span>
+        <span>{copy.drawer.slug}</span>
         <input className="admin-control" onChange={(event) => onChangeSlug(event.target.value)} placeholder="post-slug" type="text" value={slug} />
-        <small>Used in the post URL.</small>
+        <small>{copy.drawer.slugHintPost}</small>
       </label>
       <fieldset aria-describedby="category-fallback-help" className="admin-field">
-        <legend>Categories</legend>
+        <legend>{copy.drawer.categories}</legend>
         {[...categories].sort((left, right) => Number(right.is_default) - Number(left.is_default) || left.name.localeCompare(right.name)).map((category) => (
           <label className="flex items-center gap-2 py-2" key={category.id}>
             <input
@@ -75,31 +77,36 @@ export default function PostSettingsDrawer({
             <span>{category.name}</span>
           </label>
         ))}
-        <small id="category-fallback-help">Uncategorized is used when no custom categories are selected.</small>
-        <button className="admin-button admin-button--secondary" onClick={onManageCategories} type="button">Manage categories</button>
+        <small id="category-fallback-help">{copy.drawer.categoryFallback}</small>
+        <button className="admin-button admin-button--secondary" onClick={onManageCategories} type="button">{copy.posts.manageCategories}</button>
       </fieldset>
       <div className="admin-field">
-        <span>Cover image</span>
+        <span>{copy.drawer.coverImage}</span>
         {coverImage && <img alt="" className="admin-cover-preview" src={coverImage} />}
         <div className="admin-cover-actions">
           <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setCoverPickerOpen(true)} ref={coverButton} type="button">
-            {coverImage ? 'Change image' : 'Choose image'}
+            {coverImage ? copy.drawer.changeImage : copy.drawer.chooseImage}
           </button>
-          {coverImage && <button className="admin-button admin-button--secondary" onClick={() => onChangeCover(null)} type="button">Remove</button>}
+          {coverImage && <button className="admin-button admin-button--secondary" onClick={() => onChangeCover(null)} type="button">{copy.drawer.remove}</button>}
         </div>
         <small className="admin-cover-help">
-          JPEG, PNG, WebP, GIF, or AVIF; up to {MAX_IMAGE_BYTES / 1024 / 1024} MB. Recommended {COVER_IMAGE_GUIDANCE.recommendedWidth} × {COVER_IMAGE_GUIDANCE.recommendedHeight} px and under {COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024} MB.
+          {fill(copy.drawer.coverHelp, {
+            height: COVER_IMAGE_GUIDANCE.recommendedHeight,
+            max: MAX_IMAGE_BYTES / 1024 / 1024,
+            recommended: COVER_IMAGE_GUIDANCE.recommendedMaxBytes / 1024 / 1024,
+            width: COVER_IMAGE_GUIDANCE.recommendedWidth,
+          })}
         </small>
       </div>
       <label className="admin-field">
-        <span>Meta title <small>{metaTitle.length}/70</small></span>
-        <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder="Optional search result title" type="text" value={metaTitle} />
-        <small>Falls back automatically when empty.</small>
+        <span>{copy.drawer.metaTitle} <small>{metaTitle.length}/70</small></span>
+        <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder={copy.drawer.metaTitlePlaceholder} type="text" value={metaTitle} />
+        <small>{copy.drawer.metaTitleHint}</small>
       </label>
       <label className="admin-field">
-        <span>Meta description <small>{metaDescription.length}/320</small></span>
-        <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder="A concise summary or direct answer" value={metaDescription} />
-        <small>Shown below the article title and reused in search and social metadata.</small>
+        <span>{copy.drawer.metaDescription} <small>{metaDescription.length}/320</small></span>
+        <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder={copy.drawer.metaDescriptionPlaceholder} value={metaDescription} />
+        <small>{copy.drawer.metaDescriptionHintPost}</small>
       </label>
     </dialog>
     {coverPickerOpen && <MediaPicker

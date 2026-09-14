@@ -50,7 +50,7 @@ try {
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={page?.title ?? 'Edit page'}>
   <main>
     {page && editorPage ? (
-      <PageEditor adminPath={settings?.admin_path ?? '/admin'} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
+      <PageEditor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </PageEditor>
     ) : (

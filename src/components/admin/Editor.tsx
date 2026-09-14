@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { adminHref } from '../../lib/admin';
+import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
@@ -22,6 +23,7 @@ interface EditorProps {
   initialCategoryIds: string[];
   initialPost?: Omit<Post, 'translation_group_id'>;
   locale: PostLocale;
+  ownerLocale?: PostLocale | null;
   sourcePost?: EditorSourcePost;
   translations: PostTranslationSummary[];
 }
@@ -53,7 +55,8 @@ function readPost(payload: unknown): Post | null {
   return typeof post === 'object' && post !== null && 'id' in post ? (post as Post) : null;
 }
 
-export default function Editor({ adminPath, categories, initialCategoryIds, initialPost, locale, sourcePost, translations }: EditorProps) {
+export default function Editor({ adminPath, categories, initialCategoryIds, initialPost, locale, ownerLocale, sourcePost, translations }: EditorProps) {
+  const copy = adminCopy(ownerLocale);
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
   const updatedAt = useRef(initialPost?.updated_at);
@@ -89,13 +92,13 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
   const snapshot = useCallback(() => {
     const draft = draftRef.current;
-    if (!draft.title.trim()) throw new Error('Add a title before saving.');
+    if (!draft.title.trim()) throw new Error(copy.editor.titleRequired);
     return draft;
-  }, []);
+  }, [copy]);
 
   const save = useCallback(async (draft: EditorDraft, status?: PostStatus): Promise<Post> => {
     const id = postId.current;
-    if (id && !updatedAt.current) throw new Error('Reload this post before saving again.');
+    if (id && !updatedAt.current) throw new Error(copy.editor.reloadPost);
     const response = await fetch('/api/admin/posts', {
       method: id ? 'PUT' : 'POST',
       headers: { 'content-type': 'application/json' },
@@ -107,10 +110,10 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
       }),
     });
     const payload: unknown = await response.json();
-    if (!response.ok) throw new Error(readApiError(payload) ?? 'The post could not be saved.');
+    if (!response.ok) throw new Error(readApiError(payload) ?? copy.editor.postNotSaved);
 
     const savedPost = readPost(payload);
-    if (!savedPost) throw new Error('The server returned an invalid post.');
+    if (!savedPost) throw new Error(copy.editor.serverSentInvalidPost);
     const wasNew = !postId.current;
     postId.current = savedPost.id;
     updatedAt.current = savedPost.updated_at;
@@ -134,11 +137,11 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
     if (wasNew) window.history.replaceState({}, '', adminHref({ admin_path: adminPath }, `/edit/${savedPost.id}`));
     return savedPost;
-  }, [adminPath, locale, sourcePost]);
+  }, [adminPath, copy, locale, sourcePost]);
 
   const handleSaveError = useCallback((error: unknown) => {
-    setErrorMessage(error instanceof Error ? error.message : 'The post could not be saved.');
-  }, []);
+    setErrorMessage(error instanceof Error ? error.message : copy.editor.postNotSaved);
+  }, [copy]);
 
   const { dirty, dirtyRef, markDirty, pendingCount, persist, saveState } = useEditorSaveQueue({
     onError: handleSaveError,
@@ -150,7 +153,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
     if (actionPending.current) return;
     const previewWindow = target ?? window.open(adminHref({ admin_path: adminPath }, '/preview/pending'), '_blank');
     if (!previewWindow) {
-      setErrorMessage('Allow pop-ups for this site to open Preview.');
+      setErrorMessage(copy.editor.popupBlocked);
       return;
     }
 
@@ -173,7 +176,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
       actionPending.current = false;
       setIsActionPending(false);
     }
-  }, [adminPath, persist]);
+  }, [adminPath, copy, persist]);
 
   const restoreNavigation = useCallback(() => {
     if (actionPending.current !== 'navigation') return;
@@ -281,20 +284,20 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
                 setIsNavigating(true);
               }
             }}>
-              <span aria-hidden="true">←</span> Back to Posts
+              <span aria-hidden="true">←</span> {copy.editor.backToPosts}
             </a>
-            <nav className="admin-nav" aria-label="Post languages">
+            <nav className="admin-nav" aria-label={copy.editor.postLanguages}>
               {POST_LOCALES.map((language) => {
                 const translation = languageEditions.find(({ locale: translationLocale }) => translationLocale === language);
                 const current = language === locale;
                 const label = current
-                  ? `${language.toUpperCase()} ${postStatus}`
+                  ? `${language.toUpperCase()} ${statusLabel(copy, postStatus)}`
                   : translation
-                    ? `${language.toUpperCase()} ${translation.status}`
-                    : `${language.toUpperCase()} missing`;
+                    ? `${language.toUpperCase()} ${statusLabel(copy, translation.status)}`
+                    : `${language.toUpperCase()} ${copy.row.missing}`;
                 return current
                   ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>
-                  : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
+                  : <button aria-label={`${translation ? copy.editor.editTranslation : copy.editor.addTranslation} ${language.toUpperCase()}`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
                     window.location.assign(translation
                       ? adminHref({ admin_path: adminPath }, `/edit/${translation.id}`)
                       : adminHref({ admin_path: adminPath }, `/new?sourcePostId=${saved.id}&locale=${language}`));
@@ -303,36 +306,36 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
             </nav>
           </div>
           <div className="admin-editor-actions">
-            <span className="admin-save-state" data-state={saveState === 'Saved' ? 'saved' : saveState === 'Saving…' ? 'saving' : 'unsaved'} aria-live="polite">
-              <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
+            <span className="admin-save-state" data-state={saveState} aria-live="polite">
+              <span aria-hidden="true">{saveState === 'saved' ? '✓' : '·'}</span> <span>{copy.editor[saveState]}</span>
             </span>
-            {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
-            <button aria-describedby={!postId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!postId.current && !title.trim())} onClick={() => void previewDraft()} type="button">Preview</button>
-            <span className="sr-only" id="preview-disabled-reason">Add a title before opening Preview.</span>
+            {saveState === 'failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">{copy.editor.retrySave}</button>}
+            <button aria-describedby={!postId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!postId.current && !title.trim())} onClick={() => void previewDraft()} type="button">{copy.row.preview}</button>
+            <span className="sr-only" id="preview-disabled-reason">{copy.editor.previewNeedsTitle}</span>
             <button aria-expanded={settingsOpen} aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={(event) => {
               event.currentTarget.focus();
               setSettingsOpen(true);
-            }} type="button">Settings</button>
-            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
-              {postStatus === 'published' ? 'Update' : 'Publish'}
+            }} type="button">{copy.nav.settings}</button>
+            <button className="admin-button admin-button--primary" data-state={saveState === 'saving' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
+              {postStatus === 'published' ? copy.editor.update : copy.row.publish}
             </button>
           </div>
         </div>
       </header>
 
       <div className="admin-editor-workspace">
-        {isNavigating && <p className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted" role="status">Opening page… <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">Stay in editor</button></p>}
-        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'Save failed' && <strong>Save failed</strong>} {errorMessage}</p>}
+        {isNavigating && <p className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted" role="status">{copy.editor.opening} <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">{copy.editor.stayInEditor}</button></p>}
+        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'failed' && <strong>{copy.editor.failed}</strong>} {errorMessage}</p>}
 
         <article className="admin-editor-canvas">
-          <label className="sr-only" htmlFor="post-title">Post title</label>
+          <label className="sr-only" htmlFor="post-title">{copy.editor.postTitle}</label>
           <textarea
             className="admin-title-input"
             ref={titleField}
             id="post-title"
             maxLength={200}
             onChange={(event) => changeTitle(event.target.value)}
-            placeholder="Untitled post"
+            placeholder={copy.posts.untitled}
             rows={2}
             value={title}
           />
@@ -345,6 +348,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
         <PostSettingsDrawer
           categories={categories}
+          copy={copy}
           coverImage={coverImage}
           errorMessage={errorMessage}
           metaDescription={metaDescription}
