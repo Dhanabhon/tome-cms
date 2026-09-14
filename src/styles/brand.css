@@ -13,7 +13,7 @@
 }
 
 /* The wordmark asset is dark ink on transparency, so it disappears on a dark
- * surface. Flattening it to white keeps it legible; a light-variant asset would
- * be better and would preserve the brand colour. */
-:root[data-theme='dark'] .tomecms-logo,
-:root[data-theme='dark'] .admin-logo { filter: brightness(0) invert(1); }
+ * surface. The treatment is driven by a token rather than a [data-theme] selector,
+ * so it follows the system preference too. A light-variant asset would be better
+ * and would keep the brand colour. */
+.tomecms-logo, .admin-logo { filter: var(--logo-filter, none); }

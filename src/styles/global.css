@@ -15,7 +15,6 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }

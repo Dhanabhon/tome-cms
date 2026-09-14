@@ -42,6 +42,18 @@ function contrast(foreground: Rgb, background: Rgb): number {
   return (high + 0.05) / (low + 0.05);
 }
 
+/** Reads every token declaration, mixed or literal, from one selector block. */
+function readDeclarations(selector: string): Map<string, string> {
+  const start = CSS.indexOf(selector);
+  assert.notEqual(start, -1, `${selector} is missing from the token file`);
+  const block = CSS.slice(start + selector.length, CSS.indexOf('\n  }', start) + 1 || CSS.indexOf('}', start));
+  const declarations = new Map<string, string>();
+  for (const [, name, value] of block.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)) {
+    declarations.set(name, value.trim());
+  }
+  return declarations;
+}
+
 /** Reads the literal oklch() tokens from one selector block. Mixed tokens are skipped. */
 function readTheme(selector: string): Map<string, Rgb> {
   const start = CSS.indexOf(selector);
@@ -123,4 +135,25 @@ test('no source file paints a literal white surface', () => {
   };
   walk(new URL('../../src/', import.meta.url));
   assert.deepEqual(offenders, [], 'use bg-surface instead of bg-white');
+});
+
+test('both dark blocks declare the same palette', () => {
+  // The media-query block and the data-theme block cannot share a rule, so the
+  // palette is written twice. Nothing but this test stops the two drifting apart
+  // and leaving a reader on a dark OS with a half-updated theme.
+  const media = readDeclarations(":root:not([data-theme='light']) {");
+  const attribute = readDeclarations(":root[data-theme='dark'] {");
+  assert.ok(media.size >= 20, 'the media-query block must carry the whole palette');
+  assert.deepEqual([...attribute.keys()].sort(), [...media.keys()].sort(), 'the two dark blocks declare different tokens');
+  for (const [name, value] of attribute) {
+    assert.equal(media.get(name), value, `--${name} differs between the two dark blocks`);
+  }
+});
+
+test('the theme has three states, not two', () => {
+  // Without the light override a reader on a dark OS could never force light.
+  assert.match(CSS, /@media \(prefers-color-scheme: dark\)/, 'the system preference must be honoured');
+  assert.match(CSS, /:root\[data-theme='dark'\]/, 'an explicit dark override must exist');
+  assert.match(CSS, /:root\[data-theme='light'\][^{]*\{[^}]*color-scheme:\s*light/, 'an explicit light override must exist');
+  assert.match(CSS, /:root:not\(\[data-theme='light'\]\)/, 'the system preference must yield to an explicit light choice');
 });
