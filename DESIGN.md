@@ -144,9 +144,16 @@ the surface is dark *on purpose*.
 
 ### Dark Theme
 
-Opt-in via `data-theme="dark"` on the root element; it is deliberately not wired to
-`prefers-color-scheme` yet. `tests/unit/theme-contrast.test.ts` computes every surface
-pair in both themes and fails below WCAG AA — lowest measured ratio 5.90.
+Three states. With no attribute the theme follows `prefers-color-scheme`;
+`data-theme="light"` and `data-theme="dark"` on the root element override the system
+setting in either direction. The installer pins itself to light.
+
+The dark palette is declared twice — once inside the media query, once for the explicit
+attribute — because the two contexts cannot share a rule. `light-dark()` would collapse
+them but needs a newer baseline than the `color-mix()` already in use here, and fails
+hard rather than degrading. `tests/unit/theme-contrast.test.ts` keeps the two copies
+identical, computes every surface pair in both themes against WCAG AA (lowest measured
+ratio 5.90), and rejects a literal `bg-white` anywhere in `src/`.
 
 ### Surface & Shadows
 - **Surface Base** (#f2f8f7): Primary page background and quiet application surfaces. Role: background. {authored: rgb(242, 248, 247), space: rgb}

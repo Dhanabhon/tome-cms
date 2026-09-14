@@ -3,6 +3,9 @@
  * anchor hue: teal · macrostructure: existing app structures · scope: app palette
  */
 :root {
+  /* Light is the default; the blocks at the end of this file take over when the
+   * reader's system asks for dark, or when data-theme says so explicitly. */
+  color-scheme: light;
   --color-paper: oklch(100% 0 0);
   --color-paper-2: oklch(97.43% 0.0065 185.27);
   --color-paper-3: oklch(89.85% 0.0336 194.25);
@@ -33,6 +36,8 @@
   --color-on-dark: oklch(100% 0 0);
   --color-on-dark-muted: oklch(89.85% 0.0336 194.25);
   --color-scrim: color-mix(in srgb, oklch(15.2% 0.0033 196.81) 40%, transparent);
+  /* The wordmark asset is dark ink, so it needs no treatment on a light surface. */
+  --logo-filter: none;
 
   --font-display: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -73,10 +78,53 @@
   --z-sticky-nav: 300;
 }
 
-/* Opt-in only: set data-theme="dark" on <html>. Deliberately not wired to
- * prefers-color-scheme yet — the palette is contrast-verified but has not had a
- * visual pass, and switching on an OS preference would ship it to every reader.
+/* The dark palette, declared twice on purpose.
+ *
+ * The two contexts cannot share one rule: one lives inside a media query and the
+ * other does not. light-dark() would collapse them into single declarations, but
+ * it needs a newer baseline than the color-mix() this file already relies on, and
+ * an unsupported light-dark() invalidates the whole declaration rather than
+ * degrading — every colour on the page would be lost. The duplication is kept
+ * honest by tests/unit/theme-contrast.test.ts, which fails if the two blocks
+ * stop declaring the same tokens with the same values.
+ *
+ * Three states: no attribute follows the reader's system setting;
+ * data-theme="light" and data-theme="dark" override it in either direction.
  * Contrast measured against every surface pair: lowest 5.90, all AA. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --color-paper: oklch(22% 0.012 190);
+    --color-paper-2: oklch(17.5% 0.01 190);
+    --color-paper-3: oklch(28% 0.018 191);
+    --color-surface: oklch(22% 0.012 190);
+    --color-hero: oklch(30% 0.03 189);
+    --color-ink: oklch(95% 0.006 195);
+    --color-ink-2: oklch(80% 0.018 190);
+    --color-muted: oklch(72% 0.022 190);
+    --color-placeholder: var(--color-muted);
+    /* Rules are mixed from the ink side here; mixing the hero would be invisible. */
+    --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
+    --color-rule-strong: color-mix(in oklch, var(--color-ink) 30%, transparent);
+    --color-accent: oklch(78% 0.1 191);
+    --color-link: oklch(78% 0.1 191);
+    --color-accent-ink: oklch(18% 0.01 190);
+    --color-focus: oklch(75% 0.1 192);
+    --color-focus-soft: oklch(35% 0.04 193);
+    --color-error: oklch(70% 0.17 30);
+    --color-error-ink: oklch(80% 0.12 32);
+    --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
+
+    --color-auth-ink: oklch(93% 0.012 190);
+    --color-code-bg: oklch(13% 0.012 190);
+    --color-on-dark: oklch(97% 0.004 195);
+    --color-on-dark-muted: oklch(82% 0.02 192);
+    --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
+    --logo-filter: brightness(0) invert(1);
+  }
+}
+
 :root[data-theme='dark'] {
   color-scheme: dark;
 
@@ -106,4 +154,9 @@
   --color-on-dark: oklch(97% 0.004 195);
   --color-on-dark-muted: oklch(82% 0.02 192);
   --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
+  --logo-filter: brightness(0) invert(1);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
