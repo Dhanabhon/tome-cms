@@ -200,6 +200,7 @@ export interface SiteSettings {
   site_description: string;
   default_locale: PostLocale;
   theme: 'system' | 'light' | 'dark';
+  allow_visitor_theme: boolean;
   timezone: 'Asia/Bangkok' | 'UTC';
   owner_id: string;
   installed_at: string;

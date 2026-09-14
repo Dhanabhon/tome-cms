@@ -33,6 +33,10 @@ const settings = await getSiteSettings();
 // follow each visitor's own setting. Astro drops an attribute whose value is null.
 const themeChoice = normalizeTheme(settings?.theme);
 const theme = themeAttribute(themeChoice);
+// Off takes the script with the control. A hidden button that still let an old
+// localStorage value override the owner would be the worst of both, and dropping
+// the script puts the public pages back to carrying no JavaScript at all.
+const allowVisitorTheme = settings?.allow_visitor_theme ?? true;
 const siteName = settings?.site_name ?? 'TomeCMS';
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const {
@@ -130,10 +134,10 @@ const structuredData = robots.includes('noindex')
     <link rel="preload" href="/fonts/ibm-plex-sans-thai-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/ibm-plex-sans-thai-thai-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/fonts.css" />
-    <ThemeScript />
+    {allowVisitorTheme && <ThemeScript />}
   </head>
   <body class="flex min-h-screen flex-col">
-    <Header availableLocales={alternates} items={navigation.header} locale={locale} siteName={siteName} theme={themeChoice} />
+    <Header availableLocales={alternates} items={navigation.header} locale={locale} allowVisitorTheme={allowVisitorTheme} siteName={siteName} theme={themeChoice} />
     <main class="flex-1">
       <slot />
     </main>

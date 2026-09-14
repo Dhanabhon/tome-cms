@@ -6,7 +6,7 @@ import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'allow_visitor_theme' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -27,6 +27,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [theme, setTheme] = useState(initialSettings.theme);
+  const [allowVisitorTheme, setAllowVisitorTheme] = useState(initialSettings.allow_visitor_theme);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
   const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
@@ -45,7 +46,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, theme, timezone, updatedAt }),
+        body: JSON.stringify({ allowVisitorTheme, defaultLocale, siteDescription, siteName, tagline, theme, timezone, updatedAt }),
       });
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
@@ -103,6 +104,17 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
           <UiSelect ariaDescribedBy="theme-hint theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
           <small id="theme-hint">{copy.theme.siteHint}</small>
           <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
+          <label className="flex items-center gap-2 py-2">
+            <input
+              aria-describedby="allowVisitorTheme-help"
+              checked={allowVisitorTheme}
+              name="allowVisitorTheme"
+              onChange={(event) => { setAllowVisitorTheme(event.target.checked); setStatus(''); }}
+              type="checkbox"
+            />
+            <span>{copy.theme.visitorLabel}</span>
+          </label>
+          <small id="allowVisitorTheme-help">{copy.theme.visitorHint}</small>
         </div>
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
