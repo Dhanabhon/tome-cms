@@ -4,6 +4,13 @@ import { makeSignature } from 'better-auth/crypto';
 import { getSchema, type DBFieldAttribute } from 'better-auth/db';
 import { sql } from 'kysely';
 
+import type { SecurityRateLimitTable } from '../../src/server/db/types';
+
+const updateRateLimits = [
+  ['update-check', 5],
+  ['update-apply', 2],
+] as const satisfies ReadonlyArray<readonly [SecurityRateLimitTable['action'], number]>;
+
 test('passkey and installer database contract', async (context) => {
   assert.equal(process.env.NODE_ENV, 'test');
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test', 'use only the disposable Foundation database');
@@ -235,7 +242,7 @@ test('passkey and installer database contract', async (context) => {
     assert.equal((await db.selectFrom('security_rate_limits').select('attempts')
       .where('key_hash', '=', row.key_hash).executeTakeFirstOrThrow()).attempts, 1);
 
-    for (const [action, remaining] of [['update-check', 5], ['update-apply', 2]] as const) {
+    for (const [action, remaining] of updateRateLimits) {
       assert.equal((await enforceRateLimit(action, `${action}-address`)).remaining, remaining);
       assert.deepEqual((await sql<{ action: string; attempts: number }>`
         select action, attempts from security_rate_limits where action = ${action}

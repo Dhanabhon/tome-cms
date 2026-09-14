@@ -120,7 +120,7 @@ export interface RecoveryCodeTable {
 
 export interface SecurityRateLimitTable {
   key_hash: string;
-  action: 'install' | 'signin' | 'recovery';
+  action: 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply';
   window_started_at: RequiredTimestamp;
   attempts: number;
 }
