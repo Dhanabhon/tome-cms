@@ -107,39 +107,57 @@ value. `npm run check` runs `scripts/check-design-tokens.mjs`, which fails the b
 
 ## Colors
 
-The palette uses 11 validated color tokens across one theme profile. Semantic roles stay attached to observed usage so generation agents can choose accents without inventing new color meaning.
+Paper and ink, warmed, with a single accent. The greys carry a faint green so the page
+reads editorial rather than clinical; tomato is the only colour that raises its voice,
+and green is the only one that deliberately leaves the family, because it reports state
+rather than decorating. `src/styles/installer-tokens.css` owns every value below.
 
-**Semantic naming:**
-- **surface-background** maps to `surface-base`: Role "background" is grounded by usage context "Primary page background and quiet application surfaces".
-- **surface-primary** maps to `surface-white`: Role "primary" is grounded by usage context "Navigation dropdown panels, card surfaces, modal overlays".
-- **action-text** maps to `accent-teal`: Role "text" is grounded by usage context "Primary CTA fill and links; darkened from the reference teal to preserve white-label contrast".
-- **content-text** maps to `text-primary`: Role "text" is grounded by usage context "Body text, headings, nav labels; dominant text color across all zones".
+### The palette
 
-### Primary Brand
-- **Surface White** (#ffffff): Navigation dropdown panels, card surfaces, modal overlays. Role: primary. {authored: rgb(255, 255, 255), space: rgb, alpha: 0}
-- **Surface Mint** (#c5e5e4): Selected states, quiet highlights, and branded soft surfaces. Role: background. {authored: rgb(197, 229, 228), space: rgb}
-- **Hero Evergreen** (#0f3d3a): Dark hero, editor code, and grounded navigation surfaces. Role: background. {authored: rgb(15, 61, 58), space: rgb}
-- **Accent Teal** (#236a67): Primary CTA fill and links; passes WCAG AA against white and mint surfaces. Role: action. {authored: rgb(35, 106, 103), space: rgb}
-- **Focus Teal** (#498f8c): Focus rings and non-text brand accents from the reference artwork. Role: focus. {authored: rgb(73, 143, 140), space: rgb}
+| Hex | Token | Role |
+|-----|-------|------|
+| #F7F6F2 | `--color-paper-2` | the page |
+| #FFFFFF | `--color-paper`, `--color-surface` | panels raised off it: cards, sidebar, inputs, dialogs |
+| #EBEBE5 | `--color-paper-3` | recessed and hover surfaces |
+| #D9DCD3 | `--color-rule` | hairline dividers and borders |
+| #101317 | `--color-ink` | body text and headings |
+| #61665F | `--color-muted` | secondary text |
+| #181D19 | `--color-hero`, `--color-code-bg` | surfaces that are dark on purpose |
+| #ACB3A8 | `--color-on-dark-muted` | secondary text on those |
+| #EF643E | `--color-accent` | tomato: button and hero fills |
+| #F47957 | `--color-accent-hover` | the same fill under the cursor |
+| #B63F22 | `--color-link`, `--color-focus` | copper: links, icons, arrows, focus rings |
+| #F6BFAF | `--color-focus-soft` | selection, and soft focus washes |
+| #2E7D4F | `--color-green` | published, enabled, succeeded |
 
-### Text Scale
-- **Accent Red** (#f64932): Warning/error states, status tags; maps to --color-red-500. Role: text. {authored: rgb(246, 73, 50), space: rgb}
-- **Text Medium** (#526e6b): Secondary copy and icon states. Role: text. {authored: rgb(82, 110, 107), space: rgb}
-- **Text Muted** (#4d6865): Placeholder text and tertiary labels; passes WCAG AA against white, base, and mint surfaces. Role: text. {authored: rgb(77, 104, 101), space: rgb}
-- **Text Primary** (#0a0c0c): Body text, headings, nav labels; dominant text color across all zones. Role: text. {authored: rgb(10, 12, 12), space: rgb}
+Note the token names: `--color-paper` is the **panel**, not the page. The page is
+`--color-paper-2`. That is how the stylesheets already used them, and renaming across
+every component to fix the numbering would be a larger change than it is worth.
 
-### Interactive
-- **Border Subtle** (#0f3d3a): Hairline dividers mixed at 10% and strong borders mixed at 26%. Role: border. {authored: rgb(15, 61, 58), space: rgb}
+### Why the accent and the link are different colours
+
+They are the same brand in two jobs, and only one of them is ever text. Tomato on the
+cream page measures **2.96** — under the 4.5 that text needs and under the 3 that a
+meaningful graphic needs. Copper is **5.22**. So:
+
+- **Tomato fills.** Buttons, hero shapes, anything large enough to be a surface. What
+  has to hold there is the label on it, and the label is ink: **5.82**.
+- **Copper speaks.** Links, icons, arrows, focus rings — anything small, thin, or read.
+
+Swapping one for the other in a component is the mistake `tests/unit/theme-contrast.test.ts`
+exists to catch. White on tomato is **3.20** and fails; tomato buttons take dark labels.
+
+Errors sit at hue 20, clear of the accent's 36, so danger cannot be mistaken for brand.
 
 ### Theme-Independent Roles
 
 These carry meaning rather than a fixed lightness, so they stay correct when the
-theme flips. Reach for them instead of `surface-white` or a literal colour whenever
+theme flips. Reach for them instead of `--color-surface` or a literal colour whenever
 the surface is dark *on purpose*.
 
 - **On Dark** (`--color-on-dark`): text on a surface that is dark in either theme — the hero panel, a code block, a danger fill.
 - **On Dark Muted** (`--color-on-dark-muted`): secondary text on those same surfaces.
-- **Code Background** (`--color-code-bg`): the code-block surface. Keyed separately from `text-primary` because that token inverts with the theme.
+- **Code Background** (`--color-code-bg`): the code-block surface. Keyed separately from `--color-ink` because that token inverts with the theme.
 - **Scrim** (`--color-scrim`): the wash behind a modal. Always dark, in both themes.
 
 ### Dark Theme
@@ -148,15 +166,19 @@ Three states. With no attribute the theme follows `prefers-color-scheme`;
 `data-theme="light"` and `data-theme="dark"` on the root element override the system
 setting in either direction. The installer pins itself to light.
 
+Night is the page, white is the text, dim is everything secondary. Tomato survives the
+flip unchanged — it is the brand and it is legible on night — but copper does not: at
+L53 on an L22 page it falls to 2.9, so links and small marks take a lighter orange
+there. Green is lifted well above its light value for the same reason; #2E7D4F on night
+is 2.8 and unreadable.
+
 The dark palette is declared twice — once inside the media query, once for the explicit
 attribute — because the two contexts cannot share a rule. `light-dark()` would collapse
 them but needs a newer baseline than the `color-mix()` already in use here, and fails
 hard rather than degrading. `tests/unit/theme-contrast.test.ts` keeps the two copies
-identical, computes every surface pair in both themes against WCAG AA (lowest measured
-ratio 5.90), and rejects a literal `bg-white` anywhere in `src/`.
-
-### Surface & Shadows
-- **Surface Base** (#f2f8f7): Primary page background and quiet application surfaces. Role: background. {authored: rgb(242, 248, 247), space: rgb}
+identical and computes 31 pinned pairs in both themes. Tightest measured: **4.71** light
+and **5.58** dark among the text pairs, **3.63** and **3.16** among the borders and
+rings. It also rejects a literal `bg-white` anywhere in `src/`.
 
 ## Typography
 

@@ -66,31 +66,61 @@ function readTheme(selector: string): Map<string, Rgb> {
   return tokens;
 }
 
-/** [foreground, background, minimum] — 3 is the non-text threshold for focus rings. */
+/**
+ * [foreground, background, minimum] -- 3 is the non-text threshold for focus rings,
+ * borders and other marks that carry meaning without being read.
+ *
+ * The accent and the link are the same brand colour in two jobs, and only one of them
+ * is ever text. Tomato fills: buttons, hero shapes. On cream it measures 2.96, which
+ * clears neither the 4.5 text needs nor the 3 a graphic needs, so it is pinned only
+ * where it is a background with a label on it. Copper is what that brand says as
+ * text, an icon or an arrow, so every surface it can land on is pinned at 4.5.
+ * Swapping one for the other in a component is the mistake this list exists to catch.
+ */
 const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
-  ['color-ink', 'color-paper-2', 4.5],
   ['color-ink', 'color-paper', 4.5],
-  ['color-muted', 'color-paper-2', 4.5],
-  ['color-muted', 'color-paper', 4.5],
-  ['color-muted', 'color-paper-3', 4.5],
+  ['color-ink', 'color-paper-2', 4.5],
+  ['color-ink', 'color-surface', 4.5],
   ['color-ink-2', 'color-paper', 4.5],
-  ['color-accent', 'color-paper', 4.5],
-  ['color-accent', 'color-paper-2', 4.5],
-  ['color-accent', 'color-paper-3', 4.5],
+  ['color-ink-2', 'color-surface', 4.5],
+  ['color-muted', 'color-paper', 4.5],
+  ['color-muted', 'color-paper-2', 4.5],
+  ['color-muted', 'color-paper-3', 4.5],
+  ['color-muted', 'color-surface', 4.5],
+
+  ['color-link', 'color-paper', 4.5],
+  ['color-link', 'color-paper-2', 4.5],
+  ['color-link', 'color-paper-3', 4.5],
+  ['color-link', 'color-surface', 4.5],
+  // The label on a tomato button, at rest and under the cursor.
   ['color-accent-ink', 'color-accent', 4.5],
-  ['color-focus', 'color-paper-2', 3],
+  ['color-accent-ink', 'color-accent-hover', 4.5],
+
   ['color-focus', 'color-paper', 3],
+  ['color-focus', 'color-paper-2', 3],
+  ['color-rule-strong', 'color-paper', 3],
+  ['color-rule-strong', 'color-surface', 3],
+
+  // Green reports state rather than decorating. It is read as text on the two page
+  // surfaces and drawn as a border on cards, which is why the card pair asks for 3.
+  ['color-green', 'color-paper', 4.5],
+  ['color-green', 'color-surface', 4.5],
+  ['color-green', 'color-paper-2', 3],
+
+  ['color-error-ink', 'color-paper', 4.5],
+  ['color-error-ink', 'color-surface', 4.5],
+  ['color-error', 'color-paper', 3],
+
   ['color-on-dark', 'color-hero', 4.5],
   ['color-on-dark-muted', 'color-hero', 4.5],
   ['color-on-dark', 'color-code-bg', 4.5],
   ['color-on-dark-muted', 'color-code-bg', 4.5],
-  // The auth panel inks its text in a brand tone rather than --color-ink. Left out
-  // of the first version of this list, which is how it reached a screenshot as dark
-  // text on a dark panel.
+  // The auth panel inks its text in a brand tone rather than plain ink. Left out of
+  // the first version of this list, which is how it reached a screenshot as dark text
+  // on a dark panel.
   ['color-auth-ink', 'color-paper', 4.5],
   ['color-auth-ink', 'color-paper-2', 4.5],
 ];
-
 for (const [label, selector] of [['light', ':root {'], ['dark', ":root[data-theme='dark'] {"]] as const) {
   test(`${label} theme meets WCAG AA on every surface pair`, () => {
     const theme = readTheme(selector);
