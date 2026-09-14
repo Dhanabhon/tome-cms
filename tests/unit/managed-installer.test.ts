@@ -24,6 +24,17 @@ const manifest = {
   releaseNotesUrl: 'https://github.com/Dhanabhon/tome-cms/releases/tag/v1.0.0',
 };
 
+function diagnosticRepresentations(value: string): string[] {
+  const base64 = Buffer.from(value).toString('base64');
+  const base64Url = base64.replace(/\+/g, '-').replace(/\//g, '_');
+  const json = JSON.stringify(value).slice(1, -1);
+  const htmlSafeJson = json.replace(/[<>&\u2028\u2029]/gu, character =>
+    `\\u${character.codePointAt(0)!.toString(16).padStart(4, '0')}`);
+  return [value, encodeURIComponent(value), encodeURI(value),
+    new URLSearchParams({ value }).toString().slice(6), json, htmlSafeJson,
+    base64, base64.replace(/=+$/, ''), base64Url, base64Url.replace(/=+$/, '')];
+}
+
 // Only these doubles can perform external operations. PATH never includes host executables.
 const stub = `#!${process.execPath}
 const fs = require('node:fs'); const path = require('node:path');
@@ -34,7 +45,13 @@ if (fail && (name + ' ' + text).includes(fail)) {
   if (process.env.FAIL_PRIVATE_DETAILS) {
     const values = require('node:util').parseEnv(fs.readFileSync(path.join(process.env.INSTALL_FIXTURE_ROOT, 'etc/tome-cms/tome-cms.env'), 'utf8'));
     const sensitive = Object.entries(values).filter(([key]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key)).map(([, value]) => value);
-    const forms = sensitive.flatMap(value => [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'), Buffer.from(value).toString('base64url')]);
+    const forms = sensitive.flatMap(value => {
+      const base64 = Buffer.from(value).toString('base64');
+      const base64Url = base64.replace(/\\+/g, '-').replace(/\\//g, '_');
+      const json = JSON.stringify(value).slice(1, -1);
+      const htmlSafeJson = json.replace(/[<>&\\u2028\\u2029]/gu, character => '\\\\u' + character.codePointAt(0).toString(16).padStart(4, '0'));
+      return [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), json, htmlSafeJson, base64, base64.replace(/=+$/, ''), base64Url, base64Url.replace(/=+$/, '')];
+    });
     process.stdout.write('Migration 008_update_rate_limit_actions started\\n' + forms.join('\\n') + '\\n');
     process.stderr.write('SQLSTATE 23505: duplicate migration record\\n' + forms.join('\\n') + '\\n' + 'x'.repeat(20000));
   }
@@ -140,7 +157,7 @@ async function fixture(t: TestContext) {
   const prefix = join(root, 'host');
   const bin = join(prefix, 'bin');
   await mkdir(bin, { recursive: true });
-  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
+  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
   for (const file of files) {
     const target = join(source, file);
     await mkdir(dirname(target), { recursive: true });
@@ -601,13 +618,22 @@ test('a failed migration cleans only its named one-shot container and retains re
   assert.equal(removal[2], '--force');
   assert.match(removal[3], /^tomecms-install-migration-[0-9a-f-]{36}$/);
   await access(join(f.prefix, 'etc/tome-cms/tome-cms.env'));
+  const [diagnosticFile] = await readdir(join(f.prefix, 'var/log/tome-cms'));
+  const diagnostic = JSON.parse(await readFile(join(f.prefix, 'var/log/tome-cms', diagnosticFile), 'utf8'));
+  assert.deepEqual(
+    [diagnostic.failures[0].args, diagnostic.failures[0].stdout, diagnostic.failures[0].stderr],
+    Array(3).fill('[omitted: unsafe secret patterns]'),
+  );
   assert.match(result.stderr, /retained/);
 });
 
-test('bounded private failure diagnostics survive migration cleanup and redact raw and encoded secrets', async t => {
+test('bounded private failure diagnostics survive cleanup and redact every shared secret representation', async t => {
   const f = await fixture(t);
-  const sentinel = 'S3_SENTINEL_sensitive+slash/space and"quote=abcdefgh';
-  const result = f.run([], { FAIL_STEP: 'app npm run db:migrate', ORPHAN_MIGRATION: '1', FAIL_PRIVATE_DETAILS: '1', S3_SECRET_ACCESS_KEY: sentinel });
+  const sentinel = '<>&abcdefgh';
+  const result = f.run([], {
+    FAIL_STEP: 'app npm run db:migrate', ORPHAN_MIGRATION: '1', FAIL_PRIVATE_DETAILS: '1',
+    S3_ACCESS_KEY_ID: 'tomecms-access-key', S3_SECRET_ACCESS_KEY: sentinel,
+  });
   assert.equal(result.status, 1);
   const files = await readdir(join(f.prefix, 'var/log/tome-cms'));
   assert.equal(files.length, 1);
@@ -625,12 +651,15 @@ test('bounded private failure diagnostics survive migration cleanup and redact r
   const values = parseEnv(await readFile(join(f.prefix, 'etc/tome-cms/tome-cms.env'), 'utf8'));
   for (const [key, value] of Object.entries(values)) {
     if (!/PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) || !value) continue;
-    for (const secret of [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'), Buffer.from(value).toString('base64url')]) {
+    for (const secret of diagnosticRepresentations(value)) {
       assert.ok(!JSON.stringify(diagnostic.failures).includes(JSON.stringify(secret).slice(1, -1)), `${key} must be redacted`);
+      assert.ok(!text.includes(secret), `${key} must not appear in the persisted diagnostic`);
     }
   }
   const output = result.stdout + result.stderr;
-  assert.ok(!output.includes(sentinel));
+  for (const secret of diagnosticRepresentations(sentinel)) {
+    assert.ok(!output.includes(secret), 'S3 secret representation must not appear on the console');
+  }
   assert.doesNotMatch(output, /SQLSTATE 23505|Migration 008_update_rate_limit_actions started/);
   assert.ok(output.includes(path));
   const commands = await f.commands();
