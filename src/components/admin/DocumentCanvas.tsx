@@ -117,7 +117,7 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
   ];
 
   return (
-    <EditorBubble className="flex overflow-hidden rounded-md border border-line bg-white p-1 font-sans" tippyOptions={{ duration: 100 }}>
+    <EditorBubble className="flex overflow-hidden rounded-md border border-line bg-surface p-1 font-sans" tippyOptions={{ duration: 100 }}>
       {actions.map((action) => (
         <EditorBubbleItem key={action.label} onSelect={action.run}>
           <button

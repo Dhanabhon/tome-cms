@@ -25,6 +25,10 @@
 
   /* Surfaces that are dark on purpose, and the text that sits on them. These stay
    * legible in either theme, unlike --color-paper, which flips with the theme. */
+  /* The auth surface inks its text in the brand evergreen rather than plain ink.
+   * It is a text role, so it has to invert with the theme — --color-hero must not
+   * be used here; that token names a dark surface and stays dark in both themes. */
+  --color-auth-ink: oklch(32.86% 0.0489 188.84);
   --color-code-bg: oklch(15.2% 0.0033 196.81);
   --color-on-dark: oklch(100% 0 0);
   --color-on-dark-muted: oklch(89.85% 0.0336 194.25);
@@ -97,6 +101,7 @@
   --color-error-ink: oklch(80% 0.12 32);
   --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
+  --color-auth-ink: oklch(93% 0.012 190);
   --color-code-bg: oklch(13% 0.012 190);
   --color-on-dark: oklch(97% 0.004 195);
   --color-on-dark-muted: oklch(82% 0.02 192);
