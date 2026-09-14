@@ -1,9 +1,9 @@
-/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4
- * genre: modern-minimal · macrostructure: Split Studio · design-system: DESIGN.md · designed-as-app
- * audience: single owner · use: admin sign in · tone: austere-utilitarian
- * enrichment: none · nav: N9 Edge-aligned minimal · footer: Ft2 Inline rule
- * contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47)
- * tokens: pass (48) · mobile: pass (34, 49, 50–57) · icons: pass (30)
+/* Hallmark · design-system: DESIGN.md · theme: TomeCMS Mint 2026 · genre: modern-minimal
+ * scope: application-wide stylesheet — admin shell, posts, pages, editor, media,
+ *        security, navigation, auth, and the public blog surface. Not a single page.
+ * audience: single owner · tone: austere-utilitarian · anchor hue: teal
+ * tokens: every colour, radius and type step resolves through installer-tokens.css
+ * contrast: AA on all measured pairs (computed, not estimated — lowest 4.51)
  */
 @import './installer-tokens.css';
 @import './brand.css';
@@ -153,7 +153,7 @@ body {
   max-width: 100%;
   height: auto;
   margin: 2rem auto;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-input);
 }
 
 .editor-content .ProseMirror-selectednode {
@@ -181,7 +181,7 @@ body {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--color-rule);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background: var(--color-paper);
   color: var(--color-muted);
   font-size: 1.25rem;
@@ -200,7 +200,7 @@ body {
   width: min(12rem, calc(100vw - 2rem));
   padding: 0.375rem;
   border: 1px solid var(--color-rule);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-input);
   background: var(--color-paper);
   animation: block-menu-in 120ms ease-out;
 }
@@ -209,7 +209,7 @@ body {
   display: block;
   width: 100%;
   padding: 0.5rem 0.625rem;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   color: var(--color-ink);
   font-size: 0.875rem;
   text-align: left;
@@ -1258,7 +1258,7 @@ body {
   min-width: 0;
   padding: var(--space-3xs) var(--space-xs);
   border: var(--rule-hair) solid var(--color-focus-soft);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-paper-3);
   color: var(--color-accent);
   font-size: var(--text-xs);

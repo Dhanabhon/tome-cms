@@ -76,38 +76,30 @@ typography:
     fontWeight: "500"
     lineHeight: "24px"
 rounded:
-  radius-none: "0px"
-  radius-xs: "2px"
-  radius-sm: "4px"
-  radius-md: "5px"
-  radius-base: "6px"
-  radius-card: "8px"
-  radius-lg: "12px"
-  radius-xl: "16px"
-  radius-2xl: "20px"
+  radius-sm: "0.375rem"
+  radius-input: "0.5rem"
+  radius-card: "0.5rem"
+  radius-lg: "1rem"
   radius-pill: "9999px"
 spacing:
-  spacing-1: "2px"
-  spacing-2: "3px"
-  spacing-3: "4px"
-  spacing-4: "5px"
-  spacing-5: "6px"
-  spacing-6: "8px"
-  spacing-7: "10px"
-  spacing-8: "12px"
-  spacing-9: "14px"
-  spacing-10: "15px"
-  spacing-11: "16px"
-  spacing-12: "20px"
-  spacing-13: "24px"
-  spacing-14: "28px"
-  spacing-15: "32px"
-  spacing-16: "40px"
+  space-3xs: "0.125rem"
+  space-2xs: "0.25rem"
+  space-xs: "0.5rem"
+  space-sm: "0.75rem"
+  space-md: "1rem"
+  space-lg: "1.5rem"
+  space-xl: "2.5rem"
+  space-2xl: "4rem"
+  space-3xl: "5rem"
 ---
 
 ## Overview
 
 TomeCMS pairs white and pale-mint surfaces with deep evergreen anchors, using the reference artwork's mint (#c5e5e4), teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) drives CTAs and links. The existing IBM Plex Sans Thai hierarchy, 12-column grid with 28px gutters, dual-radius language, and progressive shadow system remain the structural foundation.
+
+**Source of truth:** `src/styles/installer-tokens.css` owns every colour, spacing, radius and
+type token. This document and `tailwind.config.mjs` follow it — they never declare a competing
+value. `npm run check` runs `scripts/check-design-tokens.mjs`, which fails the build if they drift.
 
 **Signature traits:**
 - Single-family weight hierarchy: Builds hierarchy from IBM Plex Sans Thai across 4 weights rather than multiple families.
@@ -176,28 +168,17 @@ This system uses a 4px base grid with scale values 2, 3, 4, 5, 6, 8, 10, 12, 14,
 - **wide (>= 1440px)**: Stretch composition with generous gutters and wider layout spans.
 
 ### Spacing System
-| Token | Value | Px | Notes |
+| Token | Value | Px | Role |
 |------|-------|----|-------|
-| spacing-1 | 2px | 2 | Extracted spacing token |
-| spacing-2 | 3px | 3 | Extracted spacing token |
-| spacing-3 | 4px | 4 | Extracted spacing token |
-| spacing-4 | 5px | 5 | Extracted spacing token |
-| spacing-5 | 6px | 6 | Extracted spacing token |
-| spacing-6 | 8px | 8 | Extracted spacing token |
-| spacing-7 | 10px | 10 | Extracted spacing token |
-| spacing-8 | 12px | 12 | Mapped to --grid-sm-gutter |
-| spacing-9 | 14px | 14 | Extracted spacing token |
-| spacing-10 | 15px | 15 | Extracted spacing token |
-| spacing-11 | 16px | 16 | Extracted spacing token |
-| spacing-12 | 20px | 20 | Mapped to --base-padding |
-| spacing-13 | 24px | 24 | Mapped to --spacing-block-m |
-| spacing-14 | 28px | 28 | Mapped to --grid-gutter |
-| spacing-15 | 32px | 32 | Mapped to --spacing-block-l |
-| spacing-16 | 40px | 40 | Mapped to --spacing-s |
-| spacing-17 | 48px | 48 | Extracted spacing token |
-| spacing-18 | 60px | 60 | Mapped to --spacing-l |
-| spacing-19 | 64px | 64 | Extracted spacing token |
-| spacing-20 | 80px | 80 | Extracted spacing token |
+| space-3xs | 0.125rem | 2 | Hairline offsets, focus-ring offset |
+| space-2xs | 0.25rem | 4 | Label-to-field gap, tight stacks |
+| space-xs | 0.5rem | 8 | Inline gaps inside a control |
+| space-sm | 0.75rem | 12 | Control padding, list-row gaps |
+| space-md | 1rem | 16 | Default gap, page gutter floor |
+| space-lg | 1.5rem | 24 | Card padding, section internals |
+| space-xl | 2.5rem | 40 | Block separation, page gutter ceiling |
+| space-2xl | 4rem | 64 | Page top padding, major breaks |
+| space-3xl | 5rem | 80 | Page bottom padding |
 
 ## Elevation & Depth
 
@@ -223,32 +204,18 @@ Keep depth flat unless validated shadow or interaction evidence appears in the e
 Shape language maps directly to rounded tokens. Keep component corners consistent with the role mapping below before introducing bespoke geometry.
 
 ### Radius Roles
+
 | Token | Value | Px | Role Mapping |
 |------|-------|----|--------------|
-| radius-none | 0px | 0 | Hairline corner |
-| radius-xs | 2px | 2 | Hairline corner |
-| radius-sm | 4px | 4 | Subtle corner |
-| radius-md | 5px | 5 | Subtle corner |
-| radius-base | 6px | 6 | Subtle corner |
-| radius-card | 8px | 8 | Control corner |
-| radius-lg | 12px | 12 | Control corner |
-| radius-xl | 16px | 16 | Card corner |
-| radius-2xl | 20px | 20 | Card corner |
-| radius-pill | 9999px | 9999 | Large surface corner |
+| radius-sm | 0.375rem | 6 | Menu items, small inline controls |
+| radius-input | 0.5rem | 8 | Inputs, buttons, cards, popovers |
+| radius-card | 0.5rem | 8 | Alias of `radius-input`; kept so card geometry can diverge later |
+| radius-lg | 1rem | 16 | Dialogs and full-surface overlays |
+| radius-pill | 9999px | — | Badges, chips, circular triggers |
 
-### Geometry Evidence
-| Radius Token | Shape | Units |
-|--------------|-------|-------|
-| radius-none | 0 | px |
-| radius-xs | 2px | px |
-| radius-sm | 4px | px |
-| radius-md | 5px | px |
-| radius-base | 6px | px |
-| radius-card | 8px | px |
-| radius-lg | 12px | px |
-| radius-xl | 16px | px |
-| radius-2xl | 20px | px |
-| radius-pill | 9999px | px |
+`border-radius: 50%` stays literal for avatars and circular marks — a circle is not a step on
+this scale. Tailwind's `rounded-md` / `rounded-lg` / `rounded-xl` / `rounded-full` resolve to
+`radius-sm` / `radius-input` / `radius-lg` / `radius-pill` respectively.
 
 ## Components
 
