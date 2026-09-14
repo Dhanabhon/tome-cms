@@ -6,36 +6,51 @@
   /* Light is the default; the blocks at the end of this file take over when the
    * reader's system asks for dark, or when data-theme says so explicitly. */
   color-scheme: light;
+
+  /* paper + ink, with tomato as the single accent. The greys are warm and faintly
+   * green so the page reads editorial rather than clinical; every value here is a
+   * member of the palette rather than something derived to fill a gap. */
+  /* --color-paper is the raised panel here -- cards, sidebar, inputs, dialogs -- and
+   * --color-paper-2 is the page behind them. So white lands on the panels, the cream
+   * paper on the page, and soft on the hover and recessed tones. */
   --color-paper: oklch(100% 0 0);
-  --color-paper-2: oklch(97.43% 0.0065 185.27);
-  --color-paper-3: oklch(89.85% 0.0336 194.25);
+  --color-paper-2: oklch(97.28% 0.0054 95.1);
+  --color-paper-3: oklch(93.84% 0.008 106.55);
   --color-surface: oklch(100% 0 0);
-  --color-hero: oklch(32.86% 0.0489 188.84);
-  --color-ink: oklch(15.2% 0.0033 196.81);
-  --color-ink-2: oklch(51.53% 0.0331 188.02);
-  --color-muted: oklch(49.49% 0.0322 187.7);
+  --color-hero: oklch(22.4% 0.0107 151.27);
+  --color-ink: oklch(18.53% 0.0095 255.64);
+  --color-ink-2: oklch(34% 0.011 220);
+  --color-muted: oklch(50.36% 0.0125 136.6);
   --color-placeholder: var(--color-muted);
-  --color-rule: color-mix(in oklch, var(--color-hero) 10%, transparent);
-  --color-rule-strong: color-mix(in oklch, var(--color-hero) 26%, transparent);
-  --color-accent: oklch(48% 0.0694 191.12);
-  --color-link: oklch(48% 0.0694 191.12);
-  --color-accent-ink: oklch(100% 0 0);
-  --color-focus: oklch(60.38% 0.0709 191.77);
-  --color-focus-soft: oklch(89.85% 0.0336 194.25);
-  --color-error: oklch(65.12% 0.213 30.9);
-  --color-error-ink: oklch(43.47% 0.148 30.83);
+  --color-rule: oklch(88.96% 0.0125 121.72);
+  --color-rule-strong: oklch(62% 0.012 130);
+
+  /* Tomato fills; copper says the same thing as text or a small mark. This is not a
+   * preference: tomato on paper measures 2.96, under the 3:1 a graphic needs and far
+   * under the 4.5 text needs, while copper is 5.22. So buttons and hero shapes are
+   * tomato with a dark label on them, and links, icons and arrows are copper. */
+  --color-accent: oklch(67.23% 0.18 36.11);
+  --color-accent-hover: oklch(71.2% 0.1591 36.39);
+  --color-accent-ink: oklch(18.53% 0.0095 255.64);
+  --color-link: oklch(53.23% 0.1598 34.75);
+  --color-focus: oklch(53.23% 0.1598 34.75);
+  --color-focus-soft: oklch(84.98% 0.0675 36.83);
+
+  /* The one colour that deliberately leaves the palette, because it reports state
+   * rather than decorating. Text on paper and on white; a border anywhere else. */
+  --color-green: oklch(52.85% 0.1061 154.6);
+
+  /* Errors sit at hue 20, clear of the accent's 36, so danger cannot read as brand. */
+  --color-error: oklch(52% 0.19 20);
+  --color-error-ink: oklch(44% 0.17 20);
   --color-error-soft: color-mix(in oklch, var(--color-error) 10%, var(--color-paper));
 
-  /* Surfaces that are dark on purpose, and the text that sits on them. These stay
-   * legible in either theme, unlike --color-paper, which flips with the theme. */
-  /* The auth surface inks its text in the brand evergreen rather than plain ink.
-   * It is a text role, so it has to invert with the theme — --color-hero must not
-   * be used here; that token names a dark surface and stays dark in both themes. */
-  --color-auth-ink: oklch(32.86% 0.0489 188.84);
-  --color-code-bg: oklch(15.2% 0.0033 196.81);
+  /* Surfaces that are dark on purpose, and the text that sits on them. */
+  --color-auth-ink: oklch(22.4% 0.0107 151.27);
+  --color-code-bg: oklch(22.4% 0.0107 151.27);
   --color-on-dark: oklch(100% 0 0);
-  --color-on-dark-muted: oklch(89.85% 0.0336 194.25);
-  --color-scrim: color-mix(in srgb, oklch(15.2% 0.0033 196.81) 40%, transparent);
+  --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
+  --color-scrim: color-mix(in srgb, oklch(18.53% 0.0095 255.64) 40%, transparent);
   /* The wordmark asset is dark ink, so it needs no treatment on a light surface. */
   --logo-filter: none;
 
@@ -95,31 +110,41 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --color-paper: oklch(22% 0.012 190);
-    --color-paper-2: oklch(17.5% 0.01 190);
-    --color-paper-3: oklch(28% 0.018 191);
-    --color-surface: oklch(22% 0.012 190);
-    --color-hero: oklch(30% 0.03 189);
-    --color-ink: oklch(95% 0.006 195);
-    --color-ink-2: oklch(80% 0.018 190);
-    --color-muted: oklch(72% 0.022 190);
+    /* Night is the page, white is the text, dim is everything secondary. Tomato survives
+     * the flip unchanged -- it is the brand, and it is legible on night -- but copper does
+     * not: at L53 on an L22 page it falls to 2.9, so links and small marks take a lighter
+     * orange here instead. */
+    --color-paper: oklch(26.5% 0.011 151);
+    --color-paper-2: oklch(22.4% 0.0107 151.27);
+    --color-paper-3: oklch(32% 0.013 151);
+    --color-surface: oklch(26.5% 0.011 151);
+    --color-hero: oklch(16% 0.008 151);
+    --color-ink: oklch(100% 0 0);
+    --color-ink-2: oklch(86% 0.012 140);
+    --color-muted: oklch(75.8% 0.0173 133.86);
     --color-placeholder: var(--color-muted);
     /* Rules are mixed from the ink side here; mixing the hero would be invisible. */
     --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
-    --color-rule-strong: color-mix(in oklch, var(--color-ink) 30%, transparent);
-    --color-accent: oklch(78% 0.1 191);
-    --color-link: oklch(78% 0.1 191);
-    --color-accent-ink: oklch(18% 0.01 190);
-    --color-focus: oklch(75% 0.1 192);
-    --color-focus-soft: oklch(35% 0.04 193);
-    --color-error: oklch(70% 0.17 30);
-    --color-error-ink: oklch(80% 0.12 32);
+    --color-rule-strong: oklch(55% 0.012 140);
+
+    --color-accent: oklch(67.23% 0.18 36.11);
+    --color-accent-hover: oklch(71.2% 0.1591 36.39);
+    --color-accent-ink: oklch(18.53% 0.0095 255.64);
+    --color-link: oklch(76% 0.14 38);
+    --color-focus: oklch(76% 0.14 38);
+    --color-focus-soft: oklch(38% 0.07 36);
+
+    /* Lifted well above the light value: #2E7D4F on night is 2.8, unreadable. */
+    --color-green: oklch(72% 0.12 155);
+
+    --color-error: oklch(70% 0.17 20);
+    --color-error-ink: oklch(78% 0.13 20);
     --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
-    --color-auth-ink: oklch(93% 0.012 190);
-    --color-code-bg: oklch(13% 0.012 190);
-    --color-on-dark: oklch(97% 0.004 195);
-    --color-on-dark-muted: oklch(82% 0.02 192);
+    --color-auth-ink: oklch(100% 0 0);
+    --color-code-bg: oklch(16% 0.008 151);
+    --color-on-dark: oklch(100% 0 0);
+    --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
     --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
     --logo-filter: brightness(0) invert(1);
   }
@@ -128,31 +153,41 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-paper: oklch(22% 0.012 190);
-  --color-paper-2: oklch(17.5% 0.01 190);
-  --color-paper-3: oklch(28% 0.018 191);
-  --color-surface: oklch(22% 0.012 190);
-  --color-hero: oklch(30% 0.03 189);
-  --color-ink: oklch(95% 0.006 195);
-  --color-ink-2: oklch(80% 0.018 190);
-  --color-muted: oklch(72% 0.022 190);
+  /* Night is the page, white is the text, dim is everything secondary. Tomato survives
+   * the flip unchanged -- it is the brand, and it is legible on night -- but copper does
+   * not: at L53 on an L22 page it falls to 2.9, so links and small marks take a lighter
+   * orange here instead. */
+  --color-paper: oklch(26.5% 0.011 151);
+  --color-paper-2: oklch(22.4% 0.0107 151.27);
+  --color-paper-3: oklch(32% 0.013 151);
+  --color-surface: oklch(26.5% 0.011 151);
+  --color-hero: oklch(16% 0.008 151);
+  --color-ink: oklch(100% 0 0);
+  --color-ink-2: oklch(86% 0.012 140);
+  --color-muted: oklch(75.8% 0.0173 133.86);
   --color-placeholder: var(--color-muted);
   /* Rules are mixed from the ink side here; mixing the hero would be invisible. */
   --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
-  --color-rule-strong: color-mix(in oklch, var(--color-ink) 30%, transparent);
-  --color-accent: oklch(78% 0.1 191);
-  --color-link: oklch(78% 0.1 191);
-  --color-accent-ink: oklch(18% 0.01 190);
-  --color-focus: oklch(75% 0.1 192);
-  --color-focus-soft: oklch(35% 0.04 193);
-  --color-error: oklch(70% 0.17 30);
-  --color-error-ink: oklch(80% 0.12 32);
+  --color-rule-strong: oklch(55% 0.012 140);
+
+  --color-accent: oklch(67.23% 0.18 36.11);
+  --color-accent-hover: oklch(71.2% 0.1591 36.39);
+  --color-accent-ink: oklch(18.53% 0.0095 255.64);
+  --color-link: oklch(76% 0.14 38);
+  --color-focus: oklch(76% 0.14 38);
+  --color-focus-soft: oklch(38% 0.07 36);
+
+  /* Lifted well above the light value: #2E7D4F on night is 2.8, unreadable. */
+  --color-green: oklch(72% 0.12 155);
+
+  --color-error: oklch(70% 0.17 20);
+  --color-error-ink: oklch(78% 0.13 20);
   --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
-  --color-auth-ink: oklch(93% 0.012 190);
-  --color-code-bg: oklch(13% 0.012 190);
-  --color-on-dark: oklch(97% 0.004 195);
-  --color-on-dark-muted: oklch(82% 0.02 192);
+  --color-auth-ink: oklch(100% 0 0);
+  --color-code-bg: oklch(16% 0.008 151);
+  --color-on-dark: oklch(100% 0 0);
+  --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
   --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
   --logo-filter: brightness(0) invert(1);
 }
