@@ -67,7 +67,7 @@ try {
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
     ) : locale ? (
-      <Editor adminPath={settings?.admin_path ?? '/admin'} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} locale={locale} sourcePost={sourcePost} translations={translations}>
+      <Editor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} locale={locale} sourcePost={sourcePost} translations={translations}>
         <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
       </Editor>
     ) : null}

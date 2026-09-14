@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
 import { adminHref } from '../../lib/admin';
+import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PageSettingsDrawer from './PageSettingsDrawer';
@@ -18,6 +19,7 @@ interface PageEditorProps {
   adminPath: string;
   initialPage?: Omit<Page, 'translation_group_id'>;
   locale: PageLocale;
+  ownerLocale?: PageLocale | null;
   sourcePage?: EditorSourcePage;
   translations: PageTranslationSummary[];
 }
@@ -50,7 +52,8 @@ function readPage(payload: unknown): Page | null {
   return typeof page === 'object' && page !== null && 'id' in page ? (page as Page) : null;
 }
 
-export default function PageEditor({ adminPath, initialPage, locale, sourcePage, translations }: PageEditorProps) {
+export default function PageEditor({ adminPath, initialPage, locale, ownerLocale, sourcePage, translations }: PageEditorProps) {
+  const copy = adminCopy(ownerLocale);
   const fallbackSlug = useRef(`page-${crypto.randomUUID().slice(0, 8)}`);
   const pageId = useRef(initialPage?.id);
   const updatedAt = useRef(initialPage?.updated_at);
@@ -83,13 +86,13 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
 
   const snapshot = useCallback(() => {
     const draft = draftRef.current;
-    if (!draft.title.trim()) throw new Error('Add a title before saving.');
+    if (!draft.title.trim()) throw new Error(copy.editor.titleRequired);
     return draft;
   }, []);
 
   const save = useCallback(async (draft: PageEditorDraft, status?: PageStatus): Promise<Page> => {
     const id = pageId.current;
-    if (id && !updatedAt.current) throw new Error('Reload this page before saving again.');
+    if (id && !updatedAt.current) throw new Error(copy.editor.reloadPage);
     const response = await fetch('/api/admin/pages', {
       method: id ? 'PUT' : 'POST',
       headers: { 'content-type': 'application/json' },
@@ -101,10 +104,10 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
       }),
     });
     const payload: unknown = await response.json();
-    if (!response.ok) throw new Error(readApiError(payload) ?? 'The page could not be saved.');
+    if (!response.ok) throw new Error(readApiError(payload) ?? copy.editor.pageNotSaved);
 
     const savedPage = readPage(payload);
-    if (!savedPage) throw new Error('The server returned an invalid page.');
+    if (!savedPage) throw new Error(copy.editor.serverSentInvalidPage);
     setErrorMessage(null);
 
     const wasNew = !pageId.current;
@@ -126,7 +129,7 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
   }, [adminPath, locale, sourcePage]);
 
   const handleSaveError = useCallback((error: unknown) => {
-    setErrorMessage(error instanceof Error ? error.message : 'The page could not be saved.');
+    setErrorMessage(error instanceof Error ? error.message : copy.editor.pageNotSaved);
   }, []);
 
   const { dirty, dirtyRef, markDirty, pendingCount, persist, saveState } = useEditorSaveQueue({
@@ -139,7 +142,7 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
     if (actionPending.current) return;
     const previewWindow = target ?? window.open(adminHref({ admin_path: adminPath }, '/preview/pending'), '_blank');
     if (!previewWindow) {
-      setErrorMessage('Allow pop-ups for this site to open Preview.');
+      setErrorMessage(copy.editor.popupBlocked);
       return;
     }
 
@@ -270,20 +273,20 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
                 setIsNavigating(true);
               }
             }}>
-              <span aria-hidden="true">←</span> Back to Pages
+              <span aria-hidden="true">←</span> {copy.editor.backToPages}
             </a>
-            <nav className="admin-nav" aria-label="Page languages">
+            <nav className="admin-nav" aria-label={copy.editor.pageLanguages}>
               {POST_LOCALES.map((language) => {
                 const translation = languageEditions.find(({ locale: translationLocale }) => translationLocale === language);
                 const current = language === locale;
                 const label = current
-                  ? `${language.toUpperCase()} ${pageStatus}`
+                  ? `${language.toUpperCase()} ${statusLabel(copy, pageStatus)}`
                   : translation
-                    ? `${language.toUpperCase()} ${translation.status}`
-                    : `${language.toUpperCase()} missing`;
+                    ? `${language.toUpperCase()} ${statusLabel(copy, translation.status)}`
+                    : `${language.toUpperCase()} ${copy.row.missing}`;
                 return current
                   ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>
-                  : <button aria-label={`${translation ? 'Edit' : 'Add'} ${language.toUpperCase()} translation`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
+                  : <button aria-label={`${translation ? copy.editor.editTranslation : copy.editor.addTranslation} ${language.toUpperCase()}`} className="admin-nav__link" disabled={isActionPending} key={language} onClick={() => void saveBefore((saved) => {
                     window.location.assign(translation
                       ? adminHref({ admin_path: adminPath }, `/pages/edit/${translation.id}`)
                       : adminHref({ admin_path: adminPath }, `/pages/new?sourcePageId=${saved.id}&locale=${language}`));
@@ -292,36 +295,36 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
             </nav>
           </div>
           <div className="admin-editor-actions">
-            <span className="admin-save-state" data-state={saveState === 'Saved' ? 'saved' : saveState === 'Saving…' ? 'saving' : 'unsaved'} aria-live="polite">
-              <span aria-hidden="true">{saveState === 'Saved' ? '✓' : '·'}</span> <span>{saveState}</span>
+            <span className="admin-save-state" data-state={saveState} aria-live="polite">
+              <span aria-hidden="true">{saveState === 'saved' ? '✓' : '·'}</span> <span>{copy.editor[saveState]}</span>
             </span>
-            {saveState === 'Save failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">Retry save</button>}
-            <button aria-describedby={!pageId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!pageId.current && !title.trim())} onClick={() => void previewDraft()} type="button">Preview</button>
-            <span className="sr-only" id="preview-disabled-reason">Add a title before opening Preview.</span>
+            {saveState === 'failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">{copy.editor.retrySave}</button>}
+            <button aria-describedby={!pageId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!pageId.current && !title.trim())} onClick={() => void previewDraft()} type="button">{copy.row.preview}</button>
+            <span className="sr-only" id="preview-disabled-reason">{copy.editor.previewNeedsTitle}</span>
             <button aria-expanded={settingsOpen} aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={(event) => {
               event.currentTarget.focus();
               setSettingsOpen(true);
-            }} type="button">Settings</button>
-            <button className="admin-button admin-button--primary" data-state={saveState === 'Saving…' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
-              {pageStatus === 'published' ? 'Update' : 'Publish'}
+            }} type="button">{copy.nav.settings}</button>
+            <button className="admin-button admin-button--primary" data-state={saveState === 'saving' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
+              {pageStatus === 'published' ? copy.editor.update : copy.row.publish}
             </button>
           </div>
         </div>
       </header>
 
       <div className="admin-editor-workspace">
-        {isNavigating && <p className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted" role="status">Opening page… <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">Stay in editor</button></p>}
-        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'Save failed' && <strong>Save failed</strong>} {errorMessage}</p>}
+        {isNavigating && <p className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted" role="status">{copy.editor.opening} <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">{copy.editor.stayInEditor}</button></p>}
+        {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'failed' && <strong>{copy.editor.failed}</strong>} {errorMessage}</p>}
 
         <article className="admin-editor-canvas">
-          <label className="sr-only" htmlFor="page-title">Page title</label>
+          <label className="sr-only" htmlFor="page-title">{copy.editor.pageTitle}</label>
           <textarea
             className="admin-title-input"
             ref={titleField}
             id="page-title"
             maxLength={200}
             onChange={(event) => changeTitle(event.target.value)}
-            placeholder="Untitled page"
+            placeholder={copy.pages.untitled}
             rows={2}
             value={title}
           />
@@ -333,6 +336,7 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
         </article>
 
         <PageSettingsDrawer
+          copy={copy}
           errorMessage={errorMessage}
           metaDescription={metaDescription}
           metaTitle={metaTitle}

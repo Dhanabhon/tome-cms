@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, type MutableRefObject } from 'react';
 
-export type EditorSaveState = 'Saved' | 'Saving…' | 'Unsaved' | 'Save failed';
+/** Semantic state, not display text — the label depends on the owner's language. */
+export type EditorSaveState = 'saved' | 'saving' | 'unsaved' | 'failed';
 
 export interface EditorSaveQueue<TEntity, TStatus> {
   dirty: boolean;
@@ -27,13 +28,13 @@ export default function useEditorSaveQueue<TSnapshot, TEntity, TStatus>({
   const pendingCount = useRef(0);
   const dirtyRef = useRef(false);
   const [dirty, setDirty] = useState(false);
-  const [saveState, setSaveState] = useState<EditorSaveState>('Saved');
+  const [saveState, setSaveState] = useState<EditorSaveState>('saved');
 
   const markDirty = useCallback(() => {
     changeVersion.current += 1;
     dirtyRef.current = true;
     setDirty(true);
-    setSaveState((current) => current === 'Save failed' ? current : 'Unsaved');
+    setSaveState((current) => current === 'failed' ? current : 'unsaved');
   }, []);
 
   const persist = useCallback((status?: TStatus): Promise<TEntity> => {
@@ -41,21 +42,21 @@ export default function useEditorSaveQueue<TSnapshot, TEntity, TStatus>({
     const pending = saveTail.current.catch(() => null).then(async () => {
       const currentSnapshot = snapshot();
       const version = changeVersion.current;
-      setSaveState((current) => current === 'Save failed' ? current : 'Saving…');
+      setSaveState((current) => current === 'failed' ? current : 'saving');
       const entity = await save(currentSnapshot, status);
 
       if (version === changeVersion.current) {
         dirtyRef.current = false;
         setDirty(false);
-        setSaveState('Saved');
+        setSaveState('saved');
       } else {
-        setSaveState('Unsaved');
+        setSaveState('unsaved');
       }
       return entity;
     }).catch((error: unknown) => {
       dirtyRef.current = true;
       setDirty(true);
-      setSaveState('Save failed');
+      setSaveState('failed');
       onError?.(error);
       throw error;
     }).finally(() => {

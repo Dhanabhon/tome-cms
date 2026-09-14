@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 
+import type { AdminCopy } from '../../lib/admin-i18n';
+
 interface PageSettingsDrawerProps {
+  copy: AdminCopy;
   errorMessage: string | null;
   metaDescription: string;
   metaTitle: string;
@@ -13,7 +16,7 @@ interface PageSettingsDrawerProps {
 }
 
 export default function PageSettingsDrawer({
-  errorMessage, metaDescription, metaTitle, onChangeMetaDescription,
+  copy, errorMessage, metaDescription, metaTitle, onChangeMetaDescription,
   onChangeMetaTitle, onChangeSlug, onClose, open, slug,
 }: PageSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -32,29 +35,29 @@ export default function PageSettingsDrawer({
   }, [open]);
 
   return (
-    <dialog aria-label="Page settings" className="admin-editor-settings" onCancel={(event) => {
+    <dialog aria-label={copy.drawer.pageSettings} className="admin-editor-settings" onCancel={(event) => {
       event.preventDefault();
       onClose();
     }} ref={dialog}>
       <div className="admin-editor-settings__head">
-        <div><h2>Page settings</h2><p>URL and search previews.</p></div>
-        <button autoFocus aria-label="Close settings" className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">Close</button>
+        <div><h2>{copy.drawer.pageSettings}</h2><p>{copy.drawer.pageSettingsHint}</p></div>
+        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">{copy.shell.close}</button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
       <label className="admin-field">
-        <span>Slug</span>
+        <span>{copy.drawer.slug}</span>
         <input className="admin-control" maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="page-slug" type="text" value={slug} />
-        <small>Used in the page URL.</small>
+        <small>{copy.drawer.slugHintPage}</small>
       </label>
       <label className="admin-field">
-        <span>Meta title <small>{metaTitle.length}/70</small></span>
-        <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder="Optional search result title" type="text" value={metaTitle} />
-        <small>Falls back automatically when empty.</small>
+        <span>{copy.drawer.metaTitle} <small>{metaTitle.length}/70</small></span>
+        <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder={copy.drawer.metaTitlePlaceholder} type="text" value={metaTitle} />
+        <small>{copy.drawer.metaTitleHint}</small>
       </label>
       <label className="admin-field">
-        <span>Meta description <small>{metaDescription.length}/320</small></span>
-        <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder="A concise summary or direct answer" value={metaDescription} />
-        <small>Used in search and social metadata.</small>
+        <span>{copy.drawer.metaDescription} <small>{metaDescription.length}/320</small></span>
+        <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder={copy.drawer.metaDescriptionPlaceholder} value={metaDescription} />
+        <small>{copy.drawer.metaDescriptionHintPage}</small>
       </label>
     </dialog>
   );
