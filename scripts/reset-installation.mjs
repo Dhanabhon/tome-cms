@@ -182,8 +182,16 @@ async function main() {
     }
     const expected = resetConfirmation(origin, database, s3Bucket);
     console.log('This permanently deletes TomeCMS content, media, sessions, recovery data, and owner accounts.');
-    if (await ask(`Type "${expected}" to continue: `) !== expected) {
-      console.log('Cancelled. No changes were made.');
+    // The line stands on its own rather than sitting inside quotes in the prompt:
+    // quoting it invites copying the quotes too, and the answer was compared raw, so
+    // that attempt read back as "Cancelled" -- the same word a deliberate abort gets.
+    console.log('Type this line to continue, or press Enter to cancel:');
+    console.log(`  ${expected}`);
+    const answer = (await ask('> ')).trim();
+    if (answer !== expected) {
+      console.log(answer
+        ? 'That did not match the line above, so nothing was deleted. Run reset again to retry.'
+        : 'Cancelled. No changes were made.');
       return;
     }
     await resetDatabase(db, objects, async () => {
