@@ -11,6 +11,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { makeEnvironment, renderEnvironment } from './scripts/bootstrap-core.mjs';
 import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
+import { redactDiagnosticText } from './src/updater/process.ts';
 
 const source = process.cwd();
 let dryRun = false;
@@ -30,7 +31,7 @@ const diagnosticName = `/var/log/tome-cms/install-${randomUUID()}.json`;
 const diagnosticFailures = [];
 let diagnosticSaved = false;
 let diagnosticSaveFailed = false;
-let redactions = [];
+let diagnosticSecrets;
 const childEnv = { ...process.env };
 const inheritedDockerConfig = resolve(process.env.DOCKER_CONFIG || join(process.env.HOME || homedir(), '.docker'));
 // Public release access must work without customer GitHub or registry credentials.
@@ -135,18 +136,17 @@ function createServiceIdentity(kind, command, args) {
 function rememberSecrets(values) {
   const secrets = Object.entries(values).filter(([key, value]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && value).map(([, value]) => value);
   const containerDatabase = new URL(values.DATABASE_URL);
+  if (containerDatabase.password) secrets.push(containerDatabase.password, decodeURIComponent(containerDatabase.password));
   containerDatabase.hostname = 'postgres';
   containerDatabase.port = '5432';
   secrets.push(containerDatabase.href);
-  redactions = [...new Set(secrets.flatMap(value => [value, encodeURIComponent(value), encodeURI(value), new URLSearchParams({ value }).toString().slice(6), JSON.stringify(value).slice(1, -1), Buffer.from(value).toString('base64'), Buffer.from(value).toString('base64url')]))];
-  redactions.push(...redactions.map(value => value.replace(/%[0-9A-F]{2}/g, encoded => encoded.toLowerCase())));
-  redactions.sort((left, right) => right.length - left.length);
+  diagnosticSecrets = [...new Set(secrets)];
 }
 
 function privateText(value, limit = 4096) {
-  let text = String(value ?? '');
-  for (const secret of redactions) text = text.split(secret).join('[redacted]');
-  return Buffer.from(text).subarray(0, limit).toString('utf8');
+  const text = String(value ?? '');
+  if (!diagnosticSecrets) return Buffer.from(text).subarray(0, limit).toString('utf8');
+  return redactDiagnosticText(text, diagnosticSecrets, limit) ?? '[omitted: unsafe secret patterns]';
 }
 
 function saveDiagnostic(command, args, result) {
