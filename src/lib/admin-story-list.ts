@@ -36,6 +36,15 @@ export function readRecord(payload: unknown, entity: string): StoryRecord | null
   return 'updated_at' in record && 'status' in record ? (record as unknown as StoryRecord) : null;
 }
 
+/** The copy's own id, so the writer lands in the copy rather than back on the list. */
+export function readRecordId(payload: unknown, entity: string): string | null {
+  if (typeof payload !== 'object' || payload === null || !(entity in payload)) return null;
+  const record = (payload as Record<string, unknown>)[entity];
+  if (typeof record !== 'object' || record === null) return null;
+  const id = (record as Record<string, unknown>).id;
+  return typeof id === 'string' ? id : null;
+}
+
 interface StoryCopy {
   draft: string;
   published: string;
@@ -111,17 +120,35 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     button.disabled = true;
     if (message) message.hidden = true;
 
+    const failure = async (response: Response) => {
+      const body: unknown = await response.json().catch(() => null);
+      const reported = typeof body === 'object' && body !== null && 'error' in body ? body.error : null;
+      return new Error(typeof reported === 'string' ? reported : FAILED);
+    };
+
     try {
+      if (action === 'duplicate') {
+        // A copy is a new row the list has never rendered, so there is nothing here
+        // to reconcile. Send the writer to the copy: duplicating is how you start
+        // from something, and the next thing they want is the editor.
+        const response = await fetch(`${endpoint}/duplicate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        if (!response.ok) throw await failure(response);
+        const copyId = readRecordId(await response.json().catch(() => null), entity);
+        if (copyId && data.editBase) window.location.assign(`${data.editBase}/${copyId}`);
+        else window.location.reload();
+        return;
+      }
+
       const response = await fetch(endpoint, {
         method: action === 'delete' ? 'DELETE' : 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(action === 'delete' ? { id, updatedAt } : { id, status: action, updatedAt }),
       });
-      if (!response.ok) {
-        const body: unknown = await response.json().catch(() => null);
-        const reported = typeof body === 'object' && body !== null && 'error' in body ? body.error : null;
-        throw new Error(typeof reported === 'string' ? reported : FAILED);
-      }
+      if (!response.ok) throw await failure(response);
 
       if (action === 'delete') {
         row?.remove();

@@ -125,7 +125,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     {errorMessage ? (
       <p class="admin-alert" role="alert">{errorMessage}</p>
     ) : (
-      <div data-admin-posts data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.posts.deleteTitle} data-copy-delete-message={copy.posts.deleteMessage}>
+      <div data-admin-posts data-edit-base={adminHref(adminSettings, '/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.posts.deleteTitle} data-copy-delete-message={copy.posts.deleteMessage}>
         <nav class="admin-post-tabs" aria-label={copy.posts.statusLabel}>
           {tabs.map((tab) => (
             <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label}</a>
@@ -187,6 +187,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                   <div>
                     <a href={adminHref(adminSettings, `/edit/${post.id}`)}>{copy.row.edit}</a>
                     <a href={adminHref(adminSettings, `/preview/${post.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                    <button type="button" data-post-action="duplicate" data-post-id={post.id} data-post-updated-at={post.updated_at}>{copy.row.duplicate}</button>
                     <button type="button" data-post-action={post.status === 'draft' ? 'published' : 'draft'} data-post-id={post.id} data-post-updated-at={post.updated_at}>{post.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
                     <button type="button" data-post-action="delete" data-post-id={post.id} data-post-updated-at={post.updated_at} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>{copy.row.delete}</button>
                   </div>

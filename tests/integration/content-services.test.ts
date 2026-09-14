@@ -17,11 +17,18 @@ test('Post and Page services own content, versions, translations, and Category w
     createPost,
     createPostSchema,
     deletePost,
+    duplicatePost,
     getPost,
     updatePost,
     updatePostStatus,
   } = await import('../../src/server/content/posts');
-  const { createPage, createPageSchema, deletePage, updatePage } = await import('../../src/server/content/pages');
+  const {
+    createPage,
+    createPageSchema,
+    deletePage,
+    duplicatePage,
+    updatePage,
+  } = await import('../../src/server/content/pages');
   const { HttpError } = await import('../../src/server/http/errors');
   context.after(closeDatabase);
 
@@ -88,6 +95,32 @@ test('Post and Page services own content, versions, translations, and Category w
   });
   assert.ok(publishedPost.published_at);
 
+  // A duplicate is a second piece of writing, not a second copy on the site: it lands
+  // as a draft even when the source is published, and it takes its own translation
+  // group so it does not collide with the source on (translation_group_id, locale).
+  const copy = await duplicatePost('owner-a', publishedPost.id);
+  assert.equal(copy.status, 'draft');
+  assert.equal(copy.published_at, null);
+  assert.notEqual(copy.id, publishedPost.id);
+  assert.notEqual(copy.translation_group_id, publishedPost.translation_group_id);
+  assert.equal(copy.locale, publishedPost.locale);
+  assert.equal(copy.content_html, publishedPost.content_html);
+  assert.equal(copy.title, `${publishedPost.title} (สำเนา)`, 'the marker follows the content language');
+  assert.equal(copy.slug, `${publishedPost.slug}-copy`);
+  // Categories hang off the group, so a new group has to carry the old set across.
+  assert.deepEqual(await categoryIdsForPost('owner-a', copy.id), [category.id]);
+
+  // The readable slug is gone the second time, so the copy falls back to one carrying
+  // its own id rather than failing on the unique index.
+  const second = await duplicatePost('owner-a', publishedPost.id);
+  assert.notEqual(second.slug, copy.slug);
+  assert.match(second.slug, new RegExp(`^${publishedPost.slug}-copy-[0-9a-f]{8}$`));
+  await assert.rejects(
+    duplicatePost('owner-a', createdPost.translation_group_id),
+    (error: unknown) => error instanceof HttpError && error.status === 404,
+    'a duplicate of something that is not a post of this owner is a 404, not a stray row',
+  );
+
   const pageInput = {
     title: 'About',
     slug: 'about',
@@ -100,6 +133,12 @@ test('Post and Page services own content, versions, translations, and Category w
     assert.equal(createPageSchema.safeParse({ ...pageInput, [serverOwned]: 'client-owned' }).success, false);
   }
   const createdPage = await createPage('owner-a', pageInput);
+  const pageCopy = await duplicatePage('owner-a', createdPage.id);
+  assert.equal(pageCopy.status, 'draft');
+  assert.notEqual(pageCopy.translation_group_id, createdPage.translation_group_id);
+  assert.equal(pageCopy.slug, `${createdPage.slug}-copy`);
+  assert.equal(pageCopy.content_html, createdPage.content_html);
+
   const updatedPage = await updatePage('owner-a', {
     ...pageInput,
     id: createdPage.id,
