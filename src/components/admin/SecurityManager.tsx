@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
+import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
 
 interface PasskeyView {
@@ -78,10 +79,13 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setMessage('');
     try {
       const result = await authClient.signIn.passkey();
-      if (result.error || !result.data) throw new Error();
+      if (result.error || !result.data) {
+        setMessage(describePasskeyFailure(result, copy, copy.security.noPasskeyAccepted));
+        return;
+      }
       await loadPasskeys();
-    } catch {
-      setMessage(copy.security.noPasskeyAccepted);
+    } catch (error) {
+      setMessage(describePasskeyException(error, copy, copy.security.noPasskeyAccepted));
     } finally {
       setBusy(false);
     }
@@ -94,11 +98,14 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setMessage('');
     try {
       const result = await authClient.passkey.addPasskey({ name: newName.trim() });
-      if (result.error || !result.data) throw new Error();
+      if (result.error || !result.data) {
+        setMessage(describePasskeyFailure(result, copy, copy.security.spareNotAdded));
+        return;
+      }
       setMessage(copy.security.spareAdded);
       await loadPasskeys();
-    } catch {
-      setMessage(copy.security.spareNotAdded);
+    } catch (error) {
+      setMessage(describePasskeyException(error, copy, copy.security.spareNotAdded));
     } finally {
       setBusy(false);
     }
@@ -140,7 +147,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setRecoveryCodes([]);
     try {
       const assertion = await authClient.signIn.passkey();
-      if (assertion.error || !assertion.data) throw new Error(copy.security.codesUnchangedNoPasskey);
+      if (assertion.error || !assertion.data) throw new Error(describePasskeyFailure(assertion, copy, copy.security.codesUnchangedNoPasskey));
       const response = await fetch('/api/admin/security/recovery-codes', { method: 'POST' });
       const payload = await responsePayload(response);
       const codes = Array.isArray(payload.recoveryCodes)
@@ -150,7 +157,8 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
       setRecoveryCodes(codes);
       setMessage(copy.security.codesCreated);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : copy.security.codesNotChanged);
+      const detail = error instanceof Error ? error.message : copy.security.codesNotChanged;
+      setMessage(describePasskeyException(error, copy, detail));
     } finally {
       setBusy(false);
     }

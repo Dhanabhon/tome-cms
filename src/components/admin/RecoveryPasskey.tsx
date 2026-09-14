@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { normalizeAdminPath } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
+import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
 
 interface RecoveryPasskeyProps {
@@ -49,7 +50,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       name: 'Recovery passkey',
     });
     if (result.error || !result.data) {
-      setError(copy.security.passkeyNotCreated);
+      setError(describePasskeyFailure(result, copy, copy.security.passkeyNotCreated));
       return false;
     }
     window.location.assign(normalizeAdminPath(adminPath));
@@ -62,8 +63,8 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
     setError('');
     try {
       await register(context);
-    } catch {
-      setError(copy.security.passkeyNotCreated);
+    } catch (error) {
+      setError(describePasskeyException(error, copy, copy.security.passkeyNotCreated));
     } finally {
       setBusy(false);
     }
