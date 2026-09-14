@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { normalizeAdminPath, safeAdminReturnTo } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
+import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
 
 interface PasskeySignInProps {
@@ -30,12 +31,12 @@ export default function PasskeySignIn({ adminPath = '/admin', ownerLocale, retur
     try {
       const result = await authClient.signIn.passkey();
       if (result.error || !result.data) {
-        setError(copy.auth.noPasskey);
+        setError(describePasskeyFailure(result, copy, copy.auth.noPasskey));
         return;
       }
       window.location.assign(safeAdminReturnTo(returnTo, base));
-    } catch {
-      setError(copy.auth.noPasskey);
+    } catch (error) {
+      setError(describePasskeyException(error, copy, copy.auth.noPasskey));
     } finally {
       setBusy(false);
     }
