@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { fill, type AdminCopy } from '../../lib/admin-i18n';
 import { COVER_IMAGE_GUIDANCE, MAX_IMAGE_BYTES } from '../../lib/media';
-import type { MediaAsset, PostCategory } from '../../types/cms';
+import type { MediaAsset, PostCategory, PostLocale } from '../../types/cms';
 import MediaPicker from './MediaPicker';
 
 interface PostSettingsDrawerProps {
@@ -20,6 +20,7 @@ interface PostSettingsDrawerProps {
   onClose: () => void;
   onManageCategories: () => void;
   open: boolean;
+  ownerLocale?: PostLocale | null;
   selectedCategoryIds: string[];
   slug: string;
 }
@@ -27,7 +28,7 @@ interface PostSettingsDrawerProps {
 export default function PostSettingsDrawer({
   categories, copy, coverImage, errorMessage, metaDescription, metaTitle,
   onChangeCategories, onChangeCover, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
-  onClose, onManageCategories, open, selectedCategoryIds, slug,
+  onClose, onManageCategories, open, ownerLocale, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -111,6 +112,7 @@ export default function PostSettingsDrawer({
     </dialog>
     {coverPickerOpen && <MediaPicker
       onCancel={() => setCoverPickerOpen(false)}
+      ownerLocale={ownerLocale}
       onSelect={(asset) => { onChangeCover(asset); setCoverPickerOpen(false); }}
       returnFocus={coverButton.current}
     />}

@@ -363,6 +363,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
           onClose={() => setSettingsOpen(false)}
+          ownerLocale={ownerLocale}
           onManageCategories={() => void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath }, '/categories')), undefined, true)}
           open={settingsOpen}
           selectedCategoryIds={categoryIds}

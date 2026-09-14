@@ -3,12 +3,13 @@ import MediaLibrary from '../../components/admin/MediaLibrary';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import { adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
 import { requireInstalledOwner } from '../../server/auth/session';
 import { getSiteSettings, type SiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
 
 let userEmail: string | null = null;
-let errorMessage: string | null = null;
+let errorKey: 'mediaHidden' | 'mediaUnavailable' | null = null;
 let settings: SiteSettings | null = null;
 let authRequired = false;
 
@@ -17,7 +18,7 @@ try {
   const current = await requireInstalledOwner(Astro.request.headers);
   if (!settings) {
     Astro.response.status = 404;
-    errorMessage = 'The File Manager was not found.';
+    errorKey = 'mediaHidden';
   } else {
     userEmail = current.user.email;
   }
@@ -28,21 +29,25 @@ try {
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path));
   } else if (error instanceof HttpError && error.status === 403) {
     Astro.response.status = 404;
-    errorMessage = 'The File Manager was not found.';
+    errorKey = 'mediaHidden';
   } else {
     console.error('File Manager page failed to load.');
     Astro.response.status = 500;
-    errorMessage = 'The File Manager is temporarily unavailable.';
+    errorKey = 'mediaUnavailable';
   }
 }
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
 ---
 
-<AdminLayout title="File Manager">
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.media.heading}>
   {authRequired || errorMessage ? (
     <main><p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p></main>
   ) : (
     <AdminShell active="media" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
-    <MediaLibrary client:only="react" mode="manage" />
+    <MediaLibrary client:only="react" mode="manage" ownerLocale={ownerLocale} />
     </AdminShell>
   )}
 </AdminLayout>

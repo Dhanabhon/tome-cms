@@ -3,12 +3,13 @@ import NavigationManager from '../../components/admin/NavigationManager';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import { adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
 import { requireInstalledOwner } from '../../server/auth/session';
 import { getSiteSettings, type SiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
 
 let userEmail: string | null = null;
-let errorMessage: string | null = null;
+let errorKey: 'navigationHidden' | 'navigationUnavailable' | null = null;
 let settings: SiteSettings | null = null;
 let authRequired = false;
 
@@ -17,7 +18,7 @@ try {
   const current = await requireInstalledOwner(Astro.request.headers);
   if (!settings) {
     Astro.response.status = 404;
-    errorMessage = 'Navigation not found.';
+    errorKey = 'navigationHidden';
   } else {
     userEmail = current.user.email;
   }
@@ -28,22 +29,26 @@ try {
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path));
   } else if (error instanceof HttpError && error.status === 403) {
     Astro.response.status = 404;
-    errorMessage = 'Navigation not found.';
+    errorKey = 'navigationHidden';
   } else {
     console.error('Navigation page failed to load.');
     Astro.response.status = 500;
-    errorMessage = 'Navigation is temporarily unavailable.';
+    errorKey = 'navigationUnavailable';
   }
 }
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
 ---
 
-<AdminLayout title="Navigation">
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.navigation.heading}>
   {authRequired || errorMessage ? (
     <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
   ) : (
     <AdminShell active="navigation" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
-      <NavigationManager client:only="react">
-        <p class="admin-editor-fallback" slot="fallback" role="status">Loading navigation…</p>
+      <NavigationManager client:only="react" ownerLocale={ownerLocale}>
+        <p class="admin-editor-fallback" slot="fallback" role="status">{copy.navigation.loading}</p>
       </NavigationManager>
     </AdminShell>
   )}

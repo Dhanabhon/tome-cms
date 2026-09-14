@@ -24,12 +24,25 @@ test('no entry in either locale is blank', () => {
   }
 });
 
-test('every Thai entry is actually translated', () => {
+/** What is left of an entry once placeholders, digits and punctuation are removed. */
+const translatable = (value: string) =>
+  value.replace(/\{\w+\}/g, '').replace(/[\d\s\p{P}\p{S}]/gu, '');
+
+test('every Thai entry that contains words is actually translated', () => {
   // The type system checks that keys exist; it cannot catch an English value
   // pasted into the Thai catalogue, which is how half-translated UIs happen.
+  // Entries that are pure interpolation ('{width} x {height}') carry no words
+  // to translate and are exempt — but nothing else is.
   for (const [path, value] of th) {
+    if (!translatable(value)) continue;
     assert.match(value, /[฀-๿]/, `${path} carries no Thai characters: ${value}`);
   }
+});
+
+test('the exemption is narrow enough to still catch untranslated English', () => {
+  assert.equal(translatable('{width} × {height}, {format}'), '', 'pure interpolation is exempt');
+  assert.notEqual(translatable('Delete {name}?'), '', 'a real word must never be exempt');
+  assert.notEqual(translatable('Save'), '', 'a bare English word must never be exempt');
 });
 
 test('an unknown or absent locale falls back to English', () => {
