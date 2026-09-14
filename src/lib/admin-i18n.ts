@@ -63,6 +63,8 @@ const en = {
     urlSelected: 'URL selected. Copy it with your keyboard shortcut.',
   },
   nav: {
+    groupConfig: 'Configuration',
+    groupContent: 'Content',
     label: 'Admin',
     media: 'File Manager',
     navigation: 'Navigation',
@@ -583,6 +585,8 @@ const th: typeof en = {
     urlSelected: 'เลือก URL ไว้แล้ว กดคัดลอกด้วยคีย์ลัดของคุณ',
   },
   nav: {
+    groupConfig: 'การตั้งค่า',
+    groupContent: 'เนื้อหา',
     label: 'ผู้ดูแล',
     media: 'คลังไฟล์',
     navigation: 'เมนู',

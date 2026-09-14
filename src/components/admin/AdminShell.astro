@@ -16,14 +16,31 @@ const { active, adminPath: requestedAdminPath = '/admin', locale, siteName, user
 const adminPath = normalizeAdminPath(requestedAdminPath);
 const adminSettings = { admin_path: adminPath };
 const copy = adminCopy(locale);
-const links = [
-  { id: 'posts', href: adminHref(adminSettings), label: copy.nav.posts },
-  { id: 'pages', href: adminHref(adminSettings, '/pages'), label: copy.nav.pages },
-  { id: 'media', href: adminHref(adminSettings, '/media'), label: copy.nav.media },
-  { id: 'navigation', href: adminHref(adminSettings, '/navigation'), label: copy.nav.navigation },
-  { id: 'profile', href: adminHref(adminSettings, '/profile'), label: copy.nav.profile },
-  { id: 'settings', href: adminHref(adminSettings, '/settings'), label: copy.nav.settings },
-  { id: 'system', href: adminHref(adminSettings, '/system'), label: copy.nav.system },
+/**
+ * Seven flat destinations is where a sidebar starts costing a scan. They split
+ * cleanly in two: what the site publishes, and how the installation is set up. The
+ * group names deliberately avoid "Settings", which is already one of the links.
+ */
+const groups = [
+  {
+    id: 'content',
+    label: copy.nav.groupContent,
+    links: [
+      { id: 'posts', href: adminHref(adminSettings), label: copy.nav.posts },
+      { id: 'pages', href: adminHref(adminSettings, '/pages'), label: copy.nav.pages },
+      { id: 'media', href: adminHref(adminSettings, '/media'), label: copy.nav.media },
+      { id: 'navigation', href: adminHref(adminSettings, '/navigation'), label: copy.nav.navigation },
+    ],
+  },
+  {
+    id: 'config',
+    label: copy.nav.groupConfig,
+    links: [
+      { id: 'profile', href: adminHref(adminSettings, '/profile'), label: copy.nav.profile },
+      { id: 'settings', href: adminHref(adminSettings, '/settings'), label: copy.nav.settings },
+      { id: 'system', href: adminHref(adminSettings, '/system'), label: copy.nav.system },
+    ],
+  },
 ] as const;
 ---
 
@@ -50,7 +67,17 @@ const links = [
           <span>{siteName}</span>
         </a>
         <nav aria-label={copy.nav.label}>
-          {links.map((link) => <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>{link.label}</a>)}
+          {groups.map((group) => {
+            // The shell renders twice -- sidebar and mobile drawer -- so the heading
+            // ids have to differ or the labelledby references collide.
+            const headingId = `admin-nav-${group.id}${mobile ? '-mobile' : ''}`;
+            return (
+              <section aria-labelledby={headingId}>
+                <h2 class="admin-nav-group" id={headingId}>{group.label}</h2>
+                {group.links.map((link) => <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>{link.label}</a>)}
+              </section>
+            );
+          })}
         </nav>
         <div class="admin-shell-account">
           <ThemeToggle
