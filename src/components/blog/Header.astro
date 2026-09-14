@@ -1,6 +1,8 @@
 ---
 import LanguageSwitcher from '../LanguageSwitcher.astro';
+import ThemeToggle from '../ThemeToggle.astro';
 import { localePath } from '../../lib/i18n';
+import { THEME_LABELS, type ThemeChoice } from '../../lib/theme';
 import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../types/cms';
 
 interface Props {
@@ -8,9 +10,11 @@ interface Props {
   items?: PublicNavigationItem[];
   locale?: PostLocale;
   siteName?: string;
+  /** What the server rendered, so the control is not briefly checked on the wrong option. */
+  theme?: ThemeChoice;
 }
 
-const { availableLocales = [], items = [], locale = 'en', siteName = 'TomeCMS' } = Astro.props;
+const { availableLocales = [], items = [], locale = 'en', siteName = 'TomeCMS', theme = 'system' } = Astro.props;
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
@@ -24,6 +28,7 @@ const languageOptions = availableLocales
         <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
       </nav>
     )}
+    <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />
     {languageOptions.length > 1 && (
       <LanguageSwitcher currentLocale={locale} options={languageOptions} />
     )}

@@ -225,9 +225,13 @@
 @media (max-width: 31.999rem) {
   .ui-dialog__actions { flex-direction: column-reverse; }
   .ui-dialog__button { width: 100%; }
+}
 
-  /* Labels are the first thing to give up when a header runs out of room. The icons
-   * still carry the meaning and the text stays in the accessibility tree. */
+/* Labels are the first thing to give up when a row runs out of room; the icons still
+ * carry the meaning and the text stays in the accessibility tree. 48rem is where the
+ * site header already swaps its nav for a menu, and holding the labels past that
+ * point squeezed the site name down to an ellipsis. */
+@media (max-width: 47.999rem) {
   .ui-theme__label {
     position: absolute;
     width: 1px;

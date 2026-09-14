@@ -31,3 +31,15 @@ export function normalizeTheme(value: unknown): ThemeChoice {
 export function themeAttribute(choice: ThemeChoice): 'light' | 'dark' | null {
   return choice === 'system' ? null : choice;
 }
+
+/**
+ * The three state words, in one place.
+ *
+ * The admin reads them through adminCopy like all its other copy; the public header
+ * has no catalogue and would otherwise spell them inline, which is how two surfaces
+ * end up disagreeing about what "System" is called in Thai.
+ */
+export const THEME_LABELS: Record<'en' | 'th', Record<'group' | ThemeChoice, string>> = {
+  en: { group: 'Theme', system: 'System', light: 'Light', dark: 'Dark' },
+  th: { group: 'ธีม', system: 'ตามระบบ', light: 'สว่าง', dark: 'มืด' },
+};
