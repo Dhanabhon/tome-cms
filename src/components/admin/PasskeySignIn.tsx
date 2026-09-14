@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from 'react';
 
 import { normalizeAdminPath, safeAdminReturnTo } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
+import type { PostLocale } from '../../types/cms';
 
 interface PasskeySignInProps {
   adminPath?: string;
+  ownerLocale?: PostLocale | null;
   returnTo?: string | null;
 }
 
-export default function PasskeySignIn({ adminPath = '/admin', returnTo }: PasskeySignInProps) {
+export default function PasskeySignIn({ adminPath = '/admin', ownerLocale, returnTo }: PasskeySignInProps) {
+  const copy = adminCopy(ownerLocale);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const base = normalizeAdminPath(adminPath);
@@ -17,7 +21,7 @@ export default function PasskeySignIn({ adminPath = '/admin', returnTo }: Passke
     event.preventDefault();
     if (busy) return;
     if (!window.isSecureContext || typeof PublicKeyCredential === 'undefined' || typeof navigator.credentials?.get !== 'function') {
-      setError('Passkeys are not supported in this browser. Use a supported browser or recover access.');
+      setError(copy.auth.unsupported);
       return;
     }
 
@@ -26,12 +30,12 @@ export default function PasskeySignIn({ adminPath = '/admin', returnTo }: Passke
     try {
       const result = await authClient.signIn.passkey();
       if (result.error || !result.data) {
-        setError('No Passkey was accepted. Try again or recover access.');
+        setError(copy.auth.noPasskey);
         return;
       }
       window.location.assign(safeAdminReturnTo(returnTo, base));
     } catch {
-      setError('No Passkey was accepted. Try again or recover access.');
+      setError(copy.auth.noPasskey);
     } finally {
       setBusy(false);
     }
@@ -39,12 +43,12 @@ export default function PasskeySignIn({ adminPath = '/admin', returnTo }: Passke
 
   return (
     <form className="admin-auth__form" onSubmit={(event) => void signIn(event)} aria-busy={busy}>
-      <p>Use the Passkey created during setup. TomeCMS does not ask for your email address.</p>
+      <p>{copy.auth.passkeyHint}</p>
       <p className="admin-form-error admin-auth__error" role="alert" aria-live="polite">{error}</p>
       <button className="admin-button admin-button--primary admin-auth__submit" disabled={busy} type="submit">
-        {busy ? 'Checking Passkey…' : 'Sign in with a Passkey'}
+        {busy ? copy.auth.checking : copy.auth.signIn}
       </button>
-      <a className="admin-auth-nav__link" href="/recovery">Recover access</a>
+      <a className="admin-auth-nav__link" href="/recovery">{copy.auth.recoverAccess}</a>
     </form>
   );
 }
