@@ -31,7 +31,10 @@ docker-compose.override.yaml
 /.superpowers/
 /.zvec-grep/
 /docs/superpowers/
+/.worktrees/
 test-results/
+# Screenshots and reports from visual-check runs; the source document is tracked.
+docs/*.visual-check.*
 
 # Design source sheets are not runtime assets
 public/brand/*-brand-kit.png
