@@ -11,6 +11,7 @@ import { test } from 'node:test';
  * unless somebody happens to open a page with a code block in dark mode.
  */
 const CSS = readFileSync(new URL('../../src/styles/installer-tokens.css', import.meta.url), 'utf8');
+const BRAND_CSS = readFileSync(new URL('../../src/styles/brand.css', import.meta.url), 'utf8');
 
 type Rgb = readonly [number, number, number];
 
@@ -70,12 +71,9 @@ function readTheme(selector: string): Map<string, Rgb> {
  * [foreground, background, minimum] -- 3 is the non-text threshold for focus rings,
  * borders and other marks that carry meaning without being read.
  *
- * The accent and the link are the same brand colour in two jobs, and only one of them
- * is ever text. Tomato fills: buttons, hero shapes. On cream it measures 2.96, which
- * clears neither the 4.5 text needs nor the 3 a graphic needs, so it is pinned only
- * where it is a background with a label on it. Copper is what that brand says as
- * text, an icon or an arrow, so every surface it can land on is pinned at 4.5.
- * Swapping one for the other in a component is the mistake this list exists to catch.
+ * The master green fills buttons and large marks. Links use a darker member of the
+ * same family in light mode because the master green falls below 4.5 on the soft
+ * surface; dark mode lifts all small accents to a lighter green.
  */
 const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-ink', 'color-paper', 4.5],
@@ -92,17 +90,23 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-link', 'color-paper-2', 4.5],
   ['color-link', 'color-paper-3', 4.5],
   ['color-link', 'color-surface', 4.5],
-  // The label on a tomato button, at rest and under the cursor.
+  // The label on a green button, at rest and under the cursor.
   ['color-accent-ink', 'color-accent', 4.5],
   ['color-accent-ink', 'color-accent-hover', 4.5],
+
+  // The accent also appears as short brand/status text on these surfaces. Requiring
+  // 4.5 is stronger than the 3:1 needed by the selected theme segment itself.
+  ['color-accent', 'color-paper', 4.5],
+  ['color-accent', 'color-paper-2', 4.5],
+  ['color-accent', 'color-surface', 4.5],
 
   ['color-focus', 'color-paper', 3],
   ['color-focus', 'color-paper-2', 3],
   ['color-rule-strong', 'color-paper', 3],
   ['color-rule-strong', 'color-surface', 3],
 
-  // Green reports state rather than decorating. It is read as text on the two page
-  // surfaces and drawn as a border on cards, which is why the card pair asks for 3.
+  // Green also reports positive state. It is read as text on the two page surfaces
+  // and drawn as a border on cards, which is why the card pair asks for 3.
   ['color-green', 'color-paper', 4.5],
   ['color-green', 'color-surface', 4.5],
   ['color-green', 'color-paper-2', 3],
@@ -178,6 +182,15 @@ test('both dark blocks declare the same palette', () => {
   for (const [name, value] of attribute) {
     assert.equal(media.get(name), value, `--${name} differs between the two dark blocks`);
   }
+});
+
+test('the logo keeps its green page fold in both themes', () => {
+  const rootStart = CSS.indexOf(':root {');
+  const light = CSS.slice(rootStart, CSS.indexOf('\n}', rootStart));
+  assert.match(light, /--logo-source:\s*url\('\/brand\/tomecms-logo-color\.png'\)/);
+  assert.equal(readDeclarations(":root[data-theme='dark'] {").get('logo-source'), "url('/brand/tomecms-logo-reverse.png')");
+  assert.match(BRAND_CSS, /content:\s*var\(--logo-source\)/);
+  assert.doesNotMatch(BRAND_CSS, /filter:\s*var\(--logo-filter/);
 });
 
 test('the theme has three states, not two', () => {

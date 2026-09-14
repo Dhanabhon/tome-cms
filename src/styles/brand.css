@@ -12,8 +12,6 @@
   .tomecms-logo { width: 15rem; height: 3rem; }
 }
 
-/* The wordmark asset is dark ink on transparency, so it disappears on a dark
- * surface. The treatment is driven by a token rather than a [data-theme] selector,
- * so it follows the system preference too. A light-variant asset would be better
- * and would keep the brand colour. */
-.tomecms-logo, .admin-logo { filter: var(--logo-filter, none); }
+/* Replacing the image through the theme token keeps the green page fold intact;
+ * filtering the light logo would flatten both colours to white in dark mode. */
+.tomecms-logo, .admin-logo { content: var(--logo-source); }

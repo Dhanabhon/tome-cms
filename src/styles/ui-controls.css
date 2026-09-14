@@ -202,11 +202,8 @@
 
 .ui-theme__option:hover { color: var(--color-ink); }
 
-/* The selected segment is filled with the accent, not a lighter surface. Measured:
- * every surface pair in this palette sits between 1.07 and 1.34 against its
- * neighbour, so a surface fill cannot carry a state -- it read as unselected in both
- * themes. --color-accent is 5.87 against the track in light and 9.86 in dark, and
- * both this pair and accent-ink-on-accent are already pinned by theme-contrast. */
+/* The selected segment is filled with the accent, not a neighbouring surface.
+ * Accent against the track and its label contrast are pinned by theme-contrast. */
 .ui-theme__option:has(.ui-theme__input:checked) {
   background: var(--color-accent);
   color: var(--color-accent-ink);
@@ -218,7 +215,7 @@
   outline-offset: var(--rule-hair);
 }
 
-.ui-theme__option:active { background: var(--color-focus-soft); }
+.ui-theme__option:active { background: var(--color-accent-hover); color: var(--color-accent-ink); }
 
 .ui-theme__option:has(.ui-theme__input:disabled) { cursor: not-allowed; opacity: 0.55; }
 

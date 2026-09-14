@@ -1,9 +1,9 @@
-/* Hallmark · design-system: DESIGN.md · theme: TomeCMS Mint 2026 · genre: modern-minimal
+/* Hallmark · design-system: DESIGN.md · theme: TomeCMS Paper 2026 · genre: editorial
  * scope: application-wide stylesheet — admin shell, posts, pages, editor, media,
  *        security, navigation, auth, and the public blog surface. Not a single page.
- * audience: single owner · tone: austere-utilitarian · anchor hue: teal
+ * audience: single owner · tone: austere-utilitarian · anchor hue: green
  * tokens: every colour, radius and type step resolves through installer-tokens.css
- * contrast: AA on all measured pairs (computed, not estimated — lowest 4.51)
+ * contrast: AA on all measured pairs (computed, not estimated — lowest 4.62)
  */
 
 @import './installer-tokens.css';
@@ -192,7 +192,7 @@ body {
 .block-insert-trigger:hover,
 .block-insert-trigger[aria-expanded='true'] {
   border-color: var(--color-accent);
-  color: var(--color-accent);
+  color: var(--color-link);
 }
 
 .block-insert-menu {
@@ -1199,7 +1199,7 @@ body {
   border: var(--rule-hair) solid var(--color-focus-soft);
   border-radius: var(--radius-pill);
   background: var(--color-paper-3);
-  color: var(--color-accent);
+  color: var(--color-link);
   font-size: var(--text-xs);
   line-height: 1.4;
   overflow-wrap: anywhere;

@@ -1,19 +1,20 @@
 ---
 version: alpha
-name: "TomeCMS Mint 2026"
-description: "TomeCMS uses a calm mint-and-teal palette anchored by reference mint (#c5e5e4), reference teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) carries CTAs and links, while deep evergreen (#0f3d3a) grounds dark surfaces. The existing IBM Plex Sans Thai hierarchy, 12-column grid, dual-radius language, and progressive shadows remain unchanged."
+name: "TomeCMS Paper 2026"
+description: "TomeCMS uses warm paper, near-black ink, and a restrained green (#2E7D5B) that carries the turning-page mark, actions, links, focus, and positive state. A lighter green (#69B98E) keeps the same identity legible in dark mode."
 colors:
-  surface-white: "#ffffff"
-  surface-base: "#f2f8f7"
-  surface-mint: "#c5e5e4"
-  hero-evergreen: "#0f3d3a"
-  accent-teal: "#236a67"
-  focus-teal: "#498f8c"
-  accent-red: "#f64932"
-  text-medium: "#526e6b"
-  text-muted: "#4d6865"
-  text-primary: "#0a0c0c"
-  border-subtle: "#0f3d3a"
+  paper: "#f7f6f2"
+  surface: "#ffffff"
+  soft: "#ebebe5"
+  line: "#d9dcd3"
+  ink: "#101317"
+  muted: "#61665f"
+  night: "#181d19"
+  dim: "#acb3a8"
+  brand-green: "#2e7d5b"
+  brand-green-deep: "#256b4e"
+  brand-green-light: "#69b98e"
+  brand-green-soft: "#b9d8c8"
 typography:
   display-hero:
     fontFamily: "IBM Plex Sans Thai"
@@ -95,7 +96,11 @@ spacing:
 
 ## Overview
 
-TomeCMS pairs white and pale-mint surfaces with deep evergreen anchors, using the reference artwork's mint (#c5e5e4), teal (#498f8c), and near-black ink (#0a0c0c). Accessible action teal (#236a67) drives CTAs and links. The existing IBM Plex Sans Thai hierarchy, 12-column grid with 28px gutters, dual-radius language, and progressive shadow system remain the structural foundation.
+TomeCMS pairs warm paper and near-black ink with a single restrained green family.
+The master #2E7D5B carries the turning-page mark and primary actions; deeper and lighter
+variants keep text, focus and dark-mode applications accessible. The existing IBM Plex
+Sans Thai hierarchy, 12-column grid with 28px gutters, dual-radius language, and
+progressive shadow system remain the structural foundation.
 
 **Source of truth:** `src/styles/installer-tokens.css` owns every colour, spacing, radius and
 type token. This document and `tailwind.config.mjs` follow it — they never declare a competing
@@ -107,10 +112,10 @@ value. `npm run check` runs `scripts/check-design-tokens.mjs`, which fails the b
 
 ## Colors
 
-Paper and ink, warmed, with a single accent. The greys carry a faint green so the page
-reads editorial rather than clinical; tomato is the only colour that raises its voice,
-and green is the only one that deliberately leaves the family, because it reports state
-rather than decorating. `src/styles/installer-tokens.css` owns every value below.
+Paper and ink, warmed, with one green accent family. The greys carry a faint green so the
+page reads editorial rather than clinical; positive state uses the same hue and remains
+understandable through its icon or label. `src/styles/installer-tokens.css` owns every
+value below.
 
 ### The palette
 
@@ -124,30 +129,28 @@ rather than decorating. `src/styles/installer-tokens.css` owns every value below
 | #61665F | `--color-muted` | secondary text |
 | #181D19 | `--color-hero`, `--color-code-bg` | surfaces that are dark on purpose |
 | #ACB3A8 | `--color-on-dark-muted` | secondary text on those |
-| #EF643E | `--color-accent` | tomato: button and hero fills |
-| #F47957 | `--color-accent-hover` | the same fill under the cursor |
-| #B63F22 | `--color-link`, `--color-focus` | copper: links, icons, arrows, focus rings |
-| #F6BFAF | `--color-focus-soft` | selection, and soft focus washes |
-| #2E7D4F | `--color-green` | published, enabled, succeeded |
+| #2E7D5B | `--color-accent`, `--color-green` | master green: logo fold, primary actions and positive state |
+| #256B4E | `--color-accent-hover`, `--color-link`, `--color-focus` | deep green: hover, links, icons and focus rings |
+| #B9D8C8 | `--color-focus-soft` | selection and soft focus washes |
+| #69B98E | dark-mode accent, link, focus and positive state | light green that remains readable on night |
 
 Note the token names: `--color-paper` is the **panel**, not the page. The page is
 `--color-paper-2`. That is how the stylesheets already used them, and renaming across
 every component to fix the numbering would be a larger change than it is worth.
 
-### Why the accent and the link are different colours
+### Why the accent and the link use two green values
 
-They are the same brand in two jobs, and only one of them is ever text. Tomato on the
-cream page measures **2.96** — under the 4.5 that text needs and under the 3 that a
-meaningful graphic needs. Copper is **5.22**. So:
+They are one green family in two jobs. Master green #2E7D5B measures **4.62** on the
+cream page and white on it measures **5.00**, so it works as both a meaningful mark and
+a button fill with a white label. On the soft surface its text contrast falls to **4.18**,
+so links and small readable marks use the deeper #256B4E, which measures **5.33** there.
 
-- **Tomato fills.** Buttons, hero shapes, anything large enough to be a surface. What
-  has to hold there is the label on it, and the label is ink: **5.82**.
-- **Copper speaks.** Links, icons, arrows, focus rings — anything small, thin, or read.
+Positive state reuses the master hue rather than introducing a nearly identical second
+green. State must also have an icon or label; colour is reinforcement, not the only cue.
+`tests/unit/theme-contrast.test.ts` pins each value to the surfaces where it is used.
 
-Swapping one for the other in a component is the mistake `tests/unit/theme-contrast.test.ts`
-exists to catch. White on tomato is **3.20** and fails; tomato buttons take dark labels.
-
-Errors sit at hue 20, clear of the accent's 36, so danger cannot be mistaken for brand.
+Errors sit at hue 20, clear of the green family near hue 162, so danger cannot be
+mistaken for brand.
 
 ### Theme-Independent Roles
 
@@ -166,18 +169,16 @@ Three states. With no attribute the theme follows `prefers-color-scheme`;
 `data-theme="light"` and `data-theme="dark"` on the root element override the system
 setting in either direction. The installer pins itself to light.
 
-Night is the page, white is the text, dim is everything secondary. Tomato survives the
-flip unchanged — it is the brand and it is legible on night — but copper does not: at
-L53 on an L22 page it falls to 2.9, so links and small marks take a lighter orange
-there. Green is lifted well above its light value for the same reason; #2E7D4F on night
-is 2.8 and unreadable.
+Night is the page, white is the text, dim is everything secondary. The green family
+lifts to #69B98E so small marks, links and filled controls remain readable; their label
+switches back to ink. The reverse logo uses the same light-green expression.
 
 The dark palette is declared twice — once inside the media query, once for the explicit
 attribute — because the two contexts cannot share a rule. `light-dark()` would collapse
 them but needs a newer baseline than the `color-mix()` already in use here, and fails
 hard rather than degrading. `tests/unit/theme-contrast.test.ts` keeps the two copies
-identical and computes 31 pinned pairs in both themes. Tightest measured: **4.71** light
-and **5.58** dark among the text pairs, **3.63** and **3.16** among the borders and
+identical and computes 34 pinned pairs in both themes. Tightest measured: **4.62** light
+and **5.36** dark among the text pairs, **3.63** and **3.16** among the borders and
 rings. It also rejects a literal `bg-white` anywhere in `src/`.
 
 ## Typography

@@ -1,16 +1,15 @@
 /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5
- * design-system: DESIGN.md · theme: TomeCMS Paper 2026 · genre: editorial · tone: warm and plain
- * anchor hue: tomato (36°) · macrostructure: existing app structures · scope: app palette
- * accent splits: tomato fills, copper speaks. Measured, not preferred — see DESIGN.md.
+ * design-system: DESIGN.md · theme: TomeCMS Paper 2026 · genre: editorial · tone: calm and grounded
+ * anchor hue: green (162°) · macrostructure: existing app structures · scope: app palette
+ * accent family: green fills, deep green speaks. Measured, not preferred — see DESIGN.md.
  */
 :root {
   /* Light is the default; the blocks at the end of this file take over when the
    * reader's system asks for dark, or when data-theme says so explicitly. */
   color-scheme: light;
 
-  /* paper + ink, with tomato as the single accent. The greys are warm and faintly
-   * green so the page reads editorial rather than clinical; every value here is a
-   * member of the palette rather than something derived to fill a gap. */
+  /* Paper + ink, with green as the single accent. The greys stay warm so the page
+   * reads editorial rather than clinical; every value here belongs to the palette. */
   /* --color-paper is the raised panel here -- cards, sidebar, inputs, dialogs -- and
    * --color-paper-2 is the page behind them. So white lands on the panels, the cream
    * paper on the page, and soft on the hover and recessed tones. */
@@ -26,22 +25,19 @@
   --color-rule: oklch(88.96% 0.0125 121.72);
   --color-rule-strong: oklch(62% 0.012 130);
 
-  /* Tomato fills; copper says the same thing as text or a small mark. This is not a
-   * preference: tomato on paper measures 2.96, under the 3:1 a graphic needs and far
-   * under the 4.5 text needs, while copper is 5.22. So buttons and hero shapes are
-   * tomato with a dark label on them, and links, icons and arrows are copper. */
-  --color-accent: oklch(67.23% 0.18 36.11);
-  --color-accent-hover: oklch(71.2% 0.1591 36.39);
-  --color-accent-ink: oklch(16% 0.05 32);
-  --color-link: oklch(53.23% 0.1598 34.75);
-  --color-focus: oklch(53.23% 0.1598 34.75);
-  --color-focus-soft: oklch(84.98% 0.0675 36.83);
+  /* #2E7D5B is the master brand green. White on it measures 5.00; the deeper family
+   * member keeps links above 4.5 even on the soft surface. */
+  --color-accent: oklch(53.14% 0.0946 161.86);
+  --color-accent-hover: oklch(47.54% 0.0847 162.59);
+  --color-accent-ink: oklch(100% 0 0);
+  --color-link: oklch(47.54% 0.0847 162.59);
+  --color-focus: oklch(47.54% 0.0847 162.59);
+  --color-focus-soft: oklch(85.5% 0.0396 163.06);
 
-  /* The one colour that deliberately leaves the palette, because it reports state
-   * rather than decorating. Text on paper and on white; a border anywhere else. */
-  --color-green: oklch(52.85% 0.1061 154.6);
+  /* Positive state shares the brand hue; icons and labels carry the meaning too. */
+  --color-green: oklch(53.14% 0.0946 161.86);
 
-  /* Errors sit at hue 20, clear of the accent's 36, so danger cannot read as brand. */
+  /* Errors sit at hue 20, clear of the accent's 162, so danger cannot read as brand. */
   --color-error: oklch(52% 0.19 20);
   --color-error-ink: oklch(44% 0.17 20);
   --color-error-soft: color-mix(in oklch, var(--color-error) 10%, var(--color-paper));
@@ -52,8 +48,7 @@
   --color-on-dark: oklch(100% 0 0);
   --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
   --color-scrim: color-mix(in srgb, oklch(18.53% 0.0095 255.64) 40%, transparent);
-  /* The wordmark asset is dark ink, so it needs no treatment on a light surface. */
-  --logo-filter: none;
+  --logo-source: url('/brand/tomecms-logo-color.png');
 
   --font-display: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -106,15 +101,13 @@
  *
  * Three states: no attribute follows the reader's system setting;
  * data-theme="light" and data-theme="dark" override it in either direction.
- * Contrast measured against every surface pair: lowest 5.90, all AA. */
+ * Contrast measured against every surface pair: text >= 4.62; marks >= 3.16. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    /* Night is the page, white is the text, dim is everything secondary. Tomato survives
-     * the flip unchanged -- it is the brand, and it is legible on night -- but copper does
-     * not: at L53 on an L22 page it falls to 2.9, so links and small marks take a lighter
-     * orange here instead. */
+    /* Night is the page, white is the text, dim is everything secondary. Green lifts to
+     * its light variant so brand text, controls and small marks remain readable. */
     --color-paper: oklch(26.5% 0.011 151);
     --color-paper-2: oklch(22.4% 0.0107 151.27);
     --color-paper-3: oklch(32% 0.013 151);
@@ -128,15 +121,14 @@
     --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
     --color-rule-strong: oklch(55% 0.012 140);
 
-    --color-accent: oklch(67.23% 0.18 36.11);
-    --color-accent-hover: oklch(71.2% 0.1591 36.39);
-    --color-accent-ink: oklch(16% 0.05 32);
-    --color-link: oklch(76% 0.14 38);
-    --color-focus: oklch(76% 0.14 38);
-    --color-focus-soft: oklch(38% 0.07 36);
+    --color-accent: oklch(72.24% 0.1018 158.93);
+    --color-accent-hover: oklch(77.2% 0.1017 159.58);
+    --color-accent-ink: oklch(18.53% 0.0095 255.64);
+    --color-link: oklch(72.24% 0.1018 158.93);
+    --color-focus: oklch(72.24% 0.1018 158.93);
+    --color-focus-soft: oklch(38% 0.05 162);
 
-    /* Lifted well above the light value: #2E7D4F on night is 2.8, unreadable. */
-    --color-green: oklch(72% 0.12 155);
+    --color-green: oklch(72.24% 0.1018 158.93);
 
     --color-error: oklch(70% 0.17 20);
     --color-error-ink: oklch(78% 0.13 20);
@@ -147,17 +139,15 @@
     --color-on-dark: oklch(100% 0 0);
     --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
     --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
-    --logo-filter: brightness(0) invert(1);
+    --logo-source: url('/brand/tomecms-logo-reverse.png');
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  /* Night is the page, white is the text, dim is everything secondary. Tomato survives
-   * the flip unchanged -- it is the brand, and it is legible on night -- but copper does
-   * not: at L53 on an L22 page it falls to 2.9, so links and small marks take a lighter
-   * orange here instead. */
+  /* Night is the page, white is the text, dim is everything secondary. Green lifts to
+   * its light variant so brand text, controls and small marks remain readable. */
   --color-paper: oklch(26.5% 0.011 151);
   --color-paper-2: oklch(22.4% 0.0107 151.27);
   --color-paper-3: oklch(32% 0.013 151);
@@ -171,15 +161,14 @@
   --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
   --color-rule-strong: oklch(55% 0.012 140);
 
-  --color-accent: oklch(67.23% 0.18 36.11);
-  --color-accent-hover: oklch(71.2% 0.1591 36.39);
-  --color-accent-ink: oklch(16% 0.05 32);
-  --color-link: oklch(76% 0.14 38);
-  --color-focus: oklch(76% 0.14 38);
-  --color-focus-soft: oklch(38% 0.07 36);
+  --color-accent: oklch(72.24% 0.1018 158.93);
+  --color-accent-hover: oklch(77.2% 0.1017 159.58);
+  --color-accent-ink: oklch(18.53% 0.0095 255.64);
+  --color-link: oklch(72.24% 0.1018 158.93);
+  --color-focus: oklch(72.24% 0.1018 158.93);
+  --color-focus-soft: oklch(38% 0.05 162);
 
-  /* Lifted well above the light value: #2E7D4F on night is 2.8, unreadable. */
-  --color-green: oklch(72% 0.12 155);
+  --color-green: oklch(72.24% 0.1018 158.93);
 
   --color-error: oklch(70% 0.17 20);
   --color-error-ink: oklch(78% 0.13 20);
@@ -190,7 +179,7 @@
   --color-on-dark: oklch(100% 0 0);
   --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
   --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
-  --logo-filter: brightness(0) invert(1);
+  --logo-source: url('/brand/tomecms-logo-reverse.png');
 }
 
 :root[data-theme='light'] {
