@@ -28,11 +28,12 @@ export default {
         display: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
+      // Radii resolve to the token scale in src/styles/installer-tokens.css — keep one source.
       borderRadius: {
-        md: '6px',
-        lg: '8px',
-        xl: '16px',
-        '2xl': '20px',
+        md: 'var(--radius-sm)',
+        lg: 'var(--radius-input)',
+        xl: 'var(--radius-lg)',
+        full: 'var(--radius-pill)',
       },
       typography: {
         DEFAULT: {

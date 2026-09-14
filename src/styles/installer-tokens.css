@@ -52,8 +52,10 @@
   --dur-long: 260ms;
 
   --rule-hair: 1px;
+  --radius-sm: 0.375rem;
   --radius-input: 0.5rem;
-  --radius-card: 0.5rem;
+  --radius-card: var(--radius-input);
+  --radius-lg: 1rem;
   --radius-pill: 9999px;
   --control-height: 3rem;
   --z-sticky-nav: 300;
