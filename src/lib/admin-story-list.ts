@@ -1,0 +1,149 @@
+/**
+ * Shared behaviour for the Posts and Pages lists.
+ *
+ * Both lists used to answer every publish, unpublish and delete with a full
+ * `location.reload()`, which threw away the writer's scroll position and the
+ * open state of the row menu. The API already returns the updated record, so
+ * the row can be reconciled in place instead; only a delete that empties the
+ * list still reloads, because the server renders the empty state.
+ */
+
+export interface StoryRecord {
+  published_at: string | null;
+  status: string;
+  updated_at: string;
+}
+
+interface StoryListOptions {
+  /** Returns false to abort — each list owns its own confirmation copy. */
+  confirm: (action: string, row: DOMStringMap) => Promise<boolean>;
+  endpoint: string;
+  entity: 'page' | 'post';
+}
+
+const FAILED = 'The action could not be completed. Please try again.';
+
+/**
+ * Narrows an API body to the record the row needs.
+ *
+ * Returning null is the safe answer — the caller falls back to a full reload.
+ * Returning a half-formed record would leave the row showing a stale status.
+ */
+export function readRecord(payload: unknown, entity: string): StoryRecord | null {
+  if (typeof payload !== 'object' || payload === null || !(entity in payload)) return null;
+  const record = (payload as Record<string, unknown>)[entity];
+  if (typeof record !== 'object' || record === null) return null;
+  return 'updated_at' in record && 'status' in record ? (record as unknown as StoryRecord) : null;
+}
+
+interface StoryCopy {
+  draft: string;
+  published: string;
+  publishedAt: string;
+  publish: string;
+  unpublish: string;
+  updatedAt: string;
+}
+
+function reconcile(row: HTMLElement, record: StoryRecord, entity: string, format: Intl.DateTimeFormat, copy: StoryCopy) {
+  const published = record.status === 'published';
+
+  const badge = row.querySelector<HTMLElement>('.admin-status');
+  if (badge) {
+    badge.dataset.status = record.status;
+    badge.textContent = published ? copy.published : copy.draft;
+  }
+
+  const verb = row.querySelector<HTMLElement>('[data-story-verb]');
+  const stamp = row.querySelector<HTMLTimeElement>('[data-story-when] time');
+  if (verb) verb.textContent = published ? copy.publishedAt : copy.updatedAt;
+  if (stamp) {
+    const moment = published ? record.published_at ?? record.updated_at : record.updated_at;
+    stamp.dateTime = moment;
+    stamp.textContent = format.format(new Date(moment));
+  }
+
+  // Every button in the row carries the concurrency token; a stale one breaks the next action.
+  row.querySelectorAll<HTMLElement>(`[data-${entity}-updated-at]`).forEach((element) => {
+    element.dataset[`${entity}UpdatedAt`] = record.updated_at;
+  });
+
+  const toggle = row.querySelector<HTMLButtonElement>(`button[data-${entity}-action]:not([data-${entity}-action="delete"])`);
+  if (toggle) {
+    toggle.dataset[`${entity}Action`] = published ? 'draft' : 'published';
+    toggle.textContent = published ? copy.unpublish : copy.publish;
+  }
+}
+
+export default function wireStoryList({ confirm, endpoint, entity }: StoryListOptions) {
+  const container = document.querySelector<HTMLElement>(`[data-admin-${entity}s]`);
+  if (!container) return;
+
+  const message = container.querySelector<HTMLElement>(`[data-${entity}-error]`);
+  const data = container.dataset;
+  const format = new Intl.DateTimeFormat(data.locale === 'th' ? 'th-TH' : 'en', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: data.timezone || 'UTC',
+  });
+  const copy: StoryCopy = {
+    draft: data.copyDraft ?? 'draft',
+    published: data.copyPublished ?? 'published',
+    publishedAt: data.copyPublishedAt ?? 'Published',
+    publish: data.copyPublish ?? 'Publish',
+    unpublish: data.copyUnpublish ?? 'Unpublish',
+    updatedAt: data.copyUpdatedAt ?? 'Updated',
+  };
+
+  container.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>(`button[data-${entity}-action]`)
+      : null;
+    if (!button || button.disabled) return;
+
+    const action = button.dataset[`${entity}Action`];
+    const id = button.dataset[`${entity}Id`];
+    const updatedAt = button.dataset[`${entity}UpdatedAt`];
+    if (!action || !id || !updatedAt) return;
+    if (!(await confirm(action, button.dataset))) return;
+
+    const row = button.closest<HTMLElement>('.admin-story-row');
+    button.disabled = true;
+    if (message) message.hidden = true;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: action === 'delete' ? 'DELETE' : 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(action === 'delete' ? { id, updatedAt } : { id, status: action, updatedAt }),
+      });
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null);
+        const reported = typeof body === 'object' && body !== null && 'error' in body ? body.error : null;
+        throw new Error(typeof reported === 'string' ? reported : FAILED);
+      }
+
+      if (action === 'delete') {
+        row?.remove();
+        // The empty state is server-rendered, so hand the last removal back to the server.
+        if (!container.querySelector('.admin-story-row')) window.location.reload();
+        return;
+      }
+
+      const record = readRecord(await response.json().catch(() => null), entity);
+      // A response we cannot read must not leave the row showing a stale status.
+      if (!record || !row) window.location.reload();
+      else {
+        reconcile(row, record, entity, format, copy);
+        row.querySelector<HTMLDetailsElement>('.admin-story-menu')?.removeAttribute('open');
+        button.disabled = false;
+      }
+    } catch (error) {
+      if (message) {
+        message.textContent = error instanceof Error ? error.message : FAILED;
+        message.hidden = false;
+      }
+      button.disabled = false;
+    }
+  });
+}

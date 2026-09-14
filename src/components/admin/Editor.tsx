@@ -7,6 +7,7 @@ import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostL
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
 import createPreviewUrl from './createPreviewUrl';
+import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
 interface EditorSourcePost {
@@ -62,6 +63,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
   const autosaveTimer = useRef<number>();
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
+  const titleField = useAutoGrowTitle(title);
   const [categoryIds, setCategoryIds] = useState(() => selectCategories(categories, initialCategoryIds));
   const [coverMediaId, setCoverMediaId] = useState(initialPost?.cover_media_id ?? sourcePost?.cover_media_id ?? null);
   const [coverImage, setCoverImage] = useState(initialPost?.cover_image ?? sourcePost?.cover_image ?? null);
@@ -326,6 +328,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
           <label className="sr-only" htmlFor="post-title">Post title</label>
           <textarea
             className="admin-title-input"
+            ref={titleField}
             id="post-title"
             maxLength={200}
             onChange={(event) => changeTitle(event.target.value)}

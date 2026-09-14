@@ -201,49 +201,19 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 </AdminLayout>
 
 <script>
+  import wireStoryList from '../../lib/admin-story-list';
   import { confirmUi } from '../../lib/ui-dialog';
 
-  const postsContainer = document.querySelector<HTMLElement>('[data-admin-posts]');
-  const postError = postsContainer?.querySelector<HTMLElement>('[data-post-error]');
-  postsContainer?.addEventListener('click', async (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-post-action]') : null;
-    if (!button || button.disabled) return;
-    const { postAction: action, postId: id, postUpdatedAt: updatedAt } = button.dataset;
-    if (!id || !action || !updatedAt) return;
-    if (action === 'delete') {
-      const confirmed = await confirmUi({
-        title: 'Delete post?',
-        message: `Delete “${button.dataset.postTitle}” (${button.dataset.postLocale})? Only this language edition will be deleted. This cannot be undone.`,
-        confirmLabel: 'Delete',
-        tone: 'danger',
-      });
-      if (!confirmed) return;
-    }
-    button.disabled = true;
-    try {
-      const response = action === 'delete'
-        ? await fetch('/api/admin/posts', {
-            method: 'DELETE',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ id, updatedAt }),
-          })
-        : await fetch('/api/admin/posts', {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ id, status: action, updatedAt }),
-          });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || 'The action could not be completed. Please try again.');
-      }
-      window.location.reload();
-    } catch (error) {
-      if (postError) {
-        postError.textContent = error instanceof Error ? error.message : 'The action could not be completed. Please try again.';
-        postError.hidden = false;
-      }
-      button.disabled = false;
-    }
-  });
+  const copy = (document.querySelector<HTMLElement>('[data-admin-posts]') ?? document.createElement('div')).dataset;
 
+  wireStoryList({
+    endpoint: '/api/admin/posts',
+    entity: 'post',
+    confirm: async (action, row) => action !== 'delete' || confirmUi({
+      title: copy.copyDeleteTitle ?? 'Delete post?',
+      message: `${copy.copyDeletePrefix} “${row.postTitle}” (${row.postLocale})? ${copy.copyDeleteMessage}`,
+      confirmLabel: copy.copyDelete ?? 'Delete',
+      tone: 'danger',
+    }),
+  });
 </script>

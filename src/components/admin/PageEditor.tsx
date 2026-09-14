@@ -7,6 +7,7 @@ import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTra
 import DocumentCanvas from './DocumentCanvas';
 import PageSettingsDrawer from './PageSettingsDrawer';
 import createPreviewUrl from './createPreviewUrl';
+import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
 interface EditorSourcePage {
@@ -59,6 +60,7 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
   const autosaveTimer = useRef<number>();
 
   const [title, setTitle] = useState(initialPage?.title ?? '');
+  const titleField = useAutoGrowTitle(title);
   const [slug, setSlug] = useState(initialPage?.slug ?? '');
   const [metaTitle, setMetaTitle] = useState(initialPage?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPage?.meta_description ?? '');
@@ -315,6 +317,7 @@ export default function PageEditor({ adminPath, initialPage, locale, sourcePage,
           <label className="sr-only" htmlFor="page-title">Page title</label>
           <textarea
             className="admin-title-input"
+            ref={titleField}
             id="page-title"
             maxLength={200}
             onChange={(event) => changeTitle(event.target.value)}

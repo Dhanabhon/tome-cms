@@ -150,53 +150,27 @@ const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'publish
 </AdminLayout>
 
 <script>
+  import wireStoryList from '../../../lib/admin-story-list';
   import { confirmUi } from '../../../lib/ui-dialog';
 
-  const pagesContainer = document.querySelector<HTMLElement>('[data-admin-pages]');
-  const pageError = pagesContainer?.querySelector<HTMLElement>('[data-page-error]');
-  pagesContainer?.addEventListener('click', async (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-page-action]') : null;
-    if (!button || button.disabled) return;
-    const { pageAction: action, pageId: id, pageUpdatedAt: updatedAt } = button.dataset;
-    if (!id || !action || !updatedAt) return;
-    if (action === 'delete' || action === 'draft') {
-      const edition = `“${button.dataset.pageTitle}” (${button.dataset.pageLocale})`;
-      const confirmed = await confirmUi(action === 'delete' ? {
-        title: 'Delete page?',
-        message: `Delete ${edition}? This edition and its menu references will be permanently removed. Other language editions will stay saved. This cannot be undone.`,
-        confirmLabel: 'Delete',
+  const copy = (document.querySelector<HTMLElement>('[data-admin-pages]') ?? document.createElement('div')).dataset;
+
+  wireStoryList({
+    endpoint: '/api/admin/pages',
+    entity: 'page',
+    confirm: async (action, row) => {
+      if (action !== 'delete' && action !== 'draft') return true;
+      const edition = `“${row.pageTitle}” (${row.pageLocale})`;
+      return confirmUi(action === 'delete' ? {
+        title: copy.copyDeleteTitle ?? 'Delete page?',
+        message: `${copy.copyDeletePrefix} ${edition}? ${copy.copyDeleteMessage}`,
+        confirmLabel: copy.copyDelete ?? 'Delete',
         tone: 'danger',
       } : {
-        title: 'Unpublish page?',
-        message: `Unpublish ${edition}? Menu placements stay saved but disappear publicly until republished.`,
-        confirmLabel: 'Unpublish',
+        title: copy.copyUnpublishTitle ?? 'Unpublish page?',
+        message: `${copy.copyUnpublish} ${edition}? ${copy.copyUnpublishMessage}`,
+        confirmLabel: copy.copyUnpublish ?? 'Unpublish',
       });
-      if (!confirmed) return;
-    }
-    button.disabled = true;
-    try {
-      const response = action === 'delete'
-        ? await fetch('/api/admin/pages', {
-            method: 'DELETE',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ id, updatedAt }),
-          })
-        : await fetch('/api/admin/pages', {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ id, status: action, updatedAt }),
-          });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || 'The action could not be completed. Please try again.');
-      }
-      window.location.reload();
-    } catch (error) {
-      if (pageError) {
-        pageError.textContent = error instanceof Error ? error.message : 'The action could not be completed. Please try again.';
-        pageError.hidden = false;
-      }
-      button.disabled = false;
-    }
+    },
   });
 </script>
