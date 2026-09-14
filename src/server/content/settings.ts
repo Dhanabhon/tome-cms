@@ -19,6 +19,7 @@ export const siteSettingsMutationSchema = z.object({
   siteDescription: z.string().trim().max(160),
   siteName: z.string().trim().min(1).max(120),
   tagline: z.string().trim().max(120),
+  theme: z.enum(['system', 'light', 'dark']),
   timezone: z.enum(['Asia/Bangkok', 'UTC']),
   updatedAt: z.iso.datetime({ offset: true }),
 }).strict();
@@ -83,6 +84,7 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
       site_description: input.siteDescription,
       site_name: input.siteName,
       tagline: input.tagline,
+      theme: input.theme,
       timezone: input.timezone,
       updated_at: nextVersion,
     })

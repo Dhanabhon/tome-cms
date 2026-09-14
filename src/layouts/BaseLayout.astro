@@ -5,6 +5,7 @@ import SEOHead from '../components/blog/SEOHead.astro';
 import { getPublicSiteUrl } from '../lib/seo';
 import { getPublicNavigation } from '../server/content/navigation';
 import { getSiteSettings } from '../server/content/settings';
+import { normalizeTheme, themeAttribute } from '../lib/theme';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
 
@@ -27,6 +28,9 @@ interface Props {
 }
 
 const settings = await getSiteSettings();
+// null when the owner leaves it on 'system', which is how the stylesheet is told to
+// follow each visitor's own setting. Astro drops an attribute whose value is null.
+const theme = themeAttribute(normalizeTheme(settings?.theme));
 const siteName = settings?.site_name ?? 'TomeCMS';
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const {
@@ -101,7 +105,7 @@ const structuredData = robots.includes('noindex')
 ---
 
 <!doctype html>
-<html lang={locale}>
+<html data-theme={theme} lang={locale}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

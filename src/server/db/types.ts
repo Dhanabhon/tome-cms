@@ -133,6 +133,7 @@ export interface SiteSettingsTable {
   site_description: Generated<string>;
   default_locale: 'th' | 'en';
   timezone: 'Asia/Bangkok' | 'UTC';
+  theme: Generated<'system' | 'light' | 'dark'>;
   admin_path: string;
   author_name: Generated<string>;
   author_avatar_media_id: string | null;

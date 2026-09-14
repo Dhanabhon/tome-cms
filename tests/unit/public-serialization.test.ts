@@ -123,6 +123,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
     site_description: 'A public description',
     site_name: 'TomeCMS',
     tagline: 'Publish clearly',
+    theme: 'system' as const,
     timezone: 'Asia/Bangkok',
     updated_at: new Date('2026-09-08T04:00:00.000Z'),
   }, media);

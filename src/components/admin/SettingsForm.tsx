@@ -6,7 +6,7 @@ import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -26,6 +26,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [tagline, setTagline] = useState(initialSettings.tagline);
   const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
+  const [theme, setTheme] = useState(initialSettings.theme);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
   const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
@@ -44,12 +45,12 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, timezone, updatedAt }),
+        body: JSON.stringify({ defaultLocale, siteDescription, siteName, tagline, theme, timezone, updatedAt }),
       });
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};
-        for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'timezone']) {
+        for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'theme', 'timezone']) {
           fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
         }
         setFieldErrors(fields);
@@ -96,6 +97,12 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
           <label htmlFor="timezone">{copy.settings.timezone}</label>
           <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
           <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
+        </div>
+        <div className="admin-field">
+          <label htmlFor="theme">{copy.theme.siteLabel}</label>
+          <UiSelect ariaDescribedBy="theme-hint theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
+          <small id="theme-hint">{copy.theme.siteHint}</small>
+          <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
         </div>
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
