@@ -169,7 +169,16 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
   const [activity, setActivity] = useState<{ label: string; value: number }>({ label: copy.checking, value: 8 });
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'selected'>('idle');
 
+  // Moving focus to the new step's heading is what tells a screen reader the step
+  // changed. Arriving is not a change: on first render this stole focus from the top
+  // of the document, skipping everything above the wizard, and drew a focus ring
+  // around the heading for anyone who reloaded with the keyboard. Comparing the step
+  // rather than flagging the first render also survives an effect being run twice,
+  // where a one-shot flag would fire on the second pass.
+  const announced = useRef(step);
   useEffect(() => {
+    if (announced.current === step) return;
+    announced.current = step;
     heading.current?.focus({ preventScroll: true });
   }, [step]);
 
