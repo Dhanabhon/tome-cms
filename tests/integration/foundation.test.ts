@@ -30,10 +30,10 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
   assert.equal(process.env.NODE_ENV, 'test');
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test', 'run through test:integration:foundation; never use a real application database');
   const { db, pool, closeDatabase } = await import('../../src/server/db/client');
-  const { migrateToLatest, pendingMigrationNames } = await import('../../src/server/db/migrator');
+  const { migrateToLatest, migrations, pendingMigrationNames } = await import('../../src/server/db/migrator');
   context.after(closeDatabase);
   assert.deepEqual((await sql<{ value: number }>`select 1 as value`.execute(db)).rows, [{ value: 1 }]);
-  assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content', '006_media', '007_preview_tokens', '008_update_rate_limit_actions']);
+  assert.deepEqual(await pendingMigrationNames(), Object.keys(migrations));
   assert.equal((await sql<{ name: string | null }>`select to_regclass('public.kysely_migration') as name`.execute(db)).rows[0].name, null);
   await migrateToLatest();
   await migrateToLatest();
@@ -229,7 +229,7 @@ test('disposable PostgreSQL migrations and bounded readiness', async (context) =
         assert.deepEqual(await pending.json(), {
           status: 'not-ready', checks: { database: 'ready', migrations: 'pending', storage: 'ready' },
         });
-        assert.deepEqual(await pendingMigrationNames(), ['001_system', '002_auth_installer', '003_security_recovery', '004_session_credential_recovery', '005_content', '006_media', '007_preview_tokens', '008_update_rate_limit_actions']);
+        assert.deepEqual(await pendingMigrationNames(), Object.keys(migrations));
       } finally {
         for (const row of removed.rows) {
           await sql`insert into kysely_migration (name, timestamp) values (${row.name}, ${row.timestamp})`.execute(db);
