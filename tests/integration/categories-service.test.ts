@@ -14,6 +14,7 @@ test('Category services preserve shared membership, ownership, and fallback', as
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const {
+    categoriesByPostGroup,
     categoryIdsForPost,
     createCategory,
     deleteCategory,
@@ -69,6 +70,22 @@ test('Category services preserve shared membership, ownership, and fallback', as
   assert.deepEqual(await replacePostCategories('owner-a', firstTh, [alpha.id]), [alpha.id]);
   assert.deepEqual(await categoryIdsForPost('owner-a', firstEn), [alpha.id], 'language editions share membership');
   assert.deepEqual(await replacePostCategories('owner-a', secondEn, [zeta.id, fallback.id, alpha.id]), [alpha.id, zeta.id].sort());
+  // The admin post list reads a whole page of rows through this one call.
+  const absentGroup = randomUUID();
+  const grouped = await categoriesByPostGroup('owner-a', [firstGroup, secondGroup, absentGroup, firstGroup]);
+  assert.deepEqual(grouped.get(firstGroup), [{ id: alpha.id, name: 'Alpha' }]);
+  assert.deepEqual(
+    grouped.get(secondGroup),
+    [{ id: alpha.id, name: 'Alpha' }, { id: zeta.id, name: 'Zeta' }],
+    'a group keeps every assignment, ordered default first then by name',
+  );
+  assert.equal(grouped.has(absentGroup), false, 'a group with no assignments is absent rather than empty');
+  assert.equal((await categoriesByPostGroup('owner-a', [])).size, 0, 'an empty page issues no query');
+  assert.equal(
+    (await categoriesByPostGroup('owner-b', [firstGroup, secondGroup])).size, 0,
+    'another owner reads nothing, even with the right group ids',
+  );
+
   assert.deepEqual(
     (await listCategories('owner-a')).map(({ name, postCount }) => ({ name, postCount })),
     [

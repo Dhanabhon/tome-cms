@@ -223,3 +223,35 @@ export async function categoryIdsForPost(ownerId: string, postId: string): Promi
     .execute();
   return rows.map(({ category_id }) => category_id);
 }
+
+/**
+ * Categories for a page of posts, in one query.
+ *
+ * Assignments hang off the translation group rather than the post, so both language
+ * editions of a story carry the same set — the admin list shows one row per edition
+ * and each gets the group's categories. Keyed by group for that reason, not by post id.
+ */
+export async function categoriesByPostGroup(
+  ownerId: string,
+  groupIds: string[],
+): Promise<Map<string, PostCategoryBadge[]>> {
+  const groups = new Map<string, PostCategoryBadge[]>();
+  if (!groupIds.length) return groups;
+  const rows = await db.selectFrom('post_category_assignments as assignment')
+    .innerJoin('categories as category', (join) => join
+      .onRef('category.id', '=', 'assignment.category_id')
+      .onRef('category.owner_id', '=', 'assignment.owner_id'))
+    .select(['assignment.translation_group_id', 'category.id', 'category.name'])
+    .where('assignment.owner_id', '=', ownerId)
+    .where('assignment.translation_group_id', 'in', [...new Set(groupIds)])
+    .orderBy('category.is_default', 'desc')
+    .orderBy('category.name')
+    .orderBy('category.id')
+    .execute();
+  for (const row of rows) {
+    const items = groups.get(row.translation_group_id) ?? [];
+    items.push({ id: row.id, name: row.name });
+    groups.set(row.translation_group_id, items);
+  }
+  return groups;
+}

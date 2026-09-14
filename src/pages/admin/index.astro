@@ -7,16 +7,18 @@ import { adminHref } from '../../lib/admin';
 import { adminCopy, adminDateFormat, statusLabel } from '../../lib/admin-i18n';
 import { filterAdminPosts, readingMinutes, type AdminPostFilters } from '../../lib/posts';
 import { requireInstalledOwner } from '../../server/auth/session';
+import { categoriesByPostGroup } from '../../server/content/categories';
 import { listPosts } from '../../server/content/posts';
 import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
-import type { Post, PostLocale } from '../../types/cms';
+import type { Post, PostCategoryBadge, PostLocale } from '../../types/cms';
 
 let posts: Post[] = [];
 let userEmail: string | null = null;
 let errorKey: 'dashboardHidden' | 'dashboardUnavailable' | null = null;
 let authRequired = false;
 let settings = null;
+let postCategories = new Map<string, PostCategoryBadge[]>();
 
 try {
   settings = await getSiteSettings();
@@ -27,6 +29,8 @@ try {
   } else {
     userEmail = current.user.email;
     posts = await listPosts(current.user.id);
+    // One query for the whole page; assignments hang off the translation group.
+    postCategories = await categoriesByPostGroup(current.user.id, posts.map(({ translation_group_id }) => translation_group_id));
   }
 } catch (error) {
   if (error instanceof HttpError && error.status === 401) {
@@ -169,6 +173,11 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                     <span class="admin-status" data-status={post.status}>{statusLabel(copy, post.status)}</span>
                     <span data-story-when><span data-story-verb>{post.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                   </div>
+                  {(postCategories.get(post.translation_group_id) ?? []).length > 0 && (
+                    <ul class="admin-story-categories" aria-label={copy.drawer.categories}>
+                      {(postCategories.get(post.translation_group_id) ?? []).map((category) => <li>{category.name}</li>)}
+                    </ul>
+                  )}
                   <p class="admin-story-sibling">
                     {sibling ? <a href={adminHref(adminSettings, `/edit/${sibling.id}`)}>{sibling.locale.toUpperCase()} {statusLabel(copy, sibling.status)}</a> : <a href={adminHref(adminSettings, `/new?${new URLSearchParams({ sourcePostId: post.id, locale: post.locale === 'th' ? 'en' : 'th' })}`)}>{post.locale === 'th' ? 'EN' : 'TH'} {copy.row.missing}</a>}
                   </p>
