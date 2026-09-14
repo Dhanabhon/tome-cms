@@ -56,9 +56,22 @@ function run(command, args, env, timeout, signal) {
 try {
   const services = requiresStorage ? ['postgres', 'seaweedfs'] : ['postgres'];
   await run('docker', [...compose, 'up', '-d', '--wait', '--wait-timeout', '90', ...services], composeEnv, 180_000, controller.signal);
-  await run(process.execPath, [
-    '--import', 'tsx', '--test', '--test-concurrency=1', ...testFiles,
-  ], testEnv, 600_000, controller.signal);
+  // Each file gets an empty database. They are written for one: auth-enrollment
+  // opens by asserting the user table does not exist yet, every file migrates from
+  // scratch and seeds the same fixture ids, and two of them roll migrations
+  // backwards to assert against an older schema. Sharing one database left the
+  // migration table in an order Kysely rejects for every file that followed, which
+  // is why `--all` failed 11 of 22 while the same files passed individually.
+  for (const file of testFiles) {
+    await run('docker', [...compose, 'exec', '-T', 'postgres',
+      'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+      '-U', 'tomecms_test', '-d', 'tomecms_test',
+      '-c', 'drop schema public cascade; create schema public;',
+    ], composeEnv, 30_000, controller.signal);
+    await run(process.execPath, [
+      '--import', 'tsx', '--test', '--test-concurrency=1', file,
+    ], testEnv, 600_000, controller.signal);
+  }
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
