@@ -278,6 +278,7 @@ const en = {
   row: {
     delete: 'Delete',
     deletePrefix: 'Delete',
+    duplicate: 'Duplicate',
     edit: 'Edit',
     minRead: 'min read',
     missing: 'missing',
@@ -796,6 +797,7 @@ const th: typeof en = {
   row: {
     delete: 'ลบ',
     deletePrefix: 'ลบ',
+    duplicate: 'ทำสำเนา',
     edit: 'แก้ไข',
     minRead: 'นาที',
     missing: 'ยังไม่มี',

@@ -74,7 +74,7 @@ const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'publish
           <div><h1>{copy.pages.heading}</h1><p>{copy.pages.subheading}</p></div>
           <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.newPage} <span aria-hidden="true">+</span></a>
         </header>
-        <div data-admin-pages data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage} data-copy-unpublish-title={copy.pages.unpublishTitle} data-copy-unpublish-message={copy.pages.unpublishMessage}>
+        <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage} data-copy-unpublish-title={copy.pages.unpublishTitle} data-copy-unpublish-message={copy.pages.unpublishMessage}>
           <nav class="admin-post-tabs" aria-label={copy.pages.statusLabel}>
             {tabs.map((tab) => (
               <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `/pages?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label}</a>
@@ -128,6 +128,7 @@ const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'publish
                     <div>
                       <a href={adminHref(adminSettings, `/pages/edit/${page.id}`)}>{copy.row.edit}</a>
                       <a href={adminHref(adminSettings, `/pages/preview/${page.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                      <button type="button" data-page-action="duplicate" data-page-id={page.id} data-page-updated-at={page.updated_at}>{copy.row.duplicate}</button>
                       <button type="button" data-page-action={page.status === 'draft' ? 'published' : 'draft'} data-page-id={page.id} data-page-updated-at={page.updated_at} data-page-title={title} data-page-locale={page.locale.toUpperCase()}>{page.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
                       <button type="button" data-page-action="delete" data-page-id={page.id} data-page-updated-at={page.updated_at} data-page-title={title} data-page-locale={page.locale.toUpperCase()}>{copy.row.delete}</button>
                     </div>

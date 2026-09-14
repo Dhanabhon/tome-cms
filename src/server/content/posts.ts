@@ -14,6 +14,8 @@ import { editorMediaIds } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
+  duplicateSlugCandidates,
+  duplicateTitle,
   isUniqueViolation,
   normalizedContentSlug,
   prepareContent,
@@ -140,6 +142,68 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         owner_id: ownerId,
       }).returningAll().executeTakeFirstOrThrow();
       await replacePostGroupCategories(trx, ownerId, translationGroupId, input.categoryIds);
+      return created;
+    });
+    return postFromRow(row);
+  } catch (error) {
+    return writeConflict(error);
+  }
+}
+
+/**
+ * Copies a Post into a new, independent draft.
+ *
+ * The copy gets its own translation group rather than joining the source's. Sharing
+ * one would collide immediately -- (translation_group_id, locale) is unique, and the
+ * copy has the same locale -- and it would also be a lie: a duplicate is a second
+ * piece of writing, not the source's other language edition.
+ *
+ * Categories hang off the group, so the new group needs the source's set copied onto
+ * it or the duplicate silently loses every category.
+ *
+ * Always a draft. Publishing is a decision about a specific piece of writing, and
+ * nobody duplicating a post is asking to put a second copy of it on the site.
+ *
+ * Media references are carried over as they are. They were already accepted when the
+ * source was written, and re-checking them here would refuse to duplicate a post the
+ * writer can still open and edit.
+ */
+export async function duplicatePost(ownerId: string, id: string): Promise<Post> {
+  const copyId = randomUUID();
+  try {
+    const row = await db.transaction().execute(async (trx) => {
+      await lockOwner(trx, ownerId);
+      const source = await trx.selectFrom('posts').selectAll()
+        .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
+      if (!source) throw new HttpError(404, 'Post not found.');
+
+      const [preferred, fallback] = duplicateSlugCandidates(source.slug, copyId);
+      const taken = await trx.selectFrom('posts').select('id')
+        .where('locale', '=', source.locale).where('slug', '=', preferred).executeTakeFirst();
+
+      const translationGroupId = randomUUID();
+      await trx.insertInto('post_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
+
+      const created = await trx.insertInto('posts').values({
+        id: copyId,
+        translation_group_id: translationGroupId,
+        locale: source.locale,
+        title: duplicateTitle(source.title, source.locale),
+        slug: taken ? fallback : preferred,
+        cover_media_id: source.cover_media_id,
+        content_json: source.content_json,
+        content_html: source.content_html,
+        meta_title: source.meta_title,
+        meta_description: source.meta_description,
+        status: 'draft',
+        published_at: null,
+        owner_id: ownerId,
+      }).returningAll().executeTakeFirstOrThrow();
+
+      const categories = await trx.selectFrom('post_category_assignments').select('category_id')
+        .where('translation_group_id', '=', source.translation_group_id)
+        .where('owner_id', '=', ownerId).execute();
+      await replacePostGroupCategories(trx, ownerId, translationGroupId, categories.map(({ category_id }) => category_id));
       return created;
     });
     return postFromRow(row);

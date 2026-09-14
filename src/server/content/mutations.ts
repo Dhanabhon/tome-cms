@@ -59,6 +59,34 @@ export function normalizedContentSlug(prefix: 'page' | 'post', requested: string
   return normalized || `${prefix}-${id.slice(0, 8)}`;
 }
 
+/**
+ * Naming for a duplicate.
+ *
+ * (locale, slug) is unique, so a copy cannot keep the slug it was made from -- this
+ * is a constraint, not a nicety. The first candidate is the readable one; the second
+ * carries a slice of the copy's own fresh id and exists for when the readable one is
+ * already taken, which is what happens the second time you duplicate the same thing.
+ *
+ * Both are trimmed so the suffix survives the length cap rather than being cut off
+ * by it, and any hyphen left dangling by that trim is removed so the result still
+ * matches the slug pattern.
+ */
+export function duplicateSlugCandidates(slug: string, id: string): [string, string] {
+  const withSuffix = (suffix: string) =>
+    `${slug.slice(0, 160 - suffix.length).replace(/-+$/, '')}${suffix}`;
+  return [withSuffix('-copy'), withSuffix(`-copy-${id.slice(0, 8)}`)];
+}
+
+/**
+ * Two rows with the same title, one of them a draft, is a puzzle rather than a list.
+ * The marker follows the content's own language, not the admin's, because it becomes
+ * part of the title and the writer will edit it in that language.
+ */
+export function duplicateTitle(title: string, locale: 'th' | 'en'): string {
+  const suffix = locale === 'th' ? ' (สำเนา)' : ' (copy)';
+  return `${title.slice(0, 200 - suffix.length).trim()}${suffix}`;
+}
+
 export function assertCurrentVersion(current: Date, requested: string, noun: 'page' | 'post'): void {
   if (current.getTime() !== new Date(requested).getTime()) {
     throw new HttpError(409, `This ${noun} changed elsewhere. Reload the page and try again.`);

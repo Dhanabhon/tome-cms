@@ -13,6 +13,8 @@ import { editorMediaIds } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
+  duplicateSlugCandidates,
+  duplicateTitle,
   isUniqueViolation,
   normalizedContentSlug,
   prepareContent,
@@ -125,6 +127,50 @@ export async function createPage(ownerId: string, input: CreatePageInput): Promi
       }).returningAll().executeTakeFirstOrThrow();
     });
     invalidatePublicNavigationCache();
+    return pageFromRow(row);
+  } catch (error) {
+    return writeConflict(error);
+  }
+}
+
+/**
+ * Copies a Page into a new, independent draft. See duplicatePost for why the copy
+ * gets its own translation group and why it is always a draft; a Page carries no
+ * categories and no cover, so there is nothing else to bring across.
+ *
+ * The navigation cache is not touched: a draft never appears in a public menu, so
+ * there is nothing for readers to see differently yet.
+ */
+export async function duplicatePage(ownerId: string, id: string): Promise<Page> {
+  const copyId = randomUUID();
+  try {
+    const row = await db.transaction().execute(async (trx) => {
+      const source = await trx.selectFrom('pages').selectAll()
+        .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
+      if (!source) throw new HttpError(404, 'Page not found.');
+
+      const [preferred, fallback] = duplicateSlugCandidates(source.slug, copyId);
+      const taken = await trx.selectFrom('pages').select('id')
+        .where('locale', '=', source.locale).where('slug', '=', preferred).executeTakeFirst();
+
+      const translationGroupId = randomUUID();
+      await trx.insertInto('page_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
+
+      return trx.insertInto('pages').values({
+        id: copyId,
+        translation_group_id: translationGroupId,
+        locale: source.locale,
+        title: duplicateTitle(source.title, source.locale),
+        slug: taken ? fallback : preferred,
+        content_json: source.content_json,
+        content_html: source.content_html,
+        meta_title: source.meta_title,
+        meta_description: source.meta_description,
+        status: 'draft',
+        published_at: null,
+        owner_id: ownerId,
+      }).returningAll().executeTakeFirstOrThrow();
+    });
     return pageFromRow(row);
   } catch (error) {
     return writeConflict(error);
