@@ -5,6 +5,8 @@ export interface CommandResult {
   code: number;
   stdout: string;
   stderr: string;
+  stdoutAtLimit?: boolean;
+  stderrAtLimit?: boolean;
   signal?: NodeJS.Signals | null;
   timedOut?: boolean;
 }
@@ -88,6 +90,8 @@ export function runCommand(executable: string, args: readonly string[], options:
         code: timedOut ? 124 : code ?? 1,
         stdout: boundedText(stdout, stdoutBytes),
         stderr: boundedText(stderr, stderrBytes),
+        stdoutAtLimit: stdoutBytes === outputLimit,
+        stderrAtLimit: stderrBytes === outputLimit,
         signal,
         timedOut,
       });
@@ -180,8 +184,11 @@ function writeCommandFailure(
 ): void {
   try {
     const timedOut = result !== null && (result.timedOut ?? result.code === 124);
-    const stdout = diagnostics.secrets === null ? null : redactDiagnosticText(result?.stdout, diagnostics.secrets);
-    const stderr = diagnostics.secrets === null ? null : redactDiagnosticText(result?.stderr, diagnostics.secrets);
+    const captureAtLimit = result?.stdoutAtLimit === true || result?.stderrAtLimit === true;
+    const stdout = captureAtLimit || diagnostics.secrets === null
+      ? null : redactDiagnosticText(result?.stdout, diagnostics.secrets);
+    const stderr = captureAtLimit || diagnostics.secrets === null
+      ? null : redactDiagnosticText(result?.stderr, diagnostics.secrets);
     const streams = stdout === null || stderr === null
       ? { stdout: '[omitted: unsafe secret patterns]', stderr: '[omitted: unsafe secret patterns]' }
       : { stdout, stderr };
