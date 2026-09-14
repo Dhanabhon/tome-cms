@@ -415,7 +415,8 @@ configs:
 }
 
 async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Scenario> {
-  const root = join(suiteRoot, `case-${randomUUID()}`);
+  const scenarioId = randomUUID();
+  const root = join(suiteRoot, `case-${scenarioId}`);
   const stateDirectory = join(root, 'state');
   const backupDirectory = join(root, 'backups');
   const imageEnvironmentFile = join(stateDirectory, 'image.env');
@@ -424,9 +425,10 @@ async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Sce
   await writeFile(imageEnvironmentFile, imageEnvironment(fixture.images.previous.digest), { mode: 0o600 });
   const config: UpdaterConfig = {
     configVersion: 1, projectName, composeFile, environmentFile, imageEnvironmentFile, stateDirectory,
-    backupDirectory, socketPath: join(root, 'updater.sock'), statusPath: join(root, 'status.json'),
+    backupDirectory, socketPath: join(suiteRoot, `${scenarioId.slice(0, 8)}.sock`), statusPath: join(root, 'status.json'),
     appHealthUrl: `http://127.0.0.1:${fixture.port}/health/ready`, minimumFreeBytes: 1,
   };
+  assert.ok(Buffer.byteLength(config.socketPath) < 104, 'Fixture socket path must fit macOS sockaddr_un');
   const state = createUpdaterStateStore(config);
   await state.writeInstalled(fixture.installed);
   const scenario: Scenario = {
