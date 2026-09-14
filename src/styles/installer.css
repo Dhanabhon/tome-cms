@@ -237,7 +237,7 @@ h1, h2, p { margin-block-start: 0; }
 }
 .installer-check:first-child { border-block-start: var(--rule-hair) solid var(--color-rule); }
 .installer-check[data-state="checking"] .installer-check-mark { background: var(--color-paper-3); color: var(--color-muted); }
-.installer-check[data-state="error"] .installer-check-mark { background: var(--color-error); color: var(--color-paper); }
+.installer-check[data-state="error"] .installer-check-mark { background: var(--color-error); color: var(--color-on-dark); }
 .installer-check[data-state="deferred"] .installer-check-mark { background: var(--color-paper-3); color: var(--color-ink-2); }
 .installer-check strong { display: block; font-weight: 500; }
 .installer-check small { display: block; margin-block-start: var(--space-3xs); color: var(--color-muted); font-size: var(--text-xs); }

@@ -14,6 +14,8 @@ export default {
     extend: {
       colors: {
         accent: 'var(--color-accent)',
+        code: 'var(--color-code-bg)',
+        ondark: 'var(--color-on-dark)',
         error: 'var(--color-error)',
         hero: 'var(--color-hero)',
         ink: 'var(--color-ink)',
@@ -47,8 +49,8 @@ export default {
             '--tw-prose-quotes': 'var(--color-ink)',
             '--tw-prose-quote-borders': 'var(--color-accent)',
             '--tw-prose-code': 'var(--color-ink)',
-            '--tw-prose-pre-code': 'var(--color-paper-2)',
-            '--tw-prose-pre-bg': 'var(--color-hero)',
+            '--tw-prose-pre-code': 'var(--color-on-dark)',
+            '--tw-prose-pre-bg': 'var(--color-code-bg)',
             fontFamily: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'].join(', '),
             h2: {
               fontSize: '22px',

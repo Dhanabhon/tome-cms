@@ -131,6 +131,23 @@ The palette uses 11 validated color tokens across one theme profile. Semantic ro
 ### Interactive
 - **Border Subtle** (#0f3d3a): Hairline dividers mixed at 10% and strong borders mixed at 26%. Role: border. {authored: rgb(15, 61, 58), space: rgb}
 
+### Theme-Independent Roles
+
+These carry meaning rather than a fixed lightness, so they stay correct when the
+theme flips. Reach for them instead of `surface-white` or a literal colour whenever
+the surface is dark *on purpose*.
+
+- **On Dark** (`--color-on-dark`): text on a surface that is dark in either theme — the hero panel, a code block, a danger fill.
+- **On Dark Muted** (`--color-on-dark-muted`): secondary text on those same surfaces.
+- **Code Background** (`--color-code-bg`): the code-block surface. Keyed separately from `text-primary` because that token inverts with the theme.
+- **Scrim** (`--color-scrim`): the wash behind a modal. Always dark, in both themes.
+
+### Dark Theme
+
+Opt-in via `data-theme="dark"` on the root element; it is deliberately not wired to
+`prefers-color-scheme` yet. `tests/unit/theme-contrast.test.ts` computes every surface
+pair in both themes and fails below WCAG AA — lowest measured ratio 5.90.
+
 ### Surface & Shadows
 - **Surface Base** (#f2f8f7): Primary page background and quiet application surfaces. Role: background. {authored: rgb(242, 248, 247), space: rgb}
 
