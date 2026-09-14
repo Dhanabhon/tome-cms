@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { OFFICIAL_IMAGE_REPOSITORY, type UpdateManifest } from '../../src/update/contracts.js';
@@ -55,8 +55,28 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
   state.writeInstalled = async (value) => { events.push(`installed:${value.version}`); await install(value); };
   const backup = join(config.backupDirectory, 'backup-1');
   await mkdir(backup);
-  const manifestBytes = JSON.stringify({ format: 'tomecms-backup', version: 1,
-    applicationVersion: previous.version, createdAt: '2026-09-20T10:01:00.000Z' });
+  const databaseBytes = Buffer.from('postgres custom-format backup fixture');
+  const objectBytes = Buffer.from('image backup fixture');
+  const objectKey = 'owners/123e4567-e89b-42d3-a456-426614174000/2026/09/123e4567-e89b-42d3-a456-426614174001.webp';
+  await writeFile(join(backup, 'database.dump'), databaseBytes);
+  const objectPath = join(backup, 'objects', ...objectKey.split('/'));
+  await mkdir(dirname(objectPath), { recursive: true });
+  await writeFile(objectPath, objectBytes);
+  const backupManifest = {
+    format: 'tomecms-backup', version: 1, applicationVersion: previous.version,
+    createdAt: '2026-09-20T10:01:00.000Z',
+    config: {
+      publicUrl: 'https://example.com', database: 'tomecms',
+      s3Endpoint: 'http://seaweedfs:8333', bucket: 'blog-media',
+    },
+    database: { file: 'database.dump', sha256: createHash('sha256').update(databaseBytes).digest('hex') },
+    records: { siteSettings: 1, posts: 2, pages: 3, mediaItems: 1 },
+    objects: [{
+      key: objectKey, contentType: 'image/webp', sizeBytes: objectBytes.byteLength,
+      sha256: createHash('sha256').update(objectBytes).digest('hex'),
+    }],
+  };
+  const manifestBytes = JSON.stringify(backupManifest);
   await writeFile(join(backup, 'manifest.json'), manifestBytes);
   const report = { backupDirectory: '/backups/backup-1', manifestSha256: createHash('sha256').update(manifestBytes).digest('hex') };
   const manifest = {
@@ -145,7 +165,7 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     now: () => new Date('2026-09-20T10:02:00.000Z'),
   };
   const input = { version: '1.0.1', requestId: randomUUID(), updaterVersion: '1.0.0', config, state, dependencies };
-  return { input, root, state, events, commands, backup, report, manifest, containers, lifecycle,
+  return { input, root, state, events, commands, backup, backupManifest, report, manifest, containers, lifecycle,
     interrupt: (stage: string, reject = false) => { interrupted = stage; rejectInterrupted = reject; },
     failCleanup: () => { cleanupFails = true; },
     leaveOnSuccess: (stage: string) => { successfulLeftover = stage; },
@@ -155,6 +175,12 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     inspection: (value: string) => { inspectionOutput = value; },
     migrations: (value: string) => { migrationOutput = value; },
     backupOutput: (value: string) => { backupOutput = value; },
+    writeBackupManifest: async (value: unknown) => {
+      const bytes = JSON.stringify(value);
+      await writeFile(join(backup, 'manifest.json'), bytes);
+      backupOutput = JSON.stringify({ ...report,
+        manifestSha256: createHash('sha256').update(bytes).digest('hex') });
+    },
   };
 }
 
@@ -489,6 +515,54 @@ test('strict backup receipt, hash, path, regular manifest and app version preced
     assert.equal(f.events.includes('migrate'), false, change);
   }
 });
+
+for (const change of ['missing database', 'database checksum', 'missing object', 'object size',
+  'object checksum', 'object traversal', 'object symlink', 'missing records', 'malformed records',
+  'duplicate object', 'unsafe object size', 'extra manifest field'] as const) {
+  test(`rejects a recovery point with ${change} before image selection or migration`, async (t) => {
+    const f = await fixture(t);
+    const manifest = structuredClone(f.backupManifest);
+    const objectPath = join(f.backup, 'objects', ...manifest.objects[0]!.key.split('/'));
+    if (change === 'missing database') await rm(join(f.backup, 'database.dump'));
+    if (change === 'database checksum') await writeFile(join(f.backup, 'database.dump'), 'corrupt');
+    if (change === 'missing object') await rm(objectPath);
+    if (change === 'object size') {
+      manifest.objects[0]!.sizeBytes += 1;
+      await f.writeBackupManifest(manifest);
+    }
+    if (change === 'object checksum') {
+      manifest.objects[0]!.sha256 = '0'.repeat(64);
+      await f.writeBackupManifest(manifest);
+    }
+    if (change === 'object traversal') {
+      manifest.objects[0]!.key = '../escape.webp';
+      await f.writeBackupManifest(manifest);
+    }
+    if (change === 'object symlink') {
+      await rm(objectPath);
+      await symlink(f.input.config.imageEnvironmentFile, objectPath);
+    }
+    if (change === 'missing records') await f.writeBackupManifest({ ...manifest, records: undefined });
+    if (change === 'malformed records') {
+      await f.writeBackupManifest({ ...manifest, records: { ...manifest.records, posts: -1 } });
+    }
+    if (change === 'duplicate object') {
+      await f.writeBackupManifest({ ...manifest, objects: [...manifest.objects, manifest.objects[0]] });
+    }
+    if (change === 'unsafe object size') {
+      manifest.objects[0]!.sizeBytes = Number.MAX_SAFE_INTEGER;
+      await f.writeBackupManifest(manifest);
+    }
+    if (change === 'extra manifest field') await f.writeBackupManifest({ ...manifest, unexpected: true });
+
+    const job = await applyUpdate(f.input);
+    assert.equal(job.phase, 'rolled_back');
+    assert.equal(job.backupDirectory, null);
+    assert.equal(await readFile(f.input.config.imageEnvironmentFile, 'utf8'), imageEnv(previous.imageDigest));
+    assert.equal(f.events.includes('migrate'), false);
+    assert.equal(f.events.includes('start-target'), false);
+  });
+}
 
 test('rejects lifecycle banner or surrounding output around the strict backup JSON', async (t) => {
   const f = await fixture(t);

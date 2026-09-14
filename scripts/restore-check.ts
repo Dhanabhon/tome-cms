@@ -8,7 +8,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { isTomeObjectKey } from '../src/server/media/keys';
-import { backupManifestSchema, sha256File, type BackupManifest } from './backup';
+import { parseBackupManifest, parseBackupRecordCounts, type BackupManifest } from '../src/update/backup';
+import { sha256File } from './backup';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const projectPattern = /^tomecms-restore-check-[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -39,7 +40,7 @@ function compose(project: string, args: string[], env: NodeJS.ProcessEnv, output
 }
 
 async function verifyBackup(backup: string): Promise<BackupManifest> {
-  const manifest = backupManifestSchema.parse(JSON.parse(await readFile(join(backup, 'manifest.json'), 'utf8')));
+  const manifest = parseBackupManifest(JSON.parse(await readFile(join(backup, 'manifest.json'), 'utf8')));
   const databaseFile = join(backup, manifest.database.file);
   if (await sha256File(databaseFile) !== manifest.database.sha256) throw new Error('Database dump checksum does not match its manifest.');
   for (const object of manifest.objects) {
@@ -116,7 +117,7 @@ function restoredCounts(project: string, env: NodeJS.ProcessEnv): BackupManifest
     'exec', '-T', 'postgres', 'psql', '--host=127.0.0.1', '--username=tomecms_test',
     '--dbname=tomecms_test', '--tuples-only', '--no-align', '--command', query,
   ], env, true);
-  return backupManifestSchema.shape.records.parse(JSON.parse(result));
+  return parseBackupRecordCounts(JSON.parse(result));
 }
 
 async function main(): Promise<void> {
