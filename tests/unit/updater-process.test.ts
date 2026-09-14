@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseManagedDiagnosticSecrets, redactDiagnosticText } from '../../src/updater/process.js';
+import {
+  parseManagedDiagnosticSecrets,
+  redactDiagnosticText,
+  runCheckedCommand,
+  runCommand,
+} from '../../src/updater/process.js';
 
 test('redacts common secret representations and bounds private diagnostics', () => {
   const secret = 'private:"value+/ with spaces?&=☃';
@@ -96,6 +101,38 @@ test('fails closed when a command capture ends inside a secret representation', 
     assert.equal(captured.endsWith('\n'), false, `${label} must end inside a representation`);
     assert.equal(redactDiagnosticText(captured, [secret]), null, label);
   }
+});
+
+test('uses raw capture metadata when UTF-8 decoding hides the command byte limit', async (t) => {
+  const secret = `${'a'.repeat(4_088)}☃${'b'.repeat(5)}`;
+  assert.equal(Buffer.byteLength(secret), 4 * 1024);
+  const script = `process.stdout.write(${JSON.stringify(`${secret}\n`.repeat(9))}); process.exitCode = 1;`;
+  const result = await runCommand(process.execPath, ['--eval', script], { timeoutMs: 5_000 });
+
+  assert.equal(result.code, 1);
+  assert.equal(result.stdoutAtLimit, true);
+  assert.ok(Buffer.byteLength(result.stdout) < 32 * 1024);
+  const incomplete = redactDiagnosticText(result.stdout, [secret]);
+  assert.notEqual(incomplete, null);
+  assert.ok(incomplete!.includes(secret.slice(0, 128)));
+
+  const messages: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { messages.push(String(message)); });
+  await assert.rejects(runCheckedCommand(
+    async () => result,
+    'docker',
+    ['argument-must-not-be-logged'],
+    { timeoutMs: 5_000 },
+    { jobId: '23e9f81b-f83e-48fc-907f-1c9a5503bd4f', targetVersion: '1.0.1', secrets: [secret] },
+    'download.image',
+    'Updater command failed',
+  ), /updater command failed/i);
+  assert.equal(messages.length, 1);
+  const diagnostic = JSON.parse(messages[0]!);
+  assert.match(diagnostic.stdout, /omitted/i);
+  assert.match(diagnostic.stderr, /omitted/i);
+  assert.equal(messages[0]!.includes(secret.slice(0, 128)), false);
+  assert.equal(messages[0]!.includes('argument-must-not-be-logged'), false);
 });
 
 test('accepts only canonical literal managed secret assignments', () => {
