@@ -92,7 +92,9 @@
   padding: 0;
   overflow: auto;
   border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-card);
+  /* DESIGN.md gives dialogs and full-surface overlays radius-lg; sharing the
+   * control radius made a dialog read as another control. */
+  border-radius: var(--radius-lg);
   background: var(--color-paper);
   color: var(--color-ink);
 }

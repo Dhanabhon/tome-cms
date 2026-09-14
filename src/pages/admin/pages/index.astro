@@ -81,7 +81,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
           <div><h1>{copy.pages.heading}</h1><p>{copy.pages.subheading}</p></div>
           <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.newPage} <span aria-hidden="true">+</span></a>
         </header>
-        <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage} data-copy-unpublish-title={copy.pages.unpublishTitle} data-copy-unpublish-message={copy.pages.unpublishMessage}>
+        <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage}>
           <nav class="admin-post-tabs" aria-label={copy.pages.statusLabel}>
             {tabs.map((tab) => (
               <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `/pages?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
@@ -166,19 +166,13 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
   wireStoryList({
     endpoint: '/api/admin/pages',
     entity: 'page',
-    confirm: async (action, row) => {
-      if (action !== 'delete' && action !== 'draft') return true;
-      const edition = `“${row.pageTitle}” (${row.pageLocale})`;
-      return confirmUi(action === 'delete' ? {
-        title: copy.copyDeleteTitle ?? 'Delete page?',
-        message: `${copy.copyDeletePrefix} ${edition}? ${copy.copyDeleteMessage}`,
-        confirmLabel: copy.copyDelete ?? 'Delete',
-        tone: 'danger',
-      } : {
-        title: copy.copyUnpublishTitle ?? 'Unpublish page?',
-        message: `${copy.copyUnpublish} ${edition}? ${copy.copyUnpublishMessage}`,
-        confirmLabel: copy.copyUnpublish ?? 'Unpublish',
-      });
-    },
+    // Unpublishing is reversible, and its undo is this same button: the row
+    // reconciles and it reads "Publish" again. Only the delete is worth a gate.
+    confirm: async (action, row) => action !== 'delete' || confirmUi({
+      title: copy.copyDeleteTitle ?? 'Delete page?',
+      message: `${copy.copyDeletePrefix} “${row.pageTitle}” (${row.pageLocale})? ${copy.copyDeleteMessage}`,
+      confirmLabel: copy.copyDelete ?? 'Delete',
+      tone: 'danger',
+    }),
   });
 </script>
