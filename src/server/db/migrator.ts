@@ -9,6 +9,7 @@ import * as media from './migrations/006_media';
 import * as previewTokens from './migrations/007_preview_tokens';
 import * as updateRateLimitActions from './migrations/008_update_rate_limit_actions';
 import * as siteTheme from './migrations/009_site_theme';
+import * as visitorThemeChoice from './migrations/010_visitor_theme_choice';
 
 export const migrations = {
   '001_system': system,
@@ -20,6 +21,7 @@ export const migrations = {
   '007_preview_tokens': previewTokens,
   '008_update_rate_limit_actions': updateRateLimitActions,
   '009_site_theme': siteTheme,
+  '010_visitor_theme_choice': visitorThemeChoice,
 } as const;
 
 const provider: MigrationProvider = {

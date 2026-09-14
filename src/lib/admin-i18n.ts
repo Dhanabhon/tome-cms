@@ -235,6 +235,8 @@ const en = {
     adminHint: 'Applies to the admin on this device only.',
     siteLabel: 'Site theme',
     siteHint: 'What visitors see. System lets each visitor follow their own device setting.',
+    visitorLabel: 'Let visitors choose their own theme',
+    visitorHint: 'Shows a theme control on the site. Off makes the site theme the only one, ignores any choice a visitor already made, and sends no theme script to the public pages.',
   },
   auth: {
     adminSignIn: 'Admin sign in',
@@ -751,6 +753,8 @@ const th: typeof en = {
     adminHint: 'มีผลกับหน้าผู้ดูแลบนอุปกรณ์นี้เท่านั้น',
     siteLabel: 'ธีมของเว็บไซต์',
     siteHint: 'สิ่งที่ผู้เข้าชมเห็น เลือก "ตามระบบ" แล้วผู้เข้าชมแต่ละคนจะได้ธีมตามการตั้งค่าเครื่องตัวเอง',
+    visitorLabel: 'ให้ผู้เข้าชมเลือกธีมเองได้',
+    visitorHint: 'แสดงปุ่มเลือกธีมบนหน้าเว็บ ถ้าปิด ธีมของเว็บไซต์จะเป็นธีมเดียว ค่าที่ผู้เข้าชมเคยเลือกไว้จะไม่ถูกใช้ และหน้าเว็บจะไม่ถูกส่งสคริปต์ธีมไปด้วย',
   },
   auth: {
     adminSignIn: 'เข้าสู่ระบบผู้ดูแล',

@@ -15,6 +15,7 @@ const authorLinksSchema = z.array(z.object({
 }).strict()).max(5);
 
 export const siteSettingsMutationSchema = z.object({
+  allowVisitorTheme: z.boolean(),
   defaultLocale: z.enum(['th', 'en']),
   siteDescription: z.string().trim().max(160),
   siteName: z.string().trim().min(1).max(120),
@@ -85,6 +86,7 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
       site_name: input.siteName,
       tagline: input.tagline,
       theme: input.theme,
+      allow_visitor_theme: input.allowVisitorTheme,
       timezone: input.timezone,
       updated_at: nextVersion,
     })

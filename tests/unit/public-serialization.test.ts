@@ -111,6 +111,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
 
   const publicSite = serializePublicSite({
     admin_path: '/private-admin',
+    allow_visitor_theme: true,
     author_avatar_media_id: media.id,
     author_bio_en: 'English bio',
     author_bio_th: 'Thai bio',

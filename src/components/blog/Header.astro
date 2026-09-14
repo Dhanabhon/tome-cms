@@ -6,6 +6,7 @@ import { THEME_LABELS, type ThemeChoice } from '../../lib/theme';
 import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../types/cms';
 
 interface Props {
+  allowVisitorTheme?: boolean;
   availableLocales?: PostAlternate[];
   items?: PublicNavigationItem[];
   locale?: PostLocale;
@@ -14,7 +15,7 @@ interface Props {
   theme?: ThemeChoice;
 }
 
-const { availableLocales = [], items = [], locale = 'en', siteName = 'TomeCMS', theme = 'system' } = Astro.props;
+const { allowVisitorTheme = true, availableLocales = [], items = [], locale = 'en', siteName = 'TomeCMS', theme = 'system' } = Astro.props;
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
@@ -28,7 +29,7 @@ const languageOptions = availableLocales
         <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
       </nav>
     )}
-    <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />
+    {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     {languageOptions.length > 1 && (
       <LanguageSwitcher currentLocale={locale} options={languageOptions} />
     )}
