@@ -36,9 +36,9 @@ test-results/
 # Screenshots and reports from visual-check runs; the source document is tracked.
 docs/*.visual-check.*
 
-# Design source sheets are not runtime assets. Loose on purpose: the anchored
-# *-brand-kit.png let tomecms-brand-kit-v5.png straight through into the image.
-public/brand/*brand-kit*
+# Design source sheets. The whole folder, so no naming variation can slip past --
+# an anchored pattern is how tomecms-brand-kit-v5.png got committed in the first place.
+docs/brand/
 
 # OS and logs
 .DS_Store
