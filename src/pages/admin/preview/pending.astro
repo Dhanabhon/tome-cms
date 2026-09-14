@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../../lib/admin-i18n';
 import { safeAdminReturnTo } from '../../../lib/admin';
 import { getSiteSettings } from '../../../server/content/settings';
 
@@ -11,20 +12,21 @@ const errorMessage = state === 'save-error'
     : null;
 const adminPath = (await getSiteSettings())?.admin_path ?? '/admin';
 const returnTo = safeAdminReturnTo(Astro.url.searchParams.get('returnTo'), adminPath);
+const copy = adminCopy(null);
 ---
 
-<AdminLayout adminPath={adminPath} title="Draft preview">
+<AdminLayout adminPath={adminPath} title={copy.preview.draftPreview}>
   <main class="admin-preview-pending">
-    <h1>Draft preview</h1>
+    <h1>{copy.preview.draftPreview}</h1>
     {errorMessage ? (
       <>
         <p role="alert">{errorMessage}</p>
         <div class="admin-preview-bar">
-          <button class="admin-button admin-button--primary" type="button" data-preview-retry>Try again</button>
-          <a class="admin-button admin-button--secondary" href={returnTo}>Return to editor</a>
+          <button class="admin-button admin-button--primary" type="button" data-preview-retry>{copy.preview.tryAgain}</button>
+          <a class="admin-button admin-button--secondary" href={returnTo}>{copy.preview.returnToEditor}</a>
         </div>
       </>
-    ) : <p role="status">Preparing draft preview…</p>}
+    ) : <p role="status">{copy.preview.preparing}</p>}
   </main>
 </AdminLayout>
 

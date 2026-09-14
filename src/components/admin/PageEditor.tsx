@@ -329,7 +329,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
             value={title}
           />
 
-          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson) => {
+          <DocumentCanvas initialContent={contentJson} ownerLocale={ownerLocale} onChange={(nextContentJson) => {
             setContentJson(nextContentJson);
             markDirty();
           }} />

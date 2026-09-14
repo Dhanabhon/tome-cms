@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from 'react';
 
 import { normalizeAdminPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
+import type { PostLocale } from '../../types/cms';
 
 interface RecoveryPasskeyProps {
+  ownerLocale?: PostLocale | null;
   adminPath?: string;
   initialContext?: string;
 }
@@ -27,7 +30,8 @@ function webAuthnAvailable(): boolean {
     && typeof navigator.credentials?.create === 'function';
 }
 
-export default function RecoveryPasskey({ adminPath = '/admin', initialContext = '' }: RecoveryPasskeyProps) {
+export default function RecoveryPasskey({ adminPath = '/admin', initialContext = '', ownerLocale }: RecoveryPasskeyProps) {
+  const copy = adminCopy(ownerLocale);
   const [code, setCode] = useState('');
   const [context, setContext] = useState(initialContext);
   const [busy, setBusy] = useState(false);
@@ -35,7 +39,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
 
   async function register(recoveryContext: string): Promise<boolean> {
     if (!webAuthnAvailable()) {
-      setError('Passkeys are not available in this browser. Open this page on a supported device.');
+      setError(copy.security.unsupportedDevice);
       return false;
     }
     const result = await authClient.passkey.addPasskey({
@@ -45,7 +49,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       name: 'Recovery passkey',
     });
     if (result.error || !result.data) {
-      setError('The Passkey was not created. You can retry while this recovery link is valid.');
+      setError(copy.security.passkeyNotCreated);
       return false;
     }
     window.location.assign(normalizeAdminPath(adminPath));
@@ -59,7 +63,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
     try {
       await register(context);
     } catch {
-      setError('The Passkey was not created. You can retry while this recovery link is valid.');
+      setError(copy.security.passkeyNotCreated);
     } finally {
       setBusy(false);
     }
@@ -79,7 +83,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       const payload = await responsePayload(response);
       const nextContext = typeof payload.context === 'string' ? payload.context : '';
       if (!response.ok || !nextContext) {
-        setError(typeof payload.detail === 'string' ? payload.detail : 'Recovery could not be started. Check the code and try again.');
+        setError(typeof payload.detail === 'string' ? payload.detail : copy.security.recoveryNotStarted);
         return;
       }
       setContext(nextContext);
@@ -89,7 +93,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       window.history.replaceState(null, '', `${url.pathname}${url.search}`);
       await register(nextContext);
     } catch {
-      setError('Recovery could not be started. Try again later.');
+      setError(copy.security.recoveryNotStartedLater);
     } finally {
       setBusy(false);
     }
@@ -99,21 +103,21 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
     <div className="security-stack" aria-busy={busy}>
       {context && (
         <section className="security-card" aria-labelledby="recovery-passkey-title">
-          <h2 id="recovery-passkey-title">Create a replacement Passkey</h2>
-          <p>Your one-time recovery link is ready. TomeCMS will replace the lost credentials after the new Passkey succeeds.</p>
+          <h2 id="recovery-passkey-title">{copy.security.replacementPasskey}</h2>
+          <p>{copy.security.recoveryLinkReady}</p>
           <button className="admin-button admin-button--primary" disabled={busy} onClick={() => void continueRecovery()} type="button">
-            {busy ? 'Waiting for Passkey…' : 'Create recovery Passkey'}
+            {busy ? copy.security.waitingForPasskey : copy.security.createRecoveryPasskey}
           </button>
         </section>
       )}
 
       <form className="security-card security-form" onSubmit={(event) => void startRecovery(event)}>
         <div>
-          <h2>Use a recovery code</h2>
-          <p>Enter one unused code from the set shown during installation. Each code works once.</p>
+          <h2>{copy.security.useRecoveryCode}</h2>
+          <p>{copy.security.useRecoveryCodeHint}</p>
         </div>
         <label className="admin-field" htmlFor="recovery-code">
-          Recovery code
+          {copy.security.codeLabel}
           <input
             className="admin-control"
             id="recovery-code"
@@ -127,7 +131,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
           />
         </label>
         <button className="admin-button admin-button--primary" disabled={busy || !code.trim()} type="submit">
-          {busy ? 'Checking code…' : 'Continue securely'}
+          {busy ? copy.security.checkingCode : copy.security.continueSecurely}
         </button>
       </form>
 

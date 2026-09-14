@@ -7,58 +7,65 @@ import {
   EditorCommandList,
   renderItems,
 } from 'novel';
+import { useMemo } from 'react';
 
-const commandItems = createSuggestionItems([
+import type { AdminCopy } from '../../lib/admin-i18n';
+
+const commandItems = (copy: AdminCopy) => createSuggestionItems([
   {
-    title: 'Heading 2',
-    description: 'Large section heading',
+    title: copy.blocks.heading2,
+    description: copy.blocks.heading2Hint,
     icon: <span aria-hidden="true">H2</span>,
     searchTerms: ['section', 'subtitle'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run(),
   },
   {
-    title: 'Heading 3',
-    description: 'Subsection heading',
+    title: copy.blocks.heading3,
+    description: copy.blocks.heading3Hint,
     icon: <span aria-hidden="true">H3</span>,
     searchTerms: ['section', 'subtitle'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run(),
   },
   {
-    title: 'Bullet list',
-    description: 'Create a simple list',
+    title: copy.blocks.bulletList,
+    description: copy.blocks.bulletListHint,
     icon: <span aria-hidden="true">•</span>,
     searchTerms: ['unordered', 'list'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleBulletList().run(),
   },
   {
-    title: 'Code block',
-    description: 'Add a code snippet',
+    title: copy.blocks.codeBlock,
+    description: copy.blocks.codeBlockHint,
     icon: <span aria-hidden="true">{'</>'}</span>,
     searchTerms: ['code', 'pre'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
   },
   {
-    title: 'Quote',
-    description: 'Highlight a quotation',
+    title: copy.blocks.quote,
+    description: copy.blocks.quoteHint,
     icon: <span aria-hidden="true">“</span>,
     searchTerms: ['blockquote', 'callout'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
   },
 ]);
 
-export const slashCommand = Command.configure({
+/** The menu labels depend on the owner's language, so the extension is built per editor. */
+export const createSlashCommand = (copy: AdminCopy) => Command.configure({
   suggestion: {
-    items: () => commandItems,
+    items: () => commandItems(copy),
     render: renderItems,
   },
 });
 
-export default function SlashCommands() {
+export default function SlashCommands({ copy }: { copy: AdminCopy }) {
+  // Same list the extension registers, so the menu and the '/' suggestions never disagree.
+  const items = useMemo(() => commandItems(copy), [copy]);
+
   return (
     <EditorCommand className="max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-white p-1.5 font-sans">
-      <EditorCommandEmpty className="px-3 py-5 text-center text-sm text-muted">No commands found</EditorCommandEmpty>
+      <EditorCommandEmpty className="px-3 py-5 text-center text-sm text-muted">{copy.blocks.noCommands}</EditorCommandEmpty>
       <EditorCommandList>
-        {commandItems.map((item) => (
+        {items.map((item) => (
           <EditorCommandItem
             className="flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left aria-selected:bg-soft"
             key={item.title}

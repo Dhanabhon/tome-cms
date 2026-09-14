@@ -340,7 +340,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
             value={title}
           />
 
-          <DocumentCanvas initialContent={contentJson} onChange={(nextContentJson) => {
+          <DocumentCanvas initialContent={contentJson} ownerLocale={ownerLocale} onChange={(nextContentJson) => {
             setContentJson(nextContentJson);
             markDirty();
           }} />

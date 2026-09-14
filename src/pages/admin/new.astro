@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import Editor from '../../components/admin/Editor';
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../lib/admin-i18n';
 import { adminLoginPath } from '../../lib/admin';
 import { isPostLocale } from '../../lib/i18n';
 import { requireInstalledOwner } from '../../server/auth/session';
@@ -12,7 +13,8 @@ import { getSiteSettings, type SiteSettings } from '../../server/content/setting
 import { HttpError } from '../../server/http/errors';
 import type { PostCategory, PostLocale, PostTranslationSummary } from '../../types/cms';
 
-let errorMessage: string | null = null;
+let errorKey: 'editorUnavailable' | 'postNotFound' | null = null;
+let serverMessage: string | null = null;
 let locale: PostLocale | null = null;
 let sourcePost: { cover_image: string | null; cover_media_id: string | null; id: string } | undefined;
 let translations: PostTranslationSummary[] = [];
@@ -34,7 +36,7 @@ try {
     locale = settings.default_locale;
   } else if (!parsedSourcePostId.success || !isPostLocale(targetLocale)) {
     Astro.response.status = 404;
-    errorMessage = 'Post not found.';
+    errorKey = 'postNotFound';
   } else {
     const source = await getPost(current.user.id, parsedSourcePostId.data);
     const editions = source ? await listPostTranslations(current.user.id, source.translation_group_id) : [];
@@ -42,7 +44,7 @@ try {
 
     if (!source || source.locale === targetLocale || existing) {
       Astro.response.status = 404;
-      errorMessage = 'Post not found.';
+      errorKey = 'postNotFound';
     } else {
       locale = targetLocale;
       sourcePost = { cover_image: source.cover_image, cover_media_id: source.cover_media_id, id: source.id };
@@ -57,18 +59,22 @@ try {
   } else {
     console.error('New post loading failed.');
     Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
-    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The editor is temporarily unavailable.';
+    if (error instanceof HttpError && error.status === 404) serverMessage = error.message;
+    else errorKey = 'editorUnavailable';
   }
 }
+
+const copy = adminCopy(settings?.default_locale);
+const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
-<AdminLayout adminPath={settings?.admin_path ?? '/admin'} title="New post">
+<AdminLayout adminPath={settings?.admin_path ?? '/admin'} lang={settings?.default_locale ?? 'en'} title={copy.preview.newPost}>
   <main>
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
     ) : locale ? (
       <Editor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} locale={locale} sourcePost={sourcePost} translations={translations}>
-        <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+        <div class="admin-editor-fallback" slot="fallback" role="status">{copy.preview.loadingEditor}</div>
       </Editor>
     ) : null}
   </main>

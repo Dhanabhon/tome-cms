@@ -68,8 +68,8 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 <AdminLayout adminPath={adminPath} lang={ownerLocale ?? 'en'} title={authRequired ? copy.auth.signInTitle : copy.posts.heading}>
   {authRequired ? (
     <main class="admin-auth-page">
-      <header class="admin-auth-nav" aria-label="Admin sign in">
-        <a class="admin-auth-brand" href="/" aria-label="TomeCMS home">
+      <header class="admin-auth-nav" aria-label={copy.auth.adminSignIn}>
+        <a class="admin-auth-brand" href="/" aria-label={copy.auth.tomecmsHome}>
           <img class="tomecms-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
         </a>
         <a class="admin-auth-nav__link" href="/">{copy.auth.viewSite} <span aria-hidden="true">↗</span></a>

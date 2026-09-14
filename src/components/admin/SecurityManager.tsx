@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
+import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
+import type { PostLocale } from '../../types/cms';
 
 interface PasskeyView {
   id: string;
@@ -35,11 +37,17 @@ function parsePasskeys(value: unknown): PasskeyView[] {
   });
 }
 
-function formatDate(value: string | null): string {
-  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Never';
+function formatDate(value: string | null, copy: AdminCopy, locale: PostLocale | null | undefined): string {
+  if (!value) return copy.security.never;
+  return new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-export default function SecurityManager() {
+interface SecurityManagerProps {
+  ownerLocale?: PostLocale | null;
+}
+
+export default function SecurityManager({ ownerLocale }: SecurityManagerProps = {}) {
+  const copy = adminCopy(ownerLocale);
   const [passkeys, setPasskeys] = useState<PasskeyView[]>([]);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [newName, setNewName] = useState('Spare Passkey');
@@ -55,13 +63,13 @@ export default function SecurityManager() {
       setPasskeys([]);
       return;
     }
-    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : 'Passkeys are unavailable.');
+    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.passkeysUnavailable);
     setNeedsSignIn(false);
     setPasskeys(parsePasskeys(payload.passkeys));
   }, []);
 
   useEffect(() => {
-    void loadPasskeys().catch(() => setMessage('Passkeys are temporarily unavailable.'));
+    void loadPasskeys().catch(() => setMessage(copy.security.passkeysTemporarilyUnavailable));
   }, [loadPasskeys]);
 
   async function signIn() {
@@ -73,7 +81,7 @@ export default function SecurityManager() {
       if (result.error || !result.data) throw new Error();
       await loadPasskeys();
     } catch {
-      setMessage('No Passkey was accepted. Try again or use account recovery.');
+      setMessage(copy.security.noPasskeyAccepted);
     } finally {
       setBusy(false);
     }
@@ -87,10 +95,10 @@ export default function SecurityManager() {
     try {
       const result = await authClient.passkey.addPasskey({ name: newName.trim() });
       if (result.error || !result.data) throw new Error();
-      setMessage('Spare Passkey added.');
+      setMessage(copy.security.spareAdded);
       await loadPasskeys();
     } catch {
-      setMessage('The spare Passkey was not added. Try again.');
+      setMessage(copy.security.spareNotAdded);
     } finally {
       setBusy(false);
     }
@@ -102,7 +110,7 @@ export default function SecurityManager() {
     const form = new FormData(event.currentTarget);
     const name = form.get('name');
     if (typeof name !== 'string' || !name.trim()) return;
-    await mutatePasskey('PATCH', { id, name: name.trim() }, 'Passkey renamed.');
+    await mutatePasskey('PATCH', { id, name: name.trim() }, copy.security.passkeyRenamed);
   }
 
   async function mutatePasskey(method: 'DELETE' | 'PATCH', body: Record<string, string>, successMessage: string) {
@@ -115,11 +123,11 @@ export default function SecurityManager() {
         body: JSON.stringify(body),
       });
       const payload = await responsePayload(response);
-      if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : 'Passkey update failed.');
+      if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.passkeyUpdateFailed);
       setMessage(successMessage);
       await loadPasskeys();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Passkey update failed.');
+      setMessage(error instanceof Error ? error.message : copy.security.passkeyUpdateFailed);
     } finally {
       setBusy(false);
     }
@@ -132,17 +140,17 @@ export default function SecurityManager() {
     setRecoveryCodes([]);
     try {
       const assertion = await authClient.signIn.passkey();
-      if (assertion.error || !assertion.data) throw new Error('No Passkey was accepted. Recovery codes were not changed.');
+      if (assertion.error || !assertion.data) throw new Error(copy.security.codesUnchangedNoPasskey);
       const response = await fetch('/api/admin/security/recovery-codes', { method: 'POST' });
       const payload = await responsePayload(response);
       const codes = Array.isArray(payload.recoveryCodes)
         ? payload.recoveryCodes.filter((code): code is string => typeof code === 'string')
         : [];
-      if (!response.ok || !codes.length) throw new Error(typeof payload.detail === 'string' ? payload.detail : 'Recovery codes were not changed.');
+      if (!response.ok || !codes.length) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.codesNotChanged);
       setRecoveryCodes(codes);
-      setMessage('New recovery codes created. Save them now; they will not be shown again.');
+      setMessage(copy.security.codesCreated);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Recovery codes were not changed.');
+      setMessage(error instanceof Error ? error.message : copy.security.codesNotChanged);
     } finally {
       setBusy(false);
     }
@@ -151,20 +159,20 @@ export default function SecurityManager() {
   async function copyCodes() {
     try {
       await navigator.clipboard.writeText(recoveryCodes.join('\n'));
-      setMessage('Recovery codes copied.');
+      setMessage(copy.security.codesCopied);
     } catch {
-      setMessage('Copy was blocked. Select and save the codes manually.');
+      setMessage(copy.security.copyBlocked);
     }
   }
 
   if (needsSignIn) {
     return (
       <section className="security-card" aria-busy={busy}>
-        <h2>Verify the TomeCMS owner</h2>
-        <p>Use an existing Passkey before managing credentials and recovery codes.</p>
+        <h2>{copy.security.verifyOwner}</h2>
+        <p>{copy.security.verifyHint}</p>
         <div className="security-actions">
-          <button className="admin-button admin-button--primary" disabled={busy} onClick={() => void signIn()} type="button">Verify with Passkey</button>
-          <a className="admin-button admin-button--secondary" href="/recovery">Recover access</a>
+          <button className="admin-button admin-button--primary" disabled={busy} onClick={() => void signIn()} type="button">{copy.security.verifyWithPasskey}</button>
+          <a className="admin-button admin-button--secondary" href="/recovery">{copy.security.recoverAccess}</a>
         </div>
         <p className="admin-form-error security-message" role="alert" aria-live="polite">{message}</p>
       </section>
@@ -175,48 +183,48 @@ export default function SecurityManager() {
     <div className="security-stack" aria-busy={busy}>
       <section className="security-card" aria-labelledby="passkeys-title">
         <div>
-          <h2 id="passkeys-title">Passkeys</h2>
-          <p>Keep at least two Passkeys on different devices so one loss does not lock you out.</p>
+          <h2 id="passkeys-title">{copy.security.passkeys}</h2>
+          <p>{copy.security.keepTwo}</p>
         </div>
         <div className="security-list">
           {passkeys.map((passkey) => (
             <form className="security-key" key={passkey.id} onSubmit={(event) => void renamePasskey(event, passkey.id)}>
               <label className="admin-field">
-                Passkey name
+                {copy.security.passkeyName}
                 <input className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
               </label>
-              <p>Created {formatDate(passkey.createdAt)} · Last used {formatDate(passkey.lastUsedAt)}</p>
+              <p>{fill(copy.security.created, { created: formatDate(passkey.createdAt, copy, ownerLocale), used: formatDate(passkey.lastUsedAt, copy, ownerLocale) })}</p>
               <div className="security-actions">
-                <button className="admin-button admin-button--secondary" disabled={busy} type="submit">Save name</button>
+                <button className="admin-button admin-button--secondary" disabled={busy} type="submit">{copy.security.saveName}</button>
                 <button
                   className="admin-button"
                   disabled={busy || passkeys.length < 2}
-                  onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, 'Passkey deleted.')}
+                  onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
                   type="button"
-                >Delete</button>
+                >{copy.security.delete}</button>
               </div>
             </form>
           ))}
         </div>
         <form className="security-form" onSubmit={(event) => void addPasskey(event)}>
           <label className="admin-field" htmlFor="new-passkey-name">
-            New Passkey name
+            {copy.security.newPasskeyName}
             <input className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => setNewName(event.target.value)} required value={newName} />
           </label>
-          <button className="admin-button admin-button--primary" disabled={busy} type="submit">Add spare Passkey</button>
+          <button className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.addSpare}</button>
         </form>
       </section>
 
       <section className="security-card" aria-labelledby="recovery-codes-title">
         <div>
-          <h2 id="recovery-codes-title">Recovery codes</h2>
-          <p>Creating a new set immediately invalidates every unused code in the previous set.</p>
+          <h2 id="recovery-codes-title">{copy.security.recoveryCodes}</h2>
+          <p>{copy.security.regenerateWarning}</p>
         </div>
-        <button className="admin-button admin-button--secondary" disabled={busy} onClick={() => void regenerateCodes()} type="button">Verify and create new codes</button>
+        <button className="admin-button admin-button--secondary" disabled={busy} onClick={() => void regenerateCodes()} type="button">{copy.security.regenerate}</button>
         {recoveryCodes.length > 0 && (
           <div className="security-codes">
             <ol>{recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}</ol>
-            <button className="admin-button" onClick={() => void copyCodes()} type="button">Copy codes</button>
+            <button className="admin-button" onClick={() => void copyCodes()} type="button">{copy.security.copyCodes}</button>
           </div>
         )}
       </section>

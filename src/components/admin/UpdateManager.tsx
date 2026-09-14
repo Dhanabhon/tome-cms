@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
+import type { PostLocale } from '../../types/cms';
+
 import { authClient } from '../../lib/auth-client';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
@@ -24,31 +27,37 @@ export function getApplyResponseAction(observedJob: Pick<PublicUpdateJob, 'phase
   if (response === 'already_installed') return 'refresh';
   return response === 'refused' ? 'stop' : 'continue';
 }
-const steps = [
-  ['preflight', 'Check prerequisites'], ['verifying', 'Verify the official update'],
-  ['downloading', 'Download update'], ['quiescing', 'Prepare maintenance'],
-  ['backing_up', 'Create recovery backup'], ['migrating', 'Apply database migrations'],
-  ['restarting', 'Restart TomeCMS'], ['health_check', 'Check application health'],
+const buildSteps = (copy: AdminCopy) => [
+  ['preflight', copy.updates.checkPrerequisites], ['verifying', copy.updates.verify],
+  ['downloading', copy.updates.download], ['quiescing', copy.updates.prepareMaintenance],
+  ['backing_up', copy.updates.createBackup], ['migrating', copy.updates.applyMigrations],
+  ['restarting', copy.updates.restart], ['health_check', copy.updates.checkHealth],
 ];
 
-const availabilityLabels = {
-  current: 'Up to date',
-  available: 'Update available',
-  'manual-transition': 'Manual updater upgrade required',
-  unavailable: 'Check unavailable',
-} as const;
+const availabilityLabels = (copy: AdminCopy) => ({
+  current: copy.updates.current,
+  available: copy.updates.available,
+  'manual-transition': copy.updates.manualTransition,
+  unavailable: copy.updates.checkUnavailable,
+});
 
-export function formatPublishedAt(value: string): string {
+export function formatPublishedAt(value: string, copy: AdminCopy, locale?: PostLocale | null): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Publication date unavailable';
+  if (Number.isNaN(date.getTime())) return copy.updates.publishedUnavailable;
   try {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+    return new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', { dateStyle: 'medium' }).format(date);
   } catch {
     return date.toISOString().slice(0, 10);
   }
 }
 
-export default function UpdateManager() {
+interface UpdateManagerProps {
+  ownerLocale?: PostLocale | null;
+}
+
+export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) {
+  const copy = adminCopy(ownerLocale);
+  const steps = buildSteps(copy);
   const [check, setCheck] = useState<UpdateCheck | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
@@ -66,7 +75,7 @@ export default function UpdateManager() {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'check' }), signal: AbortSignal.timeout(10_000),
       } : { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
       const result = await response.json().catch(() => ({})) as UpdateCheck & { error?: string };
-      if (!response.ok || !result.availability) throw new Error(result.error ?? 'Update check unavailable.');
+      if (!response.ok || !result.availability) throw new Error(result.error ?? copy.updates.updateCheckUnavailable);
       if (!mounted.current) return;
       setCheck(result);
       setReconnecting(false);
@@ -74,7 +83,7 @@ export default function UpdateManager() {
         setWatch({ targetVersion: result.updater.job.targetVersion });
       }
     } catch (failure) {
-      if (mounted.current) setError(failure instanceof Error ? failure.message : 'Update check unavailable.');
+      if (mounted.current) setError(failure instanceof Error ? failure.message : copy.updates.updateCheckUnavailable);
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -98,7 +107,7 @@ export default function UpdateManager() {
           cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]),
         });
         const result = await response.json() as UpdateCheck;
-        if (!response.ok || !result.availability || !result.updater?.managed) throw new Error('Reconnecting');
+        if (!response.ok || !result.availability || !result.updater?.managed) throw new Error(copy.updates.reconnecting);
         if (controller.signal.aborted) return;
         setCheck(result);
         setReconnecting(false);
@@ -135,7 +144,7 @@ export default function UpdateManager() {
       });
       if (!confirmed || !mounted.current) return;
       const assertion = await authClient.signIn.passkey();
-      if (assertion.error || !assertion.data) throw new Error('No Passkey was accepted. Verify a Passkey and try again.');
+      if (assertion.error || !assertion.data) throw new Error(copy.updates.noPasskey);
       if (!mounted.current) return;
       const previousJobId = check.updater?.managed ? check.updater.job?.id : undefined;
       observedJob.current = null;
@@ -165,7 +174,7 @@ export default function UpdateManager() {
       }
       if (definiteRefusal) {
         if (action === 'stop') setWatch(null);
-        setError(typeof result?.error === 'string' ? result.error : 'Update request unavailable.');
+        setError(typeof result?.error === 'string' ? result.error : copy.updates.updateRequestUnavailable);
         return;
       }
       if (action === 'preserve') return;
@@ -176,19 +185,19 @@ export default function UpdateManager() {
         && (!current.updater.job || current.updater.job.id === previousJobId)
         ? { ...current, updater: { ...current.updater, job: acceptedJob } } : current);
     } catch (failure) {
-      if (mounted.current) setError(failure instanceof Error ? failure.message : 'Update request unavailable.');
+      if (mounted.current) setError(failure instanceof Error ? failure.message : copy.updates.updateRequestUnavailable);
     } finally {
       if (mounted.current) setInstalling(false);
     }
   }
 
   const availability = busy ? 'checking' : error ? 'unavailable' : check?.availability ?? 'unavailable';
-  const message = busy ? 'Checking for updates…' : error || check?.message || 'Update check unavailable.';
-  const availabilityLabel = busy ? 'Checking for updates…' : availabilityLabels[availability === 'checking' ? 'unavailable' : availability];
+  const message = busy ? copy.updates.checkingForUpdates : error || check?.message || copy.updates.updateCheckUnavailable;
+  const availabilityLabel = busy ? copy.updates.checkingForUpdates : availabilityLabels(copy)[availability === 'checking' ? 'unavailable' : availability];
   const installability = check?.installability ?? {
     mode: 'check-only' as const,
     installable: false as const,
-    reason: 'This installation is configured for update checks only.',
+    reason: copy.updates.checkOnly,
   };
   const currentJob = check?.updater?.managed ? check.updater.job : null;
   const job = currentJob && currentJob.id !== watch?.previousJobId ? currentJob : null;
@@ -199,36 +208,36 @@ export default function UpdateManager() {
   return (
     <section className="update-card" aria-labelledby="update-status-heading">
       <div>
-        <h2 id="update-status-heading">Update status</h2>
-        <p className="update-version">Installed version: {check?.currentVersion ?? 'Checking…'}</p>
-        {check?.latest && <p className="update-version">Latest stable version: {check.latest.manifest.version}</p>}
+        <h2 id="update-status-heading">{copy.updates.status}</h2>
+        <p className="update-version">{copy.updates.installedVersion} {check?.currentVersion ?? copy.updates.checking}</p>
+        {check?.latest && <p className="update-version">{copy.updates.latestVersion} {check.latest.manifest.version}</p>}
       </div>
-      <p className="update-status" data-status={availability} role="status" aria-live="polite">Release availability: {availabilityLabel}</p>
+      <p className="update-status" data-status={availability} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
       {!busy && <p>{message}</p>}
       <div>
-        <h3>{installability.mode === 'managed' ? 'Managed updates' : 'Managed updates unavailable'}</h3>
-        <p className="update-version">Update mode: {check?.updateMode ?? installability.mode}</p>
+        <h3>{installability.mode === 'managed' ? copy.updates.managed : copy.updates.managedUnavailable}</h3>
+        <p className="update-version">{copy.updates.updateMode} {check?.updateMode ?? installability.mode}</p>
         <p>{installability.reason}</p>
       </div>
       {check?.latest && <>
-        <p className="update-version">Published: {formatPublishedAt(check.latest.publishedAt)}</p>
-        {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">Read release notes <span aria-hidden="true">↗</span></a>}
+        <p className="update-version">{copy.updates.published} {formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</p>
+        {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
       </>}
-      <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{busy ? 'Checking…' : 'Check again'}</button>
+      <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{busy ? copy.updates.checking : copy.updates.checkAgain}</button>
       {installability.installable && check?.latest && <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void install()} type="button">
-        {installing ? 'Verifying…' : `Install ${check.latest.manifest.version}`}
+        {installing ? copy.updates.verifying : fill(copy.updates.install, { version: check.latest.manifest.version })}
       </button>}
       {(watch || job) && <div aria-labelledby="update-progress-heading">
-        <h3 id="update-progress-heading">Installation progress</h3>
-        <p role="status" aria-live="polite">{reconnecting ? 'Reconnecting…' : job?.message ?? 'Waiting for the updater…'}</p>
-        <progress max={8} value={job?.completedSteps ?? 0} aria-label="Update steps completed" />
+        <h3 id="update-progress-heading">{copy.updates.progress}</h3>
+        <p role="status" aria-live="polite">{reconnecting ? copy.updates.reconnecting : job?.message ?? copy.updates.waitingForUpdater}</p>
+        <progress max={8} value={job?.completedSteps ?? 0} aria-label={copy.updates.stepsCompleted} />
         <ol>{steps.map(([phase, label], index) => <li key={phase} aria-current={job?.phase === phase ? 'step' : undefined}>
-          {index < (job?.completedSteps ?? 0) && <span aria-label="Completed">✓ </span>}{label}
+          {index < (job?.completedSteps ?? 0) && <span aria-label={copy.updates.completed}>✓ </span>}{label}
         </li>)}</ol>
-        {job?.phase === 'succeeded' && <p>TomeCMS {job.targetVersion} is installed.</p>}
-        {job?.backupCreatedAt && <p>Recovery backup created: <time dateTime={job.backupCreatedAt}>{new Date(job.backupCreatedAt).toLocaleString()}</time>.</p>}
-        {job?.phase === 'rolled_back' && <p>Your previous application is running. Review the release notes before trying again.</p>}
-        {job?.phase === 'failed_manual_recovery' && <p>Contact your server operator to follow the managed update recovery guide.</p>}
+        {job?.phase === 'succeeded' && <p>{fill(copy.updates.installed, { version: job.targetVersion })}</p>}
+        {job?.backupCreatedAt && <p>{copy.updates.backupCreated} <time dateTime={job.backupCreatedAt}>{new Date(job.backupCreatedAt).toLocaleString()}</time>.</p>}
+        {job?.phase === 'rolled_back' && <p>{copy.updates.rolledBack}</p>}
+        {job?.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
       </div>}
     </section>
   );
