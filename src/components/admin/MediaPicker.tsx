@@ -1,15 +1,18 @@
 import { useEffect, useRef } from 'react';
 
-import type { MediaAsset } from '../../types/cms';
+import { adminCopy } from '../../lib/admin-i18n';
+import type { MediaAsset, PostLocale } from '../../types/cms';
 import MediaLibrary from './MediaLibrary';
 
 interface MediaPickerProps {
   onCancel: () => void;
+  ownerLocale?: PostLocale | null;
   onSelect: (asset: MediaAsset) => void;
   returnFocus?: HTMLElement | null;
 }
 
-export default function MediaPicker({ onCancel, onSelect, returnFocus }: MediaPickerProps) {
+export default function MediaPicker({ onCancel, onSelect, ownerLocale, returnFocus }: MediaPickerProps) {
+  const copy = adminCopy(ownerLocale);
   const dialog = useRef<HTMLDialogElement>(null);
   const completed = useRef(false);
   const focusTarget = useRef<HTMLElement | null>(
@@ -43,7 +46,7 @@ export default function MediaPicker({ onCancel, onSelect, returnFocus }: MediaPi
 
   return (
     <dialog
-      aria-label="File Manager"
+      aria-label={copy.media.heading}
       className="media-picker"
       onCancel={(event) => {
         event.preventDefault();
@@ -51,8 +54,8 @@ export default function MediaPicker({ onCancel, onSelect, returnFocus }: MediaPi
       }}
       ref={dialog}
     >
-      <button autoFocus className="media-picker-cancel" onClick={cancel} type="button">Cancel</button>
-      <MediaLibrary mode="select" onCancel={cancel} onSelect={select} />
+      <button autoFocus className="media-picker-cancel" onClick={cancel} type="button">{copy.media.cancel}</button>
+      <MediaLibrary mode="select" onCancel={cancel} onSelect={select} ownerLocale={ownerLocale} />
     </dialog>
   );
 }

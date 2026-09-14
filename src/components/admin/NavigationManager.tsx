@@ -1,21 +1,31 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 
+import { adminCopy, fill } from '../../lib/admin-i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
-import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale } from '../../types/cms';
+import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale, PostLocale } from '../../types/cms';
 import UiSelect from './UiSelect';
 
 type MenuKey = `${NavigationLocation}:${PageLocale}`;
 type LocalItem = NavigationMutationItem & { id: string };
 type PageSummary = Pick<Page, 'id' | 'translation_group_id' | 'locale' | 'title' | 'slug' | 'status'>;
 type SavedItem = Omit<NavigationItem, 'owner_id'>;
-const locations = [{ value: 'header', label: 'MenuBar' }, { value: 'footer', label: 'Footer' }] as const;
 const languages = [{ value: 'th', label: 'ไทย' }, { value: 'en', label: 'English' }] as const;
 const emptyMenus = (): Record<MenuKey, LocalItem[]> => ({ 'header:th': [], 'header:en': [], 'footer:th': [], 'footer:en': [] });
 const cleanMenus = (): Record<MenuKey, boolean> => ({ 'header:th': false, 'header:en': false, 'footer:th': false, 'footer:en': false });
 const localItem = (item: SavedItem): LocalItem => ({ id: item.id, kind: item.kind, label: item.label, pageId: item.page_id, url: item.url });
 const target = (item: NavigationMutationItem) => `${item.kind}:${item.pageId ?? item.url ?? ''}`;
 
-export default function NavigationManager() {
+interface NavigationManagerProps {
+  ownerLocale?: PostLocale | null;
+}
+
+export default function NavigationManager({ ownerLocale }: NavigationManagerProps = {}) {
+  const copy = adminCopy(ownerLocale);
+  // Autonyms stay in their own language; the rest follows the owner's.
+  const locations = [
+    { value: 'header', label: copy.navigation.menuBar },
+    { value: 'footer', label: copy.navigation.footer },
+  ] as const;
   const [menus, setMenus] = useState(emptyMenus);
   const [dirty, setDirty] = useState(cleanMenus);
   const [pages, setPages] = useState<PageSummary[]>([]);
@@ -28,7 +38,7 @@ export default function NavigationManager() {
   const [status, setStatus] = useState('');
   const [kind, setKind] = useState<NavigationKind>('home');
   const [pageId, setPageId] = useState('');
-  const [label, setLabel] = useState('Home');
+  const [label, setLabel] = useState(copy.navigation.home);
   const [url, setUrl] = useState('');
   const [placement, setPlacement] = useState<NavigationLocation | 'both'>('header');
   const [addError, setAddError] = useState('');
@@ -47,7 +57,7 @@ export default function NavigationManager() {
     setLoadError('');
     try {
       const response = await fetch('/api/admin/navigation');
-      if (!response.ok) throw new Error('Navigation could not be loaded. Please try again.');
+      if (!response.ok) throw new Error(copy.navigation.loadFailed);
       const result = await response.json() as { items: SavedItem[]; pages: PageSummary[] };
       const next = emptyMenus();
       for (const item of result.items) next[`${item.location}:${item.locale}`].push(localItem(item));
@@ -55,7 +65,7 @@ export default function NavigationManager() {
       setPages(result.pages);
       setDirty(cleanMenus());
     } catch {
-      setLoadError('Navigation could not be loaded. Please try again.');
+      setLoadError(copy.navigation.loadFailed);
     } finally {
       setLoading(false);
     }
@@ -102,25 +112,25 @@ export default function NavigationManager() {
     if (savingRef.current) return;
     const normalizedUrl = kind === 'custom' ? normalizeNavigationUrl(url) : null;
     if (!label.trim() || label.trim().length > 80) {
-      setAddError('Enter a label between 1 and 80 characters.');
+      setAddError(copy.navigation.labelLength);
       return;
     }
     if (kind === 'custom' && (!normalizedUrl || normalizedUrl.length > 2048)) {
-      setAddError('Enter a relative URL starting with / or an absolute HTTP(S) URL, up to 2,048 characters.');
+      setAddError(copy.navigation.urlInvalid);
       return;
     }
     if (kind === 'page' && !availablePages.some((page) => page.id === pageId)) {
-      setAddError('Choose a Page with a translation in this language.');
+      setAddError(copy.navigation.pageTranslationRequired);
       return;
     }
     const item: NavigationMutationItem = { kind, label: label.trim(), pageId: kind === 'page' ? pageId : null, url: normalizedUrl };
     const keys: MenuKey[] = placement === 'both' ? [`header:${locale}`, `footer:${locale}`] : [`${placement}:${locale}`];
     if (keys.some((destination) => menus[destination].some((entry) => target(entry) === target(item)))) {
-      setAddError('This target is already in one of the selected menus.');
+      setAddError(copy.navigation.targetInUse);
       return;
     }
     if (keys.some((destination) => menus[destination].length >= 50)) {
-      setAddError('Each menu can contain up to 50 items.');
+      setAddError(copy.navigation.maxItems);
       return;
     }
     const next = { ...menus };
@@ -132,7 +142,7 @@ export default function NavigationManager() {
     setMenus(next);
     setDirty(nextDirty);
     setSaveError('');
-    setStatus(`Added ${item.label}. Save each changed menu to publish your edits.`);
+    setStatus(fill(copy.navigation.added, { label: item.label }));
     dialog.current?.close();
   }
 
@@ -142,7 +152,7 @@ export default function NavigationManager() {
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
     edit(next);
-    setStatus(`Moved ${item.label} to position ${to + 1}.`);
+    setStatus(fill(copy.navigation.moved, { label: item.label, position: to + 1 }));
     if (button) requestAnimationFrame(() => {
       if (button.disabled) button.closest('li')?.querySelector('input')?.focus();
       else button.focus();
@@ -151,7 +161,7 @@ export default function NavigationManager() {
 
   function remove(index: number) {
     edit(items.filter((_, position) => position !== index));
-    setStatus(`Removed ${items[index].label}.`);
+    setStatus(fill(copy.navigation.removed, { label: items[index].label }));
     requestAnimationFrame(() => {
       const inputs = list.current?.querySelectorAll<HTMLInputElement>('input');
       if (inputs?.length) inputs[Math.min(index, inputs.length - 1)].focus();
@@ -162,26 +172,26 @@ export default function NavigationManager() {
   async function save(restoreFocus = false) {
     if (savingRef.current || !dirty[key]) return;
     if (items.some((item) => !item.label.trim() || item.label.trim().length > 80)) {
-      setSaveError('Enter a label between 1 and 80 characters for every item.');
+      setSaveError(copy.navigation.everyLabelRequired);
       list.current?.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus();
       return;
     }
     savingRef.current = true;
     setSaving(true);
     setSaveError('');
-    setStatus('Saving menu…');
+    setStatus(copy.navigation.savingMenu);
     try {
       const response = await fetch('/api/admin/navigation', {
         method: 'PUT', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ locale, location, items: items.map(({ id: _id, ...item }) => item) }),
       });
-      if (!response.ok) throw new Error('Save failed.');
+      if (!response.ok) throw new Error(copy.navigation.saveFailed);
       const result = await response.json() as { items: SavedItem[] };
       setMenus((current) => ({ ...current, [key]: result.items.map(localItem) }));
       setDirty((current) => ({ ...current, [key]: false }));
-      setStatus('Menu saved.');
+      setStatus(copy.navigation.menuSaved);
     } catch {
-      setSaveError('Navigation could not be saved. Your edits are still here. Please try again.');
+      setSaveError(copy.navigation.saveError);
       setStatus('');
     } finally {
       savingRef.current = false;
@@ -193,66 +203,66 @@ export default function NavigationManager() {
   return (
     <section className="admin-page navigation-manager">
       <header className="admin-page__head">
-        <div><h1>Navigation</h1><p>Arrange links for each language and location. Changes stay local until you save.</p></div>
-        <button className="admin-button" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">Add item</button>
+        <div><h1>{copy.navigation.heading}</h1><p>{copy.navigation.subheading}</p></div>
+        <button className="admin-button" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
       </header>
-      <p className="navigation-status" role="status" aria-live="polite" aria-atomic="true">{loading ? 'Loading navigation…' : status}</p>
-      {loadError && <div className="admin-alert" role="alert">{loadError} <button className="admin-button" onClick={() => void load()} type="button">Retry</button></div>}
+      <p className="navigation-status" role="status" aria-live="polite" aria-atomic="true">{loading ? copy.navigation.loading : status}</p>
+      {loadError && <div className="admin-alert" role="alert">{loadError} <button className="admin-button" onClick={() => void load()} type="button">{copy.navigation.retry}</button></div>}
       {!loading && !loadError && <>
-        <div aria-label="Menu location" className="navigation-tabs" role="tablist">
+        <div aria-label={copy.navigation.menuLocation} className="navigation-tabs" role="tablist">
           {locations.map((tab) => {
             const unsaved = languages.some((language) => dirty[`${tab.value}:${language.value}`]);
-            return <button aria-controls="navigation-location-panel" aria-describedby={unsaved ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={location === tab.value} className="admin-button" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocation(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={location === tab.value ? 0 : -1} type="button">{tab.label}{unsaved && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>Unsaved</span>}</button>;
+            return <button aria-controls="navigation-location-panel" aria-describedby={unsaved ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={location === tab.value} className="admin-button" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocation(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={location === tab.value ? 0 : -1} type="button">{tab.label}{unsaved && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>;
           })}
         </div>
         <div aria-labelledby={`navigation-${location}-tab`} id="navigation-location-panel" role="tabpanel">
-          <div aria-label="Menu language" className="navigation-tabs" role="tablist">
-            {languages.map((tab) => <button aria-controls="navigation-language-panel" aria-describedby={dirty[`${location}:${tab.value}`] ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={locale === tab.value} className="admin-button" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocale(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">{tab.label}{dirty[`${location}:${tab.value}`] && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>Unsaved</span>}</button>)}
+          <div aria-label={copy.navigation.menuLanguage} className="navigation-tabs" role="tablist">
+            {languages.map((tab) => <button aria-controls="navigation-language-panel" aria-describedby={dirty[`${location}:${tab.value}`] ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={locale === tab.value} className="admin-button" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocale(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">{tab.label}{dirty[`${location}:${tab.value}`] && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>)}
           </div>
           <div aria-busy={saving} aria-labelledby={`navigation-${locale}-tab`} id="navigation-language-panel" role="tabpanel" tabIndex={0}>
-            {!items.length && <p className="navigation-empty">No items in this menu.</p>}
-            <ol aria-label="Menu items" className="navigation-items" ref={list}>
+            {!items.length && <p className="navigation-empty">{copy.navigation.empty}</p>}
+            <ol aria-label={copy.navigation.menuItems} className="navigation-items" ref={list}>
               {items.map((item, index) => {
                 const page = pages.find((entry) => entry.id === item.pageId);
-                const summary = item.kind === 'home' ? `Home · /${locale}` : item.kind === 'custom' ? item.url : page?.title ?? 'Page unavailable';
+                const summary = item.kind === 'home' ? fill(copy.navigation.homeTarget, { locale }) : item.kind === 'custom' ? item.url : page?.title ?? copy.navigation.pageUnavailable;
                 return <li className="navigation-item" draggable={!saving} key={item.id} onDragStart={(event) => { dragged.current = item.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', item.id); }} onDragEnd={() => { dragged.current = null; }} onDragOver={(event) => { if (dragged.current && !saving) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={(event) => { event.preventDefault(); move(items.findIndex((entry) => entry.id === dragged.current), index); dragged.current = null; }}>
                   <span aria-hidden="true" className="navigation-grip">⠿</span>
                   <div className="navigation-item__content">
-                    <label className="admin-field"><span className="sr-only">Item {index + 1} label</span><input aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
+                    <label className="admin-field"><span className="sr-only">{fill(copy.navigation.itemLabel, { index: index + 1 })}</span><input aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
                     <p className="navigation-target">{summary}</p>
-                    <p className="navigation-visibility">{item.kind === 'page' && page?.status !== 'published' ? page ? 'Hidden — Draft' : 'Hidden — Page unavailable' : 'Visible'}</p>
+                    <p className="navigation-visibility">{item.kind === 'page' && page?.status !== 'published' ? page ? copy.navigation.hiddenDraft : copy.navigation.hiddenUnavailable : copy.navigation.visible}</p>
                   </div>
-                  <div aria-label={`Actions for item ${index + 1}`} className="navigation-item__actions" role="group">
-                    <button className="admin-button" disabled={saving || index === 0} onClick={(event) => move(index, index - 1, event.currentTarget)} type="button">Move up</button>
-                    <button className="admin-button" disabled={saving || index === items.length - 1} onClick={(event) => move(index, index + 1, event.currentTarget)} type="button">Move down</button>
-                    <button className="admin-button" disabled={saving} onClick={() => remove(index)} type="button">Remove</button>
+                  <div aria-label={fill(copy.navigation.actionsForItem, { index: index + 1 })} className="navigation-item__actions" role="group">
+                    <button className="admin-button" disabled={saving || index === 0} onClick={(event) => move(index, index - 1, event.currentTarget)} type="button">{copy.navigation.moveUp}</button>
+                    <button className="admin-button" disabled={saving || index === items.length - 1} onClick={(event) => move(index, index + 1, event.currentTarget)} type="button">{copy.navigation.moveDown}</button>
+                    <button className="admin-button" disabled={saving} onClick={() => remove(index)} type="button">{copy.navigation.remove}</button>
                   </div>
                 </li>;
               })}
             </ol>
             <div className="navigation-save">
-              <button className="admin-button admin-button--primary" data-state={saving ? 'loading' : undefined} disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? 'Saving…' : 'Save menu'}</button>
-              <span>{dirty[key] ? 'Unsaved changes in this menu' : 'No unsaved changes in this menu'}</span>
+              <button className="admin-button admin-button--primary" data-state={saving ? 'loading' : undefined} disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? copy.navigation.saving : copy.navigation.saveMenu}</button>
+              <span>{dirty[key] ? copy.navigation.unsavedChanges : copy.navigation.noUnsavedChanges}</span>
             </div>
-            {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">Retry save</button></div>}
+            {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
           </div>
         </div>
       </>}
       <dialog aria-labelledby="navigation-add-title" className="navigation-dialog" onClose={() => addButton.current?.focus()} ref={dialog}>
         <form noValidate onSubmit={add}>
-          <h2 id="navigation-add-title">Add navigation item</h2>
-          <fieldset className="navigation-kinds"><legend>Target</legend>{([{ value: 'home', label: 'Home' }, { value: 'page', label: 'Page' }, { value: 'custom', label: 'Custom URL' }] as const).map((option) => <label key={option.value}><input checked={kind === option.value} name="navigation-kind" onChange={() => selectKind(option.value)} type="radio" value={option.value} /> {option.label}</label>)}</fieldset>
+          <h2 id="navigation-add-title">{copy.navigation.addTitle}</h2>
+          <fieldset className="navigation-kinds"><legend>{copy.navigation.target}</legend>{([{ value: 'home', label: copy.navigation.home }, { value: 'page', label: copy.navigation.page }, { value: 'custom', label: copy.navigation.customUrl }] as const).map((option) => <label key={option.value}><input checked={kind === option.value} name="navigation-kind" onChange={() => selectKind(option.value)} type="radio" value={option.value} /> {option.label}</label>)}</fieldset>
           {kind === 'page' && <div className="admin-field">
-            <label htmlFor="navigation-page">Page</label>
-            <UiSelect ariaLabel="Page" ariaDescribedBy="navigation-page-help" className="admin-control" disabled={!availablePages.length} id="navigation-page" onValueChange={(next) => { setPageId(next); setLabel(availablePages.find((page) => page.id === next)?.title ?? ''); }} options={availablePages.length ? availablePages.map((page) => ({ value: page.id, label: `${page.title}${page.status === 'draft' ? ' — Draft' : ''}` })) : [{ value: '', label: 'No Pages in this language' }]} value={pageId} />
-            <small id="navigation-page-help">Only this language’s Page editions can be added. Draft Pages stay hidden until published.</small>
-            {missingPages.length > 0 && <ul className="navigation-missing">{missingPages.map((page) => <li key={page.id}><button disabled type="button">{page.title} — Missing {locale === 'th' ? 'Thai' : 'English'} translation</button></li>)}</ul>}
+            <label htmlFor="navigation-page">{copy.navigation.page}</label>
+            <UiSelect ariaLabel={copy.navigation.page} ariaDescribedBy="navigation-page-help" className="admin-control" disabled={!availablePages.length} id="navigation-page" onValueChange={(next) => { setPageId(next); setLabel(availablePages.find((page) => page.id === next)?.title ?? ''); }} options={availablePages.length ? availablePages.map((page) => ({ value: page.id, label: `${page.title}${page.status === 'draft' ? copy.navigation.draftSuffix : ''}` })) : [{ value: '', label: copy.navigation.noPages }]} value={pageId} />
+            <small id="navigation-page-help">{copy.navigation.pageHelp}</small>
+            {missingPages.length > 0 && <ul className="navigation-missing">{missingPages.map((page) => <li key={page.id}><button disabled type="button">{fill(copy.navigation.missingTranslation, { language: locale === 'th' ? copy.filters.thai : copy.filters.english, title: page.title })}</button></li>)}</ul>}
           </div>}
-          {kind === 'custom' && <label className="admin-field">URL<input className="admin-control" onChange={(event) => setUrl(event.target.value)} placeholder="/contact or https://example.com" required value={url} /></label>}
-          <label className="admin-field">Label<input className="admin-control" maxLength={80} onChange={(event) => setLabel(event.target.value)} required value={label} /></label>
-          <div className="admin-field"><label htmlFor="navigation-placement">Placement</label><UiSelect ariaLabel="Placement" className="admin-control" id="navigation-placement" onValueChange={(next) => setPlacement(next as NavigationLocation | 'both')} options={[...locations, { value: 'both', label: 'Both' }]} value={placement} /><small>Both creates independent items in MenuBar and Footer for {locale === 'th' ? 'Thai' : 'English'}.</small></div>
+          {kind === 'custom' && <label className="admin-field">{copy.navigation.urlLabel}<input className="admin-control" onChange={(event) => setUrl(event.target.value)} placeholder={copy.navigation.urlPlaceholder} required value={url} /></label>}
+          <label className="admin-field">{copy.navigation.label}<input className="admin-control" maxLength={80} onChange={(event) => setLabel(event.target.value)} required value={label} /></label>
+          <div className="admin-field"><label htmlFor="navigation-placement">{copy.navigation.placement}</label><UiSelect ariaLabel={copy.navigation.placement} className="admin-control" id="navigation-placement" onValueChange={(next) => setPlacement(next as NavigationLocation | 'both')} options={[...locations, { value: 'both', label: copy.navigation.both }]} value={placement} /><small>{fill(copy.navigation.placementHelp, { language: locale === 'th' ? copy.filters.thai : copy.filters.english })}</small></div>
           {addError && <p className="admin-alert" role="alert">{addError}</p>}
-          <div className="navigation-dialog__actions"><button className="admin-button" onClick={() => dialog.current?.close()} type="button">Cancel</button><button className="admin-button admin-button--primary" disabled={kind === 'page' && !availablePages.length} type="submit">Add to menu</button></div>
+          <div className="navigation-dialog__actions"><button className="admin-button" onClick={() => dialog.current?.close()} type="button">{copy.navigation.cancel}</button><button className="admin-button admin-button--primary" disabled={kind === 'page' && !availablePages.length} type="submit">{copy.navigation.addToMenu}</button></div>
         </form>
       </dialog>
     </section>

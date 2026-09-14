@@ -3,6 +3,7 @@ import CategoryManager from '../../components/admin/CategoryManager';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { adminHref, adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
 import { requireOwner } from '../../server/auth/session';
 import { listCategories } from '../../server/content/categories';
 import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
@@ -11,7 +12,7 @@ import type { PostCategorySummary } from '../../types/cms';
 
 let initialCategories: PostCategorySummary[] = [];
 let userEmail: string | null = null;
-let errorMessage: string | null = null;
+let errorKey: 'categoriesHidden' | 'categoriesUnavailable' | null = null;
 let settings: SiteSettings | null = null;
 let authRequired = false;
 
@@ -23,7 +24,7 @@ try {
   ]);
   if (!settings) {
     Astro.response.status = 404;
-    errorMessage = 'Categories not found.';
+    errorKey = 'categoriesHidden';
   } else {
     userEmail = current.user.email;
   }
@@ -34,16 +35,20 @@ try {
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
   } else if (error instanceof HttpError && error.status === 403) {
     Astro.response.status = 404;
-    errorMessage = 'Categories not found.';
+    errorKey = 'categoriesHidden';
   } else {
     console.error('Category manager loading failed.');
     Astro.response.status = 500;
-    errorMessage = 'Categories are temporarily unavailable.';
+    errorKey = 'categoriesUnavailable';
   }
 }
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
 ---
 
-<AdminLayout title="Categories">
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.categories.heading}>
   {authRequired || errorMessage ? (
     <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
   ) : (
@@ -51,13 +56,13 @@ try {
       <section class="admin-page">
         <header class="admin-page__head">
           <div>
-            <h1>Categories</h1>
-            <p>Group related Posts without changing how their language editions stay together.</p>
+            <h1>{copy.categories.heading}</h1>
+            <p>{copy.categories.subheading}</p>
           </div>
-          <a class="admin-button admin-button--secondary" href={settings ? adminHref(settings) : '/admin'}>Back to Posts</a>
+          <a class="admin-button admin-button--secondary" href={settings ? adminHref(settings) : '/admin'}>{copy.categories.backToPosts}</a>
         </header>
-        <CategoryManager initialCategories={initialCategories} client:only="react">
-          <p class="admin-editor-fallback" slot="fallback" role="status">Loading Categories…</p>
+        <CategoryManager initialCategories={initialCategories} ownerLocale={ownerLocale} client:only="react">
+          <p class="admin-editor-fallback" slot="fallback" role="status">{copy.categories.loading}</p>
         </CategoryManager>
       </section>
     </AdminShell>
