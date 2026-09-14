@@ -61,7 +61,14 @@ for (const page of pages) {
   group.push(page);
   editions.set(page.translation_group_id, group);
 }
-const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'published', label: copy.status.published }, { status: 'all', label: copy.status.all }];
+// The count is what the tab would show with the current language and search still
+// applied. A total that ignored them would promise rows the next click cannot deliver.
+const tabLabels = { draft: copy.status.drafts, published: copy.status.published, all: copy.status.all };
+const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
+  status: tabStatus,
+  label: tabLabels[tabStatus],
+  count: filterAdminPages(pages, { ...filters, status: tabStatus }).length,
+}));
 ---
 
 <AdminLayout adminPath={adminPath} lang={ownerLocale ?? 'en'} title={copy.pages.heading}>
@@ -77,7 +84,7 @@ const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'publish
         <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage} data-copy-unpublish-title={copy.pages.unpublishTitle} data-copy-unpublish-message={copy.pages.unpublishMessage}>
           <nav class="admin-post-tabs" aria-label={copy.pages.statusLabel}>
             {tabs.map((tab) => (
-              <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `/pages?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label}</a>
+              <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `/pages?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
             ))}
           </nav>
           <form class="admin-post-filters" action={adminHref(adminSettings, '/pages')} method="get" novalidate>

@@ -65,7 +65,14 @@ for (const post of posts) {
   group.push(post);
   editions.set(post.translation_group_id, group);
 }
-const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'published', label: copy.status.published }, { status: 'all', label: copy.status.all }];
+// The count is what the tab would show with the current language and search still
+// applied. A total that ignored them would promise rows the next click cannot deliver.
+const tabLabels = { draft: copy.status.drafts, published: copy.status.published, all: copy.status.all };
+const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
+  status: tabStatus,
+  label: tabLabels[tabStatus],
+  count: filterAdminPosts(posts, { ...filters, status: tabStatus }).length,
+}));
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
@@ -128,7 +135,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       <div data-admin-posts data-edit-base={adminHref(adminSettings, '/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.posts.deleteTitle} data-copy-delete-message={copy.posts.deleteMessage}>
         <nav class="admin-post-tabs" aria-label={copy.posts.statusLabel}>
           {tabs.map((tab) => (
-            <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label}</a>
+            <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
           ))}
         </nav>
         <form class="admin-post-filters" action={adminHref(adminSettings)} method="get" novalidate>
