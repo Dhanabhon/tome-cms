@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { pathToFileURL } from 'node:url';
 
+import { RESET_TABLES } from '../src/server/db/reset-tables.ts';
 import { isTomeObjectKey } from '../src/server/media/keys.ts';
 
 export function parseResetOptions(args) {
@@ -112,26 +113,14 @@ async function deleteAndVerifyObjects(storage, bucket, objects) {
 
 async function resetDatabase(database, expectedObjects, resetObjects) {
   await database.transaction().execute(async (transaction) => {
-    await sql`
-      lock table
-        "user", session, account, verification, passkey, installation_enrollments,
-        recovery_codes, security_rate_limits, preview_tokens, site_settings, post_translation_groups,
-        page_translation_groups, categories, posts, pages, post_category_assignments,
-        navigation_items, media_folders, media_items, media_upload_reservations
-      in access exclusive mode
-    `.execute(transaction);
+    const tables = sql.join(RESET_TABLES.map((name) => sql.table(name)));
+    await sql`lock table ${tables} in access exclusive mode`.execute(transaction);
     const currentObjects = await knownObjects(transaction);
     if (!sameObjectKeys(expectedObjects, currentObjects)) {
       throw new Error('TomeCMS data changed during reset; database data was preserved. Stop the app and run reset again.');
     }
     await resetObjects();
-    await sql`
-      truncate table
-        session, account, verification, passkey, installation_enrollments,
-        recovery_codes, security_rate_limits, preview_tokens, site_settings, post_category_assignments,
-        navigation_items, posts, pages, categories, post_translation_groups,
-        page_translation_groups, media_upload_reservations, media_items, media_folders, "user"
-    `.execute(transaction);
+    await sql`truncate table ${tables}`.execute(transaction);
   });
 }
 
@@ -147,6 +136,10 @@ function selfTest() {
   );
   assert.equal(isTomeObjectKey('owners/123e4567-e89b-42d3-a456-426614174000/2026/09/123e4567-e89b-42d3-a456-426614174001.webp'), true);
   assert.equal(isTomeObjectKey('../other-bucket/private'), false);
+  // The Record in reset-tables.ts makes the list complete, but not correct: flipping
+  // either of these two to the wrong side typechecks and then does real damage.
+  assert.equal(RESET_TABLES.includes('app_metadata'), false, 'the schema version must survive a reset');
+  assert.equal(RESET_TABLES.includes('user'), true, 'a reset that leaves the owner behind is not a reset');
   console.log('Installation reset self-check passed.');
 }
 
