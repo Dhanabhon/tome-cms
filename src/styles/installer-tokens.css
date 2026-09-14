@@ -1,6 +1,7 @@
 /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5
- * design-system: DESIGN.md · theme: TomeCMS Mint 2026 · genre: modern-minimal · tone: calm and friendly
- * anchor hue: teal · macrostructure: existing app structures · scope: app palette
+ * design-system: DESIGN.md · theme: TomeCMS Paper 2026 · genre: editorial · tone: warm and plain
+ * anchor hue: tomato (36°) · macrostructure: existing app structures · scope: app palette
+ * accent splits: tomato fills, copper speaks. Measured, not preferred — see DESIGN.md.
  */
 :root {
   /* Light is the default; the blocks at the end of this file take over when the
@@ -31,7 +32,7 @@
    * tomato with a dark label on them, and links, icons and arrows are copper. */
   --color-accent: oklch(67.23% 0.18 36.11);
   --color-accent-hover: oklch(71.2% 0.1591 36.39);
-  --color-accent-ink: oklch(18.53% 0.0095 255.64);
+  --color-accent-ink: oklch(16% 0.05 32);
   --color-link: oklch(53.23% 0.1598 34.75);
   --color-focus: oklch(53.23% 0.1598 34.75);
   --color-focus-soft: oklch(84.98% 0.0675 36.83);
@@ -129,7 +130,7 @@
 
     --color-accent: oklch(67.23% 0.18 36.11);
     --color-accent-hover: oklch(71.2% 0.1591 36.39);
-    --color-accent-ink: oklch(18.53% 0.0095 255.64);
+    --color-accent-ink: oklch(16% 0.05 32);
     --color-link: oklch(76% 0.14 38);
     --color-focus: oklch(76% 0.14 38);
     --color-focus-soft: oklch(38% 0.07 36);
@@ -172,7 +173,7 @@
 
   --color-accent: oklch(67.23% 0.18 36.11);
   --color-accent-hover: oklch(71.2% 0.1591 36.39);
-  --color-accent-ink: oklch(18.53% 0.0095 255.64);
+  --color-accent-ink: oklch(16% 0.05 32);
   --color-link: oklch(76% 0.14 38);
   --color-focus: oklch(76% 0.14 38);
   --color-focus-soft: oklch(38% 0.07 36);
