@@ -350,10 +350,10 @@ async function writeFixtureFiles(port: number, previousDigest: string): Promise<
     identities: [{ name: 'anonymous', actions: ['Read'] }],
   }));
   await writeFile(environmentFile, [
-    `APP_PORT=${port}`, `POSTGRES_PASSWORD=${fixtureInterpolation.POSTGRES_PASSWORD}`,
-    `S3_BUCKET=${fixtureInterpolation.S3_BUCKET}`, `S3_ACCESS_KEY_ID=${fixtureInterpolation.S3_ACCESS_KEY_ID}`,
-    `S3_SECRET_ACCESS_KEY=${fixtureInterpolation.S3_SECRET_ACCESS_KEY}`,
-    'TOME_CMS_FIXTURE_UNHEALTHY=0', '',
+    `APP_PORT='${port}'`, `POSTGRES_PASSWORD='${fixtureInterpolation.POSTGRES_PASSWORD}'`,
+    `S3_BUCKET='${fixtureInterpolation.S3_BUCKET}'`, `S3_ACCESS_KEY_ID='${fixtureInterpolation.S3_ACCESS_KEY_ID}'`,
+    `S3_SECRET_ACCESS_KEY='${fixtureInterpolation.S3_SECRET_ACCESS_KEY}'`,
+    "TOME_CMS_FIXTURE_UNHEALTHY='0'", '',
   ].join('\n'), { mode: 0o600 });
   await writeFile(baseImageEnvironmentFile, imageEnvironment(previousDigest), { mode: 0o600 });
   await writeFile(composeFile, `services:
