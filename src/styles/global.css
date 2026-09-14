@@ -633,7 +633,7 @@ body {
   color: var(--color-muted);
   text-decoration: none;
 }
-.admin-post-tabs a[aria-selected="true"] { border-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
+.admin-post-tabs a[aria-current="page"] { border-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
 .admin-post-filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) auto;

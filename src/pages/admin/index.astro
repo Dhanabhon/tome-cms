@@ -4,6 +4,7 @@ import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import UiSelect from '../../components/admin/UiSelect';
 import { adminHref } from '../../lib/admin';
+import { adminCopy, adminDateFormat, statusLabel } from '../../lib/admin-i18n';
 import { filterAdminPosts, readingMinutes, type AdminPostFilters } from '../../lib/posts';
 import { requireInstalledOwner } from '../../server/auth/session';
 import { listPosts } from '../../server/content/posts';
@@ -13,7 +14,7 @@ import type { Post, PostLocale } from '../../types/cms';
 
 let posts: Post[] = [];
 let userEmail: string | null = null;
-let errorMessage: string | null = null;
+let errorKey: 'dashboardHidden' | 'dashboardUnavailable' | null = null;
 let authRequired = false;
 let settings = null;
 
@@ -22,7 +23,7 @@ try {
   const current = await requireInstalledOwner(Astro.request.headers);
   if (!settings || settings.owner_id !== current.user.id) {
     Astro.response.status = 404;
-    errorMessage = 'The dashboard is unavailable.';
+    errorKey = 'dashboardHidden';
   } else {
     userEmail = current.user.email;
     posts = await listPosts(current.user.id);
@@ -34,18 +35,17 @@ try {
   } else {
     console.error('Admin post query failed.');
     Astro.response.status = 500;
-    errorMessage = 'The dashboard is temporarily unavailable.';
+    errorKey = 'dashboardUnavailable';
   }
 }
 
 const adminPath = settings?.admin_path ?? '/admin';
 const adminSettings = { admin_path: adminPath };
 
-const dateFormatter = new Intl.DateTimeFormat('en', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-  timeZone: settings?.timezone ?? 'UTC',
-});
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
+const dateFormatter = adminDateFormat(ownerLocale, settings?.timezone ?? 'UTC');
 const status = ['draft', 'published', 'all'].includes(Astro.url.searchParams.get('status') ?? '')
   ? Astro.url.searchParams.get('status') as 'draft' | 'published' | 'all'
   : 'draft';
@@ -61,11 +61,11 @@ for (const post of posts) {
   group.push(post);
   editions.set(post.translation_group_id, group);
 }
-const tabs = [{ status: 'draft', label: 'Drafts' }, { status: 'published', label: 'Published' }, { status: 'all', label: 'All' }];
+const tabs = [{ status: 'draft', label: copy.status.drafts }, { status: 'published', label: copy.status.published }, { status: 'all', label: copy.status.all }];
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
 
-<AdminLayout adminPath={adminPath} title={authRequired ? 'Sign in' : 'Posts'}>
+<AdminLayout adminPath={adminPath} lang={ownerLocale ?? 'en'} title={authRequired ? 'Sign in' : copy.posts.heading}>
   {authRequired ? (
     <main class="admin-auth-page">
       <header class="admin-auth-nav" aria-label="Admin sign in">
@@ -103,17 +103,17 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       </footer>
     </main>
   ) : (
-  <Frame active="posts" adminPath={adminPath} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+  <Frame active="posts" adminPath={adminPath} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
   <section class="admin-page">
     <header class="admin-page__head">
       <div>
-        <h1>Posts</h1>
-        <p>Draft, publish, and keep your writing in one place.</p>
+        <h1>{copy.posts.heading}</h1>
+        <p>{copy.posts.subheading}</p>
       </div>
       {!authRequired && !errorMessage && (
         <div class="admin-page__actions">
-          <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/categories')}>Manage categories</a>
-          <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/new')}>New post <span aria-hidden="true">+</span></a>
+          <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/categories')}>{copy.posts.manageCategories}</a>
+          <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/new')}>{copy.posts.newPost} <span aria-hidden="true">+</span></a>
         </div>
       )}
     </header>
@@ -121,20 +121,20 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     {errorMessage ? (
       <p class="admin-alert" role="alert">{errorMessage}</p>
     ) : (
-      <div data-admin-posts>
-        <nav class="admin-post-tabs" role="tablist" aria-label="Post status">
+      <div data-admin-posts data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-delete-prefix={copy.row.deletePrefix} data-copy-delete-title={copy.posts.deleteTitle} data-copy-delete-message={copy.posts.deleteMessage}>
+        <nav class="admin-post-tabs" aria-label={copy.posts.statusLabel}>
           {tabs.map((tab) => (
-            <a role="tab" aria-selected={status === tab.status} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label}</a>
+            <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label}</a>
           ))}
         </nav>
         <form class="admin-post-filters" action={adminHref(adminSettings)} method="get" novalidate>
           <input type="hidden" name="status" value={status} />
           <div class="admin-field">
-            <label for="post-search">Search posts</label>
-            <input class="admin-control" id="post-search" name="q" type="search" maxlength="100" value={query} placeholder="Search by title" />
+            <label for="post-search">{copy.posts.search}</label>
+            <input class="admin-control" id="post-search" name="q" type="search" maxlength="100" value={query} placeholder={copy.filters.searchByTitle} />
           </div>
           <div class="admin-field">
-            <label for="post-locale">Language</label>
+            <label for="post-locale">{copy.filters.language}</label>
             <UiSelect
               client:load
               className="admin-control"
@@ -142,18 +142,18 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
               id="post-locale"
               name="locale"
               options={[
-                { label: 'All languages', value: 'all' },
-                { label: 'Thai', value: 'th' },
-                { label: 'English', value: 'en' },
+                { label: copy.filters.allLanguages, value: 'all' },
+                { label: copy.filters.thai, value: 'th' },
+                { label: copy.filters.english, value: 'en' },
               ]}
             />
           </div>
-          <button class="admin-button" type="submit">Apply filters</button>
+          <button class="admin-button" type="submit">{copy.filters.apply}</button>
         </form>
         <p class="admin-alert" data-post-error role="alert" hidden></p>
         <div class="admin-story-list">
           {filteredPosts.map((post) => {
-            const title = post.title.trim() || 'Untitled post';
+            const title = post.title.trim() || copy.posts.untitled;
             const sibling = editions.get(post.translation_group_id)?.find((edition) => edition.locale !== post.locale);
             const timestamp = post.status === 'published' ? post.published_at ?? post.updated_at : post.updated_at;
             return (
@@ -165,21 +165,21 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                   <h2><a href={adminHref(adminSettings, `/edit/${post.id}`)}>{title}</a></h2>
                   <div class="admin-story-meta">
                     <span class="admin-locale">{post.locale.toUpperCase()}</span>
-                    <span>{readingMinutes(post.content_json)} min read</span>
-                    <span class="admin-status" data-status={post.status}>{post.status}</span>
-                    <span>{post.status === 'published' ? 'Published' : 'Updated'} <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                    <span>{readingMinutes(post.content_json)} {copy.row.minRead}</span>
+                    <span class="admin-status" data-status={post.status}>{statusLabel(copy, post.status)}</span>
+                    <span data-story-when><span data-story-verb>{post.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                   </div>
                   <p class="admin-story-sibling">
-                    {sibling ? <a href={adminHref(adminSettings, `/edit/${sibling.id}`)}>{sibling.locale.toUpperCase()} {sibling.status}</a> : <a href={adminHref(adminSettings, `/new?${new URLSearchParams({ sourcePostId: post.id, locale: post.locale === 'th' ? 'en' : 'th' })}`)}>{post.locale === 'th' ? 'EN' : 'TH'} missing</a>}
+                    {sibling ? <a href={adminHref(adminSettings, `/edit/${sibling.id}`)}>{sibling.locale.toUpperCase()} {statusLabel(copy, sibling.status)}</a> : <a href={adminHref(adminSettings, `/new?${new URLSearchParams({ sourcePostId: post.id, locale: post.locale === 'th' ? 'en' : 'th' })}`)}>{post.locale === 'th' ? 'EN' : 'TH'} {copy.row.missing}</a>}
                   </p>
                 </div>
                 <details class="admin-story-menu">
-                  <summary aria-label={`Actions for ${title} (${post.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
+                  <summary aria-label={`${copy.posts.actionsFor} ${title} (${post.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
                   <div>
-                    <a href={adminHref(adminSettings, `/edit/${post.id}`)}>Edit</a>
-                    <a href={adminHref(adminSettings, `/preview/${post.id}`)} target="_blank" rel="noopener noreferrer">Preview</a>
-                    <button type="button" data-post-action={post.status === 'draft' ? 'published' : 'draft'} data-post-id={post.id} data-post-updated-at={post.updated_at}>{post.status === 'draft' ? 'Publish' : 'Unpublish'}</button>
-                    <button type="button" data-post-action="delete" data-post-id={post.id} data-post-updated-at={post.updated_at} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>Delete</button>
+                    <a href={adminHref(adminSettings, `/edit/${post.id}`)}>{copy.row.edit}</a>
+                    <a href={adminHref(adminSettings, `/preview/${post.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                    <button type="button" data-post-action={post.status === 'draft' ? 'published' : 'draft'} data-post-id={post.id} data-post-updated-at={post.updated_at}>{post.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
+                    <button type="button" data-post-action="delete" data-post-id={post.id} data-post-updated-at={post.updated_at} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>{copy.row.delete}</button>
                   </div>
                 </details>
               </article>
@@ -188,8 +188,8 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
           {!filteredPosts.length && (
             <div class="admin-empty">
               <span class="admin-empty__mark" aria-hidden="true">+</span>
-              <div><h2>{posts.length ? 'No posts match these filters.' : 'Your first post starts here'}</h2><p>{posts.length ? 'Try another title, language, or status.' : 'Create a draft now and publish whenever it is ready.'}</p></div>
-              {!posts.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/new')}>Create first post</a>}
+              <div><h2>{posts.length ? copy.posts.noMatchTitle : copy.posts.emptyTitle}</h2><p>{posts.length ? copy.posts.noMatchBody : copy.posts.emptyBody}</p></div>
+              {!posts.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/new')}>{copy.posts.createFirst}</a>}
             </div>
           )}
         </div>

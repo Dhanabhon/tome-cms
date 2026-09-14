@@ -37,7 +37,7 @@ try {
 
 <AdminLayout title="Profile">
   {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
-    <AdminShell active="profile" adminPath={settings.admin_path} siteName={settings.site_name} userEmail={userEmail}>
+    <AdminShell active="profile" adminPath={settings.admin_path} locale={settings?.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
         <header class="admin-page__head"><div><h1>Profile</h1><p>Your name, avatar, and author biography.</p></div></header>
         <ProfileForm
