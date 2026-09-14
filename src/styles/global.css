@@ -1163,7 +1163,7 @@ body {
 .navigation-save { margin-block: var(--space-lg); }
 .navigation-save > span { color: var(--color-muted); font-size: var(--text-sm); }
 .navigation-manager [role="tabpanel"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-2xs); }
-.navigation-dialog { width: min(34rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); margin: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-input); background: var(--color-paper); color: var(--color-ink); overflow-y: auto; }
+.navigation-dialog { width: min(34rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); margin: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-paper); color: var(--color-ink); overflow-y: auto; }
 .navigation-dialog::backdrop { background: var(--color-scrim); }
 .navigation-dialog form { display: grid; gap: var(--space-md); min-width: 0; }
 .navigation-dialog h2 { font-size: var(--text-xl); font-weight: 600; }
