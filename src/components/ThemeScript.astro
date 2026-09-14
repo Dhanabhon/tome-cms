@@ -1,0 +1,34 @@
+---
+import { THEME_STORAGE_KEY } from '../lib/theme';
+
+/**
+ * Applies the reader's own theme choice before the first paint.
+ *
+ * This has to be inline and blocking. A bundled module script is deferred, which
+ * means the page paints in the server-rendered theme first and then flips -- the
+ * white flash that makes a dark mode feel broken. It is small enough that the cost
+ * of blocking is a rounding error next to the flash it prevents.
+ *
+ * The same script serves both surfaces because the difference is only in what the
+ * server already rendered. The admin renders nothing, so whatever is stored takes
+ * effect. The public site renders the owner's setting, so a visitor who has chosen
+ * for themselves overrides it -- including choosing 'system', which has to *remove*
+ * the attribute rather than set it, or the owner's override would be unescapable.
+ *
+ * data-js is what lets the toggle stay hidden when scripting is off, instead of
+ * offering a control that cannot do anything.
+ */
+---
+<script is:inline define:vars={{ key: THEME_STORAGE_KEY }}>
+  (function () {
+    var root = document.documentElement;
+    root.dataset.js = 'on';
+    try {
+      var stored = localStorage.getItem(key);
+      if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+      else if (stored === 'system') delete root.dataset.theme;
+    } catch (error) {
+      /* Private mode and blocked storage both throw. The server-rendered theme stands. */
+    }
+  })();
+</script>

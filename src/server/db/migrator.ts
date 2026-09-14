@@ -8,6 +8,7 @@ import * as content from './migrations/005_content';
 import * as media from './migrations/006_media';
 import * as previewTokens from './migrations/007_preview_tokens';
 import * as updateRateLimitActions from './migrations/008_update_rate_limit_actions';
+import * as siteTheme from './migrations/009_site_theme';
 
 export const migrations = {
   '001_system': system,
@@ -18,6 +19,7 @@ export const migrations = {
   '006_media': media,
   '007_preview_tokens': previewTokens,
   '008_update_rate_limit_actions': updateRateLimitActions,
+  '009_site_theme': siteTheme,
 } as const;
 
 const provider: MigrationProvider = {

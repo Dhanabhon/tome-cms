@@ -1,4 +1,5 @@
 ---
+import ThemeToggle from '../ThemeToggle.astro';
 import { adminHref, normalizeAdminPath } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
@@ -52,6 +53,10 @@ const links = [
           {links.map((link) => <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>{link.label}</a>)}
         </nav>
         <div class="admin-shell-account">
+          <ThemeToggle
+            labels={{ group: copy.theme.adminLabel, system: copy.theme.system, light: copy.theme.light, dark: copy.theme.dark }}
+            name={mobile ? 'tome-theme-mobile' : 'tome-theme-sidebar'}
+          />
           <a href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}>{copy.shell.viewSite} <span aria-hidden="true">↗</span></a>
           {userEmail && <span class="admin-shell-email">{userEmail}</span>}
           <button class="admin-button" type="button" data-sign-out>{copy.shell.signOut}</button>

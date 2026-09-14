@@ -1,5 +1,6 @@
 ---
 import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
+import ThemeScript from '../components/ThemeScript.astro';
 import { normalizeAdminPath } from '../lib/admin';
 import type { PostLocale } from '../types/cms';
 import '../styles/global.css';
@@ -26,6 +27,7 @@ const adminPath = normalizeAdminPath(requestedAdminPath);
     <link rel="preload" href="/fonts/ibm-plex-sans-thai-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/ibm-plex-sans-thai-thai-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/fonts.css" />
+    <ThemeScript />
   </head>
   <body class="admin-body" data-admin-path={adminPath}>
     <slot />

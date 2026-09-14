@@ -225,6 +225,16 @@ const en = {
     saveFailed: 'The profile could not be saved.',
     subheading: 'Your name, avatar, and author biography.',
   },
+  theme: {
+    group: 'Theme',
+    system: 'System',
+    light: 'Light',
+    dark: 'Dark',
+    adminLabel: 'Admin theme',
+    adminHint: 'Applies to the admin on this device only.',
+    siteLabel: 'Site theme',
+    siteHint: 'What visitors see. System lets each visitor follow their own device setting.',
+  },
   auth: {
     adminSignIn: 'Admin sign in',
     checking: 'Checking Passkey...',
@@ -730,6 +740,16 @@ const th: typeof en = {
     removeLink: 'ลบลิงก์ที่ {index}',
     saveFailed: 'บันทึกโปรไฟล์ไม่สำเร็จ',
     subheading: 'ชื่อ รูปโปรไฟล์ และประวัติผู้เขียนของคุณ',
+  },
+  theme: {
+    group: 'ธีม',
+    system: 'ตามระบบ',
+    light: 'สว่าง',
+    dark: 'มืด',
+    adminLabel: 'ธีมหน้าผู้ดูแล',
+    adminHint: 'มีผลกับหน้าผู้ดูแลบนอุปกรณ์นี้เท่านั้น',
+    siteLabel: 'ธีมของเว็บไซต์',
+    siteHint: 'สิ่งที่ผู้เข้าชมเห็น เลือก "ตามระบบ" แล้วผู้เข้าชมแต่ละคนจะได้ธีมตามการตั้งค่าเครื่องตัวเอง',
   },
   auth: {
     adminSignIn: 'เข้าสู่ระบบผู้ดูแล',

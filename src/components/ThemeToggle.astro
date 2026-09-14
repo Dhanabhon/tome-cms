@@ -1,0 +1,91 @@
+---
+import { THEME_CHOICES, THEME_STORAGE_KEY, type ThemeChoice } from '../lib/theme';
+
+/**
+ * The reader's own light/dark choice, stored on their device.
+ *
+ * Native radios in a fieldset rather than buttons wearing ARIA: three mutually
+ * exclusive options is exactly what a radio group is, and it arrives with arrow-key
+ * navigation, grouping and announcement already working. The inputs are moved out of
+ * sight rather than hidden, so they stay focusable.
+ *
+ * The legend names the group for a screen reader but is not drawn -- the icons and
+ * labels already say what the control is, and a visible legend would break the
+ * single-row layout this has to keep in a header.
+ */
+interface Props {
+  /** What the server rendered. The inline theme script corrects it from storage. */
+  initial?: ThemeChoice;
+  labels: Record<'group' | ThemeChoice, string>;
+  /**
+   * Radio names are document-wide, so two toggles sharing one would form a single
+   * group and fight over which is checked. The admin shell renders one for the
+   * sidebar and one for the mobile drawer, so each instance needs its own.
+   */
+  name: string;
+}
+
+const { initial = 'system', labels, name } = Astro.props;
+---
+<fieldset class="ui-theme" data-theme-toggle>
+  <legend class="ui-theme__legend">{labels.group}</legend>
+  <div class="ui-theme__track">
+    {THEME_CHOICES.map((choice) => (
+      <label class="ui-theme__option">
+        <input
+          checked={choice === initial}
+          class="ui-theme__input"
+          name={name}
+          type="radio"
+          value={choice}
+        />
+        <span aria-hidden="true" class="ui-theme__icon">
+          {choice === 'system' && (
+            <svg fill="none" height="15" stroke="currentColor" stroke-width="1.6" viewBox="0 0 16 16" width="15">
+              <rect height="9" rx="1.4" width="13" x="1.5" y="2" />
+              <path d="M6 13.5h4" stroke-linecap="round" />
+            </svg>
+          )}
+          {choice === 'light' && (
+            <svg fill="none" height="15" stroke="currentColor" stroke-width="1.6" viewBox="0 0 16 16" width="15">
+              <circle cx="8" cy="8" r="3.1" />
+              <path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1" stroke-linecap="round" />
+            </svg>
+          )}
+          {choice === 'dark' && (
+            <svg fill="none" height="15" stroke="currentColor" stroke-width="1.6" viewBox="0 0 16 16" width="15">
+              <path d="M13.4 9.6A5.8 5.8 0 0 1 6.4 2.6a5.8 5.8 0 1 0 7 7Z" stroke-linejoin="round" />
+            </svg>
+          )}
+        </span>
+        <span class="ui-theme__label">{labels[choice]}</span>
+      </label>
+    ))}
+  </div>
+</fieldset>
+
+<script is:inline define:vars={{ key: THEME_STORAGE_KEY }}>
+  (function () {
+    var root = document.documentElement;
+    if (root.dataset.themeWired) return;
+    root.dataset.themeWired = 'on';
+    for (var group of document.querySelectorAll('[data-theme-toggle]')) {
+      // Reflect what the inline head script actually applied, so the checked option
+      // never disagrees with the colours on screen.
+      var applied = root.dataset.theme === 'light' || root.dataset.theme === 'dark' ? root.dataset.theme : 'system';
+      var current = group.querySelector('input[value="' + applied + '"]');
+      if (current) current.checked = true;
+
+      group.addEventListener('change', function (event) {
+        var value = event.target.value;
+        if (value === 'light' || value === 'dark') root.dataset.theme = value;
+        else delete root.dataset.theme;
+        try {
+          localStorage.setItem(key, value);
+        } catch (error) {
+          /* Storage can be blocked. The choice still applies for this page view. */
+        }
+      });
+    }
+  })();
+</script>

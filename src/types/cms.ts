@@ -199,6 +199,7 @@ export interface SiteSettings {
   tagline: string;
   site_description: string;
   default_locale: PostLocale;
+  theme: 'system' | 'light' | 'dark';
   timezone: 'Asia/Bangkok' | 'UTC';
   owner_id: string;
   installed_at: string;
