@@ -43,24 +43,33 @@ if (fail && (name + ' ' + text).includes(fail)) {
 let output = '';
 if (name === 'uname') output = args[0] === '-s' ? (process.env.HOST_OS || 'Linux') : (process.env.HOST_ARCH || 'x86_64');
 const identity = kind => path.join(process.env.IDENTITY_STATE, kind);
+const identityValue = kind => fs.existsSync(identity(kind)) ? fs.readFileSync(identity(kind), 'utf8') : '';
 if (name === 'id') {
   if (args[0] === '-u') output = process.env.HOST_UID || '0';
-  else if (fs.existsSync(identity('user'))) output = '994';
+  else if (identityValue('user')) output = identityValue('user') === 'unproven' ? '2000' : '994';
   else process.exit(1);
 }
 if (name === 'getent') {
   if (args[1] === 'docker') output = 'docker:x:993:';
-  else if (args[1] === 'tomecms-updater' && fs.existsSync(identity(args[0] === 'passwd' ? 'user' : 'group'))) output = 'tomecms-updater:x:994:';
+  else if (args[1] === 'tomecms-updater' && args[0] === 'group' && identityValue('group')) {
+    output = identityValue('group') === 'unproven' ? 'tomecms-updater:x:2000:someone' : 'tomecms-updater:x:994:';
+  } else if (args[1] === 'tomecms-updater' && args[0] === 'passwd' && identityValue('user')) {
+    output = identityValue('user') === 'unproven' ? 'tomecms-updater:x:2000:2000:Unrelated:/home/unrelated:/bin/bash' : 'tomecms-updater:x:994:994::/nonexistent:/usr/sbin/nologin';
+  }
   else process.exit(2);
 }
 if (name === 'groupadd') {
   if (fs.existsSync(identity('group'))) process.exit(9);
   fs.mkdirSync(process.env.IDENTITY_STATE, { recursive: true });
-  fs.writeFileSync(identity('group'), '994');
+  fs.writeFileSync(identity('group'), process.env.UNPROVEN_AFTER_IDENTITY === name ? 'unproven' : '994');
+  if (process.env.FAIL_AFTER_IDENTITY === name) process.exit(7);
+  if (process.env.TIMEOUT_AFTER_IDENTITY === name) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000);
 }
 if (name === 'useradd') {
   if (!fs.existsSync(identity('group')) || fs.existsSync(identity('user'))) process.exit(9);
-  fs.writeFileSync(identity('user'), '994');
+  fs.writeFileSync(identity('user'), process.env.UNPROVEN_AFTER_IDENTITY === name ? 'unproven' : '994');
+  if (process.env.FAIL_AFTER_IDENTITY === name) process.exit(7);
+  if (process.env.TIMEOUT_AFTER_IDENTITY === name) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000);
 }
 if (name === 'userdel') fs.rmSync(identity('user'), { force: true });
 if (name === 'groupdel') {
@@ -367,6 +376,55 @@ test('account setup failures roll back only this installer identity and permit r
       assert.ok(!commands.some(args => /(^| )down( |$)|volume rm|image rm/.test(args.join(' '))));
     });
   }
+});
+
+test('account commands that fail after mutation reclaim proven identities and permit retry', async t => {
+  for (const [label, injection, command] of [
+    ['groupadd exit', 'FAIL_AFTER_IDENTITY', 'groupadd'],
+    ['useradd exit', 'FAIL_AFTER_IDENTITY', 'useradd'],
+    ['groupadd timeout', 'TIMEOUT_AFTER_IDENTITY', 'groupadd'],
+  ] as const) {
+    await t.test(label, async t => {
+      const f = await fixture(t);
+      const failed = f.run([], { [injection]: command });
+      assert.equal(failed.status, 1, failed.stdout);
+      assert.doesNotMatch(failed.stderr, /Manual rollback required:/);
+      assert.deepEqual(await readdir(join(f.root, 'identity')), []);
+      assert.deepEqual(await readdir(f.prefix), ['bin']);
+      const commands = await f.commands();
+      const userdel = commands.findIndex(args => args.join(' ') === 'userdel tomecms-updater');
+      const groupdel = commands.findIndex(args => args.join(' ') === 'groupdel tomecms-updater');
+      assert.ok(groupdel >= 0);
+      if (command === 'useradd') assert.ok(userdel >= 0 && userdel < groupdel);
+      else assert.equal(userdel, -1);
+      const retried = f.run([]);
+      assert.equal(retried.status, 0, `${retried.stdout}\n${retried.stderr}`);
+    });
+  }
+});
+
+test('an unproven identity is retained for manual rollback and never deleted', async t => {
+  const f = await fixture(t);
+  const failed = f.run([], { FAIL_AFTER_IDENTITY: 'groupadd', UNPROVEN_AFTER_IDENTITY: 'groupadd' });
+  assert.equal(failed.status, 1, failed.stdout);
+  assert.match(failed.stderr, /Manual rollback required:.*tomecms-updater group/i);
+  assert.equal(await readFile(join(f.root, 'identity/group'), 'utf8'), 'unproven');
+  assert.ok(!(await f.commands()).some(args => args[0] === 'groupdel'));
+  const retried = f.run([]);
+  assert.equal(retried.status, 1);
+  assert.match(retried.stderr, /service account already exists/i);
+  assert.equal(await readFile(join(f.root, 'identity/group'), 'utf8'), 'unproven');
+  assert.ok(!(await f.commands()).some(args => args[0] === 'groupdel'));
+});
+
+test('a proven identity that cannot be removed is retained with manual rollback guidance', async t => {
+  const f = await fixture(t);
+  const failed = f.run([], { FAIL_AFTER_IDENTITY: 'useradd', FAIL_STEP: 'userdel tomecms-updater' });
+  assert.equal(failed.status, 1, failed.stdout);
+  assert.match(failed.stderr, /Manual rollback required:.*tomecms-updater user/i);
+  assert.equal(await readFile(join(f.root, 'identity/user'), 'utf8'), '994');
+  assert.equal(await readFile(join(f.root, 'identity/group'), 'utf8'), '994');
+  assert.ok(!(await f.commands()).some(args => args[0] === 'groupdel'));
 });
 
 test('incomplete recovery-set writes roll back invocation files and permit retry', async t => {
