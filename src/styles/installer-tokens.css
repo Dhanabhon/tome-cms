@@ -11,7 +11,7 @@
   --color-ink: oklch(15.2% 0.0033 196.81);
   --color-ink-2: oklch(51.53% 0.0331 188.02);
   --color-muted: oklch(49.49% 0.0322 187.7);
-  --color-placeholder: oklch(49.49% 0.0322 187.7);
+  --color-placeholder: var(--color-muted);
   --color-rule: color-mix(in oklch, var(--color-hero) 10%, transparent);
   --color-rule-strong: color-mix(in oklch, var(--color-hero) 26%, transparent);
   --color-accent: oklch(48% 0.0694 191.12);
@@ -40,7 +40,6 @@
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-md: 1.25rem;
-  --text-lg: 1.25rem;
   --text-xl: 1.375rem;
   --text-2xl: 2.5rem;
   --text-display: clamp(3rem, 5vw, 4rem);
