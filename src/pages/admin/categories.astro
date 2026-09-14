@@ -47,7 +47,7 @@ try {
   {authRequired || errorMessage ? (
     <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
   ) : (
-    <AdminShell active="posts" adminPath={settings?.admin_path} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+    <AdminShell active="posts" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
       <section class="admin-page">
         <header class="admin-page__head">
           <div>

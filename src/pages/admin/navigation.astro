@@ -41,7 +41,7 @@ try {
   {authRequired || errorMessage ? (
     <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
   ) : (
-    <AdminShell active="navigation" adminPath={settings?.admin_path} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+    <AdminShell active="navigation" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
       <NavigationManager client:only="react">
         <p class="admin-editor-fallback" slot="fallback" role="status">Loading navigation…</p>
       </NavigationManager>

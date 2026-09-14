@@ -1,48 +1,60 @@
 ---
 import { adminHref, normalizeAdminPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
+import type { PostLocale } from '../../types/cms';
 
 interface Props {
   active: 'media' | 'navigation' | 'pages' | 'posts' | 'profile' | 'settings' | 'system';
   adminPath?: string;
+  locale?: PostLocale | null;
   siteName: string;
   userEmail?: string | null;
 }
 
-const { active, adminPath: requestedAdminPath = '/admin', siteName, userEmail } = Astro.props;
+const { active, adminPath: requestedAdminPath = '/admin', locale, siteName, userEmail } = Astro.props;
 const adminPath = normalizeAdminPath(requestedAdminPath);
 const adminSettings = { admin_path: adminPath };
+const copy = adminCopy(locale);
 const links = [
-  { id: 'posts', href: adminHref(adminSettings), label: 'Posts' },
-  { id: 'pages', href: adminHref(adminSettings, '/pages'), label: 'Pages' },
-  { id: 'media', href: adminHref(adminSettings, '/media'), label: 'File Manager' },
-  { id: 'navigation', href: adminHref(adminSettings, '/navigation'), label: 'Navigation' },
-  { id: 'profile', href: adminHref(adminSettings, '/profile'), label: 'Profile' },
-  { id: 'settings', href: adminHref(adminSettings, '/settings'), label: 'Settings' },
-  { id: 'system', href: adminHref(adminSettings, '/system'), label: 'System' },
+  { id: 'posts', href: adminHref(adminSettings), label: copy.nav.posts },
+  { id: 'pages', href: adminHref(adminSettings, '/pages'), label: copy.nav.pages },
+  { id: 'media', href: adminHref(adminSettings, '/media'), label: copy.nav.media },
+  { id: 'navigation', href: adminHref(adminSettings, '/navigation'), label: copy.nav.navigation },
+  { id: 'profile', href: adminHref(adminSettings, '/profile'), label: copy.nav.profile },
+  { id: 'settings', href: adminHref(adminSettings, '/settings'), label: copy.nav.settings },
+  { id: 'system', href: adminHref(adminSettings, '/system'), label: copy.nav.system },
 ] as const;
 ---
 
-<div class="admin-shell" data-admin-path={adminPath}>
+<div
+  class="admin-shell"
+  data-admin-path={adminPath}
+  data-copy-cancel={copy.shell.cancel}
+  data-copy-sign-out={copy.shell.signOut}
+  data-copy-sign-out-confirm={copy.shell.signOutConfirm}
+  data-copy-sign-out-failed={copy.shell.signOutFailed}
+  data-copy-sign-out-title={copy.shell.signOutTitle}
+>
   <header class="admin-mobile-bar">
     <span>{siteName}</span>
-    <button class="admin-button" type="button" data-nav-open aria-label="Open navigation" aria-controls="admin-mobile-navigation" aria-expanded="false">Menu</button>
+    <button class="admin-button" type="button" data-nav-open aria-label={copy.shell.openNavigation} aria-controls="admin-mobile-navigation" aria-expanded="false">{copy.shell.menu}</button>
   </header>
   {[false, true].map((mobile) => {
     const Container = mobile ? 'dialog' : 'aside';
     return (
-      <Container class={mobile ? 'admin-mobile-nav' : 'admin-sidebar'} id={mobile ? 'admin-mobile-navigation' : undefined} aria-label="Admin navigation">
-        {mobile && <button class="admin-button" type="button" data-nav-close autofocus aria-label="Close navigation">Close</button>}
+      <Container class={mobile ? 'admin-mobile-nav' : 'admin-sidebar'} id={mobile ? 'admin-mobile-navigation' : undefined} aria-label={copy.shell.navigationLabel}>
+        {mobile && <button class="admin-button" type="button" data-nav-close autofocus aria-label={copy.shell.closeNavigation}>{copy.shell.close}</button>}
         <a class="admin-shell-brand" href={adminHref(adminSettings)}>
           <img class="admin-logo" src="/brand/tomecms-logo.png" alt="TomeCMS" width="2172" height="724" />
           <span>{siteName}</span>
         </a>
-        <nav aria-label="Admin">
+        <nav aria-label={copy.nav.label}>
           {links.map((link) => <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>{link.label}</a>)}
         </nav>
         <div class="admin-shell-account">
-          <a href="/" target="_blank" rel="noopener noreferrer" aria-label="View site (opens in a new tab)">View site <span aria-hidden="true">↗</span></a>
+          <a href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}>{copy.shell.viewSite} <span aria-hidden="true">↗</span></a>
           {userEmail && <span class="admin-shell-email">{userEmail}</span>}
-          <button class="admin-button" type="button" data-sign-out>Sign out</button>
+          <button class="admin-button" type="button" data-sign-out>{copy.shell.signOut}</button>
           <p class="admin-form-error" data-sign-out-error role="alert"></p>
         </div>
       </Container>
@@ -55,6 +67,8 @@ const links = [
   import { authClient } from '../../lib/auth-client';
   import { confirmUi } from '../../lib/ui-dialog';
 
+  const shell = document.querySelector<HTMLElement>('.admin-shell');
+  const copy = shell?.dataset ?? {};
   const opener = document.querySelector<HTMLButtonElement>('[data-nav-open]');
   const dialog = document.querySelector<HTMLDialogElement>('.admin-mobile-nav');
   opener?.addEventListener('click', () => {
@@ -78,10 +92,10 @@ const links = [
       if (button.disabled) return;
       button.focus();
       const confirmed = await confirmUi({
-        title: 'Sign out?',
-        message: 'You will need to sign in again to access the admin area.',
-        cancelLabel: 'Cancel',
-        confirmLabel: 'Sign out',
+        title: copy.copySignOutTitle ?? 'Sign out?',
+        message: copy.copySignOutConfirm ?? '',
+        cancelLabel: copy.copyCancel ?? 'Cancel',
+        confirmLabel: copy.copySignOut ?? 'Sign out',
       });
       if (!confirmed || button.disabled) return;
       button.disabled = true;
@@ -90,9 +104,9 @@ const links = [
       try {
         const result = await authClient.signOut();
         if (result.error) throw result.error;
-        window.location.assign(document.querySelector<HTMLElement>('.admin-shell')?.dataset.adminPath ?? '/admin');
+        window.location.assign(shell?.dataset.adminPath ?? '/admin');
       } catch {
-        if (message) message.textContent = 'Unable to sign out. Please try again.';
+        if (message) message.textContent = copy.copySignOutFailed ?? 'Unable to sign out. Please try again.';
         button.disabled = false;
       }
     });
