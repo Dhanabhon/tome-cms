@@ -393,7 +393,7 @@ async function validateBackup(output: string, config: UpdaterConfig, application
   const directory = resolve(root, tail);
   if (relative(root, directory).startsWith(`..${sep}`) || await realpath(directory) !== directory ||
     !(await lstat(directory)).isDirectory()) throw new Error('Unsafe backup directory');
-  const file = await open(join(directory, 'manifest.json'), constants.O_RDONLY | constants.O_NOFOLLOW);
+  const file = await open(join(directory, 'manifest.json'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   let bytes: Buffer;
   try {
     const metadata = await file.stat();
@@ -419,7 +419,7 @@ async function verifyBackupFile(directory: string, relativePath: string, checksu
   if (!tail || tail === '..' || tail.startsWith(`..${sep}`) || isAbsolute(tail) || await realpath(path) !== path) {
     throw new Error('Unsafe backup file');
   }
-  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const metadata = await file.stat();
     if (!metadata.isFile() || !Number.isSafeInteger(metadata.size) || metadata.size < 1 ||
