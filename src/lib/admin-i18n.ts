@@ -1,3 +1,4 @@
+import { THEME_LABELS } from './theme';
 import type { PostLocale } from '../types/cms';
 
 /**
@@ -226,10 +227,10 @@ const en = {
     subheading: 'Your name, avatar, and author biography.',
   },
   theme: {
-    group: 'Theme',
-    system: 'System',
-    light: 'Light',
-    dark: 'Dark',
+    group: THEME_LABELS.en.group,
+    system: THEME_LABELS.en.system,
+    light: THEME_LABELS.en.light,
+    dark: THEME_LABELS.en.dark,
     adminLabel: 'Admin theme',
     adminHint: 'Applies to the admin on this device only.',
     siteLabel: 'Site theme',
@@ -742,10 +743,10 @@ const th: typeof en = {
     subheading: 'ชื่อ รูปโปรไฟล์ และประวัติผู้เขียนของคุณ',
   },
   theme: {
-    group: 'ธีม',
-    system: 'ตามระบบ',
-    light: 'สว่าง',
-    dark: 'มืด',
+    group: THEME_LABELS.th.group,
+    system: THEME_LABELS.th.system,
+    light: THEME_LABELS.th.light,
+    dark: THEME_LABELS.th.dark,
     adminLabel: 'ธีมหน้าผู้ดูแล',
     adminHint: 'มีผลกับหน้าผู้ดูแลบนอุปกรณ์นี้เท่านั้น',
     siteLabel: 'ธีมของเว็บไซต์',
