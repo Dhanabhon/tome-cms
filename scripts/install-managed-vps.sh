@@ -80,6 +80,58 @@ function cleanupCommand(name, args) {
   return !result.error && result.status === 0;
 }
 
+function probeIdentity(name, args) {
+  return spawnSync(executables[name], args, { cwd: source, env: childEnv, encoding: 'utf8', timeout: 5_000, maxBuffer: 64 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function inspectServiceGroup() {
+  const result = probeIdentity('getent', ['group', 'tomecms-updater']);
+  if (!result.error && result.status === 2 && !result.stdout.trim()) return { state: 'absent' };
+  if (result.error || result.status !== 0) return { state: 'unproven' };
+  const lines = result.stdout.trim().split(/\r?\n/);
+  const fields = lines.length === 1 ? lines[0].split(':') : [];
+  const gid = fields[2];
+  if (fields.length !== 4 || fields[0] !== 'tomecms-updater' || !/^[1-9]\d*$/.test(gid) ||
+      !Number.isSafeInteger(Number(gid)) || fields[3] !== '') return { state: 'unproven' };
+  return { state: 'proven', gid };
+}
+
+function inspectServiceUser() {
+  const result = probeIdentity('getent', ['passwd', 'tomecms-updater']);
+  if (!result.error && result.status === 2 && !result.stdout.trim()) return { state: 'absent' };
+  if (result.error || result.status !== 0) return { state: 'unproven' };
+  const lines = result.stdout.trim().split(/\r?\n/);
+  const fields = lines.length === 1 ? lines[0].split(':') : [];
+  const group = inspectServiceGroup();
+  const primary = probeIdentity('id', ['-g', 'tomecms-updater']);
+  if (fields.length !== 7 || fields[0] !== 'tomecms-updater' || !/^[1-9]\d*$/.test(fields[2]) ||
+      !Number.isSafeInteger(Number(fields[2])) || group.state !== 'proven' || fields[3] !== group.gid ||
+      fields[5] !== '/nonexistent' || fields[6] !== '/usr/sbin/nologin' || primary.error || primary.status !== 0 ||
+      primary.stdout.trim() !== group.gid) return { state: 'unproven' };
+  return { state: 'proven' };
+}
+
+function recordPartialIdentity(kind) {
+  const identity = kind === 'group' ? inspectServiceGroup() : inspectServiceUser();
+  if (identity.state === 'proven') {
+    if (kind === 'group') createdGroup = true;
+    else createdUser = true;
+  } else if (identity.state !== 'absent') {
+    console.error(`Manual rollback required: the tomecms-updater ${kind} could not be proven safe to remove.`);
+  }
+}
+
+function createServiceIdentity(kind, command, args) {
+  try {
+    run(command, args, prefix ? 1_000 : 30_000);
+    if (kind === 'group') createdGroup = true;
+    else createdUser = true;
+  } catch (error) {
+    recordPartialIdentity(kind);
+    throw error;
+  }
+}
+
 function rememberSecrets(values) {
   const secrets = Object.entries(values).filter(([key, value]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && value).map(([, value]) => value);
   const containerDatabase = new URL(values.DATABASE_URL);
@@ -373,10 +425,8 @@ async function main() {
   const inventory = JSON.parse(runContainer([], 'inventory', ['--rm', '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--entrypoint', 'node', image,
     '--import', 'tsx', '--input-type=module', '-e', "import { migrations } from '/app/src/server/db/migrator.ts'; process.stdout.write(JSON.stringify(Object.keys(migrations)));" ]));
   if (!Array.isArray(inventory) || inventory.at(-1) !== compatibility.targetMigration) throw new Error('Target image migration inventory mismatch.');
-  run('groupadd', ['--system', 'tomecms-updater']);
-  createdGroup = true;
-  run('useradd', ['--system', '--gid', 'tomecms-updater', '--groups', 'docker', '--home-dir', '/nonexistent', '--no-create-home', '--shell', '/usr/sbin/nologin', 'tomecms-updater']);
-  createdUser = true;
+  createServiceIdentity('group', 'groupadd', ['--system', 'tomecms-updater']);
+  createServiceIdentity('user', 'useradd', ['--system', '--gid', 'tomecms-updater', '--groups', 'docker', '--home-dir', '/nonexistent', '--no-create-home', '--shell', '/usr/sbin/nologin', 'tomecms-updater']);
   const gid = run('id', ['-g', 'tomecms-updater']);
   if (!/^[1-9]\d*$/.test(gid) || !Number.isSafeInteger(Number(gid))) throw new Error('Invalid updater group ID.');
   values.TOME_CMS_UPDATER_GID = gid;
@@ -439,8 +489,9 @@ catch (error) {
     }
     for (const path of createdDirectories.reverse()) await rmdir(path).catch(() => {});
     const userRemoved = !createdUser || cleanupCommand('userdel', ['tomecms-updater']);
-    if (!userRemoved) console.error('Installer rollback could not remove the tomecms-updater user.');
-    if (createdGroup && (!userRemoved || !cleanupCommand('groupdel', ['tomecms-updater']))) console.error('Installer rollback could not remove the tomecms-updater group.');
+    if (!userRemoved) console.error('Manual rollback required: installer could not remove the tomecms-updater user.');
+    if (createdGroup && !userRemoved) console.error('Manual rollback required: the tomecms-updater group was retained because its user could not be removed.');
+    else if (createdGroup && !cleanupCommand('groupdel', ['tomecms-updater'])) console.error('Manual rollback required: installer could not remove the tomecms-updater group.');
   }
   if (temporary) {
     // This exact directory was exclusively created above and contains only the fetched manifest/build output.
