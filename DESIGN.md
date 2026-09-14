@@ -129,7 +129,7 @@ value below.
 | #61665F | `--color-muted` | secondary text |
 | #181D19 | `--color-hero`, `--color-code-bg` | surfaces that are dark on purpose |
 | #ACB3A8 | `--color-on-dark-muted` | secondary text on those |
-| #2E7D5B | `--color-accent`, `--color-green` | master green: logo fold, primary actions and positive state |
+| #2E7D5B | `--color-accent`, `--color-green` | master green: the fold in the logo and the favicon, primary actions and positive state |
 | #256B4E | `--color-accent-hover`, `--color-link`, `--color-focus` | deep green: hover, links, icons and focus rings |
 | #B9D8C8 | `--color-focus-soft` | selection and soft focus washes |
 | #69B98E | dark-mode accent, link, focus and positive state | light green that remains readable on night |
