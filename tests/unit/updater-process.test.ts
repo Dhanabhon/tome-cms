@@ -80,6 +80,24 @@ test('redacts every representation before applying the diagnostic boundary', () 
   }
 });
 
+test('fails closed when a command capture ends inside a secret representation', () => {
+  const rawSecret = 'boundary-secret-value-'.repeat(196).slice(0, 4 * 1024);
+  const encodedSecret = 'encoded boundary secret+/value?&='.repeat(20);
+  const cases = [
+    ['raw', rawSecret, rawSecret],
+    ['URL encoded', encodedSecret, encodeURIComponent(encodedSecret)],
+  ] as const;
+
+  for (const [label, secret, representation] of cases) {
+    const chunk = `${representation}\n`;
+    const source = chunk.repeat(Math.ceil((32 * 1024) / Buffer.byteLength(chunk)) + 1);
+    const captured = Buffer.from(source).subarray(0, 32 * 1024).toString('utf8');
+    assert.equal(Buffer.byteLength(captured), 32 * 1024, label);
+    assert.equal(captured.endsWith('\n'), false, `${label} must end inside a representation`);
+    assert.equal(redactDiagnosticText(captured, [secret]), null, label);
+  }
+});
+
 test('accepts only canonical literal managed secret assignments', () => {
   const runtimeSecret = 'runtime-secret-value';
   const configuredSecret = 'configured-secret-value';

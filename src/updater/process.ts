@@ -126,7 +126,8 @@ export function redactDiagnosticText(
   try {
     if (!Number.isSafeInteger(limit) || limit < 1 || secrets.length === 0 || secrets.length > 64 ||
       secrets.some((secret) => Buffer.byteLength(secret) < 8 || Buffer.byteLength(secret) > 4096)) return null;
-    const text = boundedString(String(value ?? ''), outputLimit);
+    const text = String(value ?? '');
+    if (Buffer.byteLength(text) >= outputLimit) return null;
     const redactions = [...new Set(secrets.flatMap(secretRepresentations))]
       .sort((left, right) => right.length - left.length);
     if (redactions.some((redaction) => redaction.length === 0 || '[redacted]'.includes(redaction.toLowerCase())) ||
