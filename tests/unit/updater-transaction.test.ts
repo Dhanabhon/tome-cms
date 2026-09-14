@@ -256,6 +256,32 @@ test('unsafe diagnostic secrets and logger errors cannot interrupt rollback', as
   }
 });
 
+test('capture-capped diagnostics fail closed without interrupting rollback', async (t) => {
+  const f = await fixture(t);
+  const secret = 'boundary-secret-value-'.repeat(196).slice(0, 4 * 1024);
+  const captured = Buffer.from(`${secret}\n`.repeat(9)).subarray(0, 32 * 1024).toString('utf8');
+  assert.equal(Buffer.byteLength(captured), 32 * 1024);
+  await writeFile(f.input.config.environmentFile, `TOME_CMS_INSTALL_TOKEN='${secret}'\n`);
+  const run = f.input.dependencies.runCommand;
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    const result = await run(executable, args, options);
+    return args.includes('db:migrate')
+      ? { code: 1, stdout: captured, stderr: 'migration command failed' }
+      : result;
+  };
+  const messages: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { messages.push(String(message)); });
+
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.ok(f.events.includes('start-previous'));
+  assert.equal(messages.length, 1);
+  const entry = JSON.parse(messages[0]!);
+  assert.match(entry.stdout, /omitted/i);
+  assert.match(entry.stderr, /omitted/i);
+  assert.equal(messages[0]!.includes(secret.slice(0, 128)), false);
+});
+
 test('rejects interpolated managed secrets before running Docker', async (t) => {
   const f = await fixture(t);
   await writeFile(f.input.config.environmentFile, 'TOME_CMS_INSTALL_TOKEN=${RUNTIME_SECRET}\n');
