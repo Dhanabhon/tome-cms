@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -21,6 +22,26 @@ const previous: InstalledState = {
 const targetDigest = `sha256:${'b'.repeat(64)}`;
 const targetImage = `${OFFICIAL_IMAGE_REPOSITORY}@${targetDigest}`;
 const imageEnv = (digest: string) => `TOME_CMS_APP_IMAGE='${OFFICIAL_IMAGE_REPOSITORY}@${digest}'\n`;
+
+function makeFifo(path: string): void {
+  const result = spawnSync('mkfifo', [path], { encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(`Could not create test FIFO: ${result.stderr}`);
+}
+
+async function resolveWithoutFifoWriter<T>(operation: Promise<T>, fifo: string): Promise<T | null> {
+  const blocked = Symbol('blocked');
+  let timer: NodeJS.Timeout | undefined;
+  const result = await Promise.race([
+    operation,
+    new Promise<typeof blocked>((resolveBlocked) => { timer = setTimeout(() => resolveBlocked(blocked), 1_000); }),
+  ]);
+  if (timer) clearTimeout(timer);
+  if (result !== blocked) return result;
+  const handle = await open(fifo, constants.O_RDWR | constants.O_NONBLOCK);
+  await handle.close();
+  await operation;
+  return null;
+}
 
 async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
   const root = await mkdtemp(join(tmpdir(), 'tomecms-transaction-'));
@@ -561,6 +582,24 @@ for (const change of ['missing database', 'database checksum', 'missing object',
     assert.equal(await readFile(f.input.config.imageEnvironmentFile, 'utf8'), imageEnv(previous.imageDigest));
     assert.equal(f.events.includes('migrate'), false);
     assert.equal(f.events.includes('start-target'), false);
+  });
+}
+
+for (const fifo of ['manifest', 'database'] as const) {
+  test(`rejects a ${fifo} FIFO without waiting for a writer`, async (t) => {
+    const f = await fixture(t);
+    const path = join(f.backup, fifo === 'manifest' ? 'manifest.json' : 'database.dump');
+    await rm(path);
+    makeFifo(path);
+
+    const job = await resolveWithoutFifoWriter(applyUpdate(f.input), path);
+    assert.ok(job, `${fifo} FIFO blocked backup validation`);
+    assert.equal(job.phase, 'rolled_back');
+    assert.equal(job.backupDirectory, null);
+    assert.equal(await readFile(f.input.config.imageEnvironmentFile, 'utf8'), imageEnv(previous.imageDigest));
+    assert.equal(f.events.includes('migrate'), false);
+    assert.equal(f.events.includes('start-target'), false);
+    assert.equal(f.events.includes('start-previous'), true);
   });
 }
 
