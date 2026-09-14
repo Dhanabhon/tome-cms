@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../../lib/admin-i18n';
 import { adminLoginPath } from '../../../lib/admin';
 import { requireInstalledOwner } from '../../../server/auth/session';
 import { categoryIdsForPost, listCategories } from '../../../server/content/categories';
@@ -16,22 +17,23 @@ let editorPost: Omit<Post, 'translation_group_id'> | null = null;
 let translations: PostTranslationSummary[] = [];
 let categories: PostCategory[] = [];
 let initialCategoryIds: string[] = [];
-let errorMessage: string | null = null;
+let errorKey: 'editorUnavailable' | 'postNotFound' | null = null;
+let serverMessage: string | null = null;
 let settings: SiteSettings | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
 
 try {
   if (!id.success) {
     Astro.response.status = 404;
-    errorMessage = 'Post not found.';
+    errorKey = 'postNotFound';
   } else {
     settings = await getSiteSettings();
     const current = await requireInstalledOwner(Astro.request.headers);
-    if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, 'Post not found.');
+    if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, '');
     post = await getPost(current.user.id, id.data);
     if (!post) {
       Astro.response.status = 404;
-      errorMessage = 'Post not found.';
+      errorKey = 'postNotFound';
     } else {
       [categories, initialCategoryIds, translations] = await Promise.all([
         listCategories(current.user.id),
@@ -49,16 +51,20 @@ try {
   } else {
     console.error('Post editor query failed.');
     Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
-    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The editor is temporarily unavailable.';
+    if (error instanceof HttpError && error.status === 404) { if (error.message) serverMessage = error.message; else errorKey = 'postNotFound'; }
+    else errorKey = 'editorUnavailable';
   }
 }
+
+const copy = adminCopy(settings?.default_locale);
+const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
       <Editor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
-        <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+        <div class="admin-editor-fallback" slot="fallback" role="status">{copy.preview.loadingEditor}</div>
       </Editor>
     ) : (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>

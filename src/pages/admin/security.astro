@@ -3,11 +3,12 @@ import SecurityManager from '../../components/admin/SecurityManager';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { adminHref } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
 import { requireInstalledOwner } from '../../server/auth/session';
 import { getSiteSettings } from '../../server/content/settings';
 
 let authenticated = false;
-let errorMessage = '';
+let failed = false;
 const settings = await getSiteSettings();
 const adminPath = settings?.admin_path ?? '/admin';
 try {
@@ -16,29 +17,33 @@ try {
 } catch (error) {
   if (!(error instanceof Error) || !/authentication required|owner access/i.test(error.message)) {
     console.error('Security page failed to load.');
-    errorMessage = 'Security settings are temporarily unavailable.';
+    failed = true;
   }
 }
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = failed ? copy.security.unavailable : '';
 ---
 
-<AdminLayout title="Security">
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.security.heading}>
   <main class="security-page">
     <header class="security-page__head">
-      <a href={adminHref({ admin_path: adminPath })}>← Back to Admin</a>
+      <a href={adminHref({ admin_path: adminPath })}>← {copy.security.backToAdmin}</a>
       <div>
-        <p class="security-eyebrow">Owner security</p>
-        <h1>Passkeys and recovery</h1>
-        <p>Add a credential on another device and keep a current recovery-code set offline.</p>
+        <p class="security-eyebrow">{copy.security.eyebrow}</p>
+        <h1>{copy.security.pageHeading}</h1>
+        <p>{copy.security.pageHint}</p>
       </div>
     </header>
     {errorMessage ? (
       <p class="admin-alert" role="alert">{errorMessage}</p>
     ) : authenticated ? (
-      <SecurityManager client:only="react" />
+      <SecurityManager client:only="react" ownerLocale={ownerLocale} />
     ) : (
       <section class="security-card">
-        <h2>Verify the TomeCMS owner</h2>
-        <PasskeySignIn client:only="react" returnTo={adminHref({ admin_path: adminPath }, '/security')} />
+        <h2>{copy.security.verifyOwner}</h2>
+        <PasskeySignIn client:only="react" ownerLocale={ownerLocale} returnTo={adminHref({ admin_path: adminPath }, '/security')} />
       </section>
     )}
   </main>

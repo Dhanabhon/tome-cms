@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import PageEditor from '../../../components/admin/PageEditor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../../lib/admin-i18n';
 import { adminLoginPath } from '../../../lib/admin';
 import { isPostLocale } from '../../../lib/i18n';
 import { requireInstalledOwner } from '../../../server/auth/session';
@@ -11,7 +12,8 @@ import { getSiteSettings, type SiteSettings } from '../../../server/content/sett
 import { HttpError } from '../../../server/http/errors';
 import type { PageLocale, PageTranslationSummary } from '../../../types/cms';
 
-let errorMessage: string | null = null;
+let errorKey: 'editorUnavailable' | 'pageNotFound' | null = null;
+let serverMessage: string | null = null;
 let locale: PageLocale | null = null;
 let sourcePage: { id: string } | undefined;
 let translations: PageTranslationSummary[] = [];
@@ -29,14 +31,14 @@ try {
     locale = settings.default_locale;
   } else if (!parsedSourcePageId.success || !isPostLocale(targetLocale)) {
     Astro.response.status = 404;
-    errorMessage = 'Page not found.';
+    errorKey = 'pageNotFound';
   } else {
     const source = await getPage(current.user.id, parsedSourcePageId.data);
     const editions = source ? await listPageTranslations(current.user.id, source.translation_group_id) : [];
     const existing = editions.find((edition) => edition.locale === targetLocale);
     if (!source || source.locale === targetLocale || existing) {
       Astro.response.status = 404;
-      errorMessage = 'Page not found.';
+      errorKey = 'pageNotFound';
     } else {
       locale = targetLocale;
       sourcePage = { id: source.id };
@@ -50,18 +52,22 @@ try {
   } else {
     console.error('New page loading failed.');
     Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
-    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The editor is temporarily unavailable.';
+    if (error instanceof HttpError && error.status === 404) serverMessage = error.message;
+    else errorKey = 'editorUnavailable';
   }
 }
+
+const copy = adminCopy(settings?.default_locale);
+const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
-<AdminLayout adminPath={settings?.admin_path ?? '/admin'} title="New page">
+<AdminLayout adminPath={settings?.admin_path ?? '/admin'} lang={settings?.default_locale ?? 'en'} title={copy.preview.newPage}>
   <main>
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
     ) : locale ? (
       <PageEditor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
-        <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+        <div class="admin-editor-fallback" slot="fallback" role="status">{copy.preview.loadingEditor}</div>
       </PageEditor>
     ) : null}
   </main>

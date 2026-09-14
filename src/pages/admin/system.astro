@@ -2,6 +2,7 @@
 import AdminShell from '../../components/admin/AdminShell.astro';
 import UpdateManager from '../../components/admin/UpdateManager';
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../lib/admin-i18n';
 import { adminLoginPath } from '../../lib/admin';
 import { requireOwner } from '../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
@@ -9,13 +10,13 @@ import { HttpError } from '../../server/http/errors';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
-let errorMessage = '';
+let errorKey: 'notFound' | 'unavailable' | null = null;
 try {
   const current = await requireOwner(Astro.request.headers);
   settings = await getOwnerSettings(current.user.id);
   if (!settings) {
     Astro.response.status = 404;
-    errorMessage = 'System settings not found.';
+    errorKey = 'notFound';
   } else {
     userEmail = current.user.email;
   }
@@ -25,21 +26,25 @@ try {
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
   } else if (error instanceof HttpError && error.status === 403) {
     Astro.response.status = 404;
-    errorMessage = 'System settings not found.';
+    errorKey = 'notFound';
   } else {
     console.error('System page query failed.');
     Astro.response.status = 500;
-    errorMessage = 'The system settings are temporarily unavailable.';
+    errorKey = 'unavailable';
   }
 }
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.updates[errorKey] : null;
 ---
 
-<AdminLayout title="System updates">
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.updates.heading}>
   {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
     <AdminShell active="system" adminPath={settings.admin_path} locale={settings?.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
-        <header class="admin-page__head"><div><h1>System updates</h1><p>Keep TomeCMS current with verified stable releases.</p></div></header>
-        <UpdateManager client:load />
+        <header class="admin-page__head"><div><h1>{copy.updates.heading}</h1><p>{copy.updates.subheading}</p></div></header>
+        <UpdateManager client:load ownerLocale={ownerLocale} />
       </section>
     </AdminShell>
   )}

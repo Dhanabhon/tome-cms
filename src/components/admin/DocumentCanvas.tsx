@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   EditorBubble,
   EditorBubbleItem,
@@ -16,14 +18,17 @@ import {
   useEditor,
 } from 'novel';
 
+import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { promptUi } from '../../lib/ui-dialog';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
-import SlashCommands, { slashCommand } from './SlashCommands';
+import SlashCommands, { createSlashCommand } from './SlashCommands';
+import type { PostLocale } from '../../types/cms';
 
 interface DocumentCanvasProps {
   initialContent: JSONContent;
   onChange: (contentJson: JSONContent) => void;
+  ownerLocale?: PostLocale | null;
 }
 
 const editorImage = TiptapImage.extend({
@@ -45,21 +50,21 @@ const editorImage = TiptapImage.extend({
   HTMLAttributes: { class: 'rounded-lg' },
 });
 
-const extensions = [
+const buildExtensions = (copy: AdminCopy) => [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
     blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
     codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-ink p-5 font-mono text-sm text-white' } },
   }),
-  Placeholder.configure({ placeholder: "Type '/' for commands" }),
+  Placeholder.configure({ placeholder: copy.blocks.placeholder }),
   TiptapLink.configure({
     autolink: true,
     openOnClick: false,
     HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
   }),
   editorImage,
-  slashCommand,
+  createSlashCommand(copy),
 ];
 
 function normalizedLink(value: string): string | null {
@@ -73,7 +78,7 @@ function normalizedLink(value: string): string | null {
   }
 }
 
-function FormattingBubble() {
+function FormattingBubble({ copy }: { copy: AdminCopy }) {
   const { editor } = useEditor();
   if (!editor) return null;
 
@@ -83,11 +88,11 @@ function FormattingBubble() {
     text: string;
     run: (instance: EditorInstance) => void;
   }> = [
-    { active: editor.isActive('bold'), label: 'Bold', text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
-    { active: editor.isActive('italic'), label: 'Italic', text: 'I', run: (instance) => void instance.chain().focus().toggleItalic().run() },
+    { active: editor.isActive('bold'), label: copy.blocks.bold, text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
+    { active: editor.isActive('italic'), label: copy.blocks.italic, text: 'I', run: (instance) => void instance.chain().focus().toggleItalic().run() },
     {
       active: editor.isActive('link'),
-      label: 'Link',
+      label: copy.blocks.link,
       text: '↗',
       run: (instance) => {
         if (instance.isActive('link')) {
@@ -96,11 +101,11 @@ function FormattingBubble() {
         }
 
         void promptUi({
-          title: 'Add a link',
-          message: 'Paste an HTTP or HTTPS address.',
-          label: 'URL',
-          confirmLabel: 'Apply link',
-          validate: (value) => normalizedLink(value) ? null : 'Enter a valid HTTP or HTTPS URL.',
+          title: copy.blocks.linkTitle,
+          message: copy.blocks.linkHint,
+          label: copy.blocks.linkUrl,
+          confirmLabel: copy.blocks.applyLink,
+          validate: (value) => normalizedLink(value) ? null : copy.blocks.invalidLink,
         }).then((value) => {
           if (value === null) return;
           const href = normalizedLink(value);
@@ -108,7 +113,7 @@ function FormattingBubble() {
         });
       },
     },
-    { active: editor.isActive('code'), label: 'Inline code', text: '</>', run: (instance) => void instance.chain().focus().toggleCode().run() },
+    { active: editor.isActive('code'), label: copy.blocks.inlineCode, text: '</>', run: (instance) => void instance.chain().focus().toggleCode().run() },
   ];
 
   return (
@@ -129,7 +134,11 @@ function FormattingBubble() {
   );
 }
 
-export default function DocumentCanvas({ initialContent, onChange }: DocumentCanvasProps) {
+export default function DocumentCanvas({ initialContent, onChange, ownerLocale }: DocumentCanvasProps) {
+  const copy = adminCopy(ownerLocale);
+  // Rebuilding the extension list would reset the editor, so it is tied to the copy only.
+  const extensions = useMemo(() => buildExtensions(copy), [copy]);
+
   return (
     <EditorRoot>
       <EditorContent
@@ -146,9 +155,9 @@ export default function DocumentCanvas({ initialContent, onChange }: DocumentCan
         initialContent={initialContent}
         onUpdate={({ editor }) => onChange(editor.getJSON())}
       >
-        <SlashCommands />
-        <FormattingBubble />
-        <BlockInsertMenu />
+        <SlashCommands copy={copy} />
+        <FormattingBubble copy={copy} />
+        <BlockInsertMenu copy={copy} />
       </EditorContent>
     </EditorRoot>
   );

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import PostArticle from '../../../components/blog/PostArticle.astro';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../../lib/admin-i18n';
 import { adminHref } from '../../../lib/admin';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import { requireInstalledOwner } from '../../../server/auth/session';
@@ -14,7 +15,8 @@ import type { Post, PublicAuthorProfile, SiteSettings } from '../../../types/cms
 let post: Post | null = null;
 let settings: SiteSettings | null = null;
 let profile: PublicAuthorProfile | null = null;
-let errorMessage: string | null = null;
+let errorKey: 'postNotFound' | 'signInToPreviewPost' | 'previewUnavailable' | null = null;
+let serverMessage: string | null = null;
 let adminPath = '/admin';
 const id = z.uuid().safeParse(Astro.params.id);
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -22,16 +24,16 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
 try {
   if (!id.success) {
     Astro.response.status = 404;
-    errorMessage = 'Post not found.';
+    errorKey = 'postNotFound';
   } else {
     const current = await requireInstalledOwner(Astro.request.headers);
     const storedSettings = await getSiteSettings();
-    if (!storedSettings || storedSettings.owner_id !== current.user.id) throw new HttpError(404, 'Post not found.');
+    if (!storedSettings || storedSettings.owner_id !== current.user.id) throw new HttpError(404, '');
     adminPath = storedSettings.admin_path;
     post = await getPost(current.user.id, id.data);
     if (!post) {
       Astro.response.status = 404;
-      errorMessage = 'Post not found.';
+      errorKey = 'postNotFound';
     } else {
       settings = {
         ...storedSettings,
@@ -49,24 +51,27 @@ try {
 } catch (error) {
   if (error instanceof HttpError && error.status === 401) {
     Astro.response.status = 401;
-    errorMessage = 'Sign in to preview this post.';
+    errorKey = 'signInToPreviewPost';
   } else {
     console.error('Post preview query failed.');
     Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
-    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The preview is temporarily unavailable.';
+    if (error instanceof HttpError && error.status === 404) { if (error.message) serverMessage = error.message; else errorKey = 'postNotFound'; }
+    else errorKey = 'previewUnavailable';
   }
 }
 
 const adminSettings = { admin_path: adminPath };
+const copy = adminCopy(settings?.default_locale);
+const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
-<AdminLayout adminPath={adminPath} lang={post?.locale} title={post ? `Preview: ${post.title}` : 'Draft preview'}>
+<AdminLayout adminPath={adminPath} lang={post?.locale} title={post ? `${copy.preview.previewPrefix}: ${post.title}` : copy.preview.draftPreview}>
   <main>
     {errorMessage ? <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p> : post && settings ? (
       <>
         <div class="admin-preview-bar">
-          <strong>Draft preview</strong>
-          <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, `/edit/${post.id}`)}>Edit post</a>
+          <strong>{copy.preview.draftPreview}</strong>
+          <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, `/edit/${post.id}`)}>{copy.preview.editPost}</a>
         </div>
         <PostArticle post={post} preview profile={profile} settings={settings} />
       </>

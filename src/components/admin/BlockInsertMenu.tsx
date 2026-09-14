@@ -1,12 +1,13 @@
 import { useEditor } from 'novel';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
+import type { AdminCopy } from '../../lib/admin-i18n';
 import type { MediaAsset } from '../../types/cms';
 import MediaPicker from './MediaPicker';
 
 const MENU_ID = 'block-insert-menu';
 
-export default function BlockInsertMenu() {
+export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   const { editor } = useEditor();
   const root = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -93,13 +94,13 @@ export default function BlockInsertMenu() {
   };
 
   const blockActions = [
-    { label: 'Text', run: () => editor.chain().focus().setParagraph().run() },
-    { label: 'Heading 1', run: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
-    { label: 'Heading 2', run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
-    { label: 'Heading 3', run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
-    { label: 'Bullet list', run: () => editor.chain().focus().toggleBulletList().run() },
-    { label: 'Quote', run: () => editor.chain().focus().toggleBlockquote().run() },
-    { label: 'Code block', run: () => editor.chain().focus().toggleCodeBlock().run() },
+    { label: copy.blocks.text, run: () => editor.chain().focus().setParagraph().run() },
+    { label: copy.blocks.heading1, run: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+    { label: copy.blocks.heading2, run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+    { label: copy.blocks.heading3, run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+    { label: copy.blocks.bulletList, run: () => editor.chain().focus().toggleBulletList().run() },
+    { label: copy.blocks.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
+    { label: copy.blocks.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() },
   ] as const;
 
   const openPicker = () => {
@@ -108,7 +109,7 @@ export default function BlockInsertMenu() {
     setPickerOpen(true);
   };
 
-  const actions = [...blockActions, { label: 'Image', run: openPicker }];
+  const actions = [...blockActions, { label: copy.blocks.image, run: openPicker }];
 
   const runAction = (index: number) => {
     actions[index]?.run();
@@ -160,7 +161,7 @@ export default function BlockInsertMenu() {
             aria-controls={MENU_ID}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            aria-label="Add block"
+            aria-label={copy.blocks.addBlock}
             className="block-insert-trigger"
             onClick={() => {
               setActiveIndex(0);
@@ -173,7 +174,7 @@ export default function BlockInsertMenu() {
           </button>
           {menuOpen && (
             <div
-              aria-label="Insert block"
+              aria-label={copy.blocks.insertBlock}
               className="block-insert-menu"
               id={MENU_ID}
               ref={menu}

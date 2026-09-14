@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import PageEditor from '../../../../components/admin/PageEditor';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../../../lib/admin-i18n';
 import { adminLoginPath } from '../../../../lib/admin';
 import { requireInstalledOwner } from '../../../../server/auth/session';
 import { getPage, listPageTranslations } from '../../../../server/content/pages';
@@ -13,22 +14,23 @@ import type { Page, PageTranslationSummary } from '../../../../types/cms';
 let page: Page | null = null;
 let editorPage: Omit<Page, 'translation_group_id'> | null = null;
 let translations: PageTranslationSummary[] = [];
-let errorMessage: string | null = null;
+let errorKey: 'editorUnavailable' | 'pageNotFound' | null = null;
+let serverMessage: string | null = null;
 let settings: SiteSettings | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
 
 try {
   if (!id.success) {
     Astro.response.status = 404;
-    errorMessage = 'Page not found.';
+    errorKey = 'pageNotFound';
   } else {
     settings = await getSiteSettings();
     const current = await requireInstalledOwner(Astro.request.headers);
-    if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, 'Page not found.');
+    if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, '');
     page = await getPage(current.user.id, id.data);
     if (!page) {
       Astro.response.status = 404;
-      errorMessage = 'Page not found.';
+      errorKey = 'pageNotFound';
     } else {
       translations = await listPageTranslations(current.user.id, page.translation_group_id);
       const { translation_group_id: _translationGroupId, ...safePage } = page;
@@ -42,16 +44,20 @@ try {
   } else {
     console.error('Page editor query failed.');
     Astro.response.status = error instanceof HttpError && error.status === 404 ? 404 : 500;
-    errorMessage = error instanceof HttpError && error.status === 404 ? error.message : 'The editor is temporarily unavailable.';
+    if (error instanceof HttpError && error.status === 404) { if (error.message) serverMessage = error.message; else errorKey = 'pageNotFound'; }
+    else errorKey = 'editorUnavailable';
   }
 }
+
+const copy = adminCopy(settings?.default_locale);
+const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={page?.title ?? 'Edit page'}>
   <main>
     {page && editorPage ? (
       <PageEditor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
-        <div class="admin-editor-fallback" slot="fallback" role="status">Loading editor…</div>
+        <div class="admin-editor-fallback" slot="fallback" role="status">{copy.preview.loadingEditor}</div>
       </PageEditor>
     ) : (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
