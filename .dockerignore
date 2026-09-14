@@ -12,6 +12,7 @@ tests
 test-results
 playwright-report
 docs
+public/brand/*brand-kit*
 supabase
 .superpowers
 .planning
