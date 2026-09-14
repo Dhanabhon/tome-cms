@@ -62,7 +62,7 @@ export default function SlashCommands({ copy }: { copy: AdminCopy }) {
   const items = useMemo(() => commandItems(copy), [copy]);
 
   return (
-    <EditorCommand className="max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-white p-1.5 font-sans">
+    <EditorCommand className="max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-1.5 font-sans">
       <EditorCommandEmpty className="px-3 py-5 text-center text-sm text-muted">{copy.blocks.noCommands}</EditorCommandEmpty>
       <EditorCommandList>
         {items.map((item) => (

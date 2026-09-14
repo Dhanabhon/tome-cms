@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 /**
@@ -72,6 +72,11 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-on-dark-muted', 'color-hero', 4.5],
   ['color-on-dark', 'color-code-bg', 4.5],
   ['color-on-dark-muted', 'color-code-bg', 4.5],
+  // The auth panel inks its text in a brand tone rather than --color-ink. Left out
+  // of the first version of this list, which is how it reached a screenshot as dark
+  // text on a dark panel.
+  ['color-auth-ink', 'color-paper', 4.5],
+  ['color-auth-ink', 'color-paper-2', 4.5],
 ];
 
 for (const [label, selector] of [['light', ':root {'], ['dark', ":root[data-theme='dark'] {"]] as const) {
@@ -99,4 +104,23 @@ test('the two themes are genuinely different, not a copy', () => {
   assert.ok(paperLight && paperDark);
   // Page background must actually invert, or "dark mode" is only a label.
   assert.ok(paperLight[0] > 0.8 && paperDark[0] < 0.3, 'the page background must invert between themes');
+});
+
+test('no source file paints a literal white surface', () => {
+  // bg-white is never right: --color-surface means the same thing in light and
+  // survives the theme flip, and a literal left the public homepage showing a
+  // white card on a dark page. text-white is allowed, but only where the surface
+  // underneath is dark in both themes, so it is checked by eye, not here.
+  const offenders: string[] = [];
+  const walk = (dir: URL) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+      if (entry.isDirectory()) walk(child);
+      else if (/\.(astro|tsx|css)$/.test(entry.name) && readFileSync(child, 'utf8').includes('bg-white')) {
+        offenders.push(entry.name);
+      }
+    }
+  };
+  walk(new URL('../../src/', import.meta.url));
+  assert.deepEqual(offenders, [], 'use bg-surface instead of bg-white');
 });
