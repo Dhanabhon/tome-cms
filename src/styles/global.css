@@ -1175,8 +1175,12 @@ body {
 .navigation-missing button { width: 100%; padding-block: var(--space-xs); color: var(--color-muted); text-align: start; overflow-wrap: anywhere; cursor: not-allowed; }
 .navigation-dialog__actions { justify-content: end; }
 @media (min-width: 80rem) {
-  .navigation-item { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+  /* start, not center: the actions belong to the label field, and centring them
+   * against the whole block left them floating 37px below it, aligned to nothing. */
+  .navigation-item { grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; }
   .navigation-item__actions { grid-column: 3; }
+  /* A menu label is a few words. Left to stretch it reached 1000px on a wide screen. */
+  .navigation-item .admin-control { max-width: 32rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .navigation-manager *, .navigation-manager *::before { transition: none !important; animation: none !important; }
