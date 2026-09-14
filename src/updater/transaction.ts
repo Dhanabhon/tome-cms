@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, readFile, realpath, rename, unlink } from 'node:fs/promises';
-import { dirname, join, posix, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
+import { parseBackupManifest } from '../update/backup.js';
 import { compareStableVersions, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
 import {
@@ -403,11 +404,32 @@ async function validateBackup(output: string, config: UpdaterConfig, application
     await file.close();
   }
   if (createHash('sha256').update(bytes).digest('hex') !== receipt.manifestSha256) throw new Error('Backup manifest hash mismatch');
-  const manifest = JSON.parse(bytes.toString('utf8'));
-  if (manifest?.format !== 'tomecms-backup' || manifest?.version !== 1 || manifest?.applicationVersion !== applicationVersion ||
-    typeof manifest?.createdAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(manifest.createdAt) ||
-    !Number.isFinite(Date.parse(manifest.createdAt))) throw new Error('Invalid backup manifest');
+  const manifest = parseBackupManifest(JSON.parse(bytes.toString('utf8')));
+  if (manifest.applicationVersion !== applicationVersion) throw new Error('Invalid backup manifest');
+  await verifyBackupFile(directory, manifest.database.file, manifest.database.sha256);
+  for (const object of manifest.objects) {
+    await verifyBackupFile(directory, join('objects', ...object.key.split('/')), object.sha256, object.sizeBytes);
+  }
   return { backupDirectory: join(config.backupDirectory, tail), backupCreatedAt: manifest.createdAt };
+}
+
+async function verifyBackupFile(directory: string, relativePath: string, checksum: string, size?: number): Promise<void> {
+  const path = resolve(directory, relativePath);
+  const tail = relative(directory, path);
+  if (!tail || tail === '..' || tail.startsWith(`..${sep}`) || isAbsolute(tail) || await realpath(path) !== path) {
+    throw new Error('Unsafe backup file');
+  }
+  const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const metadata = await file.stat();
+    if (!metadata.isFile() || !Number.isSafeInteger(metadata.size) || metadata.size < 1 ||
+      (size !== undefined && metadata.size !== size)) throw new Error('Invalid backup file');
+    const hash = createHash('sha256');
+    for await (const chunk of file.createReadStream({ autoClose: false })) hash.update(chunk);
+    if (hash.digest('hex') !== checksum) throw new Error('Backup file checksum mismatch');
+  } finally {
+    await file.close();
+  }
 }
 
 function imageEnvironment(digest: string): string {

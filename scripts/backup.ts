@@ -8,37 +8,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { sql } from 'kysely';
-import { z } from 'zod';
 
 import { isTomeObjectKey } from '../src/server/media/keys';
 import type { ServerEnv } from '../src/server/env';
+import { parseBackupManifest, type BackupManifest } from '../src/update/backup';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
-const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
-const count = z.number().int().nonnegative();
-
-export const backupManifestSchema = z.object({
-  format: z.literal('tomecms-backup'),
-  version: z.literal(1),
-  createdAt: z.iso.datetime({ offset: true }),
-  applicationVersion: z.string().min(1),
-  config: z.object({
-    publicUrl: z.url(),
-    database: z.string().min(1),
-    s3Endpoint: z.url(),
-    bucket: z.string().min(1),
-  }).strict(),
-  database: z.object({ file: z.literal('database.dump'), sha256 }).strict(),
-  records: z.object({ siteSettings: count, posts: count, pages: count, mediaItems: count }).strict(),
-  objects: z.array(z.object({
-    key: z.string().min(1),
-    contentType: z.string().min(1),
-    sizeBytes: count,
-    sha256,
-  }).strict()),
-}).strict();
-
-export type BackupManifest = z.infer<typeof backupManifestSchema>;
 
 export function safeBackupRoot(input: string, root = repository): string {
   if (!isAbsolute(input)) throw new Error('Backup output must be an absolute path outside the repository.');
@@ -223,19 +198,20 @@ async function main(): Promise<void> {
     recordCounts(),
     mirrorObjects(join(destination, 'objects')),
   ]);
-  const [packageJson] = await Promise.all([
-    readFile(join(repository, 'package.json'), 'utf8').then((value) => z.object({ version: z.string() }).parse(JSON.parse(value))),
-  ]);
+  const packageJson: unknown = JSON.parse(await readFile(join(repository, 'package.json'), 'utf8'));
+  if (!packageJson || typeof packageJson !== 'object' || Array.isArray(packageJson)) throw new Error('Invalid package version.');
+  const applicationVersion = (packageJson as Record<string, unknown>).version;
+  if (typeof applicationVersion !== 'string') throw new Error('Invalid package version.');
   if (!env) {
     const { getServerEnv } = await import('../src/server/env');
     env = getServerEnv();
   }
   const database = decodeURIComponent(new URL(env.DATABASE_URL).pathname.slice(1));
-  const manifest = backupManifestSchema.parse({
+  const manifest = parseBackupManifest({
     format: 'tomecms-backup',
     version: 1,
     createdAt: createdAt.toISOString(),
-    applicationVersion: packageJson.version,
+    applicationVersion,
     config: {
       publicUrl: env.TOME_CMS_PUBLIC_URL,
       database,

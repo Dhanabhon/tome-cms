@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 
-import { backupManifestSchema } from '../../scripts/backup.js';
+import { parseBackupManifest } from '../../src/update/backup.js';
 import { getUpdateInstallability } from '../../src/server/update/admin.js';
 import { getUpdaterStatus, requestUpdate, type UpdaterStatus } from '../../src/server/update/updater-client.js';
 import {
@@ -630,7 +630,7 @@ async function assertCompleteBackup(job: UpdateJob, version: string): Promise<vo
   assert.ok(job.backupDirectory);
   assert.match(basename(job.backupDirectory), /^tomecms-test-backup-[0-9]+$/);
   const manifestBytes = await readFile(join(job.backupDirectory, 'manifest.json'));
-  const manifest = backupManifestSchema.parse(JSON.parse(manifestBytes.toString('utf8')));
+  const manifest = parseBackupManifest(JSON.parse(manifestBytes.toString('utf8')));
   assert.equal(manifest.applicationVersion, version);
   const databaseBytes = await readFile(join(job.backupDirectory, manifest.database.file));
   assert.ok(databaseBytes.byteLength > 0);
@@ -972,7 +972,7 @@ func readCount() int {
 func backup() {
   name := fmt.Sprintf("tomecms-test-backup-%d", time.Now().UnixNano())
   root := filepath.Join("/backups", name)
-  objectKey := filepath.Join("media", "fixture", "public.webp")
+  objectKey := filepath.Join("owners", "123e4567-e89b-42d3-a456-426614174000", "2026", "09", "123e4567-e89b-42d3-a456-426614174001.webp")
   if err := os.MkdirAll(filepath.Join(root, "objects", filepath.Dir(objectKey)), 0700); err != nil { panic(err) }
   database := []byte("real fixture database dump for " + version)
   object := []byte("real fixture object bytes")
@@ -984,7 +984,7 @@ func backup() {
     "config": map[string]any{"publicUrl": "https://cms.example.test", "database": "tomecms", "s3Endpoint": "https://media.example.test", "bucket": "tomecms-media"},
     "database": map[string]any{"file": "database.dump", "sha256": digest(database)},
     "records": map[string]any{"siteSettings": 1, "posts": 1, "pages": 1, "mediaItems": 1},
-    "objects": []any{map[string]any{"key": "media/fixture/public.webp", "contentType": "image/webp", "sizeBytes": len(object), "sha256": digest(object)}},
+    "objects": []any{map[string]any{"key": objectKey, "contentType": "image/webp", "sizeBytes": len(object), "sha256": digest(object)}},
   }
   bytes, err := json.MarshalIndent(manifest, "", "  ")
   if err != nil { panic(err) }
