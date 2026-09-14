@@ -98,7 +98,7 @@
 }
 
 .ui-dialog::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 40%, transparent);
+  background: var(--color-scrim);
 }
 
 .ui-dialog__surface { padding: var(--space-lg); }
@@ -140,7 +140,7 @@
   white-space: nowrap;
 }
 .ui-dialog__button--confirm { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
-.ui-dialog__button--confirm[data-tone='danger'] { border-color: var(--color-error-ink); background: var(--color-error-ink); color: var(--color-paper); }
+.ui-dialog__button--confirm[data-tone='danger'] { border-color: var(--color-error-ink); background: var(--color-error-ink); color: var(--color-on-dark); }
 .ui-dialog__button:focus-visible { outline-color: var(--color-focus); outline-offset: var(--space-3xs); }
 .ui-dialog__button:active { transform: translateY(var(--space-3xs)); }
 .ui-dialog__button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }

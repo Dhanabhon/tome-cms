@@ -55,7 +55,7 @@ const buildExtensions = (copy: AdminCopy) => [
     heading: { levels: [1, 2, 3] },
     blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
-    codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-ink p-5 font-mono text-sm text-white' } },
+    codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-code p-5 font-mono text-sm text-ondark' } },
   }),
   Placeholder.configure({ placeholder: copy.blocks.placeholder }),
   TiptapLink.configure({

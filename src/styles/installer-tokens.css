@@ -23,6 +23,13 @@
   --color-error-ink: oklch(43.47% 0.148 30.83);
   --color-error-soft: color-mix(in oklch, var(--color-error) 10%, var(--color-paper));
 
+  /* Surfaces that are dark on purpose, and the text that sits on them. These stay
+   * legible in either theme, unlike --color-paper, which flips with the theme. */
+  --color-code-bg: oklch(15.2% 0.0033 196.81);
+  --color-on-dark: oklch(100% 0 0);
+  --color-on-dark-muted: oklch(89.85% 0.0336 194.25);
+  --color-scrim: color-mix(in srgb, oklch(15.2% 0.0033 196.81) 40%, transparent);
+
   --font-display: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
@@ -60,4 +67,38 @@
   --radius-pill: 9999px;
   --control-height: 3rem;
   --z-sticky-nav: 300;
+}
+
+/* Opt-in only: set data-theme="dark" on <html>. Deliberately not wired to
+ * prefers-color-scheme yet — the palette is contrast-verified but has not had a
+ * visual pass, and switching on an OS preference would ship it to every reader.
+ * Contrast measured against every surface pair: lowest 5.90, all AA. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-paper: oklch(22% 0.012 190);
+  --color-paper-2: oklch(17.5% 0.01 190);
+  --color-paper-3: oklch(28% 0.018 191);
+  --color-surface: oklch(22% 0.012 190);
+  --color-hero: oklch(30% 0.03 189);
+  --color-ink: oklch(95% 0.006 195);
+  --color-ink-2: oklch(80% 0.018 190);
+  --color-muted: oklch(72% 0.022 190);
+  --color-placeholder: var(--color-muted);
+  /* Rules are mixed from the ink side here; mixing the hero would be invisible. */
+  --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
+  --color-rule-strong: color-mix(in oklch, var(--color-ink) 30%, transparent);
+  --color-accent: oklch(78% 0.1 191);
+  --color-link: oklch(78% 0.1 191);
+  --color-accent-ink: oklch(18% 0.01 190);
+  --color-focus: oklch(75% 0.1 192);
+  --color-focus-soft: oklch(35% 0.04 193);
+  --color-error: oklch(70% 0.17 30);
+  --color-error-ink: oklch(80% 0.12 32);
+  --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
+
+  --color-code-bg: oklch(13% 0.012 190);
+  --color-on-dark: oklch(97% 0.004 195);
+  --color-on-dark-muted: oklch(82% 0.02 192);
+  --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
 }
