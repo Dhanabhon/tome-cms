@@ -26,9 +26,11 @@ export default {
         soft: 'var(--color-paper-2)',
         surface: 'var(--color-surface)',
       },
+      // Fonts resolve to the token scale too — the colours and radii below already do,
+      // and a second copy of the stack here is a second thing to remember to change.
       fontFamily: {
-        display: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)'],
+        sans: ['var(--font-body)'],
       },
       // Radii resolve to the token scale in src/styles/installer-tokens.css — keep one source.
       borderRadius: {
@@ -51,15 +53,15 @@ export default {
             '--tw-prose-code': 'var(--color-ink)',
             '--tw-prose-pre-code': 'var(--color-on-dark)',
             '--tw-prose-pre-bg': 'var(--color-code-bg)',
-            fontFamily: ['IBM Plex Sans Thai', 'ui-sans-serif', 'system-ui', 'sans-serif'].join(', '),
+            fontFamily: 'var(--font-body)',
             h2: {
-              fontSize: '22px',
+              fontSize: 'var(--text-xl)',
               fontWeight: '700',
               letterSpacing: '-0.25px',
               lineHeight: '28px',
             },
             h3: {
-              fontSize: '20px',
+              fontSize: 'var(--text-md)',
               fontWeight: '600',
               letterSpacing: '-0.125px',
               lineHeight: '28px',

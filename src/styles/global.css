@@ -1100,8 +1100,11 @@ body {
 }
 
 .admin-editor-workspace > .admin-alert { margin-block-end: var(--space-lg); }
+/* The writing column is the published column. max-w-3xl less its padding is 712px
+ * on the public article; this is that plus the 3.25rem gutter the block-insert
+ * handle sits in, so a line that wraps here wraps there. */
 .admin-editor-canvas {
-  width: min(100%, 46.25rem);
+  width: min(100%, 47.75rem);
   min-width: 0;
   min-height: 42rem;
   margin-inline: auto;
