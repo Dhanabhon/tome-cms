@@ -28,8 +28,25 @@
 .admin-mobile-nav[open] { display: flex; flex-direction: column; }
 .admin-mobile-nav .admin-shell-account { margin-top: auto; }
 .admin-mobile-nav::backdrop { background: var(--color-scrim); }
-.admin-shell-brand { display: grid; gap: var(--space-md); padding-block: var(--space-lg); font-weight: 600; overflow-wrap: anywhere; }
+.admin-shell-brand { display: block; padding-block: var(--space-lg) var(--space-sm); }
 .admin-shell-brand .admin-logo { max-width: 100%; }
+/* The site the admin belongs to, and the way out to it, in one place. The name used
+ * to sit under the logo while the link that opens it lived at the far bottom of the
+ * column, so the two halves of one idea were as far apart as the sidebar allows. */
+.admin-shell-site {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin-block-end: var(--space-lg);
+  padding-inline-start: var(--space-sm);
+  border-radius: var(--radius-input);
+  background: var(--color-paper-2);
+}
+.admin-shell-site__name { min-width: 0; overflow: hidden; font-weight: 600; font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell-site__view { display: grid; flex: 0 0 auto; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: var(--radius-input); color: var(--color-muted); }
+.admin-shell-site__view:hover { background: var(--color-paper-3); color: var(--color-ink); }
 .admin-sidebar nav, .admin-mobile-nav nav { display: grid; gap: var(--space-lg); }
 .admin-sidebar nav section, .admin-mobile-nav nav section { display: grid; gap: var(--space-2xs); }
 .admin-nav-group {
@@ -41,11 +58,29 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.admin-sidebar nav a, .admin-mobile-nav nav a, .admin-shell-account > a { display: flex; min-height: 44px; align-items: center; padding: var(--space-sm); border-radius: var(--radius-input); font-weight: 500; }
+.admin-sidebar nav a, .admin-mobile-nav nav a { display: flex; min-height: 44px; align-items: center; padding: var(--space-sm); border-radius: var(--radius-input); font-weight: 500; }
 .admin-sidebar nav a:hover, .admin-mobile-nav nav a:hover, .admin-sidebar nav a[aria-current='page'], .admin-mobile-nav nav a[aria-current='page'] { background: var(--color-paper-2); }
 .admin-sidebar nav a[aria-current='page'], .admin-mobile-nav nav a[aria-current='page'] { color: var(--color-focus); }
 .admin-shell-account { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
-.admin-shell-email { overflow-wrap: anywhere; color: var(--color-muted); font-size: var(--text-xs); }
+/* Owner, address and exit on one line; it used to be three stacked rows, which in a
+ * 15rem column is most of the space below the menu. The address truncates rather than
+ * wrapping now, so it carries a title for the part that does not fit. */
+.admin-shell-user { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs) var(--space-xs); min-width: 0; }
+.admin-shell-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.admin-shell-email { flex: 1 1 6rem; min-width: 0; overflow: hidden; color: var(--color-muted); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell-signout { flex: 0 0 auto; margin-inline-start: auto; min-height: 44px; padding-inline: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); font-weight: 500; }
+.admin-shell-signout:hover { color: var(--color-ink); }
 .admin-shell-account .admin-form-error:empty { display: none; }
 .admin-form-page { max-width: 52rem; }
 /* Labelled values -- version numbers, modes, dates. They used to be muted sentences
