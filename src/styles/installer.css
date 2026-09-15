@@ -245,7 +245,7 @@ h1, h2, p { margin-block-start: 0; }
 .installer-fields, .installer-field-grid { display: grid; gap: var(--space-md); min-width: 0; }
 .installer-field { display: grid; gap: var(--space-2xs); min-width: 0; }
 .installer-field label { color: var(--color-ink); font-size: var(--text-sm); font-weight: 500; }
-.installer-required-mark { color: var(--color-focus); }
+.installer-required-mark { margin-inline-start: var(--space-2xs); color: var(--color-focus); }
 .installer-control {
   width: 100%;
   min-width: 0;
@@ -346,8 +346,6 @@ textarea.installer-control { min-height: 6.5rem; padding-block: var(--space-sm);
   animation: installer-spin 900ms linear infinite;
   content: "";
 }
-.installer-button[data-state="error"] { --button-hover-background: var(--color-error); border-color: var(--color-error); background: var(--color-error); color: var(--color-ink); }
-.installer-button[data-state="success"] { --button-hover-background: var(--color-accent-hover); border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
 .installer-success { align-content: center; min-height: 25rem; }
 .installer-success-mark {
   display: grid;
