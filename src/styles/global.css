@@ -363,21 +363,33 @@ body {
   @apply bg-surface font-medium text-accent;
 }
 
+/* These were two unstyled buttons inheriting an underline from their container:
+ * 16px tall, no gap, so "rename" and "delete" ran together as one word. */
 .media-category-action {
-  @apply px-1 text-xs text-muted underline;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
 }
+.media-category-action button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--space-2xs);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+}
+.media-category-action button:hover { color: var(--color-link); }
 
 .media-category-form {
   @apply mt-5 border-t border-line pt-5;
 }
 
-.media-category-form input,
 .media-details textarea,
 .media-details input {
   @apply w-full rounded-md border border-line bg-surface px-3 py-2 text-sm;
 }
 
-.media-category-form button,
 .media-details-actions button {
   @apply rounded-md border border-line px-3 py-2 text-sm font-medium hover:border-accent hover:text-accent;
 }
@@ -572,7 +584,8 @@ body {
 /* --text-display is the hero token; this is a working surface that gets scanned, not
  * a page that gets read, and the sidebar already says which screen you are on. The
  * height it gives back goes to the first rows of the list. */
-.admin-page__head h1 {
+.admin-page__head h1,
+.media-toolbar h1 {
   min-width: 0;
   margin: 0;
   font-family: var(--font-display);
@@ -583,7 +596,8 @@ body {
   overflow-wrap: anywhere;
 }
 
-.admin-page__head p {
+.admin-page__head p,
+.media-toolbar > div > p {
   max-width: 55ch;
   margin: var(--space-sm) 0 0;
   color: var(--color-muted);
@@ -1257,13 +1271,21 @@ body {
 }
 
 .category-manager { min-width: 0; }
+/* A name is a few words. Left unbounded the field ran the width of the page, which
+ * also flung the "80 characters" hint to the far end of a 1100px row, a thousand
+ * pixels from the label it belongs to. */
 .category-create {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-md);
   align-items: end;
   margin-block: var(--space-xl);
+  padding: var(--space-lg);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
 }
+.category-create .admin-field { flex: 1 1 18rem; max-width: 28rem; }
 .category-status { min-height: 1.5em; margin: 0 0 var(--space-md); color: var(--color-muted); font-size: var(--text-sm); }
 .category-list { display: grid; gap: var(--space-sm); min-width: 0; margin: var(--space-md) 0 0; padding: 0; list-style: none; }
 .category-row {
