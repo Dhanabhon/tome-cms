@@ -152,8 +152,8 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
               <UiSelect ariaDescribedBy="theme-hint theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
               <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
             </div>
-            <div className="admin-field">
-              <label className="flex items-center gap-2 py-2">
+            <div className="admin-check">
+              <label>
                 <input
                   aria-describedby="allowVisitorTheme-help"
                   checked={allowVisitorTheme}

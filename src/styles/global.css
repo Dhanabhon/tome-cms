@@ -110,7 +110,18 @@
 .admin-hint { margin: 0; color: var(--color-muted); font-size: var(--text-xs); }
 .admin-field--name { width: 100%; max-width: 24rem; }
 .admin-field--short { width: 100%; max-width: 20rem; }
-.settings-pair { display: grid; gap: var(--space-md); }
+/* Two selects that pair up whenever two fit, for the same reason the bios do: the card
+ * is what has the room, not the window. */
+.settings-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: var(--space-md); }
+/* A checkbox, its label and the sentence explaining it, in two columns -- the hint sits
+ * under the label rather than under the box, so a long one stays a paragraph instead of
+ * running back beneath the control. The label is display: contents so it can keep
+ * wrapping the input, which is what associates them, without becoming a row of its own. */
+.admin-check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2xs) var(--space-sm); align-items: start; }
+.admin-check > label { display: contents; }
+.admin-check input { width: 1.125rem; height: 1.125rem; margin-block-start: 0.15rem; accent-color: var(--color-accent); }
+.admin-check small { grid-column: 2; }
+.admin-check:focus-within { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); border-radius: var(--radius-sm); }
 .admin-empty-inline { margin: 0; padding: var(--space-md); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-input); color: var(--color-muted); font-size: var(--text-sm); }
 /* The primary action stops scrolling out of a long form, and the bar can say whether
  * anything is waiting. The words carry that, not a colour -- every surface pair in
@@ -151,7 +162,6 @@
   .admin-sidebar .admin-shell-account { margin-top: auto; }
   .admin-shell-main { margin-left: 15rem; }
   .admin-mobile-bar { display: none; }
-  .settings-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 
 html {
