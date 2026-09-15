@@ -90,7 +90,15 @@
 .admin-facts > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-xs); }
 .admin-facts dt { color: var(--color-muted); font-size: var(--text-sm); }
 .admin-facts dd { margin: 0; color: var(--color-ink); font-weight: 500; font-variant-numeric: tabular-nums; }
-.update-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.update-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-sm); }
+/* Where the release stands, then the numbers, then what you can do about it -- one row
+ * rather than six blocks stacked down the left of a card 944px wide. */
+.update-card { align-items: start; }
+.update-summary { display: grid; gap: var(--space-xs); min-width: 0; }
+@media (min-width: 48rem) {
+  .update-card { grid-template-columns: minmax(0, 1fr) auto; }
+  .update-card > .admin-card__head { grid-column: 1 / -1; }
+}
 .update-status { margin: 0; color: var(--color-ink-2); font-weight: 600; }
 .update-status[data-status='available'] { color: var(--color-accent); }
 .update-status[data-status='manual-transition'], .update-status[data-status='unavailable'] { color: var(--color-error-ink); }
@@ -102,7 +110,9 @@
 .update-progress::-moz-progress-bar { background: var(--color-accent); }
 /* An update is a run of numbered steps and you want to know which one you are on.
  * Weight marks the live step; the tick marks the done ones. Neither is colour alone. */
-.update-steps { display: grid; gap: var(--space-2xs); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; color: var(--color-muted); font-size: var(--text-sm); }
+/* Eight short steps read as a block, not a column: the run is one thing happening, and
+ * a single file of them pushed the backup line 196px below the bar it belongs to. */
+.update-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: var(--space-2xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; color: var(--color-muted); font-size: var(--text-sm); }
 .update-steps li[aria-current='step'] { color: var(--color-ink); font-weight: 600; }
 .admin-settings-form { display: grid; gap: var(--space-md); margin-top: var(--space-xl); }
 .admin-settings-form fieldset { display: grid; min-width: 0; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }

@@ -208,18 +208,20 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   return (
     <div className="admin-card-stack">
 
-      <section className="admin-card" aria-labelledby="update-status-heading">
+      <section className="admin-card update-card" aria-labelledby="update-status-heading">
         <header className="admin-card__head">
           <h2 id="update-status-heading">{copy.updates.status}</h2>
         </header>
-        <dl className="admin-facts">
-          <div><dt>{copy.updates.installedVersion}</dt><dd>{check?.currentVersion ?? copy.updates.checking}</dd></div>
-          {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
-          {check?.latest && <div><dt>{copy.updates.published}</dt><dd>{formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</dd></div>}
-        </dl>
-        <p className="update-status" data-status={availability} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
-        {!busy && <p>{message}</p>}
-        {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
+        <div className="update-summary">
+          <p className="update-status" data-status={availability} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
+          <dl className="admin-facts">
+            <div><dt>{copy.updates.installedVersion}</dt><dd>{check?.currentVersion ?? copy.updates.checking}</dd></div>
+            {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
+            {check?.latest && <div><dt>{copy.updates.published}</dt><dd>{formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</dd></div>}
+          </dl>
+          {!busy && <p>{message}</p>}
+          {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
+        </div>
         <div className="update-actions">
           <button className="admin-button admin-button--secondary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{busy ? copy.updates.checking : copy.updates.checkAgain}</button>
           {installability.installable && check?.latest && <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void install()} type="button">
