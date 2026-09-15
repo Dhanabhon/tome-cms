@@ -104,8 +104,10 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
     <div className="admin-card-stack" aria-busy={busy}>
       {context && (
         <section className="admin-card" aria-labelledby="recovery-passkey-title">
-          <h2 id="recovery-passkey-title">{copy.security.replacementPasskey}</h2>
-          <p>{copy.security.recoveryLinkReady}</p>
+          <header className="admin-card__head">
+            <h2 id="recovery-passkey-title">{copy.security.replacementPasskey}</h2>
+            <p>{copy.security.recoveryLinkReady}</p>
+          </header>
           <button className="admin-button admin-button--primary" disabled={busy} onClick={() => void continueRecovery()} type="button">
             {busy ? copy.security.waitingForPasskey : copy.security.createRecoveryPasskey}
           </button>
@@ -113,10 +115,10 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       )}
 
       <form className="admin-card security-form" onSubmit={(event) => void startRecovery(event)}>
-        <div>
+        <header className="admin-card__head">
           <h2>{copy.security.useRecoveryCode}</h2>
           <p>{copy.security.useRecoveryCodeHint}</p>
-        </div>
+        </header>
         <label className="admin-field" htmlFor="recovery-code">
           {copy.security.codeLabel}
           <input
