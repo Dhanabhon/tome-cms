@@ -1380,6 +1380,24 @@ body {
 .admin-editor-settings__head h2 { margin: 0; font-size: var(--text-md); font-weight: 600; letter-spacing: -0.125px; }
 .admin-editor-settings__head p { margin: var(--space-2xs) 0 0; color: var(--color-muted); font-size: var(--text-xs); }
 
+/* The drawer was five fields in a row down one column, so the slug and the search
+ * description looked like the same kind of decision. Grouped, with a rule under each
+ * group, it reads as three: where this goes, what it looks like, how it is found. */
+.drawer-group { display: grid; gap: var(--space-md); min-width: 0; padding-block-end: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.admin-editor-settings > .drawer-group:last-of-type { padding-block-end: 0; border-block-end: 0; }
+.drawer-group > h3 { margin: 0; color: var(--color-ink); font-size: var(--text-sm); font-weight: 600; }
+/* A button that is a direct grid child stretches to its column; this one is a link out
+ * of the drawer, not the width of it. */
+.admin-editor-settings .admin-field > button { justify-self: start; }
+.drawer-checks { display: grid; gap: 0; }
+.drawer-checks label { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; font-weight: 400; }
+.drawer-checks input { width: 1.125rem; height: 1.125rem; margin: 0; accent-color: var(--color-accent); }
+/* The slug shown against the path it becomes, so the field is the only part you edit. */
+.admin-control--prefixed { display: flex; align-items: center; min-width: 0; padding-inline: 0; }
+.admin-control--prefixed > span { flex: 0 0 auto; padding-inline-start: var(--space-sm); color: var(--color-muted); font-size: var(--text-xs); white-space: nowrap; }
+.admin-control--prefixed > input { flex: 1 1 auto; width: 100%; min-width: 0; height: 100%; padding-inline: var(--space-3xs) var(--space-sm); border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; font-weight: 400; }
+.admin-control--prefixed > input:focus-visible { outline: 0; }
+.admin-control--prefixed:focus-within { border-color: var(--color-focus); outline-color: var(--color-focus); outline-offset: 0; }
 .admin-cover-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .admin-cover-help { margin: 0; color: var(--color-muted); font-size: var(--text-xs); font-weight: 400; line-height: 1.6; }
 .admin-cover-preview { display: block; width: 100%; height: auto; margin-block-start: var(--space-sm); border-radius: var(--radius-input); aspect-ratio: 16 / 9; object-fit: cover; }
