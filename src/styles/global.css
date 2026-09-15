@@ -1036,7 +1036,10 @@ body {
 .security-page { width: min(calc(100% - (var(--space-md) * 2)), 52rem); margin-inline: auto; padding-block: var(--space-xl) var(--space-2xl); }
 .security-page__head { display: grid; gap: var(--space-lg); margin-block-end: var(--space-xl); }
 .security-page__head h1 { margin: 0; color: var(--color-ink); }
-.security-page__head h1 { max-width: 18ch; font-size: var(--text-2xl); line-height: 1.05; }
+/* 18ch puts this heading on two lines in both languages, which is the intent; what
+ * it does not decide is where. Thai broke it as 'back into your workspace' / 'you',
+ * one word alone. balance splits the lines evenly instead. */
+.security-page__head h1 { max-width: 18ch; font-size: var(--text-2xl); line-height: 1.05; text-wrap: balance; }
 .security-page__head p { color: var(--color-muted); }
 .security-page__head .tomecms-logo { width: 9rem; }
 .security-eyebrow { margin: 0 0 var(--space-xs); color: var(--color-accent) !important; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -1080,7 +1083,7 @@ body {
   .security-page { padding-block-start: var(--space-2xl); }
   .admin-card { padding: var(--space-xl); }
   .security-form { grid-template-columns: minmax(0, 1fr) auto; }
-  .security-form > div { grid-column: 1 / -1; }
+  .security-form > .admin-card__head { grid-column: 1 / -1; }
 }
 
 .admin-editor { min-width: 0; min-height: 100svh; background: var(--color-paper); }
