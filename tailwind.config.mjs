@@ -11,6 +11,23 @@ export default {
       xl: '1280px',
       '2xl': '1440px',
     },
+    // The last scale that still disagreed with the tokens. text-xs, text-sm and
+    // text-base happened to match, so only three names were ever safe to use; every
+    // other one meant a different size here than the --text-* token of the same name
+    // (text-xl was 20px against --text-xl's 22px, text-2xl 24px against 40px). Nothing
+    // used those names — the mismatch was a trap, not a bug — and now nothing can.
+    // Line heights for xs/sm/base are Tailwind's own, unchanged, so the pages that use
+    // them do not move; the rest come from the type scale table in DESIGN.md.
+    fontSize: {
+      xs: ['var(--text-xs)', '1rem'],
+      sm: ['var(--text-sm)', '1.25rem'],
+      base: ['var(--text-base)', '1.5rem'],
+      md: ['var(--text-md)', '1.875rem'],
+      xl: ['var(--text-xl)', '1.75rem'],
+      '2xl': ['var(--text-2xl)', '3.75rem'],
+      '3xl': ['var(--text-3xl)', '3.5rem'],
+      '4xl': ['var(--text-4xl)', '4rem'],
+    },
     extend: {
       colors: {
         accent: 'var(--color-accent)',
