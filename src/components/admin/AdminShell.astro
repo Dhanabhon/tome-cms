@@ -15,6 +15,7 @@ interface Props {
 const { active, adminPath: requestedAdminPath = '/admin', locale, siteName, userEmail } = Astro.props;
 const adminPath = normalizeAdminPath(requestedAdminPath);
 const adminSettings = { admin_path: adminPath };
+const ownerInitial = userEmail?.trim().charAt(0).toUpperCase() ?? '';
 const copy = adminCopy(locale);
 /**
  * Seven flat destinations is where a sidebar starts costing a scan. They split
@@ -64,8 +65,11 @@ const groups = [
         {mobile && <button class="admin-button" type="button" data-nav-close autofocus aria-label={copy.shell.closeNavigation}>{copy.shell.close}</button>}
         <a class="admin-shell-brand" href={adminHref(adminSettings)}>
           <img class="admin-logo" src="/brand/tomecms-logo-color.png" alt="TomeCMS" width="2172" height="724" />
-          <span>{siteName}</span>
         </a>
+        <div class="admin-shell-site">
+          <span class="admin-shell-site__name" title={siteName}>{siteName}</span>
+          <a class="admin-shell-site__view" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}><span aria-hidden="true">↗</span></a>
+        </div>
         <nav aria-label={copy.nav.label}>
           {groups.map((group) => {
             // The shell renders twice -- sidebar and mobile drawer -- so the heading
@@ -84,9 +88,11 @@ const groups = [
             labels={{ group: copy.theme.adminLabel, system: copy.theme.system, light: copy.theme.light, dark: copy.theme.dark }}
             name={mobile ? 'tome-theme-mobile' : 'tome-theme-sidebar'}
           />
-          <a href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}>{copy.shell.viewSite} <span aria-hidden="true">↗</span></a>
-          {userEmail && <span class="admin-shell-email">{userEmail}</span>}
-          <button class="admin-button" type="button" data-sign-out>{copy.shell.signOut}</button>
+          <div class="admin-shell-user">
+            {userEmail && <span class="admin-shell-avatar" aria-hidden="true">{ownerInitial}</span>}
+            {userEmail && <span class="admin-shell-email" title={userEmail}>{userEmail}</span>}
+            <button class="admin-shell-signout" type="button" data-sign-out>{copy.shell.signOut}</button>
+          </div>
           <p class="admin-form-error" data-sign-out-error role="alert"></p>
         </div>
       </Container>
