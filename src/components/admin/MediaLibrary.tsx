@@ -338,8 +338,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     <section className="media-shell" data-mode={props.mode}>
       <div className="media-toolbar">
         <div>
-          <h1 className="font-display text-[54px] font-bold leading-[56px] tracking-[-1.875px] sm:text-[64px] sm:leading-[64px]" ref={mediaHeading} tabIndex={-1}>{copy.media.heading}</h1>
-          <p className="mt-2 text-sm text-muted">{copy.media.subheading}</p>
+          <h1 ref={mediaHeading} tabIndex={-1}>{copy.media.heading}</h1>
+          <p>{copy.media.subheading}</p>
         </div>
         <div className="media-toolbar__actions">
           <label className="min-w-0"><span className="sr-only">{copy.media.searchFiles}</span><input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} /></label>
@@ -352,8 +352,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <nav aria-label={copy.media.folders}>{categoryButtons}</nav>
           <div className="media-category-select"><UiSelect ariaLabel={copy.media.folders} className="admin-control" id="media-category" onValueChange={(next) => selectCategory(next)} options={categoryOptions} value={selection} /></div>
           {props.mode === 'manage' && selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
-          {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-label={copy.media.folderName} maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button type="submit">{copy.media.createFolder}</button></form>}
-          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button type="submit">{copy.media.saveFolderName}</button><button onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
+          {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-label={copy.media.folderName} className="admin-control" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} required value={categoryName} /></label><button className="admin-button" type="submit">{copy.media.createFolder}</button></form>}
+          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button className="admin-button" type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
           {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="font-medium text-accent underline" onClick={() => void loadFolders()} type="button">{copy.media.retryFolders}</button></p>}
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>
@@ -366,7 +366,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {
             const format = item.mime_type.replace('image/', '').toUpperCase();
             return <button aria-label={fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: item.height, name: item.original_name, size: formatSize(item.size_bytes), width: item.width })} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm">{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span>{props.mode === 'select' && <span className="media-card-select">{copy.media.select}</span>}</button>;
-          })}</div>{hasMore && <div className="media-status"><button className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{loading ? copy.media.loading : copy.media.loadMore}</button></div>}</>}
+          })}</div>{hasMore && <div className="media-status"><button className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{loading ? copy.media.loading : copy.media.loadMore}</button></div>}</>}
         </div>
       </div>
 

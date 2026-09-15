@@ -44,7 +44,7 @@ const errorMessage = errorKey ? copy.errors[errorKey] : null;
 
 <AdminLayout lang={ownerLocale ?? 'en'} title={copy.media.heading}>
   {authRequired || errorMessage ? (
-    <main><p class="mx-auto mt-16 max-w-3xl border-l-2 border-accent px-5 pl-4 text-muted" role="alert">{errorMessage}</p></main>
+    <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
   ) : (
     <AdminShell active="media" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
     <MediaLibrary client:only="react" mode="manage" ownerLocale={ownerLocale} />
