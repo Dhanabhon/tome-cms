@@ -101,9 +101,9 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
   }
 
   return (
-    <div className="security-stack" aria-busy={busy}>
+    <div className="admin-card-stack" aria-busy={busy}>
       {context && (
-        <section className="security-card" aria-labelledby="recovery-passkey-title">
+        <section className="admin-card" aria-labelledby="recovery-passkey-title">
           <h2 id="recovery-passkey-title">{copy.security.replacementPasskey}</h2>
           <p>{copy.security.recoveryLinkReady}</p>
           <button className="admin-button admin-button--primary" disabled={busy} onClick={() => void continueRecovery()} type="button">
@@ -112,7 +112,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
         </section>
       )}
 
-      <form className="security-card security-form" onSubmit={(event) => void startRecovery(event)}>
+      <form className="admin-card security-form" onSubmit={(event) => void startRecovery(event)}>
         <div>
           <h2>{copy.security.useRecoveryCode}</h2>
           <p>{copy.security.useRecoveryCodeHint}</p>

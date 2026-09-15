@@ -56,11 +56,27 @@
 .admin-settings-form { display: grid; gap: var(--space-md); margin-top: var(--space-xl); }
 .admin-settings-form fieldset { display: grid; min-width: 0; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
 .admin-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
-.profile-avatar { display: grid; gap: var(--space-md); }
-.profile-avatar img { width: 6rem; height: 6rem; object-fit: cover; border-radius: 50%; }
-.profile-avatar > span, .profile-links > p:not(.admin-field-error) { color: var(--color-muted); font-size: var(--text-sm); }
+.admin-hint { margin: 0; color: var(--color-muted); font-size: var(--text-xs); }
+.admin-field--name { width: 100%; max-width: 24rem; }
+.admin-empty-inline { margin: 0; padding: var(--space-md); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-input); color: var(--color-muted); font-size: var(--text-sm); }
+/* The primary action stops scrolling out of a long form, and the bar can say whether
+ * anything is waiting. The words carry that, not a colour -- every surface pair in
+ * this palette sits between 1.07 and 1.34, so a background can never signal state. */
+.admin-save-bar { position: sticky; inset-block-end: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+.admin-save-bar p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.profile-identity { display: grid; align-items: start; gap: var(--space-lg); }
+.profile-identity__fields { display: grid; min-width: 0; gap: var(--space-md); justify-items: start; }
+/* The empty state gets the avatar's shape. A line of grey text where every profile
+ * in the world shows a circle was most of what read as unfinished. */
+.avatar-slot { display: grid; place-items: center; width: 6rem; height: 6rem; border-radius: 50%; background: var(--color-paper-3); color: var(--color-muted); }
+.avatar-slot--filled { background: none; }
+.avatar-slot img { width: 6rem; height: 6rem; object-fit: cover; border-radius: 50%; }
+.avatar-slot svg { width: 2.5rem; height: 2.5rem; }
+.profile-bios { display: grid; gap: var(--space-lg); }
+/* Two fields, one job, two languages -- so the language is a mark you can see rather
+ * than a word in brackets that only differs at the end of the label. */
+.lang-chip { display: inline-block; margin-inline-start: var(--space-xs); padding-inline: var(--space-2xs); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-sm); color: var(--color-muted); font-size: var(--text-xs); font-weight: 500; letter-spacing: 0.04em; }
 .profile-links { display: grid; gap: var(--space-md); justify-items: start; }
-.profile-links h2 { font-size: var(--text-xl); font-weight: 600; }
 .profile-link { display: grid; width: 100%; min-width: 0; gap: var(--space-sm); padding-block: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
 .profile-link > button { justify-self: start; }
 @media (min-width: 64rem) {
@@ -69,6 +85,8 @@
   .admin-shell-main { margin-left: 15rem; }
   .admin-mobile-bar { display: none; }
   .profile-link { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: end; }
+  .profile-identity { grid-template-columns: auto minmax(0, 1fr); }
+  .profile-bios { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 
 html {
@@ -584,6 +602,9 @@ body {
 }
 
 .admin-button--secondary { background: var(--color-paper); }
+/* Destructive must not look identical to safe. Both tokens are already measured
+ * against paper by theme-contrast.test.ts -- error-ink at 4.5, error at 3. */
+.admin-button--danger { border-color: var(--color-error); color: var(--color-error-ink); }
 .admin-preview-bar {
   display: flex;
   flex-wrap: wrap;
@@ -981,31 +1002,52 @@ body {
 
 .security-page { width: min(calc(100% - (var(--space-md) * 2)), 52rem); margin-inline: auto; padding-block: var(--space-xl) var(--space-2xl); }
 .security-page__head { display: grid; gap: var(--space-lg); margin-block-end: var(--space-xl); }
-.security-page__head h1, .security-card h2 { margin: 0; color: var(--color-ink); }
+.security-page__head h1 { margin: 0; color: var(--color-ink); }
 .security-page__head h1 { max-width: 18ch; font-size: var(--text-2xl); line-height: 1.05; }
-.security-page__head p, .security-card p { color: var(--color-muted); }
+.security-page__head p { color: var(--color-muted); }
 .security-page__head .tomecms-logo { width: 9rem; }
 .security-eyebrow { margin: 0 0 var(--space-xs); color: var(--color-accent) !important; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.security-stack { display: grid; gap: var(--space-lg); }
-.security-card { display: grid; gap: var(--space-lg); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-card); background: var(--color-paper); }
-.security-card > p, .security-card > div > p, .security-key > p { margin: var(--space-xs) 0 0; }
+/* One card language for the whole admin. Profile used to be a bare form on the page
+ * while security had panels; these are the panels, now shared by both. */
+.admin-card-stack { display: grid; gap: var(--space-lg); }
+.admin-card { display: grid; gap: var(--space-lg); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-card); background: var(--color-paper); }
+/* Tailwind's preflight resets every heading to font-size: inherit, so a card heading
+ * nobody sized rendered at 16px/400 -- lighter than the 14px/500 field labels beneath
+ * it. That is an inverted hierarchy, and it needs stating once, here. */
+.admin-card h2 { margin: 0; color: var(--color-ink); font-size: var(--text-xl); font-weight: 600; line-height: 1.25; }
+.admin-card__head { display: grid; gap: var(--space-2xs); }
+.admin-card__head p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.admin-card p { color: var(--color-muted); }
+.admin-card > p, .admin-card > div > p { margin: var(--space-xs) 0 0; }
+/* A button is as wide as its label. A direct child of a grid card stretches to the
+ * column, which is how a 900px "copy codes" button happens. */
+.admin-card > button, .admin-card > a.admin-button, .security-codes > button { justify-self: start; }
 .security-form { display: grid; gap: var(--space-md); align-items: end; }
 .security-list { display: grid; gap: var(--space-md); }
+/* A passkey reads as a thing before it reads as a field: which key, then when it was
+ * last used, then the box that renames it. */
 .security-key { display: grid; gap: var(--space-sm); padding-block-start: var(--space-md); border-block-start: var(--rule-hair) solid var(--color-rule); }
-.security-key > p { color: var(--color-muted); font-size: var(--text-xs); }
+.security-key__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-sm); }
+.security-key__name { color: var(--color-ink); font-weight: 600; }
+.security-key__meta { color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.security-key__edit { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); }
+.security-key__edit .admin-field, .security-add .admin-field { flex: 1 1 18rem; max-width: 24rem; }
+/* Adding a key is a different act from renaming one, so it stands on its own ground. */
+.security-add { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-input); background: var(--color-paper-2); }
 .security-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-.security-codes { display: grid; gap: var(--space-md); padding: var(--space-md); background: var(--color-paper-2); }
-.security-codes ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); }
-.security-codes code { font-family: ui-monospace, monospace; user-select: all; }
+.security-codes { display: grid; gap: var(--space-md); padding: var(--space-md); border-radius: var(--radius-input); background: var(--color-paper-2); }
+/* Recovery codes are counted things -- you cross them off as you spend them. Preflight
+ * strips the markers from every ol, which took the count away. */
+.security-codes ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-2xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; }
+.security-codes li { color: var(--color-muted); }
+.security-codes code { color: var(--color-ink); font-family: ui-monospace, monospace; user-select: all; }
 .security-message { min-height: 1lh; }
 
 @media (min-width: 42rem) {
   .security-page { padding-block-start: var(--space-2xl); }
-  .security-card { padding: var(--space-xl); }
+  .admin-card { padding: var(--space-xl); }
   .security-form { grid-template-columns: minmax(0, 1fr) auto; }
   .security-form > div { grid-column: 1 / -1; }
-  .security-key { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
-  .security-key > p { grid-column: 1 / -1; }
 }
 
 .admin-editor { min-width: 0; min-height: 100svh; background: var(--color-paper); }
