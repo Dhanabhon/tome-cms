@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
@@ -55,6 +55,11 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   const [busy, setBusy] = useState(false);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [message, setMessage] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const renameButtons = useRef(new Map<string, HTMLButtonElement>());
+
+  /** Renaming closes back onto the button that opened it, so the keyboard keeps its place. */
+  const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
 
   const loadPasskeys = useCallback(async () => {
     const response = await fetch('/api/admin/security/passkeys', { headers: { Accept: 'application/json' } });
@@ -117,7 +122,10 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     const form = new FormData(event.currentTarget);
     const name = form.get('name');
     if (typeof name !== 'string' || !name.trim()) return;
-    await mutatePasskey('PATCH', { id, name: name.trim() }, copy.security.passkeyRenamed);
+    if (await mutatePasskey('PATCH', { id, name: name.trim() }, copy.security.passkeyRenamed)) {
+      setRenamingId(null);
+      focusRename(id);
+    }
   }
 
   async function mutatePasskey(method: 'DELETE' | 'PATCH', body: Record<string, string>, successMessage: string) {
@@ -133,8 +141,10 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
       if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.passkeyUpdateFailed);
       setMessage(successMessage);
       await loadPasskeys();
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : copy.security.passkeyUpdateFailed);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -196,25 +206,47 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         </header>
         <div className="security-list">
           {passkeys.map((passkey) => (
-            <form className="security-key" key={passkey.id} onSubmit={(event) => void renamePasskey(event, passkey.id)}>
-              <div className="security-key__head">
-                <span className="security-key__name">{passkey.name}</span>
-                <span className="security-key__meta">{fill(copy.security.created, { created: formatDate(passkey.createdAt, copy, ownerLocale), used: formatDate(passkey.lastUsedAt, copy, ownerLocale) })}</span>
-              </div>
-              <div className="security-key__edit">
-                <label className="admin-field">
-                  {copy.security.passkeyName}
-                  <input className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
-                </label>
-                <button className="admin-button admin-button--secondary" disabled={busy} type="submit">{copy.security.saveName}</button>
-                <button
-                  className="admin-button admin-button--danger"
-                  disabled={busy || passkeys.length < 2}
-                  onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
-                  type="button"
-                >{copy.security.delete}</button>
-              </div>
-            </form>
+            <div className="security-key" key={passkey.id}>
+              {renamingId === passkey.id ? (
+                <form className="security-key__edit" onSubmit={(event) => void renamePasskey(event, passkey.id)}>
+                  <label className="admin-field">
+                    {copy.security.passkeyName}
+                    <input autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
+                  </label>
+                  <button className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.saveName}</button>
+                  <button
+                    className="admin-button"
+                    disabled={busy}
+                    onClick={() => { setRenamingId(null); focusRename(passkey.id); }}
+                    type="button"
+                  >{copy.security.cancelRename}</button>
+                </form>
+              ) : (
+                <>
+                  <div className="security-key__head">
+                    <span className="security-key__name">{passkey.name}</span>
+                    <span className="security-key__meta">{fill(copy.security.created, { created: formatDate(passkey.createdAt, copy, ownerLocale), used: formatDate(passkey.lastUsedAt, copy, ownerLocale) })}</span>
+                  </div>
+                  <div className="security-key__actions">
+                    <button
+                      aria-label={fill(copy.security.renameLabelFor, { name: passkey.name })}
+                      className="admin-button"
+                      disabled={busy}
+                      onClick={() => { setRenamingId(passkey.id); setMessage(''); }}
+                      ref={(button) => { if (button) renameButtons.current.set(passkey.id, button); }}
+                      type="button"
+                    >{copy.security.rename}</button>
+                    <button
+                      aria-label={fill(copy.security.deleteLabelFor, { name: passkey.name })}
+                      className="admin-button admin-button--danger"
+                      disabled={busy || passkeys.length < 2}
+                      onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
+                      type="button"
+                    >{copy.security.delete}</button>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
         <form className="security-add" onSubmit={(event) => void addPasskey(event)}>
