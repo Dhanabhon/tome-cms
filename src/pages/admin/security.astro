@@ -1,4 +1,5 @@
 ---
+import AdminShell from '../../components/admin/AdminShell.astro';
 import SecurityManager from '../../components/admin/SecurityManager';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import AdminLayout from '../../layouts/AdminLayout.astro';
@@ -9,10 +10,12 @@ import { getSiteSettings } from '../../server/content/settings';
 
 let authenticated = false;
 let failed = false;
+let userEmail: string | null = null;
 const settings = await getSiteSettings();
 const adminPath = settings?.admin_path ?? '/admin';
 try {
-  await requireInstalledOwner(Astro.request.headers);
+  const current = await requireInstalledOwner(Astro.request.headers);
+  userEmail = current.user.email;
   authenticated = true;
 } catch (error) {
   if (!(error instanceof Error) || !/authentication required|owner access/i.test(error.message)) {
@@ -27,24 +30,24 @@ const errorMessage = failed ? copy.security.unavailable : '';
 ---
 
 <AdminLayout lang={ownerLocale ?? 'en'} title={copy.security.heading}>
-  <main class="security-page">
-    <header class="security-page__head">
-      <a href={adminHref({ admin_path: adminPath })}>← {copy.security.backToAdmin}</a>
-      <div>
-        <p class="security-eyebrow">{copy.security.eyebrow}</p>
-        <h1>{copy.security.pageHeading}</h1>
-        <p>{copy.security.pageHint}</p>
-      </div>
-    </header>
-    {errorMessage ? (
-      <p class="admin-alert" role="alert">{errorMessage}</p>
-    ) : authenticated ? (
-      <SecurityManager client:only="react" ownerLocale={ownerLocale} />
-    ) : (
-      <section class="admin-card">
-        <h2>{copy.security.verifyOwner}</h2>
-        <PasskeySignIn client:only="react" ownerLocale={ownerLocale} returnTo={adminHref({ admin_path: adminPath }, '/security')} />
-      </section>
-    )}
-  </main>
+  <AdminShell active="security" adminPath={adminPath} locale={ownerLocale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+    <section class="admin-page admin-form-page">
+      <header class="admin-page__head">
+        <div>
+          <h1>{copy.security.pageHeading}</h1>
+          <p>{copy.security.pageHint}</p>
+        </div>
+      </header>
+      {errorMessage ? (
+        <p class="admin-alert" role="alert">{errorMessage}</p>
+      ) : authenticated ? (
+        <SecurityManager client:only="react" ownerLocale={ownerLocale} />
+      ) : (
+        <section class="admin-card">
+          <h2>{copy.security.verifyOwner}</h2>
+          <PasskeySignIn client:only="react" ownerLocale={ownerLocale} returnTo={adminHref({ admin_path: adminPath }, '/security')} />
+        </section>
+      )}
+    </section>
+  </AdminShell>
 </AdminLayout>

@@ -5,7 +5,7 @@ import { adminCopy } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
 
 interface Props {
-  active: 'media' | 'navigation' | 'pages' | 'posts' | 'profile' | 'settings' | 'system';
+  active: 'media' | 'navigation' | 'pages' | 'posts' | 'profile' | 'security' | 'settings' | 'system';
   adminPath?: string;
   locale?: PostLocale | null;
   siteName: string;
@@ -38,6 +38,7 @@ const groups = [
     label: copy.nav.groupConfig,
     links: [
       { id: 'profile', href: adminHref(adminSettings, '/profile'), label: copy.nav.profile },
+      { id: 'security', href: adminHref(adminSettings, '/security'), label: copy.nav.security },
       { id: 'settings', href: adminHref(adminSettings, '/settings'), label: copy.nav.settings },
       { id: 'system', href: adminHref(adminSettings, '/system'), label: copy.nav.system },
     ],
