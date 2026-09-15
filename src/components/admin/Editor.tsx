@@ -351,6 +351,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
           copy={copy}
           coverImage={coverImage}
           errorMessage={errorMessage}
+          locale={locale}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
           onChangeCategories={(selected) => { setCategoryIds(selectCategories(categories, selected)); markDirty(); }}

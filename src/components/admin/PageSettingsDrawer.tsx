@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
+import { pagePath } from '../../lib/i18n';
+import type { PageLocale } from '../../types/cms';
 
 interface PageSettingsDrawerProps {
   copy: AdminCopy;
   errorMessage: string | null;
+  locale: PageLocale;
   metaDescription: string;
   metaTitle: string;
   onChangeMetaDescription: (value: string) => void;
@@ -16,11 +19,13 @@ interface PageSettingsDrawerProps {
 }
 
 export default function PageSettingsDrawer({
-  copy, errorMessage, metaDescription, metaTitle, onChangeMetaDescription,
+  copy, errorMessage, locale, metaDescription, metaTitle, onChangeMetaDescription,
   onChangeMetaTitle, onChangeSlug, onClose, open, slug,
 }: PageSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  /* Built by the same function that builds the real link, so the two cannot drift. */
+  const slugPrefix = pagePath({ locale, slug: '' });
 
   useEffect(() => {
     const element = dialog.current;
@@ -44,21 +49,31 @@ export default function PageSettingsDrawer({
         <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">{copy.shell.close}</button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
-      <label className="admin-field">
-        <span>{copy.drawer.slug}</span>
-        <input className="admin-control" maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="page-slug" type="text" value={slug} />
-        <small>{copy.drawer.slugHintPage}</small>
-      </label>
-      <label className="admin-field">
-        <span>{copy.drawer.metaTitle} <small>{metaTitle.length}/70</small></span>
-        <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder={copy.drawer.metaTitlePlaceholder} type="text" value={metaTitle} />
-        <small>{copy.drawer.metaTitleHint}</small>
-      </label>
-      <label className="admin-field">
-        <span>{copy.drawer.metaDescription} <small>{metaDescription.length}/320</small></span>
-        <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder={copy.drawer.metaDescriptionPlaceholder} value={metaDescription} />
-        <small>{copy.drawer.metaDescriptionHintPage}</small>
-      </label>
+      <section className="drawer-group">
+        <h3>{copy.drawer.publishing}</h3>
+        <label className="admin-field">
+          <span>{copy.drawer.slug}</span>
+          <div className="admin-control admin-control--prefixed">
+            <span>{slugPrefix}</span>
+            <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="page-slug" type="text" value={slug} />
+          </div>
+          <small>{copy.drawer.slugHintPage}</small>
+        </label>
+      </section>
+
+      <section className="drawer-group">
+        <h3>{copy.drawer.searchPreview}</h3>
+        <label className="admin-field">
+          <span>{copy.drawer.metaTitle} <small>{metaTitle.length}/70</small></span>
+          <input className="admin-control" maxLength={70} onChange={(event) => onChangeMetaTitle(event.target.value)} placeholder={copy.drawer.metaTitlePlaceholder} type="text" value={metaTitle} />
+          <small>{copy.drawer.metaTitleHint}</small>
+        </label>
+        <label className="admin-field">
+          <span>{copy.drawer.metaDescription} <small>{metaDescription.length}/320</small></span>
+          <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder={copy.drawer.metaDescriptionPlaceholder} value={metaDescription} />
+          <small>{copy.drawer.metaDescriptionHintPage}</small>
+        </label>
+      </section>
     </dialog>
   );
 }

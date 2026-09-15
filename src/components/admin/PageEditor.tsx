@@ -338,6 +338,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
         <PageSettingsDrawer
           copy={copy}
           errorMessage={errorMessage}
+          locale={locale}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
