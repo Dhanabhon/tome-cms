@@ -198,7 +198,11 @@ const en = {
   settings: {
     defaultLanguage: 'Default language',
     heading: 'Settings',
+    identity: 'Site identity',
+    identityHint: 'The name and description a reader meets first, and search engines quote.',
     incompleteResponse: 'The server returned an incomplete response.',
+    regional: 'Language and time',
+    regionalHint: 'What the site writes in, and the clock its dates are shown against.',
     save: 'Save',
     saveFailed: 'The settings could not be saved.',
     saved: 'Saved.',
@@ -209,6 +213,7 @@ const en = {
     tagline: 'Tagline',
     taglinePlaceholder: 'A short line about your publication',
     timezone: 'Timezone',
+    unsaved: 'Unsaved changes',
   },
   profile: {
     addLink: 'Add link',
@@ -721,7 +726,11 @@ const th: typeof en = {
   settings: {
     defaultLanguage: 'ภาษาหลักของเว็บไซต์',
     heading: 'ตั้งค่า',
+    identity: 'ข้อมูลเว็บไซต์',
+    identityHint: 'ชื่อและคำอธิบายที่ผู้อ่านเห็นเป็นอย่างแรก และเครื่องมือค้นหานำไปแสดง',
     incompleteResponse: 'เซิร์ฟเวอร์ส่งข้อมูลกลับมาไม่ครบ',
+    regional: 'ภาษาและเวลา',
+    regionalHint: 'ภาษาที่เว็บไซต์ใช้ และเขตเวลาที่ใช้แสดงวันที่',
     save: 'บันทึก',
     saveFailed: 'บันทึกการตั้งค่าไม่สำเร็จ',
     saved: 'บันทึกแล้ว',
@@ -732,6 +741,7 @@ const th: typeof en = {
     tagline: 'ข้อความประจำเว็บไซต์',
     taglinePlaceholder: 'ประโยคสั้น ๆ เกี่ยวกับเว็บไซต์ของคุณ',
     timezone: 'เขตเวลา',
+    unsaved: 'ยังไม่ได้บันทึก',
   },
   profile: {
     addLink: 'เพิ่มลิงก์',

@@ -48,16 +48,34 @@
 .admin-shell-email { overflow-wrap: anywhere; color: var(--color-muted); font-size: var(--text-xs); }
 .admin-shell-account .admin-form-error:empty { display: none; }
 .admin-form-page { max-width: 52rem; }
-.update-card { display: grid; gap: var(--space-md); margin-top: var(--space-xl); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); background: var(--color-paper); }
-.update-version { margin: var(--space-2xs) 0 0; color: var(--color-muted); }
+/* Labelled values -- version numbers, modes, dates. They used to be muted sentences
+ * stacked at one weight, so the number you came to read had no more presence than
+ * the words around it. */
+.admin-facts { display: grid; gap: var(--space-2xs); margin: 0; }
+.admin-facts > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-xs); }
+.admin-facts dt { color: var(--color-muted); font-size: var(--text-sm); }
+.admin-facts dd { margin: 0; color: var(--color-ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.update-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .update-status { margin: 0; color: var(--color-ink-2); font-weight: 600; }
 .update-status[data-status='available'] { color: var(--color-accent); }
 .update-status[data-status='manual-transition'], .update-status[data-status='unavailable'] { color: var(--color-error-ink); }
+/* The bar was a raw <progress>: the browser's own grey-and-green, the one element on
+ * the page that belonged to no design system at all. */
+.update-progress { appearance: none; width: 100%; max-width: 24rem; height: var(--space-xs); border: 0; border-radius: var(--radius-pill); background: var(--color-paper-3); overflow: hidden; }
+.update-progress::-webkit-progress-bar { background: var(--color-paper-3); }
+.update-progress::-webkit-progress-value { background: var(--color-accent); }
+.update-progress::-moz-progress-bar { background: var(--color-accent); }
+/* An update is a run of numbered steps and you want to know which one you are on.
+ * Weight marks the live step; the tick marks the done ones. Neither is colour alone. */
+.update-steps { display: grid; gap: var(--space-2xs); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; color: var(--color-muted); font-size: var(--text-sm); }
+.update-steps li[aria-current='step'] { color: var(--color-ink); font-weight: 600; }
 .admin-settings-form { display: grid; gap: var(--space-md); margin-top: var(--space-xl); }
 .admin-settings-form fieldset { display: grid; min-width: 0; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
 .admin-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
 .admin-hint { margin: 0; color: var(--color-muted); font-size: var(--text-xs); }
 .admin-field--name { width: 100%; max-width: 24rem; }
+.admin-field--short { width: 100%; max-width: 20rem; }
+.settings-pair { display: grid; gap: var(--space-md); }
 .admin-empty-inline { margin: 0; padding: var(--space-md); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-input); color: var(--color-muted); font-size: var(--text-sm); }
 /* The primary action stops scrolling out of a long form, and the bar can say whether
  * anything is waiting. The words carry that, not a colour -- every surface pair in
@@ -87,6 +105,7 @@
   .profile-link { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: end; }
   .profile-identity { grid-template-columns: auto minmax(0, 1fr); }
   .profile-bios { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .settings-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 
 html {
