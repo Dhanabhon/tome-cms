@@ -358,12 +358,16 @@ body {
 }
 
 .media-card {
-  @apply min-w-0 overflow-hidden rounded-lg border border-line bg-surface p-2 text-left transition-colors hover:border-accent;
+  @apply min-w-0 overflow-hidden rounded-lg border border-line bg-surface text-left transition-colors hover:border-accent;
 }
 
 .media-card img {
-  @apply mb-3 rounded-md bg-soft;
+  @apply mb-2 bg-soft;
+  border-radius: 0;
 }
+
+.media-card strong { padding-inline: var(--space-sm); }
+.media-card > span:not(.media-card-select) { padding: 0 var(--space-sm) var(--space-sm); }
 
 .media-card-select {
   @apply mt-3 block border-t border-line pt-2 text-center text-sm font-medium text-accent;
@@ -377,13 +381,23 @@ body {
   @apply mt-8 flex flex-wrap items-center justify-center gap-3 text-center text-sm text-muted;
 }
 
+/* Folders sit above the grid as chips instead of beside it in a 12rem rail: the
+ * images get the full width, and a row that wraps beats a column that scrolls. */
 .media-library-layout {
-  @apply mt-8 grid gap-8 md:grid-cols-[12rem_minmax(0,1fr)];
+  @apply mt-8 grid gap-6;
 }
 
-.media-categories nav,
+.media-categories nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Wider than the gap inside a folder's own row, or the chip and its two actions
+   * read as one run of words across the whole line. */
+  gap: var(--space-xs) var(--space-md);
+}
+
 .media-category-form {
-  @apply flex flex-col gap-2;
+  @apply flex flex-wrap items-center gap-2;
 }
 
 .media-category-row {
@@ -391,10 +405,13 @@ body {
 }
 
 .media-category {
-  @apply rounded-md px-3 py-2 text-left text-sm hover:bg-soft;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  @apply px-3 py-2 text-left text-sm hover:bg-soft;
 }
 
 .media-category[aria-pressed='true'] {
+  border-color: var(--color-accent);
   @apply bg-surface font-medium text-accent;
 }
 
@@ -416,9 +433,7 @@ body {
 }
 .media-category-action button:hover { color: var(--color-link); }
 
-.media-category-form {
-  @apply mt-5 border-t border-line pt-5;
-}
+
 
 .media-details textarea,
 .media-details input {
