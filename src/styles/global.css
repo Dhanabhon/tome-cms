@@ -1145,6 +1145,65 @@ body {
   .article-title { font-size: var(--text-3xl); line-height: 3.5rem; }
 }
 
+/* The rest of the public type, from the same table. Every value below already
+ * existed -- it was written out in Tailwind arbitrary values on each page, so
+ * nothing here changes what renders; it changes where the number comes from.
+ * 37.5rem is the sm: breakpoint the pages were already using. */
+.hero-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  line-height: 3.5rem;
+  letter-spacing: -1.875px;
+}
+
+.featured-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: 3rem;
+}
+
+/* 404 and "temporarily unavailable" -- the same heading on three routes. */
+.notice-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  line-height: 3.75rem;
+}
+
+.card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.75rem;
+  letter-spacing: -0.25px;
+}
+
+.lead {
+  font-size: var(--text-md);
+  line-height: 1.875rem;
+}
+
+/* line-height stays at Tailwind's text-xl 28px across both steps: sm:text-[22px]
+ * was an arbitrary font-size and never touched it. */
+.site-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.75rem;
+  letter-spacing: -0.025em;
+}
+
+@media (min-width: 37.5rem) {
+  .hero-title { font-size: var(--text-4xl); line-height: 4rem; }
+  .site-wordmark { font-size: var(--text-xl); }
+}
+
 .admin-title-input::placeholder { color: var(--color-placeholder); opacity: 1; }
 .admin-title-input:focus-visible { outline: 0; }
 .admin-editor-content { width: 100%; }
