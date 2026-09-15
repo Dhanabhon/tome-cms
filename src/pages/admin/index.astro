@@ -162,7 +162,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
           <button class="admin-button" type="submit">{copy.filters.apply}</button>
         </form>
         <p class="admin-alert" data-post-error role="alert" hidden></p>
-        <div class="admin-story-list">
+        <div class="admin-story-list admin-story-grid">
           {filteredPosts.map((post) => {
             const title = post.title.trim() || copy.posts.untitled;
             const sibling = editions.get(post.translation_group_id)?.find((edition) => edition.locale !== post.locale);
@@ -178,7 +178,6 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                     <span class="admin-locale">{post.locale.toUpperCase()}</span>
                     <span>{readingMinutes(post.content_json)} {copy.row.minRead}</span>
                     <span class="admin-status" data-status={post.status}>{statusLabel(copy, post.status)}</span>
-                    <span data-story-when><span data-story-verb>{post.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                   </div>
                   {(postCategories.get(post.translation_group_id) ?? []).length > 0 && (
                     <ul class="admin-story-categories" aria-label={copy.drawer.categories}>
@@ -189,6 +188,8 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                     {sibling ? <a href={adminHref(adminSettings, `/edit/${sibling.id}`)}>{sibling.locale.toUpperCase()} {statusLabel(copy, sibling.status)}</a> : <a href={adminHref(adminSettings, `/new?${new URLSearchParams({ sourcePostId: post.id, locale: post.locale === 'th' ? 'en' : 'th' })}`)}>{post.locale === 'th' ? 'EN' : 'TH'} {copy.row.missing}</a>}
                   </p>
                 </div>
+                <div class="admin-story-foot">
+                  <span data-story-when><span data-story-verb>{post.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                 <details class="admin-story-menu">
                   <summary aria-label={`${copy.posts.actionsFor} ${title} (${post.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
                   <div>
@@ -199,6 +200,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                     <button type="button" data-post-action="delete" data-post-id={post.id} data-post-updated-at={post.updated_at} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>{copy.row.delete}</button>
                   </div>
                 </details>
+                </div>
               </article>
             );
           })}
