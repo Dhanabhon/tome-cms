@@ -175,7 +175,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
 
   if (needsSignIn) {
     return (
-      <section className="security-card" aria-busy={busy}>
+      <section className="admin-card" aria-busy={busy}>
         <h2>{copy.security.verifyOwner}</h2>
         <p>{copy.security.verifyHint}</p>
         <div className="security-actions">
@@ -188,24 +188,27 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   }
 
   return (
-    <div className="security-stack" aria-busy={busy}>
-      <section className="security-card" aria-labelledby="passkeys-title">
-        <div>
+    <div className="admin-card-stack" aria-busy={busy}>
+      <section className="admin-card" aria-labelledby="passkeys-title">
+        <header className="admin-card__head">
           <h2 id="passkeys-title">{copy.security.passkeys}</h2>
           <p>{copy.security.keepTwo}</p>
-        </div>
+        </header>
         <div className="security-list">
           {passkeys.map((passkey) => (
             <form className="security-key" key={passkey.id} onSubmit={(event) => void renamePasskey(event, passkey.id)}>
-              <label className="admin-field">
-                {copy.security.passkeyName}
-                <input className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
-              </label>
-              <p>{fill(copy.security.created, { created: formatDate(passkey.createdAt, copy, ownerLocale), used: formatDate(passkey.lastUsedAt, copy, ownerLocale) })}</p>
-              <div className="security-actions">
+              <div className="security-key__head">
+                <span className="security-key__name">{passkey.name}</span>
+                <span className="security-key__meta">{fill(copy.security.created, { created: formatDate(passkey.createdAt, copy, ownerLocale), used: formatDate(passkey.lastUsedAt, copy, ownerLocale) })}</span>
+              </div>
+              <div className="security-key__edit">
+                <label className="admin-field">
+                  {copy.security.passkeyName}
+                  <input className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
+                </label>
                 <button className="admin-button admin-button--secondary" disabled={busy} type="submit">{copy.security.saveName}</button>
                 <button
-                  className="admin-button"
+                  className="admin-button admin-button--danger"
                   disabled={busy || passkeys.length < 2}
                   onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
                   type="button"
@@ -214,7 +217,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
             </form>
           ))}
         </div>
-        <form className="security-form" onSubmit={(event) => void addPasskey(event)}>
+        <form className="security-add" onSubmit={(event) => void addPasskey(event)}>
           <label className="admin-field" htmlFor="new-passkey-name">
             {copy.security.newPasskeyName}
             <input className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => setNewName(event.target.value)} required value={newName} />
@@ -223,11 +226,11 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         </form>
       </section>
 
-      <section className="security-card" aria-labelledby="recovery-codes-title">
-        <div>
+      <section className="admin-card" aria-labelledby="recovery-codes-title">
+        <header className="admin-card__head">
           <h2 id="recovery-codes-title">{copy.security.recoveryCodes}</h2>
           <p>{copy.security.regenerateWarning}</p>
-        </div>
+        </header>
         <button className="admin-button admin-button--secondary" disabled={busy} onClick={() => void regenerateCodes()} type="button">{copy.security.regenerate}</button>
         {recoveryCodes.length > 0 && (
           <div className="security-codes">

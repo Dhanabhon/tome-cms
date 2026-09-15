@@ -40,6 +40,20 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
 
+  /** Serialised so a link edited and edited back counts as clean, not dirty. */
+  const snapshot = (values: Pick<ProfileFormProps['initialSettings'],
+    'author_avatar_media_id' | 'author_bio_en' | 'author_bio_th' | 'author_links' | 'author_name'>) =>
+    JSON.stringify([values.author_avatar_media_id, values.author_bio_en, values.author_bio_th, values.author_links, values.author_name]);
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot(initialSettings));
+  const currentSnapshot = snapshot({
+    author_avatar_media_id: authorAvatarMediaId,
+    author_bio_en: authorBioEn,
+    author_bio_th: authorBioTh,
+    author_links: authorLinks,
+    author_name: authorName,
+  });
+  const dirty = currentSnapshot !== savedSnapshot;
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
@@ -69,6 +83,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
       }
       if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
       setUpdatedAt(result.settings.updated_at);
+      setSavedSnapshot(currentSnapshot);
       setStatus(copy.settings.saved);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : copy.profile.saveFailed);
@@ -84,67 +99,102 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
         setFieldErrors((current) => ({ ...current, [name]: '' }));
       }}>
         <fieldset disabled={saving}>
-          <div className="profile-avatar">
-            {avatarUrl ? <img alt="" src={avatarUrl} /> : <span>{copy.profile.noAvatar}</span>}
-            <div className="admin-cover-actions">
-              <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setAvatarPickerOpen(true)} ref={avatarButton} type="button">
-                {avatarUrl ? copy.profile.changeAvatar : copy.profile.chooseAvatar}
-              </button>
-              {avatarUrl && <button className="admin-button admin-button--secondary" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); setStatus(''); }} type="button">{copy.profile.remove}</button>}
-            </div>
-          </div>
-          {avatarPickerOpen && <MediaPicker
-            onCancel={() => setAvatarPickerOpen(false)}
-            onSelect={(asset) => {
-              setAuthorAvatarMediaId(asset.id);
-              setAvatarUrl(asset.publicUrl);
-              setAvatarPickerOpen(false);
-              setStatus('');
-            }}
-            ownerLocale={ownerLocale}
-            returnFocus={avatarButton.current}
-          />}
-          <div className="admin-field">
-            <label htmlFor="authorName">{copy.profile.authorName}</label>
-            <input className="admin-control" id="authorName" name="authorName" aria-invalid={Boolean(fieldErrors.authorName)} aria-describedby="authorName-error" maxLength={120} value={authorName} onChange={(event) => setAuthorName(event.target.value)} />
-            <p className="admin-field-error" id="authorName-error" aria-live="polite">{fieldErrors.authorName}</p>
-          </div>
-          <div className="admin-field">
-            <label htmlFor="authorBioEn">{copy.profile.bioEnglish}</label>
-            <textarea className="admin-control admin-control--textarea" id="authorBioEn" name="authorBioEn" aria-invalid={Boolean(fieldErrors.authorBioEn)} aria-describedby="authorBioEn-error" lang="en" maxLength={1000} value={authorBioEn} onChange={(event) => setAuthorBioEn(event.target.value)} />
-            <p className="admin-field-error" id="authorBioEn-error" aria-live="polite">{fieldErrors.authorBioEn}</p>
-          </div>
-          <div className="admin-field">
-            <label htmlFor="authorBioTh">{copy.profile.bioThai}</label>
-            <textarea className="admin-control admin-control--textarea" id="authorBioTh" name="authorBioTh" aria-invalid={Boolean(fieldErrors.authorBioTh)} aria-describedby="authorBioTh-error" lang="th" maxLength={1000} value={authorBioTh} onChange={(event) => setAuthorBioTh(event.target.value)} />
-            <p className="admin-field-error" id="authorBioTh-error" aria-live="polite">{fieldErrors.authorBioTh}</p>
-          </div>
-          <div className="profile-links" role="group" aria-labelledby="profile-links-heading" aria-describedby="authorLinks-error">
-            <h2 id="profile-links-heading">{copy.profile.links}</h2>
-            <p>{copy.profile.linksHint}</p>
-            <p className="admin-field-error" id="authorLinks-error" aria-live="polite">{fieldErrors.authorLinks}</p>
-            {authorLinks.map((link, index) => (
-              <div className="profile-link" key={index}>
-                <div className="admin-field">
-                  <label htmlFor={`authorLinks.${index}.label`}>{fill(copy.profile.linkLabel, { index: index + 1 })}</label>
-                  <input className="admin-control" id={`authorLinks.${index}.label`} name={`authorLinks.${index}.label`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.label`])} aria-describedby={`authorLinks.${index}.label-error`} maxLength={80} required value={link.label} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} />
-                  <p className="admin-field-error" id={`authorLinks.${index}.label-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.label`]}</p>
+          <div className="admin-card-stack">
+
+            <section className="admin-card" aria-labelledby="profile-identity-heading">
+              <header className="admin-card__head">
+                <h2 id="profile-identity-heading">{copy.profile.identity}</h2>
+                <p>{copy.profile.identityHint}</p>
+              </header>
+              <div className="profile-identity">
+                <span className={avatarUrl ? 'avatar-slot avatar-slot--filled' : 'avatar-slot'}>
+                  {avatarUrl ? <img alt="" src={avatarUrl} /> : (
+                    <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <circle cx="12" cy="8.5" r="3.75" />
+                      <path d="M4.5 20.5c1.2-3.8 4-5.75 7.5-5.75s6.3 1.95 7.5 5.75" />
+                    </svg>
+                  )}
+                </span>
+                <div className="profile-identity__fields">
+                  <div className="admin-field admin-field--name">
+                    <label htmlFor="authorName">{copy.profile.authorName}</label>
+                    <input className="admin-control" id="authorName" name="authorName" aria-invalid={Boolean(fieldErrors.authorName)} aria-describedby="authorName-error" maxLength={120} value={authorName} onChange={(event) => setAuthorName(event.target.value)} />
+                    <p className="admin-field-error" id="authorName-error" aria-live="polite">{fieldErrors.authorName}</p>
+                  </div>
+                  <div className="admin-cover-actions">
+                    <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setAvatarPickerOpen(true)} ref={avatarButton} type="button">
+                      {avatarUrl ? copy.profile.changeAvatar : copy.profile.chooseAvatar}
+                    </button>
+                    {avatarUrl && <button className="admin-button admin-button--secondary" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); setStatus(''); }} type="button">{copy.profile.remove}</button>}
+                  </div>
+                  {!avatarUrl && <p className="admin-hint">{copy.profile.noAvatar}</p>}
                 </div>
-                <div className="admin-field">
-                  <label htmlFor={`authorLinks.${index}.url`}>{fill(copy.profile.linkUrl, { index: index + 1 })}</label>
-                  <input className="admin-control" id={`authorLinks.${index}.url`} name={`authorLinks.${index}.url`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.url`])} aria-describedby={`authorLinks.${index}.url-error`} type="url" pattern="https?://.*" required value={link.url} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, url: event.target.value } : item))} />
-                  <p className="admin-field-error" id={`authorLinks.${index}.url-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.url`]}</p>
-                </div>
-                <button className="admin-button" type="button" aria-label={fill(copy.profile.removeLink, { index: index + 1 })} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setFieldErrors({}); setStatus(''); }}>{copy.profile.remove}</button>
               </div>
-            ))}
-            <button className="admin-button" type="button" disabled={authorLinks.length >= 5} onClick={() => { setAuthorLinks([...authorLinks, { label: '', url: '' }]); setStatus(''); }}>{copy.profile.addLink}</button>
+              {avatarPickerOpen && <MediaPicker
+                onCancel={() => setAvatarPickerOpen(false)}
+                onSelect={(asset) => {
+                  setAuthorAvatarMediaId(asset.id);
+                  setAvatarUrl(asset.publicUrl);
+                  setAvatarPickerOpen(false);
+                  setStatus('');
+                }}
+                ownerLocale={ownerLocale}
+                returnFocus={avatarButton.current}
+              />}
+            </section>
+
+            <section className="admin-card" aria-labelledby="profile-bio-heading">
+              <header className="admin-card__head">
+                <h2 id="profile-bio-heading">{copy.profile.bio}</h2>
+                <p>{copy.profile.bioHint}</p>
+              </header>
+              <div className="profile-bios">
+                <div className="admin-field">
+                  <label htmlFor="authorBioEn">{copy.profile.bio}<span className="lang-chip">{copy.filters.english}</span></label>
+                  <textarea className="admin-control admin-control--textarea" id="authorBioEn" name="authorBioEn" aria-invalid={Boolean(fieldErrors.authorBioEn)} aria-describedby="authorBioEn-error" lang="en" maxLength={1000} value={authorBioEn} onChange={(event) => setAuthorBioEn(event.target.value)} />
+                  <p className="admin-field-error" id="authorBioEn-error" aria-live="polite">{fieldErrors.authorBioEn}</p>
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="authorBioTh">{copy.profile.bio}<span className="lang-chip">{copy.filters.thai}</span></label>
+                  <textarea className="admin-control admin-control--textarea" id="authorBioTh" name="authorBioTh" aria-invalid={Boolean(fieldErrors.authorBioTh)} aria-describedby="authorBioTh-error" lang="th" maxLength={1000} value={authorBioTh} onChange={(event) => setAuthorBioTh(event.target.value)} />
+                  <p className="admin-field-error" id="authorBioTh-error" aria-live="polite">{fieldErrors.authorBioTh}</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="admin-card" aria-labelledby="profile-links-heading" aria-describedby="authorLinks-error">
+              <header className="admin-card__head">
+                <h2 id="profile-links-heading">{copy.profile.links}</h2>
+                <p>{copy.profile.linksHint}</p>
+              </header>
+              <div className="profile-links">
+                <p className="admin-field-error" id="authorLinks-error" aria-live="polite">{fieldErrors.authorLinks}</p>
+                {!authorLinks.length && <p className="admin-empty-inline">{copy.profile.linksEmpty}</p>}
+                {authorLinks.map((link, index) => (
+                  <div className="profile-link" key={index}>
+                    <div className="admin-field">
+                      <label htmlFor={`authorLinks.${index}.label`}>{fill(copy.profile.linkLabel, { index: index + 1 })}</label>
+                      <input className="admin-control" id={`authorLinks.${index}.label`} name={`authorLinks.${index}.label`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.label`])} aria-describedby={`authorLinks.${index}.label-error`} maxLength={80} required value={link.label} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} />
+                      <p className="admin-field-error" id={`authorLinks.${index}.label-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.label`]}</p>
+                    </div>
+                    <div className="admin-field">
+                      <label htmlFor={`authorLinks.${index}.url`}>{fill(copy.profile.linkUrl, { index: index + 1 })}</label>
+                      <input className="admin-control" id={`authorLinks.${index}.url`} name={`authorLinks.${index}.url`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.url`])} aria-describedby={`authorLinks.${index}.url-error`} type="url" pattern="https?://.*" required value={link.url} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, url: event.target.value } : item))} />
+                      <p className="admin-field-error" id={`authorLinks.${index}.url-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.url`]}</p>
+                    </div>
+                    <button className="admin-button admin-button--danger" type="button" aria-label={fill(copy.profile.removeLink, { index: index + 1 })} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setFieldErrors({}); setStatus(''); }}>{copy.profile.remove}</button>
+                  </div>
+                ))}
+                <button className="admin-button" type="button" disabled={authorLinks.length >= 5} onClick={() => { setAuthorLinks([...authorLinks, { label: '', url: '' }]); setStatus(''); }}>{copy.profile.addLink}</button>
+              </div>
+            </section>
+
           </div>
         </fieldset>
         <p className="admin-form-error" role="alert">{error}</p>
-        <div className="admin-form-actions">
-          <button className="admin-button admin-button--primary" disabled={saving} type="submit">{saving ? copy.settings.saving : copy.settings.save}</button>
-          <p role="status">{status}</p>
+        <div className="admin-save-bar">
+          <button className="admin-button admin-button--primary" disabled={saving || !dirty} type="submit">{saving ? copy.settings.saving : copy.settings.save}</button>
+          <p role="status">{dirty && !saving ? copy.profile.unsaved : status}</p>
         </div>
     </form>
   );
