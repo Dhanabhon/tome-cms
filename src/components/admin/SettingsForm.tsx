@@ -70,6 +70,20 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
       setUpdatedAt(result.settings.updated_at);
       setSavedSnapshot(currentSnapshot);
+      // The admin's language, its date format and the site name in the sidebar are all
+      // read from the database when the server renders the page -- adminCopy(), the
+      // lang attribute and AdminShell each take them as props. No amount of state in
+      // this island reaches them, so when one of the three changes the page has to be
+      // asked for again. Saving is the moment to do that, rather than leaving the owner
+      // to work out that a reload is what applies the change they just made.
+      if (
+        defaultLocale !== initialSettings.default_locale
+        || timezone !== initialSettings.timezone
+        || siteName !== initialSettings.site_name
+      ) {
+        window.location.reload();
+        return;
+      }
       setStatus(copy.settings.saved);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : copy.settings.saveFailed);
