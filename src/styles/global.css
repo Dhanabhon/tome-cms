@@ -795,7 +795,19 @@ body {
 }
 .admin-story-cover img { width: 100%; height: 100%; object-fit: cover; }
 .admin-story-row.admin-page-row { grid-template-columns: minmax(0, 1fr) 44px; }
-.admin-page-path { margin: 0 0 var(--space-sm); color: var(--color-muted); font-size: var(--text-xs); overflow-wrap: anywhere; }
+/* A path is a string you compare character by character, so it gets the face that
+ * makes l and 1 and rn and m different shapes. */
+.admin-page-path { margin: 0 0 var(--space-sm); color: var(--color-muted); font-family: ui-monospace, monospace; font-size: var(--text-xs); overflow-wrap: anywhere; }
+/* Pages read as rows inside one frame rather than under a bare top rule, so the rows
+ * take their own inline padding and the last one stops drawing a line on the frame. */
+.admin-story-panel {
+  overflow: hidden;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+.admin-story-panel > * { padding-inline: var(--space-md); }
+.admin-story-panel > :last-child { border-block-end: 0; }
 .admin-story-content { min-width: 0; }
 .admin-story-content h2 { margin: 0 0 var(--space-xs); font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
 .admin-story-content h2 a { display: flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }

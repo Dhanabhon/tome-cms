@@ -111,7 +111,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
             <button class="admin-button" type="submit">{copy.filters.apply}</button>
           </form>
           <p class="admin-alert" data-page-error role="alert" hidden></p>
-          <div class="admin-story-list">
+          <div class="admin-story-list admin-story-panel">
             {filteredPages.map((page) => {
               const title = page.title.trim() || copy.pages.untitled;
               const sibling = editions.get(page.translation_group_id)?.find((edition) => edition.locale !== page.locale);
