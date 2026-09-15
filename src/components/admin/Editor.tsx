@@ -330,7 +330,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
         <article className="admin-editor-canvas">
           <label className="sr-only" htmlFor="post-title">{copy.editor.postTitle}</label>
           <textarea
-            className="admin-title-input"
+            className="admin-title-input article-title"
             ref={titleField}
             id="post-title"
             maxLength={200}

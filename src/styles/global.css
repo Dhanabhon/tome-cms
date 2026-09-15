@@ -1113,6 +1113,20 @@ body {
   margin-inline: auto;
 }
 
+/* The post title, at the size readers get it. DESIGN.md's scale has carried this
+ * step from the start -- 54px / 700 / 56px / -1.875px, the "large marketing titles"
+ * row -- but only as a line in a table: the CSS had no token for it, so the public
+ * page wrote the numbers by hand and the editor could not reach them at all. One
+ * rule now, used on both sides of publishing, so the writer sees the published size. */
+.article-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 3rem;
+  letter-spacing: -1.875px;
+}
+
 .admin-title-input {
   display: block;
   width: 100%;
@@ -1123,12 +1137,12 @@ body {
   outline: 0;
   background: transparent;
   color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 400;
-  line-height: 1.5;
   overflow-wrap: anywhere;
   resize: none;
+}
+
+@media (min-width: 37.5rem) {
+  .article-title { font-size: var(--text-3xl); line-height: 3.5rem; }
 }
 
 .admin-title-input::placeholder { color: var(--color-placeholder); opacity: 1; }

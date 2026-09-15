@@ -319,7 +319,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
         <article className="admin-editor-canvas">
           <label className="sr-only" htmlFor="page-title">{copy.editor.pageTitle}</label>
           <textarea
-            className="admin-title-input"
+            className="admin-title-input article-title"
             ref={titleField}
             id="page-title"
             maxLength={200}
