@@ -757,6 +757,10 @@ body {
   border-radius: var(--radius-card);
   background: var(--color-paper);
 }
+/* The empty state is a sibling of the cards, so in a grid it lands in one 18rem
+ * track and its own three columns collapse to a word per line. It spans instead,
+ * and drops the rule that only made sense when this was a bordered list. */
+.admin-story-grid > .admin-empty { grid-column: 1 / -1; border-block-end: 0; }
 .admin-story-grid .admin-story-cover { aspect-ratio: 16 / 7; border-radius: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
 .admin-story-grid .admin-story-content { padding: var(--space-md) var(--space-md) 0; }
 .admin-story-grid .admin-story-content h2 { font-size: var(--text-base); }
