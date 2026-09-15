@@ -28,7 +28,7 @@ const showModifiedDate = !preview && new Date(modifiedAt).getTime() - new Date(p
   <a class="text-sm font-medium text-link hover:underline" href={localePath(post.locale)}><span aria-hidden="true">←</span> All posts</a>
   <header class="mt-6">
     <h1 class="article-title">{post.title}</h1>
-    {post.meta_description && <p class="mt-5 text-xl leading-[30px] text-muted">{post.meta_description}</p>}
+    {post.meta_description && <p class="lead mt-5 text-muted">{post.meta_description}</p>}
     <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
       <span>By <a class="text-link hover:underline" href={localePath(post.locale)}>{settings.site_name}</a></span>
       <span aria-hidden="true">•</span>

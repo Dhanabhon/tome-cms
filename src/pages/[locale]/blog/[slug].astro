@@ -80,7 +80,7 @@ const xDefaultHref = settings
   ) : (
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
       <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
-      <h1 class="mt-4 font-display text-[40px] font-normal leading-[60px]">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
+      <h1 class="notice-title mt-4">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
       <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(locale)}>Return to all posts</a>
     </section>
   )}
