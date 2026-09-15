@@ -1189,11 +1189,19 @@ body {
 .security-list { display: grid; gap: var(--space-md); }
 /* A passkey reads as a thing before it reads as a field: which key, then when it was
  * last used, then the box that renames it. */
-.security-key { display: grid; gap: var(--space-sm); padding-block-start: var(--space-md); border-block-start: var(--rule-hair) solid var(--color-rule); }
-.security-key__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-sm); }
-.security-key__name { color: var(--color-ink); font-weight: 600; }
+/* A key is a name, when it arrived, and two things you can do to it -- one line. The
+ * rename field used to stand open on every row, so two Passkeys were two labels, two
+ * text inputs and four buttons before you had asked to change anything. */
+.security-key { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-sm) var(--space-md); align-items: center; padding-block-start: var(--space-md); border-block-start: var(--rule-hair) solid var(--color-rule); }
+.security-key__head { display: grid; gap: var(--space-3xs); min-width: 0; }
+.security-key__name { color: var(--color-ink); font-weight: 600; overflow-wrap: anywhere; }
 .security-key__meta { color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
-.security-key__edit { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); }
+.security-key__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: var(--space-xs); }
+.security-key__edit { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); grid-column: 1 / -1; }
+@media (max-width: 39.999rem) {
+  .security-key { grid-template-columns: minmax(0, 1fr); }
+  .security-key__actions { justify-content: start; }
+}
 .security-key__edit .admin-field, .security-add .admin-field { flex: 1 1 18rem; max-width: 24rem; }
 /* Adding a key is a different act from renaming one, so it stands on its own ground. */
 .security-add { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-input); background: var(--color-paper-2); }
