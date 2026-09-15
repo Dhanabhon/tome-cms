@@ -206,39 +206,53 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     ? check.latest.manifest.releaseNotesUrl : null;
 
   return (
-    <section className="update-card" aria-labelledby="update-status-heading">
-      <div>
-        <h2 id="update-status-heading">{copy.updates.status}</h2>
-        <p className="update-version">{copy.updates.installedVersion} {check?.currentVersion ?? copy.updates.checking}</p>
-        {check?.latest && <p className="update-version">{copy.updates.latestVersion} {check.latest.manifest.version}</p>}
-      </div>
-      <p className="update-status" data-status={availability} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
-      {!busy && <p>{message}</p>}
-      <div>
-        <h3>{installability.mode === 'managed' ? copy.updates.managed : copy.updates.managedUnavailable}</h3>
-        <p className="update-version">{copy.updates.updateMode} {check?.updateMode ?? installability.mode}</p>
-        <p>{installability.reason}</p>
-      </div>
-      {check?.latest && <>
-        <p className="update-version">{copy.updates.published} {formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</p>
+    <div className="admin-card-stack">
+
+      <section className="admin-card" aria-labelledby="update-status-heading">
+        <header className="admin-card__head">
+          <h2 id="update-status-heading">{copy.updates.status}</h2>
+        </header>
+        <dl className="admin-facts">
+          <div><dt>{copy.updates.installedVersion}</dt><dd>{check?.currentVersion ?? copy.updates.checking}</dd></div>
+          {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
+          {check?.latest && <div><dt>{copy.updates.published}</dt><dd>{formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</dd></div>}
+        </dl>
+        <p className="update-status" data-status={availability} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
+        {!busy && <p>{message}</p>}
         {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
-      </>}
-      <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{busy ? copy.updates.checking : copy.updates.checkAgain}</button>
-      {installability.installable && check?.latest && <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void install()} type="button">
-        {installing ? copy.updates.verifying : fill(copy.updates.install, { version: check.latest.manifest.version })}
-      </button>}
-      {(watch || job) && <div aria-labelledby="update-progress-heading">
-        <h3 id="update-progress-heading">{copy.updates.progress}</h3>
-        <p role="status" aria-live="polite">{reconnecting ? copy.updates.reconnecting : job?.message ?? copy.updates.waitingForUpdater}</p>
-        <progress max={8} value={job?.completedSteps ?? 0} aria-label={copy.updates.stepsCompleted} />
-        <ol>{steps.map(([phase, label], index) => <li key={phase} aria-current={job?.phase === phase ? 'step' : undefined}>
+        <div className="update-actions">
+          <button className="admin-button admin-button--secondary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{busy ? copy.updates.checking : copy.updates.checkAgain}</button>
+          {installability.installable && check?.latest && <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void install()} type="button">
+            {installing ? copy.updates.verifying : fill(copy.updates.install, { version: check.latest.manifest.version })}
+          </button>}
+        </div>
+      </section>
+
+      <section className="admin-card" aria-labelledby="update-mode-heading">
+        <header className="admin-card__head">
+          <h2 id="update-mode-heading">{installability.mode === 'managed' ? copy.updates.managed : copy.updates.managedUnavailable}</h2>
+          <p>{installability.reason}</p>
+        </header>
+        <dl className="admin-facts">
+          <div><dt>{copy.updates.updateMode}</dt><dd>{check?.updateMode ?? installability.mode}</dd></div>
+        </dl>
+      </section>
+
+      {(watch || job) && <section className="admin-card" aria-labelledby="update-progress-heading">
+        <header className="admin-card__head">
+          <h2 id="update-progress-heading">{copy.updates.progress}</h2>
+          <p role="status" aria-live="polite">{reconnecting ? copy.updates.reconnecting : job?.message ?? copy.updates.waitingForUpdater}</p>
+        </header>
+        <progress className="update-progress" max={8} value={job?.completedSteps ?? 0} aria-label={copy.updates.stepsCompleted} />
+        <ol className="update-steps">{steps.map(([phase, label], index) => <li key={phase} aria-current={job?.phase === phase ? 'step' : undefined}>
           {index < (job?.completedSteps ?? 0) && <span aria-label={copy.updates.completed}>✓ </span>}{label}
         </li>)}</ol>
         {job?.phase === 'succeeded' && <p>{fill(copy.updates.installed, { version: job.targetVersion })}</p>}
         {job?.backupCreatedAt && <p>{copy.updates.backupCreated} <time dateTime={job.backupCreatedAt}>{new Date(job.backupCreatedAt).toLocaleString()}</time>.</p>}
         {job?.phase === 'rolled_back' && <p>{copy.updates.rolledBack}</p>}
         {job?.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
-      </div>}
-    </section>
+      </section>}
+
+    </div>
   );
 }

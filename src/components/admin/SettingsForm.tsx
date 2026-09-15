@@ -35,6 +35,16 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
 
+  /** Serialised, so a value edited and edited back counts as clean. */
+  const snapshot = (values: readonly unknown[]) => JSON.stringify(values);
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot([
+    initialSettings.site_name, initialSettings.tagline, initialSettings.site_description,
+    initialSettings.default_locale, initialSettings.timezone, initialSettings.theme,
+    initialSettings.allow_visitor_theme,
+  ]));
+  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, theme, allowVisitorTheme]);
+  const dirty = currentSnapshot !== savedSnapshot;
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
@@ -59,6 +69,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       }
       if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
       setUpdatedAt(result.settings.updated_at);
+      setSavedSnapshot(currentSnapshot);
       setStatus(copy.settings.saved);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : copy.settings.saveFailed);
@@ -74,53 +85,80 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       setFieldErrors((current) => ({ ...current, [name]: '' }));
     }}>
       <fieldset disabled={saving}>
-        <div className="admin-field">
-          <label htmlFor="siteName">{copy.settings.siteName}</label>
-          <input className="admin-control" id="siteName" name="siteName" aria-invalid={Boolean(fieldErrors.siteName)} aria-describedby="siteName-error" required maxLength={120} value={siteName} onChange={(event) => setSiteName(event.target.value)} />
-          <p className="admin-field-error" id="siteName-error" aria-live="polite">{fieldErrors.siteName}</p>
-        </div>
-        <div className="admin-field">
-          <label htmlFor="tagline">{copy.settings.tagline}</label>
-          <input className="admin-control" id="tagline" name="tagline" aria-invalid={Boolean(fieldErrors.tagline)} aria-describedby="tagline-error" maxLength={120} placeholder={copy.settings.taglinePlaceholder} value={tagline} onChange={(event) => setTagline(event.target.value)} />
-          <p className="admin-field-error" id="tagline-error" aria-live="polite">{fieldErrors.tagline}</p>
-        </div>
-        <div className="admin-field">
-          <label htmlFor="siteDescription">{copy.settings.siteDescription}</label>
-          <textarea className="admin-control admin-control--textarea" id="siteDescription" name="siteDescription" aria-invalid={Boolean(fieldErrors.siteDescription)} aria-describedby="siteDescription-error" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} />
-          <p className="admin-field-error" id="siteDescription-error" aria-live="polite">{fieldErrors.siteDescription}</p>
-        </div>
-        <div className="admin-field">
-          <label htmlFor="defaultLocale">{copy.settings.defaultLanguage}</label>
-          <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: copy.filters.thai, value: 'th' }, { label: copy.filters.english, value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setStatus(''); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
-          <p className="admin-field-error" id="defaultLocale-error" aria-live="polite">{fieldErrors.defaultLocale}</p>
-        </div>
-        <div className="admin-field">
-          <label htmlFor="timezone">{copy.settings.timezone}</label>
-          <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
-          <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
-        </div>
-        <div className="admin-field">
-          <label htmlFor="theme">{copy.theme.siteLabel}</label>
-          <UiSelect ariaDescribedBy="theme-hint theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
-          <small id="theme-hint">{copy.theme.siteHint}</small>
-          <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
-          <label className="flex items-center gap-2 py-2">
-            <input
-              aria-describedby="allowVisitorTheme-help"
-              checked={allowVisitorTheme}
-              name="allowVisitorTheme"
-              onChange={(event) => { setAllowVisitorTheme(event.target.checked); setStatus(''); }}
-              type="checkbox"
-            />
-            <span>{copy.theme.visitorLabel}</span>
-          </label>
-          <small id="allowVisitorTheme-help">{copy.theme.visitorHint}</small>
+        <div className="admin-card-stack">
+
+          <section className="admin-card" aria-labelledby="settings-identity-heading">
+            <header className="admin-card__head">
+              <h2 id="settings-identity-heading">{copy.settings.identity}</h2>
+              <p>{copy.settings.identityHint}</p>
+            </header>
+            <div className="admin-field admin-field--name">
+              <label htmlFor="siteName">{copy.settings.siteName}</label>
+              <input className="admin-control" id="siteName" name="siteName" aria-invalid={Boolean(fieldErrors.siteName)} aria-describedby="siteName-error" required maxLength={120} value={siteName} onChange={(event) => setSiteName(event.target.value)} />
+              <p className="admin-field-error" id="siteName-error" aria-live="polite">{fieldErrors.siteName}</p>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="tagline">{copy.settings.tagline}</label>
+              <input className="admin-control" id="tagline" name="tagline" aria-invalid={Boolean(fieldErrors.tagline)} aria-describedby="tagline-error" maxLength={120} placeholder={copy.settings.taglinePlaceholder} value={tagline} onChange={(event) => setTagline(event.target.value)} />
+              <p className="admin-field-error" id="tagline-error" aria-live="polite">{fieldErrors.tagline}</p>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="siteDescription">{copy.settings.siteDescription}</label>
+              <textarea className="admin-control admin-control--textarea" id="siteDescription" name="siteDescription" aria-invalid={Boolean(fieldErrors.siteDescription)} aria-describedby="siteDescription-error" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} />
+              <p className="admin-field-error" id="siteDescription-error" aria-live="polite">{fieldErrors.siteDescription}</p>
+            </div>
+          </section>
+
+          <section className="admin-card" aria-labelledby="settings-regional-heading">
+            <header className="admin-card__head">
+              <h2 id="settings-regional-heading">{copy.settings.regional}</h2>
+              <p>{copy.settings.regionalHint}</p>
+            </header>
+            <div className="settings-pair">
+              <div className="admin-field">
+                <label htmlFor="defaultLocale">{copy.settings.defaultLanguage}</label>
+                <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: copy.filters.thai, value: 'th' }, { label: copy.filters.english, value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setStatus(''); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
+                <p className="admin-field-error" id="defaultLocale-error" aria-live="polite">{fieldErrors.defaultLocale}</p>
+              </div>
+              <div className="admin-field">
+                <label htmlFor="timezone">{copy.settings.timezone}</label>
+                <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
+                <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="admin-card" aria-labelledby="settings-theme-heading">
+            <header className="admin-card__head">
+              <h2 id="settings-theme-heading">{copy.theme.group}</h2>
+              <p id="theme-hint">{copy.theme.siteHint}</p>
+            </header>
+            <div className="admin-field admin-field--short">
+              <label htmlFor="theme">{copy.theme.siteLabel}</label>
+              <UiSelect ariaDescribedBy="theme-hint theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
+              <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
+            </div>
+            <div className="admin-field">
+              <label className="flex items-center gap-2 py-2">
+                <input
+                  aria-describedby="allowVisitorTheme-help"
+                  checked={allowVisitorTheme}
+                  name="allowVisitorTheme"
+                  onChange={(event) => { setAllowVisitorTheme(event.target.checked); setStatus(''); }}
+                  type="checkbox"
+                />
+                <span>{copy.theme.visitorLabel}</span>
+              </label>
+              <small id="allowVisitorTheme-help">{copy.theme.visitorHint}</small>
+            </div>
+          </section>
+
         </div>
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
-      <div className="admin-form-actions">
-        <button className="admin-button admin-button--primary" type="submit" disabled={saving}>{saving ? copy.settings.saving : copy.settings.save}</button>
-        <p role="status">{status}</p>
+      <div className="admin-save-bar">
+        <button className="admin-button admin-button--primary" type="submit" disabled={saving || !dirty}>{saving ? copy.settings.saving : copy.settings.save}</button>
+        <p role="status">{dirty && !saving ? copy.settings.unsaved : status}</p>
       </div>
     </form>
   );
