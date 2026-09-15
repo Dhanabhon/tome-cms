@@ -158,97 +158,99 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
 
   return (
     <div className="category-manager" aria-busy={pendingActionIds.size > 0}>
-      <form className="category-create" onSubmit={createCategory}>
-        <label className="admin-field" htmlFor="category-name">
-          <span>{copy.categories.nameLabel} <small>{copy.categories.nameHint}</small></span>
-          <input
-            aria-label={copy.categories.nameLabel}
-            className="admin-control"
-            id="category-name"
-            maxLength={80}
-            onChange={(event) => setCreateName(event.target.value)}
-            required
-            type="text"
-            value={createName}
-          />
-        </label>
-        <button className="admin-button admin-button--primary" disabled={pendingActionIds.has('create')} type="submit">
-          {copy.categories.create}
-        </button>
-      </form>
-
       <p className="category-status" role="status" aria-live="polite">{liveStatus}</p>
       {error && <p className="admin-alert" role="alert">{error}</p>}
 
-      <ul className="category-list" aria-label={copy.categories.listLabel}>
-        {categories.map((category) => {
-          const renameAction = `rename:${category.id}`;
-          const deleteAction = `delete:${category.id}`;
-          return (
-            <li className="category-row" key={category.id}>
-              {edit?.id === category.id ? (
-                <form className="category-edit" onSubmit={renameCategory}>
-                  <label className="admin-field">
-                    <span>{fill(copy.categories.renameNameLabel, { name: category.name })}</span>
-                    <input
-                      autoFocus
-                      className="admin-control"
-                      disabled={pendingActionIds.has(renameAction)}
-                      maxLength={80}
-                      onChange={(event) => setEdit({ id: category.id, name: event.target.value })}
-                      required
-                      value={edit.name}
-                    />
-                  </label>
-                  <div className="category-edit-actions">
-                    <button className="admin-button admin-button--primary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
-                    <button
-                      className="admin-button"
-                      disabled={pendingActionIds.has(renameAction)}
-                      onClick={() => { setEdit(null); setError(''); focusRename(category.id); }}
-                      type="button"
-                    >
-                      {copy.categories.cancelRename}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <div className="category-row__content">
+      <div className="category-frame">
+        <form className="category-create" onSubmit={createCategory}>
+          <label className="admin-field" htmlFor="category-name">
+            <span>{copy.categories.nameLabel} <small>{copy.categories.nameHint}</small></span>
+            <input
+              aria-label={copy.categories.nameLabel}
+              className="admin-control"
+              id="category-name"
+              maxLength={80}
+              onChange={(event) => setCreateName(event.target.value)}
+              required
+              type="text"
+              value={createName}
+            />
+          </label>
+          <button className="admin-button admin-button--primary" disabled={pendingActionIds.has('create')} type="submit">
+            {copy.categories.create}
+          </button>
+        </form>
+
+        <ul className="category-list" aria-label={copy.categories.listLabel}>
+          {categories.map((category) => {
+            const renameAction = `rename:${category.id}`;
+            const deleteAction = `delete:${category.id}`;
+            return (
+              <li className="category-row" key={category.id}>
+                {edit?.id === category.id ? (
+                  <form className="category-edit" onSubmit={renameCategory}>
+                    <label className="admin-field">
+                      <span>{fill(copy.categories.renameNameLabel, { name: category.name })}</span>
+                      <input
+                        autoFocus
+                        className="admin-control"
+                        disabled={pendingActionIds.has(renameAction)}
+                        maxLength={80}
+                        onChange={(event) => setEdit({ id: category.id, name: event.target.value })}
+                        required
+                        value={edit.name}
+                      />
+                    </label>
+                    <div className="category-edit-actions">
+                      <button className="admin-button admin-button--primary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
+                      <button
+                        className="admin-button"
+                        disabled={pendingActionIds.has(renameAction)}
+                        onClick={() => { setEdit(null); setError(''); focusRename(category.id); }}
+                        type="button"
+                      >
+                        {copy.categories.cancelRename}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
                     <div className="category-row__name">
                       <h2>{category.name}</h2>
                       {category.is_default && <span className="category-default">{copy.categories.defaultTag}</span>}
                     </div>
-                    <p>{postCountLabel(copy, category.postCount)}</p>
-                  </div>
-                  {!category.is_default && (
-                    <div className="category-actions">
-                      <button
-                        aria-label={fill(copy.categories.renameLabelFor, { name: category.name })}
-                        className="admin-button"
-                        onClick={() => { setEdit({ id: category.id, name: category.name }); setError(''); setLiveStatus(''); }}
-                        ref={(button) => { if (button) renameButtons.current.set(category.id, button); }}
-                        type="button"
-                      >
-                        {copy.categories.rename}
-                      </button>
-                      <button
-                        aria-label={fill(copy.categories.deleteLabelFor, { name: category.name })}
-                        className="admin-button"
-                        disabled={pendingActionIds.has(deleteAction)}
-                        onClick={() => void deleteCategory(category)}
-                        type="button"
-                      >
-                        {copy.categories.delete}
-                      </button>
+                    <div className="category-row__meta">
+                      <p>{postCountLabel(copy, category.postCount)}</p>
+                      {!category.is_default && (
+                        <div className="category-actions">
+                          <button
+                            aria-label={fill(copy.categories.renameLabelFor, { name: category.name })}
+                            className="admin-button"
+                            onClick={() => { setEdit({ id: category.id, name: category.name }); setError(''); setLiveStatus(''); }}
+                            ref={(button) => { if (button) renameButtons.current.set(category.id, button); }}
+                            type="button"
+                          >
+                            {copy.categories.rename}
+                          </button>
+                          <button
+                            aria-label={fill(copy.categories.deleteLabelFor, { name: category.name })}
+                            className="admin-button"
+                            disabled={pendingActionIds.has(deleteAction)}
+                            onClick={() => void deleteCategory(category)}
+                            type="button"
+                          >
+                            {copy.categories.delete}
+                          </button>
+                        </div>
+                        )}
                     </div>
-                  )}
-                </>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }
