@@ -736,6 +736,41 @@ body {
 }
 .admin-post-filters .admin-field { min-width: 0; }
 .admin-story-list { border-block-start: var(--rule-hair) solid var(--color-rule); }
+/* Posts read as cards: the cover leads, the title and its meta sit under it, and the
+ * date shares a footer with the row menu. Pages keeps the row list this class started
+ * as -- the two lists answer different questions and the reference separates them. */
+.admin-story-grid {
+  display: grid;
+  /* min() so the track can collapse below its own minimum on a narrow screen;
+   * a bare minmax(18rem, 1fr) overflows by 16px at 320. */
+  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+  gap: var(--space-md);
+  border-block-start: 0;
+}
+.admin-story-grid .admin-story-row {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  overflow: hidden;
+  padding-block: 0;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+.admin-story-grid .admin-story-cover { aspect-ratio: 16 / 7; border-radius: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
+.admin-story-grid .admin-story-content { padding: var(--space-md) var(--space-md) 0; }
+.admin-story-grid .admin-story-content h2 { font-size: var(--text-base); }
+.admin-story-grid .admin-story-content h2 a { min-height: 0; }
+.admin-story-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
 .admin-story-row {
   display: grid;
   grid-template-columns: 6rem minmax(0, 1fr) auto;
