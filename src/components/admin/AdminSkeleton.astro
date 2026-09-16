@@ -1,0 +1,144 @@
+---
+import type { AdminSkeletonKind } from '../../lib/admin-transition';
+
+/**
+ * The shape of an admin page while its content is on the way. The navigation overlay shows
+ * it before the next page arrives, and a page whose content renders in the browser shows it
+ * until that content does -- the same shape both times, so the wait is one steady picture.
+ *
+ * Each kind is built from the layout classes its pages use (.admin-page, .admin-page__head,
+ * .admin-story-grid, .media-shell, .admin-editor-bar ...), with shimmer blocks sized from the
+ * type they stand in for. The blocks sit where the content will land, so nothing moves when
+ * it does.
+ */
+interface Props {
+  kind: AdminSkeletonKind;
+  /** False where the page has already rendered its own heading above the skeleton. */
+  head?: boolean;
+  label: string;
+}
+
+const { kind, head = true, label } = Astro.props;
+const count = (length: number) => Array.from({ length }, (_, index) => index);
+const actions = kind === 'posts' ? 2 : kind === 'form' ? 0 : 1;
+const filters = kind === 'posts' || kind === 'pages';
+---
+
+<div class="admin-skeleton" data-kind={kind}>
+  <p class="sr-only" role="status">{label}</p>
+  <div aria-hidden="true">
+    {kind === 'editor' ? (
+      <div class="admin-editor">
+        <div class="admin-editor-bar">
+          <div class="admin-editor-bar__inner">
+            <div class="admin-editor-bar__start">
+              <span class="skeleton-line" style="--skeleton-width: 7rem"></span>
+              <span class="skeleton skeleton--chip"></span>
+              <span class="skeleton skeleton--chip"></span>
+            </div>
+            <div class="admin-editor-actions">
+              <span class="skeleton skeleton--button" style="--skeleton-width: 6rem"></span>
+              <span class="skeleton skeleton--button" style="--skeleton-width: 7rem"></span>
+            </div>
+          </div>
+        </div>
+        <div class="admin-editor-workspace">
+          <div class="admin-editor-canvas">
+            <div class="article-title admin-title-input"><span class="skeleton-line" style="--skeleton-width: 70%"></span></div>
+            <div class="admin-skeleton__prose">
+              {[100, 96, 88, 100, 64].map((width) => <span class="skeleton-line" style={`--skeleton-width: ${width}%`}></span>)}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : kind === 'media' ? (
+      <div class="media-shell">
+        <div class="media-toolbar">
+          <div>
+            <span class="skeleton skeleton--title"></span>
+            <span class="skeleton-line admin-skeleton__lede"></span>
+          </div>
+          <div class="media-toolbar__actions">
+            <span class="skeleton skeleton--control"></span>
+            <span class="skeleton skeleton--button" style="--skeleton-width: 8rem"></span>
+          </div>
+        </div>
+        <div class="media-grid">
+          {count(8).map(() => <span class="skeleton admin-skeleton__tile"></span>)}
+        </div>
+      </div>
+    ) : (
+      <div class:list={[head && 'admin-page', head && kind === 'form' && 'admin-form-page']}>
+        {head && (
+          <div class="admin-page__head">
+            <div>
+              <span class="skeleton skeleton--title"></span>
+              <span class="skeleton-line admin-skeleton__lede"></span>
+            </div>
+            {actions > 0 && (
+              <div class="admin-page__actions">
+                {count(actions).map((index) => <span class="skeleton skeleton--button" style={`--skeleton-width: ${index ? 7.5 : 8}rem`}></span>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {filters && (
+          <Fragment>
+            <div class="admin-post-tabs">
+              {count(3).map(() => <span class="skeleton-tab"></span>)}
+            </div>
+            <div class="admin-post-filters">
+              {[4, 3].map((width) => (
+                <div class="admin-field">
+                  <span class="skeleton-line" style={`--skeleton-width: ${width}rem`}></span>
+                  <span class="skeleton skeleton--control"></span>
+                </div>
+              ))}
+              <span class="skeleton skeleton--button" style="--skeleton-width: 6rem"></span>
+            </div>
+          </Fragment>
+        )}
+
+        {kind === 'posts' && (
+          <div class="admin-story-grid">
+            {count(6).map(() => (
+              <div class="admin-story-row admin-skeleton__card">
+                <span class="skeleton admin-skeleton__cover"></span>
+                <div class="admin-skeleton__card-body">
+                  {[30, 85, 25, 60].map((width) => <span class="skeleton-line" style={`--skeleton-width: ${width}%`}></span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(kind === 'pages' || kind === 'list') && (
+          <div class="admin-story-panel admin-skeleton__panel">
+            {[45, 60, 35, 50, 40].map((width) => (
+              <div class="admin-skeleton__row">
+                <span class="skeleton-line" style={`--skeleton-width: ${width}%`}></span>
+                <span class="skeleton-line" style="--skeleton-width: 20%"></span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {kind === 'form' && (
+          <div class="admin-skeleton__stack">
+            {[3, 2].map((fields) => (
+              <div class="admin-card">
+                {count(fields).map((index) => (
+                  <div class="admin-field">
+                    <span class="skeleton-line" style={`--skeleton-width: ${index ? 6 : 9}rem`}></span>
+                    <span class="skeleton skeleton--control"></span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</div>

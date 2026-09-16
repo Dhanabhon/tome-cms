@@ -1,6 +1,7 @@
 ---
 import { z } from 'zod';
 
+import AdminSkeleton from '../../../components/admin/AdminSkeleton.astro';
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../../lib/admin-i18n';
@@ -64,7 +65,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
   <main>
     {post && editorPost ? (
       <Editor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
-        <div class="admin-editor-fallback" slot="fallback" role="status">{copy.preview.loadingEditor}</div>
+        <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </Editor>
     ) : (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>

@@ -1,4 +1,5 @@
 ---
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
 import NavigationManager from '../../components/admin/NavigationManager';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
@@ -48,7 +49,7 @@ const errorMessage = errorKey ? copy.errors[errorKey] : null;
   ) : (
     <AdminShell active="navigation" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
       <NavigationManager client:only="react" ownerLocale={ownerLocale}>
-        <p class="admin-editor-fallback" slot="fallback" role="status">{copy.navigation.loading}</p>
+        <AdminSkeleton kind="list" label={copy.navigation.loading} slot="fallback" />
       </NavigationManager>
     </AdminShell>
   )}

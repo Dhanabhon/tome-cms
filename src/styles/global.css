@@ -1694,12 +1694,95 @@ body {
 .admin-cover-help { margin: 0; color: var(--color-muted); font-size: var(--text-xs); font-weight: 400; line-height: 1.6; }
 .admin-cover-preview { display: block; width: 100%; height: auto; margin-block-start: var(--space-sm); border-radius: var(--radius-input); aspect-ratio: 16 / 9; object-fit: cover; }
 
-.admin-editor-fallback {
-  display: grid;
-  min-height: 60svh;
-  place-items: center;
-  color: var(--color-muted);
-  font-size: var(--text-sm);
+/* Loading skeletons (components/admin/AdminSkeleton.astro). One highlight sweeps across every
+ * block at once: the gradient is fixed to the viewport, three viewports wide, so the band
+ * crosses the screen and then rests off it before the next pass. A block is painted where a
+ * control or a picture will be; a line is one line box of the text it stands in for, with a
+ * bar painted through its middle, so it takes exactly the height the text will. */
+.skeleton,
+.skeleton-line::before,
+.skeleton-tab::before {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--color-paper-3) 45%, var(--color-skeleton-shine) 50%, var(--color-paper-3) 55%) 0 0 / 300% 100% fixed;
+  animation: skeleton-shimmer 2s linear infinite;
+}
+@keyframes skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+.skeleton { width: var(--skeleton-width, 100%); }
+.skeleton-line { display: block; width: var(--skeleton-width, 100%); height: 1lh; }
+/* A field lays its label span out as a flex row, which shrank the painted bar to nothing. */
+.admin-field > .skeleton-line { display: block; }
+.skeleton-line::before { content: ''; height: 0.55lh; margin-block-start: 0.225lh; }
+.skeleton-tab { display: flex; align-items: center; width: var(--skeleton-width, 5rem); min-height: var(--control-height); }
+.skeleton-tab::before { content: ''; flex: 1; height: 1em; }
+.skeleton--title { width: var(--skeleton-width, min(14rem, 70%)); height: var(--text-title); border-radius: var(--radius-input); }
+.skeleton--button { width: var(--skeleton-width, 8rem); height: var(--control-height); border-radius: var(--radius-input); }
+.skeleton--control { height: var(--control-height); border-radius: var(--radius-input); }
+.skeleton--chip { flex: none; width: 3.5rem; height: 2rem; border-radius: var(--radius-pill); }
+.admin-skeleton__lede { width: var(--skeleton-width, min(26rem, 90%)); margin-block-start: var(--space-sm); }
+.admin-post-filters > .skeleton { justify-self: start; }
+/* A post card's cover, then about the height the edition lines and the date footer take. */
+.admin-skeleton__cover {
+  aspect-ratio: 16 / 7;
+  border-radius: calc(var(--radius-card) - var(--rule-hair)) calc(var(--radius-card) - var(--rule-hair)) 0 0;
+}
+.admin-skeleton__card-body { display: grid; align-content: start; gap: var(--space-xs); min-height: 15rem; padding: var(--space-md); }
+.admin-page__head + .admin-skeleton__panel,
+.admin-skeleton__panel:first-child { margin-block-start: var(--space-xl); }
+.admin-skeleton__row { display: grid; gap: var(--space-2xs); padding-block: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.admin-skeleton__stack { display: grid; gap: var(--space-lg); margin-block-start: var(--space-xl); }
+.admin-skeleton__tile { aspect-ratio: 1; border-radius: var(--radius-input); }
+.admin-skeleton__prose { display: grid; gap: var(--space-xs); margin-block-start: var(--space-lg); font-size: var(--text-md); }
+
+/* The navigation overlay (components/PageTransitionSkeleton.astro). It covers what the next
+ * page redraws and no more: beside a sidebar already on screen it starts at the sidebar's
+ * edge, and from a page with none it draws one. It fades in, so even a slow page arrives
+ * through a settle rather than a cut. */
+.admin-transition {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sticky-nav);
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  transition: opacity var(--dur-short) var(--ease-out);
+}
+.admin-transition[hidden] { display: none; }
+.admin-transition[data-kind="editor"] { background: var(--color-paper); }
+@starting-style {
+  .admin-transition:not([hidden]) { opacity: 0; }
+}
+.admin-transition__rail { display: none; }
+.admin-transition__brand { height: 4.25rem; margin-block-end: var(--space-sm); }
+@media (min-width: 64rem) {
+  .admin-transition[data-sidebar="page"] { inset-inline-start: 15rem; }
+  .admin-transition[data-sidebar="skeleton"] .admin-transition__frame { display: grid; grid-template-columns: 15rem minmax(0, 1fr); align-items: start; }
+  .admin-transition__rail {
+    display: grid;
+    align-content: start;
+    gap: var(--space-sm);
+    min-height: 100svh;
+    padding: var(--space-lg);
+    border-inline-end: var(--rule-hair) solid var(--color-rule);
+    background: var(--color-paper);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .skeleton-line::before,
+  .skeleton-tab::before { animation: none; background: var(--color-paper-3); }
+  .admin-transition { transition: none; }
 }
 
 @media (max-width: 39.999rem) {

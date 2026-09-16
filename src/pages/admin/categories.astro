@@ -1,4 +1,5 @@
 ---
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
 import CategoryManager from '../../components/admin/CategoryManager';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import AdminLayout from '../../layouts/AdminLayout.astro';
@@ -62,7 +63,7 @@ const errorMessage = errorKey ? copy.errors[errorKey] : null;
           <a class="admin-button admin-button--secondary" href={settings ? adminHref(settings) : '/admin'}>{copy.categories.backToPosts}</a>
         </header>
         <CategoryManager initialCategories={initialCategories} ownerLocale={ownerLocale} client:only="react">
-          <p class="admin-editor-fallback" slot="fallback" role="status">{copy.categories.loading}</p>
+          <AdminSkeleton head={false} kind="list" label={copy.categories.loading} slot="fallback" />
         </CategoryManager>
       </section>
     </AdminShell>
