@@ -2,7 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AdminShell from '../../../components/admin/AdminShell.astro';
 import UiSelect from '../../../components/admin/UiSelect';
-import { adminHref, adminLoginPath } from '../../../lib/admin';
+import { adminHref, adminLoginPath, adminPreviewHref } from '../../../lib/admin';
 import { adminCopy, adminDateFormat, statusLabel } from '../../../lib/admin-i18n';
 import { filterAdminPages, type AdminPageFilters } from '../../../lib/pages';
 import { groupAdminStories } from '../../../lib/posts';
@@ -131,7 +131,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                             <summary aria-label={`${copy.pages.actionsFor} ${label}`}><span aria-hidden="true">⋯</span></summary>
                             <div>
                               <a href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>{copy.row.edit}</a>
-                              <a href={adminHref(adminSettings, `/pages/preview/${edition.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                              <a href={adminPreviewHref(adminSettings, 'page', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
                               <button type="button" data-page-action="duplicate" data-page-id={edition.id} data-page-updated-at={edition.updated_at}>{copy.row.duplicate}</button>
                               <button type="button" data-page-action={edition.status === 'draft' ? 'published' : 'draft'} data-page-id={edition.id} data-page-updated-at={edition.updated_at} data-page-title={title} data-page-locale={edition.locale.toUpperCase()}>{edition.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
                               <button type="button" data-page-action="delete" data-page-id={edition.id} data-page-updated-at={edition.updated_at} data-page-title={title} data-page-locale={edition.locale.toUpperCase()}>{copy.row.delete}</button>

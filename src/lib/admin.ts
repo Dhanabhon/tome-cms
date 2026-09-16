@@ -31,6 +31,18 @@ export function matchAdminPath(pathname: string, adminPath: string): string | nu
   return pathname.startsWith(`${base}/`) ? pathname.slice(base.length) : null;
 }
 
+/**
+ * Where a draft is previewed: the rendered page, behind the owner's session.
+ *
+ * Both the list's Preview link and the editor's Preview button go through here, so the
+ * two cannot drift apart again. They did once: the editors were moved onto
+ * /api/v1/content/preview/<token>, the headless JSON endpoint, while the list kept the
+ * page -- and the writer's preview tab filled with raw JSON.
+ */
+export function adminPreviewHref(settings: AdminPathSettings, contentType: 'page' | 'post', id: string): string {
+  return adminHref(settings, contentType === 'post' ? `/preview/${id}` : `/pages/preview/${id}`);
+}
+
 export function adminHref(settings: AdminPathSettings, suffix = ''): string {
   const base = normalizeAdminPath(settings.admin_path);
   if (!suffix) return base;

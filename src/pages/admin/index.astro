@@ -3,7 +3,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import UiSelect from '../../components/admin/UiSelect';
-import { adminHref } from '../../lib/admin';
+import { adminHref, adminPreviewHref } from '../../lib/admin';
 import { adminCopy, adminDateFormat, statusLabel } from '../../lib/admin-i18n';
 import { filterAdminPosts, groupAdminStories, type AdminPostFilters } from '../../lib/posts';
 import { requireInstalledOwner } from '../../server/auth/session';
@@ -192,7 +192,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                           <summary aria-label={`${copy.posts.actionsFor} ${label}`}><span aria-hidden="true">⋯</span></summary>
                           <div>
                             <a href={adminHref(adminSettings, `/edit/${edition.id}`)}>{copy.row.edit}</a>
-                            <a href={adminHref(adminSettings, `/preview/${edition.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                            <a href={adminPreviewHref(adminSettings, 'post', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
                             <button type="button" data-post-action="duplicate" data-post-id={edition.id} data-post-updated-at={edition.updated_at}>{copy.row.duplicate}</button>
                             <button type="button" data-post-action={edition.status === 'draft' ? 'published' : 'draft'} data-post-id={edition.id} data-post-updated-at={edition.updated_at}>{edition.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
                             <button type="button" data-post-action="delete" data-post-id={edition.id} data-post-updated-at={edition.updated_at} data-post-title={title} data-post-locale={edition.locale.toUpperCase()}>{copy.row.delete}</button>

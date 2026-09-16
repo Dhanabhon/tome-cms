@@ -2,12 +2,11 @@ import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
-import { adminHref } from '../../lib/admin';
+import { adminHref, adminPreviewHref } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PageSettingsDrawer from './PageSettingsDrawer';
-import createPreviewUrl from './createPreviewUrl';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
@@ -149,17 +148,14 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
     actionPending.current = true;
     setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
-    let failureState = 'save-error';
     try {
       let saved = await persist();
       while (dirtyRef.current) saved = await persist();
-      failureState = 'preview-error';
-      const previewUrl = await createPreviewUrl('page', saved.id);
-      if (!previewWindow.closed) previewWindow.location.replace(previewUrl);
+      if (!previewWindow.closed) previewWindow.location.replace(adminPreviewHref({ admin_path: adminPath }, 'page', saved.id));
     } catch {
       const returnTo = pageId.current ? adminHref({ admin_path: adminPath }, `/pages/edit/${pageId.current}`) : window.location.pathname + window.location.search;
       if (!previewWindow.closed) previewWindow.location.replace(
-        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=${failureState}&returnTo=${encodeURIComponent(returnTo)}`,
+        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
       );
     } finally {
       actionPending.current = false;
