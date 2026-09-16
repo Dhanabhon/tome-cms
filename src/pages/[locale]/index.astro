@@ -26,6 +26,7 @@ const copy = locale === 'th'
     loading: 'กำลังโหลด…',
     older: 'บทความเก่ากว่า',
     retry: 'ลองอีกครั้ง',
+    showing: 'กำลังแสดง {name}',
     unavailable: 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง',
   }
   : {
@@ -37,6 +38,7 @@ const copy = locale === 'th'
     loading: 'Loading…',
     older: 'Older posts',
     retry: 'Try again',
+    showing: 'Showing {name}',
     unavailable: 'Published posts are temporarily unavailable.',
   };
 const category = Astro.url.searchParams.get('category')?.trim().slice(0, 100) || undefined;
@@ -129,69 +131,72 @@ const initial = (title: string) => {
 
   <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
     {categories.length > 0 && (
-      <nav class="post-filter" aria-label={copy.categories}>
+      <nav class="post-filter" aria-label={copy.categories} data-post-filter data-announce={copy.showing}>
         <ul>
           <li><a href={home} aria-current={category ? undefined : 'page'}>{copy.all}</a></li>
           {categories.map(({ name }) => (
             <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
           ))}
         </ul>
+        <p class="sr-only" role="status" data-post-filter-status></p>
       </nav>
     )}
 
-    {posts.length > 0 ? (
-      <div class="post-grid" data-post-grid>
-        {posts.map((post, index) => {
-          const excerpt = postExcerpt(post, '');
-          return (
-            <article class="post-card">
-              <div class="post-card__cover" aria-hidden="true">
-                {post.cover_image
-                  ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
-                  : <span>{initial(post.title)}</span>}
-              </div>
-              <h2 class="card-title post-card__title">
-                <a href={postPath(post)}>{post.title}</a>
-              </h2>
-              {excerpt && <p class="post-card__excerpt">{excerpt}</p>}
-              <p class="post-card__meta">
-                <span class="post-card__byline">
-                  {profile?.avatarUrl && <img class="post-card__avatar" src={profile.avatarUrl} alt="" width="24" height="24" loading="lazy" />}
-                  <span>{byline}</span>
-                </span>
-                <span class="post-card__when">
-                  <time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
-                  <span>{readTime(post)}</span>
-                </span>
-              </p>
-            </article>
-          );
-        })}
-      </div>
-    ) : !loadError && (
-      <p class="text-muted">{category ? copy.emptyCategory : copy.empty}</p>
-    )}
+    <!-- Everything a category changes, so a chosen pill can swap it whole. -->
+    <div class="post-feed" data-post-feed>
+      {posts.length > 0 ? (
+        <div class="post-grid" data-post-grid>
+          {posts.map((post, index) => {
+            const excerpt = postExcerpt(post, '');
+            return (
+              <article class="post-card">
+                <div class="post-card__cover" aria-hidden="true">
+                  {post.cover_image
+                    ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
+                    : <span>{initial(post.title)}</span>}
+                </div>
+                <h2 class="card-title post-card__title">
+                  <a href={postPath(post)}>{post.title}</a>
+                </h2>
+                {excerpt && <p class="post-card__excerpt">{excerpt}</p>}
+                <p class="post-card__meta">
+                  <span class="post-card__byline">
+                    {profile?.avatarUrl && <img class="post-card__avatar" src={profile.avatarUrl} alt="" width="24" height="24" loading="lazy" />}
+                    <span>{byline}</span>
+                  </span>
+                  <span class="post-card__when">
+                    <time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
+                    <span>{readTime(post)}</span>
+                  </span>
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      ) : !loadError && (
+        <p class="text-muted">{category ? copy.emptyCategory : copy.empty}</p>
+      )}
 
-    {olderHref && (
-      <div class="post-more" data-post-more data-failed={copy.failed} data-loading={copy.loading}>
-        <a data-post-next href={olderHref}>{copy.older} <span aria-hidden="true">→</span></a>
-        <p data-post-status role="status"></p>
-        <button data-post-retry type="button" hidden>{copy.retry}</button>
-      </div>
-    )}
+      {olderHref && (
+        <div class="post-more" data-post-more data-failed={copy.failed} data-loading={copy.loading}>
+          <a data-post-next href={olderHref}>{copy.older} <span aria-hidden="true">→</span></a>
+          <p data-post-status role="status"></p>
+          <button data-post-retry type="button" hidden>{copy.retry}</button>
+        </div>
+      )}
 
-    {loadError && (
-      <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
-        {copy.unavailable}
-      </p>
-    )}
+      {loadError && (
+        <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
+          {copy.unavailable}
+        </p>
+      )}
+    </div>
   </section>
 </BaseLayout>
 
 <script>
   import wirePostFeed from '../../lib/post-feed';
 
-  const grid = document.querySelector<HTMLElement>('[data-post-grid]');
-  const more = document.querySelector<HTMLElement>('[data-post-more]');
-  if (grid && more) wirePostFeed(grid, more);
+  const feed = document.querySelector<HTMLElement>('[data-post-feed]');
+  if (feed) wirePostFeed(feed, document.querySelector<HTMLElement>('[data-post-filter]'));
 </script>

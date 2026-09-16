@@ -312,8 +312,14 @@ body {
  * attribute's -- so a held page of cards showed at once instead of a row at a time. */
 .post-card[hidden],
 .post-more [hidden] { display: none; }
-/* A row the feed adds settles in rather than appearing whole under the reader's eye. */
-.post-card[data-revealed] { animation: post-card-in var(--dur-long) var(--ease-out); }
+/* A row the feed adds, or the list a category swaps in, settles in rather than appearing whole
+ * under the reader's eye. */
+.post-card[data-revealed],
+.post-feed[data-revealed] { animation: post-card-in var(--dur-long) var(--ease-out); }
+/* The list a category is replacing fades back while the new one loads -- after a beat, so an
+ * answer that comes at once does not flicker. */
+.post-feed { transition: opacity var(--dur-short) var(--ease-out); }
+.post-feed[aria-busy="true"] { opacity: 0.5; transition-delay: var(--dur-short); }
 @keyframes post-card-in {
   from { opacity: 0; transform: translateY(var(--space-sm)); }
 }
@@ -365,9 +371,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .post-card__cover img,
+  .post-feed,
   .post-filter a,
   .post-more button { transition: none; }
-  .post-card[data-revealed] { animation: none; }
+  .post-card[data-revealed],
+  .post-feed[data-revealed] { animation: none; }
 }
 
 ::selection {
