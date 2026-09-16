@@ -59,7 +59,6 @@ const locale = ['th', 'en', 'all'].includes(Astro.url.searchParams.get('locale')
 const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
 const filters: AdminPostFilters = { status, locale, query };
 const stories = groupAdminStories(posts, filterAdminPosts(posts, filters), ownerLocale);
-const otherLocale = (edition: Post) => edition.locale === 'th' ? 'en' : 'th';
 // The count is what the tab would show with the current language and search still
 // applied -- and it counts stories, because stories are what the list renders. A
 // total of editions would say three and then draw two cards.
