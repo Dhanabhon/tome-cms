@@ -5,11 +5,12 @@ import UiSelect from '../../../components/admin/UiSelect';
 import { adminHref, adminLoginPath } from '../../../lib/admin';
 import { adminCopy, adminDateFormat, statusLabel } from '../../../lib/admin-i18n';
 import { filterAdminPages, type AdminPageFilters } from '../../../lib/pages';
+import { groupAdminStories } from '../../../lib/posts';
 import { requireInstalledOwner } from '../../../server/auth/session';
 import { listPages } from '../../../server/content/pages';
 import { getSiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
-import type { Page, PageLocale } from '../../../types/cms';
+import { POST_LOCALES, type Page, type PageLocale } from '../../../types/cms';
 
 let pages: Page[] = [];
 let userEmail: string | null = null;
@@ -54,20 +55,14 @@ const locale = ['th', 'en', 'all'].includes(Astro.url.searchParams.get('locale')
   : 'all';
 const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
 const filters: AdminPageFilters = { status, locale, query };
-const filteredPages = filterAdminPages(pages, filters);
-const editions = new Map<string, Page[]>();
-for (const page of pages) {
-  const group = editions.get(page.translation_group_id) ?? [];
-  group.push(page);
-  editions.set(page.translation_group_id, group);
-}
+const stories = groupAdminStories(pages, filterAdminPages(pages, filters), ownerLocale);
 // The count is what the tab would show with the current language and search still
-// applied. A total that ignored them would promise rows the next click cannot deliver.
+// applied -- and it counts stories, because stories are what the list renders.
 const tabLabels = { draft: copy.status.drafts, published: copy.status.published, all: copy.status.all };
 const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
   status: tabStatus,
   label: tabLabels[tabStatus],
-  count: filterAdminPages(pages, { ...filters, status: tabStatus }).length,
+  count: groupAdminStories(pages, filterAdminPages(pages, { ...filters, status: tabStatus }), ownerLocale).length,
 }));
 ---
 
@@ -112,38 +107,53 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
           </form>
           <p class="admin-alert" data-page-error role="alert" hidden></p>
           <div class="admin-story-list admin-story-panel">
-            {filteredPages.map((page) => {
-              const title = page.title.trim() || copy.pages.untitled;
-              const sibling = editions.get(page.translation_group_id)?.find((edition) => edition.locale !== page.locale);
-              const timestamp = page.status === 'published' ? page.published_at ?? page.updated_at : page.updated_at;
+            {stories.map((story) => {
+              const newest = story.editions.reduce((latest, edition) => edition.updated_at > latest.updated_at ? edition : latest);
+              const timestamp = newest.status === 'published' ? newest.published_at ?? newest.updated_at : newest.updated_at;
+              const missing = POST_LOCALES.filter((candidate) => !story.editions.some(({ locale: written }) => written === candidate));
               return (
-                <article class="admin-story-row admin-page-row" aria-label={`${title} (${page.locale.toUpperCase()})`}>
+                <article class="admin-story-row admin-page-row" aria-label={story.primary.title.trim() || copy.pages.untitled}>
                   <div class="admin-story-content">
-                    <h2><a href={adminHref(adminSettings, `/pages/edit/${page.id}`)}>{title}</a></h2>
-                    <p class="admin-page-path">/{page.locale}/{page.slug}</p>
-                    <div class="admin-story-meta">
-                      <span class="admin-locale">{page.locale.toUpperCase()}</span>
-                      <span class="admin-status" data-status={page.status}>{statusLabel(copy, page.status)}</span>
-                      <span data-story-when><span data-story-verb>{page.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
-                    </div>
-                    <p class="admin-story-sibling">
-                      {sibling ? <a href={adminHref(adminSettings, `/pages/edit/${sibling.id}`)}>{sibling.locale.toUpperCase()} {statusLabel(copy, sibling.status)}</a> : <a href={adminHref(adminSettings, `/pages/new?${new URLSearchParams({ sourcePageId: page.id, locale: page.locale === 'th' ? 'en' : 'th' })}`)}>{page.locale === 'th' ? 'EN' : 'TH'} {copy.row.missing}</a>}
-                    </p>
+                    {story.editions.map((edition, index) => {
+                      const title = edition.title.trim() || copy.pages.untitled;
+                      const label = `${title} (${edition.locale.toUpperCase()})`;
+                      return (
+                        <div class:list={['admin-story-edition', index === 0 && 'admin-story-edition--lead']}>
+                          <a class="admin-story-edition__link" href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>
+                            <span class="admin-locale">{edition.locale.toUpperCase()}</span>
+                            {index === 0
+                              ? <h2 class="admin-story-edition__title">{title}</h2>
+                              : <span class="admin-story-edition__title">{title}</span>}
+                            <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
+                            <span class="admin-page-path">/{edition.locale}/{edition.slug}</span>
+                          </a>
+                          <details class="admin-story-menu">
+                            <summary aria-label={`${copy.pages.actionsFor} ${label}`}><span aria-hidden="true">⋯</span></summary>
+                            <div>
+                              <a href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>{copy.row.edit}</a>
+                              <a href={adminHref(adminSettings, `/pages/preview/${edition.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                              <button type="button" data-page-action="duplicate" data-page-id={edition.id} data-page-updated-at={edition.updated_at}>{copy.row.duplicate}</button>
+                              <button type="button" data-page-action={edition.status === 'draft' ? 'published' : 'draft'} data-page-id={edition.id} data-page-updated-at={edition.updated_at} data-page-title={title} data-page-locale={edition.locale.toUpperCase()}>{edition.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
+                              <button type="button" data-page-action="delete" data-page-id={edition.id} data-page-updated-at={edition.updated_at} data-page-title={title} data-page-locale={edition.locale.toUpperCase()}>{copy.row.delete}</button>
+                            </div>
+                          </details>
+                        </div>
+                      );
+                    })}
+                    {missing.map((candidate) => (
+                      <a class="admin-story-start" href={adminHref(adminSettings, `/pages/new?${new URLSearchParams({ sourcePageId: story.primary.id, locale: candidate })}`)}>
+                        <span class="admin-locale">{candidate.toUpperCase()}</span>
+                        <span class="admin-story-edition__title">{copy.row.missing}</span>
+                      </a>
+                    ))}
                   </div>
-                  <details class="admin-story-menu">
-                    <summary aria-label={`${copy.pages.actionsFor} ${title} (${page.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
-                    <div>
-                      <a href={adminHref(adminSettings, `/pages/edit/${page.id}`)}>{copy.row.edit}</a>
-                      <a href={adminHref(adminSettings, `/pages/preview/${page.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
-                      <button type="button" data-page-action="duplicate" data-page-id={page.id} data-page-updated-at={page.updated_at}>{copy.row.duplicate}</button>
-                      <button type="button" data-page-action={page.status === 'draft' ? 'published' : 'draft'} data-page-id={page.id} data-page-updated-at={page.updated_at} data-page-title={title} data-page-locale={page.locale.toUpperCase()}>{page.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
-                      <button type="button" data-page-action="delete" data-page-id={page.id} data-page-updated-at={page.updated_at} data-page-title={title} data-page-locale={page.locale.toUpperCase()}>{copy.row.delete}</button>
-                    </div>
-                  </details>
+                  <div class="admin-story-foot">
+                    <span data-story-when><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                  </div>
                 </article>
               );
             })}
-            {!filteredPages.length && (
+            {!stories.length && (
               <div class="admin-empty">
                 <span class="admin-empty__mark" aria-hidden="true">+</span>
                 <div><h2>{pages.length ? copy.pages.noMatchTitle : copy.pages.emptyTitle}</h2><p>{pages.length ? copy.pages.noMatchBody : copy.pages.emptyBody}</p></div>
