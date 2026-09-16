@@ -1372,17 +1372,19 @@ body {
   margin-inline: auto;
 }
 
-/* The post title, at the size readers get it. DESIGN.md's scale has carried this
- * step from the start -- 54px / 700 / 56px / -1.875px, the "large marketing titles"
- * row -- but only as a line in a table: the CSS had no token for it, so the public
- * page wrote the numbers by hand and the editor could not reach them at all. One
- * rule now, used on both sides of publishing, so the writer sees the published size. */
+/* The post title, at the size readers get it. One rule, used on both sides of
+ * publishing, so the writer sees the published size.
+ *
+ * Line height is 1.2, unitless, so it holds at both sizes. It was 56px on 54px --
+ * 1.04, a Latin headline's leading -- and Thai stacks marks above and below the
+ * letter: a title that wrapped with ฎ ฏ ญ or a sara u on the first line and a tone
+ * mark on the second brought the two lines into each other. */
 .article-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 700;
-  line-height: 3rem;
+  line-height: 1.2;
   letter-spacing: -1.875px;
 }
 
@@ -1390,7 +1392,10 @@ body {
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 7rem;
+  /* Two lines of whatever the title's leading is, rather than 7rem, which was two
+   * lines of the old 56px exactly: left at 7rem, a title wrapping onto its second
+   * line would have jumped the page by 17px as the box grew to meet it. */
+  min-height: 2lh;
   padding: 0 0 0 3.25rem;
   border: 0;
   outline: 0;
@@ -1401,19 +1406,21 @@ body {
 }
 
 @media (min-width: 37.5rem) {
-  .article-title { font-size: var(--text-3xl); line-height: 3.5rem; }
+  .article-title { font-size: var(--text-3xl); }
 }
 
 /* The rest of the public type, from the same table. Every value below already
  * existed -- it was written out in Tailwind arbitrary values on each page, so
  * nothing here changes what renders; it changes where the number comes from.
  * 37.5rem is the sm: breakpoint the pages were already using. */
+/* The same leading as the article title, for the same reason: it is the same face at
+ * the same weight and a larger size, and it was tighter -- 64px on 64px, 1.00. */
 .hero-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-3xl);
   font-weight: 700;
-  line-height: 3.5rem;
+  line-height: 1.2;
   letter-spacing: -1.875px;
 }
 
@@ -1459,7 +1466,7 @@ body {
 }
 
 @media (min-width: 37.5rem) {
-  .hero-title { font-size: var(--text-4xl); line-height: 4rem; }
+  .hero-title { font-size: var(--text-4xl); }
   .site-wordmark { font-size: var(--text-xl); }
 }
 
