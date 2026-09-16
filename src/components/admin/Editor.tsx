@@ -2,12 +2,11 @@ import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
-import { adminHref } from '../../lib/admin';
+import { adminHref, adminPreviewHref } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
-import createPreviewUrl from './createPreviewUrl';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 
@@ -160,17 +159,14 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
     actionPending.current = true;
     setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
-    let failureState = 'save-error';
     try {
       let saved = await persist();
       while (dirtyRef.current) saved = await persist();
-      failureState = 'preview-error';
-      const previewUrl = await createPreviewUrl('post', saved.id);
-      if (!previewWindow.closed) previewWindow.location.replace(previewUrl);
+      if (!previewWindow.closed) previewWindow.location.replace(adminPreviewHref({ admin_path: adminPath }, 'post', saved.id));
     } catch {
       const returnTo = postId.current ? adminHref({ admin_path: adminPath }, `/edit/${postId.current}`) : window.location.pathname + window.location.search;
       if (!previewWindow.closed) previewWindow.location.replace(
-        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=${failureState}&returnTo=${encodeURIComponent(returnTo)}`,
+        `${adminHref({ admin_path: adminPath }, '/preview/pending')}?state=save-error&returnTo=${encodeURIComponent(returnTo)}`,
       );
     } finally {
       actionPending.current = false;

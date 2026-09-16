@@ -6,6 +6,7 @@ import type { APIContext, MiddlewareNext } from 'astro';
 import {
   adminHref,
   adminLoginPath,
+  adminPreviewHref,
   adminSignInPath,
   matchAdminPath,
   normalizeAdminPath,
@@ -55,6 +56,19 @@ test('Admin path helpers normalize, match, and keep redirects on the configured 
     adminSignInPath('/admin/settings?tab=site'),
     '/admin?signin=1&returnTo=%2Fadmin%2Fsettings%3Ftab%3Dsite',
   );
+});
+
+test('a preview opens the rendered page, never the content API', () => {
+  const id = '123e4567-e89b-42d3-a456-426614174000';
+  // The editors once opened /api/v1/content/preview/<token> -- the headless JSON
+  // endpoint -- so the writer's preview tab filled with raw JSON while the list's
+  // Preview link, pointed at the admin page, kept working. One helper for both.
+  assert.equal(adminPreviewHref({ admin_path: '/admin' }, 'post', id), `/admin/preview/${id}`);
+  assert.equal(adminPreviewHref({ admin_path: '/admin' }, 'page', id), `/admin/pages/preview/${id}`);
+  assert.equal(adminPreviewHref({ admin_path: '/studio' }, 'post', id), `/studio/preview/${id}`);
+  for (const kind of ['post', 'page'] as const) {
+    assert.ok(!adminPreviewHref({ admin_path: '/admin' }, kind, id).includes('/api/'), `${kind} preview must not be an API route`);
+  }
 });
 
 test('legacy health and prepared recovery paths do not load headless runtime configuration', async () => {
