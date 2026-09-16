@@ -798,9 +798,16 @@ body {
  * as -- the two lists answer different questions and the reference separates them. */
 .admin-story-grid {
   display: grid;
-  /* min() so the track can collapse below its own minimum on a narrow screen;
-   * a bare minmax(18rem, 1fr) overflows by 16px at 320. */
-  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+  /* 19rem, measured rather than picked. auto-fill packs as many tracks as the minimum
+   * allows, so the minimum is the only lever on how wide a card gets -- widening the
+   * page does the opposite of what it looks like it should, buying columns instead of
+   * width (at a 2000px window, lifting the page's 80rem cap to 110rem takes the card
+   * from 3x389 down to 5x323). At 18rem a 1680px window or wider lands on 4x288, the
+   * narrowest the card is ever allowed to be; 19rem is identical at every width up to
+   * 1440 and gives 3x389 from 1680 up. 20rem would cost the third column at 1280 and
+   * 22rem breaks 768 and 1024 down to one. min() so the track can still collapse below
+   * its own minimum on a narrow screen; a bare minmax() overflows by 16px at 320. */
+  grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr));
   gap: var(--space-md);
 }
 .admin-story-grid .admin-story-row {
