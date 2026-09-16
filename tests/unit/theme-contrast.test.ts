@@ -92,6 +92,8 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-ink', 'color-paper-2', 4.5],
   ['color-ink', 'color-surface', 4.5],
   ['color-ink-2', 'color-paper', 4.5],
+  // A homepage card's excerpt, set straight on the page.
+  ['color-ink-2', 'color-paper-2', 4.5],
   ['color-ink-2', 'color-surface', 4.5],
   ['color-muted', 'color-paper', 4.5],
   ['color-muted', 'color-paper-2', 4.5],

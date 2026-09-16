@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, postPath } from '../../lib/i18n';
+import { postExcerpt, readingMinutes } from '../../lib/posts';
+import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedPosts } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
 import type { Post, PostAlternate } from '../../types/cms';
@@ -15,6 +17,10 @@ let loadError = false;
 const settings = await getSiteSettings();
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const tagline = settings?.tagline?.trim();
+// The byline a post carries on its own page: the author when the profile names one,
+// the site when it does not.
+const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
+const byline = profile?.name || settings?.site_name || 'TomeCMS';
 
 try {
   posts = (await listPublishedPosts({ locale, limit: 1_000 })).items;
@@ -28,7 +34,6 @@ const availableLocales: PostAlternate[] = [
   { href: localePath('th'), locale: 'th' },
   { href: localePath('en'), locale: 'en' },
 ];
-const [featured, ...remainingPosts] = posts;
 const dateFormatter = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', {
   day: 'numeric',
   month: 'short',
@@ -36,6 +41,16 @@ const dateFormatter = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', 
   year: 'numeric',
 });
 const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
+// ponytail: segments every post's text on each request; store the minutes on save if the homepage slows.
+const readTime = (post: Post) => {
+  const minutes = readingMinutes(post.content_json);
+  return locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
+};
+// A post without a cover keeps the cover's space, so the titles along a row start level,
+// and its first letter fills it rather than an empty box. A grapheme, not a code unit:
+// a Thai letter carries its vowel and tone marks with it.
+const graphemes = new Intl.Segmenter(locale, { granularity: 'grapheme' });
+const initial = (title: string) => [...graphemes.segment(title.trim())][0]?.segment ?? '';
 ---
 
 <BaseLayout
@@ -48,62 +63,56 @@ const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at
   <!-- The hero band is dark in both themes, so a literal white is correct here and
        does not depend on a token reaching this route's CSS bundle. -->
   <section class="bg-hero text-white">
-    <div class="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-7 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-16">
-      <div>
-        <h1 class="hero-title max-w-xl">
-          Ideas, carefully published.
-        </h1>
-        {tagline && (
-          <p class="lead mt-6 max-w-md text-white/75">
-            {tagline}
-          </p>
-        )}
-      </div>
-
-      <div class="rounded-lg bg-surface p-6 text-ink sm:p-8">
-        {featured ? (
-          <article>
-            <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">Featured</p>
-            <h2 class="featured-title mt-4 max-w-xl">
-              <a class="hover:text-link" href={postPath(featured)}>{featured.title}</a>
-            </h2>
-            {featured.meta_description && (
-              <p class="mt-4 max-w-xl text-base leading-6 text-muted">{featured.meta_description}</p>
-            )}
-            <div class="mt-6 flex items-center gap-3 text-sm">
-              <a class="font-medium text-link hover:underline" href={postPath(featured)}>Read article <span aria-hidden="true">→</span></a>
-              <span class="text-muted" aria-hidden="true">•</span>
-              <time class="text-muted" datetime={featured.published_at ?? featured.created_at}>{postDate(featured)}</time>
-            </div>
-          </article>
-        ) : (
-          <p class="text-muted">No published posts yet.</p>
-        )}
-      </div>
+    <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+      <h1 class="hero-title max-w-xl">
+        Ideas, carefully published.
+      </h1>
+      {tagline && (
+        <p class="lead mt-6 max-w-md text-white/75">
+          {tagline}
+        </p>
+      )}
     </div>
   </section>
 
-  {(remainingPosts.length > 0 || loadError) && (
-    <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-20">
-      {remainingPosts.length > 0 && (
-        <div class="border-t border-line">
-          {remainingPosts.map((post) => (
-            <article class="grid gap-3 border-b border-line py-6 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-12">
-              <h2 class="card-title">
-                <a class="hover:text-link" href={postPath(post)}>{post.title}</a>
+  <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+    {posts.length > 0 ? (
+      <div class="post-grid">
+        {posts.map((post, index) => {
+          const excerpt = postExcerpt(post, '');
+          return (
+            <article class="post-card">
+              <div class="post-card__cover" aria-hidden="true">
+                {post.cover_image
+                  ? <img src={post.cover_image} alt="" width="800" height="400" loading={index < 3 ? 'eager' : 'lazy'} />
+                  : <span>{initial(post.title)}</span>}
+              </div>
+              <h2 class="card-title post-card__title">
+                <a href={postPath(post)}>{post.title}</a>
               </h2>
-              <time class="text-sm text-muted" datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
-              <a class="text-sm font-medium text-link hover:underline" href={postPath(post)}>Read article <span aria-hidden="true">→</span></a>
+              {excerpt && <p class="post-card__excerpt">{excerpt}</p>}
+              <p class="post-card__meta">
+                <span class="post-card__byline">
+                  {profile?.avatarUrl && <img class="post-card__avatar" src={profile.avatarUrl} alt="" width="24" height="24" loading="lazy" />}
+                  <span>{byline}</span>
+                </span>
+                <span class="post-card__when">
+                  <time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
+                  <span>{readTime(post)}</span>
+                </span>
+              </p>
             </article>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
+    ) : !loadError && (
+      <p class="text-muted">No published posts yet.</p>
+    )}
 
-      {loadError && (
-        <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
-          Published posts are temporarily unavailable.
-        </p>
-      )}
-    </section>
-  )}
+    {loadError && (
+      <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
+        Published posts are temporarily unavailable.
+      </p>
+    )}
+  </section>
 </BaseLayout>
