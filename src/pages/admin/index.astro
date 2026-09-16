@@ -5,13 +5,13 @@ import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import UiSelect from '../../components/admin/UiSelect';
 import { adminHref } from '../../lib/admin';
 import { adminCopy, adminDateFormat, statusLabel } from '../../lib/admin-i18n';
-import { filterAdminPosts, readingMinutes, type AdminPostFilters } from '../../lib/posts';
+import { filterAdminPosts, groupAdminStories, type AdminPostFilters } from '../../lib/posts';
 import { requireInstalledOwner } from '../../server/auth/session';
 import { categoriesByPostGroup } from '../../server/content/categories';
 import { listPosts } from '../../server/content/posts';
 import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
-import type { Post, PostCategoryBadge, PostLocale } from '../../types/cms';
+import { POST_LOCALES, type Post, type PostCategoryBadge, type PostLocale } from '../../types/cms';
 
 let posts: Post[] = [];
 let userEmail: string | null = null;
@@ -58,20 +58,16 @@ const locale = ['th', 'en', 'all'].includes(Astro.url.searchParams.get('locale')
   : 'all';
 const query = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 100);
 const filters: AdminPostFilters = { status, locale, query };
-const filteredPosts = filterAdminPosts(posts, filters);
-const editions = new Map<string, Post[]>();
-for (const post of posts) {
-  const group = editions.get(post.translation_group_id) ?? [];
-  group.push(post);
-  editions.set(post.translation_group_id, group);
-}
+const stories = groupAdminStories(posts, filterAdminPosts(posts, filters), ownerLocale);
+const otherLocale = (edition: Post) => edition.locale === 'th' ? 'en' : 'th';
 // The count is what the tab would show with the current language and search still
-// applied. A total that ignored them would promise rows the next click cannot deliver.
+// applied -- and it counts stories, because stories are what the list renders. A
+// total of editions would say three and then draw two cards.
 const tabLabels = { draft: copy.status.drafts, published: copy.status.published, all: copy.status.all };
 const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
   status: tabStatus,
   label: tabLabels[tabStatus],
-  count: filterAdminPosts(posts, { ...filters, status: tabStatus }).length,
+  count: groupAdminStories(posts, filterAdminPosts(posts, { ...filters, status: tabStatus }), ownerLocale).length,
 }));
 const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 ---
@@ -163,48 +159,62 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         </form>
         <p class="admin-alert" data-post-error role="alert" hidden></p>
         <div class="admin-story-list admin-story-grid">
-          {filteredPosts.map((post) => {
-            const title = post.title.trim() || copy.posts.untitled;
-            const sibling = editions.get(post.translation_group_id)?.find((edition) => edition.locale !== post.locale);
-            const timestamp = post.status === 'published' ? post.published_at ?? post.updated_at : post.updated_at;
+          {stories.map((story) => {
+            const cover = story.editions.find(({ cover_image }) => cover_image)?.cover_image ?? null;
+            const badges = postCategories.get(story.groupId) ?? [];
+            const newest = story.editions.reduce((latest, edition) => edition.updated_at > latest.updated_at ? edition : latest);
+            const timestamp = newest.status === 'published' ? newest.published_at ?? newest.updated_at : newest.updated_at;
+            const missing = POST_LOCALES.filter((candidate) => !story.editions.some(({ locale: written }) => written === candidate));
             return (
-              <article class="admin-story-row" aria-label={`${title} (${post.locale.toUpperCase()})`}>
+              <article class="admin-story-row" aria-label={story.primary.title.trim() || copy.posts.untitled}>
                 <div class="admin-story-cover" aria-hidden="true">
-                  {post.cover_image ? <img src={post.cover_image} alt="" loading="lazy" /> : <span>✎</span>}
+                  {cover ? <img src={cover} alt="" loading="lazy" /> : <span>✎</span>}
                 </div>
                 <div class="admin-story-content">
-                  <h2><a href={adminHref(adminSettings, `/edit/${post.id}`)}>{title}</a></h2>
-                  <div class="admin-story-meta">
-                    <span class="admin-locale">{post.locale.toUpperCase()}</span>
-                    <span>{readingMinutes(post.content_json)} {copy.row.minRead}</span>
-                    <span class="admin-status" data-status={post.status}>{statusLabel(copy, post.status)}</span>
-                  </div>
-                  {(postCategories.get(post.translation_group_id) ?? []).length > 0 && (
+                  {badges.length > 0 && (
                     <ul class="admin-story-categories" aria-label={copy.drawer.categories}>
-                      {(postCategories.get(post.translation_group_id) ?? []).map((category) => <li>{category.name}</li>)}
+                      {badges.map((category) => <li>{category.name}</li>)}
                     </ul>
                   )}
-                  <p class="admin-story-sibling">
-                    {sibling ? <a href={adminHref(adminSettings, `/edit/${sibling.id}`)}>{sibling.locale.toUpperCase()} {statusLabel(copy, sibling.status)}</a> : <a href={adminHref(adminSettings, `/new?${new URLSearchParams({ sourcePostId: post.id, locale: post.locale === 'th' ? 'en' : 'th' })}`)}>{post.locale === 'th' ? 'EN' : 'TH'} {copy.row.missing}</a>}
-                  </p>
+                  {story.editions.map((edition, index) => {
+                    const title = edition.title.trim() || copy.posts.untitled;
+                    const label = `${title} (${edition.locale.toUpperCase()})`;
+                    return (
+                      <div class:list={['admin-story-edition', index === 0 && 'admin-story-edition--lead']}>
+                        <a class="admin-story-edition__link" href={adminHref(adminSettings, `/edit/${edition.id}`)}>
+                          <span class="admin-locale">{edition.locale.toUpperCase()}</span>
+                          {index === 0
+                            ? <h2 class="admin-story-edition__title">{title}</h2>
+                            : <span class="admin-story-edition__title">{title}</span>}
+                          <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
+                        </a>
+                        <details class="admin-story-menu">
+                          <summary aria-label={`${copy.posts.actionsFor} ${label}`}><span aria-hidden="true">⋯</span></summary>
+                          <div>
+                            <a href={adminHref(adminSettings, `/edit/${edition.id}`)}>{copy.row.edit}</a>
+                            <a href={adminHref(adminSettings, `/preview/${edition.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                            <button type="button" data-post-action="duplicate" data-post-id={edition.id} data-post-updated-at={edition.updated_at}>{copy.row.duplicate}</button>
+                            <button type="button" data-post-action={edition.status === 'draft' ? 'published' : 'draft'} data-post-id={edition.id} data-post-updated-at={edition.updated_at}>{edition.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
+                            <button type="button" data-post-action="delete" data-post-id={edition.id} data-post-updated-at={edition.updated_at} data-post-title={title} data-post-locale={edition.locale.toUpperCase()}>{copy.row.delete}</button>
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })}
+                  {missing.map((candidate) => (
+                    <a class="admin-story-start" href={adminHref(adminSettings, `/new?${new URLSearchParams({ sourcePostId: story.primary.id, locale: candidate })}`)}>
+                      <span class="admin-locale">{candidate.toUpperCase()}</span>
+                      <span class="admin-story-edition__title">{copy.row.missing}</span>
+                    </a>
+                  ))}
                 </div>
                 <div class="admin-story-foot">
-                  <span data-story-when><span data-story-verb>{post.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
-                <details class="admin-story-menu">
-                  <summary aria-label={`${copy.posts.actionsFor} ${title} (${post.locale.toUpperCase()})`}><span aria-hidden="true">⋯</span></summary>
-                  <div>
-                    <a href={adminHref(adminSettings, `/edit/${post.id}`)}>{copy.row.edit}</a>
-                    <a href={adminHref(adminSettings, `/preview/${post.id}`)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
-                    <button type="button" data-post-action="duplicate" data-post-id={post.id} data-post-updated-at={post.updated_at}>{copy.row.duplicate}</button>
-                    <button type="button" data-post-action={post.status === 'draft' ? 'published' : 'draft'} data-post-id={post.id} data-post-updated-at={post.updated_at}>{post.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
-                    <button type="button" data-post-action="delete" data-post-id={post.id} data-post-updated-at={post.updated_at} data-post-title={title} data-post-locale={post.locale.toUpperCase()}>{copy.row.delete}</button>
-                  </div>
-                </details>
+                  <span data-story-when><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                 </div>
               </article>
             );
           })}
-          {!filteredPosts.length && (
+          {!stories.length && (
             <div class="admin-empty">
               <span class="admin-empty__mark" aria-hidden="true">+</span>
               <div><h2>{posts.length ? copy.posts.noMatchTitle : copy.posts.emptyTitle}</h2><p>{posts.length ? copy.posts.noMatchBody : copy.posts.emptyBody}</p></div>

@@ -63,8 +63,12 @@ function reconcile(row: HTMLElement, record: StoryRecord, entity: string, format
     badge.textContent = published ? copy.published : copy.draft;
   }
 
-  const verb = row.querySelector<HTMLElement>('[data-story-verb]');
-  const stamp = row.querySelector<HTMLTimeElement>('[data-story-when] time');
+  // The status belongs to the edition; the date belongs to the story, and sits in the
+  // card's footer above every edition of it. Writing one is how the other becomes
+  // newest, so the edition that was just changed is the one the footer should name.
+  const card = row.closest<HTMLElement>('.admin-story-row') ?? row;
+  const verb = card.querySelector<HTMLElement>('[data-story-verb]');
+  const stamp = card.querySelector<HTMLTimeElement>('[data-story-when] time');
   if (verb) verb.textContent = published ? copy.publishedAt : copy.updatedAt;
   if (stamp) {
     const moment = published ? record.published_at ?? record.updated_at : record.updated_at;
@@ -116,7 +120,11 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     if (!action || !id || !updatedAt) return;
     if (!(await confirm(action, button.dataset))) return;
 
-    const row = button.closest<HTMLElement>('.admin-story-row');
+    // A card holds every language edition of one story, so an action belongs to the
+    // edition it was pressed in, never to the card. Lists that are not grouped have no
+    // edition element and fall back to the row, which is the same thing there.
+    const row = button.closest<HTMLElement>('.admin-story-edition') ?? button.closest<HTMLElement>('.admin-story-row');
+    const card = button.closest<HTMLElement>('.admin-story-row');
     button.disabled = true;
     if (message) message.hidden = true;
 
@@ -152,8 +160,11 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
 
       if (action === 'delete') {
         row?.remove();
+        // Deleting the last edition deletes the story, and the card has nothing left to
+        // be about -- its cover and categories belonged to the group, not to a language.
+        if (card && card !== row && !card.querySelector('.admin-story-edition')) card.remove();
         // The empty state is server-rendered, so hand the last removal back to the server.
-        if (!container.querySelector('.admin-story-row')) window.location.reload();
+        if (!container.querySelector('.admin-story-edition, .admin-story-row')) window.location.reload();
         return;
       }
 
