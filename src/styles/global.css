@@ -778,14 +778,21 @@ body {
   text-decoration: none;
 }
 .admin-post-tabs a[aria-current="page"] { border-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
+/* A title filter is a few words, so the field is capped and the row packs left. Left to
+ * grow it took every pixel the others did not -- 696px at 1024, the widest control on
+ * the page, for a box you type "slow" into. */
 .admin-post-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) auto;
+  grid-template-columns: minmax(0, 20rem) minmax(9rem, auto) auto;
+  justify-content: start;
   gap: var(--space-md);
   align-items: end;
   margin-block: var(--space-lg);
 }
 .admin-post-filters .admin-field { min-width: 0; }
+/* A button that is a direct grid child fills its column, and on a phone that column is
+ * the whole row. */
+.admin-post-filters > button { justify-self: start; }
 .admin-story-list { border-block-start: var(--rule-hair) solid var(--color-rule); }
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
  * date shares a footer with the row menu. Pages keeps the row list this class started
@@ -882,7 +889,10 @@ body {
   list-style: none;
 }
 .admin-story-sibling { margin: var(--space-xs) 0 0; color: var(--color-muted); font-size: var(--text-xs); }
-.admin-story-sibling a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-underline-offset: 3px; }
+/* Preflight resets a link's underline to inherit, so this one inherited none from its
+ * paragraph and read as a muted line of text -- the one thing on the card that takes
+ * you to the other language edition, or offers to start it. */
+.admin-story-sibling a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .admin-story-menu { position: relative; }
 .admin-story-menu summary {
   display: grid;
@@ -1417,7 +1427,10 @@ body {
   .admin-post-filters { grid-template-columns: minmax(0, 1fr); }
   .admin-story-row { grid-template-columns: 3rem minmax(0, 1fr) 44px; gap: var(--space-sm); }
   .admin-story-meta { align-items: start; }
-  .admin-story-meta > span:last-child { flex-basis: 100%; }
+  /* The date takes its own line, named rather than counted. As :last-child this caught
+   * the status badge on a post card -- posts moved their date into .admin-story-foot,
+   * so the last thing in the meta became the badge, and it stretched the card's width. */
+  .admin-story-meta > [data-story-when] { flex-basis: 100%; }
   .admin-empty { grid-template-columns: auto minmax(0, 1fr); }
   .admin-empty .admin-button { grid-column: 1 / -1; width: fit-content; }
   .admin-editor-bar__inner { padding-inline: var(--space-sm); }
