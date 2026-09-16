@@ -20,13 +20,13 @@ typography:
     fontFamily: "Google Sans"
     fontSize: "64px"
     fontWeight: "700"
-    lineHeight: "64px"
+    lineHeight: "76.8px"
     letterSpacing: "-1.875px"
   display-large:
     fontFamily: "Google Sans"
     fontSize: "54px"
     fontWeight: "700"
-    lineHeight: "56px"
+    lineHeight: "64.8px"
     letterSpacing: "-1.875px"
   heading-xl:
     fontFamily: "IBM Plex Sans Thai"
@@ -183,18 +183,18 @@ rings. It also rejects a literal `bg-white` anywhere in `src/`.
 
 ## Typography
 
-Typography uses IBM Plex Sans Thai across extracted hierarchy roles. Keep hierarchy mapped to these token rows before adding decorative type styles.
+Typography uses two families. Google Sans carries the display roles -- the post title the writer types and the reader gets, the hero, and the card and section headings -- and IBM Plex Sans Thai carries the interface and the running text. A headline set in the interface face at 54px read as an app header rather than as a headline, so the pair is the point. Keep hierarchy mapped to these token rows before adding decorative type styles.
 
-Uses IBM Plex Sans Thai throughout for a uniform feel. Weight range spans bold, regular, semi-bold, medium. Sizes range from 12px to 64px.
+The display headlines lead at 1.2. Thai stacks marks above and below the letter, and a Latin headline's 1.0 to 1.04 brought a wrapped title's two lines into each other wherever a descender on the first met a tone mark on the second. Weight range spans bold, regular, semi-bold, medium. Sizes range from 12px to 64px.
 
 ### Type Scale Evidence
 | Role | Font | Size | Weight | Line Height | Letter Spacing | Stack / Features | Notes |
 |------|------|------|--------|-------------|----------------|------------------|-------|
-| Hero headline (probe-confirmed h1 at 64px; CSSOM shows 54px w700 / 56px ls:-1.875px as closest match) | IBM Plex Sans Thai | 64px | 700 | 64px | -1.875px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Section hero headings, large marketing titles | IBM Plex Sans Thai | 54px | 700 | 56px | -1.875px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Hero headline (probe-confirmed h1 at 64px; CSSOM shows 54px w700 / 56px ls:-1.875px as closest match) | Google Sans | 64px | 700 | 76.8px | -1.875px | Google Sans, IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif | Extracted token |
+| Section hero headings, large marketing titles | Google Sans | 54px | 700 | 64.8px | -1.875px | Google Sans, IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif | Extracted token |
 | Large section headings | IBM Plex Sans Thai | 48px | 400 | 72px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Mid-page section headings | IBM Plex Sans Thai | 40px | 400 | 60px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
-| Card titles, feature headings | IBM Plex Sans Thai | 22px | 700 | 28px | -0.25px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
+| Mid-page section headings | Google Sans | 40px | 400 | 60px | normal | Google Sans, IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif | Extracted token |
+| Card titles, feature headings | Google Sans | 22px | 700 | 28px | -0.25px | Google Sans, IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif | Extracted token |
 | Sub-section headings, callout titles | IBM Plex Sans Thai | 20px | 600 | 28px | -0.125px | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
 | Primary body text, paragraph content (highest frequency: 443 hits) | IBM Plex Sans Thai | 16px | 400 | 24px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
 | Hero subheadline, lead paragraph text | IBM Plex Sans Thai | 20px | 400 | 30px | normal | IBM Plex Sans Thai, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Apple Color Emoji, Arial, sans-serif, Segoe UI Emoji, Segoe UI Symbol; features: "lnum", "locl" 0 | Extracted token |
