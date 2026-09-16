@@ -817,9 +817,17 @@ body {
   background: var(--color-paper);
 }
 /* The empty state is a sibling of the cards, so in a grid it lands in one 18rem
- * track and its own three columns collapse to a word per line. It spans instead,
- * and drops the rule that only made sense when this was a bordered list. */
-.admin-story-grid > .admin-empty { grid-column: 1 / -1; border-block-end: 0; }
+ * track and its own three columns collapse to a word per line. It spans instead, and
+ * takes the frame the cards would have had -- dashed, because it is the shape of the
+ * thing that is missing. Pages needs none: its empty state sits inside the panel. */
+.admin-story-grid > .admin-empty {
+  grid-column: 1 / -1;
+  justify-self: start;
+  max-width: 100%;
+  padding-inline: var(--space-lg);
+  border: var(--rule-hair) dashed var(--color-rule-strong);
+  border-radius: var(--radius-card);
+}
 .admin-story-grid .admin-story-cover { aspect-ratio: 16 / 7; border-radius: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
 .admin-story-grid .admin-story-content { padding: var(--space-md) var(--space-md) 0; }
 .admin-story-grid .admin-story-content h2 { font-size: var(--text-base); }
@@ -1041,9 +1049,14 @@ body {
 
 .admin-status[data-status="published"] { border-color: var(--color-green); color: var(--color-ink); }
 
+/* The text column is capped and the row packs left. As minmax(0, 1fr) it swallowed
+ * every spare pixel -- 959px of box around twenty characters of heading at a 2000px
+ * window -- and carried the button out to the far edge, a thousand pixels from the
+ * invitation it answers. */
 .admin-empty {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 34rem) auto;
+  justify-content: start;
   gap: var(--space-md);
   min-height: 11rem;
   padding: var(--space-xl) var(--space-md);
