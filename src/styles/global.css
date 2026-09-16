@@ -308,8 +308,66 @@ body {
   margin-inline-start: calc(-1 * var(--space-md));
   text-align: center;
 }
+/* The card and the retry button each set a display, and an author display outranks the hidden
+ * attribute's -- so a held page of cards showed at once instead of a row at a time. */
+.post-card[hidden],
+.post-more [hidden] { display: none; }
+/* A row the feed adds settles in rather than appearing whole under the reader's eye. */
+.post-card[data-revealed] { animation: post-card-in var(--dur-long) var(--ease-out); }
+@keyframes post-card-in {
+  from { opacity: 0; transform: translateY(var(--space-sm)); }
+}
+
+/* The categories, as pills over the grid. All posts leads and is current until a category is
+ * chosen; the current pill fills with ink, so the filter in force reads at a glance. A name
+ * too long for the column is cut short rather than wrapped onto a second line. */
+.post-filter ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0 0 var(--space-xl); padding: 0; list-style: none; }
+.post-filter li { min-width: 0; max-width: 100%; }
+.post-filter a,
+.post-more button {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: var(--space-xs) var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+.post-filter a:hover,
+.post-more button:hover { border-color: var(--color-ink); color: var(--color-ink); }
+.post-filter a[aria-current="page"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+
+/* The end of the feed. Without JavaScript it is a link to the next page. With it, the feed
+ * script watches this box: it holds the link out of sight and shows words only while a page
+ * loads or after one failed. */
+.post-more {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
+  min-height: 1px;
+  margin-block-start: var(--space-2xl);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+/* The status line stays rendered while empty: a live region hidden until it has words is
+ * not reliably announced when it gets them. */
+.post-more > p { margin: 0; }
+.post-more > a { color: var(--color-link); font-weight: 500; }
+.post-more > a:hover { text-decoration: underline; }
+.post-more[data-state] > a { display: none; }
+.post-more[data-state="loading"]::before { content: attr(data-loading); }
+
 @media (prefers-reduced-motion: reduce) {
-  .post-card__cover img { transition: none; }
+  .post-card__cover img,
+  .post-filter a,
+  .post-more button { transition: none; }
+  .post-card[data-revealed] { animation: none; }
 }
 
 ::selection {
