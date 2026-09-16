@@ -793,7 +793,6 @@ body {
 /* A button that is a direct grid child fills its column, and on a phone that column is
  * the whole row. */
 .admin-post-filters > button { justify-self: start; }
-.admin-story-list { border-block-start: var(--rule-hair) solid var(--color-rule); }
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
  * date shares a footer with the row menu. Pages keeps the row list this class started
  * as -- the two lists answer different questions and the reference separates them. */
@@ -803,7 +802,6 @@ body {
    * a bare minmax(18rem, 1fr) overflows by 16px at 320. */
   grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
   gap: var(--space-md);
-  border-block-start: 0;
 }
 .admin-story-grid .admin-story-row {
   container-type: inline-size;
@@ -816,11 +814,12 @@ body {
   border-radius: var(--radius-card);
   background: var(--color-paper);
 }
-/* The empty state is a sibling of the cards, so in a grid it lands in one 18rem
- * track and its own three columns collapse to a word per line. It spans instead, and
- * takes the frame the cards would have had -- dashed, because it is the shape of the
- * thing that is missing. Pages needs none: its empty state sits inside the panel. */
-.admin-story-grid > .admin-empty {
+/* One empty state, drawn the same on both lists. Posts framed it dashed and hugging,
+ * pages left it inside the panel and stretched it to 1165px: two screens answering the
+ * same question -- nothing here yet -- and looking nothing like each other. It is a
+ * sibling of the cards, so in the grid it spans rather than landing in one 18rem
+ * track. Dashed, because it is the shape of the thing that is missing. */
+.admin-story-list > .admin-empty {
   grid-column: 1 / -1;
   justify-self: start;
   max-width: 100%;
@@ -1049,19 +1048,19 @@ body {
 
 .admin-status[data-status="published"] { border-color: var(--color-green); color: var(--color-ink); }
 
-/* The text column is capped and the row packs left. As minmax(0, 1fr) it swallowed
- * every spare pixel -- 959px of box around twenty characters of heading at a 2000px
- * window -- and carried the button out to the far edge, a thousand pixels from the
- * invitation it answers. */
+/* Every track sizes to what is in it, and the row packs left, so the button lands one
+ * gap after the sentence it answers however wide the window is. A 1fr middle column
+ * put it 959px away; a fixed 34rem one still left 213px of nothing between them,
+ * because the track was sized to a guess about the text rather than to the text. The
+ * cap belongs on the paragraph, which is where a line length is decided. */
 .admin-empty {
   display: grid;
-  grid-template-columns: auto minmax(0, 34rem) auto;
+  grid-template-columns: auto auto auto;
   justify-content: start;
   gap: var(--space-md);
   min-height: 11rem;
   padding: var(--space-xl) var(--space-md);
   align-items: center;
-  border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 
 .admin-empty__mark {
@@ -1076,7 +1075,8 @@ body {
 }
 
 .admin-empty h2 { margin: 0; font-size: var(--text-md); font-weight: 600; letter-spacing: -0.125px; }
-.admin-empty p { max-width: 55ch; margin: var(--space-2xs) 0 0; color: var(--color-muted); font-size: var(--text-sm); }
+.admin-empty > div { max-width: 34rem; }
+.admin-empty p { margin: var(--space-2xs) 0 0; color: var(--color-muted); font-size: var(--text-sm); }
 
 .admin-auth-page {
   display: grid;

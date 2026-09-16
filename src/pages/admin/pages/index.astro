@@ -106,7 +106,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
             <button class="admin-button" type="submit">{copy.filters.apply}</button>
           </form>
           <p class="admin-alert" data-page-error role="alert" hidden></p>
-          <div class="admin-story-list admin-story-panel">
+          <div class:list={['admin-story-list', stories.length && 'admin-story-panel']}>
             {stories.map((story) => {
               const newest = story.editions.reduce((latest, edition) => edition.updated_at > latest.updated_at ? edition : latest);
               const timestamp = newest.status === 'published' ? newest.published_at ?? newest.updated_at : newest.updated_at;
