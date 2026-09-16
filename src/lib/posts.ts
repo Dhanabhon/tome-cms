@@ -31,3 +31,58 @@ export function filterAdminPosts(posts: Post[], filters: AdminPostFilters) {
     && (!query || post.title.toLocaleLowerCase().includes(query))
   ));
 }
+
+/** One story, and every language edition of it the owner has written so far. */
+export interface AdminStory<T extends StoryEdition> {
+  editions: T[];
+  groupId: string;
+  /** The edition the card is named and pictured by: the owner's own language when it exists. */
+  primary: T;
+}
+
+interface StoryEdition {
+  locale: PostLocale;
+  translation_group_id: string;
+  updated_at: string;
+}
+
+/**
+ * Groups a list of editions into the stories they belong to.
+ *
+ * The filter decides which stories appear; it never hides an edition inside one. A
+ * card exists to show that the Thai and the English are two halves of the same thing,
+ * and a card that showed only the half you filtered for would be lying about the other.
+ */
+export function groupAdminStories<T extends StoryEdition>(
+  all: T[],
+  matching: T[],
+  ownerLocale: PostLocale | null,
+): AdminStory<T>[] {
+  const matched = new Set(matching.map((edition) => edition.translation_group_id));
+  const byGroup = new Map<string, T[]>();
+  for (const edition of all) {
+    if (!matched.has(edition.translation_group_id)) continue;
+    const group = byGroup.get(edition.translation_group_id) ?? [];
+    group.push(edition);
+    byGroup.set(edition.translation_group_id, group);
+  }
+
+  const first = ownerLocale ?? 'th';
+  const stories = [...byGroup.entries()].map(([groupId, editions]) => {
+    const ordered = [...editions].sort((left, right) => (
+      Number(right.locale === first) - Number(left.locale === first) || left.locale.localeCompare(right.locale)
+    ));
+    return { editions: ordered, groupId, primary: ordered[0] };
+  });
+
+  // Newest story first, measured by whichever edition was touched most recently.
+  return stories.sort((left, right) => (
+    latest(right.editions).localeCompare(latest(left.editions))
+  ));
+}
+
+function latest<T extends StoryEdition>(editions: T[]) {
+  return editions.reduce((newest, edition) => (
+    edition.updated_at > newest ? edition.updated_at : newest
+  ), '');
+}
