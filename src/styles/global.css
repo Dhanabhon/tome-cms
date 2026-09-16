@@ -1046,20 +1046,22 @@ body {
 
 .admin-status[data-status="published"] { border-color: var(--color-green); color: var(--color-ink); }
 
-/* Every track sizes to what is in it, and the row packs left, so the button lands one
- * gap after the sentence it answers however wide the window is. A 1fr middle column
- * put it 959px away; a fixed 34rem one still left 213px of nothing between them,
- * because the track was sized to a guess about the text rather than to the text. The
- * cap belongs on the paragraph, which is where a line length is decided. */
+/* The mark and the words size to themselves and stay together on the left; the slack
+ * is the button's track, so the action sits on the frame's right edge. The slack used
+ * to belong to the text column instead, which stretched a twenty-character heading to
+ * 959px and left the button stranded in the middle of it -- the button was always
+ * meant to be at the edge, it just had to get there by being placed rather than by
+ * being pushed. The measure cap belongs on the paragraph, which is where a line
+ * length is decided. */
 .admin-empty {
   display: grid;
-  grid-template-columns: auto auto auto;
-  justify-content: start;
+  grid-template-columns: auto auto minmax(0, 1fr);
   gap: var(--space-md);
   min-height: 11rem;
   padding: var(--space-xl) var(--space-md);
   align-items: center;
 }
+.admin-empty .admin-button { justify-self: end; }
 
 .admin-empty__mark {
   display: grid;
@@ -1527,7 +1529,8 @@ body {
    * so the last thing in the meta became the badge, and it stretched the card's width. */
   .admin-story-meta > [data-story-when] { flex-basis: 100%; }
   .admin-empty { grid-template-columns: auto minmax(0, 1fr); }
-  .admin-empty .admin-button { grid-column: 1 / -1; width: fit-content; }
+  /* Under the words rather than beside them, so it starts where they start. */
+  .admin-empty .admin-button { grid-column: 1 / -1; justify-self: start; width: fit-content; }
   .admin-editor-bar__inner { padding-inline: var(--space-sm); }
   .admin-editor-actions { gap: var(--space-2xs); }
   .admin-editor-actions .admin-button { padding-inline: var(--space-sm); }
