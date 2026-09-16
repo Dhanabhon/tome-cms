@@ -2,6 +2,7 @@
 import PageTransitionSkeleton from '../components/PageTransitionSkeleton.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { normalizeAdminPath } from '../lib/admin';
+import { adminCopy } from '../lib/admin-i18n';
 import type { PostLocale } from '../types/cms';
 import '../styles/global.css';
 
@@ -36,6 +37,6 @@ const adminPath = normalizeAdminPath(requestedAdminPath);
   </head>
   <body class="admin-body" data-admin-path={adminPath}>
     <slot />
-    <PageTransitionSkeleton variant="admin" />
+    <PageTransitionSkeleton label={adminCopy(lang).media.loading} />
   </body>
 </html>

@@ -1,5 +1,6 @@
 ---
 import AdminShell from '../../components/admin/AdminShell.astro';
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
 import SecurityManager from '../../components/admin/SecurityManager';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import AdminLayout from '../../layouts/AdminLayout.astro';
@@ -41,7 +42,9 @@ const errorMessage = failed ? copy.security.unavailable : '';
       {errorMessage ? (
         <p class="admin-alert" role="alert">{errorMessage}</p>
       ) : authenticated ? (
-        <SecurityManager client:only="react" ownerLocale={ownerLocale} />
+        <SecurityManager client:only="react" ownerLocale={ownerLocale}>
+          <AdminSkeleton head={false} kind="form" label={copy.media.loading} slot="fallback" />
+        </SecurityManager>
       ) : (
         <section class="admin-card">
           <h2>{copy.security.verifyOwner}</h2>
