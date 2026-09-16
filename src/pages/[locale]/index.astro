@@ -3,16 +3,47 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, postPath } from '../../lib/i18n';
 import { postExcerpt, readingMinutes } from '../../lib/posts';
 import { getPublicAuthorProfile } from '../../lib/profile';
-import { listPublishedPosts } from '../../server/content/published';
+import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
-import type { Post, PostAlternate } from '../../types/cms';
+import { HttpError } from '../../server/http/errors';
+import type { Post, PostAlternate, PostCategoryBadge } from '../../types/cms';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
   return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
 }
 const locale = localeValue;
+// Two rows at three across, three at two, six at one: a page ends on a full row at any width,
+// so the rows the feed script adds after it line up.
+const PAGE_SIZE = 6;
+const copy = locale === 'th'
+  ? {
+    all: 'บทความทั้งหมด',
+    categories: 'หมวดหมู่',
+    empty: 'ยังไม่มีบทความที่เผยแพร่',
+    emptyCategory: 'ยังไม่มีบทความในหมวดหมู่นี้',
+    failed: 'โหลดบทความเพิ่มไม่สำเร็จ',
+    loading: 'กำลังโหลด…',
+    older: 'บทความเก่ากว่า',
+    retry: 'ลองอีกครั้ง',
+    unavailable: 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง',
+  }
+  : {
+    all: 'All posts',
+    categories: 'Categories',
+    empty: 'No published posts yet.',
+    emptyCategory: 'No posts in this category yet.',
+    failed: 'More posts could not be loaded.',
+    loading: 'Loading…',
+    older: 'Older posts',
+    retry: 'Try again',
+    unavailable: 'Published posts are temporarily unavailable.',
+  };
+const category = Astro.url.searchParams.get('category')?.trim().slice(0, 100) || undefined;
+const cursor = Astro.url.searchParams.get('cursor') || undefined;
 let posts: Post[] = [];
+let categories: PostCategoryBadge[] = [];
+let nextCursor: string | null = null;
 let loadError = false;
 const settings = await getSiteSettings();
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
@@ -23,10 +54,21 @@ const profile = settings ? await getPublicAuthorProfile(settings, locale) : null
 const byline = profile?.name || settings?.site_name || 'TomeCMS';
 
 try {
-  posts = (await listPublishedPosts({ locale, limit: 1_000 })).items;
+  const [page, published] = await Promise.all([
+    listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale }),
+    listPublishedCategories(locale),
+  ]);
+  posts = page.items;
+  nextCursor = page.nextCursor;
+  categories = published.items;
 } catch (error) {
-  console.error('Homepage post query failed:', error);
-  Astro.response.status = 500;
+  // A cursor that fails to verify is a bad request, not the server failing.
+  if (error instanceof HttpError) {
+    Astro.response.status = error.status;
+  } else {
+    console.error('Homepage post query failed:', error);
+    Astro.response.status = 500;
+  }
   loadError = true;
 }
 
@@ -34,6 +76,12 @@ const availableLocales: PostAlternate[] = [
   { href: localePath('th'), locale: 'th' },
   { href: localePath('en'), locale: 'en' },
 ];
+const home = localePath(locale);
+const categoryHref = (name: string) => `${home}?${new URLSearchParams({ category: name })}`;
+const isCurrent = (name: string) => category?.toLocaleLowerCase() === name.toLocaleLowerCase();
+const olderHref = nextCursor
+  ? `${home}?${new URLSearchParams({ ...(category ? { category } : {}), cursor: nextCursor })}`
+  : null;
 const dateFormatter = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', {
   day: 'numeric',
   month: 'short',
@@ -41,24 +89,28 @@ const dateFormatter = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', 
   year: 'numeric',
 });
 const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
-// ponytail: segments every post's text on each request; store the minutes on save if the homepage slows.
 const readTime = (post: Post) => {
   const minutes = readingMinutes(post.content_json);
   return locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
 };
 // A post without a cover keeps the cover's space, so the titles along a row start level,
 // and its first letter fills it rather than an empty box. A grapheme, not a code unit:
-// a Thai letter carries its vowel and tone marks with it.
+// a Thai letter carries its vowel and tone marks with it. A vowel written before its
+// consonant (เ แ โ ใ ไ) is a grapheme of its own and alone reads as a stray stroke, so
+// it takes its consonant along.
 const graphemes = new Intl.Segmenter(locale, { granularity: 'grapheme' });
-const initial = (title: string) => [...graphemes.segment(title.trim())][0]?.segment ?? '';
+const initial = (title: string) => {
+  const [first = '', second = ''] = [...graphemes.segment(title.trim())].map(({ segment }) => segment);
+  return /^[เ-ไ]$/u.test(first) ? first + second : first;
+};
 ---
 
 <BaseLayout
   alternates={availableLocales}
-  canonicalPath={localePath(locale)}
+  canonicalPath={home}
   description={siteDescription}
   locale={locale}
-  robots={loadError ? 'noindex, nofollow' : undefined}
+  robots={loadError ? 'noindex, nofollow' : cursor ? 'noindex, follow' : undefined}
 >
   <!-- The hero band is dark in both themes, so a literal white is correct here and
        does not depend on a token reaching this route's CSS bundle. -->
@@ -76,15 +128,26 @@ const initial = (title: string) => [...graphemes.segment(title.trim())][0]?.segm
   </section>
 
   <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+    {categories.length > 0 && (
+      <nav class="post-filter" aria-label={copy.categories}>
+        <ul>
+          <li><a href={home} aria-current={category ? undefined : 'page'}>{copy.all}</a></li>
+          {categories.map(({ name }) => (
+            <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
     {posts.length > 0 ? (
-      <div class="post-grid">
+      <div class="post-grid" data-post-grid>
         {posts.map((post, index) => {
           const excerpt = postExcerpt(post, '');
           return (
             <article class="post-card">
               <div class="post-card__cover" aria-hidden="true">
                 {post.cover_image
-                  ? <img src={post.cover_image} alt="" width="800" height="400" loading={index < 3 ? 'eager' : 'lazy'} />
+                  ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
                   : <span>{initial(post.title)}</span>}
               </div>
               <h2 class="card-title post-card__title">
@@ -106,13 +169,29 @@ const initial = (title: string) => [...graphemes.segment(title.trim())][0]?.segm
         })}
       </div>
     ) : !loadError && (
-      <p class="text-muted">No published posts yet.</p>
+      <p class="text-muted">{category ? copy.emptyCategory : copy.empty}</p>
+    )}
+
+    {olderHref && (
+      <div class="post-more" data-post-more data-failed={copy.failed} data-loading={copy.loading}>
+        <a data-post-next href={olderHref}>{copy.older} <span aria-hidden="true">→</span></a>
+        <p data-post-status role="status"></p>
+        <button data-post-retry type="button" hidden>{copy.retry}</button>
+      </div>
     )}
 
     {loadError && (
       <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
-        Published posts are temporarily unavailable.
+        {copy.unavailable}
       </p>
     )}
   </section>
 </BaseLayout>
+
+<script>
+  import wirePostFeed from '../../lib/post-feed';
+
+  const grid = document.querySelector<HTMLElement>('[data-post-grid]');
+  const more = document.querySelector<HTMLElement>('[data-post-more]');
+  if (grid && more) wirePostFeed(grid, more);
+</script>
