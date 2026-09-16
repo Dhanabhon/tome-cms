@@ -821,8 +821,6 @@ body {
  * track. Dashed, because it is the shape of the thing that is missing. */
 .admin-story-list > .admin-empty {
   grid-column: 1 / -1;
-  justify-self: start;
-  max-width: 100%;
   padding-inline: var(--space-lg);
   border: var(--rule-hair) dashed var(--color-rule-strong);
   border-radius: var(--radius-card);
