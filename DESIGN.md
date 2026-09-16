@@ -17,13 +17,13 @@ colors:
   brand-green-soft: "#b9d8c8"
 typography:
   display-hero:
-    fontFamily: "IBM Plex Sans Thai"
+    fontFamily: "Google Sans"
     fontSize: "64px"
     fontWeight: "700"
     lineHeight: "64px"
     letterSpacing: "-1.875px"
   display-large:
-    fontFamily: "IBM Plex Sans Thai"
+    fontFamily: "Google Sans"
     fontSize: "54px"
     fontWeight: "700"
     lineHeight: "56px"
@@ -34,12 +34,12 @@ typography:
     fontWeight: "400"
     lineHeight: "72px"
   heading-l:
-    fontFamily: "IBM Plex Sans Thai"
+    fontFamily: "Google Sans"
     fontSize: "40px"
     fontWeight: "400"
     lineHeight: "60px"
   heading-m:
-    fontFamily: "IBM Plex Sans Thai"
+    fontFamily: "Google Sans"
     fontSize: "22px"
     fontWeight: "700"
     lineHeight: "28px"

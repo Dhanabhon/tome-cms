@@ -26,6 +26,11 @@ const adminPath = normalizeAdminPath(requestedAdminPath);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preload" href="/fonts/ibm-plex-sans-thai-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/ibm-plex-sans-thai-thai-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- The display face, Thai only: the title is the largest thing on the page and
+         font-synthesis is off, so a swap out of the fallback is the most visible one
+         there is. Latin display is left to load on demand -- 22KB for the minority
+         script is not worth doubling the critical path again. -->
+    <link rel="preload" href="/fonts/google-sans-thai-700-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/fonts.css" />
     <ThemeScript />
   </head>
