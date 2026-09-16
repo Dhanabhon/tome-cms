@@ -810,12 +810,14 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr));
   gap: var(--space-md);
 }
+/* No overflow clip. It rounded the cover's corners, and it also cut off the row menu, which
+ * is positioned inside the card: on every card, publish, duplicate or delete opened past
+ * the bottom edge and could not be clicked. The cover rounds itself below instead. */
 .admin-story-grid .admin-story-row {
   container-type: inline-size;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
-  overflow: hidden;
   padding-block: 0;
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-card);
@@ -832,7 +834,15 @@ body {
   border: var(--rule-hair) dashed var(--color-rule-strong);
   border-radius: var(--radius-card);
 }
-.admin-story-grid .admin-story-cover { aspect-ratio: 16 / 7; border-radius: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
+/* The one thing that paints into the card's rounded corners, so it rounds its own: the card's
+ * radius less its hairline, so the curve sits concentric inside the border. */
+.admin-story-grid .admin-story-cover {
+  aspect-ratio: 16 / 7;
+  border-radius: 0;
+  border-start-start-radius: calc(var(--radius-card) - var(--rule-hair));
+  border-start-end-radius: calc(var(--radius-card) - var(--rule-hair));
+  border-block-end: var(--rule-hair) solid var(--color-rule);
+}
 .admin-story-grid .admin-story-content { padding: var(--space-md) var(--space-md) 0; }
 .admin-story-grid .admin-story-content h2 { font-size: var(--text-base); }
 .admin-story-grid .admin-story-content h2 a { min-height: 0; }
@@ -875,8 +885,9 @@ body {
 .admin-page-row .admin-page-path { grid-column: 2; grid-row: 2; padding-block-end: var(--space-sm); }
 /* Pages read as rows inside one frame rather than under a bare top rule, so the rows
  * take their own inline padding and the last one stops drawing a line on the frame. */
+/* No overflow clip, for the same reason as the post card: the last rows' menus opened past
+ * the panel's edge. Nothing inside paints a background, so there is no corner to protect. */
 .admin-story-panel {
-  overflow: hidden;
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-card);
   background: var(--color-paper);
