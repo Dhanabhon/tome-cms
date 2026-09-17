@@ -133,12 +133,9 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
           ))}
         </nav>
-        <form class="admin-post-filters" action={adminHref(adminSettings)} method="get" novalidate>
+        <form class="admin-post-filters admin-post-filters--compact" action={adminHref(adminSettings)} method="get" novalidate>
           <input type="hidden" name="status" value={status} />
-          <div class="admin-field">
-            <label for="post-search">{copy.posts.search}</label>
-            <input class="admin-control" id="post-search" name="q" type="search" maxlength="100" value={query} placeholder={copy.filters.searchByTitle} />
-          </div>
+          {query && <input type="hidden" name="q" value={query} />}
           <div class="admin-field">
             <label for="post-locale">{copy.filters.language}</label>
             <UiSelect

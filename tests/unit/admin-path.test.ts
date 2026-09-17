@@ -10,6 +10,7 @@ import {
   adminSignInPath,
   matchAdminPath,
   normalizeAdminPath,
+  postSearchState,
   safeAdminReturnTo,
 } from '../../src/lib/admin';
 
@@ -103,4 +104,24 @@ test('legacy health and prepared recovery paths do not load headless runtime con
       else process.env[key] = value;
     }
   }
+});
+
+test('a post search from the Posts list keeps the filters in force', () => {
+  assert.deepEqual(
+    postSearchState(new URL('https://cms.test/admin?status=draft&locale=th&q=slow'), '/admin'),
+    { hidden: [['status', 'draft'], ['locale', 'th']], query: 'slow' },
+  );
+  assert.deepEqual(postSearchState(new URL('https://cms.test/admin/'), '/admin'), { hidden: [], query: '' });
+  assert.deepEqual(
+    postSearchState(new URL('https://cms.test/studio?q=notes'), '/studio'),
+    { hidden: [], query: 'notes' },
+  );
+});
+
+test('a post search from any other screen starts from all posts', () => {
+  assert.deepEqual(
+    postSearchState(new URL('https://cms.test/admin/pages?status=draft&q=about'), '/admin'),
+    { hidden: [], query: '' },
+  );
+  assert.deepEqual(postSearchState(new URL('https://cms.test/admin/categories'), '/admin'), { hidden: [], query: '' });
 });

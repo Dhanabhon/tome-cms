@@ -89,3 +89,18 @@ export function adminSignInPath(path: string, adminPath = DEFAULT_ADMIN_PATH) {
   if (target !== base) params.set('returnTo', target);
   return `${base}?${params}`;
 }
+
+/**
+ * What the admin top bar's post search sends besides the words typed. On the Posts list it
+ * keeps the status and language filters in force and shows the current query; from any other
+ * screen it starts from all posts.
+ */
+export function postSearchState(url: URL, postsPath: string): { hidden: Array<[string, string]>; query: string } {
+  const trim = (path: string) => path.replace(/\/+$/, '') || '/';
+  if (trim(url.pathname) !== trim(postsPath)) return { hidden: [], query: '' };
+  const hidden = (['status', 'locale'] as const).flatMap((name): Array<[string, string]> => {
+    const value = url.searchParams.get(name);
+    return value ? [[name, value]] : [];
+  });
+  return { hidden, query: url.searchParams.get('q') ?? '' };
+}
