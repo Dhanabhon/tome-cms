@@ -952,6 +952,8 @@ body {
 /* A button that is a direct grid child fills its column, and on a phone that column is
  * the whole row. */
 .admin-post-filters > button { justify-self: start; }
+/* On Posts the search lives in the admin top bar, so the row is the language and its button. */
+.admin-post-filters--compact { grid-template-columns: minmax(9rem, auto) auto; }
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
  * date shares a footer with the row menu. Pages keeps the row list this class started
  * as -- the two lists answer different questions and the reference separates them. */
