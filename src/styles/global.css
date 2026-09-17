@@ -2,7 +2,8 @@
  * scope: application-wide stylesheet — admin shell, posts, pages, editor, media,
  *        security, navigation, auth, and the public blog surface. Not a single page.
  * audience: single owner · tone: austere-utilitarian · anchor hue: green
- * tokens: every colour, radius and type step resolves through installer-tokens.css
+ * tokens: every colour, radius and type step resolves through installer-tokens.css; the admin
+ *         restates its radii, control height and title size on .admin-body (see DESIGN.md)
  * contrast: AA on all measured pairs (computed, not estimated — lowest 4.62)
  */
 
@@ -724,11 +725,24 @@ body {
   padding: 0;
 }
 
+/* The admin's own shape and density (docs/specs/2026-09-17-admin-modern-ui-design.md):
+ * rounder corners, 40px controls where a mouse points and 44px where a finger does, and a
+ * 28px page title. Set on the admin's body rather than on :root, so the public site and the
+ * installer, which share the root tokens, keep theirs. --radius-card is restated because on
+ * :root it is an alias resolved there -- overriding --radius-input alone would not reach it. */
 .admin-body {
+  --radius-sm: 0.5rem;
+  --radius-input: 0.625rem;
+  --radius-card: 0.875rem;
+  --control-height: 2.5rem;
+  --text-title: 1.75rem;
   min-width: 0;
   min-height: 100svh;
   background: var(--color-paper-2);
   color: var(--color-ink);
+}
+@media (pointer: coarse) {
+  .admin-body { --control-height: 2.75rem; }
 }
 
 .admin-editor-bar {
@@ -811,16 +825,17 @@ body {
   align-items: end;
 }
 
-/* --text-display is the hero token; this is a working surface that gets scanned, not
- * a page that gets read, and the sidebar already says which screen you are on. The
- * height it gives back goes to the first rows of the list. */
+/* --text-display is the hero token; this is a working surface that gets scanned, not a page
+ * that gets read, and the sidebar already says which screen you are on. The admin sets
+ * --text-title to 28px and the weight to semibold, so the title labels the screen without
+ * taking the height the first rows of the list need. */
 .admin-page__head h1,
 .media-toolbar h1 {
   min-width: 0;
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1;
   overflow-wrap: anywhere;

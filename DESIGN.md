@@ -264,6 +264,24 @@ Shape language maps directly to rounded tokens. Keep component corners consisten
 this scale. Tailwind's `rounded-md` / `rounded-lg` / `rounded-xl` / `rounded-full` resolve to
 `radius-sm` / `radius-input` / `radius-lg` / `radius-pill` respectively.
 
+## Admin Surface
+
+The admin is a working surface -- scanned, not read -- and takes its own shape and density on
+top of the tokens above. The values are set on `.admin-body` in `src/styles/global.css`, not
+on `:root`, so the public site and the installer keep the root values.
+`scripts/check-design-tokens.mjs` checks the root tables only; this table is the record for
+the admin. The sidebar width and the icon set join it with the admin shell.
+
+| Token | Root | Admin | Role in the admin |
+|------|------|-------|-------------------|
+| radius-sm | 0.375rem (6px) | 0.5rem (8px) | Nav items, menu items, chips |
+| radius-input | 0.5rem (8px) | 0.625rem (10px) | Buttons, inputs, selects |
+| radius-card | 0.5rem (8px) | 0.875rem (14px) | Cards, panels, story cards, empty states |
+| control-height | 3rem (48px) | 2.5rem (40px); 2.75rem (44px) on a coarse pointer | Every control |
+| text-title | clamp(1.75rem, 6vw, 2.5rem) | 1.75rem (28px), weight 600 | Page titles |
+
+Design: `docs/specs/2026-09-17-admin-modern-ui-design.md`.
+
 ## Components
 
 (none detected)
