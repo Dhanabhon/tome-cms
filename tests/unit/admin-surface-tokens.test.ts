@@ -54,3 +54,12 @@ test('a tab count is the same badge as a sidebar count', () => {
   // Both badges count the same kind of thing, so they read at the same size.
   assert.equal(declaration(tab, 'font-size'), declaration(ruleBody(CSS, '.admin-nav-count'), 'font-size'));
 });
+
+test('the search field is a shared wrapper, not a top bar detail', () => {
+  const search = ruleBody(CSS, '.admin-search');
+  assert.equal(declaration(search, 'position'), 'relative');
+  // No display here: the top bar folds its own form away on a phone, and a display
+  // declared on the shared class would outrank that rule from further up the file.
+  assert.equal(declaration(search, 'display'), undefined);
+  assert.match(CSS, /\.admin-search \.admin-control \{[^}]*padding-inline-start: 2\.5rem;/);
+});
