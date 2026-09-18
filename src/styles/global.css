@@ -177,16 +177,21 @@
   .admin-shell-main { margin-inline-start: var(--admin-sidebar-width); }
 }
 
+/* A search field carries its magnifier inside the box, on the side the text starts from.
+ * No display is declared here: the top bar folds its own form away on a phone, and a
+ * display on this class would win that contest by sitting further up the file. */
+.admin-search { position: relative; min-width: 0; }
+.admin-search > .admin-icon { position: absolute; inset-inline-start: var(--space-sm); inset-block-start: 50%; color: var(--color-muted); transform: translateY(-50%); pointer-events: none; }
+.admin-search .admin-control { width: 100%; padding-inline-start: 2.5rem; }
+
 /* The bar over every admin screen: which screen this is, a search over posts, and the way out
  * to the site. It sticks, so the search is a reach away at the bottom of a long list. On a
  * phone it also holds the menu, and the search folds behind an icon. */
 .admin-topbar { position: sticky; inset-block-start: 0; z-index: var(--z-sticky-nav); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); min-height: var(--admin-topbar-height); padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
 .admin-topbar__title { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-xs); min-width: 0; margin: 0; font-weight: 600; }
 .admin-topbar__title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-topbar__search { position: relative; display: none; flex: 1 1 100%; order: 1; }
+.admin-topbar__search { display: none; flex: 1 1 100%; order: 1; }
 .admin-topbar[data-search-open] .admin-topbar__search { display: block; }
-.admin-topbar__search > .admin-icon { position: absolute; inset-inline-start: var(--space-sm); inset-block-start: 50%; color: var(--color-muted); transform: translateY(-50%); pointer-events: none; }
-.admin-topbar__search .admin-control { padding-inline-start: 2.5rem; }
 .admin-topbar__site > span { display: none; }
 @media (min-width: 64rem) {
   .admin-topbar { flex-wrap: nowrap; padding-block: 0; }

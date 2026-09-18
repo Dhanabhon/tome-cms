@@ -144,7 +144,7 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
         <AdminIcon name="menu" />
       </button>
       <p class="admin-topbar__title"><AdminIcon name={active} /><span>{title ?? currentLabel}</span></p>
-      <form class="admin-topbar__search" action={adminHref(adminSettings)} method="get" role="search">
+      <form class="admin-search admin-topbar__search" action={adminHref(adminSettings)} method="get" role="search">
         {search.hidden.map(([name, value]) => <input type="hidden" name={name} value={value} />)}
         <label class="sr-only" for="admin-topbar-search">{copy.shell.searchLabel}</label>
         <AdminIcon name="search" />
