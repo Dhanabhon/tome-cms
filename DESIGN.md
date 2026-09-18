@@ -270,7 +270,8 @@ The admin is a working surface -- scanned, not read -- and takes its own shape a
 top of the tokens above. The values are set on `.admin-body` in `src/styles/global.css`, not
 on `:root`, so the public site and the installer keep the root values.
 `scripts/check-design-tokens.mjs` checks the root tables only; this table is the record for
-the admin. The sidebar width and the icon set join it with the admin shell.
+the admin. Icons are line drawings on a 24px grid with a 1.5px stroke, drawn at 20px in
+`currentColor` from `src/lib/admin-icons.ts` (paths adapted from Lucide, ISC licence).
 
 | Token | Root | Admin | Role in the admin |
 |------|------|-------|-------------------|
@@ -279,6 +280,8 @@ the admin. The sidebar width and the icon set join it with the admin shell.
 | radius-card | 0.5rem (8px) | 0.875rem (14px) | Cards, panels, story cards, empty states |
 | control-height | 3rem (48px) | 2.5rem (40px); 2.75rem (44px) on a coarse pointer | Every control |
 | text-title | clamp(1.75rem, 6vw, 2.5rem) | 1.75rem (28px), weight 600 | Page titles |
+| admin-sidebar-width | -- | 16rem (256px) | Sidebar column; the main column and the navigation overlay start at its edge |
+| admin-topbar-height | -- | 4rem (64px) | Sticky top bar: screen name, post search, view site |
 
 Design: `docs/specs/2026-09-17-admin-modern-ui-design.md`.
 
