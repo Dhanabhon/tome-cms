@@ -1256,8 +1256,12 @@ body {
  * says "draft" in lower case. */
 .admin-status {
   display: inline-flex;
+  min-height: 1.5rem;
+  padding-inline: var(--space-xs);
   align-items: center;
   gap: var(--space-2xs);
+  border-radius: var(--radius-pill);
+  background: var(--color-paper-3);
   color: var(--color-muted);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -1273,7 +1277,9 @@ body {
   border: var(--rule-hair) solid currentColor;
   border-radius: 50%;
 }
-.admin-status[data-status="published"] { color: var(--color-ink); }
+/* Published is the only state that earns colour: a tint of the master green, with the
+ * dot filled in. Draft keeps the quiet grey pill, so the two read apart at a glance. */
+.admin-status[data-status="published"] { background: var(--color-status-ok); color: var(--color-ink); }
 .admin-status[data-status="published"]::before { border-color: var(--color-green); background: var(--color-green); }
 
 /* The mark and the words size to themselves and stay together on the left; the slack

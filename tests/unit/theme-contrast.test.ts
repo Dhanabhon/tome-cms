@@ -125,6 +125,10 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-green', 'color-paper', 4.5],
   ['color-green', 'color-surface', 4.5],
   ['color-green', 'color-paper-2', 3],
+  // The published pill: a green tint carrying ink text, and the green dot that
+  // precedes it. Draft's pair -- muted on paper-3 -- is already above.
+  ['color-ink', 'color-status-ok', 4.5],
+  ['color-green', 'color-status-ok', 3],
 
   ['color-error-ink', 'color-paper', 4.5],
   ['color-error-ink', 'color-surface', 4.5],
