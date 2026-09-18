@@ -46,3 +46,11 @@ test('the public site and the installer keep the root tokens', () => {
 test('an admin page title is semibold', () => {
   assert.equal(declaration(ruleBody(CSS, '.admin-page__head h1,\n.media-toolbar h1'), 'font-weight'), '600');
 });
+
+test('a tab count is the same badge as a sidebar count', () => {
+  const tab = ruleBody(CSS, '.admin-tab-count');
+  assert.equal(declaration(tab, 'border-radius'), 'var(--radius-pill)');
+  assert.equal(declaration(tab, 'background'), 'var(--color-paper-3)');
+  // Both badges count the same kind of thing, so they read at the same size.
+  assert.equal(declaration(tab, 'font-size'), declaration(ruleBody(CSS, '.admin-nav-count'), 'font-size'));
+});
