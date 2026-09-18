@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdminIcon from '../../../components/admin/AdminIcon.astro';
 import AdminShell from '../../../components/admin/AdminShell.astro';
 import UiSelect from '../../../components/admin/UiSelect';
 import { adminHref, adminLoginPath, adminPreviewHref } from '../../../lib/admin';
@@ -155,7 +156,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
             })}
             {!stories.length && (
               <div class="admin-empty">
-                <span class="admin-empty__mark" aria-hidden="true">+</span>
+                <span class="admin-empty__mark" aria-hidden="true"><AdminIcon name="pages" /></span>
                 <div><h2>{pages.length ? copy.pages.noMatchTitle : copy.pages.emptyTitle}</h2><p>{pages.length ? copy.pages.noMatchBody : copy.pages.emptyBody}</p></div>
                 {!pages.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.createFirst}</a>}
               </div>

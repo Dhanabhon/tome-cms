@@ -1324,15 +1324,16 @@ body {
 }
 .admin-empty .admin-button { justify-self: end; }
 
+/* The screen's own icon, filled rather than outlined: an outlined circle holding a "+"
+ * looked like the button to press, and the button to press was already beside it. */
 .admin-empty__mark {
   display: grid;
-  width: var(--space-xl);
-  height: var(--space-xl);
+  width: var(--space-2xl);
+  height: var(--space-2xl);
   place-items: center;
-  border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: 50%;
-  background: var(--color-paper);
-  font-size: var(--text-md);
+  background: var(--color-paper-3);
+  color: var(--color-muted);
 }
 
 .admin-empty h2 { margin: 0; font-size: var(--text-md); font-weight: 600; letter-spacing: -0.125px; }
