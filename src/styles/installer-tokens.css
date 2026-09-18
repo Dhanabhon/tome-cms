@@ -38,6 +38,9 @@
 
   /* Positive state shares the brand hue; icons and labels carry the meaning too. */
   --color-green: oklch(53.14% 0.0946 161.86);
+  /* The green at 12% over paper, written out rather than mixed, so the contrast test
+   * can read it: it is the surface a published pill carries ink on. */
+  --color-status-ok: oklch(94.38% 0.0114 161.86);
 
   /* Errors sit at hue 20, clear of the accent's 162, so danger cannot read as brand. */
   --color-error: oklch(52% 0.19 20);
@@ -138,6 +141,7 @@
     --color-focus-soft: oklch(38% 0.05 162);
 
     --color-green: oklch(72.24% 0.1018 158.93);
+    --color-status-ok: oklch(34.73% 0.0273 152.43);
 
     --color-error: oklch(70% 0.17 20);
     --color-error-ink: oklch(78% 0.13 20);
@@ -179,6 +183,7 @@
   --color-focus-soft: oklch(38% 0.05 162);
 
   --color-green: oklch(72.24% 0.1018 158.93);
+  --color-status-ok: oklch(34.73% 0.0273 152.43);
 
   --color-error: oklch(70% 0.17 20);
   --color-error-ink: oklch(78% 0.13 20);
