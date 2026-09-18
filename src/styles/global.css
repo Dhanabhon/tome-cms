@@ -1199,7 +1199,9 @@ body {
  * taken their 206: below that the status goes under the title instead of squeezing it. */
 @container (max-width: 24rem) {
   .admin-story-edition__link { grid-template-columns: auto minmax(0, 1fr); }
-  .admin-story-edition .admin-status { grid-column: 2; justify-self: start; padding-block-end: var(--space-sm); }
+  /* Margin, not padding: the status carries the card's bottom spacing on a narrow card,
+   * and a pill paints its padding -- as a 12px tongue hanging past the words. */
+  .admin-story-edition .admin-status { grid-column: 2; justify-self: start; margin-block-end: var(--space-sm); }
   .admin-story-grid .admin-story-edition--lead .admin-story-edition__link { padding-block-end: 0; }
 }
 /* The edition that has not been written yet: the same row, offering to start it. */
@@ -1335,6 +1337,8 @@ body {
   background: var(--color-paper-3);
   color: var(--color-muted);
 }
+/* Larger than a nav icon: at the sidebar's 20px it floated in the middle of a 64px circle. */
+.admin-empty__mark .admin-icon { width: 1.5rem; height: 1.5rem; }
 
 .admin-empty h2 { margin: 0; font-size: var(--text-md); font-weight: 600; letter-spacing: -0.125px; }
 .admin-empty > div { max-width: 34rem; }

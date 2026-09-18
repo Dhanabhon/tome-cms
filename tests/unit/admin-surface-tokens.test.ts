@@ -95,3 +95,11 @@ test("an empty state shows its screen's icon in a soft circle", () => {
     assert.match(read(page), new RegExp(`admin-empty__mark[^>]*>\\s*<AdminIcon name="${icon}" />`), page);
   }
 });
+
+test('a status spaces itself with margin, now that its box is painted', () => {
+  // On a narrow card the status carries the card's bottom spacing. As padding it was
+  // invisible; on a pill it painted 12px of tint below the words.
+  const narrow = /@container \(max-width: 24rem\) \{[\s\S]*?\n\}/.exec(CSS)?.[0] ?? '';
+  assert.match(narrow, /\.admin-story-edition \.admin-status \{[^}]*margin-block-end/);
+  assert.doesNotMatch(narrow, /\.admin-story-edition \.admin-status \{[^}]*padding-block/);
+});
