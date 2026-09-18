@@ -85,3 +85,13 @@ test('every admin dialog is the same surface', () => {
     assert.equal(declaration(body, 'background'), 'var(--color-paper)', selector);
   }
 });
+
+test("an empty state shows its screen's icon in a soft circle", () => {
+  const mark = ruleBody(CSS, '.admin-empty__mark');
+  assert.equal(declaration(mark, 'background'), 'var(--color-paper-3)');
+  assert.equal(declaration(mark, 'border'), undefined, 'a filled circle needs no outline');
+  assert.equal(declaration(mark, 'color'), 'var(--color-muted)');
+  for (const [page, icon] of [['src/pages/admin/index.astro', 'posts'], ['src/pages/admin/pages/index.astro', 'pages']] as const) {
+    assert.match(read(page), new RegExp(`admin-empty__mark[^>]*>\\s*<AdminIcon name="${icon}" />`), page);
+  }
+});

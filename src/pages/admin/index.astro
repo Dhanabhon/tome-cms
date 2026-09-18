@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminIcon from '../../components/admin/AdminIcon.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import UiSelect from '../../components/admin/UiSelect';
@@ -212,7 +213,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
           })}
           {!stories.length && (
             <div class="admin-empty">
-              <span class="admin-empty__mark" aria-hidden="true">+</span>
+              <span class="admin-empty__mark" aria-hidden="true"><AdminIcon name="posts" /></span>
               <div><h2>{posts.length ? copy.posts.noMatchTitle : copy.posts.emptyTitle}</h2><p>{posts.length ? copy.posts.noMatchBody : copy.posts.emptyBody}</p></div>
               {!posts.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/new')}>{copy.posts.createFirst}</a>}
             </div>
