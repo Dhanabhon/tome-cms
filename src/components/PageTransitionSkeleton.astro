@@ -12,8 +12,8 @@ const kinds: AdminSkeletonKind[] = ['posts', 'pages', 'list', 'media', 'form', '
 
 <!-- Stands in for the next admin page while it is on the way, in that page's shape: the
      overlay picks the skeleton for where the link leads. It covers only what the next page
-     redraws -- a sidebar already on screen stays uncovered, and the mobile bar is copied
-     rather than drawn -- so nothing that stays put flickers. -->
+     redraws -- a sidebar and a top bar already on screen stay uncovered, and the top bar
+     names the screen on the way -- so nothing that stays put flickers. -->
 <div class="admin-transition" data-page-transition hidden popover="manual">
   <div class="admin-transition__frame" data-transition-frame></div>
   {kinds.map((kind) => (
@@ -26,10 +26,11 @@ const kinds: AdminSkeletonKind[] = ['posts', 'pages', 'list', 'media', 'form', '
       {[40, 70, 60, 75, 55, 40, 65, 70, 50, 60].map((width) => <span class="skeleton-line" style={`--skeleton-width: ${width}%`}></span>)}
     </div>
   </template>
-  <template data-skeleton-bar>
-    <div class="admin-mobile-bar" aria-hidden="true">
-      <span class="skeleton-line" style="--skeleton-width: 8rem"></span>
-      <span class="skeleton skeleton--button" style="--skeleton-width: 5rem"></span>
+  <template data-skeleton-topbar>
+    <div class="admin-topbar" aria-hidden="true">
+      <span class="admin-topbar__title"><span class="skeleton-line" style="--skeleton-width: 8rem"></span></span>
+      <span class="admin-topbar__search"><span class="skeleton skeleton--control"></span></span>
+      <span class="skeleton skeleton--button" style="--skeleton-width: 7rem"></span>
     </div>
   </template>
 </div>
@@ -47,32 +48,50 @@ const kinds: AdminSkeletonKind[] = ['posts', 'pages', 'list', 'media', 'form', '
 
   const template = (selector: string) => transition?.querySelector<HTMLTemplateElement>(selector)?.content.cloneNode(true);
 
+  let restoreTitle: (() => void) | null = null;
+
+  /** Names the destination in the top bar, from the sidebar link the navigation follows. */
+  const retitle = (topbar: HTMLElement, url: URL) => {
+    const title = topbar.querySelector<HTMLElement>('.admin-topbar__title');
+    const link = [...document.querySelectorAll<HTMLAnchorElement>('.admin-sidebar nav a[href]')]
+      .find((candidate) => new URL(candidate.href).pathname === url.pathname);
+    if (!title || !link) return;
+    const before = [...title.childNodes];
+    const label = document.createElement('span');
+    label.textContent = link.querySelector('.admin-nav-label')?.textContent ?? '';
+    const icon = link.querySelector('.admin-icon')?.cloneNode(true);
+    title.replaceChildren(...(icon ? [icon] : []), label);
+    restoreTitle = () => title.replaceChildren(...before);
+  };
+
   const build = (url: URL) => {
     const kind = transitionKind(url, adminPath, window.location.origin);
     const skeleton = kind && template(`template[data-skeleton="${kind}"]`);
     if (!transition || !frame || !kind || !skeleton) return false;
+    const column = document.createElement('div');
+    column.className = 'admin-transition__column';
     const parts: Node[] = [];
+    transition.style.removeProperty('inset-block-start');
     if (kind === 'editor') {
       transition.dataset.sidebar = 'none';
     } else {
-      // The sidebar and the mobile bar are the same on every screen: one already on the page
-      // is left uncovered or copied as it is, and only a page without one gets one drawn.
+      // The sidebar and the top bar are the same on every screen: ones already on the page stay
+      // uncovered, and only a page without them -- an editor -- gets them drawn.
       const sidebar = document.querySelector('.admin-sidebar');
+      const topbar = document.querySelector<HTMLElement>('.admin-topbar');
       transition.dataset.sidebar = sidebar ? 'page' : 'skeleton';
       const rail = sidebar ? null : template('template[data-skeleton-rail]');
       if (rail) parts.push(rail);
-      const bar = document.querySelector<HTMLElement>('.admin-mobile-bar');
-      if (bar) {
-        const copy = bar.cloneNode(true) as HTMLElement;
-        copy.setAttribute('aria-hidden', 'true');
-        copy.inert = true;
-        parts.push(copy);
+      if (topbar) {
+        transition.style.setProperty('inset-block-start', `${Math.round(topbar.getBoundingClientRect().bottom)}px`);
+        retitle(topbar, url);
       } else {
-        const drawn = template('template[data-skeleton-bar]');
-        if (drawn) parts.push(drawn);
+        const drawn = template('template[data-skeleton-topbar]');
+        if (drawn) column.append(drawn);
       }
     }
-    parts.push(skeleton);
+    column.append(skeleton);
+    parts.push(column);
     frame.replaceChildren(...parts);
     transition.dataset.kind = kind;
     return true;
@@ -104,6 +123,9 @@ const kinds: AdminSkeletonKind[] = ['posts', 'pages', 'list', 'media', 'form', '
     }
     transition.hidden = true;
     frame?.replaceChildren();
+    transition.style.removeProperty('inset-block-start');
+    restoreTitle?.();
+    restoreTitle = null;
     document.body.removeAttribute('aria-busy');
   };
 
