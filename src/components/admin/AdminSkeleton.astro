@@ -88,8 +88,8 @@ const filters = kind === 'posts' || kind === 'pages';
             <div class="admin-post-tabs">
               {count(3).map(() => <span class="skeleton-tab"></span>)}
             </div>
-            <div class="admin-post-filters">
-              {[4, 3].map((width) => (
+            <div class:list={['admin-post-filters', kind === 'posts' && 'admin-post-filters--compact']}>
+              {(kind === 'posts' ? [3] : [4, 3]).map((width) => (
                 <div class="admin-field">
                   <span class="skeleton-line" style={`--skeleton-width: ${width}rem`}></span>
                   <span class="skeleton skeleton--control"></span>
