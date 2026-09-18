@@ -23,12 +23,11 @@
 .admin-shell { min-height: 100svh; background: var(--color-paper-2); }
 .admin-shell-main { min-width: 0; }
 .admin-sidebar { display: none; }
-.admin-mobile-bar { display: flex; gap: var(--space-md); align-items: center; justify-content: space-between; padding: var(--space-md); border-bottom: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
-.admin-mobile-bar > span { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
 .admin-mobile-nav { position: fixed; inset: 0 auto 0 0; width: min(22rem, calc(100% - 2rem)); height: 100svh; max-height: 100svh; margin: 0; overflow-y: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: 0 var(--radius-card) var(--radius-card) 0; background: var(--color-paper); color: var(--color-ink); }
 .admin-mobile-nav[open] { display: flex; flex-direction: column; }
 .admin-mobile-nav .admin-shell-account { margin-top: auto; }
 .admin-mobile-nav::backdrop { background: var(--color-scrim); }
+.admin-shell-close { align-self: flex-end; }
 .admin-shell-brand { display: block; padding-block: var(--space-lg) var(--space-sm); }
 .admin-shell-brand .admin-logo { max-width: 100%; }
 /* The site the admin belongs to, and the way out to it, in one place. The name used
@@ -51,22 +50,26 @@
 .admin-sidebar nav, .admin-mobile-nav nav { display: grid; gap: var(--space-lg); }
 .admin-sidebar nav section, .admin-mobile-nav nav section { display: grid; gap: var(--space-2xs); }
 .admin-nav-group {
-  margin: 0 0 var(--space-3xs);
+  margin: 0 0 var(--space-2xs);
   padding-inline: var(--space-sm);
   color: var(--color-muted);
   font-size: var(--text-xs);
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
-.admin-sidebar nav a, .admin-mobile-nav nav a { display: flex; min-height: 44px; align-items: center; padding: var(--space-sm); border-radius: var(--radius-input); font-weight: 500; }
-.admin-sidebar nav a:hover, .admin-mobile-nav nav a:hover, .admin-sidebar nav a[aria-current='page'], .admin-mobile-nav nav a[aria-current='page'] { background: var(--color-paper-2); }
+/* A link is its icon, its name and, on the two lists, how many there are. The count is a
+ * quiet pill, so it reads as a figure and not as a second label. */
+.admin-sidebar nav a, .admin-mobile-nav nav a { display: flex; gap: var(--space-sm); min-height: var(--control-height); align-items: center; padding-inline: var(--space-sm); border-radius: var(--radius-sm); color: var(--color-ink-2); font-size: var(--text-sm); font-weight: 500; text-decoration: none; }
+.admin-sidebar nav a:hover, .admin-mobile-nav nav a:hover, .admin-sidebar nav a[aria-current='page'], .admin-mobile-nav nav a[aria-current='page'] { background: var(--color-paper-2); color: var(--color-ink); }
 .admin-sidebar nav a[aria-current='page'], .admin-mobile-nav nav a[aria-current='page'] { color: var(--color-focus); }
-.admin-shell-account { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
-/* Owner, address and exit on one line; it used to be three stacked rows, which in a
- * 15rem column is most of the space below the menu. The address truncates rather than
- * wrapping now, so it carries a title for the part that does not fit. */
-.admin-shell-user { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs) var(--space-xs); min-width: 0; }
+.admin-nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-nav-count { flex: none; min-width: 1.5rem; padding-inline: var(--space-xs); border-radius: var(--radius-pill); background: var(--color-paper-3); color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.25rem; text-align: center; }
+.admin-icon { flex: none; width: 1.25rem; height: 1.25rem; }
+.admin-shell-account { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); }
+.admin-shell-theme { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding-inline: var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); }
+/* The owner as a card at the foot of the column: who is signed in, and the way out. The
+ * address truncates rather than wrapping, so it carries a title for the part that does
+ * not fit. */
+.admin-shell-user { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; padding: var(--space-xs); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper-2); }
 .admin-shell-avatar {
   display: grid;
   flex: 0 0 auto;
@@ -79,9 +82,8 @@
   font-size: var(--text-xs);
   font-weight: 600;
 }
-.admin-shell-email { flex: 1 1 6rem; min-width: 0; overflow: hidden; color: var(--color-muted); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
-.admin-shell-signout { flex: 0 0 auto; margin-inline-start: auto; min-height: 44px; padding-inline: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); font-weight: 500; }
-.admin-shell-signout:hover { color: var(--color-ink); }
+.admin-shell-email { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--color-ink-2); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell-signout { margin-inline-start: auto; }
 .admin-shell-account .admin-form-error:empty { display: none; }
 .admin-form-page { max-width: 52rem; }
 /* Labelled values -- version numbers, modes, dates. They used to be muted sentences
@@ -169,10 +171,27 @@
   .profile-link { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: end; }
 }
 @media (min-width: 64rem) {
-  .admin-sidebar { display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; width: 15rem; overflow-y: auto; padding: var(--space-lg); border-right: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
+  .admin-sidebar { display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; width: var(--admin-sidebar-width); overflow-y: auto; padding: var(--space-md); border-right: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
   .admin-sidebar .admin-shell-account { margin-top: auto; }
-  .admin-shell-main { margin-left: 15rem; }
-  .admin-mobile-bar { display: none; }
+  .admin-shell-main { margin-inline-start: var(--admin-sidebar-width); }
+}
+
+/* The bar over every admin screen: which screen this is, a search over posts, and the way out
+ * to the site. It sticks, so the search is a reach away at the bottom of a long list. On a
+ * phone it also holds the menu, and the search folds behind an icon. */
+.admin-topbar { position: sticky; inset-block-start: 0; z-index: var(--z-sticky-nav); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); min-height: var(--admin-topbar-height); padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
+.admin-topbar__title { display: flex; flex: 1 1 auto; align-items: center; gap: var(--space-xs); min-width: 0; margin: 0; font-weight: 600; }
+.admin-topbar__title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-topbar__search { position: relative; display: none; flex: 1 1 100%; order: 1; }
+.admin-topbar[data-search-open] .admin-topbar__search { display: block; }
+.admin-topbar__search > .admin-icon { position: absolute; inset-inline-start: var(--space-sm); inset-block-start: 50%; color: var(--color-muted); transform: translateY(-50%); pointer-events: none; }
+.admin-topbar__search .admin-control { padding-inline-start: 2.5rem; }
+.admin-topbar__site > span { display: none; }
+@media (min-width: 64rem) {
+  .admin-topbar { flex-wrap: nowrap; padding-block: 0; }
+  .admin-topbar__menu, .admin-topbar__search-toggle { display: none; }
+  .admin-topbar__search { display: block; flex: 0 1 22rem; order: 0; }
+  .admin-topbar__site > span { display: inline; }
 }
 
 html {
@@ -736,6 +755,8 @@ body {
   --radius-card: 0.875rem;
   --control-height: 2.5rem;
   --text-title: 1.75rem;
+  --admin-sidebar-width: 16rem;
+  --admin-topbar-height: 4rem;
   min-width: 0;
   min-height: 100svh;
   background: var(--color-paper-2);
@@ -880,6 +901,10 @@ body {
 }
 
 .admin-button--secondary { background: var(--color-paper); }
+/* For actions that sit in chrome rather than in content: no fill and no edge until hovered. */
+.admin-button--ghost { --admin-button-hover: var(--color-paper-3); border-color: transparent; background: transparent; color: var(--color-muted); }
+.admin-button--ghost:hover { color: var(--color-ink); }
+.admin-button--icon { width: var(--control-height); padding-inline: 0; }
 /* Destructive must not look identical to safe. Both tokens are already measured
  * against paper by theme-contrast.test.ts -- error-ink at 4.5, error at 3. */
 .admin-button--danger { border-color: var(--color-error); color: var(--color-error-ink); }
@@ -1780,10 +1805,11 @@ body {
   .admin-transition:not([hidden]) { opacity: 0; }
 }
 .admin-transition__rail { display: none; }
+.admin-transition__column { min-width: 0; }
 .admin-transition__brand { height: 4.25rem; margin-block-end: var(--space-sm); }
 @media (min-width: 64rem) {
-  .admin-transition[data-sidebar="page"] { inset-inline-start: 15rem; }
-  .admin-transition[data-sidebar="skeleton"] .admin-transition__frame { display: grid; grid-template-columns: 15rem minmax(0, 1fr); align-items: start; }
+  .admin-transition[data-sidebar="page"] { inset-inline-start: var(--admin-sidebar-width); }
+  .admin-transition[data-sidebar="skeleton"] .admin-transition__frame { display: grid; grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr); align-items: start; }
   .admin-transition__rail {
     display: grid;
     align-content: start;

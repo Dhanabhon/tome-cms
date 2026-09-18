@@ -1,49 +1,77 @@
 ---
 import ThemeToggle from '../ThemeToggle.astro';
-import { adminHref, normalizeAdminPath } from '../../lib/admin';
+import AdminIcon from './AdminIcon.astro';
+import { adminHref, normalizeAdminPath, postSearchState } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
+import type { AdminNavId } from '../../lib/admin-icons';
+import { countAdminStories, type AdminStoryCounts } from '../../server/content/admin-counts';
+import { getSiteSettings } from '../../server/content/settings';
 import type { PostLocale } from '../../types/cms';
 
 interface Props {
-  active: 'media' | 'navigation' | 'pages' | 'posts' | 'profile' | 'security' | 'settings' | 'system';
+  active: AdminNavId;
   adminPath?: string;
   locale?: PostLocale | null;
   siteName: string;
+  /** The screen's own name where it sits under another link: Categories lives under Posts. */
+  title?: string;
   userEmail?: string | null;
 }
 
-const { active, adminPath: requestedAdminPath = '/admin', locale, siteName, userEmail } = Astro.props;
+const { active, adminPath: requestedAdminPath = '/admin', locale, siteName, title, userEmail } = Astro.props;
 const adminPath = normalizeAdminPath(requestedAdminPath);
 const adminSettings = { admin_path: adminPath };
 const ownerInitial = userEmail?.trim().charAt(0).toUpperCase() ?? '';
 const copy = adminCopy(locale);
+
+// Counted only for a signed-in owner -- the Security screen renders this shell around its sign-in
+// form too. A count that fails leaves the badges out; it never takes the shell down with it.
+let counts: AdminStoryCounts | null = null;
+if (userEmail) {
+  try {
+    const settings = await getSiteSettings();
+    if (settings) counts = await countAdminStories(settings.owner_id);
+  } catch (error) {
+    console.error('Admin story counts could not be read:', error);
+  }
+}
+
+interface NavLink {
+  count?: number;
+  href: string;
+  id: AdminNavId;
+  label: string;
+}
+
 /**
  * Seven flat destinations is where a sidebar starts costing a scan. They split
  * cleanly in two: what the site publishes, and how the installation is set up. The
  * group names deliberately avoid "Settings", which is already one of the links.
  */
-const groups = [
+const groups: Array<{ id: string; label: string; links: NavLink[] }> = [
   {
     id: 'content',
     label: copy.nav.groupContent,
     links: [
-      { id: 'posts', href: adminHref(adminSettings), label: copy.nav.posts },
-      { id: 'pages', href: adminHref(adminSettings, '/pages'), label: copy.nav.pages },
-      { id: 'media', href: adminHref(adminSettings, '/media'), label: copy.nav.media },
-      { id: 'navigation', href: adminHref(adminSettings, '/navigation'), label: copy.nav.navigation },
+      { count: counts?.posts, href: adminHref(adminSettings), id: 'posts', label: copy.nav.posts },
+      { count: counts?.pages, href: adminHref(adminSettings, '/pages'), id: 'pages', label: copy.nav.pages },
+      { href: adminHref(adminSettings, '/media'), id: 'media', label: copy.nav.media },
+      { href: adminHref(adminSettings, '/navigation'), id: 'navigation', label: copy.nav.navigation },
     ],
   },
   {
     id: 'config',
     label: copy.nav.groupConfig,
     links: [
-      { id: 'profile', href: adminHref(adminSettings, '/profile'), label: copy.nav.profile },
-      { id: 'security', href: adminHref(adminSettings, '/security'), label: copy.nav.security },
-      { id: 'settings', href: adminHref(adminSettings, '/settings'), label: copy.nav.settings },
-      { id: 'system', href: adminHref(adminSettings, '/system'), label: copy.nav.system },
+      { href: adminHref(adminSettings, '/profile'), id: 'profile', label: copy.nav.profile },
+      { href: adminHref(adminSettings, '/security'), id: 'security', label: copy.nav.security },
+      { href: adminHref(adminSettings, '/settings'), id: 'settings', label: copy.nav.settings },
+      { href: adminHref(adminSettings, '/system'), id: 'system', label: copy.nav.system },
     ],
   },
-] as const;
+];
+const currentLabel = groups.flatMap(({ links }) => links).find(({ id }) => id === active)?.label ?? '';
+const search = postSearchState(Astro.url, adminHref(adminSettings));
 ---
 
 <div
@@ -55,21 +83,21 @@ const groups = [
   data-copy-sign-out-failed={copy.shell.signOutFailed}
   data-copy-sign-out-title={copy.shell.signOutTitle}
 >
-  <header class="admin-mobile-bar">
-    <span>{siteName}</span>
-    <button class="admin-button" type="button" data-nav-open aria-label={copy.shell.openNavigation} aria-controls="admin-mobile-navigation" aria-expanded="false">{copy.shell.menu}</button>
-  </header>
   {[false, true].map((mobile) => {
     const Container = mobile ? 'dialog' : 'aside';
     return (
       <Container class={mobile ? 'admin-mobile-nav' : 'admin-sidebar'} id={mobile ? 'admin-mobile-navigation' : undefined} aria-label={copy.shell.navigationLabel}>
-        {mobile && <button class="admin-button" type="button" data-nav-close autofocus aria-label={copy.shell.closeNavigation}>{copy.shell.close}</button>}
+        {mobile && (
+          <button class="admin-button admin-button--ghost admin-button--icon admin-shell-close" type="button" data-nav-close autofocus aria-label={copy.shell.closeNavigation}>
+            <AdminIcon name="close" />
+          </button>
+        )}
         <a class="admin-shell-brand" href={adminHref(adminSettings)}>
           <img class="admin-logo" src="/brand/tomecms-logo-color.png" alt="TomeCMS" width="2172" height="724" />
         </a>
         <div class="admin-shell-site">
           <span class="admin-shell-site__name" title={siteName}>{siteName}</span>
-          <a class="admin-shell-site__view" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}><span aria-hidden="true">↗</span></a>
+          <a class="admin-shell-site__view" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}><AdminIcon name="external" /></a>
         </div>
         <nav aria-label={copy.nav.label}>
           {groups.map((group) => {
@@ -79,27 +107,58 @@ const groups = [
             return (
               <section aria-labelledby={headingId}>
                 <h2 class="admin-nav-group" id={headingId}>{group.label}</h2>
-                {group.links.map((link) => <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>{link.label}</a>)}
+                {group.links.map((link) => (
+                  <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>
+                    <AdminIcon name={link.id} />
+                    <span class="admin-nav-label">{link.label}</span>
+                    {link.count !== undefined && <span class="admin-nav-count">{link.count}</span>}
+                  </a>
+                ))}
               </section>
             );
           })}
         </nav>
         <div class="admin-shell-account">
-          <ThemeToggle
-            labels={{ group: copy.theme.adminLabel, system: copy.theme.system, light: copy.theme.light, dark: copy.theme.dark }}
-            name={mobile ? 'tome-theme-mobile' : 'tome-theme-sidebar'}
-          />
+          <div class="admin-shell-theme">
+            <span>{copy.theme.adminLabel}</span>
+            <ThemeToggle
+              labels={{ group: copy.theme.adminLabel, system: copy.theme.system, light: copy.theme.light, dark: copy.theme.dark }}
+              name={mobile ? 'tome-theme-mobile' : 'tome-theme-sidebar'}
+            />
+          </div>
           <div class="admin-shell-user">
             {userEmail && <span class="admin-shell-avatar" aria-hidden="true">{ownerInitial}</span>}
             {userEmail && <span class="admin-shell-email" title={userEmail}>{userEmail}</span>}
-            <button class="admin-shell-signout" type="button" data-sign-out>{copy.shell.signOut}</button>
+            <button class="admin-button admin-button--ghost admin-button--icon admin-shell-signout" type="button" data-sign-out aria-label={copy.shell.signOut} title={copy.shell.signOut}>
+              <AdminIcon name="signOut" />
+            </button>
           </div>
           <p class="admin-form-error" data-sign-out-error role="alert"></p>
         </div>
       </Container>
     );
   })}
-  <main class="admin-shell-main"><slot /></main>
+  <div class="admin-shell-main">
+    <header class="admin-topbar" data-search-open={search.query ? '' : undefined}>
+      <button class="admin-button admin-button--ghost admin-button--icon admin-topbar__menu" type="button" data-nav-open aria-label={copy.shell.openNavigation} aria-controls="admin-mobile-navigation" aria-expanded="false">
+        <AdminIcon name="menu" />
+      </button>
+      <p class="admin-topbar__title"><AdminIcon name={active} /><span>{title ?? currentLabel}</span></p>
+      <form class="admin-topbar__search" action={adminHref(adminSettings)} method="get" role="search">
+        {search.hidden.map(([name, value]) => <input type="hidden" name={name} value={value} />)}
+        <label class="sr-only" for="admin-topbar-search">{copy.shell.searchLabel}</label>
+        <AdminIcon name="search" />
+        <input class="admin-control" id="admin-topbar-search" maxlength="100" name="q" placeholder={copy.shell.searchPlaceholder} type="search" value={search.query} />
+      </form>
+      <button class="admin-button admin-button--ghost admin-button--icon admin-topbar__search-toggle" type="button" data-search-toggle aria-controls="admin-topbar-search" aria-expanded={search.query ? 'true' : 'false'} aria-label={copy.shell.searchLabel}>
+        <AdminIcon name="search" />
+      </button>
+      <a class="admin-button admin-button--secondary admin-topbar__site" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}>
+        <AdminIcon name="external" /><span>{copy.shell.viewSite}</span>
+      </a>
+    </header>
+    <main class="admin-shell-content"><slot /></main>
+  </div>
 </div>
 
 <script>
@@ -126,6 +185,15 @@ const groups = [
   window.matchMedia('(min-width: 64rem)').addEventListener('change', (event) => {
     if (event.matches && dialog?.open) dialog.close();
   });
+  // On a phone the post search folds behind an icon; open, it takes a row under the bar.
+  const topbar = document.querySelector<HTMLElement>('.admin-topbar');
+  const searchToggle = topbar?.querySelector<HTMLButtonElement>('[data-search-toggle]');
+  searchToggle?.addEventListener('click', () => {
+    const open = !topbar?.hasAttribute('data-search-open');
+    topbar?.toggleAttribute('data-search-open', open);
+    searchToggle.setAttribute('aria-expanded', String(open));
+    if (open) topbar?.querySelector<HTMLInputElement>('#admin-topbar-search')?.focus();
+  });
   document.querySelectorAll<HTMLButtonElement>('[data-sign-out]').forEach((button) => {
     button.addEventListener('click', async () => {
       if (button.disabled) return;
@@ -138,7 +206,8 @@ const groups = [
       });
       if (!confirmed || button.disabled) return;
       button.disabled = true;
-      const message = button.parentElement?.querySelector('[data-sign-out-error]');
+      // The error line is the account block's, a sibling of the row the button sits in.
+      const message = button.closest('.admin-shell-account')?.querySelector('[data-sign-out-error]');
       if (message) message.textContent = '';
       try {
         const result = await authClient.signOut();
