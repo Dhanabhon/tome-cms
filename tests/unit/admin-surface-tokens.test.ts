@@ -63,3 +63,25 @@ test('the search field is a shared wrapper, not a top bar detail', () => {
   assert.equal(declaration(search, 'display'), undefined);
   assert.match(CSS, /\.admin-search \.admin-control \{[^}]*padding-inline-start: 2\.5rem;/);
 });
+
+test('a card is a quiet surface and a control is not', () => {
+  assert.match(declaration(ruleBody(CSS, '.admin-card'), 'border') ?? '', /var\(--color-rule\)$/);
+  // Controls keep the strong rule: that is the pair pinned at 3:1.
+  assert.match(declaration(ruleBody(CSS, '.admin-control'), 'border') ?? '', /var\(--color-rule-strong\)$/);
+});
+
+test('menus take the card corner and their items the small one', () => {
+  assert.equal(declaration(ruleBody(CSS, '.admin-story-menu > div'), 'border-radius'), 'var(--radius-card)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-story-menu a,\n.admin-story-menu button'), 'border-radius'), 'var(--radius-sm)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-body .ui-select__menu'), 'border-radius'), 'var(--radius-card)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-body .ui-select__option'), 'border-radius'), 'var(--radius-sm)');
+});
+
+test('every admin dialog is the same surface', () => {
+  for (const selector of ['.media-details', '.media-picker', '.navigation-dialog']) {
+    const body = ruleBody(CSS, selector);
+    assert.equal(declaration(body, 'border-radius'), 'var(--radius-lg)', selector);
+    assert.match(declaration(body, 'border') ?? '', /var\(--color-rule\)$/, selector);
+    assert.equal(declaration(body, 'background'), 'var(--color-paper)', selector);
+  }
+});

@@ -665,9 +665,14 @@ body {
   @apply hidden;
 }
 
+/* The same surface the cards behind it use, said in tokens rather than borrowed from
+ * utility classes -- rounded-xl already meant --radius-lg and border-line --color-rule. */
 .media-details {
   max-height: calc(100% - 2rem);
-  @apply w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-surface p-5;
+  @apply w-full max-w-lg overflow-y-auto p-5;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  background: var(--color-paper);
 }
 
 .media-details::backdrop {
@@ -676,7 +681,10 @@ body {
 
 .media-picker {
   max-height: calc(100% - 2rem);
-  @apply w-[calc(100%-2rem)] max-w-7xl overflow-y-auto rounded-xl border border-line bg-surface p-0;
+  @apply w-[calc(100%-2rem)] max-w-7xl overflow-y-auto p-0;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  background: var(--color-paper);
 }
 
 .media-picker::backdrop {
@@ -1233,7 +1241,7 @@ body {
   min-width: 10rem;
   padding: var(--space-2xs);
   border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-card);
   background: var(--color-paper);
 }
 .admin-story-menu a,
@@ -1242,6 +1250,7 @@ body {
   min-height: 44px;
   padding-inline: var(--space-sm);
   align-items: center;
+  border-radius: var(--radius-sm);
   border: 0;
   background: transparent;
   color: var(--color-ink);
@@ -1257,6 +1266,11 @@ body {
 .admin-story-row a:focus-visible,
 .admin-story-menu summary:focus-visible,
 .admin-story-menu button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
+
+/* The select drops the same kind of menu, and shares its stylesheet with the installer --
+ * so the admin's corners are set here rather than in ui-controls.css. */
+.admin-body .ui-select__menu { border-radius: var(--radius-card); }
+.admin-body .ui-select__option { border-radius: var(--radius-sm); }
 
 /* A status is a fact about the edition, not something to press. It was a 32px white box
  * with an 8px radius and a hairline border -- the same object as the filter and create
@@ -1537,7 +1551,7 @@ body {
 /* One card language for the whole admin. Profile used to be a bare form on the page
  * while security had panels; these are the panels, now shared by both. */
 .admin-card-stack { display: grid; gap: var(--space-lg); }
-.admin-card { display: grid; gap: var(--space-lg); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-card); background: var(--color-paper); }
+.admin-card { display: grid; gap: var(--space-lg); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
 /* Tailwind's preflight resets every heading to font-size: inherit, so a card heading
  * nobody sized rendered at 16px/400 -- lighter than the 14px/500 field labels beneath
  * it. That is an inverted hierarchy, and it needs stating once, here. */
@@ -1933,7 +1947,7 @@ body {
 .navigation-save { margin-block: var(--space-lg); }
 .navigation-save > span { color: var(--color-muted); font-size: var(--text-sm); }
 .navigation-manager [role="tabpanel"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-2xs); }
-.navigation-dialog { width: min(34rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); margin: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-paper); color: var(--color-ink); overflow-y: auto; }
+.navigation-dialog { width: min(34rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); margin: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-lg); background: var(--color-paper); color: var(--color-ink); overflow-y: auto; }
 .navigation-dialog::backdrop { background: var(--color-scrim); }
 .navigation-dialog form { display: grid; gap: var(--space-md); min-width: 0; }
 .navigation-dialog h2 { font-size: var(--text-xl); font-weight: 600; }
