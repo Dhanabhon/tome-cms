@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { withOwnerAllowedCredentials } from '../../src/server/auth/allowed-credentials';
+import { withOwnerAllowedCredentials, withoutExcludedCredentials } from '../../src/server/auth/allowed-credentials';
 
 const owner = async () => [{ id: 'dtNf-v2JIxE7heny6kcsWQ', transports: ['hybrid', 'internal'] }];
 const options = (extra: Record<string, unknown> = {}) => Response.json(
@@ -42,4 +42,28 @@ test('the challenge is narrowed before the request is waved through', () => {
   const bypass = middleware.indexOf('isSetupBypass(context.url.pathname)', middleware.indexOf('preparedHeadlessRequest'));
   assert.ok(narrowing > 0 && narrowing < bypass, 'the narrowing runs after the bypass returns');
   assert.match(middleware, /const AUTHENTICATE_OPTIONS_PATH = '\/api\/auth\/passkey\/generate-authenticate-options';/);
+});
+
+test('a recovery may register over the Passkey it is recovering from', () => {
+  // better-auth excludes the owner's existing credentials, which is right for adding a spare
+  // and fatal during a recovery: the authenticator answers the exclusion with "already
+  // registered", and the owner whose Passkey is gone has no way left to make a new one.
+  const route = readFileSync(new URL('../../src/pages/api/auth/[...all].ts', import.meta.url), 'utf8');
+  assert.match(route, /const enrolling = request\.method === 'GET' && url\.pathname === registrationOptionsPath && url\.searchParams\.has\('context'\)/);
+  assert.match(route, /if \(!enrolling\) return response;/);
+  // Adding a spare has no enrollment context, so it keeps the exclusion it needs.
+  assert.doesNotMatch(route, /withoutExcludedCredentials\(response\)[\s\S]*?\n  return response;/);
+});
+
+test('only the exclusion is dropped, and only where there is one', async () => {
+  const withExclusion = Response.json({ challenge: 'a-challenge', user: { id: 'owner' }, excludeCredentials: [{ id: 'gone' }] });
+  const opened = await withoutExcludedCredentials(withExclusion);
+  const body = await opened.json() as Record<string, unknown>;
+  assert.equal('excludeCredentials' in body, false);
+  assert.equal(body.challenge, 'a-challenge');
+  assert.deepEqual(body.user, { id: 'owner' });
+  const plain = Response.json({ challenge: 'a-challenge' });
+  assert.equal(await withoutExcludedCredentials(plain), plain, 'nothing to drop, nothing rebuilt');
+  const failed = Response.json({ message: 'nope' }, { status: 400 });
+  assert.equal(await withoutExcludedCredentials(failed), failed);
 });

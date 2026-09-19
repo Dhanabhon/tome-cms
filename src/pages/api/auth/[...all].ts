@@ -61,7 +61,9 @@ export const ALL: APIRoute = async (context) => {
   }
 
   let authRequest = request;
-  if (request.method === 'GET' && url.pathname === registrationOptionsPath && url.searchParams.has('context')) {
+  // An enrollment registers the first Passkey, or the one replacing a Passkey that is gone.
+  const enrolling = request.method === 'GET' && url.pathname === registrationOptionsPath && url.searchParams.has('context');
+  if (enrolling) {
     try {
       const { reference } = await authorizeEnrollmentContext(url.searchParams.get('context'));
       url.searchParams.set('context', reference);
@@ -114,5 +116,8 @@ export const ALL: APIRoute = async (context) => {
       });
     }
   }
-  return auth.handler(authRequest);
+  const response = await auth.handler(authRequest);
+  if (!enrolling) return response;
+  const { withoutExcludedCredentials } = await import('../../../server/auth/allowed-credentials');
+  return withoutExcludedCredentials(response);
 };

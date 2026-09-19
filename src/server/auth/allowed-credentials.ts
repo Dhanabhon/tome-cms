@@ -50,3 +50,20 @@ export async function withOwnerAllowedCredentials(
     status: response.status,
   });
 }
+
+/**
+ * Lets a recovery registration replace the Passkey it is recovering from.
+ *
+ * better-auth excludes the owner's existing credentials so the same authenticator cannot hold
+ * two Passkeys for one account, which is right when the owner is adding a spare. During a
+ * recovery it is the opposite: the credential being excluded is the one that is gone, and the
+ * authenticator answers the exclusion with InvalidStateError -- "already registered" -- which
+ * is the one answer that leaves an owner with no way back in.
+ */
+export async function withoutExcludedCredentials(response: Response): Promise<Response> {
+  if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) return response;
+  const options: unknown = await response.clone().json().catch(() => null);
+  if (typeof options !== 'object' || options === null || !('excludeCredentials' in options)) return response;
+  const { excludeCredentials: _replaced, ...rest } = options as Record<string, unknown>;
+  return new Response(JSON.stringify(rest), { headers: response.headers, status: response.status });
+}
