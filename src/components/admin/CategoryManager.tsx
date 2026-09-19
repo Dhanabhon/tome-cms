@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { PostCategorySummary, PostLocale } from '../../types/cms';
+import AdminIcon from './AdminIcon';
 
 interface CategoryManagerProps {
   initialCategories: PostCategorySummary[];
@@ -225,21 +226,23 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                         <div className="category-actions">
                           <button
                             aria-label={fill(copy.categories.renameLabelFor, { name: category.name })}
-                            className="admin-button"
+                            className="admin-button admin-button--ghost admin-button--icon"
                             onClick={() => { setEdit({ id: category.id, name: category.name }); setError(''); setLiveStatus(''); }}
                             ref={(button) => { if (button) renameButtons.current.set(category.id, button); }}
+                            title={fill(copy.categories.renameLabelFor, { name: category.name })}
                             type="button"
                           >
-                            {copy.categories.rename}
+                            <AdminIcon name="pencil" />
                           </button>
                           <button
                             aria-label={fill(copy.categories.deleteLabelFor, { name: category.name })}
-                            className="admin-button"
+                            className="admin-button admin-button--ghost admin-button--icon category-delete"
                             disabled={pendingActionIds.has(deleteAction)}
                             onClick={() => void deleteCategory(category)}
+                            title={fill(copy.categories.deleteLabelFor, { name: category.name })}
                             type="button"
                           >
-                            {copy.categories.delete}
+                            <AdminIcon name="trash" />
                           </button>
                         </div>
                         )}

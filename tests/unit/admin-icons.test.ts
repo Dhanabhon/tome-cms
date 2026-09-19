@@ -42,3 +42,7 @@ test('both icon components draw the same svg', () => {
 test('the menu editor has the icons it draws', () => {
   for (const name of ['grip', 'up', 'down', 'trash'] as const) assert.ok(ADMIN_ICONS[name], `no icon for ${name}`);
 });
+
+test('the category rows have the icon they draw', () => {
+  assert.ok(ADMIN_ICONS.pencil, 'no icon for pencil');
+});
