@@ -1,3 +1,5 @@
+import { apiErrorMessage } from './admin';
+
 /**
  * Shared behaviour for the Posts and Pages lists.
  *
@@ -41,19 +43,6 @@ export function readRecordId(payload: unknown, entity: string): string | null {
   if (typeof record !== 'object' || record === null) return null;
   const id = (record as Record<string, unknown>).id;
   return typeof id === 'string' ? id : null;
-}
-
-/**
- * The message a failed action should show.
- *
- * The API answers in English because its contract is English, and an unexpected error is
- * more use in the server's own words than behind a generic sentence. A *coded* refusal is
- * different: the list already knows that rule and has it written in the owner's language.
- */
-export function readActionError(payload: unknown, copy: Pick<StoryCopy, 'actionFailed' | 'contentRequired'>): string {
-  const body = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : null;
-  if (body?.code === 'content_required') return copy.contentRequired;
-  return typeof body?.error === 'string' ? body.error : copy.actionFailed;
 }
 
 interface StoryCopy {
@@ -147,7 +136,7 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     if (message) message.hidden = true;
 
     const failure = async (response: Response) =>
-      new Error(readActionError(await response.json().catch(() => null), copy));
+      new Error(apiErrorMessage(await response.json().catch(() => null), { contentRequired: copy.contentRequired, failed: copy.actionFailed }));
 
     try {
       if (action === 'duplicate') {

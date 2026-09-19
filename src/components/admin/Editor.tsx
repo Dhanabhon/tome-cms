@@ -2,7 +2,7 @@ import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
-import { adminHref, adminPreviewHref } from '../../lib/admin';
+import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
@@ -42,11 +42,6 @@ function selectCategories(categories: PostCategory[], selected: string[]) {
   const allowed = new Set(categories.map(({ id }) => id));
   const custom = [...new Set(selected)].filter((id) => allowed.has(id) && !categories.find((item) => item.id === id)?.is_default);
   return custom.length ? custom : categories.filter(({ is_default }) => is_default).map(({ id }) => id);
-}
-
-function readApiError(payload: unknown): string | null {
-  if (typeof payload !== 'object' || payload === null || !('error' in payload)) return null;
-  return typeof payload.error === 'string' ? payload.error : null;
 }
 
 function readPost(payload: unknown): Post | null {
@@ -110,7 +105,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
       }),
     });
     const payload: unknown = await response.json();
-    if (!response.ok) throw new Error(readApiError(payload) ?? copy.editor.postNotSaved);
+    if (!response.ok) throw new Error(apiErrorMessage(payload, { contentRequired: copy.editor.contentRequired, failed: copy.editor.postNotSaved }));
 
     const savedPost = readPost(payload);
     if (!savedPost) throw new Error(copy.editor.serverSentInvalidPost);
