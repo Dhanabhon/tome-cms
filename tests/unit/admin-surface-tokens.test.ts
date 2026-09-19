@@ -286,3 +286,24 @@ test('a busy control says so in the attribute a screen reader reads', () => {
     assert.doesNotMatch(read(`src/components/admin/${component}.tsx`), /data-state=\{[^}]*'loading'/, `${component} still reports loading through data-state`);
   }
 });
+
+test('every control that starts a request reports it', () => {
+  // Named rather than inferred: a button disabled while something else works is not busy,
+  // and only the control that was pressed may say it is.
+  const controls: ReadonlyArray<readonly [string, string]> = [
+    ['SettingsForm', 'saving'],
+    ['ProfileForm', 'saving'],
+    ['CategoryManager', "pendingActionIds.has('create')"],
+    ['SecurityManager', 'busy'],
+    ['MediaLibrary', 'uploading'],
+    ['PasskeySignIn', 'busy'],
+  ];
+  for (const [component, flag] of controls) {
+    const source = read(`src/components/admin/${component}.tsx`);
+    assert.ok(source.includes(`aria-busy={${flag}}`), `${component} has no control reporting ${flag}`);
+  }
+  // The words move to the status line, so a button keeps its width.
+  const settings = read('src/components/admin/SettingsForm.tsx');
+  assert.doesNotMatch(settings, /\{saving \? copy\.settings\.saving : copy\.settings\.save\}/);
+  assert.match(settings, /role="status">\{saving \? copy\.settings\.saving/);
+});

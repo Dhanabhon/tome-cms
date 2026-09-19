@@ -352,7 +352,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
         <div className="media-toolbar__end">
-          <label className="admin-button admin-button--primary media-upload"><span>{uploading ? copy.media.uploading : copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
+          <label aria-busy={uploading} className="admin-button admin-button--primary media-upload"><span>{copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
           {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><AdminIcon name="close" /></button>}
         </div>
       </div>
@@ -381,7 +381,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {
             const format = item.mime_type.replace('image/', '').toUpperCase();
             return <button aria-label={fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: item.height, name: item.original_name, size: formatSize(item.size_bytes), width: item.width })} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm">{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span>{props.mode === 'select' && <span className="media-card-select">{copy.media.select}</span>}</button>;
-          })}</div>{hasMore && <div className="media-status"><button className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{loading ? copy.media.loading : copy.media.loadMore}</button></div>}</>}
+          })}</div>{hasMore && <div className="media-status"><button aria-busy={loading} className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{copy.media.loadMore}</button></div>}</>}
         </div>
       </div>
 

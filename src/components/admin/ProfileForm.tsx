@@ -194,8 +194,8 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
         </fieldset>
         <p className="admin-form-error" role="alert">{error}</p>
         <div className="admin-save-bar">
-          <button className="admin-button admin-button--primary" disabled={saving || !dirty} type="submit">{saving ? copy.settings.saving : copy.settings.save}</button>
-          <p role="status">{dirty && !saving ? copy.profile.unsaved : status}</p>
+          <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty} type="submit">{copy.settings.save}</button>
+          <p role="status">{saving ? copy.settings.saving : dirty ? copy.profile.unsaved : status}</p>
         </div>
     </form>
   );
