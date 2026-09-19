@@ -50,7 +50,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       name: 'Recovery passkey',
     });
     if (result.error || !result.data) {
-      setError(describePasskeyFailure(result, copy, copy.security.passkeyNotCreated));
+      setError(describePasskeyFailure(result, copy, copy.security.passkeyNotCreated, copy.auth.sessionExpired));
       return false;
     }
     window.location.assign(normalizeAdminPath(adminPath));
