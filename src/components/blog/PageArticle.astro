@@ -1,6 +1,7 @@
 ---
 import { sanitizedContentHtmlSchema } from '../../lib/editor-content';
 import type { Page } from '../../types/cms';
+import { publicCopy } from '../../lib/i18n';
 
 interface Props {
   page: Page;
@@ -10,12 +11,13 @@ interface Props {
 const { page, preview = false } = Astro.props;
 // Keep the document title as the only h1, including when the body contains heading blocks.
 const contentHtml = sanitizedContentHtmlSchema.parse(page.content_html).replace(/<(\/?)h1>/g, '<$1h2>');
+const copy = publicCopy(page.locale);
 ---
 
-<article class="page-article mx-auto max-w-3xl px-5 py-12 sm:px-7 sm:py-20">
+<article class="page-article post-page">
   <header>
-    {preview && <p class="mb-5 text-sm font-medium text-muted">Draft preview</p>}
+    {preview && <p class="post-draft-note">{copy.draftPreview}</p>}
     <h1 class="article-title">{page.title}</h1>
   </header>
-  <div class="prose mt-12 max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={contentHtml} />
+  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={contentHtml} />
 </article>
