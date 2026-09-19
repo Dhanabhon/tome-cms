@@ -137,6 +137,33 @@ Each layer ends with screenshots, the owner's review and a commit before the nex
 4. **Screens**, in order: Posts, Pages, Media, Navigation, Categories, Profile, Settings,
    Security, System, the editors and their drawer, Sign-in.
 
+### Status: shipped, 2026-09-19
+
+| Layer | Commits |
+|---|---|
+| 1 -- tokens | `af9f765` |
+| 2 -- shell | `5f65f66..d26a4e1` |
+| 3 -- shared components | `3131cfa..234f3e0` |
+| 4 -- screens | `4776b58..792df80` |
+
+Layer 4 ran in seven passes with the owner's review between each: the two story lists, the
+file library, the menu editor, categories, the form screens, the editors and their drawers,
+and sign-in.
+
+Two sentences of this spec were dropped in layer 4, on the owner's decision of 2026-09-19 to
+keep every language edition as its own row rather than collapsing a card to one title and a
+line of locale chips:
+
+- the primary edition's status pill in the cover's top-right corner, and
+- the row menu in the card's footer.
+
+Both belonged to the collapsed card. With the rows kept, a status already reads on each of
+them and the menus stay on the editions they act on.
+
+The form screens needed almost nothing, which is what this spec predicted when it said they
+would be built from the shared pieces: they were already standing in the page frame, grouping
+fields in cards, and ending in the same save bar.
+
 ## Verification
 
 At every layer:
