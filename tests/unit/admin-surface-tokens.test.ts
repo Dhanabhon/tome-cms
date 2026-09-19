@@ -274,10 +274,14 @@ test('a busy control says so in the attribute a screen reader reads', () => {
   // and the one .admin-control already uses.
   assert.doesNotMatch(CSS, /\.admin-button\[data-state="loading"\]/);
   assert.match(CSS, /\.admin-button\[aria-busy="true"\]::before \{/);
+  // On top of the label, not beside it: a button that grows by a spinner's width still
+  // moves everything after it at exactly the moment the reader is waiting on it.
+  assert.match(ruleBody(CSS, '.admin-button[aria-busy="true"]::before'), /position: absolute/);
+  assert.match(ruleBody(CSS, '.admin-button[aria-busy="true"]'), /color: transparent/);
   // A reader who asked for less motion keeps the ring, closed, and loses the spin. The
   // admin already had this fallback; the installer, which draws its own spinner from its
   // own keyframes, had none.
-  assert.match(CSS, /\.admin-button\[aria-busy="true"\]::before \{ animation: none; border-block-start-color: currentColor; \}/);
+  assert.match(CSS, /\.admin-button\[aria-busy="true"\]::before \{ animation: none; border-block-start-color: var\(--admin-busy-ring, var\(--color-ink\)\); \}/);
   const installer = read('src/styles/installer.css');
   assert.doesNotMatch(installer, /\.installer-button\[data-state="loading"\]/);
   assert.match(installer, /\.installer-button\[aria-busy="true"\]::before \{ animation: none;/);
