@@ -165,7 +165,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             return (
               <article class="admin-story-row" aria-label={story.primary.title.trim() || copy.posts.untitled}>
                 <div class="admin-story-cover" aria-hidden="true">
-                  {cover ? <img src={cover} alt="" loading="lazy" /> : <span>✎</span>}
+                  {cover ? <img src={cover} alt="" loading="lazy" /> : <AdminIcon name="posts" />}
                 </div>
                 <div class="admin-story-content">
                   {badges.length > 0 && (
@@ -186,7 +186,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                           <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
                         </a>
                         <details class="admin-story-menu">
-                          <summary aria-label={`${copy.posts.actionsFor} ${label}`}><span aria-hidden="true">⋯</span></summary>
+                          <summary aria-label={`${copy.posts.actionsFor} ${label}`}><AdminIcon name="more" /></summary>
                           <div>
                             <a href={adminHref(adminSettings, `/edit/${edition.id}`)}>{copy.row.edit}</a>
                             <a href={adminPreviewHref(adminSettings, 'post', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
@@ -206,7 +206,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                   ))}
                 </div>
                 <div class="admin-story-foot">
-                  <span data-story-when><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                  <span data-story-when><AdminIcon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                 </div>
               </article>
             );
