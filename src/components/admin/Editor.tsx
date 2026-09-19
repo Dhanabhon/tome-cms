@@ -320,7 +320,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
       </header>
 
       <div className="admin-editor-workspace">
-        {isNavigating && <p className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted" role="status">{copy.editor.opening} <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">{copy.editor.stayInEditor}</button></p>}
+        {isNavigating && <p className="admin-editor-notice" role="status">{copy.editor.opening} <button className="admin-button admin-button--secondary" onClick={cancelNavigation} type="button">{copy.editor.stayInEditor}</button></p>}
         {errorMessage && !settingsOpen && <p className="admin-alert" role="alert">{saveState === 'failed' && <strong>{copy.editor.failed}</strong>} {errorMessage}</p>}
 
         <article className="admin-editor-canvas">

@@ -497,9 +497,9 @@ body {
 .block-insert-menu {
   position: absolute;
   width: min(12rem, calc(100vw - 2rem));
-  padding: 0.375rem;
+  padding: var(--space-2xs);
   border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-card);
   background: var(--color-paper);
   animation: block-menu-in 120ms ease-out;
 }
@@ -507,7 +507,7 @@ body {
 .block-insert-item {
   display: block;
   width: 100%;
-  padding: 0.5rem 0.625rem;
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   color: var(--color-ink);
   font-size: var(--text-sm);
@@ -516,7 +516,7 @@ body {
 
 .block-insert-item:hover,
 .block-insert-item:focus {
-  background: var(--color-paper-2);
+  background: var(--color-paper-3);
 }
 
 @keyframes block-menu-in {
@@ -1821,6 +1821,9 @@ body {
 
 .admin-title-input::placeholder { color: var(--color-placeholder); opacity: 1; }
 .admin-title-input:focus-visible { outline: 0; }
+/* The line that appears while a link out of the editor is being followed, with the way
+ * back beside it. */
+.admin-editor-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-block-end: var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
 .admin-editor-content { width: 100%; }
 .admin-editor-content .ProseMirror { color: var(--color-ink-2); font-family: var(--font-body); }
 .admin-editor-content .ProseMirror:focus-visible { outline: 0; }

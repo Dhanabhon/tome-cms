@@ -228,3 +228,14 @@ test('a settings drawer closes and removes the way every panel does', () => {
   assert.match(post, /<AdminIcon name="trash" \/>/, 'the cover remove is not an icon button');
   assert.match(post, /aria-label=\{copy\.drawer\.removeCover\}/, 'the cover remove has no label');
 });
+
+test('the insert menu is the same menu as the others', () => {
+  assert.equal(declaration(ruleBody(CSS, '.block-insert-menu'), 'border-radius'), 'var(--radius-card)');
+  assert.equal(declaration(ruleBody(CSS, '.block-insert-menu'), 'padding'), 'var(--space-2xs)');
+  const item = ruleBody(CSS, '.block-insert-item');
+  assert.equal(declaration(item, 'border-radius'), 'var(--radius-sm)');
+  assert.equal(declaration(item, 'padding'), 'var(--space-xs) var(--space-sm)');
+  assert.match(ruleBody(CSS, '.block-insert-item:hover,\n.block-insert-item:focus'), /var\(--color-paper-3\)/);
+  // The editor's last utility chain.
+  assert.doesNotMatch(read('src/components/admin/Editor.tsx'), /className="mb-6 flex/);
+});
