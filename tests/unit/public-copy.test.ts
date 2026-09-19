@@ -8,11 +8,11 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 
 /** Every public component that says a word of its own. */
 const SURFACES = [
-  'src/components/blog/PostArticle.astro',
-  'src/components/blog/PageArticle.astro',
-  'src/components/blog/AuthorBlock.astro',
-  'src/components/blog/Header.astro',
-  'src/components/blog/Footer.astro',
+  'src/themes/paper/parts/PostArticle.astro',
+  'src/themes/paper/parts/PageArticle.astro',
+  'src/themes/paper/parts/AuthorBlock.astro',
+  'src/themes/paper/parts/Header.astro',
+  'src/themes/paper/parts/Footer.astro',
 ] as const;
 
 test('every public surface speaks the reader\'s language', () => {
@@ -51,11 +51,11 @@ test('the year in the footer is the year in the article', () => {
   const now = new Date('2026-09-19T12:00:00Z');
   assert.equal(currentYear('en', now), '2026');
   assert.equal(currentYear('th', now), '2569');
-  assert.doesNotMatch(read('src/components/blog/Footer.astro'), /getFullYear/);
+  assert.doesNotMatch(read('src/themes/paper/parts/Footer.astro'), /getFullYear/);
 });
 
 test('the footer credits TomeCMS, and stops when the owner says so', () => {
-  const footer = read('src/components/blog/Footer.astro');
+  const footer = read('src/themes/paper/parts/Footer.astro');
   // One line, not a third column: the footer is a flex row of two and stays that way.
   assert.match(footer, /\{copy\.allRightsReserved\}\n\s+\{showPoweredBy && <><span aria-hidden="true"> · <\/span>\{copy\.poweredBy\}<\/>\}/);
   assert.equal(publicCopy('en').poweredBy, 'Powered by TomeCMS');
@@ -63,7 +63,10 @@ test('the footer credits TomeCMS, and stops when the owner says so', () => {
   assert.match(publicCopy('th').poweredBy, /TomeCMS$/);
   // It is a credit, not a campaign: no link goes out from every page on the site.
   assert.doesNotMatch(footer, /poweredBy[\s\S]{0,80}<a /);
+  // The setting is read in core and travels through the theme's shell, which is what
+  // renders the footer now: both hand-offs have to hold or the line is always shown.
   const layout = read('src/layouts/BaseLayout.astro');
   assert.match(layout, /const showPoweredBy = settings\?\.show_powered_by \?\? true;/);
-  assert.match(layout, /<Footer[^>]*showPoweredBy=\{showPoweredBy\}/);
+  assert.match(layout, /<activeTheme\.Shell[\s\S]*?showPoweredBy=\{showPoweredBy\}/);
+  assert.match(read('src/themes/paper/Shell.astro'), /<Footer[^>]*showPoweredBy=\{showPoweredBy\}/);
 });

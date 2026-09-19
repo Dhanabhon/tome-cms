@@ -1,9 +1,9 @@
 ---
-import LanguageSwitcher from '../LanguageSwitcher.astro';
-import ThemeToggle from '../ThemeToggle.astro';
-import { localePath, publicCopy } from '../../lib/i18n';
-import { THEME_LABELS, type ThemeChoice } from '../../lib/theme';
-import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../types/cms';
+import LanguageSwitcher from '../../../components/LanguageSwitcher.astro';
+import ThemeToggle from '../../../components/ThemeToggle.astro';
+import { localePath, publicCopy } from '../../../lib/i18n';
+import { THEME_LABELS, type ThemeChoice } from '../../../lib/theme';
+import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../../types/cms';
 
 interface Props {
   allowVisitorTheme?: boolean;

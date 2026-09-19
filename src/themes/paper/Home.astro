@@ -1,0 +1,152 @@
+---
+import Icon from '../../components/Icon.astro';
+import { dateLocale, localePath, postPath } from '../../lib/i18n';
+import { postExcerpt, readingMinutes } from '../../lib/posts';
+import type { Post } from '../../types/cms';
+import type { ThemeHomeProps } from '../contract';
+
+interface Props extends ThemeHomeProps {}
+
+const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, profile, siteName, tagline, timezone } = Astro.props;
+
+const copy = locale === 'th'
+  ? {
+    all: 'บทความทั้งหมด',
+    categories: 'หมวดหมู่',
+    empty: 'ยังไม่มีบทความที่เผยแพร่',
+    emptyCategory: 'ยังไม่มีบทความในหมวดหมู่นี้',
+    failed: 'โหลดบทความเพิ่มไม่สำเร็จ',
+    loading: 'กำลังโหลด…',
+    older: 'บทความเก่ากว่า',
+    retry: 'ลองอีกครั้ง',
+    showing: 'กำลังแสดง {name}',
+    unavailable: 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง',
+  }
+  : {
+    all: 'All posts',
+    categories: 'Categories',
+    empty: 'No published posts yet.',
+    emptyCategory: 'No posts in this category yet.',
+    failed: 'More posts could not be loaded.',
+    loading: 'Loading…',
+    older: 'Older posts',
+    retry: 'Try again',
+    showing: 'Showing {name}',
+    unavailable: 'Published posts are temporarily unavailable.',
+  };
+
+// The byline a post carries on the feed: the author when the profile names one, the site
+// when it does not.
+const byline = profile?.name || siteName;
+const home = localePath(locale);
+const categoryHref = (name: string) => `${home}?${new URLSearchParams({ category: name })}`;
+const isCurrent = (name: string) => activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase();
+const olderHref = nextCursor
+  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), cursor: nextCursor })}`
+  : null;
+const dateFormatter = new Intl.DateTimeFormat(dateLocale(locale), {
+  day: 'numeric',
+  month: 'short',
+  timeZone: timezone,
+  year: 'numeric',
+});
+const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
+const readTime = (post: Post) => {
+  const minutes = readingMinutes(post.content_json);
+  return locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
+};
+// A post without a cover keeps the cover's space, so the titles along a row start level,
+// and its first letter fills it rather than an empty box. A grapheme, not a code unit:
+// a Thai letter carries its vowel and tone marks with it. A vowel written before its
+// consonant (เ แ โ ใ ไ) is a grapheme of its own and alone reads as a stray stroke, so
+// it takes its consonant along.
+const graphemes = new Intl.Segmenter(locale, { granularity: 'grapheme' });
+const initial = (title: string) => {
+  const [first = '', second = ''] = [...graphemes.segment(title.trim())].map(({ segment }) => segment);
+  return /^[เ-ไ]$/u.test(first) ? first + second : first;
+};
+---
+
+<section class="home-hero">
+  <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+    <h1 class="hero-title max-w-xl">
+      Ideas, carefully published.
+    </h1>
+    {tagline && (
+      <p class="lead mt-6 max-w-md">
+        {tagline}
+      </p>
+    )}
+  </div>
+</section>
+
+<section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+  {categories.length > 0 && (
+    <nav class="post-filter" aria-label={copy.categories} data-post-filter data-announce={copy.showing}>
+      <ul>
+        <li><a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.all}</a></li>
+        {categories.map(({ name }) => (
+          <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
+        ))}
+      </ul>
+      <p class="sr-only" role="status" data-post-filter-status></p>
+    </nav>
+  )}
+
+  <!-- Everything a category changes, so a chosen pill can swap it whole. -->
+  <div class="post-feed" data-post-feed>
+    {posts.length > 0 ? (
+      <div class="post-grid" data-post-grid>
+        {posts.map((post, index) => {
+          const excerpt = postExcerpt(post, '');
+          return (
+            <article class="post-card">
+              <div class="post-card__cover" aria-hidden="true">
+                {post.cover_image
+                  ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
+                  : <span>{initial(post.title)}</span>}
+              </div>
+              <h2 class="card-title post-card__title">
+                <a href={postPath(post)}>{post.title}</a>
+              </h2>
+              {excerpt && <p class="post-card__excerpt">{excerpt}</p>}
+              <p class="post-card__meta">
+                <span class="post-card__byline">
+                  {profile?.avatarUrl && <img class="post-card__avatar" src={profile.avatarUrl} alt="" width="24" height="24" loading="lazy" />}
+                  <span>{byline}</span>
+                </span>
+                <span class="post-card__when">
+                  <span class="post-card__date"><Icon name="clock" /><time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time></span>
+                  <span>{readTime(post)}</span>
+                </span>
+              </p>
+            </article>
+          );
+        })}
+      </div>
+    ) : !loadError && (
+      <p class="text-muted">{activeCategory ? copy.emptyCategory : copy.empty}</p>
+    )}
+
+    {olderHref && (
+      <div class="post-more" data-post-more data-failed={copy.failed} data-loading={copy.loading}>
+        <a data-post-next href={olderHref}>{copy.older} <span aria-hidden="true">→</span></a>
+        <p data-post-status role="status"></p>
+        <button data-post-retry type="button" hidden>{copy.retry}</button>
+      </div>
+    )}
+
+    {loadError && (
+      <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
+        {copy.unavailable}
+      </p>
+    )}
+  </div>
+</section>
+
+<script>
+  import wirePostFeed from '../../lib/post-feed';
+
+  const feed = document.querySelector<HTMLElement>('[data-post-feed]');
+  if (feed) wirePostFeed(feed, document.querySelector<HTMLElement>('[data-post-filter]'));
+</script>

@@ -1,12 +1,11 @@
 ---
-import Header from '../components/blog/Header.astro';
-import Footer from '../components/blog/Footer.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { getPublicSiteUrl } from '../lib/seo';
 import { getPublicNavigation } from '../server/content/navigation';
 import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
+import { resolveTheme } from '../themes/registry';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
 
@@ -57,6 +56,9 @@ const {
   xDefaultHref,
 } = Astro.props;
 const navigation = await getPublicNavigation(locale);
+// The head is the product's promise to a search engine and stays here. Everything a
+// reader sees below it belongs to the theme, arrangement included.
+const activeTheme = await resolveTheme();
 const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();
@@ -143,11 +145,16 @@ const structuredData = robots.includes('noindex')
     <link rel="stylesheet" href="/fonts.css" />
     {allowVisitorTheme && <ThemeScript />}
   </head>
-  <body class="flex min-h-screen flex-col">
-    <Header availableLocales={alternates} items={navigation.header} locale={locale} allowVisitorTheme={allowVisitorTheme} siteName={siteName} theme={themeChoice} />
-    <main class="flex-1">
-      <slot />
-    </main>
-    <Footer items={navigation.footer} locale={locale} showPoweredBy={showPoweredBy} siteName={siteName} />
-  </body>
+  <activeTheme.Shell
+    allowVisitorTheme={allowVisitorTheme}
+    alternates={alternates ?? []}
+    footer={navigation.footer}
+    header={navigation.header}
+    locale={locale}
+    showPoweredBy={showPoweredBy}
+    siteName={siteName}
+    theme={themeChoice}
+  >
+    <slot />
+  </activeTheme.Shell>
 </html>

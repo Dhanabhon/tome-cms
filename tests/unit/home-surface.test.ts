@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const CSS = read('src/styles/global.css');
-const HOME = read('src/pages/[locale]/index.astro');
+const HOME = read('src/themes/paper/Home.astro');
 
 /** The declarations of the first unindented rule whose selector list is exactly `selector`. */
 function ruleBody(selector: string): string {
