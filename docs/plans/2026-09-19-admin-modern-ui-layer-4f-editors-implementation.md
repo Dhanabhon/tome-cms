@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4f (The editors and their drawers) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4f, `bc01e83..7707eec`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Finish the writing screens: a drawer that closes and removes the way every other panel does, an insert menu that belongs to the same family as the admin's other menus, and the last utility chain in the editor written in tokens.

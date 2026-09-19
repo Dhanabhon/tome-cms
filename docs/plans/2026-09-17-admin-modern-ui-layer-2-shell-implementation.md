@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 2 (Shell) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 2, `5f65f66..d26a4e1`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every admin screen the new shell: a 16rem sidebar with line icons and story counts, a theme row and an account card, and a sticky top bar with the screen's name, a post search and a view-site button -- with the navigation overlay following the new chrome.

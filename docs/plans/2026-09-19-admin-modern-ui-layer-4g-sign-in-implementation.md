@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4g (Sign-in) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4g, `64b0b41..792df80`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Finish the last screen: give the sign-in panel the waiting state every other island in the admin has, and quiet the stage's edge to the hairline the cards use.

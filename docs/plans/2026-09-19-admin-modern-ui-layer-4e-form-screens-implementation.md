@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4e (Profile, Settings, Security, System) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4e, `33368ba..24c781a`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the last differences on the four form screens: a passkey handled like every other row in the admin, an avatar whose remove button matches, and the two inset panels on Security taking the corner every other panel takes.

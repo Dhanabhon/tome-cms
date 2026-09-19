@@ -1,5 +1,8 @@
 # Admin Busy States Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as busy states, `1ded052..9fe2741`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make every control in the admin say the same thing while it works: the control that was pressed shows a spinner and keeps its words, the words about what is happening go to the status line that screen readers already read, and a reader who asked for less motion gets a mark that does not spin.
