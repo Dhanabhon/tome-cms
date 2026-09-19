@@ -53,3 +53,28 @@ test('a theme is given what it needs and cannot go looking for more', () => {
     }
   }
 });
+
+test('the two stylesheets keep to their own side', () => {
+  const core = readFileSync(new URL('../../src/styles/global.css', import.meta.url), 'utf8');
+  const theme = read('paper/theme.css');
+  // The admin draws itself from the core stylesheet alone, so a rule it needs cannot be in
+  // here: the admin never loads this file, and the failure would be a screen without styling.
+  assert.doesNotMatch(theme, /^\.(admin|installer|security-|navigation-|media-|skeleton)/m);
+  // And the point of the split: shaping the site no longer means editing the admin's sheet.
+  for (const owned of ['.post-card', '.home-hero', '.site-footer', '.post-page', '.post-filter']) {
+    assert.ok(theme.includes(owned), `${owned} belongs to the theme`);
+    assert.doesNotMatch(core, new RegExp(`^\\${owned}[\\s,{]`, 'm'), `${owned} was left in core`);
+  }
+  // What both sides draw stays in core rather than being copied into each: two copies of a
+  // rule are two rules that drift.
+  assert.match(core, /^\.article-title/m);
+  assert.match(core, /^\.category-default,/m);
+});
+
+test('whatever enters the theme brings the theme stylesheet with it', () => {
+  // A public page comes in through the shell; the admin's preview of a draft comes in
+  // through a template on its own, and has to be drawn just the same.
+  for (const template of ['Shell', 'Home', 'Post', 'Page']) {
+    assert.match(read(`paper/${template}.astro`), /^import '\.\/theme\.css';$/m, `${template} loads the theme`);
+  }
+});

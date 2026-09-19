@@ -62,6 +62,8 @@ export interface ThemeHomeProps {
 
 export interface ThemePostProps {
   categories: PostCategoryBadge[];
+  /** The admin looking at a draft: it is dated by its last save, not by a publication. */
+  preview?: boolean;
   locale: PostLocale;
   /** Never null: a post that is missing is a system state, and the route says so itself. */
   post: Post;
@@ -72,4 +74,5 @@ export interface ThemePostProps {
 export interface ThemePageProps {
   locale: PostLocale;
   page: Page;
+  preview?: boolean;
 }

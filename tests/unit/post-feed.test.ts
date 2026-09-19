@@ -4,7 +4,10 @@ import { test } from 'node:test';
 
 import { cardsToRowEnd, categoryOf } from '../../src/lib/post-feed';
 
-const CSS = readFileSync(new URL('../../src/styles/global.css', import.meta.url), 'utf8');
+// A public page loads the core stylesheet and the theme's, so that is what these rules
+// are read from: which of the two a rule ended up in is layer 2's business, not this test's.
+const CSS = ['src/styles/global.css', 'src/themes/paper/theme.css']
+  .map((path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')).join('\n');
 
 test('a card held back by the feed stays out of sight', () => {
   // .post-card and the retry button set their own display, and an author display outranks the
