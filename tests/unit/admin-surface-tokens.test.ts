@@ -198,3 +198,21 @@ test('a category row is handled with icons that keep their words', () => {
     assert.match(manager, new RegExp(`title=\\{fill\\(copy\\.categories\\.${label}`), `${label} lost its title`);
   }
 });
+
+test('a passkey and an avatar are handled with the same icons as every other row', () => {
+  const security = read('src/components/admin/SecurityManager.tsx');
+  for (const name of ['pencil', 'trash']) {
+    assert.match(security, new RegExp(`<AdminIcon name="${name}" />`), `security has no ${name} icon`);
+  }
+  for (const label of ['renameLabelFor', 'deleteLabelFor']) {
+    assert.match(security, new RegExp(`title=\\{fill\\(copy\\.security\\.${label}`), `${label} lost its title`);
+  }
+  // The avatar's remove is the same shape, and says what it removes.
+  const profile = read('src/components/admin/ProfileForm.tsx');
+  assert.match(profile, /<AdminIcon name="trash" \/>/, 'the avatar remove is not an icon button');
+  assert.match(profile, /aria-label=\{copy\.profile\.removeAvatar\}/, 'the avatar remove has no label');
+  // The panels inside a card take the card's corner, not a control's.
+  for (const selector of ['.security-add', '.security-codes']) {
+    assert.equal(declaration(ruleBody(CSS, selector), 'border-radius'), 'var(--radius-card)', selector);
+  }
+});

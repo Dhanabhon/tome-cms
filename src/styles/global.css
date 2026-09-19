@@ -1681,15 +1681,18 @@ body {
 }
 .security-key__edit .admin-field, .security-add .admin-field { flex: 1 1 18rem; max-width: 24rem; }
 /* Adding a key is a different act from renaming one, so it stands on its own ground. */
-.security-add { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-input); background: var(--color-paper-2); }
+.security-add { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper-2); }
 .security-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-.security-codes { display: grid; gap: var(--space-md); padding: var(--space-md); border-radius: var(--radius-input); background: var(--color-paper-2); }
+.security-codes { display: grid; gap: var(--space-md); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper-2); }
 /* Recovery codes are counted things -- you cross them off as you spend them. Preflight
  * strips the markers from every ol, which took the count away. */
 .security-codes ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-2xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; }
 .security-codes li { color: var(--color-muted); }
 .security-codes code { color: var(--color-ink); font-family: ui-monospace, monospace; user-select: all; }
 .security-message { min-height: 1lh; }
+/* A bin says what it does by turning the colour of the thing it cannot undo. */
+.security-key__delete:hover:not(:disabled),
+.profile-avatar-remove:hover:not(:disabled) { color: var(--color-error-ink); }
 
 @media (min-width: 42rem) {
   .security-page { padding-block-start: var(--space-2xl); }
