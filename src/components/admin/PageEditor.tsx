@@ -2,7 +2,7 @@ import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import slugify from 'slugify';
 
-import { adminHref, adminPreviewHref } from '../../lib/admin';
+import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
@@ -32,8 +32,13 @@ interface PageEditorDraft {
   title: string;
 }
 
-function readApiError(payload: unknown): string | null {
-  if (typeof payload !== 'object' || payload === null || !('error' in payload)) return null;
+/**
+ * A Zod refusal names the field it refused, and the content's own message says more than
+ * the summary above it. Everything else about a failure is read the way the rest of the
+ * admin reads it -- a coded refusal never carries issues, so the two cannot collide.
+ */
+function readContentIssue(payload: unknown): string | null {
+  if (typeof payload !== 'object' || payload === null) return null;
   if ('issues' in payload && typeof payload.issues === 'object' && payload.issues !== null
     && 'properties' in payload.issues && typeof payload.issues.properties === 'object' && payload.issues.properties !== null
     && 'contentJson' in payload.issues.properties) {
@@ -43,7 +48,7 @@ function readApiError(payload: unknown): string | null {
       if (typeof message === 'string') return message;
     }
   }
-  return typeof payload.error === 'string' ? payload.error : null;
+  return null;
 }
 
 function readPage(payload: unknown): Page | null {
@@ -104,7 +109,8 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
       }),
     });
     const payload: unknown = await response.json();
-    if (!response.ok) throw new Error(readApiError(payload) ?? copy.editor.pageNotSaved);
+    if (!response.ok) throw new Error(readContentIssue(payload)
+      ?? apiErrorMessage(payload, { contentRequired: copy.editor.contentRequired, failed: copy.editor.pageNotSaved }));
 
     const savedPage = readPage(payload);
     if (!savedPage) throw new Error(copy.editor.serverSentInvalidPage);

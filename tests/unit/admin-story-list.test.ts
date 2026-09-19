@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { readActionError, readRecord } from '../../src/lib/admin-story-list';
+import { apiErrorMessage } from '../../src/lib/admin';
+import { readRecord } from '../../src/lib/admin-story-list';
 import { adminErrorResponse } from '../../src/server/http/errors';
 import { prepareContent } from '../../src/server/content/mutations';
 
@@ -29,7 +30,7 @@ test('rejects a record missing the concurrency token or the status', () => {
   assert.equal(readRecord({ post: { updated_at: record.updated_at } }, 'post'), null, 'no status');
 });
 
-const copy = { actionFailed: 'ทำรายการไม่สำเร็จ', contentRequired: 'เพิ่มเนื้อหาก่อนเผยแพร่' };
+const copy = { contentRequired: 'เพิ่มเนื้อหาก่อนเผยแพร่', failed: 'ทำรายการไม่สำเร็จ' };
 
 test('a coded refusal is answered in the owner\'s language, end to end', async () => {
   // Publishing an empty story from the row menu: the API refuses in English, and the list
@@ -43,18 +44,18 @@ test('a coded refusal is answered in the owner\'s language, end to end', async (
   }
   const response = adminErrorResponse(refusal, 'test-request');
   assert.equal(response.status, 400);
-  assert.equal(readActionError(await response.json(), copy), copy.contentRequired);
+  assert.equal(apiErrorMessage(await response.json(), copy), copy.contentRequired);
 });
 
 test('anything else is reported as the server sent it', () => {
   // A message written for one refusal must not be shown for another.
-  assert.equal(readActionError({ error: 'That post was changed elsewhere.' }, copy), 'That post was changed elsewhere.');
-  assert.equal(readActionError({ code: 'something_else', error: 'Nope.' }, copy), 'Nope.');
+  assert.equal(apiErrorMessage({ error: 'That post was changed elsewhere.' }, copy), 'That post was changed elsewhere.');
+  assert.equal(apiErrorMessage({ code: 'something_else', error: 'Nope.' }, copy), 'Nope.');
   // A body the list cannot read at all is the one case its own sentence is for.
-  assert.equal(readActionError(null, copy), copy.actionFailed);
-  assert.equal(readActionError('Nope.', copy), copy.actionFailed);
-  assert.equal(readActionError({}, copy), copy.actionFailed);
-  assert.equal(readActionError({ error: 42 }, copy), copy.actionFailed);
+  assert.equal(apiErrorMessage(null, copy), copy.failed);
+  assert.equal(apiErrorMessage('Nope.', copy), copy.failed);
+  assert.equal(apiErrorMessage({}, copy), copy.failed);
+  assert.equal(apiErrorMessage({ error: 42 }, copy), copy.failed);
 });
 
 test('every phrase the list script reads is one the lists actually hand it', () => {

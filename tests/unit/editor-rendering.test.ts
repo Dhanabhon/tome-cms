@@ -103,3 +103,16 @@ test("an editor refuses to publish an empty document in the owner's own language
   }
   for (const locale of ['en', 'th'] as const) assert.ok(adminCopy(locale).editor.contentRequired.trim());
 });
+
+test('an editor that is refused anyway is refused in the same language', () => {
+  // The guard cannot see everything the API checks -- an image whose src the server will not
+  // keep passes the editor and fails the API. That refusal comes back coded, and both editors
+  // read a coded refusal through the one reader the whole admin shares.
+  for (const name of ['Editor', 'PageEditor'] as const) {
+    const source = readFileSync(new URL(`../../src/components/admin/${name}.tsx`, import.meta.url), 'utf8');
+    assert.match(source, /import \{ adminHref, adminPreviewHref, apiErrorMessage \} from '\.\.\/\.\.\/lib\/admin';/);
+    assert.match(source, /apiErrorMessage\(payload, \{ contentRequired: copy\.editor\.contentRequired, failed: copy\.editor\.(post|page)NotSaved \}\)/);
+    // Each editor had grown its own reader of the same body.
+    assert.doesNotMatch(source, /function readApiError/);
+  }
+});
