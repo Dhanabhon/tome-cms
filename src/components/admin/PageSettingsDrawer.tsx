@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import type { AdminCopy } from '../../lib/admin-i18n';
 import { pagePath } from '../../lib/i18n';
 import type { PageLocale } from '../../types/cms';
+import AdminIcon from './AdminIcon';
 
 interface PageSettingsDrawerProps {
   copy: AdminCopy;
@@ -46,7 +47,7 @@ export default function PageSettingsDrawer({
     }} ref={dialog}>
       <div className="admin-editor-settings__head">
         <div><h2>{copy.drawer.pageSettings}</h2><p>{copy.drawer.pageSettingsHint}</p></div>
-        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--secondary" onClick={onClose} ref={closeButton} type="button">{copy.shell.close}</button>
+        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--ghost admin-button--icon" onClick={onClose} ref={closeButton} title={copy.drawer.closeSettings} type="button"><AdminIcon name="close" /></button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
       <section className="drawer-group">

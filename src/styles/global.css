@@ -1692,7 +1692,8 @@ body {
 .security-message { min-height: 1lh; }
 /* A bin says what it does by turning the colour of the thing it cannot undo. */
 .security-key__delete:hover:not(:disabled),
-.profile-avatar-remove:hover:not(:disabled) { color: var(--color-error-ink); }
+.profile-avatar-remove:hover:not(:disabled),
+.admin-cover-remove:hover:not(:disabled) { color: var(--color-error-ink); }
 
 @media (min-width: 42rem) {
   .security-page { padding-block-start: var(--space-2xl); }
