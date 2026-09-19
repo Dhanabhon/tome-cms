@@ -130,3 +130,14 @@ test('the file library stands in the same frame as every other screen', () => {
   // The page frame belongs to the manage mode; the picker is a dialog and has no page.
   assert.match(library, /props\.mode === 'manage' && \(\s*<div className="admin-page__head">/, 'the frame is not conditional on the mode');
 });
+
+test('the media surfaces are tokens, not utility chains', () => {
+  for (const selector of ['.media-card', '.media-empty', '.media-status', '.media-grid']) {
+    assert.doesNotMatch(ruleBody(CSS, selector), /@apply/, `${selector} still borrows its look from utilities`);
+  }
+  assert.equal(declaration(ruleBody(CSS, '.media-card'), 'border-radius'), 'var(--radius-card)');
+  // The empty state is the one the lists use, icon and all.
+  const library = read('src/components/admin/MediaLibrary.tsx');
+  assert.match(library, /className="admin-empty media-empty"/);
+  assert.match(library, /<AdminIcon name="media" \/>/);
+});

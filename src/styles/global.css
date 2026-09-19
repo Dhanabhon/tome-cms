@@ -555,31 +555,59 @@ body {
 .media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
-  @apply mt-8 gap-5;
+  gap: var(--space-md);
+  margin-block-start: var(--space-lg);
 }
 
+/* A file is a card, on the surface a post card uses: paper, a quiet hairline and the card
+ * corner. Only the picture paints into a corner, so it rounds its own. */
 .media-card {
-  @apply min-w-0 overflow-hidden rounded-lg border border-line bg-surface text-left transition-colors hover:border-accent;
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+  transition: border-color var(--dur-short) var(--ease-out);
 }
+.media-card:hover { border-color: var(--color-rule-strong); }
+.media-card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 
 .media-card img {
-  @apply mb-2 bg-soft;
-  border-radius: 0;
+  width: 100%;
+  margin-block-end: var(--space-xs);
+  border-radius: calc(var(--radius-card) - var(--rule-hair)) calc(var(--radius-card) - var(--rule-hair)) 0 0;
+  background: var(--color-paper-3);
 }
 
-.media-card strong { padding-inline: var(--space-sm); }
+.media-card strong { padding-inline: var(--space-sm); font-size: var(--text-sm); }
 .media-card > span:not(.media-card-select) { padding: 0 var(--space-sm) var(--space-sm); }
 
 .media-card-select {
-  @apply mt-3 block border-t border-line pt-2 text-center text-sm font-medium text-accent;
+  margin-block-start: var(--space-xs);
+  padding-block: var(--space-xs);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+  color: var(--color-link);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: center;
 }
 
-.media-empty {
-  @apply mt-8 rounded-lg border border-line bg-surface px-5 py-16 text-center;
-}
+.media-empty { margin-block-start: var(--space-lg); }
 
 .media-status {
-  @apply mt-8 flex flex-wrap items-center justify-center gap-3 text-center text-sm text-muted;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  justify-content: center;
+  margin-block-start: var(--space-lg);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  text-align: center;
 }
 
 /* Folders sit above the grid as chips instead of beside it in a 12rem rail: the
@@ -610,15 +638,24 @@ body {
   @apply flex flex-wrap items-center gap-1;
 }
 
+/* A folder is a chip, the shape the public feed's category chips already have. */
 .media-category {
+  min-height: var(--control-height);
+  padding-inline: var(--space-sm);
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-pill);
-  @apply px-3 py-2 text-left text-sm hover:bg-soft;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  text-align: start;
 }
+.media-category:hover { background: var(--color-paper-3); }
 
 .media-category[aria-pressed='true'] {
   border-color: var(--color-accent);
-  @apply bg-surface font-medium text-accent;
+  color: var(--color-link);
+  font-weight: 500;
 }
 
 /* These were two unstyled buttons inheriting an underline from their container:

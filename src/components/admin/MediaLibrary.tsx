@@ -361,15 +361,20 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {props.mode === 'manage' && selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
           {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-label={copy.media.folderName} className="admin-control" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} placeholder={copy.media.folderName} required value={categoryName} /></label><button className="admin-button" type="submit">{copy.media.createFolder}</button></form>}
           {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button className="admin-button" type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
-          {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="font-medium text-accent underline" onClick={() => void loadFolders()} type="button">{copy.media.retryFolders}</button></p>}
+          {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="admin-button admin-button--ghost" onClick={() => void loadFolders()} type="button">{copy.media.retryFolders}</button></p>}
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>
 
         <div className="min-w-0">
           {uploading && <p className="media-status" role="status">{copy.media.uploadingProgress} {uploadProgress ?? 0}%</p>}
-          {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="font-medium text-accent underline" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection)} type="button">{copy.media.retry}</button>}</div>}
+          {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection)} type="button">{copy.media.retry}</button>}</div>}
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}
-          {!loading && !error && !items.length && <div className="media-empty"><h2 className="font-display text-[22px] font-bold leading-7 tracking-[-0.25px]">{copy.media.emptyTitle}</h2><p className="mt-2 text-sm text-muted">{copy.media.emptyBody}</p></div>}
+          {!loading && !error && !items.length && (
+            <div className="admin-empty media-empty">
+              <span className="admin-empty__mark" aria-hidden="true"><AdminIcon name="media" /></span>
+              <div><h2>{copy.media.emptyTitle}</h2><p>{copy.media.emptyBody}</p></div>
+            </div>
+          )}
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {
             const format = item.mime_type.replace('image/', '').toUpperCase();
             return <button aria-label={fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: item.height, name: item.original_name, size: formatSize(item.size_bytes), width: item.width })} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm">{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span>{props.mode === 'select' && <span className="media-card-select">{copy.media.select}</span>}</button>;
