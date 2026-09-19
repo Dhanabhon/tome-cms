@@ -1,6 +1,7 @@
 import { sql, type Selectable } from 'kysely';
 import { z } from 'zod';
 
+import { isThemeId } from '../../themes/registry';
 import type { AuthorLink, Json } from '../../types/cms';
 import { db } from '../db/client';
 import type { SiteSettingsTable } from '../db/types';
@@ -22,6 +23,9 @@ export const siteSettingsMutationSchema = z.object({
   siteName: z.string().trim().min(1).max(120),
   tagline: z.string().trim().max(120),
   theme: z.enum(['system', 'light', 'dark']),
+  // A theme that no longer ships can still be the stored one; the renderer falls back for
+  // it, and the form offers only what is installed, so a write may name only those.
+  themeId: z.string().refine(isThemeId, 'Choose an installed theme.'),
   timezone: z.enum(['Asia/Bangkok', 'UTC']),
   updatedAt: z.iso.datetime({ offset: true }),
 }).strict();
@@ -89,6 +93,7 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
       theme: input.theme,
       allow_visitor_theme: input.allowVisitorTheme,
       show_powered_by: input.showPoweredBy,
+      theme_id: input.themeId,
       timezone: input.timezone,
       updated_at: nextVersion,
     })

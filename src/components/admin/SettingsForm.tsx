@@ -1,12 +1,16 @@
 import { useState, type FormEvent } from 'react';
 
 import { adminCopy } from '../../lib/admin-i18n';
+import { THEME_MANIFESTS } from '../../themes/manifests';
+import { DEFAULT_THEME_ID, isThemeId } from '../../themes/registry';
 import type { PostLocale, SiteSettings } from '../../types/cms';
 import UiSelect from './UiSelect';
 
+const THEME_CHOICES = THEME_MANIFESTS.map(({ id, name }) => ({ label: name, value: id }));
+
 interface SettingsFormProps {
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'allow_visitor_theme' | 'show_powered_by' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -29,6 +33,10 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [theme, setTheme] = useState(initialSettings.theme);
   const [allowVisitorTheme, setAllowVisitorTheme] = useState(initialSettings.allow_visitor_theme);
   const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
+  // A theme can leave in a release while its id stays in the database. The site falls back
+  // to the default for one it does not know, and so does the control, so that what the
+  // owner is shown is what a save would store.
+  const [themeId, setThemeId] = useState(isThemeId(initialSettings.theme_id) ? initialSettings.theme_id : DEFAULT_THEME_ID);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
   const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
@@ -43,8 +51,9 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
     initialSettings.default_locale, initialSettings.timezone, initialSettings.theme,
     initialSettings.allow_visitor_theme,
     initialSettings.show_powered_by,
+    initialSettings.theme_id,
   ]));
-  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, theme, allowVisitorTheme, showPoweredBy]);
+  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, theme, allowVisitorTheme, showPoweredBy, themeId]);
   const dirty = currentSnapshot !== savedSnapshot;
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -58,7 +67,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ allowVisitorTheme, defaultLocale, showPoweredBy, siteDescription, siteName, tagline, theme, timezone, updatedAt }),
+        body: JSON.stringify({ allowVisitorTheme, defaultLocale, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
       });
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
@@ -159,12 +168,17 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
 
           <section className="admin-card" aria-labelledby="settings-theme-heading">
             <header className="admin-card__head">
-              <h2 id="settings-theme-heading">{copy.theme.group}</h2>
-              <p id="theme-hint">{copy.theme.siteHint}</p>
+              <h2 id="settings-theme-heading">{copy.settings.appearance}</h2>
+              <p>{copy.settings.appearanceHint}</p>
             </header>
+            <div className="admin-field">
+              <label htmlFor="themeId">{copy.settings.theme}</label>
+              <UiSelect ariaDescribedBy="themeId-hint" className="admin-control" id="themeId" name="themeId" options={THEME_CHOICES} value={themeId} onValueChange={(next) => { setThemeId(next as typeof themeId); setStatus(''); }} />
+              <small id="themeId-hint">{copy.settings.themeHint}</small>
+            </div>
             <div className="admin-field admin-field--short">
               <label htmlFor="theme">{copy.theme.siteLabel}</label>
-              <UiSelect ariaDescribedBy="theme-hint theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
+              <UiSelect ariaDescribedBy="theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
               <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
             </div>
             <div className="admin-check">

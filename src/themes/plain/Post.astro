@@ -1,0 +1,29 @@
+---
+import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
+import type { ThemePostProps } from '../contract';
+
+interface Props extends ThemePostProps {}
+
+const { categories, post, preview, profile, settings } = Astro.props;
+const copy = publicCopy(post.locale);
+const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone });
+const when = preview ? post.updated_at : post.published_at ?? post.created_at;
+---
+
+<article class="plain-page plain-article">
+  <p class="plain-back"><a href={localePath(post.locale)}>← {copy.allPosts}</a></p>
+  <h1>{post.title}</h1>
+  <p class="plain-meta">
+    <span>{copy.by} {profile?.name || settings.site_name}</span>
+    <span>{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></span>
+    {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
+  </p>
+  {post.cover_image && <img src={post.cover_image} alt={post.title} width="1200" height="675" />}
+  <div class="plain-body" set:html={post.content_html} />
+  {profile?.bio && (
+    <footer class="plain-author">
+      <h2>{copy.aboutTheAuthor}</h2>
+      <p>{profile.bio}</p>
+    </footer>
+  )}
+</article>

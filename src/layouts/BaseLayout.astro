@@ -6,6 +6,7 @@ import { getPublicNavigation } from '../server/content/navigation';
 import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
 import { resolveTheme } from '../themes/registry';
+import { themeStylesheet } from '../themes/styles';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
 
@@ -58,7 +59,8 @@ const {
 const navigation = await getPublicNavigation(locale);
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
-const activeTheme = await resolveTheme();
+const activeTheme = await resolveTheme(settings?.theme_id);
+const themeCss = themeStylesheet(settings?.theme_id);
 const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();
@@ -143,6 +145,7 @@ const structuredData = robots.includes('noindex')
          script is not worth doubling the critical path again. -->
     <link rel="preload" href="/fonts/google-sans-thai-700-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/fonts.css" />
+    <link rel="stylesheet" href={themeCss} />
     {allowVisitorTheme && <ThemeScript />}
   </head>
   <activeTheme.Shell

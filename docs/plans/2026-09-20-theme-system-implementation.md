@@ -112,3 +112,23 @@ Three layers, then, each shipped on its own:
       contract.
 - [ ] **7.** Screenshots of `plain` at the three widths, to show the switch does something.
 - [ ] **8.** Commit.
+
+---
+
+## What layer 3 found out about layer 2
+
+Layer 2's stylesheet was imported by the theme's templates, and layer 2's verification --
+a clean selector diff and a correct-looking dev server -- said that worked. The production
+build said otherwise: nothing statically links a page to a theme, because a theme is reached
+only through the registry's dynamic import, so Vite attributed all of the theme CSS to the
+one bundle that names the registry statically, the admin's settings form. **The public pages
+shipped with no stylesheet and the settings screen shipped with both themes'.**
+
+Neither check could have caught it. The selector diff reads every stylesheet in the build at
+once, so a rule in the wrong bundle is still a rule it finds. The dev server resolves styles
+through the module graph as it renders, which the build does not.
+
+`src/themes/styles.ts` asks Vite for each stylesheet's URL instead, and the page links it.
+The lesson for the remaining layers, and for the plugin work after them: **a check that reads
+the build as a whole cannot see which page a thing landed on.** Where that matters, look at
+the page.

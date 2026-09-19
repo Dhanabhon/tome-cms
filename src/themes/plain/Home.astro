@@ -1,0 +1,48 @@
+---
+import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
+import { postExcerpt } from '../../lib/posts';
+import type { ThemeHomeProps } from '../contract';
+
+interface Props extends ThemeHomeProps {}
+
+const { activeCategory, categories, loadError, locale, nextCursor, posts, tagline, timezone } = Astro.props;
+const copy = publicCopy(locale);
+const unavailable = locale === 'th'
+  ? 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง'
+  : 'Published posts are temporarily unavailable.';
+const home = localePath(locale);
+const formatter = new Intl.DateTimeFormat(dateLocale(locale), { dateStyle: 'long', timeZone: timezone });
+const olderHref = nextCursor
+  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), cursor: nextCursor })}`
+  : null;
+---
+
+<div class="plain-page">
+  {tagline && <p class="plain-tagline">{tagline}</p>}
+
+  {categories.length > 0 && (
+    <nav class="plain-filter" aria-label={copy.categories}>
+      <a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.allPosts}</a>
+      {categories.map(({ name }) => (
+        <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase() ? 'page' : undefined}>{name}</a>
+      ))}
+    </nav>
+  )}
+
+  <ol class="plain-list">
+    {posts.map((post) => {
+      const excerpt = postExcerpt(post, '');
+      const when = post.published_at ?? post.created_at;
+      return (
+        <li>
+          <h2><a href={postPath(post)}>{post.title}</a></h2>
+          <time datetime={when}>{formatter.format(new Date(when))}</time>
+          {excerpt && <p>{excerpt}</p>}
+        </li>
+      );
+    })}
+  </ol>
+
+  {olderHref && <p class="plain-more"><a href={olderHref}>{copy.allPosts} →</a></p>}
+  {loadError && <p role="alert">{unavailable}</p>}
+</div>

@@ -4,9 +4,10 @@ import Post from './Post.astro';
 import Shell from './Shell.astro';
 
 /**
- * The site as TomeCMS ships it: paper surfaces, hairline rules, one icon set.
+ * One column, the reader's own font, rules instead of surfaces.
  *
- * Named rather than called "default" because a default is a fallback, and this is a design.
+ * It ships to keep the contract honest: an interface with one implementation is a guess,
+ * and a theme switch with one option proves nothing.
  */
 export { manifest } from './theme';
 

@@ -35,7 +35,7 @@ try {
   availableLocales = [];
 }
 
-const activeTheme = await resolveTheme();
+const activeTheme = await resolveTheme(settings?.theme_id);
 const xDefaultHref = availableLocales.find((alternate) => alternate.locale === settings?.default_locale)?.href;
 ---
 

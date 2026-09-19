@@ -1,0 +1,18 @@
+---
+import { sanitizedContentHtmlSchema } from '../../lib/editor-content';
+import { publicCopy } from '../../lib/i18n';
+import type { ThemePageProps } from '../contract';
+
+interface Props extends ThemePageProps {}
+
+const { page, preview } = Astro.props;
+// Keep the document title as the only h1, including when the body contains heading blocks.
+const contentHtml = sanitizedContentHtmlSchema.parse(page.content_html).replace(/<(\/?)h1>/g, '<$1h2>');
+const copy = publicCopy(page.locale);
+---
+
+<article class="plain-page plain-article">
+  {preview && <p class="plain-draft">{copy.draftPreview}</p>}
+  <h1>{page.title}</h1>
+  <div class="plain-body" set:html={contentHtml} />
+</article>
