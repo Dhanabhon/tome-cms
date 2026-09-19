@@ -1118,6 +1118,9 @@ body {
   padding-block: var(--space-lg);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
+/* The row an action is working on: dimmed, the way the public feed marks a filter change,
+ * and nothing spinning inside a menu that is ten characters wide. */
+.admin-story-row[aria-busy="true"] { opacity: 0.6; transition: opacity var(--dur-short) var(--ease-out); }
 .admin-story-cover {
   display: grid;
   aspect-ratio: 1;

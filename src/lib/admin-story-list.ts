@@ -126,6 +126,9 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     const row = button.closest<HTMLElement>('.admin-story-edition') ?? button.closest<HTMLElement>('.admin-story-row');
     const card = button.closest<HTMLElement>('.admin-story-row');
     button.disabled = true;
+    // The menu closes as it is clicked, so a disabled item inside it is not visible for
+    // long. The card says it instead, the way the public feed marks a filter change.
+    card?.setAttribute('aria-busy', 'true');
     if (message) message.hidden = true;
 
     const failure = async (response: Response) => {
@@ -175,6 +178,7 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
         reconcile(row, record, entity, format, copy);
         row.querySelector<HTMLDetailsElement>('.admin-story-menu')?.removeAttribute('open');
         button.disabled = false;
+        card?.removeAttribute('aria-busy');
       }
     } catch (error) {
       if (message) {
@@ -182,6 +186,7 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
         message.hidden = false;
       }
       button.disabled = false;
+      card?.removeAttribute('aria-busy');
     }
   });
 }

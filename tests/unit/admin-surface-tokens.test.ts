@@ -307,3 +307,12 @@ test('every control that starts a request reports it', () => {
   assert.doesNotMatch(settings, /\{saving \? copy\.settings\.saving : copy\.settings\.save\}/);
   assert.match(settings, /role="status">\{saving \? copy\.settings\.saving/);
 });
+
+test('a row that is working dims rather than spinning inside its menu', () => {
+  // A spinner inside a menu item is noise in a 10rem box, and the menu closes as you
+  // click it -- so the card or row the action belongs to carries the state instead.
+  assert.match(CSS, /\.admin-story-row\[aria-busy="true"\] \{[^}]*opacity: 0\.6/);
+  const list = read('src/lib/admin-story-list.ts');
+  assert.match(list, /card\?\.setAttribute\('aria-busy', 'true'\)/);
+  assert.match(list, /card\?\.removeAttribute\('aria-busy'\)/);
+});
