@@ -1,59 +1,79 @@
 {
   "color": {
-    "Surface Base": {
+    "Paper": {
       "$type": "color",
-      "$value": "#f2f8f7",
-      "$description": "Primary page background and quiet application surfaces"
+      "$value": "#f7f6f2",
+      "$description": "Warm editorial page background"
     },
-    "Surface White": {
+    "Surface": {
       "$type": "color",
       "$value": "#ffffff",
-      "$description": "Navigation dropdown panels, card surfaces, modal overlays"
+      "$description": "Raised cards, inputs, dialogs, and sidebar surfaces"
     },
-    "Surface Mint": {
+    "Soft": {
       "$type": "color",
-      "$value": "#c5e5e4",
-      "$description": "Selected states, quiet highlights, and branded soft surfaces"
+      "$value": "#ebebe5",
+      "$description": "Recessed and hover surfaces"
     },
-    "Hero Evergreen": {
+    "Line": {
       "$type": "color",
-      "$value": "#0f3d3a",
-      "$description": "Dark hero, editor code, and grounded navigation surfaces"
+      "$value": "#d9dcd3",
+      "$description": "Hairline dividers and borders"
     },
-    "Accent Teal": {
+    "Ink": {
       "$type": "color",
-      "$value": "#236a67",
-      "$description": "Primary CTA fill and links; passes WCAG AA against white and mint surfaces"
+      "$value": "#101317",
+      "$description": "Primary body text and headings"
     },
-    "Focus Teal": {
+    "Muted": {
       "$type": "color",
-      "$value": "#498f8c",
-      "$description": "Focus rings and non-text brand accents from the reference artwork"
+      "$value": "#61665f",
+      "$description": "Secondary text"
     },
-    "Text Primary": {
+    "Night": {
       "$type": "color",
-      "$value": "#0a0c0c",
-      "$description": "Body text, headings, nav labels; dominant text color across all zones"
+      "$value": "#181d19",
+      "$description": "Dark-mode page, hero, and code surfaces"
     },
-    "Text Muted": {
+    "Dim": {
       "$type": "color",
-      "$value": "#4d6865",
-      "$description": "Placeholder text and tertiary labels; passes WCAG AA against white, base, and mint surfaces"
+      "$value": "#acb3a8",
+      "$description": "Secondary text on dark surfaces"
     },
-    "Text Medium": {
+    "Skeleton Shine": {
       "$type": "color",
-      "$value": "#526e6b",
-      "$description": "Secondary copy and icon states"
+      "$value": "#ffffff",
+      "$description": "The highlight that sweeps a loading skeleton; lighter than Soft in either theme (#3e443f in dark)"
     },
-    "Border Subtle": {
+    "Brand Green": {
       "$type": "color",
-      "$value": "#0f3d3a",
-      "$description": "Hairline dividers mixed at 10% and strong borders mixed at 26%"
+      "$value": "#2e7d5b",
+      "$description": "Master logo fold and primary action colour"
     },
-    "Accent Red": {
+    "Brand Green Deep": {
       "$type": "color",
-      "$value": "#f64932",
-      "$description": "Warning/error states, status tags; maps to --color-red-500"
+      "$value": "#256b4e",
+      "$description": "Light-mode hover, links, icons, and focus rings"
+    },
+    "Brand Green Light": {
+      "$type": "color",
+      "$value": "#69b98e",
+      "$description": "Dark-mode brand accents, links, focus, and positive state"
+    },
+    "Brand Green Soft": {
+      "$type": "color",
+      "$value": "#b9d8c8",
+      "$description": "Selection and soft focus washes"
+    },
+    "Status Green": {
+      "$type": "color",
+      "$value": "#e6efea",
+      "$description": "Published status pill; Brand Green at 12% over Surface (#2f3e33 in dark)"
+    },
+    "Error": {
+      "$type": "color",
+      "$value": "#be2038",
+      "$description": "Danger and error state"
     }
   },
   "typography": {
