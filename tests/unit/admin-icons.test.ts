@@ -38,3 +38,7 @@ test('both icon components draw the same svg', () => {
   assert.match(react, /strokeWidth=\{1\.5\}/, 'react: stroke width');
   assert.match(react, /strokeLinecap="round"/, 'react: line cap');
 });
+
+test('the menu editor has the icons it draws', () => {
+  for (const name of ['grip', 'up', 'down', 'trash'] as const) assert.ok(ADMIN_ICONS[name], `no icon for ${name}`);
+});
