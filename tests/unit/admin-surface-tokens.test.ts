@@ -49,12 +49,11 @@ test('an admin page title is semibold', () => {
   assert.equal(declaration(ruleBody(CSS, '.admin-page__head h1'), 'font-weight'), '600');
 });
 
-test('a tab count is the same badge as a sidebar count', () => {
-  const tab = ruleBody(CSS, '.admin-tab-count');
-  assert.equal(declaration(tab, 'border-radius'), 'var(--radius-pill)');
-  assert.equal(declaration(tab, 'background'), 'var(--color-paper-3)');
-  // Both badges count the same kind of thing, so they read at the same size.
-  assert.equal(declaration(tab, 'font-size'), declaration(ruleBody(CSS, '.admin-nav-count'), 'font-size'));
+test('a tab count adds only what a tab needs', () => {
+  // It is the shared badge, so its own rule may only carry the two things a tab changes:
+  // tighter sides, and no more weight than the label beside it. Matched as written rather
+  // than through ruleBody, which would find the shared rule this selector also ends.
+  assert.match(CSS, /\n\.admin-tab-count \{ padding-inline: var\(--space-2xs\); font-weight: 400; \}/);
 });
 
 test('the search field is a shared wrapper, not a top bar detail', () => {
@@ -178,4 +177,14 @@ test('a menu item is handled with icons that keep their words', () => {
     assert.match(manager, new RegExp(`title=\\{copy\\.navigation\\.${label}\\}`), `${label} lost its title`);
   }
   assert.match(manager, /className="admin-empty navigation-empty"/, 'the empty menu is not the shared empty state');
+});
+
+test('a count is one badge, wherever it is counted', () => {
+  const badge = ruleBody(CSS, '.admin-count,\n.admin-nav-count,\n.admin-tab-count');
+  assert.equal(declaration(badge, 'border-radius'), 'var(--radius-pill)');
+  assert.equal(declaration(badge, 'background'), 'var(--color-paper-3)');
+  // The number is shown; the sentence it came from stays as the label.
+  const manager = read('src/components/admin/CategoryManager.tsx');
+  assert.match(manager, /className="admin-count"/, 'the category count is not a badge');
+  assert.match(manager, /aria-label=\{postCountLabel\(copy, category\.postCount\)\}/, 'the count lost its words');
 });
