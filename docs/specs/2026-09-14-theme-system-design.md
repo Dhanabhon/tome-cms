@@ -37,7 +37,7 @@ Swap the values in `installer-tokens.css` for another measured set. Structure, l
 and components stay exactly as they are.
 
 - **Reaches:** a different feel, quickly. The current repaint from teal-and-mint to
-  paper-and-tomato was one file of values plus nine declarations, which is the evidence
+  paper-and-green was one file of values plus nine declarations, which is the evidence
   that this tier works.
 - **The hard part is not the swap, it is the proof.** Every palette has to clear
   `tests/unit/theme-contrast.test.ts` in both light and dark, and the pairs are pinned
