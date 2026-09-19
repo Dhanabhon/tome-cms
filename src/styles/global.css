@@ -971,14 +971,19 @@ body {
 .admin-button[data-state="error"] { border-color: var(--color-error); color: var(--color-error-ink); }
 .admin-button[data-state="success"] { border-color: var(--color-green); }
 
-.admin-post-tabs {
+/* One set of tab rules for the whole admin. Posts and Pages tab with links; the menu
+ * editor tabs with real ARIA tabs, which are buttons -- so the shared rule resets what a
+ * button brings with it and both end up as words with an underline. */
+.admin-post-tabs,
+.navigation-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-lg);
   margin-block-start: var(--space-xl);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
-.admin-post-tabs a {
+.admin-post-tabs a,
+.navigation-tabs [role="tab"] {
   display: inline-flex;
   /* A flex container drops whitespace-only text nodes, so the space between the label
    * and its count has to be a gap or the two run together. */
@@ -988,11 +993,19 @@ body {
   align-items: center;
   justify-content: center;
   padding-inline: var(--space-xs);
+  border: 0;
   border-block-end: 2px solid transparent;
+  background: none;
   color: var(--color-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
   text-decoration: none;
 }
-.admin-post-tabs a[aria-current="page"] { border-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
+.admin-post-tabs a[aria-current="page"],
+.navigation-tabs [aria-selected="true"] { border-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
+.navigation-tabs [role="tab"]:disabled { cursor: not-allowed; opacity: 0.55; }
+.navigation-tab { min-width: 0; }
 /* A title filter is a few words, so the field is capped and the row packs left. Left to
  * grow it took every pixel the others did not -- 696px at 1024, the widest control on
  * the page, for a box you type "slow" into. */
@@ -1993,14 +2006,13 @@ body {
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 
 .navigation-manager { min-width: 0; }
-.navigation-tabs, .navigation-save, .navigation-item__actions, .navigation-dialog__actions {
+.navigation-save, .navigation-item__actions, .navigation-dialog__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
 }
 .navigation-tabs { margin-block-end: var(--space-md); }
-.navigation-tabs [aria-selected="true"] { border-color: var(--color-accent); background: var(--color-paper-3); }
 .navigation-dirty { font-size: var(--text-xs); color: var(--color-muted); }
 .navigation-status { min-height: 1.5em; margin-block: var(--space-md); color: var(--color-muted); }
 /* One frame around the run, rows divided inside it -- the same shape the pages list

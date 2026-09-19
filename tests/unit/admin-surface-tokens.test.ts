@@ -155,3 +155,13 @@ test('the details dialog uses the admin controls', () => {
   assert.match(dialog, /className="admin-button admin-button--primary"/, 'save is not the primary button');
   assert.match(dialog, /className="admin-button admin-button--danger"/, 'delete is not the danger button');
 });
+
+test('every set of tabs in the admin is drawn the same way', () => {
+  // Posts and Pages tab with links; the menu editor tabs with real ARIA tabs. Different
+  // elements, one look -- otherwise the same control is two controls on two screens.
+  const tabs = ruleBody(CSS, '.admin-post-tabs,\n.navigation-tabs');
+  assert.match(tabs, /border-block-end: var\(--rule-hair\) solid var\(--color-rule\)/);
+  const item = ruleBody(CSS, '.admin-post-tabs a,\n.navigation-tabs [role="tab"]');
+  assert.equal(declaration(item, 'min-height'), 'var(--control-height)');
+  assert.match(read('src/components/admin/NavigationManager.tsx'), /className="navigation-tab"/, 'the tabs are still admin-buttons');
+});
