@@ -107,7 +107,15 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
             <button class="admin-button" type="submit">{copy.filters.apply}</button>
           </form>
           <p class="admin-alert" data-page-error role="alert" hidden></p>
-          <div class:list={['admin-story-list', stories.length && 'admin-story-panel']}>
+          <div class:list={['admin-story-list', stories.length && 'admin-story-panel admin-page-list']}>
+            {stories.length > 0 && (
+              <div class="admin-page-head" aria-hidden="true">
+                <span>{copy.pages.columnPage}</span>
+                <span>{copy.pages.columnStatus}</span>
+                <span>{copy.pages.columnDate}</span>
+                <span></span>
+              </div>
+            )}
             {stories.map((story) => {
               const newest = story.editions.reduce((latest, edition) => edition.updated_at > latest.updated_at ? edition : latest);
               const timestamp = newest.status === 'published' ? newest.published_at ?? newest.updated_at : newest.updated_at;
@@ -119,15 +127,15 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                       const title = edition.title.trim() || copy.pages.untitled;
                       const label = `${title} (${edition.locale.toUpperCase()})`;
                       return (
-                        <div class:list={['admin-story-edition', index === 0 && 'admin-story-edition--lead']}>
+                        <div class:list={['admin-story-edition', index === 0 && 'admin-story-edition--lead']} style={`--edition-row: ${index + 1}`}>
                           <a class="admin-story-edition__link" href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>
                             <span class="admin-locale">{edition.locale.toUpperCase()}</span>
                             {index === 0
                               ? <h2 class="admin-story-edition__title">{title}</h2>
                               : <span class="admin-story-edition__title">{title}</span>}
-                            <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
                             <span class="admin-page-path">/{edition.locale}/{edition.slug}</span>
                           </a>
+                          <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
                           <details class="admin-story-menu">
                             <summary aria-label={`${copy.pages.actionsFor} ${label}`}><AdminIcon name="more" /></summary>
                             <div>
@@ -141,8 +149,8 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                         </div>
                       );
                     })}
-                    {missing.map((candidate) => (
-                      <a class="admin-story-start" href={adminHref(adminSettings, `/pages/new?${new URLSearchParams({ sourcePageId: story.primary.id, locale: candidate })}`)}>
+                    {missing.map((candidate, offset) => (
+                      <a class="admin-story-start" href={adminHref(adminSettings, `/pages/new?${new URLSearchParams({ sourcePageId: story.primary.id, locale: candidate })}`)} style={`--edition-row: ${story.editions.length + offset + 1}`}>
                         <span class="admin-locale">{candidate.toUpperCase()}</span>
                         <span class="admin-story-edition__title">{copy.row.missing}</span>
                       </a>

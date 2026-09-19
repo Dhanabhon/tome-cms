@@ -405,6 +405,9 @@ const en = {
   },
   pages: {
     actionsFor: 'Actions for',
+    columnDate: 'Date',
+    columnPage: 'Page',
+    columnStatus: 'Status',
     createFirst: 'Create first page',
     deleteMessage: 'This edition and its menu references will be permanently removed. Other language editions will stay saved. This cannot be undone.',
     deleteTitle: 'Delete page?',
@@ -940,6 +943,9 @@ const th: typeof en = {
   },
   pages: {
     actionsFor: 'การจัดการของ',
+    columnDate: 'วันที่',
+    columnPage: 'หน้า',
+    columnStatus: 'สถานะ',
     createFirst: 'สร้างหน้าแรก',
     deleteMessage: 'ฉบับภาษานี้และการอ้างอิงในเมนูจะถูกลบถาวร ฉบับภาษาอื่นยังอยู่ครบ และไม่สามารถย้อนกลับได้',
     deleteTitle: 'ลบหน้านี้?',
