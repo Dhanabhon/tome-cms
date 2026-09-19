@@ -16,7 +16,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { ACCEPTED_IMAGE_TYPES } from '../../lib/media';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder, PostLocale } from '../../types/cms';
-import AdminIcon from './AdminIcon';
+import Icon from '../Icon';
 import UiSelect from './UiSelect';
 
 type MediaLibraryProps = { ownerLocale?: PostLocale | null } & (
@@ -348,12 +348,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       <div className="media-toolbar">
         <label className="admin-search media-search">
           <span className="sr-only">{copy.media.searchFiles}</span>
-          <AdminIcon name="search" />
+          <Icon name="search" />
           <input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
         <div className="media-toolbar__end">
           <label aria-busy={uploading} className="admin-button admin-button--primary media-upload"><span>{copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
-          {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><AdminIcon name="close" /></button>}
+          {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><Icon name="close" /></button>}
         </div>
       </div>
 
@@ -374,7 +374,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}
           {!loading && !error && !items.length && (
             <div className="admin-empty media-empty">
-              <span className="admin-empty__mark" aria-hidden="true"><AdminIcon name="media" /></span>
+              <span className="admin-empty__mark" aria-hidden="true"><Icon name="media" /></span>
               <div><h2>{copy.media.emptyTitle}</h2><p>{copy.media.emptyBody}</p></div>
             </div>
           )}
@@ -385,7 +385,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         </div>
       </div>
 
-      {props.mode === 'manage' && <dialog aria-label={copy.media.imageDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><AdminIcon name="close" /></button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} /><label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>{copy.media.imageUrl}<input aria-label={copy.media.imageUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button className="admin-button admin-button--primary" onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button className="admin-button admin-button--danger" disabled={deleting} onClick={() => void deleteSelected(true)} type="button">{deleting ? copy.media.deleting : copy.media.delete}</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{!referencingPosts.length && !referencingPages.length && !profileReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
+      {props.mode === 'manage' && <dialog aria-label={copy.media.imageDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><Icon name="close" /></button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} /><label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>{copy.media.imageUrl}<input aria-label={copy.media.imageUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button className="admin-button admin-button--primary" onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button className="admin-button admin-button--danger" disabled={deleting} onClick={() => void deleteSelected(true)} type="button">{deleting ? copy.media.deleting : copy.media.delete}</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{!referencingPosts.length && !referencingPages.length && !profileReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
     </section>
   );
 }

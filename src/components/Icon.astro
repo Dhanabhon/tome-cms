@@ -1,15 +1,15 @@
 ---
-import { ADMIN_ICONS, type AdminIconName } from '../../lib/admin-icons';
+import { ICONS, type IconName } from '../lib/icons';
 
 interface Props {
-  name: AdminIconName;
+  name: IconName;
 }
 
 const { name } = Astro.props;
 ---
 
 <svg
-  class="admin-icon"
+  class="icon"
   aria-hidden="true"
   fill="none"
   stroke="currentColor"
@@ -17,5 +17,5 @@ const { name } = Astro.props;
   stroke-linejoin="round"
   stroke-width="1.5"
   viewBox="0 0 24 24"
-  set:html={ADMIN_ICONS[name]}
+  set:html={ICONS[name]}
 ></svg>

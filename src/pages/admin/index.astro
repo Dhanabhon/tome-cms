@@ -1,6 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import AdminIcon from '../../components/admin/AdminIcon.astro';
+import Icon from '../../components/Icon.astro';
 import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
@@ -168,7 +168,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             return (
               <article class="admin-story-row" aria-label={story.primary.title.trim() || copy.posts.untitled}>
                 <div class="admin-story-cover" aria-hidden="true">
-                  {cover ? <img src={cover} alt="" loading="lazy" /> : <AdminIcon name="posts" />}
+                  {cover ? <img src={cover} alt="" loading="lazy" /> : <Icon name="posts" />}
                 </div>
                 <div class="admin-story-content">
                   {badges.length > 0 && (
@@ -189,7 +189,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                           <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
                         </a>
                         <details class="admin-story-menu">
-                          <summary aria-label={`${copy.posts.actionsFor} ${label}`}><AdminIcon name="more" /></summary>
+                          <summary aria-label={`${copy.posts.actionsFor} ${label}`}><Icon name="more" /></summary>
                           <div>
                             <a href={adminHref(adminSettings, `/edit/${edition.id}`)}>{copy.row.edit}</a>
                             <a href={adminPreviewHref(adminSettings, 'post', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
@@ -209,14 +209,14 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                   ))}
                 </div>
                 <div class="admin-story-foot">
-                  <span data-story-when><AdminIcon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                  <span data-story-when><Icon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                 </div>
               </article>
             );
           })}
           {!stories.length && (
             <div class="admin-empty">
-              <span class="admin-empty__mark" aria-hidden="true"><AdminIcon name="posts" /></span>
+              <span class="admin-empty__mark" aria-hidden="true"><Icon name="posts" /></span>
               <div><h2>{posts.length ? copy.posts.noMatchTitle : copy.posts.emptyTitle}</h2><p>{posts.length ? copy.posts.noMatchBody : copy.posts.emptyBody}</p></div>
               {!posts.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/new')}>{copy.posts.createFirst}</a>}
             </div>

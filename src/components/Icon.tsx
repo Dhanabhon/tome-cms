@@ -1,23 +1,23 @@
-import { ADMIN_ICONS, type AdminIconName } from '../../lib/admin-icons';
+import { ICONS, type IconName } from '../lib/icons';
 
-interface AdminIconProps {
-  name: AdminIconName;
+interface IconProps {
+  name: IconName;
 }
 
 /**
- * The twin of AdminIcon.astro, for the screens that render in the browser.
+ * The twin of Icon.astro, for the screens that render in the browser.
  *
  * The paths come from a module constant and never from anything the owner or a visitor
  * typed, which is what makes setting them as HTML safe here -- the same reason the Astro
  * component can use `set:html`. Both renderers are pinned to the same attributes by
- * tests/unit/admin-icons.test.ts.
+ * tests/unit/icons.test.ts.
  */
-export default function AdminIcon({ name }: AdminIconProps) {
+export default function Icon({ name }: IconProps) {
   return (
     <svg
       aria-hidden="true"
-      className="admin-icon"
-      dangerouslySetInnerHTML={{ __html: ADMIN_ICONS[name] }}
+      className="icon"
+      dangerouslySetInnerHTML={{ __html: ICONS[name] }}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

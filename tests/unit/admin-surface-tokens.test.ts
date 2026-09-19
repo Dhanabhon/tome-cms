@@ -93,7 +93,7 @@ test("an empty state shows its screen's icon in a soft circle", () => {
   assert.equal(declaration(mark, 'border'), undefined, 'a filled circle needs no outline');
   assert.equal(declaration(mark, 'color'), 'var(--color-muted)');
   for (const [page, icon] of [['src/pages/admin/index.astro', 'posts'], ['src/pages/admin/pages/index.astro', 'pages']] as const) {
-    assert.match(read(page), new RegExp(`admin-empty__mark[^>]*>\\s*<AdminIcon name="${icon}" />`), page);
+    assert.match(read(page), new RegExp(`admin-empty__mark[^>]*>\\s*<Icon name="${icon}" />`), page);
   }
 });
 
@@ -109,9 +109,9 @@ test('the list screens draw their marks instead of typing them', () => {
   for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
     const source = read(page);
     assert.doesNotMatch(source, /[⋯✎]/, `${page} still types a glyph as an icon`);
-    assert.match(source, /<AdminIcon name="more" \/>/, `${page} has no row-menu icon`);
+    assert.match(source, /<Icon name="more" \/>/, `${page} has no row-menu icon`);
   }
-  assert.match(read('src/pages/admin/index.astro'), /<AdminIcon name="clock" \/>/, 'the card has no clock');
+  assert.match(read('src/pages/admin/index.astro'), /<Icon name="clock" \/>/, 'the card has no clock');
 });
 
 test('the page list keeps its phone layout and takes columns on a wide screen', () => {
@@ -127,7 +127,7 @@ test('the file library stands in the same frame as every other screen', () => {
   const library = read('src/components/admin/MediaLibrary.tsx');
   assert.match(library, /className="admin-page__head"/, 'media has no admin page head');
   assert.match(library, /className="admin-search/, 'the media search is not the shared field');
-  assert.match(library, /<AdminIcon name="search" \/>/, 'the media search has no magnifier');
+  assert.match(library, /<Icon name="search" \/>/, 'the media search has no magnifier');
   // The page frame belongs to the manage mode; the picker is a dialog and has no page.
   assert.match(library, /props\.mode === 'manage' && \(\s*<div className="admin-page__head">/, 'the frame is not conditional on the mode');
 });
@@ -140,7 +140,7 @@ test('the media surfaces are tokens, not utility chains', () => {
   // The empty state is the one the lists use, icon and all.
   const library = read('src/components/admin/MediaLibrary.tsx');
   assert.match(library, /className="admin-empty media-empty"/);
-  assert.match(library, /<AdminIcon name="media" \/>/);
+  assert.match(library, /<Icon name="media" \/>/);
 });
 
 test('the details dialog uses the admin controls', () => {
@@ -169,7 +169,7 @@ test('a menu item is handled with icons that keep their words', () => {
   const manager = read('src/components/admin/NavigationManager.tsx');
   assert.doesNotMatch(manager, /⠿/, 'the grip is still a typed character');
   for (const name of ['grip', 'up', 'down', 'trash']) {
-    assert.match(manager, new RegExp(`<AdminIcon name="${name}" />`), `no ${name} icon`);
+    assert.match(manager, new RegExp(`<Icon name="${name}" />`), `no ${name} icon`);
   }
   // An icon button says what it does to anyone who cannot see it.
   for (const label of ['moveUp', 'moveDown', 'remove']) {
@@ -192,7 +192,7 @@ test('a count is one badge, wherever it is counted', () => {
 test('a category row is handled with icons that keep their words', () => {
   const manager = read('src/components/admin/CategoryManager.tsx');
   for (const name of ['pencil', 'trash']) {
-    assert.match(manager, new RegExp(`<AdminIcon name="${name}" />`), `no ${name} icon`);
+    assert.match(manager, new RegExp(`<Icon name="${name}" />`), `no ${name} icon`);
   }
   for (const label of ['renameLabelFor', 'deleteLabelFor']) {
     assert.match(manager, new RegExp(`title=\\{fill\\(copy\\.categories\\.${label}`), `${label} lost its title`);
@@ -202,14 +202,14 @@ test('a category row is handled with icons that keep their words', () => {
 test('a passkey and an avatar are handled with the same icons as every other row', () => {
   const security = read('src/components/admin/SecurityManager.tsx');
   for (const name of ['pencil', 'trash']) {
-    assert.match(security, new RegExp(`<AdminIcon name="${name}" />`), `security has no ${name} icon`);
+    assert.match(security, new RegExp(`<Icon name="${name}" />`), `security has no ${name} icon`);
   }
   for (const label of ['renameLabelFor', 'deleteLabelFor']) {
     assert.match(security, new RegExp(`title=\\{fill\\(copy\\.security\\.${label}`), `${label} lost its title`);
   }
   // The avatar's remove is the same shape, and says what it removes.
   const profile = read('src/components/admin/ProfileForm.tsx');
-  assert.match(profile, /<AdminIcon name="trash" \/>/, 'the avatar remove is not an icon button');
+  assert.match(profile, /<Icon name="trash" \/>/, 'the avatar remove is not an icon button');
   assert.match(profile, /aria-label=\{copy\.profile\.removeAvatar\}/, 'the avatar remove has no label');
   // The panels inside a card take the card's corner, not a control's.
   for (const selector of ['.security-add', '.security-codes']) {
@@ -220,12 +220,12 @@ test('a passkey and an avatar are handled with the same icons as every other row
 test('a settings drawer closes and removes the way every panel does', () => {
   for (const drawer of ['PostSettingsDrawer', 'PageSettingsDrawer']) {
     const source = read(`src/components/admin/${drawer}.tsx`);
-    assert.match(source, /className="admin-button admin-button--ghost admin-button--icon"[\s\S]{0,200}<AdminIcon name="close" \/>/, `${drawer} does not close with the close icon`);
+    assert.match(source, /className="admin-button admin-button--ghost admin-button--icon"[\s\S]{0,200}<Icon name="close" \/>/, `${drawer} does not close with the close icon`);
     assert.match(source, /aria-label=\{copy\.drawer\.closeSettings\}/, `${drawer} lost its close label`);
   }
   // The cover's remove is the bin the avatar and the passkey use.
   const post = read('src/components/admin/PostSettingsDrawer.tsx');
-  assert.match(post, /<AdminIcon name="trash" \/>/, 'the cover remove is not an icon button');
+  assert.match(post, /<Icon name="trash" \/>/, 'the cover remove is not an icon button');
   assert.match(post, /aria-label=\{copy\.drawer\.removeCover\}/, 'the cover remove has no label');
 });
 

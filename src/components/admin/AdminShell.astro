@@ -1,9 +1,8 @@
 ---
 import ThemeToggle from '../ThemeToggle.astro';
-import AdminIcon from './AdminIcon.astro';
-import { adminHref, normalizeAdminPath, postSearchState } from '../../lib/admin';
+import Icon from '../Icon.astro';
+import { adminHref, normalizeAdminPath, postSearchState, type AdminNavId } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
-import type { AdminNavId } from '../../lib/admin-icons';
 import { countAdminStories, type AdminStoryCounts } from '../../server/content/admin-counts';
 import { getSiteSettings } from '../../server/content/settings';
 import type { PostLocale } from '../../types/cms';
@@ -89,7 +88,7 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
       <Container class={mobile ? 'admin-mobile-nav' : 'admin-sidebar'} id={mobile ? 'admin-mobile-navigation' : undefined} aria-label={copy.shell.navigationLabel}>
         {mobile && (
           <button class="admin-button admin-button--ghost admin-button--icon admin-shell-close" type="button" data-nav-close autofocus aria-label={copy.shell.closeNavigation}>
-            <AdminIcon name="close" />
+            <Icon name="close" />
           </button>
         )}
         <a class="admin-shell-brand" href={adminHref(adminSettings)}>
@@ -97,7 +96,7 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
         </a>
         <div class="admin-shell-site">
           <span class="admin-shell-site__name" title={siteName}>{siteName}</span>
-          <a class="admin-shell-site__view" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}><AdminIcon name="external" /></a>
+          <a class="admin-shell-site__view" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}><Icon name="external" /></a>
         </div>
         <nav aria-label={copy.nav.label}>
           {groups.map((group) => {
@@ -109,7 +108,7 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
                 <h2 class="admin-nav-group" id={headingId}>{group.label}</h2>
                 {group.links.map((link) => (
                   <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>
-                    <AdminIcon name={link.id} />
+                    <Icon name={link.id} />
                     <span class="admin-nav-label">{link.label}</span>
                     {link.count !== undefined && <span class="admin-nav-count">{link.count}</span>}
                   </a>
@@ -130,7 +129,7 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
             {userEmail && <span class="admin-shell-avatar" aria-hidden="true">{ownerInitial}</span>}
             {userEmail && <span class="admin-shell-email" title={userEmail}>{userEmail}</span>}
             <button class="admin-button admin-button--ghost admin-button--icon admin-shell-signout" type="button" data-sign-out aria-label={copy.shell.signOut} title={copy.shell.signOut}>
-              <AdminIcon name="signOut" />
+              <Icon name="signOut" />
             </button>
           </div>
           <p class="admin-form-error" data-sign-out-error role="alert"></p>
@@ -141,20 +140,20 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
   <div class="admin-shell-main">
     <header class="admin-topbar" data-search-open={search.query ? '' : undefined}>
       <button class="admin-button admin-button--ghost admin-button--icon admin-topbar__menu" type="button" data-nav-open aria-label={copy.shell.openNavigation} aria-controls="admin-mobile-navigation" aria-expanded="false">
-        <AdminIcon name="menu" />
+        <Icon name="menu" />
       </button>
-      <p class="admin-topbar__title"><AdminIcon name={active} /><span>{title ?? currentLabel}</span></p>
+      <p class="admin-topbar__title"><Icon name={active} /><span>{title ?? currentLabel}</span></p>
       <form class="admin-search admin-topbar__search" action={adminHref(adminSettings)} method="get" role="search">
         {search.hidden.map(([name, value]) => <input type="hidden" name={name} value={value} />)}
         <label class="sr-only" for="admin-topbar-search">{copy.shell.searchLabel}</label>
-        <AdminIcon name="search" />
+        <Icon name="search" />
         <input class="admin-control" id="admin-topbar-search" maxlength="100" name="q" placeholder={copy.shell.searchPlaceholder} type="search" value={search.query} />
       </form>
       <button class="admin-button admin-button--ghost admin-button--icon admin-topbar__search-toggle" type="button" data-search-toggle aria-controls="admin-topbar-search" aria-expanded={search.query ? 'true' : 'false'} aria-label={copy.shell.searchLabel}>
-        <AdminIcon name="search" />
+        <Icon name="search" />
       </button>
       <a class="admin-button admin-button--secondary admin-topbar__site" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel}>
-        <AdminIcon name="external" /><span>{copy.shell.viewSite}</span>
+        <Icon name="external" /><span>{copy.shell.viewSite}</span>
       </a>
     </header>
     <main class="admin-shell-content"><slot /></main>
