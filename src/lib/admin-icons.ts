@@ -31,6 +31,8 @@ export const ADMIN_ICONS = {
   external: '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   menu: '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>',
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   signOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
 } satisfies Record<string, string>;
 

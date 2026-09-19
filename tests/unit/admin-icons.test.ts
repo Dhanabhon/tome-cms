@@ -15,3 +15,9 @@ test('an icon is nothing but stroked shapes', () => {
     for (const element of elements) assert.match(element, /^(path|rect|circle)$/, `${name} uses <${element}>`);
   }
 });
+
+test('the list screens have the icons they draw', () => {
+  // A date and a row menu were a "⋯" and a "✎" typed into the markup: two glyphs whose
+  // weight and size come from whatever font renders them, beside thirteen drawn icons.
+  for (const name of ['clock', 'more'] as const) assert.ok(ADMIN_ICONS[name], `no icon for ${name}`);
+});
