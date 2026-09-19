@@ -112,7 +112,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
               <div class="admin-page-head" aria-hidden="true">
                 <span>{copy.pages.columnPage}</span>
                 <span>{copy.pages.columnStatus}</span>
-                <span>{copy.pages.columnDate}</span>
+                <span>{copy.pages.columnDate} ({settings?.timezone ?? 'UTC'})</span>
                 <span></span>
               </div>
             )}
@@ -157,7 +157,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                     ))}
                   </div>
                   <div class="admin-story-foot">
-                    <span data-story-when><AdminIcon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                    <span data-story-when><AdminIcon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time><span class="admin-story-tz"> ({settings?.timezone ?? 'UTC'})</span></span>
                   </div>
                 </article>
               );
