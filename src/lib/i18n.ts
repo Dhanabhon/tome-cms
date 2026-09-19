@@ -15,6 +15,19 @@ export const otherLocale = (locale: PostLocale): PostLocale => locale === 'th' ?
 export const dateLocale = (locale: PostLocale) => locale === 'th' ? 'th-TH' : 'en';
 
 /**
+ * This year, counted the way the reader counts it: 2569 on a Thai page, 2026 on an English
+ * one, so a footer never disagrees with the date above it.
+ *
+ * Only the year part is taken. Asking Intl for a Thai year returns "พ.ศ. 2569", and the era
+ * reads badly after a copyright sign -- while a date elsewhere on the page renders its year
+ * bare, as "19 กันยายน 2569".
+ */
+export function currentYear(locale: PostLocale, now = new Date()): string {
+  const parts = new Intl.DateTimeFormat(dateLocale(locale), { year: 'numeric' }).formatToParts(now);
+  return parts.find((part) => part.type === 'year')?.value ?? String(now.getFullYear());
+}
+
+/**
  * The words the public article surfaces say for themselves -- everything not written by the
  * owner. Declared here rather than in each component because five of them need the same
  * handful, and a Thai reader should not meet "Published" on a Thai page.

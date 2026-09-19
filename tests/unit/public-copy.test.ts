@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { publicCopy } from '../../src/lib/i18n';
+import { currentYear, publicCopy } from '../../src/lib/i18n';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
@@ -42,4 +42,14 @@ test('both locales answer with the same keys, and none was left untranslated', (
     assert.ok(value.trim().length > 0, `th.${key} is empty`);
     assert.notEqual(value, en[key as keyof typeof en], `th.${key} was never translated`);
   }
+});
+
+test('the year in the footer is the year in the article', () => {
+  // A Thai page showed "© 2026" under a date reading "19 กันยายน 2569": one page, two
+  // calendars. The era prefix Intl returns for a Thai year is dropped, because a date
+  // elsewhere on the page renders its year bare.
+  const now = new Date('2026-09-19T12:00:00Z');
+  assert.equal(currentYear('en', now), '2026');
+  assert.equal(currentYear('th', now), '2569');
+  assert.doesNotMatch(read('src/components/blog/Footer.astro'), /getFullYear/);
 });
