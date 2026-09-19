@@ -1,5 +1,5 @@
 ---
-import { localePath, publicCopy } from '../../lib/i18n';
+import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import type { Post, PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../types/cms';
 import AuthorBlock from './AuthorBlock.astro';
 import Icon from '../Icon.astro';
@@ -13,7 +13,7 @@ interface Props {
 }
 
 const { categories = [], post, preview = false, profile, settings } = Astro.props;
-const formatter = new Intl.DateTimeFormat(post.locale === 'th' ? 'th-TH' : 'en', {
+const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), {
   day: 'numeric',
   month: 'long',
   timeZone: settings.timezone,

@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { isPostLocale, localePath, postPath } from '../../lib/i18n';
+import { dateLocale, isPostLocale, localePath, postPath } from '../../lib/i18n';
 import { postExcerpt, readingMinutes } from '../../lib/posts';
 import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
@@ -85,7 +85,7 @@ const isCurrent = (name: string) => category?.toLocaleLowerCase() === name.toLoc
 const olderHref = nextCursor
   ? `${home}?${new URLSearchParams({ ...(category ? { category } : {}), cursor: nextCursor })}`
   : null;
-const dateFormatter = new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', {
+const dateFormatter = new Intl.DateTimeFormat(dateLocale(locale), {
   day: 'numeric',
   month: 'short',
   timeZone: settings?.timezone ?? 'UTC',
