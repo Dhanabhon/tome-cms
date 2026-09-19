@@ -975,19 +975,33 @@ body {
 .admin-button:disabled,
 .admin-nav__link:disabled,
 .admin-toolbar-link[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; transform: none; }
+.admin-button[aria-busy="true"]:disabled { opacity: 1; }
 /* One attribute for "working": the spinner and the announcement come from the same
  * aria-busy the controls already use. The label stays put underneath it, so a button
  * never changes width while you wait for it. */
-.admin-button[aria-busy="true"] { cursor: wait; }
+.admin-button[aria-busy="true"] {
+  position: relative;
+  cursor: wait;
+  /* The label keeps the button's width and stays there for a screen reader; it is the ink
+   * that goes, so the spinner can sit on top of it instead of beside it. A ring drawn in
+   * currentColor would vanish with the text, so the ring gets a colour of its own. */
+  color: transparent;
+}
 .admin-button[aria-busy="true"]::before {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
   width: var(--space-md);
   height: var(--space-md);
-  border: var(--space-3xs) solid currentColor;
+  margin: calc(var(--space-md) / -2) 0 0 calc(var(--space-md) / -2);
+  border: var(--space-3xs) solid var(--admin-busy-ring, var(--color-ink));
   border-block-start-color: transparent;
   border-radius: 50%;
   animation: admin-spin 900ms linear infinite;
   content: "";
 }
+.admin-button--primary[aria-busy="true"] { --admin-busy-ring: var(--color-accent-ink); }
+.admin-button--danger[aria-busy="true"] { --admin-busy-ring: var(--color-error-ink); }
 .admin-button[data-state="error"] { border-color: var(--color-error); color: var(--color-error-ink); }
 .admin-button[data-state="success"] { border-color: var(--color-green); }
 
@@ -2022,7 +2036,7 @@ body {
   .admin-button,
   .admin-auth-brand,
   .admin-auth-nav__link { transform: none !important; }
-  .admin-button[aria-busy="true"]::before { animation: none; border-block-start-color: currentColor; }
+  .admin-button[aria-busy="true"]::before { animation: none; border-block-start-color: var(--admin-busy-ring, var(--color-ink)); }
 }
 
 @keyframes admin-spin { to { transform: rotate(360deg); } }
