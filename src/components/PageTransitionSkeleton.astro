@@ -59,7 +59,7 @@ const kinds: AdminSkeletonKind[] = ['posts', 'pages', 'list', 'media', 'form', '
     const before = [...title.childNodes];
     const label = document.createElement('span');
     label.textContent = link.querySelector('.admin-nav-label')?.textContent ?? '';
-    const icon = link.querySelector('.admin-icon')?.cloneNode(true);
+    const icon = link.querySelector('.icon')?.cloneNode(true);
     title.replaceChildren(...(icon ? [icon] : []), label);
     restoreTitle = () => title.replaceChildren(...before);
   };

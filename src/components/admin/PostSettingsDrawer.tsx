@@ -5,7 +5,7 @@ import { postPath } from '../../lib/i18n';
 import { COVER_IMAGE_GUIDANCE, MAX_IMAGE_BYTES } from '../../lib/media';
 import type { MediaAsset, PostCategory, PostLocale } from '../../types/cms';
 import MediaPicker from './MediaPicker';
-import AdminIcon from './AdminIcon';
+import Icon from '../Icon';
 
 interface PostSettingsDrawerProps {
   categories: PostCategory[];
@@ -60,7 +60,7 @@ export default function PostSettingsDrawer({
     }} ref={dialog}>
       <div className="admin-editor-settings__head">
         <div><h2>{copy.drawer.postSettings}</h2><p>{copy.drawer.postSettingsHint}</p></div>
-        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--ghost admin-button--icon" onClick={onClose} ref={closeButton} title={copy.drawer.closeSettings} type="button"><AdminIcon name="close" /></button>
+        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--ghost admin-button--icon" onClick={onClose} ref={closeButton} title={copy.drawer.closeSettings} type="button"><Icon name="close" /></button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
 
@@ -104,7 +104,7 @@ export default function PostSettingsDrawer({
             <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setCoverPickerOpen(true)} ref={coverButton} type="button">
               {coverImage ? copy.drawer.changeImage : copy.drawer.chooseImage}
             </button>
-            {coverImage && <button aria-label={copy.drawer.removeCover} className="admin-button admin-button--ghost admin-button--icon admin-cover-remove" onClick={() => onChangeCover(null)} title={copy.drawer.removeCover} type="button"><AdminIcon name="trash" /></button>}
+            {coverImage && <button aria-label={copy.drawer.removeCover} className="admin-button admin-button--ghost admin-button--icon admin-cover-remove" onClick={() => onChangeCover(null)} title={copy.drawer.removeCover} type="button"><Icon name="trash" /></button>}
           </div>
           <small className="admin-cover-help">
             {fill(copy.drawer.coverHelp, {

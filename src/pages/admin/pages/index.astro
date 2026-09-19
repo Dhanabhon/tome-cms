@@ -1,6 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import AdminIcon from '../../../components/admin/AdminIcon.astro';
+import Icon from '../../../components/Icon.astro';
 import AdminShell from '../../../components/admin/AdminShell.astro';
 import UiSelect from '../../../components/admin/UiSelect';
 import { adminHref, adminLoginPath, adminPreviewHref } from '../../../lib/admin';
@@ -137,7 +137,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                           </a>
                           <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
                           <details class="admin-story-menu">
-                            <summary aria-label={`${copy.pages.actionsFor} ${label}`}><AdminIcon name="more" /></summary>
+                            <summary aria-label={`${copy.pages.actionsFor} ${label}`}><Icon name="more" /></summary>
                             <div>
                               <a href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>{copy.row.edit}</a>
                               <a href={adminPreviewHref(adminSettings, 'page', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
@@ -157,14 +157,14 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                     ))}
                   </div>
                   <div class="admin-story-foot">
-                    <span data-story-when><AdminIcon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time><span class="admin-story-tz"> ({settings?.timezone ?? 'UTC'})</span></span>
+                    <span data-story-when><Icon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time><span class="admin-story-tz"> ({settings?.timezone ?? 'UTC'})</span></span>
                   </div>
                 </article>
               );
             })}
             {!stories.length && (
               <div class="admin-empty">
-                <span class="admin-empty__mark" aria-hidden="true"><AdminIcon name="pages" /></span>
+                <span class="admin-empty__mark" aria-hidden="true"><Icon name="pages" /></span>
                 <div><h2>{pages.length ? copy.pages.noMatchTitle : copy.pages.emptyTitle}</h2><p>{pages.length ? copy.pages.noMatchBody : copy.pages.emptyBody}</p></div>
                 {!pages.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.createFirst}</a>}
               </div>

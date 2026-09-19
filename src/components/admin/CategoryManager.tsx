@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { PostCategorySummary, PostLocale } from '../../types/cms';
-import AdminIcon from './AdminIcon';
+import Icon from '../Icon';
 
 interface CategoryManagerProps {
   initialCategories: PostCategorySummary[];
@@ -232,7 +232,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                             title={fill(copy.categories.renameLabelFor, { name: category.name })}
                             type="button"
                           >
-                            <AdminIcon name="pencil" />
+                            <Icon name="pencil" />
                           </button>
                           <button
                             aria-busy={pendingActionIds.has(deleteAction)}
@@ -243,7 +243,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                             title={fill(copy.categories.deleteLabelFor, { name: category.name })}
                             type="button"
                           >
-                            <AdminIcon name="trash" />
+                            <Icon name="trash" />
                           </button>
                         </div>
                         )}

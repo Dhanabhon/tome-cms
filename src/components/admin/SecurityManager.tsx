@@ -4,7 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
 import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
-import AdminIcon from './AdminIcon';
+import Icon from '../Icon';
 
 interface PasskeyView {
   id: string;
@@ -237,7 +237,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                       ref={(button) => { if (button) renameButtons.current.set(passkey.id, button); }}
                       title={fill(copy.security.renameLabelFor, { name: passkey.name })}
                       type="button"
-                    ><AdminIcon name="pencil" /></button>
+                    ><Icon name="pencil" /></button>
                     <button aria-busy={busy}
                       aria-label={fill(copy.security.deleteLabelFor, { name: passkey.name })}
                       className="admin-button admin-button--ghost admin-button--icon security-key__delete"
@@ -245,7 +245,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                       onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
                       title={fill(copy.security.deleteLabelFor, { name: passkey.name })}
                       type="button"
-                    ><AdminIcon name="trash" /></button>
+                    ><Icon name="trash" /></button>
                   </div>
                 </>
               )}
