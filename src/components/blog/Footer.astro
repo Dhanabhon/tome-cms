@@ -1,6 +1,6 @@
 ---
 import type { PublicNavigationItem } from '../../types/cms';
-import { publicCopy } from '../../lib/i18n';
+import { currentYear, publicCopy } from '../../lib/i18n';
 import type { PostLocale } from '../../types/cms';
 
 interface Props {
@@ -19,5 +19,5 @@ const copy = publicCopy(locale);
       <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
     </nav>
   )}
-  <p>&copy; {new Date().getFullYear()} {siteName}. {copy.allRightsReserved}</p>
+  <p>&copy; {currentYear(locale)} {siteName}. {copy.allRightsReserved}</p>
 </footer>
