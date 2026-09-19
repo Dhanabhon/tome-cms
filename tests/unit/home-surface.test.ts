@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
-const CSS = read('src/styles/global.css');
+// A public page loads the core stylesheet and the theme's, so that is what these rules
+// are read from: which of the two a rule ended up in is layer 2's business, not this test's.
+const CSS = `${read('src/styles/global.css')}\n${read('src/themes/paper/theme.css')}`;
 const HOME = read('src/themes/paper/Home.astro');
 
 /** The declarations of the first unindented rule whose selector list is exactly `selector`. */

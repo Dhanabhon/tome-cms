@@ -1,7 +1,7 @@
 ---
 import { z } from 'zod';
 
-import PageArticle from '../../../../themes/paper/parts/PageArticle.astro';
+import { resolveTheme } from '../../../../themes/registry';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../../../lib/admin-i18n';
 import { adminHref } from '../../../../lib/admin';
@@ -47,6 +47,8 @@ try {
   }
 }
 
+// A preview is what a reader will see, so the theme draws it.
+const activeTheme = await resolveTheme();
 const copy = adminCopy(ownerLocale);
 const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
@@ -59,7 +61,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
           <span>{copy.preview.draftPreview}</span>
           <a class="admin-button admin-button--secondary" href={adminHref({ admin_path: adminPath }, `/pages/edit/${page.id}`)}>{copy.preview.editPage}</a>
         </div>
-        <PageArticle page={page} preview />
+        <activeTheme.Page locale={page.locale} page={page} preview />
       </>
     ) : null}
   </main>
