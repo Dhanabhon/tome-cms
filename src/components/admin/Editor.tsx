@@ -312,7 +312,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
               event.currentTarget.focus();
               setSettingsOpen(true);
             }} type="button">{copy.nav.settings}</button>
-            <button className="admin-button admin-button--primary" data-state={saveState === 'saving' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
+            <button aria-busy={saveState === 'saving'} className="admin-button admin-button--primary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
               {postStatus === 'published' ? copy.editor.update : copy.row.publish}
             </button>
           </div>

@@ -247,7 +247,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
               })}
             </ol>
             <div className="navigation-save">
-              <button className="admin-button admin-button--primary" data-state={saving ? 'loading' : undefined} disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? copy.navigation.saving : copy.navigation.saveMenu}</button>
+              <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? copy.navigation.saving : copy.navigation.saveMenu}</button>
               <span>{dirty[key] ? copy.navigation.unsavedChanges : copy.navigation.noUnsavedChanges}</span>
             </div>
             {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
