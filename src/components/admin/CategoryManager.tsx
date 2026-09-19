@@ -220,7 +220,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                       {category.is_default && <span className="category-default">{copy.categories.defaultTag}</span>}
                     </div>
                     <div className="category-row__meta">
-                      <p>{postCountLabel(copy, category.postCount)}</p>
+                      <span aria-label={postCountLabel(copy, category.postCount)} className="admin-count">{category.postCount}</span>
                       {!category.is_default && (
                         <div className="category-actions">
                           <button
