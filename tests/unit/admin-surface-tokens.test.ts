@@ -216,3 +216,15 @@ test('a passkey and an avatar are handled with the same icons as every other row
     assert.equal(declaration(ruleBody(CSS, selector), 'border-radius'), 'var(--radius-card)', selector);
   }
 });
+
+test('a settings drawer closes and removes the way every panel does', () => {
+  for (const drawer of ['PostSettingsDrawer', 'PageSettingsDrawer']) {
+    const source = read(`src/components/admin/${drawer}.tsx`);
+    assert.match(source, /className="admin-button admin-button--ghost admin-button--icon"[\s\S]{0,200}<AdminIcon name="close" \/>/, `${drawer} does not close with the close icon`);
+    assert.match(source, /aria-label=\{copy\.drawer\.closeSettings\}/, `${drawer} lost its close label`);
+  }
+  // The cover's remove is the bin the avatar and the passkey use.
+  const post = read('src/components/admin/PostSettingsDrawer.tsx');
+  assert.match(post, /<AdminIcon name="trash" \/>/, 'the cover remove is not an icon button');
+  assert.match(post, /aria-label=\{copy\.drawer\.removeCover\}/, 'the cover remove has no label');
+});
