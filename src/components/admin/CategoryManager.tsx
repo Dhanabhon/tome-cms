@@ -177,7 +177,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
               value={createName}
             />
           </label>
-          <button className="admin-button admin-button--primary" disabled={pendingActionIds.has('create')} type="submit">
+          <button aria-busy={pendingActionIds.has('create')} className="admin-button admin-button--primary" disabled={pendingActionIds.has('create')} type="submit">
             {copy.categories.create}
           </button>
         </form>
@@ -203,7 +203,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                       />
                     </label>
                     <div className="category-edit-actions">
-                      <button className="admin-button admin-button--primary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
+                      <button aria-busy={pendingActionIds.has(renameAction)} className="admin-button admin-button--primary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
                       <button
                         className="admin-button"
                         disabled={pendingActionIds.has(renameAction)}
@@ -235,6 +235,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                             <AdminIcon name="pencil" />
                           </button>
                           <button
+                            aria-busy={pendingActionIds.has(deleteAction)}
                             aria-label={fill(copy.categories.deleteLabelFor, { name: category.name })}
                             className="admin-button admin-button--ghost admin-button--icon category-delete"
                             disabled={pendingActionIds.has(deleteAction)}

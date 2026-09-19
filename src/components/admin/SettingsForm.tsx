@@ -171,8 +171,8 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
       <div className="admin-save-bar">
-        <button className="admin-button admin-button--primary" type="submit" disabled={saving || !dirty}>{saving ? copy.settings.saving : copy.settings.save}</button>
-        <p role="status">{dirty && !saving ? copy.settings.unsaved : status}</p>
+        <button aria-busy={saving} className="admin-button admin-button--primary" type="submit" disabled={saving || !dirty}>{copy.settings.save}</button>
+        <p role="status">{saving ? copy.settings.saving : dirty ? copy.settings.unsaved : status}</p>
       </div>
     </form>
   );

@@ -190,7 +190,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         <h2>{copy.security.verifyOwner}</h2>
         <p>{copy.security.verifyHint}</p>
         <div className="security-actions">
-          <button className="admin-button admin-button--primary" disabled={busy} onClick={() => void signIn()} type="button">{copy.security.verifyWithPasskey}</button>
+          <button aria-busy={busy} className="admin-button admin-button--primary" disabled={busy} onClick={() => void signIn()} type="button">{copy.security.verifyWithPasskey}</button>
           <a className="admin-button admin-button--secondary" href="/recovery">{copy.security.recoverAccess}</a>
         </div>
         <p className="admin-form-error security-message" role="alert" aria-live="polite">{message}</p>
@@ -214,7 +214,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                     {copy.security.passkeyName}
                     <input autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
                   </label>
-                  <button className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.saveName}</button>
+                  <button aria-busy={busy} className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.saveName}</button>
                   <button
                     className="admin-button"
                     disabled={busy}
@@ -238,7 +238,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                       title={fill(copy.security.renameLabelFor, { name: passkey.name })}
                       type="button"
                     ><AdminIcon name="pencil" /></button>
-                    <button
+                    <button aria-busy={busy}
                       aria-label={fill(copy.security.deleteLabelFor, { name: passkey.name })}
                       className="admin-button admin-button--ghost admin-button--icon security-key__delete"
                       disabled={busy || passkeys.length < 2}
@@ -257,7 +257,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
             {copy.security.newPasskeyName}
             <input className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => setNewName(event.target.value)} required value={newName} />
           </label>
-          <button className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.addSpare}</button>
+          <button aria-busy={busy} className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.addSpare}</button>
         </form>
       </section>
 
@@ -266,11 +266,11 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
           <h2 id="recovery-codes-title">{copy.security.recoveryCodes}</h2>
           <p>{copy.security.regenerateWarning}</p>
         </header>
-        <button className="admin-button admin-button--secondary" disabled={busy} onClick={() => void regenerateCodes()} type="button">{copy.security.regenerate}</button>
+        <button aria-busy={busy} className="admin-button admin-button--secondary" disabled={busy} onClick={() => void regenerateCodes()} type="button">{copy.security.regenerate}</button>
         {recoveryCodes.length > 0 && (
           <div className="security-codes">
             <ol>{recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}</ol>
-            <button className="admin-button" onClick={() => void copyCodes()} type="button">{copy.security.copyCodes}</button>
+            <button aria-busy={busy} className="admin-button" onClick={() => void copyCodes()} type="button">{copy.security.copyCodes}</button>
           </div>
         )}
       </section>

@@ -250,7 +250,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
               <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? copy.navigation.saving : copy.navigation.saveMenu}</button>
               <span>{dirty[key] ? copy.navigation.unsavedChanges : copy.navigation.noUnsavedChanges}</span>
             </div>
-            {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
+            {saveError && <div className="admin-alert" role="alert">{saveError} <button aria-busy={saving} className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
           </div>
         </div>
       </>}

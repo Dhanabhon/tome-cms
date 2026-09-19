@@ -46,7 +46,7 @@ export default function PasskeySignIn({ adminPath = '/admin', ownerLocale, retur
     <form className="admin-auth__form" onSubmit={(event) => void signIn(event)} aria-busy={busy}>
       <p>{copy.auth.passkeyHint}</p>
       <p className="admin-form-error admin-auth__error" role="alert" aria-live="polite">{error}</p>
-      <button className="admin-button admin-button--primary admin-auth__submit" disabled={busy} type="submit">
+      <button aria-busy={busy} className="admin-button admin-button--primary admin-auth__submit" disabled={busy} type="submit">
         {busy ? copy.auth.checking : copy.auth.signIn}
       </button>
       <a className="admin-auth-nav__link" href="/recovery">{copy.auth.recoverAccess}</a>
