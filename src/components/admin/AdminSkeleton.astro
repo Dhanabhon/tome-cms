@@ -114,7 +114,13 @@ const filters = kind === 'posts' || kind === 'pages';
         )}
 
         {(kind === 'pages' || kind === 'list') && (
-          <div class="admin-story-panel admin-skeleton__panel">
+          <div class:list={['admin-story-panel', 'admin-skeleton__panel', kind === 'pages' && 'admin-page-list']}>
+            {kind === 'pages' && (
+              <div class="admin-page-head">
+                {[3, 4, 3].map((width) => <span class="skeleton-line" style={`--skeleton-width: ${width}rem`}></span>)}
+                <span></span>
+              </div>
+            )}
             {[45, 60, 35, 50, 40].map((width) => (
               <div class="admin-skeleton__row">
                 <span class="skeleton-line" style={`--skeleton-width: ${width}%`}></span>
