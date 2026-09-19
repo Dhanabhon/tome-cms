@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale, PostLocale } from '../../types/cms';
+import AdminIcon from './AdminIcon';
 import UiSelect from './UiSelect';
 
 type MenuKey = `${NavigationLocation}:${PageLocale}`;
@@ -204,7 +205,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     <section className="admin-page navigation-manager">
       <header className="admin-page__head">
         <div><h1>{copy.navigation.heading}</h1><p>{copy.navigation.subheading}</p></div>
-        <button className="admin-button" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
+        <button className="admin-button admin-button--primary" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
       </header>
       <p className="navigation-status" role="status" aria-live="polite" aria-atomic="true">{loading ? copy.navigation.loading : status}</p>
       {loadError && <div className="admin-alert" role="alert">{loadError} <button className="admin-button" onClick={() => void load()} type="button">{copy.navigation.retry}</button></div>}
@@ -220,22 +221,27 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
             {languages.map((tab) => <button aria-controls="navigation-language-panel" aria-describedby={dirty[`${location}:${tab.value}`] ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={locale === tab.value} className="navigation-tab" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocale(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">{tab.label}{dirty[`${location}:${tab.value}`] && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>)}
           </div>
           <div aria-busy={saving} aria-labelledby={`navigation-${locale}-tab`} id="navigation-language-panel" role="tabpanel" tabIndex={0}>
-            {!items.length && <p className="navigation-empty">{copy.navigation.empty}</p>}
+            {!items.length && (
+              <div className="admin-empty navigation-empty">
+                <span className="admin-empty__mark" aria-hidden="true"><AdminIcon name="navigation" /></span>
+                <div><p>{copy.navigation.empty}</p></div>
+              </div>
+            )}
             <ol aria-label={copy.navigation.menuItems} className="navigation-items" ref={list}>
               {items.map((item, index) => {
                 const page = pages.find((entry) => entry.id === item.pageId);
                 const summary = item.kind === 'home' ? fill(copy.navigation.homeTarget, { locale }) : item.kind === 'custom' ? item.url : page?.title ?? copy.navigation.pageUnavailable;
                 return <li className="navigation-item" draggable={!saving} key={item.id} onDragStart={(event) => { dragged.current = item.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', item.id); }} onDragEnd={() => { dragged.current = null; }} onDragOver={(event) => { if (dragged.current && !saving) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={(event) => { event.preventDefault(); move(items.findIndex((entry) => entry.id === dragged.current), index); dragged.current = null; }}>
-                  <span aria-hidden="true" className="navigation-grip">⠿</span>
+                  <span aria-hidden="true" className="navigation-grip"><AdminIcon name="grip" /></span>
                   <div className="navigation-item__content">
                     <label className="admin-field"><span className="sr-only">{fill(copy.navigation.itemLabel, { index: index + 1 })}</span><input aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
                     <p className="navigation-target">{summary}</p>
                     <p className="navigation-visibility">{item.kind === 'page' && page?.status !== 'published' ? page ? copy.navigation.hiddenDraft : copy.navigation.hiddenUnavailable : copy.navigation.visible}</p>
                   </div>
                   <div aria-label={fill(copy.navigation.actionsForItem, { index: index + 1 })} className="navigation-item__actions" role="group">
-                    <button className="admin-button" disabled={saving || index === 0} onClick={(event) => move(index, index - 1, event.currentTarget)} type="button">{copy.navigation.moveUp}</button>
-                    <button className="admin-button" disabled={saving || index === items.length - 1} onClick={(event) => move(index, index + 1, event.currentTarget)} type="button">{copy.navigation.moveDown}</button>
-                    <button className="admin-button" disabled={saving} onClick={() => remove(index)} type="button">{copy.navigation.remove}</button>
+                    <button aria-label={copy.navigation.moveUp} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || index === 0} onClick={(event) => move(index, index - 1, event.currentTarget)} title={copy.navigation.moveUp} type="button"><AdminIcon name="up" /></button>
+                    <button aria-label={copy.navigation.moveDown} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || index === items.length - 1} onClick={(event) => move(index, index + 1, event.currentTarget)} title={copy.navigation.moveDown} type="button"><AdminIcon name="down" /></button>
+                    <button aria-label={copy.navigation.remove} className="admin-button admin-button--ghost admin-button--icon navigation-remove" disabled={saving} onClick={() => remove(index)} title={copy.navigation.remove} type="button"><AdminIcon name="trash" /></button>
                   </div>
                 </li>;
               })}
