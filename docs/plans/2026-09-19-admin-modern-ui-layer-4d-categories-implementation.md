@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4d (Categories) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4d, `1120622..8f1508b`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Finish the categories screen with the two pieces it still writes its own way: a row's actions, which are text buttons where every other row in the admin now uses icons, and a category's post count, which is a sentence where every other count is a badge.

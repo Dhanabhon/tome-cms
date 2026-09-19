@@ -1,3 +1,17 @@
+/**
+ * Mints a short-lived preview token for a draft: POST here, then GET the returned
+ * /api/v1/content/preview/<token> to read it.
+ *
+ * Nothing in this repository calls it, and that is not an oversight. The admin previews
+ * its own drafts through `adminPreviewHref`, which is scoped to the owner's session --
+ * this endpoint exists for a headless frontend, which has no session to scope to and is
+ * promised draft previews by the README's headless mode. It is deliberately absent from
+ * /api/v1/content/openapi.json: that document describes the public content contract, and
+ * both halves of the preview flow are private (tests/unit/public-http.test.ts pins that
+ * previews stay private and that their token paths are redacted).
+ *
+ * So: no caller is expected. Do not delete it for being unused.
+ */
 import { randomUUID } from 'node:crypto';
 
 import type { APIRoute } from 'astro';

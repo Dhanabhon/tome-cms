@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4c (Navigation) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4c, `d011c99..95bb9f2`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the menu editor read like the rest of the admin: tabs that look like the tabs on Posts and Pages, a row whose actions are the icon buttons the admin uses everywhere else, and an empty menu that says so the way every other empty list does.

@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4a (Posts and Pages) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4a, `4776b58..bed09a7`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rebuild the two story lists out of layer 3's parts: a post card that names its date with a clock and draws its own icons, and a page panel that reads as a table -- Page, Status, Date -- from 48rem up.

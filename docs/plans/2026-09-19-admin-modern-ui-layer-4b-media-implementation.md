@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 4b (Media) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 4b, `61818ff..f526ba2`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rebuild the file library out of the admin's own parts -- the same page frame, the same search field, the same card surface, the same empty state and the same controls in its dialog -- so it stops being the one screen with a design of its own.

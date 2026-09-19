@@ -1,5 +1,8 @@
 # Admin Modern UI, Layer 3 (Shared Components) Implementation Plan
 
+> **Executed and shipped on 2026-09-19 as layer 3, `3131cfa..234f3e0`.** The steps below were run
+> inline rather than ticked off, so their boxes stay empty; the commits are the record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restyle the pieces every admin screen is built from -- status pills, tab counts, search fields, cards, menus, dialogs and empty states -- so layer 4 can rebuild each screen out of parts that already look right.
