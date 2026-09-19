@@ -121,3 +121,12 @@ test('the page list keeps its phone layout and takes columns on a wide screen', 
   assert.match(wide, /\.admin-page-head \{[^}]*grid-template-columns: var\(--page-columns\)/);
   assert.doesNotMatch(CSS.replace(wide, ''), /\.admin-page-head \{[^}]*grid-template-columns/, 'a phone must not get the columns');
 });
+
+test('the file library stands in the same frame as every other screen', () => {
+  const library = read('src/components/admin/MediaLibrary.tsx');
+  assert.match(library, /className="admin-page__head"/, 'media has no admin page head');
+  assert.match(library, /className="admin-search/, 'the media search is not the shared field');
+  assert.match(library, /<AdminIcon name="search" \/>/, 'the media search has no magnifier');
+  // The page frame belongs to the manage mode; the picker is a dialog and has no page.
+  assert.match(library, /props\.mode === 'manage' && \(\s*<div className="admin-page__head">/, 'the frame is not conditional on the mode');
+});

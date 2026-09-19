@@ -16,6 +16,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { ACCEPTED_IMAGE_TYPES } from '../../lib/media';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder, PostLocale } from '../../types/cms';
+import AdminIcon from './AdminIcon';
 import UiSelect from './UiSelect';
 
 type MediaLibraryProps = { ownerLocale?: PostLocale | null } & (
@@ -336,15 +337,21 @@ export default function MediaLibrary(props: MediaLibraryProps) {
 
   return (
     <section className="media-shell" data-mode={props.mode}>
+      {props.mode === 'manage' && (
+        <div className="admin-page__head">
+          <div>
+            <h1 ref={mediaHeading} tabIndex={-1}>{copy.media.heading}</h1>
+            <p>{copy.media.subheading}</p>
+          </div>
+        </div>
+      )}
       <div className="media-toolbar">
-        <div>
-          <h1 ref={mediaHeading} tabIndex={-1}>{copy.media.heading}</h1>
-          <p>{copy.media.subheading}</p>
-        </div>
-        <div className="media-toolbar__actions">
-          <label className="min-w-0"><span className="sr-only">{copy.media.searchFiles}</span><input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} /></label>
-          <label className="admin-button admin-button--primary media-upload"><span>{uploading ? copy.media.uploading : copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
-        </div>
+        <label className="admin-search media-search">
+          <span className="sr-only">{copy.media.searchFiles}</span>
+          <AdminIcon name="search" />
+          <input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} />
+        </label>
+        <label className="admin-button admin-button--primary media-upload"><span>{uploading ? copy.media.uploading : copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
       </div>
 
       <div className="media-library-layout">
