@@ -112,3 +112,12 @@ test('the list screens draw their marks instead of typing them', () => {
   }
   assert.match(read('src/pages/admin/index.astro'), /<AdminIcon name="clock" \/>/, 'the card has no clock');
 });
+
+test('the page list keeps its phone layout and takes columns on a wide screen', () => {
+  assert.match(read('src/pages/admin/pages/index.astro'), /class="admin-page-head"/, 'the panel has no column header');
+  // The stacked layout is what a phone gets, so the columns may only exist inside the query.
+  const wide = /@media \(min-width: 48rem\) \{\s*\.admin-page-list[\s\S]*?\n\}/.exec(CSS)?.[0] ?? '';
+  assert.match(wide, /--page-columns:/, 'the columns are not defined in the 48rem block');
+  assert.match(wide, /\.admin-page-head \{[^}]*grid-template-columns: var\(--page-columns\)/);
+  assert.doesNotMatch(CSS.replace(wide, ''), /\.admin-page-head \{[^}]*grid-template-columns/, 'a phone must not get the columns');
+});
