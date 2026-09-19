@@ -529,20 +529,23 @@ body {
 /* The same frame Posts and Pages stand in, rather than a page width of its own. In the
  * picker the section sits inside a dialog, which brings its own padding. */
 .media-shell[data-mode="manage"] { width: min(100%, 80rem); margin-inline: auto; padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-xl)); }
+/* The picker's dialog carries no padding of its own, so the library brings it. */
+.media-shell[data-mode="select"] { padding: var(--space-lg); }
 
 .media-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 22rem) auto;
-  justify-content: space-between;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   align-items: center;
+  justify-content: space-between;
   min-width: 0;
+  margin-block-start: var(--space-lg);
   padding-block-end: var(--space-lg);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 /* A label is inline by default, and .admin-search declares no display of its own -- the
  * magnifier is positioned against this box, so the box has to be one. */
-.media-search { display: block; }
+.media-search { display: block; flex: 1 1 16rem; max-width: 22rem; }
 
 .media-upload {
   cursor: pointer;
@@ -742,13 +745,6 @@ body {
   @apply mt-5 flex flex-wrap gap-3;
 }
 
-@media (min-width: 52.5rem) {
-  .media-toolbar {
-    grid-template-columns: minmax(0, 1fr) minmax(24rem, 0.8fr);
-    align-items: end;
-  }
-}
-
 @media (max-width: 52.499rem) {
   .media-picker {
     width: 100vw;
@@ -887,8 +883,7 @@ body {
  * that gets read, and the sidebar already says which screen you are on. The admin sets
  * --text-title to 28px and the weight to semibold, so the title labels the screen without
  * taking the height the first rows of the list need. */
-.admin-page__head h1,
-.media-toolbar h1 {
+.admin-page__head h1 {
   min-width: 0;
   margin: 0;
   font-family: var(--font-display);
@@ -899,8 +894,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-.admin-page__head p,
-.media-toolbar > div > p {
+.admin-page__head p {
   max-width: 55ch;
   margin: var(--space-sm) 0 0;
   color: var(--color-muted);
