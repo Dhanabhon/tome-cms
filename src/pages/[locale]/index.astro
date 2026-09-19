@@ -7,6 +7,7 @@ import { listPublishedCategories, listPublishedPosts } from '../../server/conten
 import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
 import type { Post, PostAlternate, PostCategoryBadge } from '../../types/cms';
+import Icon from '../../components/Icon.astro';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
@@ -114,15 +115,13 @@ const initial = (title: string) => {
   locale={locale}
   robots={loadError ? 'noindex, nofollow' : cursor ? 'noindex, follow' : undefined}
 >
-  <!-- The hero band is dark in both themes, so a literal white is correct here and
-       does not depend on a token reaching this route's CSS bundle. -->
-  <section class="bg-hero text-white">
+  <section class="home-hero">
     <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
       <h1 class="hero-title max-w-xl">
         Ideas, carefully published.
       </h1>
       {tagline && (
-        <p class="lead mt-6 max-w-md text-white/75">
+        <p class="lead mt-6 max-w-md">
           {tagline}
         </p>
       )}
@@ -165,7 +164,7 @@ const initial = (title: string) => {
                     <span>{byline}</span>
                   </span>
                   <span class="post-card__when">
-                    <time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time>
+                    <span class="post-card__date"><Icon name="clock" /><time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time></span>
                     <span>{readTime(post)}</span>
                   </span>
                 </p>
