@@ -1091,13 +1091,23 @@ body {
  * under the title it points at, whether or not the status is beside them. */
 .admin-page-path { margin: 0; color: var(--color-muted); font-family: ui-monospace, monospace; font-size: var(--text-xs); overflow-wrap: anywhere; }
 .admin-page-row .admin-page-path { grid-column: 2; grid-row: 2; padding-block-end: var(--space-sm); }
+/* The status left the title's link to take a column of its own in the table. Where there is
+ * no table -- a phone -- it takes the line under the title, and the menu keeps the title's
+ * line; without this it pushed the menu onto a third line of its own. */
+.admin-page-row .admin-story-edition { grid-template-columns: minmax(0, 1fr) auto; }
+.admin-page-row .admin-story-edition__link { grid-column: 1; grid-row: 1; }
+.admin-page-row .admin-story-menu { grid-column: 2; grid-row: 1; }
+.admin-page-row .admin-story-edition > .admin-status { grid-column: 1; grid-row: 2; justify-self: start; }
 /* The page list is a table from 48rem up: one template, named once on the panel, that the
  * header and every edition read. Below that width none of this applies and a row stacks,
  * which is the only shape that fits a phone. */
 .admin-page-head { display: none; }
 @media (min-width: 48rem) {
   .admin-page-list {
-    --page-columns: minmax(0, 1fr) auto minmax(9rem, 14rem) 44px;
+    /* The status column is a width, not `auto`: the header and each row are separate grids,
+     * so an auto column sizes to its own content and the header's word sat 56px right of
+     * the pills it names. 7rem holds the longest status either language writes. */
+    --page-columns: minmax(0, 1fr) 7rem minmax(9rem, 14rem) 44px;
   }
   .admin-page-head {
     display: grid;
@@ -1119,10 +1129,19 @@ body {
   .admin-page-list .admin-story-start { grid-row: var(--edition-row); }
   .admin-page-list .admin-story-edition__link,
   .admin-page-list .admin-story-start { grid-column: 1; }
-  .admin-page-list .admin-story-edition .admin-status { grid-column: 2; justify-self: start; align-self: center; margin-block-end: 0; }
+  /* The rule between editions separated stacked lines; in a table it drew across the title
+   * column alone, stopping in mid-air where the status column began. The story's own rule
+   * already says where one page ends and the next begins. */
+  .admin-page-list .admin-story-start { border-block-start: 0; }
+  /* Same shape as the phone rule above, or that one's third class wins and every status in
+   * the panel lands on row 2, one pill printed over another. */
+  .admin-page-list .admin-story-edition > .admin-status { grid-column: 2; grid-row: var(--edition-row); justify-self: start; align-self: center; margin-block-end: 0; }
   .admin-page-list .admin-story-menu { grid-column: 4; }
-  /* The date belongs to the story, so it sits on the story's first line. */
+  /* The date belongs to the story, so it sits on the story's first line. The timezone is
+   * the column's, not each date's: the header says it once, and saying it again in a
+   * 14rem cell pushed the date out of its column and into the menu's. */
   .admin-page-list .admin-story-foot { grid-column: 3; grid-row: 1; padding: 0; justify-content: start; }
+  .admin-page-list .admin-story-tz { display: none; }
 }
 /* Pages read as rows inside one frame rather than under a bare top rule, so the rows
  * take their own inline padding and the last one stops drawing a line on the frame. */
