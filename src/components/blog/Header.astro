@@ -1,7 +1,7 @@
 ---
 import LanguageSwitcher from '../LanguageSwitcher.astro';
 import ThemeToggle from '../ThemeToggle.astro';
-import { localePath } from '../../lib/i18n';
+import { localePath, publicCopy } from '../../lib/i18n';
 import { THEME_LABELS, type ThemeChoice } from '../../lib/theme';
 import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../types/cms';
 
@@ -19,13 +19,14 @@ const { allowVisitorTheme = true, availableLocales = [], items = [], locale = 'e
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
+const copy = publicCopy(locale);
 ---
 
 <header class="site-header border-b border-line">
   <div class="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
     <a class="site-wordmark min-w-0 flex-1 truncate text-ink" href={localePath(locale)}>{siteName}</a>
     {items.length > 0 && (
-      <nav aria-label="Primary" class="public-navigation site-header__desktop">
+      <nav aria-label={copy.primaryNavigation} class="public-navigation site-header__desktop">
         <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
       </nav>
     )}
@@ -35,8 +36,8 @@ const languageOptions = availableLocales
     )}
     {items.length > 0 && (
       <details class="site-header__mobile">
-        <summary>{locale === 'th' ? 'เมนู' : 'Menu'}</summary>
-        <nav aria-label="Primary" class="public-navigation">
+        <summary>{copy.menu}</summary>
+        <nav aria-label={copy.primaryNavigation} class="public-navigation">
           <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
         </nav>
       </details>

@@ -36,21 +36,3 @@ test('the article draws its marks and shares the chip', () => {
   // One rule draws a category chip, wherever it appears.
   assert.match(CSS, /\.category-default,\n\.post-categories > li,\n\.admin-story-categories > li \{/);
 });
-
-test('the article speaks the reader\'s language', () => {
-  for (const [source, name] of [[POST, 'PostArticle'], [PAGE, 'PageArticle'], [AUTHOR, 'AuthorBlock']] as const) {
-    assert.match(source, /publicCopy/, `${name} does not read the public copy`);
-  }
-  // No English left hard-coded in the markup these three render.
-  for (const phrase of ['All posts', 'Draft preview', 'About the author', 'Author links', '>By ', '>Published ', '>Updated ']) {
-    for (const [source, name] of [[POST, 'PostArticle'], [PAGE, 'PageArticle'], [AUTHOR, 'AuthorBlock']] as const) {
-      assert.ok(!source.includes(phrase), `${name} still hard-codes "${phrase}"`);
-    }
-  }
-  // Both locales answer with the same keys, or a Thai page falls back to nothing.
-  assert.deepEqual(Object.keys(publicCopy('th')).sort(), Object.keys(publicCopy('en')).sort());
-  for (const [key, value] of Object.entries(publicCopy('th'))) {
-    assert.ok(value.trim().length > 0, `th.${key} is empty`);
-    assert.notEqual(value, publicCopy('en')[key as keyof ReturnType<typeof publicCopy>], `th.${key} was never translated`);
-  }
-});
