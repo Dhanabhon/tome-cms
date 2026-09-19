@@ -1,0 +1,10 @@
+---
+import PostArticle from './parts/PostArticle.astro';
+import type { ThemePostProps } from '../contract';
+
+interface Props extends ThemePostProps {}
+
+const { categories, post, profile, settings } = Astro.props;
+---
+
+<PostArticle categories={categories} post={post} profile={profile} settings={settings} />

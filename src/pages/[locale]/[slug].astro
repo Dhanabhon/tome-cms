@@ -1,10 +1,10 @@
 ---
-import PageArticle from '../../components/blog/PageArticle.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, pagePath } from '../../lib/i18n';
 import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
 import { getPublishedPage, type PublishedPage } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
+import { resolveTheme } from '../../themes/registry';
 import type { PostAlternate } from '../../types/cms';
 
 const settings = await getSiteSettings();
@@ -35,6 +35,7 @@ try {
   availableLocales = [];
 }
 
+const activeTheme = await resolveTheme();
 const xDefaultHref = availableLocales.find((alternate) => alternate.locale === settings?.default_locale)?.href;
 ---
 
@@ -50,7 +51,7 @@ const xDefaultHref = availableLocales.find((alternate) => alternate.locale === s
   xDefaultHref={xDefaultHref}
 >
   {page ? (
-    <PageArticle page={page} />
+    <activeTheme.Page locale={locale} page={page} />
   ) : (
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
       <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>

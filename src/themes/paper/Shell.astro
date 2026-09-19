@@ -1,0 +1,31 @@
+---
+import Footer from './parts/Footer.astro';
+import Header from './parts/Header.astro';
+import type { ThemeShellProps } from '../contract';
+
+/**
+ * Everything inside `<body>`.
+ *
+ * The document and its head stay in core: a theme decides what the site looks like, not what
+ * it promises a search engine. Below `<body>` the theme owns the arrangement outright, so a
+ * later one is free to put its navigation down the side rather than across the top.
+ */
+interface Props extends ThemeShellProps {}
+
+const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
+---
+
+<body class="flex min-h-screen flex-col">
+  <Header
+    allowVisitorTheme={allowVisitorTheme}
+    availableLocales={alternates}
+    items={header}
+    locale={locale}
+    siteName={siteName}
+    theme={theme}
+  />
+  <main class="flex-1">
+    <slot />
+  </main>
+  <Footer items={footer} locale={locale} showPoweredBy={showPoweredBy} siteName={siteName} />
+</body>
