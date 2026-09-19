@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import { adminCopy } from '../../src/lib/admin-i18n';
 
 import {
   editorContentInputSchema,
@@ -84,4 +87,19 @@ test('server renders, sanitizes, and bounds editor content', () => {
   const empty = prepareEditorContent({ contentJson: { type: 'doc', content: [{ type: 'paragraph' }] } });
   assert.equal(hasMeaningfulContent(empty.contentJson), false);
   assert.equal(hasMeaningfulHtml(empty.contentHtml), false);
+});
+
+test("an editor refuses to publish an empty document in the owner's own language", () => {
+  // The rule above is the API's. Restating it in the editor would let the two drift, so each
+  // editor imports the same predicate and answers in the copy the owner is already reading.
+  for (const name of ['Editor', 'PageEditor'] as const) {
+    const source = readFileSync(new URL(`../../src/components/admin/${name}.tsx`, import.meta.url), 'utf8');
+    assert.match(source, /import \{ hasMeaningfulContent \} from '\.\.\/\.\.\/lib\/editor-content';/);
+    assert.match(source, /if \(!hasMeaningfulContent\(draftRef\.current\.contentJson\)\) \{\n\s+setErrorMessage\(copy\.editor\.contentRequired\);\n\s+return;/);
+    // Nothing reaches the network until the check has passed, and this is the only way through.
+    assert.match(source, /setErrorMessage\(copy\.editor\.contentRequired\);[\s\S]*?await saveBefore\(\(\) => undefined, 'published'\)/);
+    assert.equal(source.match(/saveBefore\(\(\) => undefined, 'published'\)/g)?.length, 1);
+    assert.match(source, /onClick=\{\(\) => void publish\(\)\}/);
+  }
+  for (const locale of ['en', 'th'] as const) assert.ok(adminCopy(locale).editor.contentRequired.trim());
 });

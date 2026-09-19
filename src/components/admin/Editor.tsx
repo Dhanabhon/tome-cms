@@ -4,6 +4,7 @@ import slugify from 'slugify';
 
 import { adminHref, adminPreviewHref } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
+import { hasMeaningfulContent } from '../../lib/editor-content';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
@@ -252,6 +253,20 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
     }
   };
 
+  /**
+   * Publishing an empty document is refused by the API, and rightly so -- but an error that
+   * arrives from the server arrives in the server's English, after a request the owner did
+   * not need to send. The check happens here first, in the language they are reading, using
+   * the API's own function so the two cannot come to disagree about what counts as content.
+   */
+  const publish = async () => {
+    if (!hasMeaningfulContent(draftRef.current.contentJson)) {
+      setErrorMessage(copy.editor.contentRequired);
+      return;
+    }
+    await saveBefore(() => undefined, 'published');
+  };
+
   const changeTitle = (value: string) => {
     setTitle(value);
     if (!slugTouched.current) {
@@ -312,7 +327,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
               event.currentTarget.focus();
               setSettingsOpen(true);
             }} type="button">{copy.nav.settings}</button>
-            <button aria-busy={saveState === 'saving'} className="admin-button admin-button--primary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
+            <button aria-busy={saveState === 'saving'} className="admin-button admin-button--primary" disabled={isActionPending} onClick={() => void publish()} type="button">
               {postStatus === 'published' ? copy.editor.update : copy.row.publish}
             </button>
           </div>
