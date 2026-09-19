@@ -48,7 +48,9 @@ const errorMessage = failed ? copy.security.unavailable : '';
       ) : (
         <section class="admin-card">
           <h2>{copy.security.verifyOwner}</h2>
-          <PasskeySignIn client:only="react" ownerLocale={ownerLocale} returnTo={adminHref({ admin_path: adminPath }, '/security')} />
+          <PasskeySignIn client:only="react" ownerLocale={ownerLocale} returnTo={adminHref({ admin_path: adminPath }, '/security')}>
+            <AdminSkeleton kind="auth" head={false} label={copy.auth.welcome} slot="fallback" />
+          </PasskeySignIn>
         </section>
       )}
     </section>

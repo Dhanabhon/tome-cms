@@ -150,7 +150,11 @@
 .admin-check > label { display: contents; }
 .admin-check input { width: 1.125rem; height: 1.125rem; margin-block-start: 0.15rem; accent-color: var(--color-accent); }
 .admin-check small { grid-column: 2; }
-.admin-check:focus-within { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); border-radius: var(--radius-sm); }
+/* The ring belongs to the box, not to the sentence beside it: :focus-within drew a 2px
+ * frame around the whole block -- label, hint and all -- and it fired on a mouse click
+ * as well as a keyboard one. :focus-visible on the input is where a checkbox says it
+ * has focus, and it says nothing when the pointer already showed you where you clicked. */
+.admin-check input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 .admin-empty-inline { margin: 0; padding: var(--space-md); border: var(--rule-hair) dashed var(--color-rule-strong); border-radius: var(--radius-input); color: var(--color-muted); font-size: var(--text-sm); }
 /* The primary action stops scrolling out of a long form, and the bar can say whether
  * anything is waiting. The words carry that, not a colour -- every surface pair in
@@ -561,6 +565,8 @@ body {
 /* A label is inline by default, and .admin-search declares no display of its own -- the
  * magnifier is positioned against this box, so the box has to be one. */
 .media-search { display: block; flex: 1 1 16rem; max-width: 22rem; }
+/* Upload, and -- in the picker -- the way out, at the toolbar's other end. */
+.media-toolbar__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 
 .media-upload {
   cursor: pointer;
@@ -734,10 +740,6 @@ body {
 
 .media-picker::backdrop {
   background: var(--color-scrim);
-}
-
-.media-picker-cancel {
-  @apply sticky top-4 z-10 float-right mr-5 mt-4 rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium hover:border-accent hover:text-accent;
 }
 
 .media-details img {
@@ -1492,7 +1494,7 @@ body {
   align-self: center;
   margin-inline: auto;
   overflow: clip;
-  border: var(--rule-hair) solid var(--color-rule-strong);
+  border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-card);
   background: var(--color-paper);
   color: var(--color-auth-ink);
@@ -1916,6 +1918,7 @@ body {
 .admin-skeleton__row { display: grid; gap: var(--space-2xs); padding-block: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
 .admin-skeleton__stack { display: grid; gap: var(--space-lg); margin-block-start: var(--space-xl); }
 .admin-skeleton__tile { aspect-ratio: 1; border-radius: var(--radius-input); }
+.admin-skeleton__auth { display: grid; gap: var(--space-md); justify-items: start; }
 .admin-skeleton__prose { display: grid; gap: var(--space-xs); margin-block-start: var(--space-lg); font-size: var(--text-md); }
 
 /* The navigation overlay (components/PageTransitionSkeleton.astro). It covers what the next

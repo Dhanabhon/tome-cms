@@ -43,3 +43,11 @@ test('a renamed admin path is followed', () => {
   assert.equal(kind('/studio/pages/edit/5b8a', '/studio'), 'editor');
   assert.equal(kind('/admin/media', '/studio'), null);
 });
+
+test('the sign-in kind is a fallback, never a destination', () => {
+  // The overlay draws the screen a navigation is heading for; nothing inside the admin
+  // navigates to the sign-in, so no URL may resolve to it.
+  for (const path of ['/admin', '/admin/media', '/admin/security', '/admin/pages', '/admin/new']) {
+    assert.notEqual(transitionKind(new URL(`http://localhost${path}`), '/admin', 'http://localhost'), 'auth');
+  }
+});

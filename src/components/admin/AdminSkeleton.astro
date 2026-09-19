@@ -51,6 +51,11 @@ const filters = kind === 'posts' || kind === 'pages';
           </div>
         </div>
       </div>
+    ) : kind === 'auth' ? (
+      <div class="admin-skeleton__auth">
+        <span class="skeleton-line" style="--skeleton-width: 14rem"></span>
+        <span class="skeleton skeleton--button" style="--skeleton-width: 12rem"></span>
+      </div>
     ) : kind === 'media' ? (
       <div class="media-shell" data-mode="manage">
         <div class="admin-page__head">

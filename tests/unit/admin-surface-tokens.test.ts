@@ -239,3 +239,32 @@ test('the insert menu is the same menu as the others', () => {
   // The editor's last utility chain.
   assert.doesNotMatch(read('src/components/admin/Editor.tsx'), /className="mb-6 flex/);
 });
+
+test('every island in the admin shows something while it loads', () => {
+  // PasskeySignIn was the only client:only island with no fallback, so the panel that
+  // asks for a passkey was blank until React arrived.
+  for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/security.astro']) {
+    const source = read(page);
+    for (const [, island] of source.matchAll(/<(\w+)[^>]*client:only/g)) {
+      assert.match(source, new RegExp(`<${island}[\\s\\S]{0,600}?slot="fallback"`), `${page}: ${island} has no fallback`);
+    }
+  }
+  // The stage is a card, so it takes a card's hairline.
+  assert.match(declaration(ruleBody(CSS, '.admin-auth-stage'), 'border') ?? '', /var\(--color-rule\)$/);
+});
+
+test('a checkbox rings itself, not the paragraph beside it', () => {
+  // :focus-within on the block framed the label and its hint on a plain mouse click.
+  assert.doesNotMatch(CSS, /\.admin-check:focus-within/);
+  assert.match(CSS, /\.admin-check input:focus-visible \{[^}]*outline: 2px solid var\(--color-focus\)/);
+});
+
+test('the picker closes from its toolbar, not from a button floating over its corner', () => {
+  // The cancel was sticky + float-right, so it landed on top of the upload button once the
+  // toolbar became a row. The library places it instead, at the end of that row.
+  assert.doesNotMatch(read('src/components/admin/MediaPicker.tsx'), /media-picker-cancel/);
+  assert.doesNotMatch(CSS, /\.media-picker-cancel/);
+  const library = read('src/components/admin/MediaLibrary.tsx');
+  assert.match(library, /className="media-toolbar__end"/);
+  assert.match(library, /props\.mode === 'select' && <button autoFocus aria-label=\{copy\.media\.cancel\}/);
+});
