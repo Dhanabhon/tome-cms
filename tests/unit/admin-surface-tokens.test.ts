@@ -141,3 +141,15 @@ test('the media surfaces are tokens, not utility chains', () => {
   assert.match(library, /className="admin-empty media-empty"/);
   assert.match(library, /<AdminIcon name="media" \/>/);
 });
+
+test('the details dialog uses the admin controls', () => {
+  const library = read('src/components/admin/MediaLibrary.tsx');
+  const dialog = library.slice(library.indexOf('className="media-details"'));
+  for (const control of ['<textarea', '<input']) {
+    const at = dialog.indexOf(control);
+    assert.ok(at > -1, `the dialog has no ${control}`);
+    assert.match(dialog.slice(at, at + 400), /className="admin-control/, `${control} is not an admin control`);
+  }
+  assert.match(dialog, /className="admin-button admin-button--primary"/, 'save is not the primary button');
+  assert.match(dialog, /className="admin-button admin-button--danger"/, 'delete is not the danger button');
+});
