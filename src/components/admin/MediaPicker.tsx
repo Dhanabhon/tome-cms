@@ -54,7 +54,6 @@ export default function MediaPicker({ onCancel, onSelect, ownerLocale, returnFoc
       }}
       ref={dialog}
     >
-      <button autoFocus className="media-picker-cancel" onClick={cancel} type="button">{copy.media.cancel}</button>
       <MediaLibrary mode="select" onCancel={cancel} onSelect={select} ownerLocale={ownerLocale} />
     </dialog>
   );

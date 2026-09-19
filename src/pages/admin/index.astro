@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminIcon from '../../components/admin/AdminIcon.astro';
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import UiSelect from '../../components/admin/UiSelect';
@@ -100,7 +101,9 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             <h1 id="admin-auth-title">{copy.auth.welcome}</h1>
             <p>{copy.auth.welcomeHint}</p>
           </header>
-          <PasskeySignIn adminPath={adminPath} ownerLocale={ownerLocale} client:only="react" returnTo={Astro.url.searchParams.get('returnTo')} />
+          <PasskeySignIn adminPath={adminPath} ownerLocale={ownerLocale} client:only="react" returnTo={Astro.url.searchParams.get('returnTo')}>
+            <AdminSkeleton kind="auth" head={false} label={copy.auth.welcome} slot="fallback" />
+          </PasskeySignIn>
         </section>
       </div>
 

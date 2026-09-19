@@ -1,5 +1,7 @@
 /** The layouts an admin page can take while it loads (components/admin/AdminSkeleton.astro). */
-export type AdminSkeletonKind = 'posts' | 'pages' | 'list' | 'media' | 'form' | 'editor';
+/** 'auth' is a fallback only -- the shape the sign-in island shows while it loads.
+ *  transitionKind never returns it: nothing inside the admin navigates to the sign-in. */
+export type AdminSkeletonKind = 'posts' | 'pages' | 'list' | 'media' | 'form' | 'editor' | 'auth';
 
 const FORMS = new Set(['/profile', '/security', '/settings', '/system']);
 

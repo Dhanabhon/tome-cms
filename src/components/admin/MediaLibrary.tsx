@@ -351,7 +351,10 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <AdminIcon name="search" />
           <input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
-        <label className="admin-button admin-button--primary media-upload"><span>{uploading ? copy.media.uploading : copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
+        <div className="media-toolbar__end">
+          <label className="admin-button admin-button--primary media-upload"><span>{uploading ? copy.media.uploading : copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
+          {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><AdminIcon name="close" /></button>}
+        </div>
       </div>
 
       <div className="media-library-layout">
