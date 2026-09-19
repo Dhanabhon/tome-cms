@@ -1,7 +1,8 @@
 ---
-import { localePath } from '../../lib/i18n';
+import { localePath, publicCopy } from '../../lib/i18n';
 import type { Post, PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../types/cms';
 import AuthorBlock from './AuthorBlock.astro';
+import Icon from '../Icon.astro';
 
 interface Props {
   post: Post;
@@ -22,33 +23,30 @@ const publishedAt = post.published_at ?? post.created_at;
 const primaryDate = preview ? post.updated_at : publishedAt;
 const modifiedAt = post.updated_at;
 const showModifiedDate = !preview && new Date(modifiedAt).getTime() - new Date(publishedAt).getTime() > 60_000;
+const copy = publicCopy(post.locale);
 ---
 
-<article class="mx-auto max-w-3xl px-5 py-12 sm:px-7 sm:py-20">
-  <a class="text-sm font-medium text-link hover:underline" href={localePath(post.locale)}><span aria-hidden="true">←</span> All posts</a>
-  <header class="mt-6">
+<article class="post-page">
+  <a class="post-back" href={localePath(post.locale)}><Icon name="arrowLeft" />{copy.allPosts}</a>
+  <header class="post-head">
     <h1 class="article-title">{post.title}</h1>
-    {post.meta_description && <p class="lead mt-5 text-muted">{post.meta_description}</p>}
-    <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-      <span>By <a class="text-link hover:underline" href={localePath(post.locale)}>{settings.site_name}</a></span>
-      <span aria-hidden="true">•</span>
-      <span>{preview ? 'Last saved' : 'Published'} <time datetime={primaryDate}>{formatter.format(new Date(primaryDate))}</time></span>
+    {post.meta_description && <p class="lead">{post.meta_description}</p>}
+    <div class="post-meta">
+      <span>{copy.by} <a href={localePath(post.locale)}>{settings.site_name}</a></span>
+      <span class="post-meta__when"><Icon name="clock" /><span>{preview ? copy.lastSaved : copy.published} <time datetime={primaryDate}>{formatter.format(new Date(primaryDate))}</time></span></span>
       {showModifiedDate && (
-        <>
-          <span aria-hidden="true">•</span>
-          <span>Updated <time datetime={modifiedAt}>{formatter.format(new Date(modifiedAt))}</time></span>
-        </>
+        <span>{copy.updated} <time datetime={modifiedAt}>{formatter.format(new Date(modifiedAt))}</time></span>
       )}
     </div>
     {categories.length > 0 && (
-      <ul class="mt-5 flex flex-wrap gap-2" aria-label="Categories">
-        {categories.map((category) => <li class="rounded-full bg-soft px-3 py-1 text-xs font-medium text-accent">{category.name}</li>)}
+      <ul class="post-categories" aria-label={copy.categories}>
+        {categories.map((category) => <li>{category.name}</li>)}
       </ul>
     )}
   </header>
   {post.cover_image && (
-    <img class="mt-10 aspect-[16/9] w-full rounded-lg object-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />
+    <img class="post-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />
   )}
-  <div class="prose mt-12 max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={post.content_html} />
-  {profile && <AuthorBlock profile={profile} />}
+  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={post.content_html} />
+  {profile && <AuthorBlock locale={post.locale} profile={profile} />}
 </article>
