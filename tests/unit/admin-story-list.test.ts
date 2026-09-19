@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { readRecord } from '../../src/lib/admin-story-list';
+import { readActionError, readRecord } from '../../src/lib/admin-story-list';
+import { adminErrorResponse } from '../../src/server/http/errors';
+import { prepareContent } from '../../src/server/content/mutations';
 
 const record = { published_at: '2026-09-14T03:00:00.000Z', status: 'published', updated_at: '2026-09-14T03:00:00.000Z' };
 
@@ -24,4 +27,45 @@ test('rejects a record missing the concurrency token or the status', () => {
   // updated_at is sent back on the next action; without it the row would desync.
   assert.equal(readRecord({ post: { status: 'draft' } }, 'post'), null, 'no updated_at');
   assert.equal(readRecord({ post: { updated_at: record.updated_at } }, 'post'), null, 'no status');
+});
+
+const copy = { actionFailed: 'ทำรายการไม่สำเร็จ', contentRequired: 'เพิ่มเนื้อหาก่อนเผยแพร่' };
+
+test('a coded refusal is answered in the owner\'s language, end to end', async () => {
+  // Publishing an empty story from the row menu: the API refuses in English, and the list
+  // says the same thing in the language the owner is reading. The code is carried through a
+  // real error response rather than restated here, so the two halves cannot drift apart.
+  let refusal: unknown;
+  try {
+    prepareContent({ contentJson: { type: 'doc', content: [{ type: 'paragraph' }] }, status: 'published' });
+  } catch (error) {
+    refusal = error;
+  }
+  const response = adminErrorResponse(refusal, 'test-request');
+  assert.equal(response.status, 400);
+  assert.equal(readActionError(await response.json(), copy), copy.contentRequired);
+});
+
+test('anything else is reported as the server sent it', () => {
+  // A message written for one refusal must not be shown for another.
+  assert.equal(readActionError({ error: 'That post was changed elsewhere.' }, copy), 'That post was changed elsewhere.');
+  assert.equal(readActionError({ code: 'something_else', error: 'Nope.' }, copy), 'Nope.');
+  // A body the list cannot read at all is the one case its own sentence is for.
+  assert.equal(readActionError(null, copy), copy.actionFailed);
+  assert.equal(readActionError('Nope.', copy), copy.actionFailed);
+  assert.equal(readActionError({}, copy), copy.actionFailed);
+  assert.equal(readActionError({ error: 42 }, copy), copy.actionFailed);
+});
+
+test('every phrase the list script reads is one the lists actually hand it', () => {
+  // The script reads `data.copyContentRequired`; the page writes `data-copy-content-required`.
+  // Nothing at build time connects the two, and a mismatch would quietly fall back to English.
+  const script = readFileSync(new URL('../../src/lib/admin-story-list.ts', import.meta.url), 'utf8');
+  const attributes = [...script.matchAll(/data\.(copy[A-Za-z]+)/g)]
+    .map(([, key]) => `data-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`);
+  assert.ok(attributes.includes('data-copy-content-required'), 'the refusal is read from the dataset');
+  for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
+    const source = readFileSync(new URL(`../../${page}`, import.meta.url), 'utf8');
+    for (const attribute of attributes) assert.ok(source.includes(`${attribute}={`), `${page} is missing ${attribute}`);
+  }
 });

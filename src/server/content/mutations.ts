@@ -47,7 +47,9 @@ export function prepareContent(input: { contentJson: unknown; status: PostStatus
   }
   if (input.status === 'published'
     && (!hasMeaningfulContent(content.contentJson) || !hasMeaningfulHtml(content.contentHtml))) {
-    throw new HttpError(400, 'Add content before publishing.');
+    // The sentence is the API's, in the API's English. The code is for the admin, which
+    // has this same refusal written in the owner's language.
+    throw new HttpError(400, 'Add content before publishing.', { code: 'content_required' });
   }
   return content;
 }

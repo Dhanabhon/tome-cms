@@ -21,8 +21,6 @@ interface StoryListOptions {
   entity: 'page' | 'post';
 }
 
-const FAILED = 'The action could not be completed. Please try again.';
-
 /**
  * Narrows an API body to the record the row needs.
  *
@@ -45,7 +43,22 @@ export function readRecordId(payload: unknown, entity: string): string | null {
   return typeof id === 'string' ? id : null;
 }
 
+/**
+ * The message a failed action should show.
+ *
+ * The API answers in English because its contract is English, and an unexpected error is
+ * more use in the server's own words than behind a generic sentence. A *coded* refusal is
+ * different: the list already knows that rule and has it written in the owner's language.
+ */
+export function readActionError(payload: unknown, copy: Pick<StoryCopy, 'actionFailed' | 'contentRequired'>): string {
+  const body = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : null;
+  if (body?.code === 'content_required') return copy.contentRequired;
+  return typeof body?.error === 'string' ? body.error : copy.actionFailed;
+}
+
 interface StoryCopy {
+  actionFailed: string;
+  contentRequired: string;
   draft: string;
   published: string;
   publishedAt: string;
@@ -100,6 +113,8 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     timeZone: data.timezone || 'UTC',
   });
   const copy: StoryCopy = {
+    actionFailed: data.copyActionFailed ?? 'The action could not be completed. Please try again.',
+    contentRequired: data.copyContentRequired ?? 'Add content before publishing.',
     draft: data.copyDraft ?? 'draft',
     published: data.copyPublished ?? 'published',
     publishedAt: data.copyPublishedAt ?? 'Published',
@@ -131,11 +146,8 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     card?.setAttribute('aria-busy', 'true');
     if (message) message.hidden = true;
 
-    const failure = async (response: Response) => {
-      const body: unknown = await response.json().catch(() => null);
-      const reported = typeof body === 'object' && body !== null && 'error' in body ? body.error : null;
-      return new Error(typeof reported === 'string' ? reported : FAILED);
-    };
+    const failure = async (response: Response) =>
+      new Error(readActionError(await response.json().catch(() => null), copy));
 
     try {
       if (action === 'duplicate') {
@@ -182,7 +194,7 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
       }
     } catch (error) {
       if (message) {
-        message.textContent = error instanceof Error ? error.message : FAILED;
+        message.textContent = error instanceof Error ? error.message : copy.actionFailed;
         message.hidden = false;
       }
       button.disabled = false;
