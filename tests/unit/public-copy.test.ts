@@ -53,3 +53,17 @@ test('the year in the footer is the year in the article', () => {
   assert.equal(currentYear('th', now), '2569');
   assert.doesNotMatch(read('src/components/blog/Footer.astro'), /getFullYear/);
 });
+
+test('the footer credits TomeCMS, and stops when the owner says so', () => {
+  const footer = read('src/components/blog/Footer.astro');
+  // One line, not a third column: the footer is a flex row of two and stays that way.
+  assert.match(footer, /\{copy\.allRightsReserved\}\n\s+\{showPoweredBy && <><span aria-hidden="true"> · <\/span>\{copy\.poweredBy\}<\/>\}/);
+  assert.equal(publicCopy('en').poweredBy, 'Powered by TomeCMS');
+  // The product's name is a name in both languages; only the verb is translated.
+  assert.match(publicCopy('th').poweredBy, /TomeCMS$/);
+  // It is a credit, not a campaign: no link goes out from every page on the site.
+  assert.doesNotMatch(footer, /poweredBy[\s\S]{0,80}<a /);
+  const layout = read('src/layouts/BaseLayout.astro');
+  assert.match(layout, /const showPoweredBy = settings\?\.show_powered_by \?\? true;/);
+  assert.match(layout, /<Footer[^>]*showPoweredBy=\{showPoweredBy\}/);
+});

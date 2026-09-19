@@ -6,10 +6,12 @@ import type { PostLocale } from '../../types/cms';
 interface Props {
   locale: PostLocale;
   items?: PublicNavigationItem[];
+  /** The owner can switch the credit off; a site that has never been asked shows it. */
+  showPoweredBy?: boolean;
   siteName?: string;
 }
 
-const { locale, items = [], siteName = 'TomeCMS' } = Astro.props;
+const { locale, items = [], showPoweredBy = true, siteName = 'TomeCMS' } = Astro.props;
 const copy = publicCopy(locale);
 ---
 
@@ -19,5 +21,8 @@ const copy = publicCopy(locale);
       <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
     </nav>
   )}
-  <p>&copy; {currentYear(locale)} {siteName}. {copy.allRightsReserved}</p>
+  <p>
+    &copy; {currentYear(locale)} {siteName}. {copy.allRightsReserved}
+    {showPoweredBy && <><span aria-hidden="true"> · </span>{copy.poweredBy}</>}
+  </p>
 </footer>

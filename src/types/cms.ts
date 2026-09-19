@@ -201,6 +201,7 @@ export interface SiteSettings {
   default_locale: PostLocale;
   theme: 'system' | 'light' | 'dark';
   allow_visitor_theme: boolean;
+  show_powered_by: boolean;
   timezone: 'Asia/Bangkok' | 'UTC';
   owner_id: string;
   installed_at: string;
