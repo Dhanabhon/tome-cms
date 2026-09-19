@@ -135,6 +135,7 @@ export interface SiteSettingsTable {
   timezone: 'Asia/Bangkok' | 'UTC';
   theme: Generated<'system' | 'light' | 'dark'>;
   allow_visitor_theme: Generated<boolean>;
+  show_powered_by: Generated<boolean>;
   admin_path: string;
   author_name: Generated<string>;
   author_avatar_media_id: string | null;

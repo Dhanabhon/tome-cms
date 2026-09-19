@@ -2,13 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { publicCopy } from '../../src/lib/i18n';
-
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const CSS = read('src/styles/global.css');
 const POST = read('src/components/blog/PostArticle.astro');
 const PAGE = read('src/components/blog/PageArticle.astro');
-const AUTHOR = read('src/components/blog/AuthorBlock.astro');
 
 /** The declarations of the first unindented rule whose selector list is exactly `selector`. */
 function ruleBody(selector: string): string {

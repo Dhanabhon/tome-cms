@@ -6,7 +6,7 @@ import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'allow_visitor_theme' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'allow_visitor_theme' | 'show_powered_by' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -28,6 +28,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [theme, setTheme] = useState(initialSettings.theme);
   const [allowVisitorTheme, setAllowVisitorTheme] = useState(initialSettings.allow_visitor_theme);
+  const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
   const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
@@ -41,8 +42,9 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
     initialSettings.site_name, initialSettings.tagline, initialSettings.site_description,
     initialSettings.default_locale, initialSettings.timezone, initialSettings.theme,
     initialSettings.allow_visitor_theme,
+    initialSettings.show_powered_by,
   ]));
-  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, theme, allowVisitorTheme]);
+  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, theme, allowVisitorTheme, showPoweredBy]);
   const dirty = currentSnapshot !== savedSnapshot;
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -56,7 +58,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ allowVisitorTheme, defaultLocale, siteDescription, siteName, tagline, theme, timezone, updatedAt }),
+        body: JSON.stringify({ allowVisitorTheme, defaultLocale, showPoweredBy, siteDescription, siteName, tagline, theme, timezone, updatedAt }),
       });
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
@@ -120,6 +122,19 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
               <label htmlFor="siteDescription">{copy.settings.siteDescription}</label>
               <textarea className="admin-control admin-control--textarea" id="siteDescription" name="siteDescription" aria-invalid={Boolean(fieldErrors.siteDescription)} aria-describedby="siteDescription-error" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} />
               <p className="admin-field-error" id="siteDescription-error" aria-live="polite">{fieldErrors.siteDescription}</p>
+            </div>
+            <div className="admin-check">
+              <label>
+                <input
+                  aria-describedby="showPoweredBy-help"
+                  checked={showPoweredBy}
+                  name="showPoweredBy"
+                  onChange={(event) => { setShowPoweredBy(event.target.checked); setStatus(''); }}
+                  type="checkbox"
+                />
+                <span>{copy.settings.poweredByLabel}</span>
+              </label>
+              <small id="showPoweredBy-help">{copy.settings.poweredByHint}</small>
             </div>
           </section>
 
