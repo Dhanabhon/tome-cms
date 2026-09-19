@@ -9,10 +9,13 @@ import type { AdminCopy } from './admin-i18n';
  * accepted". The owner could not tell whether the fault was theirs, the browser's
  * or the server's, and the first three are fixable in seconds once named.
  *
- * The statuses mean the same thing wherever they appear, so they are mapped here.
- * What "something else went wrong" should say does not: signing in, adding a spare
- * and enrolling a recovery key each need their own sentence, so the caller passes
- * that one in.
+ * Most statuses mean the same thing wherever they appear, so they are mapped here.
+ * Two do not, and the caller passes both in. What "something else went wrong" should
+ * say depends on what was being attempted. So does 401: registering a spare needs the
+ * session it was refused for, but a sign-in has no session to expire -- there, 401 is
+ * better-auth answering that it does not know the credential the browser offered, and
+ * saying "your session expired" sends the owner to reload a page that was never the
+ * problem instead of to a Passkey that is registered.
  *
  * WebAuthn deliberately refuses to say whether a credential existed or the person
  * dismissed the prompt -- both arrive as NotAllowedError with status 400 -- so
@@ -29,13 +32,13 @@ export function readPasskeyStatus(value: unknown): number | undefined {
   return typeof error.status === 'number' ? error.status : undefined;
 }
 
-export function describePasskeyFailure(value: unknown, copy: AdminCopy, fallback: string): string {
+export function describePasskeyFailure(value: unknown, copy: AdminCopy, fallback: string, unauthorized: string): string {
   const status = readPasskeyStatus(value);
   // 403 is this app's own origin guard rather than better-auth: the page was opened
   // at an address the server is not configured for, so every auth call is refused.
   if (status === 403) return copy.auth.originRejected;
   if (status === 429) return copy.auth.tooManyAttempts;
-  if (status === 401) return copy.auth.sessionExpired;
+  if (status === 401) return unauthorized;
   if (status !== undefined && status >= 500) return copy.auth.serverError;
   return fallback;
 }

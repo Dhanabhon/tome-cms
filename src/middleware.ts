@@ -11,6 +11,9 @@ const SETUP_PATHS = new Set([
   '/api/install/finalize',
 ]);
 
+/** better-auth's own path; the response is a sign-in challenge, not an admin screen. */
+const AUTHENTICATE_OPTIONS_PATH = '/api/auth/passkey/generate-authenticate-options';
+
 const LOCALIZED_HOME = /^\/(?:th|en)\/?$/;
 const LOCALIZED_POST = /^\/(?:th|en)\/blog\/[^/]+\/?$/;
 const LOCALIZED_PAGE = /^\/(?:th|en)\/(?!blog(?:\/|$))[^/]+\/?$/;
@@ -99,6 +102,10 @@ async function routeConfiguredAdmin(
 }
 
 export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) => {
+  if (context.url.pathname === AUTHENTICATE_OPTIONS_PATH) {
+    const { withOwnerAllowedCredentials } = await import('./server/auth/allowed-credentials');
+    return withOwnerAllowedCredentials(await next());
+  }
   if (isSetupBypass(context.url.pathname) || isHeadlessStablePath(context.url.pathname)) return next();
   const { getSiteSettings } = await import('./server/content/site-settings');
   const settings = await getSiteSettings();

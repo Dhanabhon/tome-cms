@@ -86,7 +86,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     try {
       const result = await authClient.signIn.passkey();
       if (result.error || !result.data) {
-        setMessage(describePasskeyFailure(result, copy, copy.security.noPasskeyAccepted));
+        setMessage(describePasskeyFailure(result, copy, copy.security.noPasskeyAccepted, copy.auth.passkeyNotRegistered));
         return;
       }
       await loadPasskeys();
@@ -105,7 +105,8 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     try {
       const result = await authClient.passkey.addPasskey({ name: newName.trim() });
       if (result.error || !result.data) {
-        setMessage(describePasskeyFailure(result, copy, copy.security.spareNotAdded));
+        // Adding a spare is the one flow here that does need a session, so 401 means what it says.
+        setMessage(describePasskeyFailure(result, copy, copy.security.spareNotAdded, copy.auth.sessionExpired));
         return;
       }
       setMessage(copy.security.spareAdded);
@@ -158,7 +159,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setRecoveryCodes([]);
     try {
       const assertion = await authClient.signIn.passkey();
-      if (assertion.error || !assertion.data) throw new Error(describePasskeyFailure(assertion, copy, copy.security.codesUnchangedNoPasskey));
+      if (assertion.error || !assertion.data) throw new Error(describePasskeyFailure(assertion, copy, copy.security.codesUnchangedNoPasskey, copy.auth.passkeyNotRegistered));
       const response = await fetch('/api/admin/security/recovery-codes', { method: 'POST' });
       const payload = await responsePayload(response);
       const codes = Array.isArray(payload.recoveryCodes)

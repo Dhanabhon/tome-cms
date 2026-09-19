@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
@@ -6,6 +7,7 @@ import { describePasskeyException, describePasskeyFailure, readPasskeyStatus } f
 
 const copy = adminCopy('en');
 const FALLBACK = 'fallback sentence';
+const REFUSED = 'unauthorized sentence';
 
 test('the status is read from either shape the client returns', () => {
   // signInPasskey hands back its own { data, error } on a WebAuthn failure and the
@@ -22,12 +24,29 @@ test('each server refusal names its own cause', () => {
   const named: ReadonlyArray<readonly [number, string]> = [
     [403, copy.auth.originRejected],
     [429, copy.auth.tooManyAttempts],
-    [401, copy.auth.sessionExpired],
     [500, copy.auth.serverError],
     [503, copy.auth.serverError],
   ];
   for (const [status, expected] of named) {
-    assert.equal(describePasskeyFailure({ error: { status } }, copy, FALLBACK), expected, `status ${status}`);
+    assert.equal(describePasskeyFailure({ error: { status } }, copy, FALLBACK, REFUSED), expected, `status ${status}`);
+  }
+});
+
+test('401 says what the flow was refused, not what the flow assumed', () => {
+  // Signing in has no session to expire: there, better-auth's 401 means it does not know
+  // the credential the browser offered. Saying "your session expired" on a sign-in page
+  // sends the owner to reload a page that was never the problem.
+  assert.equal(describePasskeyFailure({ error: { status: 401 } }, copy, FALLBACK, REFUSED), REFUSED);
+  const signIn = readFileSync(new URL('../../src/components/admin/PasskeySignIn.tsx', import.meta.url), 'utf8');
+  assert.match(signIn, /describePasskeyFailure\(result, copy, copy\.auth\.noPasskey, copy\.auth\.passkeyNotRegistered\)/);
+  // Adding a spare is the one flow that does need a session, so it keeps the old sentence.
+  const security = readFileSync(new URL('../../src/components/admin/SecurityManager.tsx', import.meta.url), 'utf8');
+  assert.match(security, /copy\.security\.spareNotAdded, copy\.auth\.sessionExpired\)/);
+  assert.equal(security.match(/copy\.auth\.passkeyNotRegistered/g)?.length, 2, 'both sign-in paths name the credential');
+  for (const locale of ['en', 'th'] as const) {
+    const text = adminCopy(locale);
+    assert.ok(text.auth.passkeyNotRegistered.trim());
+    assert.notEqual(text.auth.passkeyNotRegistered, text.auth.sessionExpired);
   }
 });
 
@@ -35,10 +54,10 @@ test('the caller supplies what "something else" says, because the flows differ',
   // 400 is the authenticator itself, where WebAuthn will not say whether a
   // credential was missing or the prompt was dismissed. Signing in, adding a spare
   // and enrolling a recovery key each need their own sentence for that case.
-  assert.equal(describePasskeyFailure({ error: { status: 400 } }, copy, FALLBACK), FALLBACK);
-  assert.equal(describePasskeyFailure({ error: { code: 'AUTH_CANCELLED' } }, copy, FALLBACK), FALLBACK);
-  assert.equal(describePasskeyFailure(undefined, copy, FALLBACK), FALLBACK);
-  assert.equal(describePasskeyFailure({ error: { status: 418 } }, copy, FALLBACK), FALLBACK);
+  assert.equal(describePasskeyFailure({ error: { status: 400 } }, copy, FALLBACK, REFUSED), FALLBACK);
+  assert.equal(describePasskeyFailure({ error: { code: 'AUTH_CANCELLED' } }, copy, FALLBACK, REFUSED), FALLBACK);
+  assert.equal(describePasskeyFailure(undefined, copy, FALLBACK, REFUSED), FALLBACK);
+  assert.equal(describePasskeyFailure({ error: { status: 418 } }, copy, FALLBACK, REFUSED), FALLBACK);
 });
 
 test('a request that never landed is not reported as a missing Passkey', () => {
@@ -52,7 +71,7 @@ test('the five causes stay five distinct sentences', () => {
   // could not tell a misconfigured address from a rate limit from a dismissed prompt.
   for (const locale of ['en', 'th'] as const) {
     const text = adminCopy(locale);
-    const messages = [403, 429, 401, 500].map((status) => describePasskeyFailure({ error: { status } }, text, text.auth.noPasskey));
+    const messages = [403, 429, 401, 500].map((status) => describePasskeyFailure({ error: { status } }, text, text.auth.noPasskey, text.auth.passkeyNotRegistered));
     messages.push(text.auth.noPasskey, describePasskeyException(new TypeError('x'), text, text.auth.noPasskey));
     assert.equal(new Set(messages).size, messages.length, `${locale}: two causes share a message`);
     for (const message of messages) assert.ok(message.trim().length > 0, `${locale}: a cause has no message`);

@@ -31,7 +31,7 @@ export default function PasskeySignIn({ adminPath = '/admin', ownerLocale, retur
     try {
       const result = await authClient.signIn.passkey();
       if (result.error || !result.data) {
-        setError(describePasskeyFailure(result, copy, copy.auth.noPasskey));
+        setError(describePasskeyFailure(result, copy, copy.auth.noPasskey, copy.auth.passkeyNotRegistered));
         return;
       }
       window.location.assign(safeAdminReturnTo(returnTo, base));
