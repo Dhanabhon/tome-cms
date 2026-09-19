@@ -129,7 +129,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                             <span class="admin-page-path">/{edition.locale}/{edition.slug}</span>
                           </a>
                           <details class="admin-story-menu">
-                            <summary aria-label={`${copy.pages.actionsFor} ${label}`}><span aria-hidden="true">⋯</span></summary>
+                            <summary aria-label={`${copy.pages.actionsFor} ${label}`}><AdminIcon name="more" /></summary>
                             <div>
                               <a href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>{copy.row.edit}</a>
                               <a href={adminPreviewHref(adminSettings, 'page', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
@@ -149,7 +149,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                     ))}
                   </div>
                   <div class="admin-story-foot">
-                    <span data-story-when><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                    <span data-story-when><AdminIcon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
                   </div>
                 </article>
               );

@@ -103,3 +103,12 @@ test('a status spaces itself with margin, now that its box is painted', () => {
   assert.match(narrow, /\.admin-story-edition \.admin-status \{[^}]*margin-block-end/);
   assert.doesNotMatch(narrow, /\.admin-story-edition \.admin-status \{[^}]*padding-block/);
 });
+
+test('the list screens draw their marks instead of typing them', () => {
+  for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
+    const source = read(page);
+    assert.doesNotMatch(source, /[⋯✎]/, `${page} still types a glyph as an icon`);
+    assert.match(source, /<AdminIcon name="more" \/>/, `${page} has no row-menu icon`);
+  }
+  assert.match(read('src/pages/admin/index.astro'), /<AdminIcon name="clock" \/>/, 'the card has no clock');
+});
