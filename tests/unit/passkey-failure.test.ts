@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
-import { describePasskeyException, describePasskeyFailure, readPasskeyStatus } from '../../src/lib/passkey-failure';
+import { describePasskeyException, describePasskeyFailure, readPasskeyCode, readPasskeyStatus } from '../../src/lib/passkey-failure';
 
 const copy = adminCopy('en');
 const FALLBACK = 'fallback sentence';
@@ -83,4 +83,21 @@ test('the sign-in fallback admits it cannot tell the two WebAuthn cases apart', 
   // Claiming only one of them sends the owner looking for the wrong problem.
   assert.match(adminCopy('en').auth.noPasskey, / or /);
   assert.match(adminCopy('th').auth.noPasskey, /หรือ/);
+});
+
+test('an authenticator that already holds a Passkey is not a fault to retry past', () => {
+  // A spare Passkey exists so that losing one device does not lose the site. The authenticator
+  // that already holds one refuses to make a second for the same account -- correctly -- and
+  // the owner needs to hear which of their devices to reach for, not "it did not work".
+  const refused = { data: null, error: { code: 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED', status: 400 } };
+  assert.equal(readPasskeyCode(refused), 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED');
+  for (const locale of ['en', 'th'] as const) {
+    const text = adminCopy(locale);
+    assert.equal(describePasskeyFailure(refused, text, text.security.spareNotAdded, text.auth.sessionExpired), text.auth.passkeyAlreadyOnDevice);
+    assert.match(text.auth.passkeyAlreadyOnDevice, locale === 'th' ? /โทรศัพท์/ : /phone/);
+  }
+  // A dismissed prompt and a missing credential are the same code, so neither is guessed at.
+  const aborted = { data: null, error: { code: 'ERROR_CEREMONY_ABORTED', status: 400 } };
+  assert.equal(describePasskeyFailure(aborted, copy, FALLBACK, REFUSED), FALLBACK);
+  for (const junk of [null, 'code', 42, { error: { code: 42 } }]) assert.equal(readPasskeyCode(junk), undefined);
 });

@@ -18,8 +18,9 @@ import type { AdminCopy } from './admin-i18n';
  * problem instead of to a Passkey that is registered.
  *
  * WebAuthn deliberately refuses to say whether a credential existed or the person
- * dismissed the prompt -- both arrive as NotAllowedError with status 400 -- so
- * nothing here tries to guess between them. The sign-in fallback names both.
+ * dismissed the prompt -- both arrive as NotAllowedError, and so as the same
+ * ERROR_CEREMONY_ABORTED -- so nothing here tries to guess between them. The sign-in
+ * fallback names both.
  */
 export function readPasskeyStatus(value: unknown): number | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
@@ -32,7 +33,21 @@ export function readPasskeyStatus(value: unknown): number | undefined {
   return typeof error.status === 'number' ? error.status : undefined;
 }
 
+/** The authenticator's own verdict, which better-auth passes through beside the status. */
+export function readPasskeyCode(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const source = value as Record<string, unknown>;
+  const error = typeof source.error === 'object' && source.error !== null
+    ? source.error as Record<string, unknown>
+    : source;
+  return typeof error.code === 'string' ? error.code : undefined;
+}
+
 export function describePasskeyFailure(value: unknown, copy: AdminCopy, fallback: string, unauthorized: string): string {
+  // One WebAuthn refusal is unambiguous and worth naming: an authenticator that already holds
+  // a Passkey for this account refuses to make a second one, which is what a spare is *for*.
+  // It is not a fault to retry past -- the spare has to go somewhere else.
+  if (readPasskeyCode(value) === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') return copy.auth.passkeyAlreadyOnDevice;
   const status = readPasskeyStatus(value);
   // 403 is this app's own origin guard rather than better-auth: the page was opened
   // at an address the server is not configured for, so every auth call is refused.
