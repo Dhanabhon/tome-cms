@@ -2,6 +2,7 @@
 import { z } from 'zod';
 
 import { resolveTheme } from '../../../themes/registry';
+import { themeStylesheet } from '../../../themes/styles';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../../lib/admin-i18n';
 import { adminHref } from '../../../lib/admin';
@@ -61,13 +62,13 @@ try {
 }
 
 // A preview is what a reader will see, so the theme draws it.
-const activeTheme = await resolveTheme();
+const activeTheme = await resolveTheme(settings?.theme_id);
 const adminSettings = { admin_path: adminPath };
 const copy = adminCopy(settings?.default_locale);
 const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
-<AdminLayout adminPath={adminPath} lang={post?.locale} title={post ? `${copy.preview.previewPrefix}: ${post.title}` : copy.preview.draftPreview}>
+<AdminLayout stylesheet={themeStylesheet(settings?.theme_id)} adminPath={adminPath} lang={post?.locale} title={post ? `${copy.preview.previewPrefix}: ${post.title}` : copy.preview.draftPreview}>
   <main>
     {errorMessage ? <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p> : post && settings ? (
       <>

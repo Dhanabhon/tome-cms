@@ -8,11 +8,13 @@ import '../styles/global.css';
 
 interface Props {
   adminPath?: string;
+  /** Set by the preview screens, which draw a draft the way a reader will see it. */
+  stylesheet?: string;
   title: string;
   lang?: PostLocale;
 }
 
-const { adminPath: requestedAdminPath = '/admin', title, lang = 'en' } = Astro.props;
+const { adminPath: requestedAdminPath = '/admin', stylesheet, title, lang = 'en' } = Astro.props;
 const adminPath = normalizeAdminPath(requestedAdminPath);
 ---
 
@@ -33,6 +35,7 @@ const adminPath = normalizeAdminPath(requestedAdminPath);
          script is not worth doubling the critical path again. -->
     <link rel="preload" href="/fonts/google-sans-thai-700-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/fonts.css" />
+    {stylesheet && <link rel="stylesheet" href={stylesheet} />}
     <ThemeScript />
   </head>
   <body class="admin-body" data-admin-path={adminPath}>

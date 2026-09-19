@@ -2,6 +2,7 @@
 import { z } from 'zod';
 
 import { resolveTheme } from '../../../../themes/registry';
+import { themeStylesheet } from '../../../../themes/styles';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../../../lib/admin-i18n';
 import { adminHref } from '../../../../lib/admin';
@@ -15,6 +16,7 @@ let page: Page | null = null;
 let errorKey: 'pageNotFound' | 'signInToPreviewPage' | 'previewUnavailable' | null = null;
 let serverMessage: string | null = null;
 let adminPath = '/admin';
+let themeId: string | null = null;
 let ownerLocale: PageLocale | null = null;
 const id = z.uuid().safeParse(Astro.params.id);
 Astro.response.headers.set('Cache-Control', 'private, no-store');
@@ -29,6 +31,7 @@ try {
     if (!settings || settings.owner_id !== current.user.id) throw new HttpError(404, '');
     adminPath = settings.admin_path;
     ownerLocale = settings.default_locale;
+    themeId = settings.theme_id;
     page = await getPage(current.user.id, id.data);
     if (!page) {
       Astro.response.status = 404;
@@ -48,12 +51,12 @@ try {
 }
 
 // A preview is what a reader will see, so the theme draws it.
-const activeTheme = await resolveTheme();
+const activeTheme = await resolveTheme(themeId);
 const copy = adminCopy(ownerLocale);
 const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 ---
 
-<AdminLayout adminPath={adminPath} lang={page?.locale} title={page ? `${copy.preview.previewPrefix}: ${page.title}` : copy.preview.draftPreview}>
+<AdminLayout stylesheet={themeStylesheet(themeId)} adminPath={adminPath} lang={page?.locale} title={page ? `${copy.preview.previewPrefix}: ${page.title}` : copy.preview.draftPreview}>
   <main>
     {errorMessage ? <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p> : page ? (
       <>

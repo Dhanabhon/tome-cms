@@ -1,0 +1,37 @@
+---
+import ThemeToggle from '../../components/ThemeToggle.astro';
+import { currentYear, localePath, publicCopy } from '../../lib/i18n';
+import { THEME_LABELS } from '../../lib/theme';
+import type { ThemeShellProps } from '../contract';
+
+/**
+ * Plain puts everything in one column and separates with rules rather than surfaces, which
+ * is the point: it exists so the contract has a second reader, and a second reader that
+ * agreed with the first about everything would not have tested anything.
+ */
+interface Props extends ThemeShellProps {}
+
+const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
+const copy = publicCopy(locale);
+const languages = alternates.filter(({ locale: option }) => option !== locale);
+---
+
+<body class="plain">
+  <header class="plain-head">
+    <a class="plain-wordmark" href={localePath(locale)}>{siteName}</a>
+    <nav class="plain-nav" aria-label={copy.primaryNavigation}>
+      {header.map(({ href, label }) => <a href={href}>{label}</a>)}
+      {languages.map(({ href, locale: option }) => <a href={href} lang={option}>{option.toUpperCase()}</a>)}
+      {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
+    </nav>
+  </header>
+  <main>
+    <slot />
+  </main>
+  <footer class="plain-foot">
+    <nav aria-label={copy.footerNavigation}>
+      {footer.map(({ href, label }) => <a href={href}>{label}</a>)}
+    </nav>
+    <p>&copy; {currentYear(locale)} {siteName}.{showPoweredBy && ` ${copy.poweredBy}`}</p>
+  </footer>
+</body>

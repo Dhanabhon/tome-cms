@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { THEME_MANIFESTS } from '../../src/themes/manifests';
 import { DEFAULT_THEME_ID, isThemeId, THEME_IDS } from '../../src/themes/registry';
 
 const themesDir = new URL('../../src/themes/', import.meta.url);
@@ -32,7 +33,7 @@ test('a theme is loaded only when it is the one chosen', () => {
 test('every theme exports the same four templates', () => {
   for (const id of directories) {
     const index = read(`${id}/index.ts`);
-    assert.match(index, /export const manifest: ThemeManifest/, `${id} names itself`);
+    assert.match(index, /export \{ manifest \} from '\.\/theme';/, `${id} names itself`);
     assert.match(index, /export \{ Home, Page, Post, Shell \};/, `${id} exports the four templates`);
     for (const template of ['Home', 'Page', 'Post', 'Shell'] as const) {
       const source = read(`${id}/${template}.astro`);
@@ -71,10 +72,44 @@ test('the two stylesheets keep to their own side', () => {
   assert.match(core, /^\.category-default,/m);
 });
 
-test('whatever enters the theme brings the theme stylesheet with it', () => {
-  // A public page comes in through the shell; the admin's preview of a draft comes in
-  // through a template on its own, and has to be drawn just the same.
-  for (const template of ['Shell', 'Home', 'Post', 'Page']) {
-    assert.match(read(`paper/${template}.astro`), /^import '\.\/theme\.css';$/m, `${template} loads the theme`);
+test('a theme stylesheet is linked by the page, not imported by the template', () => {
+  // It was imported once, and the build put every theme's stylesheet in the admin's settings
+  // bundle and none on the public pages: nothing statically links a page to a theme, so Vite
+  // attributed the CSS to the one place that names the registry -- the settings form. The
+  // dev server was fine and the selector diff was clean, because both look at the whole build.
+  for (const id of directories) {
+    for (const template of ['Shell', 'Home', 'Post', 'Page']) {
+      assert.doesNotMatch(read(`${id}/${template}.astro`), /import '\.\/theme\.css'/, `${id}/${template} imports its stylesheet`);
+    }
   }
+  assert.match(read('styles.ts'), /import\.meta\.glob<string>\('\.\/\*\/theme\.css', \{ eager: true, import: 'default', query: '\?url' \}\)/);
+  const layout = readFileSync(new URL('../../src/layouts/BaseLayout.astro', import.meta.url), 'utf8');
+  assert.match(layout, /const themeCss = themeStylesheet\(settings\?\.theme_id\);/);
+  assert.match(layout, /<link rel="stylesheet" href=\{themeCss\} \/>/);
+  // The admin's preview draws a draft with the theme, so it asks for the sheet as well.
+  for (const preview of ['src/pages/admin/preview/[id].astro', 'src/pages/admin/pages/preview/[id].astro']) {
+    const source = readFileSync(new URL(`../../${preview}`, import.meta.url), 'utf8');
+    assert.match(source, /<AdminLayout stylesheet=\{themeStylesheet\(/, `${preview} links the theme`);
+  }
+});
+
+test('the admin can name a theme without loading it', () => {
+  // The settings screen offers the choice, and must not drag every theme's templates and
+  // stylesheet into the admin bundle to do it -- so the manifests live apart from them.
+  const manifests = read('manifests.ts');
+  assert.doesNotMatch(manifests, /\.astro/);
+  assert.deepEqual(THEME_MANIFESTS.map(({ id }) => id).sort(), [...THEME_IDS].sort());
+  for (const { description, id, name } of THEME_MANIFESTS) {
+    assert.ok(name.trim() && description.trim(), `${id} says what it is`);
+    assert.match(read(`${id}/theme.ts`), new RegExp(`id: '${id}'`), `${id}'s manifest names its own directory`);
+  }
+});
+
+test('the settings screen offers what is installed, and falls back to what is not', () => {
+  const form = readFileSync(new URL('../../src/components/admin/SettingsForm.tsx', import.meta.url), 'utf8');
+  assert.match(form, /THEME_MANIFESTS\.map\(\(\{ id, name \}\) => \(\{ label: name, value: id \}\)\)/);
+  // A theme can leave in a release while its id stays in the database, so what the control
+  // shows is what a save would store, rather than a value the server would refuse.
+  assert.match(form, /isThemeId\(initialSettings\.theme_id\) \? initialSettings\.theme_id : DEFAULT_THEME_ID/);
+  assert.equal(isThemeId(DEFAULT_THEME_ID), true);
 });

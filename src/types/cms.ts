@@ -202,6 +202,7 @@ export interface SiteSettings {
   theme: 'system' | 'light' | 'dark';
   allow_visitor_theme: boolean;
   show_powered_by: boolean;
+  theme_id: string;
   timezone: 'Asia/Bangkok' | 'UTC';
   owner_id: string;
   installed_at: string;

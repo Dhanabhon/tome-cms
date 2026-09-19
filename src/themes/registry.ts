@@ -12,6 +12,7 @@
  */
 const THEMES = {
   paper: () => import('./paper'),
+  plain: () => import('./plain'),
 } as const;
 
 export type ThemeId = keyof typeof THEMES;
