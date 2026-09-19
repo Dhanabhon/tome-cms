@@ -975,8 +975,11 @@ body {
 .admin-button:disabled,
 .admin-nav__link:disabled,
 .admin-toolbar-link[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; transform: none; }
-.admin-button[data-state="loading"] { cursor: wait; }
-.admin-button[data-state="loading"]::before {
+/* One attribute for "working": the spinner and the announcement come from the same
+ * aria-busy the controls already use. The label stays put underneath it, so a button
+ * never changes width while you wait for it. */
+.admin-button[aria-busy="true"] { cursor: wait; }
+.admin-button[aria-busy="true"]::before {
   width: var(--space-md);
   height: var(--space-md);
   border: var(--space-3xs) solid currentColor;
@@ -2016,7 +2019,7 @@ body {
   .admin-button,
   .admin-auth-brand,
   .admin-auth-nav__link { transform: none !important; }
-  .admin-button[data-state="loading"]::before { animation: none; border-block-start-color: currentColor; }
+  .admin-button[aria-busy="true"]::before { animation: none; border-block-start-color: currentColor; }
 }
 
 @keyframes admin-spin { to { transform: rotate(360deg); } }

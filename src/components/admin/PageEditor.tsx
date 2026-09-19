@@ -301,7 +301,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
               event.currentTarget.focus();
               setSettingsOpen(true);
             }} type="button">{copy.nav.settings}</button>
-            <button className="admin-button admin-button--primary" data-state={saveState === 'saving' ? 'loading' : undefined} disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
+            <button aria-busy={saveState === 'saving'} className="admin-button admin-button--primary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined, 'published')} type="button">
               {pageStatus === 'published' ? copy.editor.update : copy.row.publish}
             </button>
           </div>

@@ -525,7 +525,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
               <div className="installer-actions">
                 {!registrationStarted && <button className="installer-button" disabled={busy} onClick={back} type="button">{copy.back}</button>}
                 {registrationStarted && alert && <button className="installer-button" disabled={busy} onClick={restartEnrollment} type="button">{language === 'th' ? 'ยืนยัน token ใหม่' : 'Verify a new token'}</button>}
-                <button className="installer-button installer-button--primary" data-state={busy ? 'loading' : undefined} disabled={busy} onClick={() => void registerAndFinalize()} type="button">{passkeyRegistered ? (language === 'th' ? 'ลองบันทึกการติดตั้งอีกครั้ง' : 'Retry finalization') : (language === 'th' ? 'สร้าง Passkey และติดตั้ง' : 'Create Passkey and install')}</button>
+                <button className="installer-button installer-button--primary" aria-busy={busy} disabled={busy} onClick={() => void registerAndFinalize()} type="button">{passkeyRegistered ? (language === 'th' ? 'ลองบันทึกการติดตั้งอีกครั้ง' : 'Retry finalization') : (language === 'th' ? 'สร้าง Passkey และติดตั้ง' : 'Create Passkey and install')}</button>
               </div>
             </>}
 
@@ -564,5 +564,5 @@ function WizardActions({ back, busy, next, onBack, onNext }: {
   onBack: () => void;
   onNext: () => void;
 }) {
-  return <div className="installer-actions"><button className="installer-button" disabled={busy} onClick={onBack} type="button">{back}</button><button className="installer-button installer-button--primary" data-state={busy ? 'loading' : undefined} disabled={busy} onClick={onNext} type="button">{next} <span aria-hidden="true">→</span></button></div>;
+  return <div className="installer-actions"><button className="installer-button" disabled={busy} onClick={onBack} type="button">{back}</button><button className="installer-button installer-button--primary" aria-busy={busy} disabled={busy} onClick={onNext} type="button">{next} <span aria-hidden="true">→</span></button></div>;
 }

@@ -268,3 +268,21 @@ test('the picker closes from its toolbar, not from a button floating over its co
   assert.match(library, /className="media-toolbar__end"/);
   assert.match(library, /props\.mode === 'select' && <button autoFocus aria-label=\{copy\.media\.cancel\}/);
 });
+
+test('a busy control says so in the attribute a screen reader reads', () => {
+  // aria-busy, not data-state: one attribute for the spinner and for the announcement,
+  // and the one .admin-control already uses.
+  assert.doesNotMatch(CSS, /\.admin-button\[data-state="loading"\]/);
+  assert.match(CSS, /\.admin-button\[aria-busy="true"\]::before \{/);
+  // A reader who asked for less motion keeps the ring, closed, and loses the spin. The
+  // admin already had this fallback; the installer, which draws its own spinner from its
+  // own keyframes, had none.
+  assert.match(CSS, /\.admin-button\[aria-busy="true"\]::before \{ animation: none; border-block-start-color: currentColor; \}/);
+  const installer = read('src/styles/installer.css');
+  assert.doesNotMatch(installer, /\.installer-button\[data-state="loading"\]/);
+  assert.match(installer, /\.installer-button\[aria-busy="true"\]::before \{ animation: none;/);
+  // The four controls that already reported loading move with it.
+  for (const component of ['Editor', 'PageEditor', 'NavigationManager', 'InstallerWizard']) {
+    assert.doesNotMatch(read(`src/components/admin/${component}.tsx`), /data-state=\{[^}]*'loading'/, `${component} still reports loading through data-state`);
+  }
+});
