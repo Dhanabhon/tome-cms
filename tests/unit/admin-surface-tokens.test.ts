@@ -44,7 +44,9 @@ test('the public site and the installer keep the root tokens', () => {
 });
 
 test('an admin page title is semibold', () => {
-  assert.equal(declaration(ruleBody(CSS, '.admin-page__head h1,\n.media-toolbar h1'), 'font-weight'), '600');
+  // One selector, not two: the file library used to bring its own heading, and now stands
+  // in the same page head as every other screen.
+  assert.equal(declaration(ruleBody(CSS, '.admin-page__head h1'), 'font-weight'), '600');
 });
 
 test('a tab count is the same badge as a sidebar count', () => {
