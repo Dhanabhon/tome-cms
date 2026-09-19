@@ -2029,13 +2029,16 @@ body {
 }
 .navigation-items > :last-child { border-block-end: 0; }
 .navigation-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
-.navigation-grip { align-self: start; padding-block: var(--space-sm); cursor: grab; color: var(--color-muted); }
+/* The grip is a handle, so it takes the pointer that says so and the height of the field
+ * it sits beside. */
+.navigation-grip { display: grid; align-self: start; place-items: center; min-height: var(--control-height); color: var(--color-muted); cursor: grab; }
+.navigation-remove:hover:not(:disabled) { color: var(--color-error-ink); }
 .navigation-item__content { min-width: 0; }
 .navigation-item__actions { grid-column: 2; }
 .navigation-item__actions .admin-button { padding-inline: var(--space-sm); }
 .navigation-target { overflow-wrap: anywhere; margin-block-start: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); }
 .navigation-visibility { margin-block-start: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
-.navigation-empty { padding-block: var(--space-xl); color: var(--color-muted); }
+.navigation-empty { min-height: 0; padding-block: var(--space-lg); }
 .navigation-save { margin-block: var(--space-lg); }
 .navigation-save > span { color: var(--color-muted); font-size: var(--text-sm); }
 .navigation-manager [role="tabpanel"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-2xs); }

@@ -165,3 +165,17 @@ test('every set of tabs in the admin is drawn the same way', () => {
   assert.equal(declaration(item, 'min-height'), 'var(--control-height)');
   assert.match(read('src/components/admin/NavigationManager.tsx'), /className="navigation-tab"/, 'the tabs are still admin-buttons');
 });
+
+test('a menu item is handled with icons that keep their words', () => {
+  const manager = read('src/components/admin/NavigationManager.tsx');
+  assert.doesNotMatch(manager, /⠿/, 'the grip is still a typed character');
+  for (const name of ['grip', 'up', 'down', 'trash']) {
+    assert.match(manager, new RegExp(`<AdminIcon name="${name}" />`), `no ${name} icon`);
+  }
+  // An icon button says what it does to anyone who cannot see it.
+  for (const label of ['moveUp', 'moveDown', 'remove']) {
+    assert.match(manager, new RegExp(`aria-label=\\{copy\\.navigation\\.${label}\\}`), `${label} lost its label`);
+    assert.match(manager, new RegExp(`title=\\{copy\\.navigation\\.${label}\\}`), `${label} lost its title`);
+  }
+  assert.match(manager, /className="admin-empty navigation-empty"/, 'the empty menu is not the shared empty state');
+});
