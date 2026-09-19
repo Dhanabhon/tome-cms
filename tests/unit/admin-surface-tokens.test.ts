@@ -188,3 +188,13 @@ test('a count is one badge, wherever it is counted', () => {
   assert.match(manager, /className="admin-count"/, 'the category count is not a badge');
   assert.match(manager, /aria-label=\{postCountLabel\(copy, category\.postCount\)\}/, 'the count lost its words');
 });
+
+test('a category row is handled with icons that keep their words', () => {
+  const manager = read('src/components/admin/CategoryManager.tsx');
+  for (const name of ['pencil', 'trash']) {
+    assert.match(manager, new RegExp(`<AdminIcon name="${name}" />`), `no ${name} icon`);
+  }
+  for (const label of ['renameLabelFor', 'deleteLabelFor']) {
+    assert.match(manager, new RegExp(`title=\\{fill\\(copy\\.categories\\.${label}`), `${label} lost its title`);
+  }
+});
