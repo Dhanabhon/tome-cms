@@ -52,16 +52,16 @@ const filters = kind === 'posts' || kind === 'pages';
         </div>
       </div>
     ) : kind === 'media' ? (
-      <div class="media-shell">
-        <div class="media-toolbar">
+      <div class="media-shell" data-mode="manage">
+        <div class="admin-page__head">
           <div>
             <span class="skeleton skeleton--title"></span>
             <span class="skeleton-line admin-skeleton__lede"></span>
           </div>
-          <div class="media-toolbar__actions">
-            <span class="skeleton skeleton--control"></span>
-            <span class="skeleton skeleton--button" style="--skeleton-width: 8rem"></span>
-          </div>
+        </div>
+        <div class="media-toolbar">
+          <span class="skeleton skeleton--control"></span>
+          <span class="skeleton skeleton--button" style="--skeleton-width: 8rem"></span>
         </div>
         <div class="media-grid">
           {count(8).map(() => <span class="skeleton admin-skeleton__tile"></span>)}

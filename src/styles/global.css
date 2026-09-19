@@ -526,24 +526,23 @@ body {
   z-index: 50 !important;
 }
 
-.media-shell {
-  @apply mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16;
-}
+/* The same frame Posts and Pages stand in, rather than a page width of its own. In the
+ * picker the section sits inside a dialog, which brings its own padding. */
+.media-shell[data-mode="manage"] { width: min(100%, 80rem); margin-inline: auto; padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-xl)); }
 
 .media-toolbar {
   display: grid;
-  gap: var(--space-lg);
-  padding-block-end: var(--space-xl);
-  border-block-end: var(--rule-hair) solid var(--color-rule);
-}
-
-.media-toolbar__actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 22rem) auto;
+  justify-content: space-between;
   gap: var(--space-sm);
   align-items: center;
   min-width: 0;
+  padding-block-end: var(--space-lg);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
 }
+/* A label is inline by default, and .admin-search declares no display of its own -- the
+ * magnifier is positioned against this box, so the box has to be one. */
+.media-search { display: block; }
 
 .media-upload {
   cursor: pointer;
