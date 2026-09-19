@@ -3,6 +3,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import type { AuthorLink, PostLocale, SiteSettings } from '../../types/cms';
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import MediaPicker from './MediaPicker';
+import AdminIcon from './AdminIcon';
 
 interface ProfileFormProps {
   ownerLocale?: PostLocale | null;
@@ -125,7 +126,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
                     <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setAvatarPickerOpen(true)} ref={avatarButton} type="button">
                       {avatarUrl ? copy.profile.changeAvatar : copy.profile.chooseAvatar}
                     </button>
-                    {avatarUrl && <button className="admin-button admin-button--secondary" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); setStatus(''); }} type="button">{copy.profile.remove}</button>}
+                    {avatarUrl && <button aria-label={copy.profile.removeAvatar} className="admin-button admin-button--ghost admin-button--icon profile-avatar-remove" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); setStatus(''); }} title={copy.profile.removeAvatar} type="button"><AdminIcon name="trash" /></button>}
                   </div>
                   {!avatarUrl && <p className="admin-hint">{copy.profile.noAvatar}</p>}
                 </div>

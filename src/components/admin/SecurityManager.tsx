@@ -4,6 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
 import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
+import AdminIcon from './AdminIcon';
 
 interface PasskeyView {
   id: string;
@@ -230,19 +231,21 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                   <div className="security-key__actions">
                     <button
                       aria-label={fill(copy.security.renameLabelFor, { name: passkey.name })}
-                      className="admin-button"
+                      className="admin-button admin-button--ghost admin-button--icon"
                       disabled={busy}
                       onClick={() => { setRenamingId(passkey.id); setMessage(''); }}
                       ref={(button) => { if (button) renameButtons.current.set(passkey.id, button); }}
+                      title={fill(copy.security.renameLabelFor, { name: passkey.name })}
                       type="button"
-                    >{copy.security.rename}</button>
+                    ><AdminIcon name="pencil" /></button>
                     <button
                       aria-label={fill(copy.security.deleteLabelFor, { name: passkey.name })}
-                      className="admin-button admin-button--danger"
+                      className="admin-button admin-button--ghost admin-button--icon security-key__delete"
                       disabled={busy || passkeys.length < 2}
                       onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
+                      title={fill(copy.security.deleteLabelFor, { name: passkey.name })}
                       type="button"
-                    >{copy.security.delete}</button>
+                    ><AdminIcon name="trash" /></button>
                   </div>
                 </>
               )}
