@@ -1490,6 +1490,8 @@ body {
   font-size: var(--text-sm);
 }
 .admin-alert--page { width: min(calc(100% - (var(--space-md) * 2)), 48rem); margin: var(--space-xl) auto; }
+/* Above whatever screen the owner opened, because it is true of all of them. */
+.admin-migrations { display: grid; gap: var(--space-2xs); margin: var(--space-lg) var(--space-lg) 0; }
 
 .security-page { width: min(calc(100% - (var(--space-md) * 2)), 52rem); margin-inline: auto; padding-block: var(--space-xl) var(--space-2xl); }
 .security-page__head { display: grid; gap: var(--space-lg); margin-block-end: var(--space-xl); }

@@ -2,7 +2,7 @@
 import ThemeToggle from '../ThemeToggle.astro';
 import Icon from '../Icon.astro';
 import { adminHref, normalizeAdminPath, postSearchState, type AdminNavId } from '../../lib/admin';
-import { adminCopy } from '../../lib/admin-i18n';
+import { adminCopy, fill } from '../../lib/admin-i18n';
 import { countAdminStories, type AdminStoryCounts } from '../../server/content/admin-counts';
 import { getSiteSettings } from '../../server/content/settings';
 import type { PostLocale } from '../../types/cms';
@@ -26,12 +26,28 @@ const copy = adminCopy(locale);
 // Counted only for a signed-in owner -- the Security screen renders this shell around its sign-in
 // form too. A count that fails leaves the badges out; it never takes the shell down with it.
 let counts: AdminStoryCounts | null = null;
+/**
+ * A build whose migrations have not run writes to columns that are not there, and the
+ * owner meets that as a save that failed for no stated reason -- which is how it was met
+ * on 2026-09-20. /health/ready knew; nothing the owner looks at was asking it.
+ *
+ * Asked on every admin page rather than cached: in development a migration arrives without
+ * restarting the process, which is the case this exists for.
+ */
+let pendingMigrations: string[] = [];
 if (userEmail) {
   try {
     const settings = await getSiteSettings();
     if (settings) counts = await countAdminStories(settings.owner_id);
   } catch (error) {
     console.error('Admin story counts could not be read:', error);
+  }
+  try {
+    const { pendingMigrationNames } = await import('../../server/db/migrator');
+    pendingMigrations = await pendingMigrationNames();
+  } catch (error) {
+    // A check that cannot run is not a reason to take the admin down with it.
+    console.error('Pending migrations could not be read:', error);
   }
 }
 
@@ -207,7 +223,15 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
         <Icon name="external" /><span>{copy.shell.viewSite}</span>
       </a>
     </header>
-    <main class="admin-shell-content"><slot /></main>
+    <main class="admin-shell-content">
+      {pendingMigrations.length > 0 && (
+        <p class="admin-alert admin-migrations" role="alert">
+          <strong>{copy.shell.migrationsPending}</strong>
+          <span>{fill(copy.shell.migrationsPendingBody, { names: pendingMigrations.join(', ') })}</span>
+        </p>
+      )}
+      <slot />
+    </main>
   </div>
 </div>
 
