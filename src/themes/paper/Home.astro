@@ -148,8 +148,17 @@ const initial = (title: string) => {
 </section>
 
 <script>
-  import wirePostFeed from '../../lib/post-feed';
-
+  /*
+   * Imported only when there is a feed to wire.
+   *
+   * A static import puts the feed's code in the page's own script, which a reader downloads
+   * whether or not the theme was told to load more as they scroll -- measured, not assumed:
+   * post-feed was requested in both states. A dynamic one makes it a chunk of its own, and
+   * an owner who switched the setting off is not served the thing they switched off.
+   */
   const feed = document.querySelector<HTMLElement>('[data-post-feed]');
-  if (feed) wirePostFeed(feed, document.querySelector<HTMLElement>('[data-post-filter]'));
+  if (feed) {
+    const { default: wirePostFeed } = await import('../../lib/post-feed');
+    wirePostFeed(feed, document.querySelector<HTMLElement>('[data-post-filter]'));
+  }
 </script>
