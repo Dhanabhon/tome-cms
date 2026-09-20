@@ -106,6 +106,14 @@ progressive shadow system remain the structural foundation.
 type token. This document and `tailwind.config.mjs` follow it — they never declare a competing
 value. `npm run check` runs `scripts/check-design-tokens.mjs`, which fails the build if they drift.
 
+**Where the rules live:** `src/styles/global.css` holds what both sides draw — the tokens and
+both colour schemes, the resets, the focus ring, `.icon`, `.sr-only`, and the two rules the
+admin shares outright with a theme (`.article-title`, and the category chip). Everything a
+reader sees and the admin does not belongs to the theme that draws it, in
+`src/themes/<id>/theme.css`, which is linked by the page using that theme and never loaded by
+an admin screen. `npm run css:snapshot` and `npm run css:diff` report which selectors a build
+serves, and are how that line is kept where it is.
+
 **Signature traits:**
 - Single-family weight hierarchy: Builds hierarchy from IBM Plex Sans Thai across 4 weights rather than multiple families.
 - Soft, rounded geometry: Generous corner rounding up to 9999px.
@@ -271,7 +279,8 @@ top of the tokens above. The values are set on `.admin-body` in `src/styles/glob
 on `:root`, so the public site and the installer keep the root values.
 `scripts/check-design-tokens.mjs` checks the root tables only; this table is the record for
 the admin. Icons are line drawings on a 24px grid with a 1.5px stroke, drawn at 20px in
-`currentColor` from `src/lib/admin-icons.ts` (paths adapted from Lucide, ISC licence).
+`currentColor` from `src/lib/icons.ts` (paths adapted from Lucide, ISC licence) — one set for
+the whole product, since the public site draws from it too.
 
 | Token | Root | Admin | Role in the admin |
 |------|------|-------|-------------------|

@@ -125,7 +125,7 @@ something the browser can do.
 
 The guard runs on `POST /api/auth/passkey/verify-authentication`, beside the rate limiter
 that is already there, and **nowhere else**. Registration is untouched, which means the
-recovery flow -- `npm run recovery:issue`, then a replacement passkey -- stays open with the
+recovery flow -- `npm run admin:recover -- --execute`, then a replacement passkey -- stays open with the
 plugin on, misconfigured, or both. The escape hatch from a lock-out is the one that already
 exists, and this design's job is to not close it.
 
