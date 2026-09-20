@@ -21,6 +21,12 @@ const copy = locale === 'th'
   ? {
     all: 'บทความทั้งหมด',
     defaultHeadline: 'เขียนไว้อย่างตั้งใจ เผยแพร่อย่างพิถีพิถัน',
+    featured: 'บทความล่าสุด',
+    nextSlide: 'ภาพถัดไป',
+    previousSlide: 'ภาพก่อนหน้า',
+    slideOf: 'ภาพที่ {index} จาก {count}',
+    startRotating: 'เริ่มเลื่อนภาพอัตโนมัติ',
+    stopRotating: 'หยุดเลื่อนภาพอัตโนมัติ',
     categories: 'หมวดหมู่',
     empty: 'ยังไม่มีบทความที่เผยแพร่',
     emptyCategory: 'ยังไม่มีบทความในหมวดหมู่นี้',
@@ -34,6 +40,12 @@ const copy = locale === 'th'
   : {
     all: 'All posts',
     defaultHeadline: 'Ideas, carefully published.',
+    featured: 'Newest posts',
+    nextSlide: 'Next image',
+    previousSlide: 'Previous image',
+    slideOf: 'Image {index} of {count}',
+    startRotating: 'Start rotating the images',
+    stopRotating: 'Stop rotating the images',
     categories: 'Categories',
     empty: 'No published posts yet.',
     emptyCategory: 'No posts in this category yet.',
@@ -54,6 +66,10 @@ const isCurrent = (name: string) => activeCategory?.toLocaleLowerCase() === name
 // The owner's words, or the theme's in the language the page is read in. It was one English
 // sentence written into the template, which a Thai reader met in English.
 const headline = themeSettings.heroHeadline?.trim() || copy.defaultHeadline;
+// The covers the route already fetched. A hero of one is not a slider, and a page whose
+// newest posts have no covers falls back to text rather than to an empty band.
+const slides = hero === 'slider' ? posts.filter(({ cover_image }) => cover_image).slice(0, 5) : [];
+const band = slides.length > 1 ? 'slider' : hero === 'slider' ? 'text' : hero;
 
 const olderHref = nextCursor
   ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), cursor: nextCursor })}`
@@ -81,8 +97,51 @@ const initial = (title: string) => {
 };
 ---
 
-{hero !== 'off' && (
-  <section class="home-hero" data-hero={hero === 'animated' ? 'moving' : undefined}>
+{band === 'slider' && (
+  <section class="home-hero home-hero--slider" aria-roledescription="carousel" aria-label={copy.featured} data-hero-slider>
+    <ul class="hero-slider" data-hero-track>
+      {slides.map((post, index) => (
+        <li
+          class="hero-slider__slide"
+          aria-label={copy.slideOf.replace('{index}', String(index + 1)).replace('{count}', String(slides.length))}
+          aria-roledescription="slide"
+          data-hero-slide
+        >
+          <a href={postPath(post)}>
+            {/* The first is the page's largest paint: it is asked for at once and at
+                priority, and the ones a reader has not reached are not asked for at all. */}
+            <img
+              alt=""
+              fetchpriority={index === 0 ? 'high' : undefined}
+              height="900"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              src={post.cover_image}
+              width="1600"
+            />
+            <span class="hero-slider__caption"><span class="hero-slider__title">{post.title}</span></span>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <div class="hero-slider__controls">
+      <button aria-label={copy.previousSlide} class="hero-slider__step" data-hero-prev type="button"><Icon name="arrowLeft" /></button>
+      <button
+        class="hero-slider__step"
+        data-hero-toggle
+        data-start={copy.startRotating}
+        data-stop={copy.stopRotating}
+        type="button"
+      >
+        <Icon name="pause" />
+        <Icon name="play" />
+      </button>
+      <button aria-label={copy.nextSlide} class="hero-slider__step" data-hero-next type="button"><Icon name="arrowRight" /></button>
+    </div>
+  </section>
+)}
+
+{band !== 'slider' && band !== 'off' && (
+  <section class="home-hero" data-hero={band === 'animated' ? 'moving' : undefined}>
     <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
       <h1 class="hero-title max-w-xl">{headline}</h1>
       {tagline && (
@@ -114,7 +173,7 @@ const initial = (title: string) => {
         {posts.map((post, index) => {
           const excerpt = postExcerpt(post, '');
           return (
-            <article class="post-card">
+            <article class="post-card" style={`--card-index: ${index};`}>
               <div class="post-card__cover" aria-hidden="true">
                 {post.cover_image
                   ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
@@ -157,6 +216,16 @@ const initial = (title: string) => {
     )}
   </div>
 </section>
+
+<script>
+  /* The same arrangement the feed has: fetched only when there is a slider on the page, so
+   * the two hero modes that do not rotate do not carry the code that rotates. */
+  const slider = document.querySelector<HTMLElement>('[data-hero-slider]');
+  if (slider) {
+    const { default: wireHeroSlider } = await import('./hero-slider');
+    wireHeroSlider(slider);
+  }
+</script>
 
 <script>
   /*
