@@ -11,8 +11,12 @@ export default defineConfig({
   use: {
     trace: 'retain-on-failure',
   },
+  // Both projects are Chromium, and the mobile one has to stay that way: virtual WebAuthn is
+  // driven over CDP, which only Chromium speaks, and CI installs only the browser the suite
+  // needs. An iPhone device here is WebKit -- it ran locally, where a WebKit was already
+  // downloaded, and failed in CI, where one never had been.
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile', use: { ...devices['iPhone 13'] } },
+    { name: 'mobile', use: { ...devices['Pixel 5'] } },
   ],
 });

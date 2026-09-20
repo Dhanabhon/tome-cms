@@ -76,8 +76,12 @@ async function stopServer(child: ChildProcess) {
   if (child.exitCode === null) child.kill('SIGKILL');
 }
 
-test('six-step installer preserves safe values and registers a primary Passkey', async ({ context, page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'Virtual WebAuthn is covered once in Chromium.');
+test.skip(
+  ({ isMobile }) => Boolean(isMobile),
+  'Virtual WebAuthn is driven over CDP and covered once, on desktop Chromium.',
+);
+
+test('six-step installer preserves safe values and registers a primary Passkey', async ({ context, page }) => {
   const { child, origin } = await startInstallerServer();
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
