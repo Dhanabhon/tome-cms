@@ -145,7 +145,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   };
 
   expect(await readThemeSettings('paper'), 'a theme nobody has answered gets what it declared')
-    .toEqual({ gridColumns: '3', infiniteScroll: 'on', postsPerLoad: '6' });
+    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6' });
   expect(await feed()).toEqual({ cards: 6, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { postsPerLoad: '12' } });
@@ -164,7 +164,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   // A row edited by hand, or a release that dropped a choice, must not reach a template.
   await query`update site_settings set theme_settings = '{"paper":{"postsPerLoad":"99"}}'::jsonb`.execute(db);
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
-    .toEqual({ gridColumns: '3', infiniteScroll: 'on', postsPerLoad: '6' });
+    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6' });
 });
 
 test('how many cards go across is asked for, not fixed', async ({ page }) => {
@@ -198,6 +198,54 @@ test('how many cards go across is asked for, not fixed', async ({ page }) => {
   expect(seen['3'], 'three across, which is what the grid did before it could be asked').toEqual([3, 3, 1]);
   // Four only fits the 80rem page, and only because choosing it also lowers the floor.
   expect(seen['4'], 'four where there is room, and never on a phone').toEqual([4, 3, 1]);
+});
+
+test('the hero is the owner\'s, in the language the page is read in', async ({ page }) => {
+  test.setTimeout(180_000);
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+  const hero = async (path: string) => {
+    await page.goto(`${origin}${path}`);
+    await page.locator('.site-header').waitFor();
+    return page.evaluate(() => {
+      const band = document.querySelector('.home-hero') as HTMLElement | null;
+      const title = band?.querySelector('.hero-title') as HTMLElement | null;
+      return {
+        shown: Boolean(band),
+        moving: band?.dataset.hero ?? null,
+        headline: title?.textContent?.trim() ?? null,
+        animation: title ? getComputedStyle(title).animationName : 'none',
+        // A headline with no break opportunity has to break anyway.
+        overflows: title ? title.scrollWidth > title.clientWidth + 1 : false,
+      };
+    });
+  };
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  // It was one English sentence written into the template, so a Thai reader met it in English.
+  expect((await hero('/en')).headline).toBe('Ideas, carefully published.');
+  expect((await hero('/th')).headline, 'the Thai page says it in Thai').toBe('เขียนไว้อย่างตั้งใจ เผยแพร่อย่างพิถีพิถัน');
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { heroHeadline: 'ทดสอบหัวข้อของเจ้าของ' } });
+  expect((await hero('/th')).headline, "and the owner's words win").toBe('ทดสอบหัวข้อของเจ้าของ');
+  await expect(
+    writeThemeSettings('signin-test-owner', { id: 'paper', values: { heroHeadline: 'x'.repeat(61) } }),
+    'a length is refused as a length, not as a choice',
+  ).rejects.toThrow(/longer than 60/);
+
+  // Sixty of the same letter is not a headline, but it must not run out of the band either.
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { heroHeadline: 'W'.repeat(60) } });
+  expect((await hero('/en')).overflows, 'an unbreakable headline breaks anyway').toBe(false);
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'animated', heroHeadline: '' } });
+  expect(await hero('/en')).toMatchObject({ shown: true, moving: 'moving', animation: 'post-card-in' });
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect((await hero('/en')).animation, 'a reader who asked for less motion gets none').toBe('none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'off' } });
+  expect(await hero('/en')).toMatchObject({ shown: false, headline: null });
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'text' } });
 });
 
 test('a reader is not served the feed they switched off', async ({ page }) => {

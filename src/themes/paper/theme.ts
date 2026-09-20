@@ -7,6 +7,32 @@ export const manifest: ThemeManifest = {
   name: 'Paper',
   settings: [
     {
+      fallback: 'text',
+      hint: {
+        en: 'The band above the grid. Moving reveals the headline and the line under it once, on arrival, and does nothing at all for a reader who asked for less motion.',
+        th: 'แถบเหนือ grid — แบบเคลื่อนไหวจะเผยหัวข้อกับบรรทัดใต้มันครั้งเดียวตอนเปิดหน้า และไม่ทำอะไรเลยกับผู้อ่านที่ตั้งค่าขอการเคลื่อนไหวน้อยลง',
+      },
+      key: 'hero',
+      kind: 'choice',
+      label: { en: 'Hero', th: 'แถบหัวเรื่อง' },
+      options: [
+        { label: { en: 'Text', th: 'ข้อความ' }, value: 'text' },
+        { label: { en: 'Moving text', th: 'ข้อความแบบเคลื่อนไหว' }, value: 'animated' },
+        { label: { en: 'Hidden', th: 'ไม่แสดง' }, value: 'off' },
+      ],
+    },
+    {
+      fallback: '',
+      hint: {
+        en: 'Left blank, the hero says what TomeCMS says, in the language the page is being read in.',
+        th: 'ถ้าเว้นว่าง จะใช้ข้อความของ TomeCMS ตามภาษาที่หน้านั้นถูกอ่าน',
+      },
+      key: 'heroHeadline',
+      kind: 'text',
+      label: { en: 'Headline', th: 'หัวข้อ' },
+      max: 60,
+    },
+    {
       fallback: '6',
       hint: {
         en: 'Multiples of six only: a page of six ends on a full row at one, two or three cards across, which is every width this grid has.',

@@ -14,11 +14,13 @@ const endless = themeSettings.infiniteScroll !== 'off';
 // Four across on an 80rem page is 18.9rem a card, just under the floor the other two keep,
 // so asking for four is also asking for that much less room per title.
 const columns = themeSettings.gridColumns ?? '3';
+const hero = themeSettings.hero ?? 'text';
 const gridStyle = `--post-grid-columns: ${columns}; --post-grid-min: ${columns === '4' ? '16rem' : '19rem'};`;
 
 const copy = locale === 'th'
   ? {
     all: 'บทความทั้งหมด',
+    defaultHeadline: 'เขียนไว้อย่างตั้งใจ เผยแพร่อย่างพิถีพิถัน',
     categories: 'หมวดหมู่',
     empty: 'ยังไม่มีบทความที่เผยแพร่',
     emptyCategory: 'ยังไม่มีบทความในหมวดหมู่นี้',
@@ -31,6 +33,7 @@ const copy = locale === 'th'
   }
   : {
     all: 'All posts',
+    defaultHeadline: 'Ideas, carefully published.',
     categories: 'Categories',
     empty: 'No published posts yet.',
     emptyCategory: 'No posts in this category yet.',
@@ -48,6 +51,10 @@ const byline = profile?.name || siteName;
 const home = localePath(locale);
 const categoryHref = (name: string) => `${home}?${new URLSearchParams({ category: name })}`;
 const isCurrent = (name: string) => activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase();
+// The owner's words, or the theme's in the language the page is read in. It was one English
+// sentence written into the template, which a Thai reader met in English.
+const headline = themeSettings.heroHeadline?.trim() || copy.defaultHeadline;
+
 const olderHref = nextCursor
   ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), cursor: nextCursor })}`
   : null;
@@ -74,18 +81,18 @@ const initial = (title: string) => {
 };
 ---
 
-<section class="home-hero">
-  <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
-    <h1 class="hero-title max-w-xl">
-      Ideas, carefully published.
-    </h1>
-    {tagline && (
-      <p class="lead mt-6 max-w-md">
-        {tagline}
-      </p>
-    )}
-  </div>
-</section>
+{hero !== 'off' && (
+  <section class="home-hero" data-hero={hero === 'animated' ? 'moving' : undefined}>
+    <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+      <h1 class="hero-title max-w-xl">{headline}</h1>
+      {tagline && (
+        <p class="lead mt-6 max-w-md">
+          {tagline}
+        </p>
+      )}
+    </div>
+  </section>
+)}
 
 <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
   {categories.length > 0 && (

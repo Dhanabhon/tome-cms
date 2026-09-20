@@ -26,6 +26,10 @@ function storedFor(value: unknown, themeId: string): Record<string, string> {
 function accept(setting: ThemeSetting, supplied: string | undefined): string | null {
   if (supplied === undefined) return null;
   if (setting.kind === 'switch') return supplied === 'on' || supplied === 'off' ? supplied : null;
+  if (setting.kind === 'text') {
+    const trimmed = supplied.trim();
+    return trimmed.length <= (setting.max ?? 0) ? trimmed : null;
+  }
   return setting.options?.some((option) => option.value === supplied) ? supplied : null;
 }
 
@@ -60,7 +64,12 @@ export async function writeThemeSettings(
   for (const setting of settings) {
     const value = accept(setting, input.values[setting.key]);
     if (value === null && setting.key in input.values) {
-      throw new HttpError(400, `${setting.label.en} was sent a value this theme does not offer.`, { code: 'theme_setting_invalid' });
+      // A length is not a choice: saying a too-long headline is "not offered" sends the
+      // owner looking for a list that does not exist.
+      const why = setting.kind === 'text'
+        ? `is longer than ${setting.max} characters.`
+        : 'was sent a value this theme does not offer.';
+      throw new HttpError(400, `${setting.label.en} ${why}`, { code: 'theme_setting_invalid' });
     }
     // Absent means leave it, which is what makes a write that touches one control safe.
     kept[setting.key] = value ?? current[setting.key] ?? setting.fallback;
