@@ -580,3 +580,20 @@
     to { transform: scaleX(1); }
   }
 }
+
+/*
+ * A header that stays in view.
+ *
+ * Sticky rather than fixed, so the header keeps its place in the flow and nothing below it
+ * has to be pushed down by the height of something that left the page. It needs a
+ * background of its own: the body's shows through an element that is no longer scrolling
+ * with what it sits on.
+ *
+ * Under the reading progress bar, which is the one thing that should stay above it.
+ */
+.site-header[data-sticky] {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-sticky-nav);
+  background: var(--color-paper);
+}

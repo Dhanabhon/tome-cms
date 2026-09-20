@@ -66,6 +66,16 @@ export const manifest: ThemeManifest = {
     {
       fallback: 'off',
       hint: {
+        en: 'The header stays at the top of the window as the reader goes down the page, so the site name and the menu are always a glance away.',
+        th: 'ส่วนหัวจะค้างอยู่บนสุดของหน้าต่างขณะเลื่อนลง ทำให้ชื่อเว็บและเมนูอยู่ในสายตาเสมอ',
+      },
+      key: 'stickyHeader',
+      kind: 'switch',
+      label: { en: 'Keep the header in view', th: 'ตรึงส่วนหัวไว้ด้านบน' },
+    },
+    {
+      fallback: 'off',
+      hint: {
         en: 'A hairline across the top of an article, filling as the reader goes down it. The browser draws it from the scroll position, so the page carries nothing to keep it moving.',
         th: 'เส้นบางพาดบนสุดของบทความ เติมขึ้นตามที่อ่านลงไป เบราว์เซอร์วาดจากตำแหน่ง scroll เอง หน้าจึงไม่ต้องแบกโค้ดไว้ขยับมัน',
       },

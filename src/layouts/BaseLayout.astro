@@ -9,7 +9,8 @@ import { publicAdditions } from '../server/plugins/public';
 import { publicCopy } from '../lib/i18n';
 import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
-import { resolveTheme } from '../themes/registry';
+import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../themes/registry';
+import { readThemeSettings } from '../server/themes/store';
 import { themeStylesheet } from '../themes/styles';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
@@ -81,6 +82,7 @@ const plugins = settings
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
 const activeTheme = await resolveTheme(themeId);
+const themeSettings = await readThemeSettings(isThemeId(themeId) ? themeId : DEFAULT_THEME_ID);
 const themeCss = themeStylesheet(themeId);
 const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
@@ -178,6 +180,7 @@ const structuredData = robots.includes('noindex')
     showPoweredBy={showPoweredBy}
     siteName={siteName}
     theme={themeChoice}
+    themeSettings={themeSettings}
   >
     <Fragment slot="above">
       {plugins.notice && (
