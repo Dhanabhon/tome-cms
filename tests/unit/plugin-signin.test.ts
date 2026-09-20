@@ -44,6 +44,10 @@ test('the sign-in page resolves the widget on the server, and only one of them',
   // Two challenges on one form is two tokens, two verdicts, and a question about what
   // happens when they disagree that the owner did not mean to ask.
   const resolver = read('src/server/plugins/sign-in.ts');
-  assert.match(resolver, /Promise<ActiveSignInWidget \| null>/);
-  assert.match(resolver, /if \(widget\) return \{ pluginId, widget \};/);
+  assert.match(resolver, /async function activePlugin\(ownerId: string\): Promise<ActivePlugin \| null>/);
+  assert.match(resolver, /if \(plugin && widget\) return \{ plugin, pluginId, settings, widget \};/);
+  // And it is resolved once, so the plugin that drew the widget is the plugin asked about
+  // the answer -- they cannot come apart.
+  assert.match(resolver, /export async function activeSignInWidget[\s\S]*?await activePlugin\(ownerId\)/);
+  assert.match(resolver, /export async function guardSignIn[\s\S]*?await activePlugin\(input\.ownerId\)/);
 });

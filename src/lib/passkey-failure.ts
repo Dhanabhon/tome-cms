@@ -47,7 +47,11 @@ export function describePasskeyFailure(value: unknown, copy: AdminCopy, fallback
   // One WebAuthn refusal is unambiguous and worth naming: an authenticator that already holds
   // a Passkey for this account refuses to make a second one, which is what a spare is *for*.
   // It is not a fault to retry past -- the spare has to go somewhere else.
-  if (readPasskeyCode(value) === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') return copy.auth.passkeyAlreadyOnDevice;
+  const code = readPasskeyCode(value);
+  if (code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') return copy.auth.passkeyAlreadyOnDevice;
+  // 403 has meant the origin guard here since before there were plugins, and a challenge
+  // refusing an attempt is a different thing with the same status. The code tells them apart.
+  if (code === 'challenge_refused') return copy.auth.challengeRefused;
   const status = readPasskeyStatus(value);
   // 403 is this app's own origin guard rather than better-auth: the page was opened
   // at an address the server is not configured for, so every auth call is refused.

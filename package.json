@@ -24,6 +24,7 @@
     "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test",
     "db:migrate": "node --env-file-if-exists=.env.local --import tsx scripts/db-migrate.ts",
     "recovery:issue": "node --env-file-if-exists=.env.local --import tsx scripts/recovery-issue.ts",
+    "plugin:disable": "node --env-file-if-exists=.env.local --import tsx scripts/plugin-disable.ts",
     "infra:up": "docker compose --env-file .env.local up -d --wait postgres seaweedfs",
     "infra:down": "docker compose --env-file .env.local down",
     "media:cleanup": "node --env-file-if-exists=.env.local --import tsx scripts/media-cleanup.ts",

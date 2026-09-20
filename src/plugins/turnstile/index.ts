@@ -2,6 +2,8 @@ import type { Plugin, PluginSettings, SignInVerdict, SignInWidget } from '../con
 
 export { manifest } from './plugin';
 
+import { verifyTurnstileToken } from './verify';
+
 /**
  * Cloudflare Turnstile.
  *
@@ -21,13 +23,23 @@ export function signInWidget(settings: PluginSettings): SignInWidget | null {
   };
 }
 
-/** Answers as though the plugin were off until the layer that implements the check. */
-export async function verifySignIn(_input: {
+/**
+ * A missing token is a refusal, and it has to be.
+ *
+ * Treating it as unavailable would let anything that simply omits the header past the
+ * challenge, which is the whole of what the challenge does. The cost is real: a browser
+ * that cannot load Cloudflare's script produces no token and is refused, so the refusal
+ * says where the way out is rather than only that there was a wall.
+ */
+export async function verifySignIn(input: {
   remoteIp: string | null;
   settings: PluginSettings;
   token: string | null;
 }): Promise<SignInVerdict> {
-  return { outcome: 'passed' };
+  const secret = input.settings.secretKey?.trim();
+  if (!secret) return { outcome: 'unavailable', detail: 'no secret key stored' };
+  if (!input.token) return { outcome: 'refused', detail: 'no token' };
+  return verifyTurnstileToken({ remoteIp: input.remoteIp, secret, token: input.token });
 }
 
 const plugin: Plugin = { signInWidget, verifySignIn };
