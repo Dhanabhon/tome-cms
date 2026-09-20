@@ -182,6 +182,8 @@ export interface ContentEditionColumns {
 
 export interface PostTable extends ContentEditionColumns {
   cover_media_id: string | null;
+  /** The card's line, in the writer's words; '' falls back to the search description. */
+  excerpt: Generated<string>;
 }
 
 export interface PageTable extends ContentEditionColumns {}

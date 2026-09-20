@@ -51,6 +51,7 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Published body' }] }],
   };
   const postInput = {
+    excerpt: '',
     categoryIds: [architecture.id], coverMediaId: null, contentJson: content,
     metaDescription: null, metaTitle: null, slug: 'published-post', status: 'published' as const, title: 'Published Post',
   };

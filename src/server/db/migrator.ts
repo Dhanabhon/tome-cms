@@ -13,6 +13,7 @@ import * as visitorThemeChoice from './migrations/010_visitor_theme_choice';
 import * as poweredBy from './migrations/011_powered_by';
 import * as siteTheme2 from './migrations/012_site_theme';
 import * as pluginSettings from './migrations/013_plugin_settings';
+import * as postExcerpt from './migrations/014_post_excerpt';
 
 export const migrations = {
   '001_system': system,
@@ -28,6 +29,7 @@ export const migrations = {
   '011_powered_by': poweredBy,
   '012_site_theme': siteTheme2,
   '013_plugin_settings': pluginSettings,
+  '014_post_excerpt': postExcerpt,
 } as const;
 
 const provider: MigrationProvider = {

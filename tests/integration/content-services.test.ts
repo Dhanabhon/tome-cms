@@ -53,6 +53,7 @@ test('Post and Page services own content, versions, translations, and Category w
   const postInput = {
     categoryIds: [category.id],
     coverMediaId: null,
+    excerpt: '',
     title: 'First Post',
     slug: 'first-post',
     contentJson: content,

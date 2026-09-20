@@ -124,6 +124,7 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   const category = await db.insertInto('categories').values({ owner_id: ownerId, name: 'Uncategorized', is_default: true })
     .returning('id').executeTakeFirstOrThrow();
   const post = await createPost(ownerId, {
+    excerpt: '',
     categoryIds: [category.id], coverMediaId: item.id, contentJson: imageContent, metaDescription: null,
     metaTitle: null, slug: 'referenced-post', status: 'draft', title: 'Referenced Post',
   });

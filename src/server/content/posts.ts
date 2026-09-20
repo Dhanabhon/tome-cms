@@ -25,9 +25,18 @@ const categoryIdsSchema = z.array(z.uuid()).max(20).superRefine((ids, context) =
   if (new Set(ids).size !== ids.length) context.addIssue({ code: 'custom', message: 'Choose unique Categories.' });
 });
 
+/**
+ * One sentence, not two. The homepage card clamps to two lines, and two lines hold between
+ * 76 and 108 characters depending on how wide the grid is -- measured on the rendered card,
+ * not estimated. The column carries the same bound, so a write that bypasses this is still
+ * refused rather than stored and silently cut.
+ */
+const excerptSchema = z.string().trim().max(120);
+
 export const createPostSchema = contentMutationSchema.omit({ updatedAt: true }).safeExtend({
   categoryIds: categoryIdsSchema,
   coverMediaId: z.uuid().nullable(),
+  excerpt: excerptSchema,
   locale: z.enum(['th', 'en']).optional(),
   sourcePostId: z.uuid().optional(),
 }).superRefine(({ locale, sourcePostId }, context) => {
@@ -39,6 +48,7 @@ export const createPostSchema = contentMutationSchema.omit({ updatedAt: true }).
 export const updatePostSchema = contentMutationSchema.safeExtend({
   categoryIds: categoryIdsSchema,
   coverMediaId: z.uuid().nullable(),
+  excerpt: excerptSchema,
   id: z.uuid(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
@@ -57,6 +67,7 @@ export function postFromRow(row: Selectable<PostTable>): Post {
     cover_image: row.cover_media_id ? stableMediaPath(row.cover_media_id) : null,
     content_json: row.content_json,
     content_html: row.content_html,
+    excerpt: row.excerpt,
     meta_title: row.meta_title,
     meta_description: row.meta_description,
     status: row.status,
@@ -135,6 +146,7 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         cover_media_id: coverMediaId,
         content_json: content.contentJson,
         content_html: content.contentHtml,
+        excerpt: input.excerpt,
         meta_title: input.metaTitle,
         meta_description: input.metaDescription,
         status: input.status,
@@ -234,6 +246,7 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         cover_media_id: input.coverMediaId,
         content_json: content.contentJson,
         content_html: content.contentHtml,
+        excerpt: input.excerpt,
         meta_title: input.metaTitle,
         meta_description: input.metaDescription,
         status: input.status,
