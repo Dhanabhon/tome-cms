@@ -137,9 +137,15 @@ Never commit `.env.local`, credentials, database dumps, or object-storage backup
 
 ## Themes
 
-The public site is a theme. **Appearance → Themes** names which one draws it; `paper` is the one TomeCMS
-ships with, and `plain` is a deliberately spare second that exists so the contract has more
-than one reader.
+The public site is a theme. **Appearance → Themes** names which one draws it; `paper` is the
+one TomeCMS ships with, and `plain` is a deliberately spare second that exists so the contract
+has more than one reader.
+
+The screen shows a card per theme, and each card shows that theme drawing this installation's
+own posts in a frame -- `/admin/themes/preview/<id>`, the homepage route with the theme taken
+from the URL instead of the settings, behind the owner's session and never indexed. Nothing is
+committed beside a theme to stand in for it, because a picture of a theme is a thing that can
+come to disagree with the theme. Choosing one applies it; there is no save button.
 
 ```text
 src/themes/contract.ts        what each template is given, and what a theme must export

@@ -1506,6 +1506,54 @@ body {
  * while security had panels; these are the panels, now shared by both. */
 .admin-card-stack { display: grid; gap: var(--space-lg); }
 .admin-card { display: grid; gap: var(--space-lg); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+
+/* Themes.
+ *
+ * What is being chosen between is a look, so each card shows the look -- the theme drawing
+ * this installation's own posts, in a frame. That is why there are no screenshots committed
+ * beside the themes: a picture of a theme can disagree with the theme, and this cannot.
+ *
+ * The frame is a picture and not a control. It takes no pointer, and it is out of the tab
+ * order, so the only thing to press on a card is the button that applies it.
+ */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: var(--space-lg); margin: 0; padding: 0; list-style: none; }
+.theme-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+/* The one in use is the loudest thing on the screen: it is the answer to the question the
+ * screen asks, and the rest of the grid is the alternatives to it. */
+.theme-card[data-in-use] { border-color: var(--color-focus); box-shadow: 0 0 0 var(--rule-hair) var(--color-focus); }
+.theme-card__preview { position: relative; overflow: hidden; aspect-ratio: 16 / 10; border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); }
+/* Three times the card's width, scaled back to a third: the frame lays itself out as a
+ * desktop would -- the public header turns at 48rem -- and still fits in the card. */
+.theme-card__preview iframe {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 300%;
+  height: 300%;
+  border: 0;
+  transform: scale(0.33333);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.theme-card__body { display: grid; gap: var(--space-2xs); align-content: start; padding: var(--space-md); }
+.theme-card__name { color: var(--color-ink); font-size: var(--text-md); font-weight: 600; }
+.theme-card__note { color: var(--color-ink-2); font-size: var(--text-sm); }
+.theme-card__foot { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding: var(--space-sm) var(--space-md); border-block-start: var(--rule-hair) solid var(--color-rule); }
+.theme-card[data-in-use] .theme-card__foot { border-block-start-color: var(--color-focus); background: var(--color-status-ok); }
+.theme-card__mark { display: flex; gap: var(--space-2xs); align-items: center; color: var(--color-focus); font-size: var(--text-sm); font-weight: 600; }
+.theme-card__mark .icon { width: 1rem; height: 1rem; }
+/* Nothing here installs a theme, so this card carries no affordance to. It breaks the grid's
+ * rhythm on purpose: it is a note among cards, not another theme. */
+.theme-card--source { grid-template-rows: auto; gap: var(--space-xs); align-content: center; padding: var(--space-lg); border-style: dashed; background: none; }
+.theme-report:not(:has(:not(:empty))) { display: none; }
+.theme-status { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 /* Tailwind's preflight resets every heading to font-size: inherit, so a card heading
  * nobody sized rendered at 16px/400 -- lighter than the 14px/500 field labels beneath
  * it. That is an inverted hierarchy, and it needs stating once, here. */

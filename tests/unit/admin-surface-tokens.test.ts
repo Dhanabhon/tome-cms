@@ -296,7 +296,7 @@ test('every control that starts a request reports it', () => {
   // and only the control that was pressed may say it is.
   const controls: ReadonlyArray<readonly [string, string]> = [
     ['SettingsForm', 'saving'],
-    ['ThemeForm', 'saving'],
+    ['ThemeForm', 'busy === id'],
     ['ProfileForm', 'saving'],
     ['CategoryManager', "pendingActionIds.has('create')"],
     ['SecurityManager', 'busy'],

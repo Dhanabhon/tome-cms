@@ -84,7 +84,13 @@ test('a theme stylesheet is linked by the page, not imported by the template', (
   }
   assert.match(read('styles.ts'), /import\.meta\.glob<string>\('\.\/\*\/theme\.css', \{ eager: true, import: 'default', query: '\?url' \}\)/);
   const layout = readFileSync(new URL('../../src/layouts/BaseLayout.astro', import.meta.url), 'utf8');
-  assert.match(layout, /const themeCss = themeStylesheet\(settings\?\.theme_id\);/);
+  // Both come from one id. Resolving them separately is how a page ends up drawn with one
+  // theme's templates and served another's stylesheet.
+  assert.match(layout, /const activeTheme = await resolveTheme\(themeId\);/);
+  assert.match(layout, /const themeCss = themeStylesheet\(themeId\);/);
+  // And a page nobody hands a theme to is drawn with the stored one, which is every page a
+  // reader reaches; only the admin's preview of an unapplied theme passes its own.
+  assert.match(layout, /themeId = settings\?\.theme_id,/);
   assert.match(layout, /<link rel="stylesheet" href=\{themeCss\} \/>/);
   // The admin's preview draws a draft with the theme, so it asks for the sheet as well.
   for (const preview of ['src/pages/admin/preview/[id].astro', 'src/pages/admin/pages/preview/[id].astro']) {
@@ -108,7 +114,14 @@ test('the admin can name a theme without loading it', () => {
 test('the themes screen offers what is installed, and falls back to what is not', () => {
   const source = (name: string) => readFileSync(new URL(`../../src/components/admin/${name}.tsx`, import.meta.url), 'utf8');
   const form = source('ThemeForm');
-  assert.match(form, /THEME_MANIFESTS\.map\(\(\{ id, name \}\) => \(\{ label: name, value: id \}\)\)/);
+  // One card per installed theme, and each shows that theme drawing this site rather than a
+  // picture committed beside it, which is a picture that can come to disagree with it.
+  assert.match(form, /THEME_MANIFESTS\.map\(/);
+  assert.match(form, /`\/themes\/preview\/\$\{id\}`/);
+  const preview = readFileSync(new URL('../../src/pages/admin/themes/preview/[id].astro', import.meta.url), 'utf8');
+  assert.match(preview, /requireOwner/, 'the preview is behind the owner');
+  assert.match(preview, /robots="noindex, nofollow"/, 'the preview is not indexed');
+  assert.match(preview, /isThemeId\(themeId\)/, 'the preview renders only installed themes');
   // A theme can leave in a release while its id stays in the database, so what the control
   // shows is what a save would store, rather than a value the server would refuse.
   const fallback = /isThemeId\(initialSettings\.theme_id\) \? initialSettings\.theme_id : DEFAULT_THEME_ID/;
