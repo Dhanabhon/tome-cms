@@ -8,7 +8,8 @@ import {
   type PublishedPost,
 } from '../../../server/content/published';
 import { getSiteSettings } from '../../../server/content/settings';
-import { resolveTheme } from '../../../themes/registry';
+import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../../themes/registry';
+import { readThemeSettings } from '../../../server/themes/store';
 import type { PostAlternate, PostCategoryBadge, PublicAuthorProfile } from '../../../types/cms';
 
 const localeValue = Astro.params.locale;
@@ -56,6 +57,7 @@ try {
 }
 
 const activeTheme = await resolveTheme(settings?.theme_id);
+const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? settings.theme_id : DEFAULT_THEME_ID);
 const xDefaultHref = settings
   ? availableLocales.find((alternate) => alternate.locale === settings.default_locale)?.href
   : undefined;
@@ -77,7 +79,8 @@ const xDefaultHref = settings
   xDefaultHref={xDefaultHref}
 >
   {post ? (
-    <activeTheme.Post categories={categories} locale={locale} post={post} profile={profile} settings={articleSettings} />
+    <activeTheme.Post categories={categories} locale={locale} post={post} profile={profile}
+      settings={articleSettings} themeSettings={themeSettings} />
   ) : (
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
       <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>

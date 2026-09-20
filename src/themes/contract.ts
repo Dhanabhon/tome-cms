@@ -104,6 +104,8 @@ export interface ThemeHomeProps {
 }
 
 export interface ThemePostProps {
+  /** What this theme has been told, with its declared fallbacks already applied. */
+  themeSettings: Readonly<Record<string, string>>;
   categories: PostCategoryBadge[];
   /** The admin looking at a draft: it is dated by its last save, not by a publication. */
   preview?: boolean;
