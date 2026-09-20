@@ -14,6 +14,16 @@
 export interface AllowedCredential {
   id: string;
   transports?: string[];
+  /**
+   * Required by the WebAuthn descriptor, and easy to leave out here.
+   *
+   * When better-auth builds this list it hands it to simplewebauthn's
+   * generateAuthenticationOptions, which fills the member in. This list is appended after
+   * those options were generated, so nothing fills it in for us -- and a descriptor without
+   * it makes navigator.credentials.get() throw a TypeError before the ceremony starts,
+   * which the client reports as though no Passkey had been offered.
+   */
+  type: 'public-key';
 }
 
 export async function ownerAllowedCredentials(): Promise<AllowedCredential[]> {
@@ -27,7 +37,7 @@ export async function ownerAllowedCredentials(): Promise<AllowedCredential[]> {
     .execute();
   return rows.map(({ id, transports }) => {
     const hints = (transports ?? '').split(',').map((hint) => hint.trim()).filter(Boolean);
-    return hints.length ? { id, transports: hints } : { id };
+    return hints.length ? { id, transports: hints, type: 'public-key' } : { id, type: 'public-key' };
   });
 }
 
