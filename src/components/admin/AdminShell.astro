@@ -36,6 +36,8 @@ if (userEmail) {
 }
 
 interface NavLink {
+  /** One level only. A link with children is a section, and stays clickable: it opens the first of them. */
+  children?: NavLink[];
   count?: number;
   href: string;
   id: AdminNavId;
@@ -46,6 +48,9 @@ interface NavLink {
  * Seven flat destinations is where a sidebar starts costing a scan. They split
  * cleanly in two: what the site publishes, and how the installation is set up. The
  * group names deliberately avoid "Settings", which is already one of the links.
+ *
+ * What a reader meets is a third thing again, and neither a group heading nor a flat
+ * link says so: Appearance is one section with screens under it, listed beneath it.
  */
 const groups: Array<{ id: string; label: string; links: NavLink[] }> = [
   {
@@ -65,12 +70,21 @@ const groups: Array<{ id: string; label: string; links: NavLink[] }> = [
       { href: adminHref(adminSettings, '/profile'), id: 'profile', label: copy.nav.profile },
       { href: adminHref(adminSettings, '/security'), id: 'security', label: copy.nav.security },
       { href: adminHref(adminSettings, '/settings'), id: 'settings', label: copy.nav.settings },
-      { href: adminHref(adminSettings, '/plugins'), id: 'plugins', label: copy.nav.plugins },
+      {
+        children: [
+          { href: adminHref(adminSettings, '/themes'), id: 'themes', label: copy.nav.themes },
+          { href: adminHref(adminSettings, '/plugins'), id: 'plugins', label: copy.nav.plugins },
+        ],
+        href: adminHref(adminSettings, '/themes'),
+        id: 'appearance',
+        label: copy.nav.appearance,
+      },
       { href: adminHref(adminSettings, '/system'), id: 'system', label: copy.nav.system },
     ],
   },
 ];
-const currentLabel = groups.flatMap(({ links }) => links).find(({ id }) => id === active)?.label ?? '';
+const allLinks = groups.flatMap(({ links }) => links.flatMap((link) => [link, ...link.children ?? []]));
+const currentLabel = allLinks.find(({ id }) => id === active)?.label ?? '';
 const search = postSearchState(Astro.url, adminHref(adminSettings));
 ---
 
@@ -108,11 +122,30 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
               <section aria-labelledby={headingId}>
                 <h2 class="admin-nav-group" id={headingId}>{group.label}</h2>
                 {group.links.map((link) => (
-                  <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>
-                    <Icon name={link.id} />
-                    <span class="admin-nav-label">{link.label}</span>
-                    {link.count !== undefined && <span class="admin-nav-count">{link.count}</span>}
-                  </a>
+                  <Fragment>
+                    {/* aria-current marks the page, never the section around it: on Themes both
+                        Appearance and Themes point at this URL, and only one of them is where
+                        the reader is. The section is shown as open with an attribute instead. */}
+                    <a
+                      href={link.href}
+                      aria-current={active === link.id ? 'page' : undefined}
+                      data-section-open={link.children?.some(({ id }) => id === active) ? '' : undefined}
+                    >
+                      <Icon name={link.id} />
+                      <span class="admin-nav-label">{link.label}</span>
+                      {link.count !== undefined && <span class="admin-nav-count">{link.count}</span>}
+                    </a>
+                    {link.children && (
+                      <div class="admin-nav-children">
+                        {link.children.map((child) => (
+                          <a href={child.href} aria-current={active === child.id ? 'page' : undefined}>
+                            <Icon name={child.id} />
+                            <span class="admin-nav-label">{child.label}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </Fragment>
                 ))}
               </section>
             );

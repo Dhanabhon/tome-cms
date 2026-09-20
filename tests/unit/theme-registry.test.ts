@@ -105,11 +105,17 @@ test('the admin can name a theme without loading it', () => {
   }
 });
 
-test('the settings screen offers what is installed, and falls back to what is not', () => {
-  const form = readFileSync(new URL('../../src/components/admin/SettingsForm.tsx', import.meta.url), 'utf8');
+test('the themes screen offers what is installed, and falls back to what is not', () => {
+  const source = (name: string) => readFileSync(new URL(`../../src/components/admin/${name}.tsx`, import.meta.url), 'utf8');
+  const form = source('ThemeForm');
   assert.match(form, /THEME_MANIFESTS\.map\(\(\{ id, name \}\) => \(\{ label: name, value: id \}\)\)/);
   // A theme can leave in a release while its id stays in the database, so what the control
   // shows is what a save would store, rather than a value the server would refuse.
-  assert.match(form, /isThemeId\(initialSettings\.theme_id\) \? initialSettings\.theme_id : DEFAULT_THEME_ID/);
+  const fallback = /isThemeId\(initialSettings\.theme_id\) \? initialSettings\.theme_id : DEFAULT_THEME_ID/;
+  assert.match(form, fallback);
+  // Settings no longer shows a theme, but the record is written whole, so it sends one --
+  // and a stored id whose theme has left the build would have the server refuse a save
+  // this screen has no control for. It falls back to the same id the renderer does.
+  assert.match(source('SettingsForm'), fallback);
   assert.equal(isThemeId(DEFAULT_THEME_ID), true);
 });

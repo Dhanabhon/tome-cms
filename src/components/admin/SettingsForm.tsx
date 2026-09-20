@@ -1,12 +1,9 @@
 import { useState, type FormEvent } from 'react';
 
 import { adminCopy } from '../../lib/admin-i18n';
-import { THEME_MANIFESTS } from '../../themes/manifests';
 import { DEFAULT_THEME_ID, isThemeId } from '../../themes/registry';
 import type { PostLocale, SiteSettings } from '../../types/cms';
 import UiSelect from './UiSelect';
-
-const THEME_CHOICES = THEME_MANIFESTS.map(({ id, name }) => ({ label: name, value: id }));
 
 interface SettingsFormProps {
   ownerLocale?: PostLocale | null;
@@ -30,14 +27,14 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [tagline, setTagline] = useState(initialSettings.tagline);
   const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
-  const [theme, setTheme] = useState(initialSettings.theme);
-  const [allowVisitorTheme, setAllowVisitorTheme] = useState(initialSettings.allow_visitor_theme);
   const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
-  // A theme can leave in a release while its id stays in the database. The site falls back
-  // to the default for one it does not know, and so does the control, so that what the
-  // owner is shown is what a save would store.
-  const [themeId, setThemeId] = useState(isThemeId(initialSettings.theme_id) ? initialSettings.theme_id : DEFAULT_THEME_ID);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
+  // The record is written whole, so these three travel with every save although Themes is
+  // where they are edited. A theme_id whose theme left the build would fail the write, so
+  // the fallback the renderer already makes is made here too: saving a site name must not
+  // be refused over a control this screen does not show.
+  const { allow_visitor_theme: allowVisitorTheme, theme } = initialSettings;
+  const themeId = isThemeId(initialSettings.theme_id) ? initialSettings.theme_id : DEFAULT_THEME_ID;
   const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -48,12 +45,10 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const snapshot = (values: readonly unknown[]) => JSON.stringify(values);
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot([
     initialSettings.site_name, initialSettings.tagline, initialSettings.site_description,
-    initialSettings.default_locale, initialSettings.timezone, initialSettings.theme,
-    initialSettings.allow_visitor_theme,
+    initialSettings.default_locale, initialSettings.timezone,
     initialSettings.show_powered_by,
-    initialSettings.theme_id,
   ]));
-  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, theme, allowVisitorTheme, showPoweredBy, themeId]);
+  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, showPoweredBy]);
   const dirty = currentSnapshot !== savedSnapshot;
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -72,7 +67,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};
-        for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'theme', 'timezone']) {
+        for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'timezone']) {
           fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
         }
         setFieldErrors(fields);
@@ -163,36 +158,6 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
                 <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
                 <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
               </div>
-            </div>
-          </section>
-
-          <section className="admin-card" aria-labelledby="settings-theme-heading">
-            <header className="admin-card__head">
-              <h2 id="settings-theme-heading">{copy.settings.appearance}</h2>
-              <p>{copy.settings.appearanceHint}</p>
-            </header>
-            <div className="admin-field">
-              <label htmlFor="themeId">{copy.settings.theme}</label>
-              <UiSelect ariaDescribedBy="themeId-hint" className="admin-control" id="themeId" name="themeId" options={THEME_CHOICES} value={themeId} onValueChange={(next) => { setThemeId(next as typeof themeId); setStatus(''); }} />
-              <small id="themeId-hint">{copy.settings.themeHint}</small>
-            </div>
-            <div className="admin-field admin-field--short">
-              <label htmlFor="theme">{copy.theme.siteLabel}</label>
-              <UiSelect ariaDescribedBy="theme-error" className="admin-control" id="theme" invalid={Boolean(fieldErrors.theme)} name="theme" options={[{ label: copy.theme.system, value: 'system' }, { label: copy.theme.light, value: 'light' }, { label: copy.theme.dark, value: 'dark' }]} value={theme} onValueChange={(next) => { setTheme(next as SiteSettings['theme']); setStatus(''); setFieldErrors((current) => ({ ...current, theme: '' })); }} />
-              <p className="admin-field-error" id="theme-error" aria-live="polite">{fieldErrors.theme}</p>
-            </div>
-            <div className="admin-check">
-              <label>
-                <input
-                  aria-describedby="allowVisitorTheme-help"
-                  checked={allowVisitorTheme}
-                  name="allowVisitorTheme"
-                  onChange={(event) => { setAllowVisitorTheme(event.target.checked); setStatus(''); }}
-                  type="checkbox"
-                />
-                <span>{copy.theme.visitorLabel}</span>
-              </label>
-              <small id="allowVisitorTheme-help">{copy.theme.visitorHint}</small>
             </div>
           </section>
 
