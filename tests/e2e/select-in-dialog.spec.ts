@@ -215,3 +215,47 @@ test('a switch in Customize saves what it shows', async ({ context, page }) => {
   await openCustomize();
   await expect(toggle, 'unticked is an answer too').not.toBeChecked();
 });
+
+test('a drawer slides in, and leaves nothing behind for a menu to be measured against', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/themes`);
+  // Armed before the click, so this measures the drawer opening rather than how fast the
+  // question was asked afterwards.
+  await page.evaluate(() => {
+    (window as unknown as { slid: Promise<string> }).slid = new Promise((resolve) => {
+      document.addEventListener('animationstart', (event) => {
+        resolve((event as AnimationEvent).animationName);
+      }, { once: true });
+    });
+  });
+  await page.getByRole('button', { name: /^Customize$/ }).first().click();
+  const drawer = page.locator('dialog.admin-editor-settings');
+  await drawer.waitFor({ state: 'visible' });
+
+  expect(await page.evaluate(() => (window as unknown as { slid: Promise<string> }).slid),
+    'the drawer arrives from the edge it lives on').toBe('drawer-in');
+
+  // The reason it is a keyframe with no fill. A transform that stays is a containing block
+  // that stays, and the menus in these drawers are placed against the window so that a
+  // panel which scrolls cannot clip them -- which is how they were broken once already.
+  const settled = await page.evaluate(async () => {
+    const panel = document.querySelector('dialog.admin-editor-settings')!;
+    await Promise.all(panel.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+    return getComputedStyle(panel).transform;
+  });
+  expect(settled, 'and holds no transform once it has arrived').toBe('none');
+});
+

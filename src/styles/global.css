@@ -2194,3 +2194,33 @@ body {
   .category-row__meta { justify-content: start; }
   .category-create .admin-button { width: fit-content; }
 }
+
+/*
+ * The drawers arrive from the edge they live on.
+ *
+ * Every panel that opens down the right -- a post's settings, a page's, a plugin's setup,
+ * a theme's customize -- is the same element, so this is one rule for all four.
+ *
+ * A keyframe rather than a transition, and with no fill, on purpose: a transform leaves a
+ * containing block behind it, and the menus inside these drawers are positioned against the
+ * window precisely so a scrolling panel cannot clip them. `from` alone means the drawer
+ * ends at its own transform of `none`, so the moment the slide is over there is nothing
+ * left for a menu to be measured against.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .admin-editor-settings[open] {
+    animation: drawer-in var(--dur-long) var(--ease-out);
+  }
+
+  .admin-editor-settings[open]::backdrop {
+    animation: drawer-backdrop-in var(--dur-long) var(--ease-out);
+  }
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+}
+
+@keyframes drawer-backdrop-in {
+  from { opacity: 0; }
+}
