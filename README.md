@@ -2,7 +2,7 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the package remains `0.2.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security upgrade, full integration/browser matrix, public immutable release/attestation verification, and real `amd64`/`arm64` HTTPS VPS acceptance are still release gates. See the [0.2.0 notes](docs/releases/0.2.0.md) and [planned 1.0.0 boundary](docs/releases/1.0.0.md).
+> **Development status:** the package is `0.3.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. Every gate the 0.2.0 notes list is still open: the dependency-security upgrade, the full integration/browser matrix, public immutable release/attestation verification, and real `amd64`/`arm64` HTTPS VPS acceptance. See the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
 ## What is included
 
@@ -29,6 +29,7 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 | Deployment | Docker Compose |
 
 Database migrations live in `src/server/db/migrations/` and are applied with `npm run db:migrate`.
+An installation created before 0.3.0 has six migrations waiting for it; see the [0.3.0 notes](docs/releases/0.3.0.md#upgrading).
 The bundled SeaweedFS service is a single-node default for local development and a single VPS. Point the same S3 settings at external object storage when high availability or multi-node operations are required.
 
 ## Prerequisites
@@ -307,7 +308,7 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ./scripts/deploy-vps.sh
 ```
 
-The generated `.env.local` remains local to that checkout with owner-only permissions. Deployment pulls the pinned infrastructure images, builds the application image, runs migrations in a one-shot application container, starts the production profile, and waits for `/health/ready`. Back up PostgreSQL and the object bucket together before every upgrade. Real-host HTTPS acceptance remains a release gate for `0.2.0`.
+The generated `.env.local` remains local to that checkout with owner-only permissions. Deployment pulls the pinned infrastructure images, builds the application image, runs migrations in a one-shot application container, starts the production profile, and waits for `/health/ready`. Back up PostgreSQL and the object bucket together before every upgrade. Real-host HTTPS acceptance remains a release gate.
 
 ## Managed VPS installation from 1.0.0
 
