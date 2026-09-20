@@ -13,6 +13,7 @@ import { categoriesByPostGroup } from '../../server/content/categories';
 import { listPosts } from '../../server/content/posts';
 import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
+import { activeSignInWidget } from '../../server/plugins/sign-in';
 import { POST_LOCALES, type Post, type PostCategoryBadge, type PostLocale } from '../../types/cms';
 
 let posts: Post[] = [];
@@ -45,6 +46,7 @@ try {
   }
 }
 
+const signInWidget = settings && authRequired ? await activeSignInWidget(settings.owner_id) : null;
 const adminPath = settings?.admin_path ?? '/admin';
 const adminSettings = { admin_path: adminPath };
 
@@ -101,7 +103,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             <h1 id="admin-auth-title">{copy.auth.welcome}</h1>
             <p>{copy.auth.welcomeHint}</p>
           </header>
-          <PasskeySignIn adminPath={adminPath} ownerLocale={ownerLocale} client:only="react" returnTo={Astro.url.searchParams.get('returnTo')}>
+          <PasskeySignIn adminPath={adminPath} ownerLocale={ownerLocale} client:only="react" returnTo={Astro.url.searchParams.get('returnTo')} widget={signInWidget?.widget ?? null}>
             <AdminSkeleton kind="auth" head={false} label={copy.auth.welcome} slot="fallback" />
           </PasskeySignIn>
         </section>
