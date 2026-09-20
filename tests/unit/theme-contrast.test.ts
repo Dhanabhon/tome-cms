@@ -129,6 +129,9 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   // precedes it. Draft's pair -- muted on paper-3 -- is already above.
   ['color-ink', 'color-status-ok', 4.5],
   ['color-green', 'color-status-ok', 3],
+  // "In use" on the active theme card: the same tint, but carrying accent-coloured text
+  // rather than a dot beside ink, so it is held to the ratio text is held to.
+  ['color-focus', 'color-status-ok', 4.5],
 
   ['color-error-ink', 'color-paper', 4.5],
   ['color-error-ink', 'color-surface', 4.5],

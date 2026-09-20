@@ -25,6 +25,12 @@ interface Props {
   alternates?: PostAlternate[];
   canonicalPath?: string;
   locale?: PostLocale;
+  /**
+   * A theme to draw with instead of the one the settings name, for the admin's preview of
+   * a theme it has not applied. Left out everywhere else, which is every page a reader
+   * reaches: the stored setting is what a site is drawn with.
+   */
+  themeId?: string | null;
   xDefaultHref?: string;
 }
 
@@ -54,13 +60,14 @@ const {
   title = siteName,
   type = 'website',
   locale = settings?.default_locale ?? 'en',
+  themeId = settings?.theme_id,
   xDefaultHref,
 } = Astro.props;
 const navigation = await getPublicNavigation(locale);
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
-const activeTheme = await resolveTheme(settings?.theme_id);
-const themeCss = themeStylesheet(settings?.theme_id);
+const activeTheme = await resolveTheme(themeId);
+const themeCss = themeStylesheet(themeId);
 const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();

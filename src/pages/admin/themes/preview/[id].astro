@@ -1,0 +1,81 @@
+---
+/**
+ * A theme, drawn with this site's own posts, for the card that offers it.
+ *
+ * The alternative was a screenshot committed beside each theme, which is how WordPress does
+ * it -- and how a theme's picture comes to disagree with the theme. This cannot: it is the
+ * homepage route with the theme taken from the URL instead of the settings, so what the
+ * card shows is what activating it would draw.
+ */
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { localePath, publicCopy } from '../../../../lib/i18n';
+import { getPublicAuthorProfile } from '../../../../lib/profile';
+import { adminLoginPath } from '../../../../lib/admin';
+import { requireOwner } from '../../../../server/auth/session';
+import { listPublishedCategories, listPublishedPosts } from '../../../../server/content/published';
+import { getOwnerSettings, type SiteSettings } from '../../../../server/content/settings';
+import { HttpError } from '../../../../server/http/errors';
+import { isThemeId, resolveTheme } from '../../../../themes/registry';
+import type { Post, PostCategoryBadge } from '../../../../types/cms';
+
+const themeId = Astro.params.id;
+if (!isThemeId(themeId)) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+
+let settings: SiteSettings | null = null;
+try {
+  const current = await requireOwner(Astro.request.headers);
+  settings = await getOwnerSettings(current.user.id);
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    return Astro.redirect(adminLoginPath(Astro.url.pathname), 302);
+  }
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+if (!settings) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+
+// One row of the feed is enough to show a theme, and it is what the card has room for.
+const PAGE_SIZE = 3;
+const locale = settings.default_locale;
+const profile = await getPublicAuthorProfile(settings, locale);
+let posts: Post[] = [];
+let categories: PostCategoryBadge[] = [];
+try {
+  const [page, published] = await Promise.all([
+    listPublishedPosts({ limit: PAGE_SIZE, locale }),
+    listPublishedCategories(locale),
+  ]);
+  posts = page.items;
+  categories = published.items;
+} catch (error) {
+  // A preview that cannot read the feed still shows the theme's chrome, which is most of
+  // what tells the two apart. It is not worth a 500 on a screen about how the site looks.
+  console.error('Theme preview post query failed:', error);
+}
+
+const activeTheme = await resolveTheme(themeId);
+---
+
+<BaseLayout
+  canonicalPath={localePath(locale)}
+  locale={locale}
+  robots="noindex, nofollow"
+  themeId={themeId}
+>
+  <activeTheme.Home
+    activeCategory={undefined}
+    categories={categories}
+    cursor={undefined}
+    loadError={false}
+    locale={locale}
+    nextCursor={null}
+    posts={posts}
+    profile={profile}
+    siteName={settings.site_name}
+    tagline={settings.tagline?.trim() || publicCopy(locale).defaultTagline}
+    timezone={settings.timezone}
+  />
+</BaseLayout>

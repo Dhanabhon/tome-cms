@@ -1,12 +1,13 @@
 ---
-import AdminShell from '../../components/admin/AdminShell.astro';
-import ThemeForm from '../../components/admin/ThemeForm';
-import AdminLayout from '../../layouts/AdminLayout.astro';
-import { adminCopy } from '../../lib/admin-i18n';
-import { adminLoginPath } from '../../lib/admin';
-import { requireOwner } from '../../server/auth/session';
-import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
-import { HttpError } from '../../server/http/errors';
+import AdminShell from '../../../components/admin/AdminShell.astro';
+import ThemeForm from '../../../components/admin/ThemeForm';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../../lib/admin-i18n';
+import { adminLoginPath } from '../../../lib/admin';
+import { requireOwner } from '../../../server/auth/session';
+import { getOwnerSettings, type SiteSettings } from '../../../server/content/settings';
+import { HttpError } from '../../../server/http/errors';
+import { THEME_MANIFESTS } from '../../../themes/manifests';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
@@ -42,8 +43,13 @@ const copy = adminCopy(ownerLocale);
   {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
     <AdminShell active="themes" adminPath={settings.admin_path} locale={settings.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
-        <header class="admin-page__head"><div><h1>{copy.theme.heading}</h1><p>{copy.theme.subheading}</p></div></header>
-        <ThemeForm client:load ownerLocale={settings.default_locale} initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
+        <header class="admin-page__head">
+          <div>
+            <h1>{copy.theme.heading}<span class="admin-count">{THEME_MANIFESTS.length}</span></h1>
+            <p>{copy.theme.subheading}</p>
+          </div>
+        </header>
+        <ThemeForm client:load adminPath={settings.admin_path} ownerLocale={settings.default_locale} initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
       </section>
     </AdminShell>
   )}
