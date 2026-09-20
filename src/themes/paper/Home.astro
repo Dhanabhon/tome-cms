@@ -11,6 +11,10 @@ const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts
 // Off leaves the link a reader without JavaScript already follows, and the script below
 // finds nothing to wire -- the marker is what it looks for.
 const endless = themeSettings.infiniteScroll !== 'off';
+// Four across on an 80rem page is 18.9rem a card, just under the floor the other two keep,
+// so asking for four is also asking for that much less room per title.
+const columns = themeSettings.gridColumns ?? '3';
+const gridStyle = `--post-grid-columns: ${columns}; --post-grid-min: ${columns === '4' ? '16rem' : '19rem'};`;
 
 const copy = locale === 'th'
   ? {
@@ -99,7 +103,7 @@ const initial = (title: string) => {
   <!-- Everything a category changes, so a chosen pill can swap it whole. -->
   <div class="post-feed" data-post-feed={endless ? "" : undefined}>
     {posts.length > 0 ? (
-      <div class="post-grid" data-post-grid>
+      <div class="post-grid" data-post-grid style={gridStyle}>
         {posts.map((post, index) => {
           const excerpt = postExcerpt(post, '');
           return (

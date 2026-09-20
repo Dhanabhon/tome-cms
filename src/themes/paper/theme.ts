@@ -22,6 +22,21 @@ export const manifest: ThemeManifest = {
       ],
     },
     {
+      fallback: '3',
+      hint: {
+        en: 'At the widest. A row that cannot hold that many at a readable width holds fewer, so a phone is one across whatever this says.',
+        th: 'เป็นจำนวนตอนจอกว้างที่สุด ถ้าแถวไม่พอให้การ์ดกว้างพอจะอ่านได้ ก็จะลดลงเอง — บนมือถือจึงเป็นคอลัมน์เดียวเสมอไม่ว่าตั้งไว้เท่าไร',
+      },
+      key: 'gridColumns',
+      kind: 'choice',
+      label: { en: 'Cards across', th: 'จำนวนคอลัมน์' },
+      options: [
+        { label: { en: '2', th: '2' }, value: '2' },
+        { label: { en: '3', th: '3' }, value: '3' },
+        { label: { en: '4', th: '4' }, value: '4' },
+      ],
+    },
+    {
       fallback: 'on',
       hint: {
         en: 'Rows appear as the end of the grid comes near. Off leaves the link to older posts that a reader without JavaScript already follows.',
