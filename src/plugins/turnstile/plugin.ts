@@ -6,6 +6,8 @@ export const manifest: PluginManifest = {
     en: 'Puts a Cloudflare Turnstile challenge in front of the admin sign-in.',
     th: 'วางแบบทดสอบ Cloudflare Turnstile ไว้หน้าการเข้าสู่ระบบของผู้ดูแล',
   },
+  hooks: ['signIn'],
+  icon: 'security',
   id: 'turnstile',
   name: 'Cloudflare Turnstile',
   settings: [
