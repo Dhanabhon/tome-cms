@@ -15,6 +15,7 @@ const configuredOrigin = new URL(env.TOME_CMS_PUBLIC_URL).origin;
 const registrationOptionsPath = '/api/auth/passkey/generate-register-options';
 const registrationVerificationPath = '/api/auth/passkey/verify-registration';
 const recoveryContextHeader = 'X-TomeCMS-Recovery-Context';
+const pluginTokenHeader = 'X-TomeCMS-Plugin-Token';
 const pendingSessionPaths = new Set([
   'GET /api/auth/get-session',
   'POST /api/auth/sign-out',
@@ -102,6 +103,33 @@ export const ALL: APIRoute = async (context) => {
       }
     }
   }
+  // A challenge, if the owner put one there, on the attempt and on nothing else. Not on
+  // registration: the recovery flow is the way back in when this goes wrong, and a wall
+  // across it would be a wall across the exit.
+  if (request.method === 'POST' && url.pathname === '/api/auth/passkey/verify-authentication') {
+    const { getSiteSettings } = await import('../../../server/content/site-settings');
+    const settings = await getSiteSettings();
+    if (settings) {
+      const { guardSignIn } = await import('../../../server/plugins/sign-in');
+      const verdict = await guardSignIn({
+        ownerId: settings.owner_id,
+        remoteIp: context.clientAddress,
+        token: request.headers.get(pluginTokenHeader),
+      });
+      if (verdict?.outcome === 'refused') {
+        return Response.json({ code: 'challenge_refused', error: 'The challenge was not passed.' }, {
+          headers: { 'Cache-Control': 'no-store' },
+          status: 403,
+        });
+      }
+      if (verdict?.outcome === 'unavailable') {
+        // Said out loud and let through: the third party is not the gate, and the rate
+        // limiter below does not depend on anyone else being up.
+        console.warn(`Sign-in challenge unavailable [${verdict.pluginId}]: ${verdict.detail ?? 'no detail'}`);
+      }
+    }
+  }
+
   if (action) {
     try {
       await enforceRateLimit(action, context.clientAddress);
