@@ -11,7 +11,7 @@
     "release:manifest": "node --import tsx scripts/release-manifest.ts",
     "admin:reset-installation": "node --env-file-if-exists=.env.local --import tsx scripts/reset-installation.mjs",
     "admin:recover": "node scripts/recover-owner.mjs",
-    "dev": "node --env-file-if-exists=.env.local ./node_modules/astro/astro.js dev",
+    "dev": "node --env-file-if-exists=.env.local ./node_modules/astro/bin/astro.mjs dev",
     "dev:macos": "./scripts/dev-local-macos.sh",
     "dev:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-local-windows.ps1",
     "build": "astro build",
