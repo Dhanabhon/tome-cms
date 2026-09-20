@@ -74,14 +74,14 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
   ]);
 
   const publishedPage = await createPage('public-owner', {
-    contentJson: content, metaDescription: null, metaTitle: null, slug: 'about', status: 'published', title: 'About',
+    contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'about', status: 'published', title: 'About',
   });
   const englishPage = await createPage('public-owner', {
-    contentJson: content, locale: 'en', metaDescription: null, metaTitle: null, slug: 'about-en',
+    contentJson: content, excerpt: '', locale: 'en', metaDescription: null, metaTitle: null, slug: 'about-en',
     sourcePageId: publishedPage.id, status: 'published', title: 'About EN',
   });
   const draftPage = await createPage('public-owner', {
-    contentJson: content, metaDescription: null, metaTitle: null, slug: 'draft-page', status: 'draft', title: 'Draft Page',
+    contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'draft-page', status: 'draft', title: 'Draft Page',
   });
   assert.deepEqual(await listPublishedPageAlternates(publishedPage.translation_group_id), [
     { href: `/en/${englishPage.slug}`, locale: 'en' },

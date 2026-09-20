@@ -4,18 +4,27 @@ import type { EditorNode, Post, PostLocale, PostStatus } from '../types/cms';
 export { editorText, hasMeaningfulContent } from './editor-content';
 
 /**
- * The line a card shows, in order of who wrote it and for whom.
+ * What the post tells a search engine about itself.
  *
- * The post's own excerpt first: it is the only one of the three written for a reader
- * deciding what to open. Then the search description, because that is what a card showed
- * before there was an excerpt and a site that has one should not lose it. Then the opening
- * of the post, which is better than nothing and is nobody's sentence in particular.
+ * The excerpt is deliberately not in this chain. It is written for a person deciding what
+ * to open, and for a while it was in here -- so writing one silently replaced the meta
+ * description of the article, which is the exact confusion the excerpt exists to end.
  */
-export function postExcerpt(post: Pick<Post, 'content_json' | 'excerpt' | 'meta_description'>, fallback: string) {
-  if (post.excerpt) return post.excerpt;
+export function postDescription(post: Pick<Post, 'content_json' | 'meta_description'>, fallback: string) {
   if (post.meta_description) return post.meta_description;
   const text = editorText(post.content_json).replace(/\s+/g, ' ').trim();
   return text ? (text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text) : fallback;
+}
+
+/**
+ * The line a reader is shown while deciding: a card, or an entry in a feed reader.
+ *
+ * The post's own excerpt first, because it is the only one of the three written for that
+ * reader. Then what the post tells a search engine, because that is what a card showed
+ * before excerpts existed and a site should not lose it by upgrading.
+ */
+export function postExcerpt(post: Pick<Post, 'content_json' | 'excerpt' | 'meta_description'>, fallback: string) {
+  return post.excerpt || postDescription(post, fallback);
 }
 
 export function readingMinutes(node: EditorNode) {

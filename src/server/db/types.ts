@@ -186,7 +186,10 @@ export interface PostTable extends ContentEditionColumns {
   excerpt: Generated<string>;
 }
 
-export interface PageTable extends ContentEditionColumns {}
+export interface PageTable extends ContentEditionColumns {
+  /** A short line a theme may show where it lists or links to the page. */
+  excerpt: Generated<string>;
+}
 
 export interface CategoryTable {
   id: Generated<string>;

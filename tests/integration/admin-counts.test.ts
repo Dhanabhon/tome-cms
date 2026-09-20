@@ -39,8 +39,8 @@ test('the sidebar counts a post or page once, however many languages it is writt
   const first = await createPost('owner-a', { ...postInput, title: 'First', slug: 'first' });
   await createPost('owner-a', { ...postInput, title: 'แรก', slug: 'first-th', locale: 'th', sourcePostId: first.id });
   await createPost('owner-a', { ...postInput, title: 'Second', slug: 'second' });
-  const about = await createPage('owner-a', { ...shared, title: 'About', slug: 'about' });
-  await createPage('owner-a', { ...shared, title: 'เกี่ยวกับ', slug: 'about-th', locale: 'th', sourcePageId: about.id });
+  const about = await createPage('owner-a', { ...shared, excerpt: '', title: 'About', slug: 'about' });
+  await createPage('owner-a', { ...shared, excerpt: '', title: 'เกี่ยวกับ', slug: 'about-th', locale: 'th', sourcePageId: about.id });
 
   // Two posts -- one of them in two languages -- and one page in two languages.
   assert.deepEqual(await countAdminStories('owner-a'), { pages: 1, posts: 2 });

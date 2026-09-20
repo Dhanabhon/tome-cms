@@ -129,6 +129,7 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
     metaTitle: null, slug: 'referenced-post', status: 'draft', title: 'Referenced Post',
   });
   const contentPage = await createPage(ownerId, {
+    excerpt: '',
     contentJson: imageContent, metaDescription: null, metaTitle: null,
     slug: 'referenced-page', status: 'draft', title: 'Referenced Page',
   });

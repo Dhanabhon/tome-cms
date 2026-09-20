@@ -26,6 +26,7 @@ interface PageEditorProps {
 
 interface PageEditorDraft {
   contentJson: JSONContent;
+  excerpt: string;
   metaDescription: string | null;
   metaTitle: string | null;
   slug: string;
@@ -71,6 +72,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
   const titleField = useAutoGrowTitle(title);
   const [slug, setSlug] = useState(initialPage?.slug ?? '');
   const [metaTitle, setMetaTitle] = useState(initialPage?.meta_title ?? '');
+  const [excerpt, setExcerpt] = useState(initialPage?.excerpt ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPage?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPage?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
   const [pageStatus, setPageStatus] = useState<PageStatus>(initialPage?.status ?? 'draft');
@@ -81,11 +83,11 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<PageEditorDraft>({
-    contentJson,
+    contentJson, excerpt,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    contentJson,
+    contentJson, excerpt,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -219,7 +221,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentJson, metaDescription, metaTitle]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, excerpt, metaDescription, metaTitle]);
 
   const saveBefore = async (action: (page: Page) => void, status?: PageStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -355,9 +357,11 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
         <PageSettingsDrawer
           copy={copy}
           errorMessage={errorMessage}
+          excerpt={excerpt}
           locale={locale}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
+          onChangeExcerpt={(value) => { setExcerpt(value); markDirty(); }}
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
