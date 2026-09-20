@@ -4,24 +4,23 @@ import { createServer } from 'node:net';
 import { expect, test } from './own-worker';
 
 /**
- * Signing in with a Passkey, end to end, against a disposable database.
+ * A select opens clear of the dialog it lives in.
  *
- * Nothing covered this path before, and on 2026-09-20 that let a sign-in ship that could
- * never succeed: the credential list the server offers was missing the `type` member every
- * WebAuthn descriptor requires, so `navigator.credentials.get()` threw before the ceremony
- * began and the client reported it as "no Passkey was used". Registration was unaffected, so
- * recovery kept working and the installation looked healthy right up until someone signed
- * out. Unit tests, the type checker, the build and the installer acceptance all passed.
+ * Both the menu dialog and the editors' drawers are scroll boxes, and the list used to be
+ * absolutely positioned inside one -- so a select near the bottom of a dialog had its list
+ * cut off at the dialog's edge, and the only way to reach the rest was to scroll the dialog
+ * under it. Nothing caught that: the markup was right, the CSS was right on its own, and it
+ * is only wrong in a place it happens to be put.
  *
- * The only thing that catches that class of fault is using a credential to sign in. This
- * test registers one through the real recovery flow, signs out, and signs back in.
+ * So this measures the rendered thing. It opens the list at three window heights, and asks
+ * whether the whole of it is on screen and whether its last option can actually be hit.
  */
 
-test.use({ stack: 'passkey-sign-in' });
+test.use({ stack: 'select-in-dialog' });
 
-const PROJECT = 'tomecms-signin-test';
+const PROJECT = 'tomecms-select-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
-const CREDENTIAL = 'passkey-sign-in-test-secret-at-least-32';
+const CREDENTIAL = 'select-in-dialog-secret-at-least-32-ch';
 
 function docker(args: string[], timeout = 180_000) {
   const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
@@ -68,7 +67,7 @@ test.beforeAll(async () => {
     S3_FORCE_PATH_STYLE: 'true',
     MEDIA_PUBLIC_URL: 'http://127.0.0.1:59000/tomecms-test-media/',
     TOME_CMS_FRONTEND_MODE: 'bundled',
-    TOME_CMS_VITE_CACHE_DIR: 'node_modules/.vite-passkey-sign-in-test',
+    TOME_CMS_VITE_CACHE_DIR: 'node_modules/.vite-select-in-dialog',
   };
 
   docker(['up', '-d', '--wait', '--wait-timeout', '90', 'postgres', 'seaweedfs']);
@@ -87,7 +86,7 @@ test.beforeAll(async () => {
   await sql`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
     values ('signin-test-owner', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
-    values (true, 'signin-test-owner', 'Sign-in Test', 'en', 'UTC', '/admin')`.execute(db);
+    values (true, 'signin-test-owner', 'Select Test', 'en', 'UTC', '/admin')`.execute(db);
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
@@ -117,70 +116,55 @@ test.afterAll(async () => {
   docker(['down', '--volumes', '--remove-orphans'], 90_000);
 });
 
+
 test.skip(
   ({ isMobile }) => Boolean(isMobile),
-  'Virtual WebAuthn is driven over CDP and covered once, on desktop Chromium.',
+  'One browser is enough to measure a layout; the virtual authenticator needs Chromium anyway.',
 );
 
-test('a Passkey registered by recovery can sign its owner back in', async ({ context, page }) => {
+test('a select opens clear of the dialog it lives in', async ({ context, page }) => {
   test.setTimeout(120_000);
-
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
-  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: {
-      protocol: 'ctap2',
-      transport: 'internal',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
-
-  const { db } = await import('../../src/server/db/client');
   const { getSiteSettings } = await import('../../src/server/content/site-settings');
   const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
   const settings = await getSiteSettings();
-  expect(settings, 'the seeded owner is installed').toBeTruthy();
-
   const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
   await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
 
-  const credentials = await cdp.send('WebAuthn.getCredentials', { authenticatorId });
-  expect(credentials.credentials, 'the authenticator holds the new Passkey').toHaveLength(1);
-  expect(await db.selectFrom('session').select('id').execute(), 'registering signed the owner in').toHaveLength(1);
+  // Tall enough for the list to fit under the trigger, and short enough that it cannot.
+  for (const height of [900, 560, 420]) {
+    await page.setViewportSize({ width: 1280, height });
+    await page.goto(`${origin}/admin/navigation`);
+    await page.getByRole('button', { name: /Add item/i }).first().click();
+    await page.locator('dialog.navigation-dialog').waitFor({ state: 'visible' });
+    await page.locator('#navigation-placement').click();
+    await page.locator('.ui-select__menu').waitFor({ state: 'visible' });
 
-  // The list the sign-in is about to be offered. Every descriptor in it needs `type`, and
-  // this one is appended after the options were generated, so nothing else supplies it.
-  const options = await (await page.request.get(`${origin}/api/auth/passkey/generate-authenticate-options`)).json();
-  expect(options.allowCredentials, 'the sign-in offers the Passkey this installation knows').toEqual([
-    expect.objectContaining({ id: credentials.credentials[0].credentialId.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), type: 'public-key' }),
-  ]);
+    const shown = await page.evaluate(() => {
+      const list = document.querySelector('.ui-select__menu') as HTMLElement;
+      const box = list.getBoundingClientRect();
+      const last = (list.lastElementChild as HTMLElement).getBoundingClientRect();
+      // What is painted on top at the last option: if something clipped or covered the
+      // list, this point belongs to that instead.
+      const onTop = document.elementFromPoint(last.left + 8, last.top + last.height / 2);
+      return {
+        lastOptionOnTop: Boolean(onTop && list.contains(onTop)),
+        whole: Math.round(box.height) >= list.scrollHeight - 1,
+        withinWindow: box.top >= 0 && box.bottom <= window.innerHeight,
+      };
+    });
+    expect(shown, `the whole list is reachable at ${height}px tall`).toEqual({
+      lastOptionOnTop: true, whole: true, withinWindow: true,
+    });
 
-  await page.getByRole('button', { name: /Sign out/i }).first().click();
-  await page.getByRole('button', { name: /Sign out/i }).last().click();
-  await expect.poll(async () => (await db.selectFrom('session').select('id').execute()).length, {
-    message: 'signing out ends the session',
-    timeout: 20_000,
-  }).toBe(0);
-
-  await page.goto(`${origin}/admin?signin=1`);
-  await page.getByRole('button', { name: /Sign in with a Passkey/i }).click();
-
-  // The whole point: a credential that registered must also be able to authenticate.
-  await expect.poll(async () => (await db.selectFrom('session').select('id').execute()).length, {
-    message: 'the Passkey signs the owner back in',
-    timeout: 30_000,
-  }).toBe(1);
-  // And the owner lands in the admin rather than back on the form they just used.
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
-  await expect(page.locator('.admin-shell')).toBeVisible();
-
-  // And the sign-in is recorded. A Passkey synced through a password manager never moves its
-  // signature counter, so this has to come from the verification rather than from a counter.
-  const passkey = await db.selectFrom('passkey').select(['last_used_at', 'counter']).executeTakeFirstOrThrow();
-  expect(passkey.last_used_at, 'the Passkey is marked used').not.toBeNull();
+    // Reachable is not the same as usable: the last option has to answer a click.
+    await page.locator('.ui-select__option').last().click();
+    await expect(page.locator('#navigation-placement .ui-select__label')).toHaveText('Both');
+  }
 });

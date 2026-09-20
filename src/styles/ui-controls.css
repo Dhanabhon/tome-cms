@@ -43,11 +43,18 @@
 .ui-select__trigger:focus-visible { outline-offset: var(--rule-hair); }
 .ui-select__trigger:disabled { cursor: not-allowed; opacity: 0.55; }
 
+/* Fixed, and placed against the trigger from script.
+ *
+ * Absolute put the menu in the nearest scroll box, and both the menu dialog and the
+ * editors' drawers are scroll boxes -- so a list opened near the bottom of one was cut off
+ * at its edge, and the only way to see the rest was to scroll the dialog. Fixed takes its
+ * containing block from the viewport instead, which no ancestor here overrides: nothing
+ * around a select carries a transform, a filter or contain. */
 .ui-select__menu {
-  position: absolute;
+  position: fixed;
   z-index: var(--z-sticky-nav);
-  inset: calc(100% + var(--space-2xs)) 0 auto;
-  max-height: min(20rem, 50dvh);
+  inset-block-start: 0;
+  inset-inline-start: 0;
   overflow-y: auto;
   padding: var(--space-2xs);
   border: var(--rule-hair) solid var(--color-rule-strong);
