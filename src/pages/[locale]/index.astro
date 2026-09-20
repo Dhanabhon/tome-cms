@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { isPostLocale, localePath } from '../../lib/i18n';
+import { isPostLocale, localePath, publicCopy } from '../../lib/i18n';
 import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
@@ -69,7 +69,7 @@ const activeTheme = await resolveTheme(settings?.theme_id);
     posts={posts}
     profile={profile}
     siteName={settings?.site_name ?? 'TomeCMS'}
-    tagline={settings?.tagline?.trim()}
+    tagline={settings?.tagline?.trim() || publicCopy(locale).defaultTagline}
     timezone={settings?.timezone ?? 'UTC'}
   />
 </BaseLayout>
