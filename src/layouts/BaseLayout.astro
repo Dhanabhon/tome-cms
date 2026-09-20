@@ -1,8 +1,12 @@
 ---
+import Icon from '../components/Icon.astro';
+import PluginClients from '../components/PluginClients.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { getPublicSiteUrl } from '../lib/seo';
 import { getPublicNavigation } from '../server/content/navigation';
+import { publicAdditions } from '../server/plugins/public';
+import { publicCopy } from '../lib/i18n';
 import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
 import { resolveTheme } from '../themes/registry';
@@ -64,6 +68,16 @@ const {
   xDefaultHref,
 } = Astro.props;
 const navigation = await getPublicNavigation(locale);
+const publicText = publicCopy(locale);
+// What the enabled plugins add here. The band is drawn by this layout, from words and at
+// most one checked link -- nothing a plugin returns is written into the page as markup.
+const plugins = settings
+  ? await publicAdditions(
+    settings.owner_id,
+    { kind: type === 'article' ? 'post' : type === 'page' ? 'page' : 'home', locale },
+    getPublicSiteUrl(Astro.request, Astro.site).origin,
+  )
+  : { clients: [], notice: null };
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
 const activeTheme = await resolveTheme(themeId);
@@ -165,6 +179,34 @@ const structuredData = robots.includes('noindex')
     siteName={siteName}
     theme={themeChoice}
   >
+    <Fragment slot="above">
+      {plugins.notice && (
+        <aside
+          class="site-notice"
+          data-dismiss-key={plugins.notice.dismissKey}
+          data-site-notice
+        >
+          <p>
+            {plugins.notice.text}
+            {plugins.notice.link && <a href={plugins.notice.link.href}>{plugins.notice.link.label}</a>}
+          </p>
+          {plugins.notice.dismissKey && (
+            <button aria-label={publicText.closeNotice} data-notice-close type="button">
+              <Icon name="close" />
+            </button>
+          )}
+        </aside>
+      )}
+      {plugins.clients.map(({ dataset, id }) => (
+        <span
+          data-close={publicText.closeImage}
+          data-plugin={id}
+          hidden
+          {...Object.fromEntries(Object.entries(dataset).map(([key, value]) => [`data-${key}`, value]))}
+        />
+      ))}
+    </Fragment>
     <slot />
   </activeTheme.Shell>
+  {plugins.clients.length + (plugins.notice ? 1 : 0) > 0 && <PluginClients />}
 </html>

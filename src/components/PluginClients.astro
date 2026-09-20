@@ -1,0 +1,21 @@
+---
+/*
+ * Loads the browser code of the plugins that asked to run here.
+ *
+ * Each plugin's module is its own chunk behind a dynamic import, so a page with no mount
+ * points fetches none of them. This small loader is a hoisted script and does ship on every
+ * page that renders it -- which is only a page a plugin has put a mount point on, because
+ * the layout renders this component only then.
+ */
+---
+
+<script>
+  const mounts = document.querySelectorAll<HTMLElement>('[data-plugin]');
+  if (mounts.length) {
+    const { pluginClient } = await import('../plugins/clients');
+    for (const mount of mounts) {
+      const load = pluginClient(mount.dataset.plugin ?? '');
+      if (load) (await load()).default(mount);
+    }
+  }
+</script>

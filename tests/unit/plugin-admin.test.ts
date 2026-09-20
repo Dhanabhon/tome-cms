@@ -16,9 +16,17 @@ test('a manifest names a hook the plugin actually fills', async () => {
     const plugin = await loadPlugin(manifest.id);
     assert.ok(plugin, `${manifest.id} is not in the registry`);
     for (const hook of manifest.hooks) {
-      assert.equal(hook, 'signIn', `${manifest.id} names a hook the core does not declare`);
-      assert.equal(typeof plugin.signInWidget, 'function', `${manifest.id} claims signIn without a widget`);
-      assert.equal(typeof plugin.verifySignIn, 'function', `${manifest.id} claims signIn without a check`);
+      if (hook === 'signIn') {
+        assert.equal(typeof plugin.signInWidget, 'function', `${manifest.id} claims signIn without a widget`);
+        assert.equal(typeof plugin.verifySignIn, 'function', `${manifest.id} claims signIn without a check`);
+        continue;
+      }
+      assert.equal(hook, 'publicPage', `${manifest.id} names a hook the core does not declare`);
+      // Either half of it: a band of words, browser code, or both.
+      assert.ok(
+        typeof plugin.siteNotice === 'function' || typeof plugin.publicClient === 'function',
+        `${manifest.id} claims publicPage and adds nothing to a public page`,
+      );
     }
   }
 });

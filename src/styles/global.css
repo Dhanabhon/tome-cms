@@ -84,6 +84,75 @@
   .admin-nav-chevron .icon { transition: none; }
 }
 .admin-nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A band a plugin supplied the words for, drawn by the core.
+ *
+ * The core owns every part of this that is not the words: the element, its colours, its
+ * place and its close button. A plugin returns text and at most one checked link. */
+.site-notice {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-hero);
+  color: var(--color-on-dark);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.site-notice p { margin: 0; }
+
+.site-notice a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+.site-notice button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.site-notice button:hover { background: color-mix(in oklch, var(--color-on-dark) 18%, transparent); }
+
+.site-notice button:focus-visible { outline: 2px solid var(--color-on-dark); outline-offset: var(--space-3xs); }
+
+/* An article's images, opened in the element the platform already has for this: the top
+ * layer, the backdrop, Escape and the focus return are the browser's. */
+[data-lightbox] { cursor: zoom-in; }
+
+.lightbox {
+  width: min(96vw, 80rem);
+  max-width: none;
+  max-height: 92dvh;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: transparent;
+}
+
+.lightbox::backdrop { background: var(--color-scrim); }
+
+.lightbox__image { display: block; width: 100%; max-height: 92dvh; object-fit: contain; }
+
+.lightbox__close {
+  position: absolute;
+  inset: var(--space-md) var(--space-md) auto auto;
+  min-height: 2.75rem;
+  padding-inline: var(--space-md);
+  border: var(--rule-hair) solid color-mix(in oklch, var(--color-on-dark) 40%, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--color-hero);
+  color: var(--color-on-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
 /* The same badge wherever the admin counts something: the sidebar, a tab, a category. */
 .admin-count,
 .admin-nav-count,
@@ -1609,6 +1678,11 @@ body {
  * plugin never ships an image to a screen. */
 .plugin-card__mark { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: var(--radius-input); color: var(--color-ink-2); background: var(--color-paper-2); }
 .plugin-card__mark .icon { width: 1.5rem; height: 1.5rem; }
+/* A brand mark keeps its own colours, and a white cloud on near-white paper is no mark at
+ * all -- so a card showing one gives it a dark tile to sit on whatever else the card does. */
+.plugin-card__mark[data-brand] { background: var(--color-hero); }
+.plugin-card[data-on] .plugin-card__mark[data-brand] { background: var(--color-hero); }
+.brand-mark { width: 1.75rem; height: auto; }
 .plugin-card[data-on] .plugin-card__mark { color: var(--color-focus); background: var(--color-status-ok); }
 .plugin-card__name { display: grid; gap: var(--space-2xs); min-width: 0; }
 .plugin-card__name strong { color: var(--color-ink); font-size: var(--text-md); font-weight: 600; }

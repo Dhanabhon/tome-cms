@@ -5,6 +5,7 @@ import { PLUGIN_MANIFESTS } from '../../plugins/manifests';
 import type { PluginHookId, PluginManifest } from '../../plugins/contract';
 import type { PluginState } from '../../server/plugins/store';
 import type { PostLocale } from '../../types/cms';
+import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 
 interface PluginManagerProps {
@@ -21,7 +22,7 @@ interface Report {
 
 /** The core's own words for its own hooks. A plugin names one; it does not describe it. */
 function hookLabel(copy: AdminCopy, hook: PluginHookId): string {
-  return { signIn: copy.plugins.hookSignIn }[hook];
+  return { publicPage: copy.plugins.hookPublicPage, signIn: copy.plugins.hookSignIn }[hook];
 }
 
 /**
@@ -79,7 +80,9 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
           return (
             <li className="plugin-card" key={manifest.id} data-on={enabled ? '' : undefined}>
               <div className="plugin-card__body">
-                <span className="plugin-card__mark" aria-hidden="true"><Icon name={manifest.icon} /></span>
+                <span className="plugin-card__mark" aria-hidden="true" data-brand={manifest.brand ?? undefined}>
+                  {manifest.brand ? <BrandMark name={manifest.brand} /> : <Icon name={manifest.icon} />}
+                </span>
                 <div className="plugin-card__name">
                   <strong>{manifest.name}</strong>
                   <p>{manifest.description[locale]}</p>
