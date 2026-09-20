@@ -164,6 +164,26 @@ export async function assertInstalledOwnerCredential<Options extends BetterAuthO
   if (activeRecovery > 0) throw new Error('Installed owner authorization failed.');
 }
 
+/**
+ * Marks a Passkey as used, at the moment it verifies.
+ *
+ * A trigger already did this whenever the signature counter moved, which was the only
+ * evidence available when it was written. A Passkey synced through a password manager never
+ * moves its counter -- it reports zero for life -- so for the most common kind of Passkey
+ * today the trigger can never fire, and the Security screen says "never used" about a key
+ * that signs its owner in every day. Verification is the fact; the counter was a proxy for it.
+ */
+export async function recordPasskeyUse(credentialId: string): Promise<void> {
+  if (!credentialId) return;
+  try {
+    await db.updateTable('passkey').set({ last_used_at: new Date() })
+      .where('credentialID', '=', credentialId).execute();
+  } catch (error) {
+    // A sign-in that worked must not fail over its own bookkeeping.
+    console.error('Passkey use could not be recorded:', error);
+  }
+}
+
 export async function createEnrollment(input: {
   email: string;
   purpose: EnrollmentPurpose;
