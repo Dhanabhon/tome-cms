@@ -1,7 +1,8 @@
 ---
 import { z } from 'zod';
 
-import { resolveTheme } from '../../../themes/registry';
+import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../../themes/registry';
+import { readThemeSettings } from '../../../server/themes/store';
 import { themeStylesheet } from '../../../themes/styles';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../../lib/admin-i18n';
@@ -63,6 +64,8 @@ try {
 
 // A preview is what a reader will see, so the theme draws it.
 const activeTheme = await resolveTheme(settings?.theme_id);
+// A draft is previewed as the article it will be, which includes what the theme was told.
+const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? settings.theme_id : DEFAULT_THEME_ID);
 const adminSettings = { admin_path: adminPath };
 const copy = adminCopy(settings?.default_locale);
 const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
@@ -76,7 +79,8 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
           <strong>{copy.preview.draftPreview}</strong>
           <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, `/edit/${post.id}`)}>{copy.preview.editPost}</a>
         </div>
-        <activeTheme.Post categories={[]} locale={post.locale} post={post} preview profile={profile} settings={settings} />
+        <activeTheme.Post categories={[]} locale={post.locale} post={post} preview profile={profile}
+          settings={settings} themeSettings={themeSettings} />
       </>
     ) : null}
   </main>

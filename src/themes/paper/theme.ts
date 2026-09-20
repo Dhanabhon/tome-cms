@@ -64,6 +64,16 @@ export const manifest: ThemeManifest = {
       ],
     },
     {
+      fallback: 'off',
+      hint: {
+        en: 'A hairline across the top of an article, filling as the reader goes down it. The browser draws it from the scroll position, so the page carries nothing to keep it moving.',
+        th: 'เส้นบางพาดบนสุดของบทความ เติมขึ้นตามที่อ่านลงไป เบราว์เซอร์วาดจากตำแหน่ง scroll เอง หน้าจึงไม่ต้องแบกโค้ดไว้ขยับมัน',
+      },
+      key: 'readingProgress',
+      kind: 'switch',
+      label: { en: 'Reading progress bar', th: 'แถบความคืบหน้าการอ่าน' },
+    },
+    {
       fallback: 'on',
       hint: {
         en: 'Rows appear as the end of the grid comes near. Off leaves the link to older posts that a reader without JavaScript already follows.',

@@ -90,7 +90,7 @@ test.beforeAll(async () => {
       const group = (await sql<{ id: string }>`insert into post_translation_groups (owner_id) values ('signin-test-owner') returning id`.execute(trx)).rows[0].id;
       await sql`insert into post_category_assignments (translation_group_id, category_id, owner_id) values (${group}::uuid, ${category}::uuid, 'signin-test-owner')`.execute(trx);
       await sql`insert into posts (translation_group_id, locale, title, slug, content_json, content_html, status, published_at, owner_id)
-        values (${group}::uuid, 'en', ${`Post ${n}`}, ${`post-${n}`}, ${JSON.stringify({ type: 'doc', content: [] })}::jsonb, '<p>x</p>',
+        values (${group}::uuid, 'en', ${`Post ${n}`}, ${`post-${n}`}, ${JSON.stringify({ type: 'doc', content: [] })}::jsonb, ${'<p>Body line.</p>'.repeat(200)},
           'published', now() - (${n + 1} || ' days')::interval, 'signin-test-owner')`.execute(trx);
     }
   });
@@ -151,7 +151,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   };
 
   expect(await readThemeSettings('paper'), 'a theme nobody has answered gets what it declared')
-    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6' });
+    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off' });
   expect(await feed()).toEqual({ cards: 6, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { postsPerLoad: '12' } });
@@ -170,7 +170,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   // A row edited by hand, or a release that dropped a choice, must not reach a template.
   await query`update site_settings set theme_settings = '{"paper":{"postsPerLoad":"99"}}'::jsonb`.execute(db);
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
-    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6' });
+    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off' });
 });
 
 test('how many cards go across is asked for, not fixed', async ({ page }) => {
@@ -391,4 +391,33 @@ test('a reader is not served the feed they switched off', async ({ page }) => {
   // carried the feed's code, so switching the setting off changed the markup and not the
   // bytes. This fails if a static import comes back.
   expect(await fetchesFeed(), 'off: and does not').toBe(false);
+});
+
+test('the reading progress bar is drawn from the scroll position', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+  const bar = page.locator('.reading-progress');
+  const article = `${origin}/en/blog/post-0`;
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'off' } });
+  await page.goto(article, { waitUntil: 'networkidle' });
+  await expect(bar, 'a bar nobody asked for is not on the page').toHaveCount(0);
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'on' } });
+  await page.goto(article, { waitUntil: 'networkidle' });
+  await expect(bar).toHaveCount(1);
+
+  // The bar is a transform, so the width of the box actually drawn is the only answer that
+  // means anything: the markup is identical whether the animation runs or does nothing.
+  const drawn = async () => (await bar.boundingBox())?.width ?? -1;
+  const viewport = page.viewportSize()?.width ?? 0;
+  expect(await drawn(), 'nothing read yet').toBeLessThan(viewport * 0.05);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(drawn, { message: 'the end of the article fills it' })
+    .toBeGreaterThan(viewport * 0.9);
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(drawn, { message: 'and scrolling back up empties it again' })
+    .toBeLessThan(viewport * 0.05);
 });

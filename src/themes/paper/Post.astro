@@ -4,7 +4,9 @@ import type { ThemePostProps } from '../contract';
 
 interface Props extends ThemePostProps {}
 
-const { categories, post, preview, profile, settings } = Astro.props;
+const { categories, post, preview, profile, settings, themeSettings } = Astro.props;
 ---
+
+{themeSettings.readingProgress === 'on' && <div class="reading-progress" aria-hidden="true"></div>}
 
 <PostArticle categories={categories} post={post} preview={preview} profile={profile} settings={settings} />

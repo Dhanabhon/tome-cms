@@ -546,3 +546,37 @@
   .hero-title { font-size: var(--text-4xl); }
   .site-wordmark { font-size: var(--text-xl); }
 }
+
+/*
+ * The reading progress bar.
+ *
+ * It tracks the reader's own scrolling, which the browser already knows: a scroll timeline
+ * draws it straight from the scroll position, so the page carries no handler, no rAF loop
+ * and no script at all for it, and what moves is a transform the compositor owns.
+ *
+ * Gated on support rather than given a fallback, because the fallback for a bar drawn from
+ * the scroll position is a bar that sits at zero forever. No bar reads as a theme that does
+ * not have one; a dead bar reads as a broken one.
+ *
+ * Not gated on reduced motion: nothing here plays by itself. It moves exactly as far as the
+ * reader just scrolled, and stops when they do.
+ */
+@supports (animation-timeline: scroll()) {
+  .reading-progress {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: calc(var(--z-sticky-nav) + 1);
+    block-size: 0.1875rem;
+    background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    animation: reading-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+
+  @keyframes reading-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+}
