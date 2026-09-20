@@ -12,10 +12,12 @@ interface PostSettingsDrawerProps {
   copy: AdminCopy;
   coverImage: string | null;
   errorMessage: string | null;
+  excerpt: string;
   metaDescription: string;
   metaTitle: string;
   onChangeCategories: (value: string[]) => void;
   onChangeCover: (asset: MediaAsset | null) => void;
+  onChangeExcerpt: (value: string) => void;
   onChangeMetaDescription: (value: string) => void;
   onChangeMetaTitle: (value: string) => void;
   onChangeSlug: (value: string) => void;
@@ -29,8 +31,8 @@ interface PostSettingsDrawerProps {
 }
 
 export default function PostSettingsDrawer({
-  categories, copy, coverImage, errorMessage, locale, metaDescription, metaTitle,
-  onChangeCategories, onChangeCover, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
+  categories, copy, coverImage, errorMessage, excerpt, locale, metaDescription, metaTitle,
+  onChangeCategories, onChangeCover, onChangeExcerpt, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
   onClose, onManageCategories, open, ownerLocale, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -115,6 +117,18 @@ export default function PostSettingsDrawer({
             })}
           </small>
         </div>
+      </section>
+
+      {/* Not under Search preview: that sentence is written for a search result, and this
+          one is written for someone deciding what to open. They were the same field until
+          now, which is why a card and a snippet could not be changed apart. */}
+      <section className="drawer-group">
+        <h3>{copy.drawer.homepageCard}</h3>
+        <label className="admin-field">
+          <span>{copy.drawer.excerpt} <small>{excerpt.length}/120</small></span>
+          <textarea className="admin-control admin-control--textarea" maxLength={120} onChange={(event) => onChangeExcerpt(event.target.value)} placeholder={copy.drawer.excerptPlaceholder} value={excerpt} />
+          <small>{copy.drawer.excerptHint}</small>
+        </label>
       </section>
 
       <section className="drawer-group">

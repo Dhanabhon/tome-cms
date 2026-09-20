@@ -3,7 +3,16 @@ import type { EditorNode, Post, PostLocale, PostStatus } from '../types/cms';
 
 export { editorText, hasMeaningfulContent } from './editor-content';
 
-export function postExcerpt(post: Pick<Post, 'content_json' | 'meta_description'>, fallback: string) {
+/**
+ * The line a card shows, in order of who wrote it and for whom.
+ *
+ * The post's own excerpt first: it is the only one of the three written for a reader
+ * deciding what to open. Then the search description, because that is what a card showed
+ * before there was an excerpt and a site that has one should not lose it. Then the opening
+ * of the post, which is better than nothing and is nobody's sentence in particular.
+ */
+export function postExcerpt(post: Pick<Post, 'content_json' | 'excerpt' | 'meta_description'>, fallback: string) {
+  if (post.excerpt) return post.excerpt;
   if (post.meta_description) return post.meta_description;
   const text = editorText(post.content_json).replace(/\s+/g, ' ').trim();
   return text ? (text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text) : fallback;

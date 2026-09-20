@@ -75,6 +75,8 @@ export interface Post {
   cover_image: string | null;
   content_json: EditorDocument;
   content_html: string;
+  /** What a card shows. Empty means the theme falls back; see lib/posts.ts. */
+  excerpt: string;
   meta_title: string | null;
   meta_description: string | null;
   status: PostStatus;
@@ -90,6 +92,7 @@ export interface PostMutationInput {
   title: string;
   slug: string;
   contentJson: EditorDocument;
+  excerpt: string;
   metaTitle: string | null;
   metaDescription: string | null;
   status: PostStatus;

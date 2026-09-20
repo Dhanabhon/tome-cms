@@ -32,7 +32,7 @@ test('the sidebar counts a post or page once, however many languages it is writt
 
   const contentJson: EditorDocument = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Body' }] }] };
   const shared = { contentJson, metaTitle: null, metaDescription: null, status: 'draft' as const };
-  const postInput = { ...shared, categoryIds: [fallback.id], coverMediaId: null };
+  const postInput = { ...shared, categoryIds: [fallback.id], coverMediaId: null, excerpt: '' };
 
   assert.deepEqual(await countAdminStories('owner-a'), { pages: 0, posts: 0 });
 

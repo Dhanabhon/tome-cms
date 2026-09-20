@@ -41,6 +41,7 @@ const post = {
   created_at: '2026-09-08T00:00:00.000Z',
   id: '2945700a-b92e-46d2-ab94-c845249f5a6d',
   locale: 'th' as const,
+  excerpt: '',
   meta_description: null,
   meta_title: 'Hello SEO',
   owner_id: 'private-owner',

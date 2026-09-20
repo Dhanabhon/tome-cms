@@ -32,6 +32,7 @@ interface EditorDraft {
   categoryIds: string[];
   contentJson: JSONContent;
   coverMediaId: string | null;
+  excerpt: string;
   metaDescription: string | null;
   metaTitle: string | null;
   slug: string;
@@ -67,6 +68,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
   const [coverImage, setCoverImage] = useState(initialPost?.cover_image ?? sourcePost?.cover_image ?? null);
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
+  const [excerpt, setExcerpt] = useState(initialPost?.excerpt ?? '');
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPost?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
   const [postStatus, setPostStatus] = useState<PostStatus>(initialPost?.status ?? 'draft');
@@ -77,11 +79,11 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
-    categoryIds, contentJson, coverMediaId,
+    categoryIds, contentJson, coverMediaId, excerpt,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   });
   draftRef.current = {
-    categoryIds, contentJson, coverMediaId,
+    categoryIds, contentJson, coverMediaId, excerpt,
     metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
   };
 
@@ -219,7 +221,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentJson, metaDescription, metaTitle, categoryIds, coverMediaId]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, excerpt, metaDescription, metaTitle, categoryIds, coverMediaId]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
     if (actionPending.current) return;
@@ -357,6 +359,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
           copy={copy}
           coverImage={coverImage}
           errorMessage={errorMessage}
+          excerpt={excerpt}
           locale={locale}
           metaDescription={metaDescription}
           metaTitle={metaTitle}
@@ -366,6 +369,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
             setCoverImage(asset?.publicUrl ?? null);
             markDirty();
           }}
+          onChangeExcerpt={(value) => { setExcerpt(value); markDirty(); }}
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
