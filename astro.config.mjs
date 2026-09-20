@@ -1,6 +1,5 @@
 import node from '@astrojs/node';
 import react from '@astrojs/react';
-import tailwind from '@astrojs/tailwind';
 import { defineConfig } from 'astro/config';
 
 const isDev = process.env.npm_lifecycle_event === 'dev' || process.argv.includes('dev');
@@ -11,6 +10,6 @@ export default defineConfig({
   output: 'server',
   devToolbar: { enabled: false },
   adapter: node({ mode: 'standalone' }),
-  integrations: [react(), tailwind()],
+  integrations: [react()],
   vite: { cacheDir: process.env.TOME_CMS_VITE_CACHE_DIR ?? defaultViteCacheDir },
 });
