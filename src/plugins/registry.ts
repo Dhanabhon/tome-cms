@@ -5,6 +5,8 @@ import type { Plugin } from './contract';
  * should reach a page that is not using it.
  */
 const PLUGINS = {
+  lightbox: () => import('./lightbox'),
+  notice: () => import('./notice'),
   turnstile: () => import('./turnstile'),
 } as const;
 

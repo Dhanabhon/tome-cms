@@ -220,6 +220,21 @@ npm run plugin:disable turnstile -- --forget
 The first switches it off and keeps its settings. `--forget` clears them as well, which the
 Admin deliberately cannot do.
 
+Two more plugins reach the public site rather than the sign-in form.
+
+**Announcement bar** puts a band across the top of every public page, with a sentence you
+write in each language. A reader can close it, and what is remembered is the message rather
+than the plugin, so a new message is shown again to somebody who closed the last one. The
+link field takes a path on this site or an `https` address; anything else — `javascript:`
+first among them — is dropped, and the message is shown without a link.
+
+**Image lightbox** opens an article's images full size without leaving the page. It is asked
+for only where there are images to open: a homepage of cards never fetches its code.
+
+A plugin that is switched off ships nothing at all. Each one's browser code is a chunk behind
+a dynamic import that only a mount point on the page asks for, so a reader of a site with
+both switched off downloads neither.
+
 ## Bundled and Headless modes
 
 The default is:

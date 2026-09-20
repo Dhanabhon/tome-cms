@@ -17,6 +17,7 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
 ---
 
 <body class="plain">
+  <slot name="above" />
   <header class="plain-head">
     <a class="plain-wordmark" href={localePath(locale)}>{siteName}</a>
     <nav class="plain-nav" aria-label={copy.primaryNavigation}>

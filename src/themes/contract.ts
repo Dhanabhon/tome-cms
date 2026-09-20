@@ -65,6 +65,12 @@ export interface ThemeManifest {
   settings?: readonly ThemeSetting[];
 }
 
+/**
+ * A theme's Shell renders `<body>`, and takes a named slot `above` before anything it draws.
+ * The core puts things there that are not the theme's -- an announcement band a plugin
+ * supplied the words for, and the mount points a plugin's browser code attaches to. A theme
+ * renders the slot and has nothing else to do with it.
+ */
 export interface ThemeShellProps {
   /** Off means the header draws no theme control, and the page carries no script for one. */
   allowVisitorTheme: boolean;

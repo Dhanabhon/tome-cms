@@ -1,0 +1,198 @@
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { createServer } from 'node:net';
+
+import { expect, test } from './own-worker';
+
+/**
+ * What a plugin adds to a public page, measured in the reader's browser.
+ *
+ * Two plugins now reach a page nobody has signed in to: an announcement bar the owner
+ * writes, and a lightbox that opens an article's images. The questions worth asking are
+ * about what is actually served -- that a plugin switched off ships none of its code, that
+ * one that only belongs on an article is not fetched on the homepage, and that a link typed
+ * into a settings field cannot turn into `javascript:` on every page of the site.
+ *
+ * The rows are written with psql rather than `writePluginSettings`: a second connection pool
+ * inside the Playwright worker, alongside the dev server's own, hung this suite for its full
+ * timeout. The write path has its own coverage in tests/integration/plugin-settings.test.ts,
+ * and this file is about the page.
+ */
+
+test.use({ stack: 'public-plugins' });
+
+const PROJECT = 'tomecms-public-plugins';
+const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
+const CREDENTIAL = 'public-plugins-secret-at-least-32-ch!';
+const OWNER = 'public-plugins-owner';
+
+function docker(args: string[], timeout = 180_000) {
+  const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
+  if (result.status !== 0) throw new Error(`docker ${args[0]} failed: ${result.stderr || result.stdout}`);
+  return result;
+}
+
+function psql(statement: string) {
+  return docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+    '-U', 'tomecms_test', '-d', 'tomecms_test', '-c', statement], 60_000);
+}
+
+/** The same row `writePluginSettings` would leave, without opening a pool to leave it. */
+function setPlugin(id: string, enabled: boolean, values: Record<string, string>) {
+  const settings = JSON.stringify(values).replaceAll("'", "''");
+  psql(`insert into plugin_settings (id, owner_id, enabled, settings)
+    values ('${id}', '${OWNER}', ${enabled}, '${settings}'::jsonb)
+    on conflict (id) do update set enabled = excluded.enabled, settings = excluded.settings, updated_at = now()`);
+}
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') return reject(new Error('No port available.'));
+      const { port } = address;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+let server: ChildProcess | undefined;
+let origin = '';
+
+test.beforeAll(async () => {
+  const port = await freePort();
+  origin = `http://localhost:${port}`;
+  const serverEnv = {
+    ...process.env,
+    NODE_ENV: 'development',
+    // Astro 7 backgrounds the dev server when it detects an agent, and a detached server is
+    // one this test cannot wait on or stop.
+    ASTRO_DEV_BACKGROUND: '1',
+    DATABASE_URL: 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test',
+    TOME_CMS_PUBLIC_URL: origin,
+    TOME_CMS_INSTALL_TOKEN: CREDENTIAL,
+    BETTER_AUTH_SECRET: CREDENTIAL,
+    TOME_CMS_CONTEXT_SECRET: CREDENTIAL,
+    TOME_CMS_RECOVERY_PEPPER: CREDENTIAL,
+    S3_ENDPOINT: 'http://127.0.0.1:59000',
+    S3_ACCESS_KEY_ID: 'tomecms_test',
+    S3_SECRET_ACCESS_KEY: 'foundation-test-only',
+    S3_BUCKET: 'tomecms-test-media',
+    S3_REGION: 'us-east-1',
+    S3_FORCE_PATH_STYLE: 'true',
+    MEDIA_PUBLIC_URL: 'http://127.0.0.1:59000/tomecms-test-media/',
+    TOME_CMS_FRONTEND_MODE: 'bundled',
+    TOME_CMS_VITE_CACHE_DIR: 'node_modules/.vite-public-plugins',
+  };
+
+  docker(['up', '-d', '--wait', '--wait-timeout', '90', 'postgres', 'seaweedfs']);
+  // A schema of its own, so this never reads or writes whatever the last suite left behind.
+  psql('drop schema public cascade; create schema public;');
+
+  Object.assign(process.env, serverEnv);
+  const { migrateToLatest } = await import('../../src/server/db/migrator');
+  await migrateToLatest();
+
+  // An installed owner with one published article, without walking the six-step wizard.
+  psql(`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
+      values ('${OWNER}', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now());
+    insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
+      values (true, '${OWNER}', 'Plugin Test', 'en', 'UTC', '/admin');
+    insert into categories (owner_id, name, is_default) values ('${OWNER}', 'Uncategorized', true);
+    insert into post_translation_groups (owner_id) values ('${OWNER}');
+    insert into post_category_assignments (translation_group_id, category_id, owner_id)
+      select g.id, c.id, '${OWNER}' from post_translation_groups g, categories c;
+    insert into posts (translation_group_id, locale, title, slug, content_json, content_html, status, published_at, owner_id)
+      select g.id, 'en', 'An article', 'an-article', '{"type":"doc","content":[]}'::jsonb,
+        '<p><img src="/x.webp" alt=""></p>', 'published', now(), '${OWNER}' from post_translation_groups g;`);
+
+  server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
+    '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
+  let output = '';
+  server.stdout?.on('data', (chunk: Buffer) => { output = `${output}${chunk}`.slice(-4_000); });
+  server.stderr?.on('data', (chunk: Buffer) => { output = `${output}${chunk}`.slice(-4_000); });
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    if (server.exitCode !== null) throw new Error(`Plugin test server exited early.\n${output}`);
+    try {
+      if ((await fetch(`${origin}/health/ready`)).ok) return;
+    } catch {
+      // Astro is still starting.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`Plugin test server never became ready.\n${output}`);
+});
+
+test.afterAll(async () => {
+  server?.kill('SIGTERM');
+  try {
+    const { closeDatabase } = await import('../../src/server/db/client');
+    await closeDatabase();
+  } catch {
+    // The pool may never have opened.
+  }
+  docker(['down', '--volumes', '--remove-orphans'], 90_000);
+});
+
+test('a public page carries only the plugins that asked to be on it', async ({ page }) => {
+  test.setTimeout(180_000);
+
+  /** Every script the page asked the network for, which is the only honest answer to "does
+   *  this ship?" -- a chunk that is never requested is a chunk the reader never pays for. */
+  const visit = async (path: string) => {
+    const asked: string[] = [];
+    const listen = (request: { resourceType: () => string; url: () => string }) => {
+      if (request.resourceType() === 'script') asked.push(request.url());
+    };
+    page.on('request', listen);
+    await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
+    page.off('request', listen);
+    return {
+      asked,
+      lightbox: asked.some((url) => url.includes('lightbox')),
+      notice: asked.some((url) => url.includes('notice')),
+    };
+  };
+
+  const band = page.locator('[data-site-notice]');
+
+  const off = await visit('/en');
+  await expect(band).toHaveCount(0);
+  expect(off.notice, 'a plugin that is off ships nothing').toBe(false);
+  expect(off.lightbox, 'a plugin that is off ships nothing').toBe(false);
+
+  // A link the owner typed, of the one shape that would run as code on every page.
+  setPlugin('notice', true, {
+    textEn: 'We are adding features. Expect the occasional glitch.',
+    textTh: 'กำลังเพิ่มฟีเจอร์อยู่ อาจมีสะดุดบ้าง',
+    linkHref: 'javascript:alert(1)',
+    linkLabel: 'More',
+  });
+
+  const refused = await visit('/en');
+  await expect(band).toHaveText(/Expect the occasional glitch/);
+  await expect(band.locator('a'), 'a javascript: link is dropped, the message is not')
+    .toHaveCount(0);
+  expect(refused.notice, 'a band a reader can close brings its code').toBe(true);
+  expect(refused.lightbox, 'the other plugin is still off').toBe(false);
+
+  await visit('/th');
+  await expect(band).toHaveText(/กำลังเพิ่มฟีเจอร์อยู่/);
+
+  setPlugin('notice', true, {
+    textEn: 'We are adding features.',
+    textTh: 'กำลังเพิ่มฟีเจอร์อยู่',
+    linkHref: '/en/about',
+    linkLabel: 'More',
+  });
+  await visit('/en');
+  await expect(band.locator('a')).toHaveAttribute('href', '/en/about');
+
+  setPlugin('lightbox', true, {});
+
+  const home = await visit('/en');
+  expect(home.lightbox, 'a homepage of cards has no images to open').toBe(false);
+
+  const article = await visit('/en/blog/an-article');
+  expect(article.lightbox, 'an article does').toBe(true);
+});
