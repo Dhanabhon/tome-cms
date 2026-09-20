@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+
+/** The gap between the trigger and its list, and the shortest list worth opening. */
+const GAP = 4;
+const MIN_HEIGHT = 120;
+const MAX_ROWS = 20;
 
 export interface UiSelectOption {
   label: string;
@@ -34,6 +39,7 @@ export default function UiSelect({
 }: UiSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const search = useRef('');
   const searchTimer = useRef<number>();
   const [internalValue, setInternalValue] = useState(defaultValue ?? options[0]?.value ?? '');
@@ -53,6 +59,43 @@ export default function UiSelect({
   }, [open]);
 
   useEffect(() => () => window.clearTimeout(searchTimer.current), []);
+
+  /**
+   * Where the list goes. It is fixed, so this is the whole of its placement.
+   *
+   * It opens below unless the list does not fit there and more of it fits above, and it is
+   * capped by whichever room it took -- a list can be shorter than it wants, never cut off
+   * by something it happens to be inside.
+   */
+  const place = useCallback(() => {
+    const button = trigger.current;
+    const list = menu.current;
+    if (!button || !list) return;
+    const rect = button.getBoundingClientRect();
+    const below = window.innerHeight - rect.bottom - GAP;
+    const above = rect.top - GAP;
+    const flip = list.scrollHeight > below && above > below;
+    const room = Math.max(flip ? above : below, MIN_HEIGHT);
+    const cap = MAX_ROWS * parseFloat(getComputedStyle(document.documentElement).fontSize || '16');
+    list.style.insetInlineStart = `${rect.left}px`;
+    list.style.width = `${rect.width}px`;
+    list.style.maxHeight = `${Math.min(room, cap)}px`;
+    list.style.insetBlockStart = flip ? 'auto' : `${rect.bottom + GAP}px`;
+    list.style.insetBlockEnd = flip ? `${window.innerHeight - rect.top + GAP}px` : 'auto';
+  }, []);
+
+  // Before paint, so the list is never seen in the corner it starts in. Scrolling is
+  // listened for in the capture phase: the box that moves is usually a dialog, not the page.
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    window.addEventListener('resize', place);
+    document.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      document.removeEventListener('scroll', place, true);
+    };
+  }, [open, place]);
 
   const openMenu = () => {
     setActiveIndex(selectedIndex);
@@ -146,7 +189,7 @@ export default function UiSelect({
         <span className="ui-select__label">{options[selectedIndex]?.label}</span>
         <span aria-hidden="true" className="ui-select__chevron" />
       </button>
-      <div className="ui-select__menu" hidden={!open} id={listboxId} role="listbox">
+      <div className="ui-select__menu" hidden={!open} id={listboxId} ref={menu} role="listbox">
         {options.map((option, index) => (
           <button
             aria-selected={selectedValue === option.value}
