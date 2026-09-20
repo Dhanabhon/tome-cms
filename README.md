@@ -13,7 +13,7 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 - File Manager backed by S3-compatible object storage
 - Server-rendered public pages with no application JavaScript
 - Published-only REST API, OpenAPI 3.1 document, sitemap, and RSS feed
-- Themes: the public site is one of several, chosen in Settings
+- Themes: the public site is one of several, chosen under Appearance
 - Plugins: extras that fill hooks the core declares, switched on in the Admin
 - Optional Headless mode that keeps Admin and APIs while hiding the bundled Blog
 
@@ -137,7 +137,7 @@ Never commit `.env.local`, credentials, database dumps, or object-storage backup
 
 ## Themes
 
-The public site is a theme. Settings names which one draws it; `paper` is the one TomeCMS
+The public site is a theme. **Appearance → Themes** names which one draws it; `paper` is the one TomeCMS
 ships with, and `plain` is a deliberately spare second that exists so the contract has more
 than one reader.
 
@@ -149,7 +149,7 @@ src/themes/<id>/Home.astro    the feed
 src/themes/<id>/Post.astro    an article
 src/themes/<id>/Page.astro    a Page
 src/themes/<id>/theme.css     the theme's own stylesheet, linked by the page that uses it
-src/themes/<id>/theme.ts      id, name, and the sentence the Settings screen shows
+src/themes/<id>/theme.ts      id, name, and the sentence the Themes screen shows
 ```
 
 A theme owns the templates and the CSS and nothing else. Routing, queries, `<head>` and its
@@ -171,7 +171,7 @@ A plugin fills hooks the core declares. There are two, both about the Admin sign
 put in the form, and what to make of an attempt. There is no hook for running code at
 startup, for reaching the database, or for adding a route.
 
-Plugins ship in the repository and are switched on and configured under **Plugins** in the
+Plugins ship in the repository and are switched on and configured under **Appearance → Plugins** in the
 Admin. Settings are stored per plugin; a setting the manifest marks `secret` is encrypted at
 rest with `TOME_CMS_CONTEXT_SECRET` and never sent to a browser — the screen is told only
 whether one is set, and a blank field on save keeps what is stored rather than erasing it.

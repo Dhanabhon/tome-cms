@@ -63,6 +63,7 @@ const en = {
     urlSelected: 'URL selected. Copy it with your keyboard shortcut.',
   },
   nav: {
+    appearance: 'Appearance',
     groupConfig: 'Configuration',
     groupContent: 'Content',
     label: 'Admin',
@@ -75,6 +76,7 @@ const en = {
     security: 'Security',
     settings: 'Settings',
     system: 'System',
+    themes: 'Themes',
   },
   shell: {
     close: 'Close',
@@ -271,6 +273,8 @@ const en = {
     dark: THEME_LABELS.en.dark,
     adminLabel: 'Admin appearance',
     adminHint: 'Applies to the admin on this device only.',
+    heading: 'Themes',
+    subheading: 'The theme that draws your site, and whether a reader meets it light or dark.',
     siteLabel: 'Site appearance',
     siteHint: 'Light or dark, for every visitor. System lets each one follow their own device setting.',
     visitorLabel: 'Let visitors choose light or dark',
@@ -629,6 +633,7 @@ const th: typeof en = {
     urlSelected: 'เลือก URL ไว้แล้ว กดคัดลอกด้วยคีย์ลัดของคุณ',
   },
   nav: {
+    appearance: 'หน้าตาเว็บไซต์',
     groupConfig: 'การตั้งค่า',
     groupContent: 'เนื้อหา',
     label: 'ผู้ดูแล',
@@ -641,6 +646,7 @@ const th: typeof en = {
     security: 'ความปลอดภัย',
     settings: 'ตั้งค่า',
     system: 'ระบบ',
+    themes: 'ธีม',
   },
   shell: {
     close: 'ปิด',
@@ -836,6 +842,8 @@ const th: typeof en = {
     dark: THEME_LABELS.th.dark,
     adminLabel: 'โหมดการแสดงผลหน้าผู้ดูแล',
     adminHint: 'มีผลกับหน้าผู้ดูแลบนอุปกรณ์นี้เท่านั้น',
+    heading: 'ธีม',
+    subheading: 'ธีมที่ใช้วาดหน้าเว็บของคุณ และผู้อ่านจะพบมันแบบสว่างหรือมืด',
     siteLabel: 'โหมดการแสดงผลของเว็บไซต์',
     siteHint: 'สว่างหรือมืด สำหรับผู้เข้าชมทุกคน เลือก "ตามระบบ" แล้วแต่ละคนจะได้ตามการตั้งค่าเครื่องตัวเอง',
     visitorLabel: 'ให้ผู้เข้าชมเลือกสว่าง/มืดเองได้',
