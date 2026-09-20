@@ -72,6 +72,8 @@ export interface ThemeManifest {
  * renders the slot and has nothing else to do with it.
  */
 export interface ThemeShellProps {
+  /** What this theme has been told, with its declared fallbacks already applied. */
+  themeSettings: Readonly<Record<string, string>>;
   /** Off means the header draws no theme control, and the page carries no script for one. */
   allowVisitorTheme: boolean;
   alternates: PostAlternate[];

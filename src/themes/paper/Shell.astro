@@ -12,7 +12,7 @@ import type { ThemeShellProps } from '../contract';
  */
 interface Props extends ThemeShellProps {}
 
-const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
+const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, siteName, theme, themeSettings } = Astro.props;
 ---
 
 <body class="flex min-h-screen flex-col">
@@ -23,6 +23,7 @@ const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, si
     items={header}
     locale={locale}
     siteName={siteName}
+    sticky={themeSettings.stickyHeader === 'on'}
     theme={theme}
   />
   <main class="flex-1">

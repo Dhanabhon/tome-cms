@@ -151,7 +151,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   };
 
   expect(await readThemeSettings('paper'), 'a theme nobody has answered gets what it declared')
-    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off' });
+    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
   expect(await feed()).toEqual({ cards: 6, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { postsPerLoad: '12' } });
@@ -170,7 +170,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   // A row edited by hand, or a release that dropped a choice, must not reach a template.
   await query`update site_settings set theme_settings = '{"paper":{"postsPerLoad":"99"}}'::jsonb`.execute(db);
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
-    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off' });
+    .toEqual({ gridColumns: '3', hero: 'text', heroHeadline: '', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
 });
 
 test('how many cards go across is asked for, not fixed', async ({ page }) => {
@@ -420,4 +420,43 @@ test('the reading progress bar is drawn from the scroll position', async ({ page
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect.poll(drawn, { message: 'and scrolling back up empties it again' })
     .toBeLessThan(viewport * 0.05);
+});
+
+test('the header can be asked to stay in view', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+  await page.setViewportSize({ width: 1280, height: 600 });
+
+  /** Where the header is after the reader has gone down the page, which is the whole of it. */
+  const afterScrolling = async () => {
+    await page.evaluate(() => window.scrollTo(0, 500));
+    return page.evaluate(() => new Promise<number>((resolve) => {
+      requestAnimationFrame(() => {
+        const box = document.querySelector('.site-header')?.getBoundingClientRect();
+        resolve(box ? Math.round(box.top) : Number.NaN);
+      });
+    }));
+  };
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { stickyHeader: 'off' } });
+  await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+  expect(await afterScrolling(), 'a header nobody pinned scrolls away').toBeLessThan(0);
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { stickyHeader: 'on' } });
+  await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+  expect(await afterScrolling(), 'and a pinned one stays at the top').toBe(0);
+
+  // Nothing shows through it: a sticky header over the page it no longer scrolls with is
+  // the one place the body's background stops being the header's.
+  const painted = await page.evaluate(() => {
+    const header = document.querySelector('.site-header') as HTMLElement;
+    const box = header.getBoundingClientRect();
+    const onTop = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return {
+      background: getComputedStyle(header).backgroundColor,
+      ownsItsPixels: Boolean(onTop && (header === onTop || header.contains(onTop))),
+    };
+  });
+  expect(painted.ownsItsPixels, 'the header is what is drawn where the header is').toBe(true);
+  expect(painted.background, 'and it has a background of its own').not.toBe('rgba(0, 0, 0, 0)');
 });
