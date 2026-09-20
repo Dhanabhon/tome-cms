@@ -9,41 +9,42 @@ import {
 } from 'novel';
 import { useMemo } from 'react';
 
+import Icon from '../Icon';
 import type { AdminCopy } from '../../lib/admin-i18n';
 
 const commandItems = (copy: AdminCopy) => createSuggestionItems([
   {
     title: copy.blocks.heading2,
     description: copy.blocks.heading2Hint,
-    icon: <span aria-hidden="true">H2</span>,
+    icon: <Icon name="heading2" />,
     searchTerms: ['section', 'subtitle'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 2 }).run(),
   },
   {
     title: copy.blocks.heading3,
     description: copy.blocks.heading3Hint,
-    icon: <span aria-hidden="true">H3</span>,
+    icon: <Icon name="heading3" />,
     searchTerms: ['section', 'subtitle'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run(),
   },
   {
     title: copy.blocks.bulletList,
     description: copy.blocks.bulletListHint,
-    icon: <span aria-hidden="true">•</span>,
+    icon: <Icon name="list" />,
     searchTerms: ['unordered', 'list'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleBulletList().run(),
   },
   {
     title: copy.blocks.codeBlock,
     description: copy.blocks.codeBlockHint,
-    icon: <span aria-hidden="true">{'</>'}</span>,
+    icon: <Icon name="code" />,
     searchTerms: ['code', 'pre'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
   },
   {
     title: copy.blocks.quote,
     description: copy.blocks.quoteHint,
-    icon: <span aria-hidden="true">“</span>,
+    icon: <Icon name="quote" />,
     searchTerms: ['blockquote', 'callout'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
   },

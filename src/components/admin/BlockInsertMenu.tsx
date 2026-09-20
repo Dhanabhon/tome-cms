@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Keyboar
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import type { MediaAsset } from '../../types/cms';
+import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
 
 const MENU_ID = 'block-insert-menu';
@@ -94,13 +95,13 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   };
 
   const blockActions = [
-    { label: copy.blocks.text, run: () => editor.chain().focus().setParagraph().run() },
-    { label: copy.blocks.heading1, run: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
-    { label: copy.blocks.heading2, run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
-    { label: copy.blocks.heading3, run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
-    { label: copy.blocks.bulletList, run: () => editor.chain().focus().toggleBulletList().run() },
-    { label: copy.blocks.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
-    { label: copy.blocks.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() },
+    { icon: 'text', label: copy.blocks.text, run: () => editor.chain().focus().setParagraph().run() },
+    { icon: 'heading1', label: copy.blocks.heading1, run: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+    { icon: 'heading2', label: copy.blocks.heading2, run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+    { icon: 'heading3', label: copy.blocks.heading3, run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+    { icon: 'list', label: copy.blocks.bulletList, run: () => editor.chain().focus().toggleBulletList().run() },
+    { icon: 'quote', label: copy.blocks.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
+    { icon: 'code', label: copy.blocks.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() },
   ] as const;
 
   const openPicker = () => {
@@ -109,7 +110,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
     setPickerOpen(true);
   };
 
-  const actions = [...blockActions, { label: copy.blocks.image, run: openPicker }];
+  const actions = [...blockActions, { icon: 'media', label: copy.blocks.image, run: openPicker }] as const;
 
   const runAction = (index: number) => {
     actions[index]?.run();
@@ -191,6 +192,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
                   tabIndex={index === activeIndex ? 0 : -1}
                   type="button"
                 >
+                  <Icon name={action.icon} />
                   {action.label}
                 </button>
               ))}
