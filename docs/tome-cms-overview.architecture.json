@@ -1,0 +1,324 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "TomeCMS — ภาพรวมระบบ",
+    "output": "tome-cms-overview.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "public-read",
+        "label": "เส้นทางการอ่าน",
+        "focus": [
+          "visitor",
+          "public",
+          "themes",
+          "server",
+          "postgres"
+        ],
+        "note": "ผู้เยี่ยมชมขอหน้าเว็บ เซิร์ฟเวอร์เรนเดอร์ด้วยธีมที่เจ้าของเลือก แล้วอ่านเฉพาะเนื้อหาที่เผยแพร่แล้ว"
+      },
+      {
+        "id": "admin-write",
+        "label": "เส้นทางการเขียน",
+        "focus": [
+          "owner",
+          "admin",
+          "server",
+          "postgres",
+          "storage"
+        ],
+        "note": "เจ้าของทำงานในแอดมิน ทุกการแก้ไขผ่าน API ที่ตรวจด้วย Zod ก่อนลงฐานข้อมูลและคลังไฟล์"
+      },
+      {
+        "id": "sign-in",
+        "label": "การเข้าสู่ระบบ",
+        "focus": [
+          "admin",
+          "auth",
+          "plugins",
+          "turnstile",
+          "server"
+        ],
+        "note": "Passkey เท่านั้น ปลั๊กอินอาจขวางความพยายามหนึ่งครั้งไว้ก่อน แต่ปิดทางกู้คืนไม่ได้"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "visitor",
+      "type": "external",
+      "label": "ผู้เยี่ยมชม",
+      "sublabel": "ไม่ต้องล็อกอิน",
+      "pos": [
+        40,
+        170
+      ],
+      "size": [
+        140,
+        62
+      ]
+    },
+    {
+      "id": "owner",
+      "type": "external",
+      "label": "เจ้าของไซต์",
+      "sublabel": "ผู้ดูแลคนเดียว",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        140,
+        62
+      ]
+    },
+    {
+      "id": "themes",
+      "type": "frontend",
+      "label": "ธีม",
+      "sublabel": "src/themes/<id>",
+      "pos": [
+        280,
+        30
+      ],
+      "size": [
+        170,
+        66
+      ],
+      "tag": "paper · plain"
+    },
+    {
+      "id": "public",
+      "type": "frontend",
+      "label": "หน้า Public",
+      "sublabel": "/th · /en · ธีมเป็นคนวาด",
+      "pos": [
+        280,
+        170
+      ],
+      "size": [
+        170,
+        66
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "frontend",
+      "label": "Admin UI",
+      "sublabel": "React islands · Novel",
+      "pos": [
+        280,
+        330
+      ],
+      "size": [
+        170,
+        66
+      ]
+    },
+    {
+      "id": "server",
+      "type": "backend",
+      "label": "Astro Server",
+      "sublabel": "SSR · /api · Zod ทุก route",
+      "pos": [
+        570,
+        170
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "tag": "Node.js 22"
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Better Auth",
+      "sublabel": "Passkey · WebAuthn",
+      "pos": [
+        570,
+        330
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "tag": "rate limit"
+    },
+    {
+      "id": "plugins",
+      "type": "security",
+      "label": "ปลั๊กอิน",
+      "sublabel": "hook หน้าเข้าสู่ระบบ",
+      "pos": [
+        570,
+        465
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 17",
+      "sublabel": "Kysely · migrations",
+      "pos": [
+        880,
+        170
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "S3-compatible",
+      "sublabel": "SeaweedFS หรือ S3 ใดก็ได้",
+      "pos": [
+        880,
+        330
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "turnstile",
+      "type": "external",
+      "label": "Cloudflare Turnstile",
+      "sublabel": "ผ่านปลั๊กอิน · ไม่บังคับ",
+      "pos": [
+        880,
+        465
+      ],
+      "size": [
+        180,
+        66
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "เซิร์ฟเวอร์ TomeCMS — กระบวนการ Node.js เดียว",
+      "wraps": [
+        "server",
+        "auth",
+        "plugins"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "ข้อมูล — Docker Compose ในเครื่อง หรือบริการภายนอก",
+      "wraps": [
+        "postgres",
+        "storage"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "visitor-reads",
+      "from": "visitor",
+      "to": "public",
+      "label": "HTTPS GET",
+      "variant": "emphasis"
+    },
+    {
+      "id": "theme-draws",
+      "from": "themes",
+      "to": "public",
+      "label": "เทมเพลต + CSS",
+      "labelDy": 24
+    },
+    {
+      "id": "public-ssr",
+      "from": "public",
+      "to": "server",
+      "label": "SSR ทุก request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "owner-writes",
+      "from": "owner",
+      "to": "admin",
+      "label": "เขียน · เผยแพร่"
+    },
+    {
+      "id": "admin-calls",
+      "from": "admin",
+      "to": "server",
+      "label": "same-origin fetch"
+    },
+    {
+      "id": "owner-signs-in",
+      "from": "admin",
+      "to": "auth",
+      "label": "เข้าสู่ระบบด้วย Passkey",
+      "variant": "security",
+      "labelDy": 38
+    },
+    {
+      "id": "server-content",
+      "from": "server",
+      "to": "postgres",
+      "label": "อ่าน · เขียนเนื้อหา",
+      "variant": "emphasis"
+    },
+    {
+      "id": "server-media",
+      "from": "server",
+      "to": "storage",
+      "label": "presigned upload"
+    },
+    {
+      "id": "plugin-guards",
+      "from": "plugins",
+      "to": "auth",
+      "label": "ตรวจก่อนยืนยันตัวตน",
+      "variant": "security"
+    },
+    {
+      "id": "plugin-verifies",
+      "from": "plugins",
+      "to": "turnstile",
+      "label": "siteverify",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "การอ่าน (Public)",
+      "items": [
+        "ธีมเป็นเจ้าของเทมเพลตและ CSS ส่วน route, SEO และ token อยู่ที่ core",
+        "เจ้าของเลือกธีมในหน้าตั้งค่า ผู้อ่านโหลดสไตล์ชีตของธีมนั้นอย่างเดียว",
+        "เรนเดอร์ที่เซิร์ฟเวอร์ และเนื้อหาชุดเดียวกันออกทาง REST API v1"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "การเขียน (Admin)",
+      "items": [
+        "Admin UI เป็น React islands บนหน้าที่เรนเดอร์จากเซิร์ฟเวอร์",
+        "ทุกการแก้ไขผ่าน /api/admin ที่ตรวจด้วย Zod และตรวจ origin เดียวกัน",
+        "รูปภาพขึ้นคลัง S3 ผ่านลิงก์ presigned ไม่ผ่านตัวเซิร์ฟเวอร์"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "ความปลอดภัย",
+      "items": [
+        "Passkey อย่างเดียว ไม่มีรหัสผ่าน session ผูกกับ credential ที่ใช้สร้างมัน",
+        "จำกัดจำนวนครั้ง: เข้าสู่ระบบ 10 ครั้ง/15 นาที กู้คืน 5 ครั้ง/30 นาที",
+        "ปลั๊กอินขวางการเข้าสู่ระบบได้ แต่ไม่แตะทางกู้คืน ความลับของมันเก็บแบบเข้ารหัส"
+      ]
+    }
+  ]
+}
