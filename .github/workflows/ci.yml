@@ -44,3 +44,13 @@ jobs:
       # compose.test.yaml, and tears them down again afterwards.
       - name: Run integration tests
         run: npm run test:integration
+
+      # The browser gate ran nowhere until 2026-09-20, which is how a sign-in that could
+      # never succeed passed check, test:unit, build and the integration suite on its way
+      # out. passkey-sign-in brings up its own disposable Postgres and SeaweedFS the same
+      # way the integration suite does.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npm run test:e2e

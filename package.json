@@ -21,7 +21,7 @@
     "preview": "astro preview",
     "version": "npm run check && npm run build",
     "check": "astro check && node --import tsx scripts/reset-installation.mjs --self-test && node --import tsx scripts/backup.ts --self-test && node --import tsx scripts/restore-check.ts --self-test && bash -n scripts/deploy-vps.sh scripts/dev-local-macos.sh && node scripts/check-design-tokens.mjs --self-test && node scripts/check-design-tokens.mjs && node scripts/sync-fonts.mjs --self-test && node scripts/css-selector-diff.mjs --self-test",
-    "test:e2e": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test",
+    "test:e2e": "node ./node_modules/@playwright/test/cli.js test",
     "db:migrate": "node --env-file-if-exists=.env.local --import tsx scripts/db-migrate.ts",
     "plugin:disable": "node --env-file-if-exists=.env.local --import tsx scripts/plugin-disable.ts",
     "infra:up": "docker compose --env-file .env.local up -d --wait postgres seaweedfs",
