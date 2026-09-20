@@ -204,7 +204,6 @@ const en = {
     waitingForPasskey: 'Waiting for Passkey…',
   },
   plugins: {
-    configured: 'Configured',
     heading: 'Plugins',
     incomplete: 'Fill in what it needs before switching it on.',
     notConfigured: 'Not set up yet',
@@ -214,7 +213,10 @@ const en = {
     saveFailed: 'The plugin could not be saved.',
     saved: 'Saved.',
     saving: 'Saving…',
+    safeBody: 'A plugin is asked about a sign-in attempt and never about recovery, and an answer it cannot get is not a refusal. One can also be switched off from a shell, with npm run plugin:disable <id>.',
+    safeTitle: 'A plugin cannot lock you out',
     secretStored: 'Stored. Leave blank to keep it.',
+    setUp: 'Set up',
     subheading: 'Extras that plug into the places TomeCMS opens for them. Each one is off until you set it up.',
   },
   settings: {
@@ -777,7 +779,6 @@ const th: typeof en = {
     waitingForPasskey: 'กำลังรอ Passkey…',
   },
   plugins: {
-    configured: 'ตั้งค่าแล้ว',
     heading: 'ปลั๊กอิน',
     incomplete: 'กรอกข้อมูลที่จำเป็นให้ครบก่อนเปิดใช้งาน',
     notConfigured: 'ยังไม่ได้ตั้งค่า',
@@ -787,7 +788,10 @@ const th: typeof en = {
     saveFailed: 'บันทึกปลั๊กอินไม่สำเร็จ',
     saved: 'บันทึกแล้ว',
     saving: 'กำลังบันทึก…',
+    safeBody: 'ปลั๊กอินจะถูกถามตอนมีคนพยายามเข้าสู่ระบบเท่านั้น ไม่เคยถูกถามตอนกู้คืนการเข้าถึง และคำตอบที่ถามไม่ได้ก็ไม่นับเป็นการปฏิเสธ อีกทางคือสั่งปิดจากเทอร์มินัลด้วย npm run plugin:disable <id>',
+    safeTitle: 'ปลั๊กอินล็อกคุณออกจากระบบไม่ได้',
     secretStored: 'เก็บไว้แล้ว เว้นว่างไว้เพื่อใช้ค่าเดิม',
+    setUp: 'ตั้งค่า',
     subheading: 'ส่วนเสริมที่เสียบเข้ากับจุดที่ TomeCMS เปิดไว้ให้ ทุกตัวจะปิดอยู่จนกว่าคุณจะตั้งค่า',
   },
   settings: {

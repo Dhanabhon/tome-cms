@@ -181,6 +181,14 @@ Plugins ship in the repository and are switched on and configured under **Appear
 Admin. Settings are stored per plugin; a setting the manifest marks `secret` is encrypted at
 rest with `TOME_CMS_CONTEXT_SECRET` and never sent to a browser — the screen is told only
 whether one is set, and a blank field on save keeps what is stored rather than erasing it.
+A setting a write does not mention is kept too, which is what lets the switch on each row
+switch a plugin without restating its fields.
+
+The screen is a row per plugin rather than the grid the themes get: a theme is looked at, a
+plugin is switched. A row says what the plugin is, carries the switch that applies on the
+spot, and keeps its fields behind a fold that starts open while there is nothing to switch
+on. A plugin that is not set up cannot be switched on from there, which is the refusal the
+server already makes.
 
 The first plugin is **Cloudflare Turnstile**. Give it the site key and secret key from your
 Cloudflare dashboard and switch it on; a challenge then appears on the sign-in form and every

@@ -115,7 +115,9 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-accent', 'color-paper-2', 4.5],
   ['color-accent', 'color-surface', 4.5],
 
-  ['color-focus', 'color-paper', 3],
+  // The focus ring is a graphical object and needs 3, but the accent is also the word beside
+  // a switch that is on, and that is text.
+  ['color-focus', 'color-paper', 4.5],
   ['color-focus', 'color-paper-2', 3],
   ['color-rule-strong', 'color-paper', 3],
   ['color-rule-strong', 'color-surface', 3],

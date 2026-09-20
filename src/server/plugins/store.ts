@@ -86,9 +86,12 @@ export async function writePluginSettings(ownerId: string, input: {
 
   const settings: Record<string, string> = {};
   for (const setting of manifest.settings) {
-    const supplied = (input.values[setting.key] ?? '').trim();
+    const supplied = input.values[setting.key]?.trim();
     if (setting.kind !== 'secret') {
-      settings[setting.key] = supplied;
+      // Absent is not empty. A request that only switches the plugin on does not have to
+      // restate the fields it is not touching, and before this it erased them by omission
+      // -- which a secret was already safe from, and a site key was not.
+      settings[setting.key] = supplied ?? existing[setting.key] ?? '';
       continue;
     }
     // Blank means "keep what is stored": the browser was never told the secret, so it

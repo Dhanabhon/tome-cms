@@ -1554,6 +1554,71 @@ body {
 .theme-card--source { grid-template-rows: auto; gap: var(--space-xs); align-content: center; padding: var(--space-lg); border-style: dashed; background: none; }
 .theme-report:not(:has(:not(:empty))) { display: none; }
 .theme-status { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+
+/* A switch, for the one thing on a screen that is on or off.
+ *
+ * The word beside it is not decoration. No two surfaces in this palette are more than 1.34
+ * apart, so a background cannot signal state here -- the colour says which way the switch
+ * is thrown, and the word says what that means. */
+.admin-switch { display: inline-flex; flex: none; gap: var(--space-xs); align-items: center; cursor: pointer; }
+.admin-switch__state { color: var(--color-ink-2); font-size: var(--text-sm); font-weight: 600; }
+.admin-switch input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.375rem;
+  margin: 0;
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: 1rem;
+  background: var(--color-paper-3);
+  cursor: inherit;
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+.admin-switch input::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0.125rem;
+  inset-inline-start: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--color-paper);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+.admin-switch input:checked { border-color: var(--color-accent); background: var(--color-accent); }
+.admin-switch input:checked::after { transform: translateX(1.0625rem); }
+.admin-switch input:checked + .admin-switch__state { color: var(--color-focus); }
+.admin-switch input:disabled { cursor: not-allowed; opacity: 0.55; }
+.admin-switch:has(input:disabled) { cursor: not-allowed; }
+.admin-switch input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
+
+/* Plugins. A list, not the grid the themes get: a theme is looked at and a plugin is
+ * switched, so a row says what it is, whether it is on, and what it still needs. */
+.plugin-list { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
+.plugin-row { display: grid; gap: var(--space-sm); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+.plugin-row[data-on] { border-color: var(--color-focus); box-shadow: 0 0 0 var(--rule-hair) var(--color-focus); }
+.plugin-row__head { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: start; justify-content: space-between; }
+.plugin-row__name { display: grid; gap: var(--space-2xs); min-width: 14rem; flex: 1 1 18rem; }
+.plugin-row__name strong { color: var(--color-ink); font-size: var(--text-md); font-weight: 600; }
+.plugin-row__name p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+.plugin-row__needs { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.plugin-row__said { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.plugin-row__setup { border-block-start: var(--rule-hair) solid var(--color-rule); padding-block-start: var(--space-sm); }
+.plugin-row__setup summary { display: flex; gap: var(--space-2xs); align-items: center; width: fit-content; color: var(--color-ink-2); cursor: pointer; list-style: none; font-size: var(--text-sm); font-weight: 500; }
+.plugin-row__setup summary::-webkit-details-marker { display: none; }
+.plugin-row__setup summary:hover { color: var(--color-ink); }
+.plugin-row__setup summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
+.plugin-row__setup[open] summary .icon { transform: rotate(180deg); }
+.plugin-row__setup fieldset { display: grid; gap: var(--space-md); margin: 0; padding: var(--space-md) 0 0; border: 0; }
+.admin-card--note { gap: var(--space-2xs); background: none; border-style: dashed; }
+.admin-card--note h2 { margin: 0; font-size: var(--text-base); }
+.admin-card--note p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+@media (prefers-reduced-motion: reduce) {
+  .admin-switch input,
+  .admin-switch input::after,
+  .plugin-row__setup summary .icon { transition: none; }
+}
 /* Tailwind's preflight resets every heading to font-size: inherit, so a card heading
  * nobody sized rendered at 16px/400 -- lighter than the 14px/500 field labels beneath
  * it. That is an inverted hierarchy, and it needs stating once, here. */
