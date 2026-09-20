@@ -439,7 +439,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
             {step === 1 && <>
               <div className="installer-step-head">
                 <h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'ระบบพร้อมแค่ไหน?' : 'Is the system ready?'}</h2>
-                <p>{language === 'th' ? 'Storage จะแสดงเป็น “ดำเนินการภายหลัง” และไม่ขวางการตั้งค่ารอบนี้' : 'Storage is intentionally marked “deferred” and does not block this setup.'}</p>
+                <p>{language === 'th' ? 'ทั้งสี่อย่างต้องผ่านก่อนจึงจะตั้งค่าต่อได้ ได้แก่ ฐานข้อมูล การย้ายโครงสร้าง ที่เก็บไฟล์ และที่อยู่ที่ Passkey จะผูกไว้' : 'All four must pass before setup can go on: the database, its migrations, object storage, and the address Passkeys will be bound to.'}</p>
               </div>
               <ul className="installer-checks">
                 {checkRows.map(([key, label]) => {

@@ -22,11 +22,14 @@ async function availablePort() {
 async function startInstallerServer() {
   const port = await availablePort();
   const origin = `http://localhost:${port}`;
-  const child = spawn(process.execPath, ['./node_modules/astro/astro.js', 'dev', '--host', 'localhost', '--port', String(port)], {
+// --ignore-lock: Astro 7 allows one dev server per project root, and this suite runs a
+  // second one on purpose -- Playwright's own server is already holding the lock.
+  const child = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock', '--host', 'localhost', '--port', String(port)], {
     cwd: process.cwd(),
     env: {
       ...process.env,
       NODE_ENV: 'development',
+      ASTRO_DEV_BACKGROUND: '1',
       DATABASE_URL: 'postgresql://tomecms:test@127.0.0.1:9/tomecms',
       DATABASE_CONNECTION_TIMEOUT_MS: '100',
       DATABASE_QUERY_TIMEOUT_MS: '100',
@@ -143,7 +146,13 @@ test('six-step installer preserves safe values and registers a primary Passkey',
     const progress = page.getByRole('progressbar');
     await expect(progress.first()).toHaveAttribute('aria-valuenow', '1');
     await expect(progress.nth(1)).toHaveAttribute('aria-valuenow', '100');
-    await expect(page.getByText('Deferred', { exact: true })).toBeVisible();
+    // Three infrastructure checks pass and the relying party is the one holding setup up,
+    // because this first status answer names an origin the browser is not on. Storage is
+    // among the three: it stopped being deferred when the installer began verifying object
+    // storage for itself, and readiness has required it ever since.
+    await expect(page.locator('.installer-check[data-state="ready"]')).toHaveCount(3);
+    await expect(page.locator('.installer-check[data-state="error"]')).toHaveCount(1);
+    await expect(page.getByText('Deferred', { exact: true })).toHaveCount(0);
     await expect(page.getByText(/Open http:\/\/localhost:65530 exactly/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Name your site' })).toBeDisabled();
     await page.getByRole('button', { name: 'Check again' }).click();

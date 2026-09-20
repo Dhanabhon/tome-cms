@@ -2,7 +2,7 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the package is `0.3.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security gate is partly closed: the production audit now reports no critical and no high advisories, and the moderate ones that remain are all `@tiptap/core`, blocked behind the editor's own dependency. The full integration/browser matrix, public immutable release/attestation verification, and real `amd64`/`arm64` HTTPS VPS acceptance are still open. See the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
+> **Development status:** the package is `0.3.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security gate is partly closed: the production audit now reports no critical and no high advisories, and the moderate ones that remain are all `@tiptap/core`, blocked behind the editor's own dependency. The full integration, browser and operations gates now run green against Astro 7. Public immutable release/attestation verification and real `amd64`/`arm64` HTTPS VPS acceptance are still open, because both need infrastructure this repository cannot stand up for itself. See the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
 ## What is included
 
