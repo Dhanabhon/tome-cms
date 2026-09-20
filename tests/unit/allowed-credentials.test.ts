@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { withOwnerAllowedCredentials, withoutExcludedCredentials } from '../../src/server/auth/allowed-credentials';
 
-const owner = async () => [{ id: 'dtNf-v2JIxE7heny6kcsWQ', transports: ['hybrid', 'internal'] }];
+const owner = async () => [{ id: 'dtNf-v2JIxE7heny6kcsWQ', transports: ['hybrid', 'internal'], type: 'public-key' as const }];
 const options = (extra: Record<string, unknown> = {}) => Response.json(
   { rpId: 'localhost', challenge: 'a-challenge', timeout: 60_000, userVerification: 'preferred', ...extra },
   { headers: { 'Set-Cookie': 'better-auth.better-auth-passkey=token; Path=/; HttpOnly' } },
@@ -13,7 +13,12 @@ const options = (extra: Record<string, unknown> = {}) => Response.json(
 test('a sign-in challenge names the Passkeys this installation knows', async () => {
   const narrowed = await withOwnerAllowedCredentials(options(), owner);
   const body = await narrowed.json() as { allowCredentials: unknown; challenge: string };
-  assert.deepEqual(body.allowCredentials, [{ id: 'dtNf-v2JIxE7heny6kcsWQ', transports: ['hybrid', 'internal'] }]);
+  // type is a required member of a WebAuthn descriptor, and the one thing this list does not
+  // get for free: better-auth's own list is normalised by simplewebauthn on the way out, and
+  // this one is appended after that. Without it navigator.credentials.get() throws a
+  // TypeError before the ceremony starts, and the client reports it as though no Passkey had
+  // been offered -- which is how it locked the owner out for a day before anyone saw it.
+  assert.deepEqual(body.allowCredentials, [{ id: 'dtNf-v2JIxE7heny6kcsWQ', transports: ['hybrid', 'internal'], type: 'public-key' }]);
   // The challenge the server just recorded has to survive, and so does the cookie that
   // carries the token it was recorded under -- without it every sign-in is CHALLENGE_NOT_FOUND.
   assert.equal(body.challenge, 'a-challenge');
