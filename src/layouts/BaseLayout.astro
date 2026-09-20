@@ -200,6 +200,7 @@ const structuredData = robots.includes('noindex')
       {plugins.clients.map(({ dataset, id }) => (
         <span
           data-close={publicText.closeImage}
+          data-open={publicText.openImage}
           data-plugin={id}
           hidden
           {...Object.fromEntries(Object.entries(dataset).map(([key, value]) => [`data-${key}`, value]))}
