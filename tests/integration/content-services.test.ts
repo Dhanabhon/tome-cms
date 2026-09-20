@@ -123,6 +123,7 @@ test('Post and Page services own content, versions, translations, and Category w
   );
 
   const pageInput = {
+    excerpt: '',
     title: 'About',
     slug: 'about',
     contentJson: content,

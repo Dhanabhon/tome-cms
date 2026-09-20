@@ -117,6 +117,8 @@ export interface Page {
   slug: string;
   content_json: EditorDocument;
   content_html: string;
+  /** A short line a theme may show where it lists or links to the page. */
+  excerpt: string;
   meta_title: string | null;
   meta_description: string | null;
   status: PageStatus;
@@ -137,6 +139,7 @@ export interface PageMutationInput {
   title: string;
   slug: string;
   contentJson: EditorDocument;
+  excerpt: string;
   metaTitle: string | null;
   metaDescription: string | null;
   status: PageStatus;

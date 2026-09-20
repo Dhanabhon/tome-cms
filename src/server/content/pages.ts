@@ -21,7 +21,11 @@ import {
 } from './mutations';
 import { invalidatePublicNavigationCache } from './navigation';
 
+/** The same bound a post's carries, and for the same reason: see 014_post_excerpt. */
+const excerptSchema = z.string().trim().max(120);
+
 export const createPageSchema = contentMutationSchema.omit({ updatedAt: true }).safeExtend({
+  excerpt: excerptSchema,
   locale: z.enum(['th', 'en']).optional(),
   sourcePageId: z.uuid().optional(),
 }).superRefine(({ locale, sourcePageId }, context) => {
@@ -31,6 +35,7 @@ export const createPageSchema = contentMutationSchema.omit({ updatedAt: true }).
 });
 
 export const updatePageSchema = contentMutationSchema.safeExtend({
+  excerpt: excerptSchema,
   id: z.uuid(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
@@ -47,6 +52,7 @@ export function pageFromRow(row: Selectable<PageTable>): Page {
     slug: row.slug,
     content_json: row.content_json,
     content_html: row.content_html,
+    excerpt: row.excerpt,
     meta_title: row.meta_title,
     meta_description: row.meta_description,
     status: row.status,
@@ -120,6 +126,7 @@ export async function createPage(ownerId: string, input: CreatePageInput): Promi
         content_json: content.contentJson,
         content_html: content.contentHtml,
         meta_title: input.metaTitle,
+        excerpt: input.excerpt,
         meta_description: input.metaDescription,
         status: input.status,
         published_at: null,
@@ -192,6 +199,7 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
         content_json: content.contentJson,
         content_html: content.contentHtml,
         meta_title: input.metaTitle,
+        excerpt: input.excerpt,
         meta_description: input.metaDescription,
         status: input.status,
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();

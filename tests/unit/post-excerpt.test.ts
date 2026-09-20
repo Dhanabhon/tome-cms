@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { postExcerpt } from '../../src/lib/posts';
+import { pageExcerpt } from '../../src/lib/pages';
+import { postDescription, postExcerpt } from '../../src/lib/posts';
 import type { EditorDocument } from '../../src/types/cms';
 
 const body = (text: string): EditorDocument => ({
@@ -39,4 +40,21 @@ test('an excerpt is used as written, spaces and all', () => {
   // showing something other than what the editor showed is its own kind of bug.
   const exact = 'a'.repeat(120);
   assert.equal(postExcerpt(post(exact, 'other'), ''), exact);
+});
+
+test('an excerpt is never what the post tells a search engine', () => {
+  // It was, for about an hour: postExcerpt answered both questions, and <meta name=
+  // "description"> on the article page called it. Writing a line for a card silently
+  // replaced the line written for a search result -- the exact confusion the field exists
+  // to end, rebuilt one level down.
+  assert.equal(postDescription(post('A reader decides on this.', 'For a search result.'), ''), 'For a search result.');
+  assert.equal(postDescription(post('A reader decides on this.', null), ''), 'The opening of the post itself.');
+  assert.equal(postDescription(post('', null, ''), 'Nothing yet.'), 'Nothing yet.');
+});
+
+test('a page splits the same two questions the same way', () => {
+  const page = { content_json: body('The opening of the page.'), excerpt: 'For a reader.', meta_description: 'For a search result.' };
+  assert.equal(pageExcerpt(page, ''), 'For a reader.');
+  assert.equal(pageExcerpt({ ...page, excerpt: '' }, ''), 'For a search result.');
+  assert.equal(pageExcerpt({ ...page, excerpt: '', meta_description: null }, ''), 'The opening of the page.');
 });

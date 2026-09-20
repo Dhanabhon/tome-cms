@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, postPath } from '../../../lib/i18n';
-import { postExcerpt } from '../../../lib/posts';
+import { postDescription } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import {
   getPublishedPost,
@@ -65,7 +65,7 @@ const xDefaultHref = settings
   alternates={availableLocales}
   authorName={profile?.name}
   canonicalPath={post ? postPath(post) : undefined}
-  description={post ? postExcerpt(post, fallbackDescription) : fallbackDescription}
+  description={post ? postDescription(post, fallbackDescription) : fallbackDescription}
   headline={post?.title}
   image={post?.cover_image}
   locale={locale}

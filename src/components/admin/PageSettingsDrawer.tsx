@@ -8,9 +8,11 @@ import Icon from '../Icon';
 interface PageSettingsDrawerProps {
   copy: AdminCopy;
   errorMessage: string | null;
+  excerpt: string;
   locale: PageLocale;
   metaDescription: string;
   metaTitle: string;
+  onChangeExcerpt: (value: string) => void;
   onChangeMetaDescription: (value: string) => void;
   onChangeMetaTitle: (value: string) => void;
   onChangeSlug: (value: string) => void;
@@ -20,8 +22,8 @@ interface PageSettingsDrawerProps {
 }
 
 export default function PageSettingsDrawer({
-  copy, errorMessage, locale, metaDescription, metaTitle, onChangeMetaDescription,
-  onChangeMetaTitle, onChangeSlug, onClose, open, slug,
+  copy, errorMessage, excerpt, locale, metaDescription, metaTitle, onChangeExcerpt,
+  onChangeMetaDescription, onChangeMetaTitle, onChangeSlug, onClose, open, slug,
 }: PageSettingsDrawerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -59,6 +61,17 @@ export default function PageSettingsDrawer({
             <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="page-slug" type="text" value={slug} />
           </div>
           <small>{copy.drawer.slugHintPage}</small>
+        </label>
+      </section>
+
+      {/* Apart from Search preview, for the reason a post's is: one of these is written
+          for a search result and the other for someone deciding whether to follow a link. */}
+      <section className="drawer-group">
+        <h3>{copy.drawer.pageSummary}</h3>
+        <label className="admin-field">
+          <span>{copy.drawer.excerpt} <small>{excerpt.length}/120</small></span>
+          <textarea className="admin-control admin-control--textarea" maxLength={120} onChange={(event) => onChangeExcerpt(event.target.value)} placeholder={copy.drawer.excerptPlaceholder} value={excerpt} />
+          <small>{copy.drawer.pageExcerptHint}</small>
         </label>
       </section>
 
