@@ -255,7 +255,6 @@ body {
   font-family: var(--font-body);
 }
 
-.site-header .language-switcher { order: 2; }
 
 .post-card__date .icon { flex: none; width: 0.875rem; height: 0.875rem; }
 

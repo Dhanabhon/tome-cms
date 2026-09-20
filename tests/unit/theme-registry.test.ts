@@ -62,7 +62,7 @@ test('the two stylesheets keep to their own side', () => {
   // here: the admin never loads this file, and the failure would be a screen without styling.
   assert.doesNotMatch(theme, /^\.(admin|installer|security-|navigation-|media-|skeleton)/m);
   // And the point of the split: shaping the site no longer means editing the admin's sheet.
-  for (const owned of ['.post-card', '.home-hero', '.site-footer', '.post-page', '.post-filter']) {
+  for (const owned of ['.post-card', '.home-hero', '.site-header', '.site-footer', '.post-page', '.post-filter']) {
     assert.ok(theme.includes(owned), `${owned} belongs to the theme`);
     assert.doesNotMatch(core, new RegExp(`^\\${owned}[\\s,{]`, 'm'), `${owned} was left in core`);
   }
@@ -70,6 +70,22 @@ test('the two stylesheets keep to their own side', () => {
   // rule are two rules that drift.
   assert.match(core, /^\.article-title/m);
   assert.match(core, /^\.category-default,/m);
+});
+
+test('a shared component does not place itself in a header it does not own', () => {
+  // The language switcher used to carry its own order, flex and auto margin, and reset them
+  // again in a media query -- so where it sat in the public header depended on whether the
+  // core sheet or the component's scoped style was injected last. Moving the header's rules
+  // into the theme changed that answer and moved the button, which is the failure this
+  // arrangement always had: the component decided a layout it is only a guest in.
+  const switcher = readFileSync(new URL('../../src/components/LanguageSwitcher.astro', import.meta.url), 'utf8');
+  const scoped = switcher.slice(switcher.indexOf('<style>'));
+  const placement = /\.language-switcher\s*\{[^}]*(order|margin-inline-start|flex)\s*:/;
+  assert.doesNotMatch(scoped, placement, 'the switcher places itself');
+  // Its installer variant may, because that variant exists to fit one specific header.
+  assert.match(scoped, /\.language-switcher--installer \{[^}]*margin-inline-start: auto;/);
+  // And the theme that puts it in a row says where it goes.
+  assert.match(read('paper/theme.css'), /\.site-header \.language-switcher \{ order: 3;/);
 });
 
 test('a theme stylesheet is linked by the page, not imported by the template', () => {

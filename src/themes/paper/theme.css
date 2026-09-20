@@ -25,7 +25,18 @@
 
 .site-header__desktop { display: none; }
 
-.site-header__mobile { order: 3; flex-basis: 100%; min-width: 0; }
+/* The wordmark holds the left on its own, and everything a reader can act on gathers on the
+ * right. The nav used to be centred inside a box that already reached the language button --
+ * the gap a reader saw was inside that box, not between it and anything -- and the optical
+ * centre of a row with a long wordmark at one end and a pill at the other is not its middle.
+ *
+ * The order of the three lives here and not in the core sheet: this is one theme's header.
+ * `plain` draws its own, and the admin draws none. */
+.site-header .ui-theme { order: 2; }
+
+.site-header .language-switcher { order: 3; flex: 0 0 auto; margin-inline-start: 0; }
+
+.site-header__mobile { order: 4; flex-basis: 100%; min-width: 0; }
 
 .site-header__mobile summary { min-height: 44px; padding-block: var(--space-sm); cursor: pointer; font-size: var(--text-sm); font-weight: 500; }
 
@@ -44,8 +55,11 @@
 .site-footer p { overflow-wrap: anywhere; }
 
 @media (min-width: 48rem) {
-  .site-header__desktop { display: block; order: 1; flex: 1 1 24rem; }
-  .site-header__desktop ul { justify-content: center; }
+  /* The wordmark stops growing so the margin has something to push against; it still
+     truncates, because min-width and the truncation it needs are on the link itself. */
+  .site-header__inner > .site-wordmark { flex: 0 1 auto; }
+  .site-header__desktop { display: block; order: 1; flex: 0 0 auto; margin-inline-start: auto; }
+  .site-header__desktop ul { justify-content: flex-end; }
   .site-header__mobile { display: none; }
 }
 
