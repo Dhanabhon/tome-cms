@@ -145,7 +145,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   };
 
   expect(await readThemeSettings('paper'), 'a theme nobody has answered gets what it declared')
-    .toEqual({ infiniteScroll: 'on', postsPerLoad: '6' });
+    .toEqual({ gridColumns: '3', infiniteScroll: 'on', postsPerLoad: '6' });
   expect(await feed()).toEqual({ cards: 6, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { postsPerLoad: '12' } });
@@ -164,7 +164,40 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   // A row edited by hand, or a release that dropped a choice, must not reach a template.
   await query`update site_settings set theme_settings = '{"paper":{"postsPerLoad":"99"}}'::jsonb`.execute(db);
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
-    .toEqual({ infiniteScroll: 'on', postsPerLoad: '6' });
+    .toEqual({ gridColumns: '3', infiniteScroll: 'on', postsPerLoad: '6' });
+});
+
+test('how many cards go across is asked for, not fixed', async ({ page }) => {
+  test.setTimeout(180_000);
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+
+  const across = async () => {
+    await page.goto(`${origin}/en`);
+    await page.locator('.post-card').first().waitFor();
+    return page.evaluate(() => {
+      // Cards the feed holds for the next row are hidden, and a hidden box reads 0 -- count
+      // those and every card looks like it is in column one.
+      const shown = [...document.querySelectorAll('.post-card')].filter((card) => (card as HTMLElement).offsetParent !== null);
+      const top = Math.min(...shown.map((card) => Math.round(card.getBoundingClientRect().top)));
+      return shown.filter((card) => Math.round(card.getBoundingClientRect().top) === top).length;
+    });
+  };
+
+  const seen: Record<string, number[]> = {};
+  for (const choice of ['2', '3', '4']) {
+    await writeThemeSettings('signin-test-owner', { id: 'paper', values: { gridColumns: choice } });
+    seen[choice] = [];
+    for (const width of [1440, 1024, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      seen[choice].push(await across());
+    }
+  }
+
+  // Asked for at the widest, and fewer wherever that many cannot be read.
+  expect(seen['2'], 'two across').toEqual([2, 2, 1]);
+  expect(seen['3'], 'three across, which is what the grid did before it could be asked').toEqual([3, 3, 1]);
+  // Four only fits the 80rem page, and only because choosing it also lowers the floor.
+  expect(seen['4'], 'four where there is room, and never on a phone').toEqual([4, 3, 1]);
 });
 
 test('a reader is not served the feed they switched off', async ({ page }) => {

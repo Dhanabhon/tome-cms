@@ -98,12 +98,24 @@
 
 .home-hero .lead { color: var(--color-muted); }
 
-/* The homepage lays its posts out as cards, three across at the widest. The minimum is the
- * admin post card's, so a column is never narrower than a title and its byline need, and
- * the 80rem page cannot fit a fourth. */
+/* The homepage lays its posts out as cards, as many across as the theme was told, and fewer
+ * when the row cannot hold that many at a readable width.
+ *
+ * A track is at least a share of the row -- which is what caps the count -- and never
+ * narrower than the floor, which is what uncaps it again on a narrow screen: ask for four
+ * on a phone and the share is tiny, the floor wins, and auto-fill gives one. The floor is
+ * the admin post card's 19rem, so a column is never narrower than a title and its byline
+ * need; four across on an 80rem page works out at 18.9rem, which is why choosing four is
+ * also choosing a slightly closer floor. */
 .post-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(
+    min(100%, max(
+      var(--post-grid-min, 19rem),
+      calc((100% - (var(--post-grid-columns, 3) - 1) * var(--space-lg)) / var(--post-grid-columns, 3))
+    )),
+    1fr
+  ));
   gap: var(--space-lg);
 }
 
