@@ -70,3 +70,14 @@ test('the footer credits TomeCMS, and stops when the owner says so', () => {
   assert.match(layout, /<activeTheme\.Shell[\s\S]*?showPoweredBy=\{showPoweredBy\}/);
   assert.match(read('src/themes/paper/Shell.astro'), /<Footer[^>]*showPoweredBy=\{showPoweredBy\}/);
 });
+
+test('a site that has not written a tagline is given one', () => {
+  // The line under the site name is the first thing a reader meets, and an installation
+  // that skipped the field on the way in should not meet them with a gap.
+  assert.equal(publicCopy('en').defaultTagline, 'Collected in TomeCMS. Ready for the world to see.');
+  assert.equal(publicCopy('th').defaultTagline, 'รวมทุกความคิดไว้ใน TomeCMS พร้อมให้โลกได้อ่าน');
+  // Applied in the route, so both themes are given a line rather than each deciding.
+  const home = read('src/pages/[locale]/index.astro');
+  assert.match(home, /tagline=\{settings\?\.tagline\?\.trim\(\) \|\| publicCopy\(locale\)\.defaultTagline\}/);
+  assert.match(read('src/themes/contract.ts'), /tagline: string;/);
+});

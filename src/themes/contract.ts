@@ -56,7 +56,8 @@ export interface ThemeHomeProps {
   posts: Post[];
   profile: PublicAuthorProfile | null;
   siteName: string;
-  tagline: string | undefined;
+  /** Always a line: a site that has not written one is given the product's own. */
+  tagline: string;
   timezone: SiteSettings['timezone'];
 }
 
