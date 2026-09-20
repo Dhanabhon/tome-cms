@@ -9,8 +9,8 @@ export const manifest: ThemeManifest = {
     {
       fallback: 'text',
       hint: {
-        en: 'The band above the grid. Moving reveals the headline and the line under it once, on arrival, and does nothing at all for a reader who asked for less motion.',
-        th: 'แถบเหนือ grid — แบบเคลื่อนไหวจะเผยหัวข้อกับบรรทัดใต้มันครั้งเดียวตอนเปิดหน้า และไม่ทำอะไรเลยกับผู้อ่านที่ตั้งค่าขอการเคลื่อนไหวน้อยลง',
+        en: 'The band above the grid. Moving reveals the headline once, on arrival. Covers shows the newest posts that have one and falls back to text when none do; either way a reader who asked for less motion gets none.',
+        th: 'แถบเหนือ grid — แบบเคลื่อนไหวจะเผยหัวข้อครั้งเดียวตอนเปิดหน้า ส่วนแบบปกจะแสดงบทความล่าสุดที่มีปก และกลับไปเป็นข้อความถ้าไม่มีสักบทความ ทั้งสองแบบจะไม่เคลื่อนไหวเลยกับผู้อ่านที่ขอการเคลื่อนไหวน้อยลง',
       },
       key: 'hero',
       kind: 'choice',
@@ -18,14 +18,15 @@ export const manifest: ThemeManifest = {
       options: [
         { label: { en: 'Text', th: 'ข้อความ' }, value: 'text' },
         { label: { en: 'Moving text', th: 'ข้อความแบบเคลื่อนไหว' }, value: 'animated' },
+        { label: { en: 'Covers of the newest posts', th: 'ปกบทความล่าสุด' }, value: 'slider' },
         { label: { en: 'Hidden', th: 'ไม่แสดง' }, value: 'off' },
       ],
     },
     {
       fallback: '',
       hint: {
-        en: 'Left blank, the hero says what TomeCMS says, in the language the page is being read in.',
-        th: 'ถ้าเว้นว่าง จะใช้ข้อความของ TomeCMS ตามภาษาที่หน้านั้นถูกอ่าน',
+        en: 'Left blank, the hero says what the theme says, in the language the page is being read in. Not shown when the hero is covers.',
+        th: 'ถ้าเว้นว่าง จะใช้ข้อความของธีมตามภาษาที่หน้านั้นถูกอ่าน — ไม่แสดงเมื่อเลือกแบบปกบทความ',
       },
       key: 'heroHeadline',
       kind: 'text',

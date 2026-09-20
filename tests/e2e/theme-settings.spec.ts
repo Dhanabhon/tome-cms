@@ -95,6 +95,12 @@ test.beforeAll(async () => {
     }
   });
 
+  // A cover on every post, so the hero has something to slide.
+  const media = (await sql<{ id: string }>`insert into media_items
+    (owner_id, folder_id, object_key, original_name, mime_type, size_bytes, width, height, checksum_sha256, alt_text, state)
+    values ('signin-test-owner', null, 'seed/cover.webp', 'cover.webp', 'image/webp', 1000, 1600, 900, ${`${'a'.repeat(43)}=`}, '', 'ready') returning id`.execute(db)).rows[0].id;
+  await sql`update posts set cover_media_id = ${media}::uuid`.execute(db);
+
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
   let output = '';
@@ -177,9 +183,11 @@ test('how many cards go across is asked for, not fixed', async ({ page }) => {
     return page.evaluate(() => {
       // Cards the feed holds for the next row are hidden, and a hidden box reads 0 -- count
       // those and every card looks like it is in column one.
-      const shown = [...document.querySelectorAll('.post-card')].filter((card) => (card as HTMLElement).offsetParent !== null);
-      const top = Math.min(...shown.map((card) => Math.round(card.getBoundingClientRect().top)));
-      return shown.filter((card) => Math.round(card.getBoundingClientRect().top) === top).length;
+      // offsetTop, not a client rect: the cards slide in, and a rect read mid-animation puts
+      // every staggered card on a row of its own.
+      const shown = [...document.querySelectorAll('.post-card')].filter((card) => (card as HTMLElement).offsetParent !== null) as HTMLElement[];
+      const top = Math.min(...shown.map((card) => card.offsetTop));
+      return shown.filter((card) => card.offsetTop === top).length;
     });
   };
 
@@ -246,6 +254,117 @@ test('the hero is the owner\'s, in the language the page is read in', async ({ p
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'off' } });
   expect(await hero('/en')).toMatchObject({ shown: false, headline: null });
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'text' } });
+});
+
+test('the hero of covers rotates, and lets itself be stopped', async ({ page }) => {
+  test.setTimeout(180_000);
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'slider' } });
+
+  const asked: string[] = [];
+  const listen = (request: { resourceType: () => string; url: () => string }) => {
+    if (request.resourceType() === 'script') asked.push(request.url());
+  };
+  page.on('request', listen);
+  await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+  page.off('request', listen);
+  expect(asked.some((url) => url.includes('hero-slider')), 'the rotation arrives only where there is one').toBe(true);
+
+  expect(await page.evaluate(() => {
+    const slides = [...document.querySelectorAll('[data-hero-slide]')];
+    const image = (at: number) => slides[at]?.querySelector('img');
+    return {
+      slides: slides.length,
+      carousel: document.querySelector('[data-hero-slider]')?.getAttribute('aria-roledescription'),
+      // The first slide is the page's largest paint; the rest are not asked for yet.
+      first: [image(0)?.getAttribute('loading'), image(0)?.getAttribute('fetchpriority')],
+      rest: [image(1)?.getAttribute('loading'), image(1)?.getAttribute('fetchpriority')],
+      slideLabel: slides[0]?.getAttribute('aria-label'),
+    };
+  })).toEqual({
+    slides: 5,
+    carousel: 'carousel',
+    first: ['eager', 'high'],
+    rest: ['lazy', null],
+    slideLabel: 'Image 1 of 5',
+  });
+
+  const toggle = () => page.evaluate(() => {
+    const button = document.querySelector('[data-hero-toggle]') as HTMLElement;
+    return { label: button.getAttribute('aria-label'), state: button.dataset.state };
+  });
+  expect(await toggle(), 'it rotates, and says how to stop it').toEqual({ label: 'Stop rotating the images', state: 'rotating' });
+
+  await page.locator('[data-hero-next]').click();
+  await page.waitForTimeout(700);
+  expect(await page.evaluate(() => {
+    const track = document.querySelector('[data-hero-track]') as HTMLElement;
+    return Math.round(track.scrollLeft / track.clientWidth);
+  }), 'and steps when asked').toBe(1);
+
+  await page.locator('[data-hero-toggle]').click();
+  expect(await toggle()).toEqual({ label: 'Start rotating the images', state: 'still' });
+
+  // A carousel that rotates at a reader who asked for less motion is the reason carousels
+  // have the reputation they have.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload({ waitUntil: 'networkidle' });
+  expect((await toggle()).state, 'it never starts for a reader who asked for less motion').toBe('still');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  // And a band with nothing to show is not a band.
+  const { sql: query } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  await query`update posts set cover_media_id = null`.execute(db);
+  await page.goto(`${origin}/en`);
+  expect(await page.evaluate(() => ({
+    slider: Boolean(document.querySelector('[data-hero-slider]')),
+    text: Boolean(document.querySelector('.home-hero .hero-title')),
+  })), 'no covers falls back to text rather than standing empty').toEqual({ slider: false, text: true });
+  await query`update posts set cover_media_id = (select id from media_items limit 1)`.execute(db);
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'text' } });
+});
+
+test('the cards slide in, and never at the cost of the first paint', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}/en`);
+  await page.locator('.post-card').first().waitFor();
+
+  expect(await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('.post-card')].slice(0, 3) as HTMLElement[];
+    return cards.map((card) => {
+      const style = getComputedStyle(card);
+      return { name: style.animationName, delay: style.animationDelay, index: card.style.getPropertyValue('--card-index').trim() };
+    });
+  }), 'each card follows the one before it').toEqual([
+    { name: 'post-card-slide', delay: '0s', index: '0' },
+    { name: 'post-card-slide', delay: '0.06s', index: '1' },
+    { name: 'post-card-slide', delay: '0.12s', index: '2' },
+  ]);
+
+  // Opacity is the part that would cost the largest contentful paint, so the slide has none
+  // of it: an element at opacity 0 has not been painted, and LCP waits for paint.
+  const keyframes = await page.evaluate(() => {
+    for (const sheet of [...document.styleSheets]) {
+      let rules: CSSRule[];
+      try { rules = [...sheet.cssRules]; } catch { continue; }
+      for (const rule of rules) {
+        if (rule instanceof CSSKeyframesRule && rule.name === 'post-card-slide') return rule.cssText;
+      }
+    }
+    return 'not found';
+  });
+  expect(keyframes, 'the reveal moves, it does not fade').toMatch(/translateY/);
+  expect(keyframes).not.toMatch(/opacity/);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await page.locator('.post-card').first().waitFor();
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.post-card')!).animationName),
+    'a reader who asked for less motion gets none').toBe('none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
 });
 
 test('a reader is not served the feed they switched off', async ({ page }) => {
