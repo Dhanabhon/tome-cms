@@ -36,10 +36,19 @@ if (userEmail) {
 }
 
 interface NavLink {
-  /** One level only. A link with children is a section, and stays clickable: it opens the first of them. */
-  children?: NavLink[];
   count?: number;
   href: string;
+  id: AdminNavId;
+  label: string;
+}
+
+/**
+ * A section folds, and has no screen of its own -- only the ones listed under it. Keeping it
+ * a separate shape is what stops a section growing a destination nothing can reach, and a
+ * link losing the one it needs.
+ */
+interface NavSection {
+  children: NavLink[];
   id: AdminNavId;
   label: string;
 }
@@ -52,7 +61,7 @@ interface NavLink {
  * What a reader meets is a third thing again, and neither a group heading nor a flat
  * link says so: Appearance is one section with screens under it, listed beneath it.
  */
-const groups: Array<{ id: string; label: string; links: NavLink[] }> = [
+const groups: Array<{ id: string; label: string; links: Array<NavLink | NavSection> }> = [
   {
     id: 'content',
     label: copy.nav.groupContent,
@@ -75,7 +84,6 @@ const groups: Array<{ id: string; label: string; links: NavLink[] }> = [
           { href: adminHref(adminSettings, '/themes'), id: 'themes', label: copy.nav.themes },
           { href: adminHref(adminSettings, '/plugins'), id: 'plugins', label: copy.nav.plugins },
         ],
-        href: adminHref(adminSettings, '/themes'),
         id: 'appearance',
         label: copy.nav.appearance,
       },
@@ -83,7 +91,7 @@ const groups: Array<{ id: string; label: string; links: NavLink[] }> = [
     ],
   },
 ];
-const allLinks = groups.flatMap(({ links }) => links.flatMap((link) => [link, ...link.children ?? []]));
+const allLinks = groups.flatMap(({ links }) => links.flatMap((link) => 'children' in link ? link.children : link));
 const currentLabel = allLinks.find(({ id }) => id === active)?.label ?? '';
 const search = postSearchState(Astro.url, adminHref(adminSettings));
 ---
@@ -121,21 +129,30 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
             return (
               <section aria-labelledby={headingId}>
                 <h2 class="admin-nav-group" id={headingId}>{group.label}</h2>
-                {group.links.map((link) => (
-                  <Fragment>
-                    {/* aria-current marks the page, never the section around it: on Themes both
-                        Appearance and Themes point at this URL, and only one of them is where
-                        the reader is. The section is shown as open with an attribute instead. */}
-                    <a
-                      href={link.href}
-                      aria-current={active === link.id ? 'page' : undefined}
-                      data-section-open={link.children?.some(({ id }) => id === active) ? '' : undefined}
-                    >
-                      <Icon name={link.id} />
-                      <span class="admin-nav-label">{link.label}</span>
-                      {link.count !== undefined && <span class="admin-nav-count">{link.count}</span>}
-                    </a>
-                    {link.children && (
+                {group.links.map((link) => {
+                  if (!('children' in link)) {
+                    return (
+                      <a href={link.href} aria-current={active === link.id ? 'page' : undefined}>
+                        <Icon name={link.id} />
+                        <span class="admin-nav-label">{link.label}</span>
+                        {link.count !== undefined && <span class="admin-nav-count">{link.count}</span>}
+                      </a>
+                    );
+                  }
+                  // <details> folds the section, and brings the keyboard, the ARIA and the
+                  // open state with it -- there is no JavaScript here, and none is needed.
+                  // It is rendered open on the screens it holds, so what is being read is
+                  // never behind a closed summary, and nothing is stored to remember that.
+                  const holdsActive = link.children.some(({ id }) => id === active);
+                  return (
+                    <details class="admin-nav-section" open={holdsActive}>
+                      {/* aria-current belongs to the page, and a summary is not one. That the
+                          section holds where the reader is, is a separate thing to say. */}
+                      <summary data-section-open={holdsActive ? '' : undefined}>
+                        <Icon name={link.id} />
+                        <span class="admin-nav-label">{link.label}</span>
+                        <span class="admin-nav-chevron"><Icon name="down" /></span>
+                      </summary>
                       <div class="admin-nav-children">
                         {link.children.map((child) => (
                           <a href={child.href} aria-current={active === child.id ? 'page' : undefined}>
@@ -144,9 +161,9 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
                           </a>
                         ))}
                       </div>
-                    )}
-                  </Fragment>
-                ))}
+                    </details>
+                  );
+                })}
               </section>
             );
           })}
