@@ -115,8 +115,12 @@ test.afterAll(async () => {
   docker(['down', '--volumes', '--remove-orphans'], 90_000);
 });
 
-test('a Passkey registered by recovery can sign its owner back in', async ({ context, page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'Virtual WebAuthn is covered once in Chromium.');
+test.skip(
+  ({ isMobile }) => Boolean(isMobile),
+  'Virtual WebAuthn is driven over CDP and covered once, on desktop Chromium.',
+);
+
+test('a Passkey registered by recovery can sign its owner back in', async ({ context, page }) => {
   test.setTimeout(120_000);
 
   const cdp = await context.newCDPSession(page);
