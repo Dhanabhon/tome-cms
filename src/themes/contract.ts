@@ -23,12 +23,43 @@ import type { ThemeChoice } from '../lib/theme';
  * registry returns, and the build says so at the call site rather than at a reader's.
  */
 
+/**
+ * A setting a theme asks the admin to offer for it.
+ *
+ * The same arrangement the plugins have, for the same reason: the screen that offers the
+ * choice must not load the theme to find out what the choices are. A theme declares them
+ * here, the core renders the form and stores the answers, and the theme is handed them
+ * back. Values are strings, which is what a form produces and what jsonb keeps without
+ * argument; a switch is 'on' or 'off'.
+ *
+ * What a theme cannot do is decide what happens when a setting is missing at read time --
+ * `fallback` is the answer a site that has never been asked gets, and it is declared here
+ * so the core never has to guess one.
+ */
+export interface ThemeSettingOption {
+  label: { en: string; th: string };
+  value: string;
+}
+
+export interface ThemeSetting {
+  /** The value used until the owner chooses one. */
+  fallback: string;
+  hint?: { en: string; th: string };
+  key: string;
+  kind: 'choice' | 'switch';
+  label: { en: string; th: string };
+  /** Required by 'choice', and the only values a write may store for it. */
+  options?: readonly ThemeSettingOption[];
+}
+
 export interface ThemeManifest {
   /** One sentence, shown beside the name where the owner chooses. */
   description: string;
   /** The value stored in the settings; also the directory name. */
   id: string;
   name: string;
+  /** What Customize offers for this theme. A theme with none is not customisable. */
+  settings?: readonly ThemeSetting[];
 }
 
 export interface ThemeShellProps {
@@ -45,6 +76,8 @@ export interface ThemeShellProps {
 }
 
 export interface ThemeHomeProps {
+  /** What this theme has been told, with its declared fallbacks already applied. */
+  themeSettings: Readonly<Record<string, string>>;
   /** The category the reader filtered by, as they wrote it. */
   activeCategory: string | undefined;
   /** Set when a page beyond the first is being shown, which changes what is eager. */

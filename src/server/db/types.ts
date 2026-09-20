@@ -145,6 +145,8 @@ export interface SiteSettingsTable {
   timezone: 'Asia/Bangkok' | 'UTC';
   theme: Generated<'system' | 'light' | 'dark'>;
   allow_visitor_theme: Generated<boolean>;
+  /** { [themeId]: { [key]: string } } -- see migrations/016_theme_settings. */
+  theme_settings: Generated<unknown>;
   show_powered_by: Generated<boolean>;
   theme_id: Generated<string>;
   admin_path: string;
