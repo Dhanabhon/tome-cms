@@ -53,17 +53,20 @@ const {
    * states: default · hover · focus · active · disabled · loading · error · success
    * contrast: pass (40–41) · mobile: pass (34, 49)
    */
+  /* Where the menu hangs, and nothing about where the switcher itself sits: it was placing
+   * itself in the row -- order, flex and an auto margin -- in a flex container it does not
+   * own, which is a component deciding a header's layout from the inside. The header does
+   * that now, and the installer's variant does it for the installer. */
   .language-switcher {
     --language-menu-block-start: 4.75rem;
     --language-menu-inline-end: max(1.25rem, calc((100vw - 80rem) / 2 + 1.75rem));
-    order: 2;
-    flex: 0 0 auto;
-    margin-inline-start: auto;
   }
 
   .language-switcher--installer {
     --language-menu-block-start: calc(var(--space-2xl) + var(--space-xs));
     --language-menu-inline-end: clamp(var(--space-md), 4vw, var(--space-xl));
+    flex: 0 0 auto;
+    margin-inline-start: auto;
   }
 
   .language-switcher__trigger {
@@ -139,10 +142,6 @@ const {
   @media (hover: hover) and (pointer: fine) {
     .language-switcher__trigger:hover:not(:disabled) { border-color: var(--color-ink-2); background: var(--color-paper-2); }
     .language-switcher__menu a:hover { background: var(--color-paper-2); }
-  }
-
-  @media (min-width: 37.5rem) {
-    .language-switcher { order: 0; margin-inline-start: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
