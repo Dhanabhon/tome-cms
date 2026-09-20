@@ -23,6 +23,7 @@ const PLAN: Readonly<Record<keyof Database, 'preserve' | 'truncate'>> = {
   passkey: 'truncate',
   installation_enrollments: 'truncate',
   recovery_codes: 'truncate',
+  plugin_settings: 'truncate',
   security_rate_limits: 'truncate',
   site_settings: 'truncate',
   post_translation_groups: 'truncate',

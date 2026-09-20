@@ -21,6 +21,7 @@ export interface Database {
   passkey: PasskeyTable;
   installation_enrollments: InstallationEnrollmentTable;
   recovery_codes: RecoveryCodeTable;
+  plugin_settings: PluginSettingsTable;
   security_rate_limits: SecurityRateLimitTable;
   site_settings: SiteSettingsTable;
   post_translation_groups: TranslationGroupTable;
@@ -116,6 +117,15 @@ export interface RecoveryCodeTable {
   code_hash: string;
   created_at: Timestamp;
   consumed_at: Timestamp | null;
+}
+
+export interface PluginSettingsTable {
+  id: string;
+  owner_id: string;
+  enabled: Generated<boolean>;
+  /** The plugin's own fields. A secret among them is stored sealed, never in the clear. */
+  settings: Generated<Json>;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface SecurityRateLimitTable {
