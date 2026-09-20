@@ -296,7 +296,20 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
       <form className="plugin-setup" onSubmit={submit}>
         <fieldset disabled={busy}>
           {(manifest.settings ?? []).map((setting) => (
-            setting.kind === 'switch' ? (
+            setting.kind === 'text' ? (
+              <div className="admin-field" key={setting.key}>
+                <label htmlFor={`theme-${setting.key}`}>{setting.label[locale]}</label>
+                <input
+                  className="admin-control"
+                  defaultValue={values[setting.key] ?? setting.fallback}
+                  id={`theme-${setting.key}`}
+                  maxLength={setting.max}
+                  name={setting.key}
+                  type="text"
+                />
+                {setting.hint && <small>{setting.hint[locale]}</small>}
+              </div>
+            ) : setting.kind === 'switch' ? (
               <div className="admin-check" key={setting.key}>
                 <label>
                   <input defaultChecked={values[setting.key] !== 'off'} name={setting.key} type="checkbox" />

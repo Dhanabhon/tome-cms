@@ -42,12 +42,15 @@ export interface ThemeSettingOption {
 }
 
 export interface ThemeSetting {
-  /** The value used until the owner chooses one. */
+  /** The value used until the owner chooses one. A 'text' setting may fall back to '', and
+   *  what it then shows is the template's business rather than the store's. */
   fallback: string;
   hint?: { en: string; th: string };
   key: string;
-  kind: 'choice' | 'switch';
+  kind: 'choice' | 'switch' | 'text';
   label: { en: string; th: string };
+  /** Required by 'text': how much of it a write may store. */
+  max?: number;
   /** Required by 'choice', and the only values a write may store for it. */
   options?: readonly ThemeSettingOption[];
 }

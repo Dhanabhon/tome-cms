@@ -96,7 +96,24 @@
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 
+/* A headline nobody can break -- a long word, a URL, sixty of the same letter -- has to
+ * break anyway rather than run out of the band. The card titles and the footer already do. */
+.home-hero .hero-title { overflow-wrap: anywhere; }
+
 .home-hero .lead { color: var(--color-muted); }
+
+/* Moving is one reveal on arrival, on the two compositor-friendly properties, and the same
+ * keyframes a card settles in with -- two copies of a rule are two rules that drift. It is
+ * declared only where motion was not argued against, so a reader who asked for less gets no
+ * animation rather than one that is turned off again afterwards. */
+@media (prefers-reduced-motion: no-preference) {
+  .home-hero[data-hero='moving'] .hero-title,
+  .home-hero[data-hero='moving'] .lead {
+    animation: post-card-in var(--dur-long) var(--ease-out) both;
+  }
+
+  .home-hero[data-hero='moving'] .lead { animation-delay: var(--dur-micro); }
+}
 
 /* The homepage lays its posts out as cards, as many across as the theme was told, and fewer
  * when the row cannot hold that many at a readable width.
