@@ -168,3 +168,50 @@ test('a select opens clear of the dialog it lives in', async ({ context, page })
     await expect(page.locator('#navigation-placement .ui-select__label')).toHaveText('Both');
   }
 });
+
+test('a switch in Customize saves what it shows', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const toggle = page.getByRole('checkbox', { name: /Reading progress bar/i });
+  const openCustomize = async () => {
+    await page.goto(`${origin}/admin/themes`);
+    await page.getByRole('button', { name: /^Customize$/ }).first().click();
+    await toggle.waitFor({ state: 'visible' });
+  };
+  // Waiting on the write rather than on a clock: navigating away from a save in flight
+  // cancels it, and a test that does that is measuring its own haste.
+  const save = async () => {
+    const written = page.waitForResponse((response) => response.url().includes('/api/admin/themes')
+      && response.request().method() === 'PUT');
+    await page.getByRole('button', { name: /^Save$/ }).click();
+    expect((await written).ok(), 'the save was accepted').toBe(true);
+  };
+
+  await openCustomize();
+  await expect(toggle, 'a setting nobody has answered shows its fallback').not.toBeChecked();
+
+  await toggle.check();
+  await save();
+  await openCustomize();
+  await expect(toggle, 'and what was saved is what comes back').toBeChecked();
+
+  // A box that will not come back unticked is a setting the owner cannot turn off, which a
+  // switch sending nothing when it is off makes easy to ship.
+  await toggle.uncheck();
+  await save();
+  await openCustomize();
+  await expect(toggle, 'unticked is an answer too').not.toBeChecked();
+});
