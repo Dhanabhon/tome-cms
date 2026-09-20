@@ -8,6 +8,7 @@ import {
   assertInstalledOwner,
   assertInstalledOwnerCredential,
   enrollmentStoragePlugin,
+  recordPasskeyUse,
   resolveEnrollmentUserByReference,
 } from './enrollment';
 import { isSupportedPasskeyOrigin } from './origin';
@@ -106,10 +107,13 @@ export const auth = betterAuth({
       },
     },
     authentication: {
-      afterVerification: ({ clientData, ctx }) => assertInstalledOwnerCredential({
-        credentialId: clientData.id,
-        fallbackAdapter: ctx.context.adapter,
-      }),
+      afterVerification: async ({ clientData, ctx }) => {
+        await assertInstalledOwnerCredential({
+          credentialId: clientData.id,
+          fallbackAdapter: ctx.context.adapter,
+        });
+        await recordPasskeyUse(clientData.id);
+      },
     },
   })],
 });
