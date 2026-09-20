@@ -297,6 +297,7 @@ test('every control that starts a request reports it', () => {
   const controls: ReadonlyArray<readonly [string, string]> = [
     ['SettingsForm', 'saving'],
     ['ThemeForm', 'busy === id'],
+    ['PluginManager', 'busy'],
     ['ProfileForm', 'saving'],
     ['CategoryManager', "pendingActionIds.has('create')"],
     ['SecurityManager', 'busy'],
