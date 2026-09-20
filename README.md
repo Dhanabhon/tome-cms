@@ -409,7 +409,7 @@ npm run test:unit
 npm run test:integration:foundation
 npm run test:integration
 npm run test:operations:update
-npm run test:e2e -- tests/e2e/passkey-installer.spec.ts --project=desktop
+npm run test:e2e
 npm run check
 npm run build
 ```
