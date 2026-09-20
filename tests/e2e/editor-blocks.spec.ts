@@ -179,4 +179,19 @@ test('a quote is somewhere a writer can leave', async ({ context, page }) => {
   expect(lifted.quoted, 'plain text leaves the quote rather than restating it').toBe(null);
   expect(lifted.topLevel, 'and the words it held are the writer\'s own paragraph now')
     .toContain('Quoted words');
+
+  // Nothing is drawn after the last character, so the caret at the end of a quotation is
+  // the end of it and not a cursor stuck behind a mark it cannot pass.
+  await canvas.click();
+  await page.keyboard.press('ControlOrMeta+Shift+B');
+  await page.keyboard.type('A quotation');
+  const painted = await page.evaluate(() => {
+    const paragraph = document.querySelector('.ProseMirror blockquote p');
+    if (!paragraph) return null;
+    return [
+      getComputedStyle(paragraph, '::before').content,
+      getComputedStyle(paragraph, '::after').content,
+    ];
+  });
+  expect(painted, 'no quotation mark stands where a caret cannot').toEqual(['none', 'none']);
 });

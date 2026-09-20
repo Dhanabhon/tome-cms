@@ -411,6 +411,23 @@ body {
   animation: block-menu-in 120ms ease-out;
 }
 
+/*
+ * No quotation marks drawn after the last character a writer can reach.
+ *
+ * The typography plugin puts `open-quote` and `close-quote` on a blockquote's first and
+ * last paragraph. They are pseudo-elements, so no caret can ever stand after the closing
+ * one -- and the caret at the true end of the text is painted just before it, which reads
+ * as a cursor that will not move past the quote. Pressing Enter makes it worse: the mark
+ * follows the new last paragraph down, so a writer who has in fact left the quotation is
+ * still being shown one closing it.
+ *
+ * The left rule and the italics already say this is a quotation.
+ */
+.admin-editor-content .prose blockquote p:first-of-type::before,
+.admin-editor-content .prose blockquote p:last-of-type::after {
+  content: none;
+}
+
 .block-insert-item {
   display: flex;
   align-items: center;
