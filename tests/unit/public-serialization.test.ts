@@ -115,6 +115,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
     allow_visitor_theme: true,
     show_powered_by: true,
     theme_id: 'paper',
+    theme_settings: {},
     author_avatar_media_id: media.id,
     author_bio_en: 'English bio',
     author_bio_th: 'Thai bio',

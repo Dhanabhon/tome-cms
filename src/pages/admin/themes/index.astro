@@ -8,6 +8,8 @@ import { requireOwner } from '../../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
 import { THEME_MANIFESTS } from '../../../themes/manifests';
+import { readThemeSettings } from '../../../server/themes/store';
+import { DEFAULT_THEME_ID, isThemeId } from '../../../themes/registry';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
@@ -35,6 +37,10 @@ try {
   }
 }
 
+// Only the theme in use is customisable, which is the question the screen is about.
+const themeSettings = settings
+  ? await readThemeSettings(isThemeId(settings.theme_id) ? settings.theme_id : DEFAULT_THEME_ID)
+  : {};
 const ownerLocale = settings?.default_locale ?? null;
 const copy = adminCopy(ownerLocale);
 ---
@@ -49,7 +55,7 @@ const copy = adminCopy(ownerLocale);
             <p>{copy.theme.subheading}</p>
           </div>
         </header>
-        <ThemeForm client:load adminPath={settings.admin_path} ownerLocale={settings.default_locale} initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
+        <ThemeForm client:load adminPath={settings.admin_path} initialThemeSettings={themeSettings} ownerLocale={settings.default_locale} initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
       </section>
     </AdminShell>
   )}

@@ -15,6 +15,7 @@ import * as siteTheme2 from './migrations/012_site_theme';
 import * as pluginSettings from './migrations/013_plugin_settings';
 import * as postExcerpt from './migrations/014_post_excerpt';
 import * as pageExcerpt from './migrations/015_page_excerpt';
+import * as themeSettings from './migrations/016_theme_settings';
 
 export const migrations = {
   '001_system': system,
@@ -32,6 +33,7 @@ export const migrations = {
   '013_plugin_settings': pluginSettings,
   '014_post_excerpt': postExcerpt,
   '015_page_excerpt': pageExcerpt,
+  '016_theme_settings': themeSettings,
 } as const;
 
 const provider: MigrationProvider = {

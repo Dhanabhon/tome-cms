@@ -5,7 +5,8 @@ import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
-import { resolveTheme } from '../../themes/registry';
+import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../themes/registry';
+import { readThemeSettings } from '../../server/themes/store';
 import type { Post, PostAlternate, PostCategoryBadge } from '../../types/cms';
 
 const localeValue = Astro.params.locale;
@@ -15,7 +16,6 @@ if (!isPostLocale(localeValue)) {
 const locale = localeValue;
 // Two rows at three across, three at two, six at one: a page ends on a full row at any width,
 // so the rows the feed script adds after it line up.
-const PAGE_SIZE = 6;
 const category = Astro.url.searchParams.get('category')?.trim().slice(0, 100) || undefined;
 const cursor = Astro.url.searchParams.get('cursor') || undefined;
 let posts: Post[] = [];
@@ -23,6 +23,10 @@ let categories: PostCategoryBadge[] = [];
 let nextCursor: string | null = null;
 let loadError = false;
 const settings = await getSiteSettings();
+// How many a page holds is the theme's to say: six ends on a full row at one, two or three
+// cards across, which is true of paper's grid and means nothing to a one-column list.
+const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? settings.theme_id : DEFAULT_THEME_ID);
+const PAGE_SIZE = Number(themeSettings.postsPerLoad ?? 6) || 6;
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
 
@@ -60,6 +64,7 @@ const activeTheme = await resolveTheme(settings?.theme_id);
   robots={loadError ? 'noindex, nofollow' : cursor ? 'noindex, follow' : undefined}
 >
   <activeTheme.Home
+    themeSettings={themeSettings}
     activeCategory={category}
     categories={categories}
     cursor={cursor}

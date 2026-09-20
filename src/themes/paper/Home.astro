@@ -7,7 +7,10 @@ import type { ThemeHomeProps } from '../contract';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, profile, siteName, tagline, timezone } = Astro.props;
+const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, profile, siteName, tagline, themeSettings, timezone } = Astro.props;
+// Off leaves the link a reader without JavaScript already follows, and the script below
+// finds nothing to wire -- the marker is what it looks for.
+const endless = themeSettings.infiniteScroll !== 'off';
 
 const copy = locale === 'th'
   ? {
@@ -94,7 +97,7 @@ const initial = (title: string) => {
   )}
 
   <!-- Everything a category changes, so a chosen pill can swap it whole. -->
-  <div class="post-feed" data-post-feed>
+  <div class="post-feed" data-post-feed={endless ? "" : undefined}>
     {posts.length > 0 ? (
       <div class="post-grid" data-post-grid>
         {posts.map((post, index) => {
