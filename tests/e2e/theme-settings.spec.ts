@@ -166,3 +166,29 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
     .toEqual({ infiniteScroll: 'on', postsPerLoad: '6' });
 });
+
+test('a reader is not served the feed they switched off', async ({ page }) => {
+  test.setTimeout(180_000);
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+
+  /** Whether the feed's own module was fetched, which a static import makes unconditional. */
+  const fetchesFeed = async () => {
+    const asked: string[] = [];
+    const listen = (request: { resourceType: () => string; url: () => string }) => {
+      if (request.resourceType() === 'script') asked.push(request.url());
+    };
+    page.on('request', listen);
+    await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+    page.off('request', listen);
+    return asked.some((url) => url.includes('post-feed'));
+  };
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { infiniteScroll: 'on' } });
+  expect(await fetchesFeed(), 'on: the feed arrives').toBe(true);
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { infiniteScroll: 'off' } });
+  // It was fetched in both states until the import became dynamic: the page's own script
+  // carried the feed's code, so switching the setting off changed the markup and not the
+  // bytes. This fails if a static import comes back.
+  expect(await fetchesFeed(), 'off: and does not').toBe(false);
+});
