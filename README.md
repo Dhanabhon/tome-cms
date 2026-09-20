@@ -13,6 +13,8 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 - File Manager backed by S3-compatible object storage
 - Server-rendered public pages with no application JavaScript
 - Published-only REST API, OpenAPI 3.1 document, sitemap, and RSS feed
+- Themes: the public site is one of several, chosen in Settings
+- Plugins: extras that fill hooks the core declares, switched on in the Admin
 - Optional Headless mode that keeps Admin and APIs while hiding the bundled Blog
 
 ## Runtime architecture
@@ -132,6 +134,72 @@ TOME_CMS_FRONTEND_MODE=bundled
 
 Never commit `.env.local`, credentials, database dumps, or object-storage backups. The bootstrap writes `.env.local` with owner-only permissions on macOS/Linux.
 
+## Themes
+
+The public site is a theme. Settings names which one draws it; `paper` is the one TomeCMS
+ships with, and `plain` is a deliberately spare second that exists so the contract has more
+than one reader.
+
+```text
+src/themes/contract.ts        what each template is given, and what a theme must export
+src/themes/registry.ts        id -> dynamic import, so a reader loads only the chosen theme
+src/themes/<id>/Shell.astro   everything inside <body>: header, main, footer
+src/themes/<id>/Home.astro    the feed
+src/themes/<id>/Post.astro    an article
+src/themes/<id>/Page.astro    a Page
+src/themes/<id>/theme.css     the theme's own stylesheet, linked by the page that uses it
+src/themes/<id>/theme.ts      id, name, and the sentence the Settings screen shows
+```
+
+A theme owns the templates and the CSS and nothing else. Routing, queries, `<head>` and its
+SEO, the fonts and the design tokens stay in core, so a theme can be plain but not wrong or
+slow. Each template declares `interface Props extends Theme…Props`, which is what holds a
+new theme to the shape the routes hand over: a template that drifts fails the build at the
+call site rather than at a reader's.
+
+To add one, copy a directory under `src/themes/`, register its id in `registry.ts`, and run
+`npm run check`. `npm run css:snapshot` before a change and `npm run css:diff` after reports
+which selectors the build serves, which is how the split between `global.css` and a theme's
+own stylesheet is kept honest.
+
+Settings calls the light/dark choice **Appearance**, and **Theme** means the one above.
+
+## Plugins
+
+A plugin fills hooks the core declares. There are two, both about the Admin sign-in: what to
+put in the form, and what to make of an attempt. There is no hook for running code at
+startup, for reaching the database, or for adding a route.
+
+Plugins ship in the repository and are switched on and configured under **Plugins** in the
+Admin. Settings are stored per plugin; a setting the manifest marks `secret` is encrypted at
+rest with `TOME_CMS_CONTEXT_SECRET` and never sent to a browser — the screen is told only
+whether one is set, and a blank field on save keeps what is stored rather than erasing it.
+
+The first plugin is **Cloudflare Turnstile**. Give it the site key and secret key from your
+Cloudflare dashboard and switch it on; a challenge then appears on the sign-in form and every
+attempt is verified before it reaches the Passkey ceremony.
+
+What a failed verification means is decided in core, not by the plugin:
+
+| What happened | What follows |
+| --- | --- |
+| The token is invalid, missing or already spent | The attempt is refused |
+| The secret key is wrong, the request is malformed, Cloudflare answers 5xx, cannot be reached, or times out | The attempt proceeds, and the reason is logged |
+
+The second row is the important one: mistyping a secret key cannot lock you out of your own
+site. Neither can the plugin close the way back in — the guard runs on the sign-in attempt
+and never on registration, so recovery works with the plugin on, misconfigured, or both.
+
+If the challenge itself will not load in your browser, switch the plugin off from a shell:
+
+```sh
+npm run plugin:disable turnstile
+npm run plugin:disable turnstile -- --forget
+```
+
+The first switches it off and keeps its settings. `--forget` clears them as well, which the
+Admin deliberately cannot do.
+
 ## Bundled and Headless modes
 
 The default is:
@@ -171,11 +239,25 @@ GET /robots.txt
 
 The Wizard asks for the Admin path, for example `/studio`. Bookmark that URL because the public Header and Footer do not expose an Admin link.
 
-Use a spare Passkey or a one-time recovery code from `/recovery`. The local owner-recovery command is:
+Use a spare Passkey or a one-time recovery code from `/recovery`. If neither is to hand, the
+owner-recovery command issues a single-use recovery link from the server itself:
 
 ```sh
 npm run admin:recover
+npm run admin:recover -- --execute
 ```
+
+The first form reports the site and owner it found and changes nothing. The second prints a
+link that expires in ten minutes and is spent the moment a replacement Passkey is registered;
+any saved recovery codes are left alone. It reads `.env.local`, or `/etc/tome-cms/tome-cms.env`
+on a managed VPS, or whatever `TOME_CMS_ENV_FILE` points at.
+
+Register the replacement Passkey in an ordinary browser window. A Passkey created in a
+private or incognito window may not survive it, which leaves a credential recorded here that
+no browser can offer.
+
+If a sign-in plugin is what stands in the way, switch it off from the same shell — see
+[Plugins](#plugins).
 
 To return an installation to the Wizard, stop Astro/the production application and preview the exact scope first:
 
@@ -341,7 +423,9 @@ This local operation check is not a release-host acceptance. Genuine public GitH
 
 ```text
 src/components/admin/        Interactive Admin islands
-src/components/blog/         Server-rendered public components
+src/components/blog/         Head-level public components shared by every theme
+src/themes/                  The public site's templates and CSS, one directory per theme
+src/plugins/                 Plugin hooks and the plugins that fill them
 src/pages/admin/             Internal Admin route templates
 src/pages/api/admin/         Same-origin authenticated mutations
 src/pages/api/v1/content/    Anonymous Published-content REST API
@@ -349,6 +433,7 @@ src/server/auth/             Better Auth, Passkeys, enrollment, recovery
 src/server/content/          PostgreSQL content services
 src/server/db/               Kysely schema, client, and migrations
 src/server/media/            S3 storage boundary and media services
+src/server/plugins/          Plugin settings, and sealing for the secrets among them
 scripts/                     Bootstrap, maintenance, and deployment helpers
 tests/unit/                  Small deterministic contracts
 tests/integration/           Disposable PostgreSQL/S3 service contracts
