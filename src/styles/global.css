@@ -1593,31 +1593,42 @@ body {
 .admin-switch:has(input:disabled) { cursor: not-allowed; }
 .admin-switch input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 
-/* Plugins. A list, not the grid the themes get: a theme is looked at and a plugin is
- * switched, so a row says what it is, whether it is on, and what it still needs. */
-.plugin-list { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
-.plugin-row { display: grid; gap: var(--space-sm); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
-.plugin-row[data-on] { border-color: var(--color-focus); box-shadow: 0 0 0 var(--rule-hair) var(--color-focus); }
-.plugin-row__head { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: start; justify-content: space-between; }
-.plugin-row__name { display: grid; gap: var(--space-2xs); min-width: 14rem; flex: 1 1 18rem; }
-.plugin-row__name strong { color: var(--color-ink); font-size: var(--text-md); font-weight: 600; }
-.plugin-row__name p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
-.plugin-row__needs { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
-.plugin-row__said { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
-.plugin-row__setup { border-block-start: var(--rule-hair) solid var(--color-rule); padding-block-start: var(--space-sm); }
-.plugin-row__setup summary { display: flex; gap: var(--space-2xs); align-items: center; width: fit-content; color: var(--color-ink-2); cursor: pointer; list-style: none; font-size: var(--text-sm); font-weight: 500; }
-.plugin-row__setup summary::-webkit-details-marker { display: none; }
-.plugin-row__setup summary:hover { color: var(--color-ink); }
-.plugin-row__setup summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
-.plugin-row__setup[open] summary .icon { transform: rotate(180deg); }
-.plugin-row__setup fieldset { display: grid; gap: var(--space-md); margin: 0; padding: var(--space-md) 0 0; border: 0; }
+/* Plugins.
+ *
+ * A card grid, with the band a plugin directory fills with stars and install counts left to
+ * say the one thing a directory could not: which of the core's hooks this plugin fills. The
+ * fields are not here -- they are two inputs behind a panel, and a card that carried them
+ * would be a card whose height depended on how much a plugin asked for.
+ */
+.plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: var(--space-lg); margin: 0; padding: 0; list-style: none; }
+.plugin-card { display: grid; grid-template-rows: 1fr auto auto; overflow: hidden; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+.plugin-card[data-on] { border-color: var(--color-focus); box-shadow: 0 0 0 var(--rule-hair) var(--color-focus); }
+.plugin-card__body { display: flex; gap: var(--space-md); align-items: start; padding: var(--space-lg); }
+/* A plugin names one of the admin's own icons, so the grid keeps one drawing style and a
+ * plugin never ships an image to a screen. */
+.plugin-card__mark { display: grid; flex: none; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: var(--radius-input); color: var(--color-ink-2); background: var(--color-paper-2); }
+.plugin-card__mark .icon { width: 1.5rem; height: 1.5rem; }
+.plugin-card[data-on] .plugin-card__mark { color: var(--color-focus); background: var(--color-status-ok); }
+.plugin-card__name { display: grid; gap: var(--space-2xs); min-width: 0; }
+.plugin-card__name strong { color: var(--color-ink); font-size: var(--text-md); font-weight: 600; }
+.plugin-card__name p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+.plugin-card__meta { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0; padding: var(--space-sm) var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); font-size: var(--text-xs); }
+.plugin-card__hook { color: var(--color-ink-2); font-weight: 500; }
+.plugin-card__foot { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding: var(--space-sm) var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
+.plugin-card__said { margin: 0; padding: 0 var(--space-lg) var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); }
+.plugin-card .admin-form-error { padding: 0 var(--space-lg) var(--space-sm); }
+.plugin-card--source { grid-template-rows: auto; gap: var(--space-2xs); align-content: center; padding: var(--space-lg); border-style: dashed; background: none; }
+.plugin-card--source strong { color: var(--color-ink); font-size: var(--text-base); font-weight: 600; }
+.plugin-card--source p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+/* The panel is the editors' drawer, which spaces its own direct children; the fields are
+ * a level further in, inside the fieldset that disables them while a save is in flight. */
+.plugin-setup fieldset { display: grid; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
 .admin-card--note { gap: var(--space-2xs); background: none; border-style: dashed; }
 .admin-card--note h2 { margin: 0; font-size: var(--text-base); }
 .admin-card--note p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 @media (prefers-reduced-motion: reduce) {
   .admin-switch input,
-  .admin-switch input::after,
-  .plugin-row__setup summary .icon { transition: none; }
+  .admin-switch input::after { transition: none; }
 }
 /* Tailwind's preflight resets every heading to font-size: inherit, so a card heading
  * nobody sized rendered at 16px/400 -- lighter than the 14px/500 field labels beneath

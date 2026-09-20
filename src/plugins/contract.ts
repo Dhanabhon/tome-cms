@@ -10,6 +10,8 @@
  * is the only plugin there is. The second one is what will show which of them was wrong.
  */
 
+import type { IconName } from '../lib/icons';
+
 export type PluginSettings = Readonly<Record<string, string>>;
 
 /** A setting the admin renders a field for, and the API validates a write against. */
@@ -22,8 +24,22 @@ export interface PluginSetting {
   required: boolean;
 }
 
+/**
+ * The hooks the core declares, named so a manifest can say which it fills.
+ *
+ * The screen offering a plugin must not load it to find out what it does, and a sentence a
+ * plugin wrote about itself is not an answer -- so a manifest names a hook from this closed
+ * set and the core supplies the words. tests/unit/plugin-admin.test.ts holds each plugin to
+ * what it declared: a plugin that names a hook has to implement it.
+ */
+export type PluginHookId = 'signIn';
+
 export interface PluginManifest {
   description: { en: string; th: string };
+  /** Where it acts, from the set above. */
+  hooks: readonly PluginHookId[];
+  /** One of the admin's own icons, so a plugin cannot ship an image to the screen. */
+  icon: IconName;
   id: string;
   name: string;
   settings: readonly PluginSetting[];

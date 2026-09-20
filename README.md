@@ -184,11 +184,16 @@ whether one is set, and a blank field on save keeps what is stored rather than e
 A setting a write does not mention is kept too, which is what lets the switch on each row
 switch a plugin without restating its fields.
 
-The screen is a row per plugin rather than the grid the themes get: a theme is looked at, a
-plugin is switched. A row says what the plugin is, carries the switch that applies on the
-spot, and keeps its fields behind a fold that starts open while there is nothing to switch
-on. A plugin that is not set up cannot be switched on from there, which is the refusal the
-server already makes.
+The screen is a card per plugin. Where a plugin directory fills the band under a card with
+ratings and install counts, this has none to report — plugins ship with the release — so the
+band says the thing a directory could not: which of the core's hooks the plugin fills. A
+manifest names a hook from a closed set the core owns, and `tests/unit/plugin-admin.test.ts`
+holds it to that: a plugin that names a hook has to implement it. Its icon is one of the
+admin's own, so nothing a plugin ships is drawn.
+
+The switch on a card applies on the spot and says in a word which way it is thrown. A plugin
+that is not set up cannot be switched on there, which is the refusal the server already
+makes. The fields are two inputs behind **Set up**, in the panel the editors already use.
 
 The first plugin is **Cloudflare Turnstile**. Give it the site key and secret key from your
 Cloudflare dashboard and switch it on; a challenge then appears on the sign-in form and every
