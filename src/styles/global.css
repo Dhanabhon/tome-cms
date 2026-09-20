@@ -412,7 +412,9 @@ body {
 }
 
 .block-insert-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   width: 100%;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);

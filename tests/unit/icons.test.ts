@@ -47,3 +47,16 @@ test('the menu editor has the icons it draws', () => {
 test('the category rows have the icon they draw', () => {
   assert.ok(ICONS.pencil, 'no icon for pencil');
 });
+
+test('the block menus have the icons they draw', () => {
+  // Both of them drew letters and punctuation before this -- "H2", a bullet, a curly quote
+  // -- whose weight and size came from whatever font rendered them, in a screen of drawn
+  // icons. The + menu drew nothing at all.
+  const names = ['text', 'heading1', 'heading2', 'heading3', 'list', 'quote', 'code', 'media'] as const;
+  for (const name of names) assert.ok(ICONS[name], `no icon for ${name}`);
+
+  for (const path of ['src/components/admin/BlockInsertMenu.tsx', 'src/components/admin/SlashCommands.tsx']) {
+    const source = read(path);
+    assert.doesNotMatch(source, /aria-hidden="true">(H[123]|•|“|\{'<\/>'\})/, `${path} still types a glyph`);
+  }
+});
