@@ -104,7 +104,12 @@ test.beforeAll(async () => {
       select g.id, c.id, '${OWNER}' from post_translation_groups g, categories c;
     insert into posts (translation_group_id, locale, title, slug, content_json, content_html, status, published_at, owner_id)
       select g.id, 'en', 'An article', 'an-article', '{"type":"doc","content":[]}'::jsonb,
-        '<p><img src="/x.webp" alt=""></p>', 'published', now(), '${OWNER}' from post_translation_groups g;`);
+        '<p><img src="/x.webp" alt="In the body"></p>', 'published', now(), '${OWNER}' from post_translation_groups g;
+    insert into media_items (owner_id, folder_id, object_key, original_name, mime_type, size_bytes,
+        width, height, checksum_sha256, alt_text, state)
+      values ('${OWNER}', null, 'seed/cover.webp', 'cover.webp', 'image/webp', 1000, 1600, 900,
+        '${'a'.repeat(43)}=', '', 'ready');
+    update posts set cover_media_id = (select id from media_items limit 1);`);
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
@@ -195,4 +200,27 @@ test('a public page carries only the plugins that asked to be on it', async ({ p
 
   const article = await visit('/en/blog/an-article');
   expect(article.lightbox, 'an article does').toBe(true);
+
+  // Fetching the chunk is not opening anything. This is the assertion whose absence let a
+  // lightbox ship that found no images at all: it read one theme's class names, so the
+  // cover -- which lives outside the body in both themes -- was never openable, and on a
+  // site whose articles carry no other image nothing was.
+  const openable = page.locator('article img[data-lightbox]');
+  await expect(openable, 'the cover and the image in the body, and nothing beside them')
+    .toHaveCount(2);
+
+  const dialog = page.locator('dialog.lightbox');
+  await expect(dialog).toBeHidden();
+  await openable.first().click();
+  await expect(dialog, 'clicking the cover opens it').toBeVisible();
+  await expect(page.locator('.lightbox__image')).toHaveAttribute('src', /\/media\//);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+
+  // A control only a mouse can reach is half a control.
+  await openable.last().focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog, 'and so does pressing Enter on one').toBeVisible();
+  await expect(page.locator('.lightbox__image')).toHaveAttribute('alt', 'In the body');
 });
