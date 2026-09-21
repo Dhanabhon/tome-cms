@@ -1,0 +1,32 @@
+---
+interface Props {
+  /** What the band's closing is remembered under -- the same key its own script writes. */
+  dismissKey: string;
+}
+
+const { dismissKey } = Astro.props;
+
+/**
+ * Keeps a banner the reader already closed from being drawn at all.
+ *
+ * The check used to live in the banner's own script, which is a module: deferred, and
+ * fetched on top of that. So every load painted the band and then took it away, and a
+ * reader refreshing quickly saw it flash each time. It is the same failure the theme
+ * toggle has and ThemeScript prevents, and the same answer -- inline, blocking, and in the
+ * head, so the page's first frame already knows.
+ *
+ * All it does is mark the document; the stylesheet does the hiding. A private window or
+ * blocked storage throws, and a band that cannot remember being closed is a band that is
+ * shown, which is the safe way round.
+ *
+ * Only rendered for a band that can be closed. One the owner keeps up has nothing to
+ * remember, and the page carries no script for it.
+ */
+---
+<script is:inline define:vars={{ key: dismissKey }}>
+  try {
+    if (localStorage.getItem(key)) document.documentElement.dataset.noticeClosed = '';
+  } catch (error) {
+    // Nothing remembered means nothing closed.
+  }
+</script>

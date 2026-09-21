@@ -101,6 +101,9 @@
   text-align: center;
 }
 
+/* Closed on an earlier visit: the head has already said so before this is drawn. */
+html[data-notice-closed] .site-notice { display: none; }
+
 .site-notice p { margin: 0; }
 
 .site-notice a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
