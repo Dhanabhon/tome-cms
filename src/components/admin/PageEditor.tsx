@@ -13,6 +13,7 @@ import { contentSlug } from '../../lib/slug';
 import { requestExcerpt } from './ExcerptSuggestion';
 import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
 import { atLeast } from '../../lib/busy';
+import { confirmUi } from '../../lib/ui-dialog';
 
 interface EditorSourcePage {
   id: string;
@@ -241,8 +242,8 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
     return () => window.clearTimeout(autosaveTimer.current);
   }, [dirty, isNavigating, persist, title, slug, contentJson, excerpt, metaDescription, metaTitle]);
 
-  const saveBefore = async (action: (page: Page) => void, status?: PageStatus, leavesEditor = false) => {
-    if (actionPending.current) return;
+  const saveBefore = async (action: (page: Page) => void, status?: PageStatus, leavesEditor = false): Promise<boolean> => {
+    if (actionPending.current) return false;
     actionPending.current = true;
     setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
@@ -266,6 +267,35 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
         setIsNavigating(false);
       }
     }
+    return completed;
+  };
+
+  /**
+   * Out of the editor, to `href`. Saved first, so nothing is lost on the way -- and asked about
+   * when that save cannot happen, with no title yet or no server to reach, because a draft that
+   * cannot be saved must not keep its owner in here. A new draft written and taken back again
+   * has nothing to save and nothing to lose, so it is not asked about.
+   */
+  const leave = async (href: string) => {
+    if (actionPending.current) return;
+    const draft = draftRef.current;
+    const blank = !pageId.current && !draft.title.trim() && !draft.excerpt.trim()
+      && !draft.metaTitle && !draft.metaDescription && !hasMeaningfulContent(draft.contentJson);
+    if (!blank) {
+      if (await saveBefore(() => window.location.assign(href), undefined, true)) return;
+      const leaving = await confirmUi({
+        cancelLabel: copy.editor.stayInEditor,
+        confirmLabel: copy.editor.leaveUnsaved,
+        message: copy.editor.leaveUnsavedMessage,
+        title: copy.editor.leaveUnsavedTitle,
+        tone: 'danger',
+      });
+      if (!leaving) return;
+    }
+    actionPending.current = 'navigation';
+    setIsActionPending(true);
+    setIsNavigating(true);
+    window.location.assign(href);
   };
 
   /**
@@ -314,7 +344,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
               }
               if (dirtyRef.current || pendingCount.current) {
                 event.preventDefault();
-                void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath }, '/pages')), undefined, true);
+                void leave(adminHref({ admin_path: adminPath }, '/pages'));
               } else {
                 actionPending.current = 'navigation';
                 setIsActionPending(true);
