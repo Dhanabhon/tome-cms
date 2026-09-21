@@ -222,7 +222,7 @@ Admin deliberately cannot do.
 
 Two more plugins reach the public site rather than the sign-in form.
 
-**Announcement bar** puts a band across the top of every public page, with a sentence you
+**Sticky Banner** puts a band across the top of every public page, with a sentence you
 write in each language. A reader can close it, and what is remembered is the message rather
 than the plugin, so a new message is shown again to somebody who closed the last one. The
 link field takes a path on this site or an `https` address; anything else — `javascript:`

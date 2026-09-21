@@ -9,7 +9,7 @@ export const manifest: PluginManifest = {
   hooks: ['publicPage'],
   icon: 'navigation',
   id: 'notice',
-  name: 'Announcement bar',
+  name: 'Sticky Banner',
   settings: [
     {
       key: 'textEn',
