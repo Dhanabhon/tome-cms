@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
+
+import { useDrawer } from './useDrawer';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { adminHref } from '../../lib/admin';
@@ -223,22 +225,11 @@ interface ThemeCustomizeProps {
  * The same arrangement the plugins have.
  */
 function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: ThemeCustomizeProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    element.showModal();
-    closeButton.current?.focus();
-    return () => {
-      element.close();
-      opener?.focus();
-    };
-  }, []);
+  const { close, dialog } = useDrawer({ focus: closeButton, onClose });
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -260,7 +251,9 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
       });
       const payload = await response.json().catch(() => null) as { error?: string; settings?: Record<string, string> } | null;
       if (!response.ok || !payload?.settings) throw new Error(payload?.error || copy.theme.customizeFailed);
-      onSaved(payload.settings);
+      // Named here: inside the closure the check above no longer narrows it.
+      const saved = payload.settings;
+      close(() => onSaved(saved));
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : copy.theme.customizeFailed);
     } finally {
@@ -274,7 +267,7 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
       className="admin-editor-settings"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        close();
       }}
       ref={dialog}
     >
@@ -286,7 +279,7 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
         <button
           aria-label={copy.plugins.close}
           className="admin-button admin-button--ghost admin-button--icon"
-          onClick={onClose}
+          onClick={() => close()}
           ref={closeButton}
           type="button"
         >

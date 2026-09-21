@@ -257,5 +257,25 @@ test('a drawer slides in, and leaves nothing behind for a menu to be measured ag
     return getComputedStyle(panel).transform;
   });
   expect(settled, 'and holds no transform once it has arrived').toBe('none');
+
+  // Leaving is a thing a reader watches too, and a panel unmounted the instant it is asked
+  // to go gives CSS nothing to play -- which is why closing waits for the exit.
+  await page.evaluate(() => {
+    (window as unknown as { left: Promise<string> }).left = new Promise((resolve) => {
+      document.addEventListener('animationstart', (event) => {
+        resolve((event as AnimationEvent).animationName);
+      }, { once: true });
+    });
+  });
+  await page.getByRole('button', { name: /Close|ปิด/i }).first().click();
+  expect(await page.evaluate(() => (window as unknown as { left: Promise<string> }).left),
+    'the drawer leaves the way it arrived').toBe('drawer-out');
+  await expect(drawer).toBeHidden();
+
+  // The page behind a panel is a place to click to be done with it.
+  await page.getByRole('button', { name: /^Customize$/ }).first().click();
+  await drawer.waitFor({ state: 'visible' });
+  await page.mouse.click(40, 400);
+  await expect(drawer, 'a click on the page behind closes it').toBeHidden();
 });
 
