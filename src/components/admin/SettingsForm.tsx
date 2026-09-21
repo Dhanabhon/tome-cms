@@ -7,7 +7,7 @@ import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -29,6 +29,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
+  const [hideSiteName] = useState(initialSettings.hide_site_name);
   // The record is written whole, so these three travel with every save although Themes is
   // where they are edited. A theme_id whose theme left the build would fail the write, so
   // the fallback the renderer already makes is made here too: saving a site name must not
@@ -62,7 +63,7 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ allowVisitorTheme, defaultLocale, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
+        body: JSON.stringify({ allowVisitorTheme, defaultLocale, hideSiteName, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
       });
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
