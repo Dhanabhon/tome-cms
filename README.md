@@ -2,7 +2,7 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the package is `0.5.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security gate is partly closed: the production audit now reports no critical and no high advisories, and the moderate ones that remain are all `@tiptap/core`, blocked behind the editor's own dependency. The full integration, browser and operations gates now run green against Astro 7. Public immutable release/attestation verification and real `amd64`/`arm64` HTTPS VPS acceptance are still open, because both need infrastructure this repository cannot stand up for itself. See the [0.5.0 notes](docs/releases/0.5.0.md), the [0.4.0 notes](docs/releases/0.4.0.md), the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
+> **Development status:** the package is `0.6.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security gate is partly closed: the production audit now reports no critical and no high advisories, and the moderate ones that remain are all `@tiptap/core`, blocked behind the editor's own dependency. The full integration, browser and operations gates now run green against Astro 7. Public immutable release/attestation verification and real `amd64`/`arm64` HTTPS VPS acceptance are still open, because both need infrastructure this repository cannot stand up for itself. See the [0.6.0 notes](docs/releases/0.6.0.md), the [0.5.0 notes](docs/releases/0.5.0.md), the [0.4.0 notes](docs/releases/0.4.0.md), the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
 ## What is included
 
@@ -31,7 +31,7 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 | Deployment | Docker Compose |
 
 Database migrations live in `src/server/db/migrations/` and are applied with `npm run db:migrate`.
-An installation created from 0.4.0 has none waiting for it. One created from 0.3.0 has three, and one from before 0.3.0 has those and nine more; see the [0.4.0 notes](docs/releases/0.4.0.md#upgrading) and the [0.3.0 notes](docs/releases/0.3.0.md#upgrading). The admin names any it finds unapplied at the top of every screen.
+An installation created from 0.5.0 or 0.4.0 has one migration waiting for it, `020_site_brand`. One created from 0.3.0 has four, and one from before 0.3.0 has those and nine more; see the [0.6.0 notes](docs/releases/0.6.0.md#upgrading), the [0.4.0 notes](docs/releases/0.4.0.md#upgrading) and the [0.3.0 notes](docs/releases/0.3.0.md#upgrading). The admin names any it finds unapplied at the top of every screen.
 The bundled SeaweedFS service is a single-node default for local development and a single VPS. Point the same S3 settings at external object storage when high availability or multi-node operations are required.
 
 ## Prerequisites
