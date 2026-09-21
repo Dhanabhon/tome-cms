@@ -21,7 +21,7 @@ const env = {
 Object.assign(process.env, env);
 
 test('media keys and URLs keep provider details out of stored identity', async () => {
-  const { createObjectKey, isTomeObjectKey } = await import('../../src/server/media/keys');
+  const { createBrandObjectKey, createObjectKey, isTomeObjectKey } = await import('../../src/server/media/keys');
   const { resolveMediaUrl, stableMediaPath } = await import('../../src/server/media/url');
   const ownerId = '123e4567-e89b-42d3-a456-426614174000';
   const key = createObjectKey(ownerId, 'image/jpeg', new Date('2026-09-08T23:59:59Z'));
@@ -31,6 +31,14 @@ test('media keys and URLs keep provider details out of stored identity', async (
   assert.equal(isTomeObjectKey('../tomecms-media/object.jpg'), false);
   assert.doesNotMatch(key, /\.\.|résumé|secret/i);
   assert.throws(() => createObjectKey('../owner', 'image/png'));
+
+  // A logo is a file the library does not hold, in the grammar a backup and a reset accept.
+  const brandKey = createBrandObjectKey(ownerId, 'svg', new Date('2026-09-21T00:00:00Z'));
+  assert.match(brandKey, /^owners\/123e4567-e89b-42d3-a456-426614174000\/2026\/09\/[0-9a-f-]{36}\.svg$/);
+  assert.equal(isTomeObjectKey(brandKey), true);
+  assert.notEqual(createBrandObjectKey(ownerId, 'svg'), createBrandObjectKey(ownerId, 'svg'), 'a new file is a new address');
+  assert.equal(isTomeObjectKey(`owners/${ownerId}/2026/09/${crypto.randomUUID()}.svgz`), false);
+  assert.throws(() => createBrandObjectKey('../owner', 'png'));
 
   assert.equal(resolveMediaUrl('owners/example/some file.png'), 'https://cdn.example.com/media/owners/example/some%20file.png');
   process.env.MEDIA_PUBLIC_URL = 'https://assets.example.net/v2/';
