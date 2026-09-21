@@ -18,6 +18,7 @@ import * as pageExcerpt from './migrations/015_page_excerpt';
 import * as themeSettings from './migrations/016_theme_settings';
 import * as scheduledPublishing from './migrations/017_scheduled_publishing';
 import * as thaiSlugs from './migrations/018_thai_slugs';
+import * as contentRedirects from './migrations/019_content_redirects';
 
 export const migrations = {
   '001_system': system,
@@ -38,6 +39,7 @@ export const migrations = {
   '016_theme_settings': themeSettings,
   '017_scheduled_publishing': scheduledPublishing,
   '018_thai_slugs': thaiSlugs,
+  '019_content_redirects': contentRedirects,
 } as const;
 
 const provider: MigrationProvider = {

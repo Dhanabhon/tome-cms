@@ -325,3 +325,30 @@ test('a Thai address is an address', async ({ page }) => {
     .toContain(new URL(`/th/blog/${slug}`, origin).pathname);
 });
 
+test('an old address sends a reader on, permanently', async ({ page }) => {
+  test.setTimeout(120_000);
+  const group = '5c1d7a2e-8b3f-4e6a-9d1c-3f2a7b8e9c02';
+  psql(`insert into post_translation_groups (id, owner_id) values ('${group}', '${OWNER}');
+    insert into post_category_assignments (translation_group_id, category_id, owner_id)
+      select '${group}', c.id, '${OWNER}' from categories c limit 1;
+    insert into posts (translation_group_id, locale, title, slug, content_json, content_html, status, published_at, owner_id)
+      values ('${group}', 'en', 'Renamed once', 'the-old-name', '{"type":"doc","content":[]}'::jsonb,
+        '<p>Body</p>', 'published', now() - interval '1 minute', '${OWNER}');
+    update posts set slug = 'the-new-name' where slug = 'the-old-name';`);
+
+  // A 301 and not a 302: the move is for good, and a search engine should carry what it
+  // knew about the old address over to the new one rather than keep asking.
+  const answer = await fetch(`${origin}/en/blog/the-old-name`, { redirect: 'manual' });
+  expect(answer.status, 'moved permanently').toBe(301);
+  expect(new URL(answer.headers.get('location') ?? '', origin).pathname).toBe('/en/blog/the-new-name');
+
+  const landed = await page.goto(`${origin}/en/blog/the-old-name`);
+  expect(landed?.status(), 'and the reader arrives').toBe(200);
+  expect(new URL(page.url()).pathname).toBe('/en/blog/the-new-name');
+  await expect(page.locator('h1')).toHaveText('Renamed once');
+
+  // An address that never held anything is still simply not found.
+  const nothing = await fetch(`${origin}/en/blog/never-was`, { redirect: 'manual' });
+  expect(nothing.status, 'no forwarding address is invented').toBe(404);
+});
+
