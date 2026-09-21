@@ -13,6 +13,7 @@ import { contentSlug } from '../../lib/slug';
 import { requestExcerpt } from './ExcerptSuggestion';
 import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
 import { atLeast } from '../../lib/busy';
+import { confirmUi } from '../../lib/ui-dialog';
 
 interface EditorSourcePost {
   cover_image: string | null;
@@ -241,8 +242,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     return () => window.clearTimeout(autosaveTimer.current);
   }, [dirty, isNavigating, persist, title, slug, contentJson, excerpt, metaDescription, metaTitle, categoryIds, coverMediaId]);
 
-  const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false) => {
-    if (actionPending.current) return;
+  const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false): Promise<boolean> => {
+    if (actionPending.current) return false;
     actionPending.current = true;
     setIsActionPending(true);
     window.clearTimeout(autosaveTimer.current);
@@ -266,6 +267,35 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
         setIsNavigating(false);
       }
     }
+    return completed;
+  };
+
+  /**
+   * Out of the editor, to `href`. Saved first, so nothing is lost on the way -- and asked about
+   * when that save cannot happen, with no title yet or no server to reach, because a draft that
+   * cannot be saved must not keep its owner in here. A new draft written and taken back again
+   * has nothing to save and nothing to lose, so it is not asked about.
+   */
+  const leave = async (href: string) => {
+    if (actionPending.current) return;
+    const draft = draftRef.current;
+    const blank = !postId.current && !draft.title.trim() && !draft.excerpt.trim()
+      && !draft.metaTitle && !draft.metaDescription && !hasMeaningfulContent(draft.contentJson);
+    if (!blank) {
+      if (await saveBefore(() => window.location.assign(href), undefined, true)) return;
+      const leaving = await confirmUi({
+        cancelLabel: copy.editor.stayInEditor,
+        confirmLabel: copy.editor.leaveUnsaved,
+        message: copy.editor.leaveUnsavedMessage,
+        title: copy.editor.leaveUnsavedTitle,
+        tone: 'danger',
+      });
+      if (!leaving) return;
+    }
+    actionPending.current = 'navigation';
+    setIsActionPending(true);
+    setIsNavigating(true);
+    window.location.assign(href);
   };
 
   /**
@@ -314,7 +344,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
               }
               if (dirtyRef.current || pendingCount.current) {
                 event.preventDefault();
-                void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath })), undefined, true);
+                void leave(adminHref({ admin_path: adminPath }));
               } else {
                 actionPending.current = 'navigation';
                 setIsActionPending(true);
@@ -422,7 +452,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
           onClose={() => setSettingsOpen(false)}
           ownerLocale={ownerLocale}
-          onManageCategories={() => void saveBefore(() => window.location.assign(adminHref({ admin_path: adminPath }, '/categories')), undefined, true)}
+          onManageCategories={() => void leave(adminHref({ admin_path: adminPath }, '/categories'))}
           open={settingsOpen}
           selectedCategoryIds={categoryIds}
           slug={slug}

@@ -246,6 +246,55 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
   await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
 });
 
+test('a draft that cannot be saved can still be left', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  // Reported from a real draft: words typed, then not wanted, and no way out of the editor.
+  // Back saves before it leaves, so nothing is lost on the way -- and a draft with no title
+  // cannot be saved, so every press of Back only showed that error again.
+  const backToPosts = page.getByRole('link', { name: /Back to Posts/ });
+
+  // Written and taken back again: nothing to save and nothing to lose, so nothing to ask.
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('x');
+  await page.keyboard.press('Backspace');
+  await backToPosts.click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 10_000 });
+
+  // Words without a title cannot be saved, so leaving asks first -- and staying stays.
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Words without a title');
+  await backToPosts.click();
+  await page.getByRole('button', { name: 'Stay in editor' }).click();
+  await expect(page, 'staying is staying').toHaveURL(`${origin}/admin/new`);
+  await expect(page.locator('.ProseMirror'), 'with the words still there').toHaveText('Words without a title');
+  await backToPosts.click();
+  await page.getByRole('button', { name: 'Leave without saving' }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 10_000 });
+
+  // A page is left the same way.
+  await page.goto(`${origin}/admin/pages/new`);
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('A page without a title');
+  await page.getByRole('link', { name: /Back to Pages/ }).click();
+  await page.getByRole('button', { name: 'Leave without saving' }).click();
+  await page.waitForURL(`${origin}/admin/pages`, { timeout: 10_000 });
+});
+
 test('the settings drawer opens where it can be seen, every time', async ({ context, page }) => {
   test.setTimeout(120_000);
   const cdp = await context.newCDPSession(page);
