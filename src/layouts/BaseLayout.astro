@@ -188,6 +188,9 @@ const structuredData = robots.includes('noindex')
           class="site-notice"
           data-dismiss-key={plugins.notice.dismissKey}
           data-site-notice
+          style={plugins.notice.colors
+            ? `--notice-background: ${plugins.notice.colors.background}; --notice-text: ${plugins.notice.colors.text};`
+            : undefined}
         >
           <p>
             {plugins.notice.text}

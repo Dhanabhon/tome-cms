@@ -189,7 +189,13 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    onSave(Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)])));
+    const values = Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)]));
+    // An unticked box sends nothing, and the store reads nothing as "leave it" -- so a
+    // switch that is off has to say so, or it can be turned on and never off again.
+    for (const setting of manifest.settings) {
+      if (setting.kind === 'switch') values[setting.key] = form.get(setting.key) === 'on' ? 'on' : 'off';
+    }
+    onSave(values);
   }
 
   return (
@@ -221,7 +227,31 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
       </header>
       <form className="plugin-setup" onSubmit={submit}>
         <fieldset disabled={busy}>
-          {manifest.settings.map((setting) => (
+          {manifest.settings.map((setting) => setting.kind === 'switch' ? (
+            <div className="admin-check" key={setting.key}>
+              <label>
+                <input
+                  defaultChecked={(state?.values[setting.key] || setting.fallback) === 'on'}
+                  name={setting.key}
+                  type="checkbox"
+                />
+                <span>{setting.label[locale]}</span>
+              </label>
+              {setting.hint && <small>{setting.hint[locale]}</small>}
+            </div>
+          ) : setting.kind === 'color' ? (
+            <div className="admin-field admin-field--color" key={setting.key}>
+              <label htmlFor={`${manifest.id}-${setting.key}`}>{setting.label[locale]}</label>
+              <input
+                className="admin-control admin-control--color"
+                defaultValue={state?.values[setting.key] || setting.fallback || '#000000'}
+                id={`${manifest.id}-${setting.key}`}
+                name={setting.key}
+                type="color"
+              />
+              {setting.hint && <small>{setting.hint[locale]}</small>}
+            </div>
+          ) : (
             <div className="admin-field" key={setting.key}>
               <label htmlFor={`${manifest.id}-${setting.key}`}>{setting.label[locale]}</label>
               <input

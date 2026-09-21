@@ -223,8 +223,11 @@ Admin deliberately cannot do.
 Two more plugins reach the public site rather than the sign-in form.
 
 **Sticky Banner** puts a band across the top of every public page, with a sentence you
-write in each language. A reader can close it, and what is remembered is the message rather
-than the plugin, so a new message is shown again to somebody who closed the last one. The
+write in each language, in the background and text colours you choose (black and white until
+you do). Whether a reader can close it is yours to decide: closable, it slides away and what is
+remembered is the message rather than the plugin, so a new message is shown again to somebody
+who closed the last one; kept up, it has no close control and the page carries no script for
+it at all. The
 link field takes a path on this site or an `https` address; anything else — `javascript:`
 first among them — is dropped, and the message is shown without a link.
 

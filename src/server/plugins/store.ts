@@ -6,6 +6,9 @@ import { db } from '../db/client';
 import { HttpError } from '../http/errors';
 import { isSealed, openSecret, sealSecret } from './secrets';
 
+/** The one shape of colour a style attribute can be trusted with. */
+export const COLOR = /^#[0-9a-f]{6}$/i;
+
 /** What the admin is allowed to see: a secret is only ever reported as set or not. */
 export interface PluginState {
   configured: boolean;
@@ -31,7 +34,7 @@ export async function readPluginStates(ownerId: string): Promise<PluginState[]> 
     const secrets: Record<string, boolean> = {};
     for (const setting of manifest.settings) {
       if (setting.kind === 'secret') secrets[setting.key] = isSealed(stored[setting.key]);
-      else values[setting.key] = stored[setting.key] ?? '';
+      else values[setting.key] = stored[setting.key] || setting.fallback || '';
     }
     return {
       configured: manifest.settings.every((setting) => setting.kind === 'secret'
@@ -61,7 +64,7 @@ export async function readEnabledPlugin(ownerId: string, id: string): Promise<Pl
   const settings: Record<string, string> = {};
   for (const setting of manifest.settings) {
     const value = stored[setting.key] ?? '';
-    if (setting.kind !== 'secret') settings[setting.key] = value;
+    if (setting.kind !== 'secret') settings[setting.key] = value || setting.fallback || '';
     else {
       const opened = value ? openSecret(value) : null;
       // A secret that will not open is a secret this build cannot use: treat it as absent
@@ -87,11 +90,20 @@ export async function writePluginSettings(ownerId: string, input: {
   const settings: Record<string, string> = {};
   for (const setting of manifest.settings) {
     const supplied = input.values[setting.key]?.trim();
+    if (supplied !== undefined && setting.kind === 'switch' && supplied !== 'on' && supplied !== 'off') {
+      throw new HttpError(400, `${setting.label.en} is on or off.`, { code: 'plugin_setting_invalid' });
+    }
+    if (supplied !== undefined && setting.kind === 'color' && !COLOR.test(supplied)) {
+      // Refused rather than cleaned: this lands in a style attribute on every public page,
+      // and the only colour that is safe to put there is one that is nothing but a colour.
+      throw new HttpError(400, `${setting.label.en} is a colour like #000000.`, { code: 'plugin_setting_invalid' });
+    }
     if (setting.kind !== 'secret') {
       // Absent is not empty. A request that only switches the plugin on does not have to
       // restate the fields it is not touching, and before this it erased them by omission
       // -- which a secret was already safe from, and a site key was not.
-      settings[setting.key] = supplied ?? existing[setting.key] ?? '';
+      const kept = supplied ?? existing[setting.key] ?? '';
+      settings[setting.key] = setting.kind === 'color' ? kept.toLowerCase() : kept;
       continue;
     }
     // Blank means "keep what is stored": the browser was never told the secret, so it

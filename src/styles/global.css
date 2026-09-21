@@ -94,8 +94,9 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-xs) var(--space-md);
-  background: var(--color-hero);
-  color: var(--color-on-dark);
+  /* The owner's colours when the plugin sent them, the core's when it did not. */
+  background: var(--notice-background, var(--color-hero));
+  color: var(--notice-text, var(--color-on-dark));
   font-size: var(--text-sm);
   text-align: center;
 }
@@ -117,9 +118,9 @@
   cursor: pointer;
 }
 
-.site-notice button:hover { background: color-mix(in oklch, var(--color-on-dark) 18%, transparent); }
+.site-notice button:hover { background: color-mix(in oklch, currentColor 18%, transparent); }
 
-.site-notice button:focus-visible { outline: 2px solid var(--color-on-dark); outline-offset: var(--space-3xs); }
+.site-notice button:focus-visible { outline: 2px solid currentColor; outline-offset: var(--space-3xs); }
 
 /* An article's images, opened in the element the platform already has for this: the top
  * layer, the backdrop, Escape and the focus return are the browser's. */
@@ -2264,3 +2265,25 @@ body {
 
 .admin-chip:hover,
 .admin-chip:focus-visible { border-color: var(--color-accent); background: var(--color-paper-3); }
+
+/*
+ * The band leaves by going up the way it would have been scrolled away, and the page
+ * follows it rather than jumping the height of it once it is gone.
+ *
+ * That following is a margin, which is a layout property -- deliberately. A transform
+ * alone would slide the words out and leave their space behind, then snap the whole page
+ * up when the element is removed. This runs once, for a quarter of a second, on a click;
+ * it is not the scroll-bound motion the rule against layout animation is about.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .site-notice[data-closing] {
+    animation: notice-out var(--dur-long) var(--ease-out) both;
+  }
+}
+
+@keyframes notice-out {
+  to {
+    margin-block-start: calc(-1 * var(--notice-height, 0px));
+    opacity: 0;
+  }
+}

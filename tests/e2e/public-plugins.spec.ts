@@ -224,3 +224,59 @@ test('a public page carries only the plugins that asked to be on it', async ({ p
   await expect(dialog, 'and so does pressing Enter on one').toBeVisible();
   await expect(page.locator('.lightbox__image')).toHaveAttribute('alt', 'In the body');
 });
+
+test('the banner is the owner\'s colours, and stays or goes as they said', async ({ page }) => {
+  test.setTimeout(120_000);
+  const band = page.locator('[data-site-notice]');
+  const scripts = async (path: string) => {
+    const asked: string[] = [];
+    const listen = (request: { resourceType: () => string; url: () => string }) => {
+      if (request.resourceType() === 'script') asked.push(request.url());
+    };
+    page.on('request', listen);
+    await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
+    page.off('request', listen);
+    return asked;
+  };
+
+  // Kept up, in the owner's colours.
+  setPlugin('notice', true, {
+    textEn: 'Maintenance on Sunday.', textTh: 'ปิดปรับปรุงวันอาทิตย์', dismissible: 'off',
+    background: '#ffaa00', text: '#1a1a1a',
+  });
+  const kept = await scripts('/en');
+  await expect(band).toHaveText(/Maintenance on Sunday/);
+  await expect(band.locator('[data-notice-close]'), 'nothing to close it with').toHaveCount(0);
+  expect(kept.some((url) => url.includes('notice')), 'and no script for a band that stays').toBe(false);
+  expect(await band.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return [style.backgroundColor, style.color];
+  }), 'drawn in the colours it was given').toEqual(['rgb(255, 170, 0)', 'rgb(26, 26, 26)']);
+
+  // A row edited by hand never went through the store, so the page checks again before
+  // a setting becomes CSS on every page a reader loads.
+  setPlugin('notice', true, {
+    textEn: 'Maintenance on Sunday.', dismissible: 'off',
+    background: 'red;background-image:url(https://evil.invalid/x.png)', text: '#1a1a1a',
+  });
+  await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+  expect(await band.getAttribute('style'), 'a colour that is not only a colour is not written').toBe(null);
+
+  // Closable: the default, and the one that ships a script.
+  setPlugin('notice', true, { textEn: 'We are adding features.', background: '#000000', text: '#ffffff' });
+  const closable = await scripts('/en');
+  expect(closable.some((url) => url.includes('notice')), 'a band that can be closed brings its script').toBe(true);
+  await page.evaluate(() => {
+    (window as unknown as { left: Promise<string> }).left = new Promise((resolve) => {
+      document.addEventListener('animationstart', (event) => resolve((event as AnimationEvent).animationName), { once: true });
+    });
+  });
+  await band.locator('[data-notice-close]').click();
+  expect(await page.evaluate(() => (window as unknown as { left: Promise<string> }).left),
+    'it slides away rather than vanishing').toBe('notice-out');
+  await expect(band, 'and is gone once it has').toHaveCount(0);
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(band, 'and stays gone for the reader who closed it').toHaveCount(0);
+});
+
