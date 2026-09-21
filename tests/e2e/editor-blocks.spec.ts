@@ -340,6 +340,50 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
   expect(links).toEqual([['this', '_blank'], ['that', null]]);
 });
 
+test('a line and a table cell can be aligned, from either bar', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/new`);
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.keyboard.type('A centred line');
+  for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowLeft');
+  const center = page.getByRole('button', { name: 'Align center' });
+  await expect(page.getByRole('button', { name: 'Align left' }), 'left is what a line has to begin with').toHaveAttribute('aria-pressed', 'true');
+  await center.click();
+  await expect(canvas.locator('p').first()).toHaveCSS('text-align', 'center');
+  await expect(center, 'and the bar says so').toHaveAttribute('aria-pressed', 'true');
+
+  // A table's bar aligns the cell the cursor is in, and each of its buttons is drawn as well
+  // as named.
+  await expect(canvas).toBeFocused();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'Table', exact: true }).click();
+  await expect(canvas).toBeFocused();
+  await page.keyboard.type('Name');
+  const tableBar = page.getByRole('group', { name: 'Table' });
+  for (const name of ['Add row', 'Add column', 'Delete row', 'Delete column', 'Delete table']) {
+    await expect(tableBar.getByRole('button', { name }).locator('svg'), `${name} has an icon`).toHaveCount(1);
+  }
+  await tableBar.getByRole('button', { name: 'Align right' }).click();
+  await expect(canvas.locator('th p').first()).toHaveCSS('text-align', 'right');
+  await expect(canvas.locator('th p').nth(1), 'only the cell the cursor was in').toHaveCSS('text-align', 'start');
+});
+
 test('a draft that cannot be saved can still be left', async ({ context, page }) => {
   test.setTimeout(120_000);
   const cdp = await context.newCDPSession(page);

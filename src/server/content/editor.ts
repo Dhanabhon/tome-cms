@@ -1,7 +1,9 @@
+import { getSchema } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
-import { generateHTML } from '@tiptap/html';
+import { DOMSerializer, Node } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
+import { createHTMLDocument } from 'zeed-dom';
 import { z } from 'zod';
 
 import {
@@ -9,6 +11,7 @@ import {
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
+import { textAlign } from '../../lib/editor-align';
 import { tableExtensions } from '../../lib/editor-table';
 import type { EditorDocument, EditorNode } from '../../types/cms';
 import { isUuid } from '../media/keys';
@@ -46,7 +49,28 @@ const extensions = [
     HTMLAttributes: { class: 'rounded-lg' },
   }),
   ...tableExtensions,
+  textAlign,
 ];
+
+const schema = getSchema(extensions);
+
+/**
+ * The stored HTML for a document: what @tiptap/html's generateHTML made, less one loss.
+ *
+ * ProseMirror writes a style through `style.cssText` whenever the element it built has a
+ * style object, and zeed-dom's accepts the write and keeps nothing -- so an alignment showed
+ * in the editor and never reached a reader. Built without that object, ProseMirror sets the
+ * attribute instead, and zeed-dom keeps it.
+ */
+function documentHtml(document: EditorDocument): string {
+  const dom = createHTMLDocument();
+  const createElement = dom.createElement.bind(dom);
+  dom.createElement = ((name: string) => Object.defineProperty(createElement(name), 'style', { value: undefined })) as typeof dom.createElement;
+  const fragment = DOMSerializer.fromSchema(schema).serializeFragment(Node.fromJSON(schema, document).content, {
+    document: dom as unknown as Document,
+  });
+  return (fragment as unknown as { render(): string }).render();
+}
 
 export class ValidationError extends Error {
   override name = 'ValidationError';
@@ -139,7 +163,7 @@ function assertJsonBounds(value: unknown): void {
 export function renderEditorHtml(document: EditorDocument): string {
   let html: string;
   try {
-    html = generateHTML(document, extensions);
+    html = documentHtml(document);
   } catch {
     throw new ValidationError('Content contains unsupported editor structure.');
   }

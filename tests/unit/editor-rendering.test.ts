@@ -102,6 +102,23 @@ test('a link opens a new tab only when its writer asked it to', () => {
   assert.match(contentHtml, /<a rel="noopener noreferrer" href="https:\/\/example\.com"> Here<\/a>/, 'no target, so the same tab');
 });
 
+test('a line keeps its alignment, and no other style', () => {
+  const line = (type: string, text: string, textAlign: string, level?: number): EditorNode => ({
+    type, attrs: { textAlign, ...(level ? { level } : {}) }, content: [{ type: 'text', text }],
+  });
+  const { contentHtml } = prepareEditorContent({
+    contentJson: { type: 'doc', content: [line('heading', 'Centred', 'center', 2), line('paragraph', 'Right', 'right'), line('paragraph', 'Not justified', 'justify')] },
+  });
+  assert.match(contentHtml, /<h2 style="text-align:center">Centred<\/h2>/);
+  assert.match(contentHtml, /<p style="text-align:right">Right<\/p>/);
+  assert.match(contentHtml, /<p>Not justified<\/p>/, 'justify is not one of the three');
+
+  const hostile = sanitizedContentHtmlSchema.parse(
+    '<p style="text-align:center;position:fixed;background:url(x)">A</p><p style="text-align:expression(alert(1))">B</p><img src="https://example.com/a.webp" style="position:fixed">',
+  );
+  assert.equal(hostile, '<p style="text-align:center">A</p><p>B</p><img src="https://example.com/a.webp" />');
+});
+
 test('a table is kept whole, and nothing that rides in with it', () => {
   // A cell holds paragraphs, and Enter in a cell starts another one in the same cell.
   const cell = (type: 'tableCell' | 'tableHeader', texts: string[], attrs?: { colspan: number }): EditorNode => ({

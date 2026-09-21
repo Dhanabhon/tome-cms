@@ -51,6 +51,7 @@ test('the category rows have the icon they draw', () => {
 test('the formatting bar draws a link as a link', () => {
   // It was an arrow, '↗', which reads as "open" or "go" and never as "link".
   assert.ok(ICONS.link, 'no icon for link');
+  for (const name of ['alignLeft', 'alignCenter', 'alignRight'] as const) assert.ok(ICONS[name], `no icon for ${name}`);
   assert.doesNotMatch(read('src/components/admin/DocumentCanvas.tsx'), /'↗'/, 'the formatting bar still types an arrow');
 });
 

@@ -4,6 +4,8 @@ import { EditorBubble, EditorBubbleItem, type EditorInstance, useEditor } from '
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import type { IconName } from '../../lib/icons';
+import Icon from '../Icon';
+import AlignButtons from './AlignButtons';
 
 export interface TableAction {
   hint: string;
@@ -54,11 +56,14 @@ export default function TableBubble({ copy }: { copy: AdminCopy }) {
       <div aria-label={copy.blocks.table} className="flex max-w-[calc(100vw-2rem)] flex-wrap" role="group">
         {tableActions(copy).map((action) => (
           <EditorBubbleItem key={action.label} onSelect={(instance) => void action.run(instance.chain().focus()).run()}>
-            <button className="rounded px-2 py-1.5 text-sm font-semibold text-ink hover:bg-soft" type="button">
+            <button className="flex h-8 items-center gap-1.5 rounded px-2 text-sm font-semibold text-ink hover:bg-soft [&_.icon]:h-4 [&_.icon]:w-4" type="button">
+              <Icon name={action.icon} />
               {action.label}
             </button>
           </EditorBubbleItem>
         ))}
+        <span aria-hidden="true" className="mx-1 w-px self-stretch bg-line" />
+        <AlignButtons copy={copy} />
       </div>
     </EditorBubble>
   );
