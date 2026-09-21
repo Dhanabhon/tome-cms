@@ -115,8 +115,22 @@ export const publicAuthorSchema: z.ZodType<PublicAuthor> = z.object({
   name: z.string().min(1).max(120),
 }).strict();
 
+const brandUrlSchema = z.url({ protocol: /^https?$/ });
+const brandImageSchema = z.object({
+  height: z.number().int().positive(),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp']),
+  url: brandUrlSchema,
+  width: z.number().int().positive(),
+}).strict();
+
 export const publicSiteSchema: z.ZodType<PublicSite> = z.object({
   author: publicAuthorSchema.nullable(),
+  brand: z.object({
+    icon: z.object({ png180: brandUrlSchema, png32: brandUrlSchema, svg: brandUrlSchema.nullable() }).strict().nullable(),
+    logo: brandImageSchema.nullable(),
+    logoDark: brandImageSchema.nullable(),
+    showSiteName: z.boolean(),
+  }).strict(),
   defaultLocale: localeQuerySchema,
   description: z.string().max(160),
   name: z.string().min(1).max(120),

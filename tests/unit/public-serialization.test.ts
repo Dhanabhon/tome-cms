@@ -110,6 +110,13 @@ test('public contracts validate queries and serialize only explicit fields', () 
   assert.equal('author_id' in publicPage, false);
   assert.equal('cover_media_id' in publicPage, false);
 
+  // What the site wears, as the layout resolves it: addresses only, never a storage key.
+  const brand = {
+    icon: { png180: 'https://media.test/c.png', png32: 'https://media.test/d.png', svg: null },
+    logo: { height: 40, mimeType: 'image/svg+xml' as const, url: 'https://media.test/a.svg', width: 120 },
+    logoDark: null,
+    showSiteName: false,
+  };
   const publicSite = serializePublicSite({
     admin_path: '/private-admin',
     allow_visitor_theme: true,
@@ -135,7 +142,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
     theme: 'system' as const,
     timezone: 'Asia/Bangkok',
     updated_at: new Date('2026-09-08T04:00:00.000Z'),
-  }, media);
+  }, media, brand);
   assert.deepEqual(publicSite, {
     author: {
       avatar: {
@@ -146,6 +153,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
       links: [{ label: 'Site', url: 'https://example.com/' }],
       name: 'Tome Author',
     },
+    brand,
     defaultLocale: 'th',
     description: 'A public description',
     name: 'TomeCMS',

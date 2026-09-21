@@ -219,7 +219,7 @@ test('Published query services paginate, enrich, and isolate the installed site'
   });
   const site = await getPublishedSite();
   assert.equal(site?.avatar?.id, mediaId);
-  const publicSite = serializePublicSite(site!.settings, site!.avatar);
+  const publicSite = serializePublicSite(site!.settings, site!.avatar, site!.brand);
   const publicPost = serializePublicPost(first.items[0]!);
   const json = JSON.stringify({ publicPost, publicSite });
   for (const internal of ['owner-a', '/private-admin', 'owners/a/2026/09/cover.webp', checksum]) {

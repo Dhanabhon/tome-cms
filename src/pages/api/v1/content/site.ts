@@ -13,7 +13,7 @@ export const GET: APIRoute = async ({ request }) => {
     parsePublicQuery(new URL(request.url).searchParams, emptyQuerySchema);
     const site = await getPublishedSite();
     if (!site) throw new HttpError(503, 'Site settings are unavailable.');
-    return publicJson(request, { data: serializePublicSite(site.settings, site.avatar) }, {
+    return publicJson(request, { data: serializePublicSite(site.settings, site.avatar, site.brand) }, {
       lastModified: site.lastModified,
       startedAt,
     });

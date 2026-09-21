@@ -108,6 +108,8 @@ test('OpenAPI describes only the complete public content contract', () => {
 
   assert.equal(publicSiteSchema.safeParse({
     author: null,
+    // Always present: a site with no logo or icon of its own says so.
+    brand: { icon: null, logo: null, logoDark: null, showSiteName: true },
     defaultLocale: 'th',
     description: 'A public site',
     name: 'TomeCMS',
