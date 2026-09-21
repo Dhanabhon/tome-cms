@@ -12,6 +12,7 @@ import useEditorSaveQueue from './useEditorSaveQueue';
 import { contentSlug } from '../../lib/slug';
 import { requestExcerpt } from './ExcerptSuggestion';
 import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
+import { atLeast } from '../../lib/busy';
 
 interface EditorSourcePost {
   cover_image: string | null;
@@ -280,7 +281,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     }
     setPublishing(true);
     try {
-      await saveBefore(() => undefined, 'published');
+      await atLeast(saveBefore(() => undefined, 'published'));
     } finally {
       setPublishing(false);
     }

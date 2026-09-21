@@ -10,6 +10,7 @@ import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 import ExcerptSuggestion from './ExcerptSuggestion';
+import { atLeast } from '../../lib/busy';
 
 export interface CategorySuggestion {
   /** Likely is offered as a suggestion; possible as a maybe, apart from them. */
@@ -117,13 +118,14 @@ export default function PostSettingsDrawer({
           {onSuggestCategories && (
             <div className="drawer-suggest">
               <button
+                aria-busy={suggesting}
                 className="admin-button admin-button--secondary"
                 disabled={suggesting}
                 onClick={() => {
                   setSuggesting(true);
                   setSuggested(null);
                   setSuggestFailed(false);
-                  void onSuggestCategories()
+                  void atLeast(onSuggestCategories())
                     .then((found) => setSuggested(found.filter(({ id }) => !selectedCategoryIds.includes(id))))
                     // Not an empty answer: "nothing matches" would be a claim nobody made.
                     .catch(() => setSuggestFailed(true))
@@ -131,8 +133,10 @@ export default function PostSettingsDrawer({
                 }}
                 type="button"
               >
-                {suggesting ? copy.drawer.suggestingCategories : copy.drawer.suggestCategories}
+                {copy.drawer.suggestCategories}
               </button>
+              {/* The words live beside the button, so it keeps its width while it spins. */}
+              {suggesting && <small role="status">{copy.drawer.suggestingCategories}</small>}
               {/* Offered, never applied: the owner files their own writing, and a wrong
                   guess costs a glance rather than a correction. */}
               {(['likely', 'possible'] as const).map((band) => {

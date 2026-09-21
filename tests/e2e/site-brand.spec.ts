@@ -207,8 +207,18 @@ test('the owner uploads a logo and an icon, and hides the name behind the logo',
 
   // A file field applied on the spot; the form's own save still goes through after it.
   await hide.check();
-  await page.getByRole('button', { name: 'Save' }).click();
+  // And the press is seen: this server answers in milliseconds, and the button still spins
+  // for the admin's minimum rather than for a frame.
+  const save = page.getByRole('button', { name: 'Save' });
+  await save.evaluate((button) => {
+    const log: number[] = [];
+    (window as unknown as { busyLog: number[] }).busyLog = log;
+    new MutationObserver(() => log.push(performance.now())).observe(button, { attributeFilter: ['aria-busy'], attributes: true });
+  });
+  await save.click();
   await expect(page.locator('.admin-save-bar [role="status"]')).toHaveText('Saved.');
+  const [spinning, stopped] = await page.evaluate(() => (window as unknown as { busyLog: number[] }).busyLog);
+  expect((stopped ?? 0) - (spinning ?? 0), 'long enough to be seen').toBeGreaterThanOrEqual(350);
 
   await page.goto(`${origin}/en`);
   await expect(page.locator('header .site-brand__name')).toHaveCount(0);

@@ -4,6 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { PostCategorySummary, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
+import { atLeast } from '../../lib/busy';
 
 interface CategoryManagerProps {
   initialCategories: PostCategorySummary[];
@@ -47,11 +48,11 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
     setError('');
     setLiveStatus(`Creating “${name}”…`);
     try {
-      const response = await fetch('/api/admin/categories', {
+      const response = await atLeast(fetch('/api/admin/categories', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name }),
-      });
+      }));
       const body = await response.json().catch(() => null) as { category?: PostCategorySummary; error?: string } | null;
       if (!response.ok || !body?.category) throw new Error(body?.error || copy.categories.createFailed);
       categoryRevision.current += 1;
@@ -77,11 +78,11 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
     setError('');
     setLiveStatus(`Renaming Category to “${name}”…`);
     try {
-      const response = await fetch('/api/admin/categories', {
+      const response = await atLeast(fetch('/api/admin/categories', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, name }),
-      });
+      }));
       const body = await response.json().catch(() => null) as { category?: PostCategorySummary; error?: string } | null;
       if (!response.ok || !body?.category) throw new Error(body?.error || copy.categories.updateFailed);
       categoryRevision.current += 1;
@@ -118,11 +119,11 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
     setLiveStatus(fill(copy.categories.deleting, { name: category.name }));
     let affectedPosts: number | null = null;
     try {
-      const response = await fetch('/api/admin/categories', {
+      const response = await atLeast(fetch('/api/admin/categories', {
         method: 'DELETE',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id: category.id }),
-      });
+      }));
       const body = await response.json().catch(() => null) as { affectedPosts?: number; error?: string } | null;
       if (!response.ok || typeof body?.affectedPosts !== 'number') {
         throw new Error(body?.error || copy.categories.deleteFailed);

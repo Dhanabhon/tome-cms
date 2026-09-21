@@ -9,6 +9,7 @@ import type { PluginState } from '../../server/plugins/store';
 import type { PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
+import { atLeast } from '../../lib/busy';
 
 interface PluginManagerProps {
   initialPlugins: PluginState[];
@@ -50,11 +51,11 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
     setBusyId(id);
     setReport({ id: '' });
     try {
-      const response = await fetch('/api/admin/plugins', {
+      const response = await atLeast(fetch('/api/admin/plugins', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...body, id }),
-      });
+      }));
       const payload = await response.json().catch(() => null) as { error?: string; plugins?: PluginState[] } | null;
       if (!response.ok || !payload?.plugins) throw new Error(payload?.error || copy.plugins.saveFailed);
       setPlugins(payload.plugins);

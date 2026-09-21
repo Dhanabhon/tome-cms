@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
+import { atLeast } from '../../lib/busy';
 import { authClient } from '../../lib/auth-client';
 import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
@@ -53,7 +54,9 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   const [passkeys, setPasskeys] = useState<PasskeyView[]>([]);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [newName, setNewName] = useState('Spare Passkey');
-  const [busy, setBusy] = useState(false);
+  // Which action is running, so only its own button says so; the others are only disabled.
+  const [busy, setBusy] = useState<string | null>(null);
+  const pressed = (action: string) => busy === action;
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [message, setMessage] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -81,7 +84,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
 
   async function signIn() {
     if (busy) return;
-    setBusy(true);
+    setBusy('sign-in');
     setMessage('');
     try {
       const result = await authClient.signIn.passkey();
@@ -93,14 +96,14 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     } catch (error) {
       setMessage(describePasskeyException(error, copy, copy.security.noPasskeyAccepted));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function addPasskey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !newName.trim()) return;
-    setBusy(true);
+    setBusy('add');
     setMessage('');
     try {
       const result = await authClient.passkey.addPasskey({ name: newName.trim() });
@@ -114,7 +117,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     } catch (error) {
       setMessage(describePasskeyException(error, copy, copy.security.spareNotAdded));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -124,21 +127,21 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     const form = new FormData(event.currentTarget);
     const name = form.get('name');
     if (typeof name !== 'string' || !name.trim()) return;
-    if (await mutatePasskey('PATCH', { id, name: name.trim() }, copy.security.passkeyRenamed)) {
+    if (await mutatePasskey('PATCH', { id, name: name.trim() }, copy.security.passkeyRenamed, `rename:${id}`)) {
       setRenamingId(null);
       focusRename(id);
     }
   }
 
-  async function mutatePasskey(method: 'DELETE' | 'PATCH', body: Record<string, string>, successMessage: string) {
-    setBusy(true);
+  async function mutatePasskey(method: 'DELETE' | 'PATCH', body: Record<string, string>, successMessage: string, action: string) {
+    setBusy(action);
     setMessage('');
     try {
-      const response = await fetch('/api/admin/security/passkeys', {
+      const response = await atLeast(fetch('/api/admin/security/passkeys', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      });
+      }));
       const payload = await responsePayload(response);
       if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.passkeyUpdateFailed);
       setMessage(successMessage);
@@ -148,13 +151,13 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
       setMessage(error instanceof Error ? error.message : copy.security.passkeyUpdateFailed);
       return false;
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function regenerateCodes() {
     if (busy) return;
-    setBusy(true);
+    setBusy('codes');
     setMessage('');
     setRecoveryCodes([]);
     try {
@@ -172,7 +175,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
       const detail = error instanceof Error ? error.message : copy.security.codesNotChanged;
       setMessage(describePasskeyException(error, copy, detail));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -187,11 +190,11 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
 
   if (needsSignIn) {
     return (
-      <section className="admin-card" aria-busy={busy}>
+      <section className="admin-card" aria-busy={busy !== null}>
         <h2>{copy.security.verifyOwner}</h2>
         <p>{copy.security.verifyHint}</p>
         <div className="security-actions">
-          <button aria-busy={busy} className="admin-button admin-button--primary" disabled={busy} onClick={() => void signIn()} type="button">{copy.security.verifyWithPasskey}</button>
+          <button aria-busy={pressed('sign-in')} className="admin-button admin-button--primary" disabled={busy !== null} onClick={() => void signIn()} type="button">{copy.security.verifyWithPasskey}</button>
           <a className="admin-button admin-button--secondary" href="/recovery">{copy.security.recoverAccess}</a>
         </div>
         <p className="admin-form-error security-message" role="alert" aria-live="polite">{message}</p>
@@ -200,7 +203,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   }
 
   return (
-    <div className="admin-card-stack" aria-busy={busy}>
+    <div className="admin-card-stack" aria-busy={busy !== null}>
       <section className="admin-card" aria-labelledby="passkeys-title">
         <header className="admin-card__head">
           <h2 id="passkeys-title">{copy.security.passkeys}</h2>
@@ -215,10 +218,10 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                     {copy.security.passkeyName}
                     <input autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
                   </label>
-                  <button aria-busy={busy} className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.saveName}</button>
+                  <button aria-busy={pressed(`rename:${passkey.id}`)} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.saveName}</button>
                   <button
                     className="admin-button"
-                    disabled={busy}
+                    disabled={busy !== null}
                     onClick={() => { setRenamingId(null); focusRename(passkey.id); }}
                     type="button"
                   >{copy.security.cancelRename}</button>
@@ -233,17 +236,17 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                     <button
                       aria-label={fill(copy.security.renameLabelFor, { name: passkey.name })}
                       className="admin-button admin-button--ghost admin-button--icon"
-                      disabled={busy}
+                      disabled={busy !== null}
                       onClick={() => { setRenamingId(passkey.id); setMessage(''); }}
                       ref={(button) => { if (button) renameButtons.current.set(passkey.id, button); }}
                       title={fill(copy.security.renameLabelFor, { name: passkey.name })}
                       type="button"
                     ><Icon name="pencil" /></button>
-                    <button aria-busy={busy}
+                    <button aria-busy={pressed(`delete:${passkey.id}`)}
                       aria-label={fill(copy.security.deleteLabelFor, { name: passkey.name })}
                       className="admin-button admin-button--ghost admin-button--icon security-key__delete"
-                      disabled={busy || passkeys.length < 2}
-                      onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted)}
+                      disabled={busy !== null || passkeys.length < 2}
+                      onClick={() => void mutatePasskey('DELETE', { id: passkey.id }, copy.security.passkeyDeleted, `delete:${passkey.id}`)}
                       title={fill(copy.security.deleteLabelFor, { name: passkey.name })}
                       type="button"
                     ><Icon name="trash" /></button>
@@ -258,7 +261,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
             {copy.security.newPasskeyName}
             <input className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => setNewName(event.target.value)} required value={newName} />
           </label>
-          <button aria-busy={busy} className="admin-button admin-button--primary" disabled={busy} type="submit">{copy.security.addSpare}</button>
+          <button aria-busy={pressed('add')} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.addSpare}</button>
         </form>
       </section>
 
@@ -267,11 +270,11 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
           <h2 id="recovery-codes-title">{copy.security.recoveryCodes}</h2>
           <p>{copy.security.regenerateWarning}</p>
         </header>
-        <button aria-busy={busy} className="admin-button admin-button--secondary" disabled={busy} onClick={() => void regenerateCodes()} type="button">{copy.security.regenerate}</button>
+        <button aria-busy={pressed('codes')} className="admin-button admin-button--secondary" disabled={busy !== null} onClick={() => void regenerateCodes()} type="button">{copy.security.regenerate}</button>
         {recoveryCodes.length > 0 && (
           <div className="security-codes">
             <ol>{recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}</ol>
-            <button aria-busy={busy} className="admin-button" onClick={() => void copyCodes()} type="button">{copy.security.copyCodes}</button>
+            <button className="admin-button" onClick={() => void copyCodes()} type="button">{copy.security.copyCodes}</button>
           </div>
         )}
       </section>

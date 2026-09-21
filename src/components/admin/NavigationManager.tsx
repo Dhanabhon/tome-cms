@@ -5,6 +5,7 @@ import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
+import { atLeast } from '../../lib/busy';
 
 type MenuKey = `${NavigationLocation}:${PageLocale}`;
 type LocalItem = NavigationMutationItem & { id: string };
@@ -36,6 +37,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  // Save and Retry both save; only the one that was pressed spins.
+  const [pressed, setPressed] = useState<'retry' | 'save' | null>(null);
   const [status, setStatus] = useState('');
   const [kind, setKind] = useState<NavigationKind>('home');
   const [pageId, setPageId] = useState('');
@@ -179,13 +182,14 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     }
     savingRef.current = true;
     setSaving(true);
+    setPressed(restoreFocus ? 'retry' : 'save');
     setSaveError('');
     setStatus(copy.navigation.savingMenu);
     try {
-      const response = await fetch('/api/admin/navigation', {
+      const response = await atLeast(fetch('/api/admin/navigation', {
         method: 'PUT', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ locale, location, items: items.map(({ id: _id, ...item }) => item) }),
-      });
+      }));
       if (!response.ok) throw new Error(copy.navigation.saveFailed);
       const result = await response.json() as { items: SavedItem[] };
       setMenus((current) => ({ ...current, [key]: result.items.map(localItem) }));
@@ -197,6 +201,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     } finally {
       savingRef.current = false;
       setSaving(false);
+      setPressed(null);
       if (restoreFocus) requestAnimationFrame(() => addButton.current?.focus());
     }
   }
@@ -247,10 +252,11 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
               })}
             </ol>
             <div className="navigation-save">
-              <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{saving ? copy.navigation.saving : copy.navigation.saveMenu}</button>
-              <span>{dirty[key] ? copy.navigation.unsavedChanges : copy.navigation.noUnsavedChanges}</span>
+              <button aria-busy={pressed === 'save'} className="admin-button admin-button--primary" disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{copy.navigation.saveMenu}</button>
+              {/* The words live here, so the button keeps its width while it spins. */}
+              <span>{saving ? copy.navigation.saving : dirty[key] ? copy.navigation.unsavedChanges : copy.navigation.noUnsavedChanges}</span>
             </div>
-            {saveError && <div className="admin-alert" role="alert">{saveError} <button aria-busy={saving} className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
+            {saveError && <div className="admin-alert" role="alert">{saveError} <button aria-busy={pressed === 'retry'} className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
           </div>
         </div>
       </>}

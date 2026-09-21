@@ -4,6 +4,7 @@ import Icon from '../Icon';
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
 import type { RedirectEntry } from '../../server/content/redirects';
+import { atLeast } from '../../lib/busy';
 
 export interface RedirectTarget {
   id: string;
@@ -38,11 +39,11 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
   /** Every change answers with the whole list, so the screen shows what the table says. */
   async function send(method: 'DELETE' | 'POST', body: object, done: string) {
     setError('');
-    const response = await fetch('/api/admin/redirects', {
+    const response = await atLeast(fetch('/api/admin/redirects', {
       method,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    }));
     const payload = await response.json().catch(() => null) as { error?: string; redirects?: RedirectEntry[] } | null;
     if (!response.ok || !payload?.redirects) throw new Error(payload?.error || copy.redirects.failed);
     setRedirects(payload.redirects);

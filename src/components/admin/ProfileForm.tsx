@@ -4,6 +4,7 @@ import type { AuthorLink, PostLocale, SiteSettings } from '../../types/cms';
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
+import { atLeast } from '../../lib/busy';
 
 interface ProfileFormProps {
   ownerLocale?: PostLocale | null;
@@ -63,11 +64,11 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
     setFieldErrors({});
     setStatus('');
     try {
-      const response = await fetch('/api/admin/profile', {
+      const response = await atLeast(fetch('/api/admin/profile', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ authorAvatarMediaId, authorBioEn, authorBioTh, authorLinks, authorName, updatedAt }),
-      });
+      }));
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};

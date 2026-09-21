@@ -97,7 +97,7 @@ test("an editor refuses to publish an empty document in the owner's own language
     assert.match(source, /import \{ hasMeaningfulContent \} from '\.\.\/\.\.\/lib\/editor-content';/);
     assert.match(source, /if \(!hasMeaningfulContent\(draftRef\.current\.contentJson\)\) \{\n\s+setErrorMessage\(copy\.editor\.contentRequired\);\n\s+return;/);
     // Nothing reaches the network until the check has passed, and this is the only way through.
-    assert.match(source, /setErrorMessage\(copy\.editor\.contentRequired\);[\s\S]*?await saveBefore\(\(\) => undefined, 'published'\)/);
+    assert.match(source, /setErrorMessage\(copy\.editor\.contentRequired\);[\s\S]*?await (?:atLeast\()?saveBefore\(\(\) => undefined, 'published'\)/);
     assert.equal(source.match(/saveBefore\(\(\) => undefined, 'published'\)/g)?.length, 1);
     assert.match(source, /onClick=\{\(\) => void publish\(\)\}/);
   }

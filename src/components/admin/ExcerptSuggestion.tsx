@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
+import { atLeast } from '../../lib/busy';
 
 /** What the button, the answer and an empty answer say, for each field. */
 const LABELS = {
@@ -36,21 +37,24 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'e
   return (
     <div className="drawer-suggest">
       <button
+        aria-busy={asking}
         className="admin-button admin-button--secondary"
         disabled={asking}
         onClick={() => {
           setAsking(true);
           setFound(undefined);
           setFailed(false);
-          void onSuggest()
+          void atLeast(onSuggest())
             .then(setFound)
             .catch(() => setFailed(true))
             .finally(() => setAsking(false));
         }}
         type="button"
       >
-        {asking ? copy.drawer.suggestingExcerpt : copy.drawer[labels.suggest]}
+        {copy.drawer[labels.suggest]}
       </button>
+      {/* The words live beside the button, so it keeps its width while it spins. */}
+      {asking && <small role="status">{copy.drawer.suggestingExcerpt}</small>}
       {found && (
         <figure className="drawer-suggestion">
           <blockquote>{found}</blockquote>

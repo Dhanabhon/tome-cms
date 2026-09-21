@@ -300,14 +300,21 @@ test('every control that starts a request reports it', () => {
     ['PluginManager', 'busy'],
     ['ProfileForm', 'saving'],
     ['CategoryManager', "pendingActionIds.has('create')"],
-    ['SecurityManager', 'busy'],
+    // One action at a time, and only its own button says so -- not every button on the screen.
+    ['SecurityManager', "pressed('add')"],
     ['MediaLibrary', 'uploading'],
+    ['MediaLibrary', "pressed('save-details')"],
+    ['MediaLibrary', 'deleting'],
+    ['NavigationManager', "pressed === 'save'"],
     ['PasskeySignIn', 'busy'],
     // Publish or Update, and not the autosave: that is shown by the save state beside it.
     ['Editor', 'publishing'],
     ['PageEditor', 'publishing'],
     // The file field that was pressed, not the other two beside it.
     ['SiteBrandFields', "pressed(kind, 'upload')"],
+    ['UpdateManager', 'checking'],
+    ['PostSettingsDrawer', 'suggesting'],
+    ['ExcerptSuggestion', 'asking'],
   ];
   for (const [component, flag] of controls) {
     const source = read(`src/components/admin/${component}.tsx`);
@@ -317,6 +324,28 @@ test('every control that starts a request reports it', () => {
   const settings = read('src/components/admin/SettingsForm.tsx');
   assert.doesNotMatch(settings, /\{saving \? copy\.settings\.saving : copy\.settings\.save\}/);
   assert.match(settings, /role="status">\{saving \? copy\.settings\.saving/);
+  const swapped: ReadonlyArray<readonly [string, RegExp]> = [
+    ['NavigationManager', /\{saving \? copy\.navigation\.saving : copy\.navigation\.saveMenu\}/],
+    ['MediaLibrary', /\{deleting \? copy\.media\.deleting : copy\.media\.delete\}/],
+    ['UpdateManager', /\{busy \? copy\.updates\.checking : copy\.updates\.checkAgain\}/],
+    ['UpdateManager', /\{installing \? copy\.updates\.verifying/],
+    ['PostSettingsDrawer', /\{suggesting \? copy\.drawer\.suggestingCategories/],
+    ['ExcerptSuggestion', /\{asking \? copy\.drawer\.suggestingExcerpt/],
+  ];
+  for (const [component, label] of swapped) {
+    assert.doesNotMatch(read(`src/components/admin/${component}.tsx`), label, `${component} swaps its label while it works`);
+  }
+});
+
+test('a pressed control spins long enough to be seen', () => {
+  // A quick save answered in twenty milliseconds and its spinner lasted one frame. atLeast
+  // holds every one of these for MIN_BUSY_MS, so a press is always seen to have been taken.
+  for (const component of [
+    'SettingsForm', 'ProfileForm', 'ThemeForm', 'PluginManager', 'CategoryManager', 'NavigationManager', 'RedirectManager',
+    'SecurityManager', 'MediaLibrary', 'SiteBrandFields', 'UpdateManager', 'PostSettingsDrawer', 'ExcerptSuggestion', 'Editor', 'PageEditor',
+  ]) {
+    assert.match(read(`src/components/admin/${component}.tsx`), /\batLeast\(/, `${component} lets its spinner flash`);
+  }
 });
 
 test('a row that is working dims rather than spinning inside its menu', () => {
