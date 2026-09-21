@@ -303,6 +303,9 @@ test('every control that starts a request reports it', () => {
     ['SecurityManager', 'busy'],
     ['MediaLibrary', 'uploading'],
     ['PasskeySignIn', 'busy'],
+    // Publish or Update, and not the autosave: that is shown by the save state beside it.
+    ['Editor', 'publishing'],
+    ['PageEditor', 'publishing'],
   ];
   for (const [component, flag] of controls) {
     const source = read(`src/components/admin/${component}.tsx`);
