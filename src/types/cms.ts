@@ -1,4 +1,5 @@
 import type { SupportedImageType } from '../lib/media';
+import type { SiteBrand } from '../lib/site-brand';
 
 export type { SupportedImageType } from '../lib/media';
 
@@ -348,6 +349,8 @@ export interface PublicAuthor {
 
 export interface PublicSite {
   author: PublicAuthor | null;
+  /** The site's logo, dark logo and icon as addresses, and whether its name is beside the logo. */
+  brand: SiteBrand;
   defaultLocale: PostLocale;
   description: string;
   name: string;

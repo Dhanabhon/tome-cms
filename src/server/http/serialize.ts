@@ -1,5 +1,6 @@
 import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicMedia, PublicNavigation, PublicPage, PublicPost, PublicSite } from '../../types/cms';
 import type { PublishedPage, PublishedPost } from '../content/published';
+import type { SiteBrand } from '../../lib/site-brand';
 import type { SiteSettings } from '../content/settings';
 import type { ReadyMedia } from '../media/service';
 import {
@@ -71,7 +72,8 @@ export function serializePublicPage(row: PublishedPage): PublicPage {
   });
 }
 
-export function serializePublicSite(row: SiteSettings, avatar: ReadyMedia | null = null): PublicSite {
+/** The brand is resolved by the caller, which knows where media is served from; this does not. */
+export function serializePublicSite(row: SiteSettings, avatar: ReadyMedia | null, brand: SiteBrand): PublicSite {
   return publicSiteSchema.parse({
     author: row.author_name.trim() ? {
       avatar: avatar ? serializePublicMedia(avatar) : null,
@@ -79,6 +81,7 @@ export function serializePublicSite(row: SiteSettings, avatar: ReadyMedia | null
       links: row.author_links.map(({ label, url }) => ({ label, url })),
       name: row.author_name,
     } : null,
+    brand,
     defaultLocale: row.default_locale,
     description: row.site_description,
     name: row.site_name,

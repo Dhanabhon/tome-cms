@@ -50,6 +50,8 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
   assert.ok(!stored.includes('script'), 'stored as made safe');
   assert.ok(first.brand.logo?.url.endsWith(logo.key));
   assert.ok((await knownObjects(db)).some(({ key }: { key: string }) => key === logo.key), 'a reset accounts for the logo');
+  const { getPublishedSite } = await import('../../src/server/content/published');
+  assert.equal((await getPublishedSite())?.brand.logo?.url, first.brand.logo?.url, 'the API gives the same logo');
 
   // A replacement deletes what it replaced, and moves the version the public API reads.
   const png = await sharp({ create: { background: '#123456', channels: 4, height: 100, width: 400 } }).png().toBuffer();

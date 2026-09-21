@@ -14,6 +14,8 @@ import { listPublishedCategoriesForOwner } from './categories';
 import { editorMediaIds } from './editor';
 import { pageFromRow } from './pages';
 import { postFromRow } from './posts';
+import type { SiteBrand } from '../../lib/site-brand';
+import { brandOf } from './brand';
 import { getSiteSettings, type SiteSettings } from './settings';
 import { live } from './live';
 export interface PublishedPost extends Post {
@@ -49,6 +51,7 @@ export interface PublishedPageResult<T> {
 
 export interface PublishedSiteResult {
   avatar: ReadyMedia | null;
+  brand: SiteBrand;
   lastModified: Date;
   settings: SiteSettings;
 }
@@ -298,7 +301,7 @@ export async function getPublishedSite(): Promise<PublishedSiteResult | null> {
   const avatar = settings.author_avatar_media_id
     ? (await listReadyMediaByIds(settings.owner_id, [settings.author_avatar_media_id]))[0] ?? null
     : null;
-  return { avatar, lastModified: newer(settings.updated_at, avatar?.updated_at), settings };
+  return { avatar, brand: brandOf(settings), lastModified: newer(settings.updated_at, avatar?.updated_at), settings };
 }
 
 export async function listPublishedCategories(
