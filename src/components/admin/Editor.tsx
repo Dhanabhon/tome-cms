@@ -84,6 +84,9 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [languageEditions, setLanguageEditions] = useState(translations);
   const [isActionPending, setIsActionPending] = useState(false);
+  // Publish or Update's own work. Not the editor's saving: an autosave is shown by the save
+  // state beside the button, and a spinner on a button nobody pressed reads as publishing.
+  const [publishing, setPublishing] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
   const draftRef = useRef<EditorDraft>({
@@ -275,7 +278,12 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
       setErrorMessage(copy.editor.contentRequired);
       return;
     }
-    await saveBefore(() => undefined, 'published');
+    setPublishing(true);
+    try {
+      await saveBefore(() => undefined, 'published');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const changeTitle = (value: string) => {
@@ -344,7 +352,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
               event.currentTarget.focus();
               setSettingsOpen(true);
             }} type="button">{copy.nav.settings}</button>
-            <button aria-busy={saveState === 'saving'} className="admin-button admin-button--primary" disabled={isActionPending} onClick={() => void publish()} type="button">
+            <button aria-busy={publishing} className="admin-button admin-button--primary" disabled={isActionPending} onClick={() => void publish()} type="button">
               {postStatus === 'published' ? copy.editor.update : copy.row.publish}
             </button>
           </div>

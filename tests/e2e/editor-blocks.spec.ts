@@ -278,12 +278,42 @@ test('a post can be published for later, and is nobody else\'s until then', asyn
   await when.fill(friday);
   await page.getByRole('button', { name: /Close settings/i }).click();
 
-  page.on('request', (r) => { if (r.url().includes('/api/admin/posts')) console.log('REQ', r.method(), (r.postData() || '').slice(0, 120), '| publishedAt:', /"publishedAt":"[^"]*"/.exec(r.postData() || '')?.[0] ?? 'ABSENT'); });
-  console.log('input value:', await when.inputValue());
   const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
     && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
   await page.getByRole('button', { name: /^Publish$/ }).click();
   await written;
+
+  // Only the button that was pressed says it is working. It used to follow the whole
+  // editor's saving, so every autosave put a spinner on Update while the owner typed -- which
+  // reads as publishing. Each save here is held until it has been looked at.
+  const update = page.getByRole('button', { name: /^Update$/ });
+  const holdSaves = async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/api/admin/posts', async (route) => { await held; await route.continue(); });
+    return release;
+  };
+  const saved = () => page.waitForResponse((response) => response.url().endsWith('/api/admin/posts')
+    && response.request().method() === 'PUT' && response.ok());
+
+  let release = await holdSaves();
+  let answered = saved();
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type(' And a few more.');
+  await expect(page.locator('.admin-save-state'), 'the editor is saving').toHaveAttribute('data-state', 'saving');
+  await expect(update, 'but nobody pressed Update').toHaveAttribute('aria-busy', 'false');
+  release();
+  await answered;
+  await page.unroute('**/api/admin/posts');
+
+  release = await holdSaves();
+  answered = saved();
+  await update.click();
+  await expect(update, 'the button that was pressed says so').toHaveAttribute('aria-busy', 'true');
+  release();
+  await answered;
+  await expect(update, 'until it is done').toHaveAttribute('aria-busy', 'false');
+  await page.unroute('**/api/admin/posts');
 
   // The three places the answer has to agree: what the row says, what the list shows, and
   // what a reader gets. A screen that says Scheduled over a page anyone can already read is
