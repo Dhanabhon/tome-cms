@@ -126,7 +126,7 @@ export interface ContentRedirectTable {
   slug: string;
   post_id: string | null;
   page_id: string | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface PluginSettingsTable {

@@ -303,3 +303,46 @@ test('a post can be published for later, and is nobody else\'s until then', asyn
   expect(reader?.status(), 'and a reader is not served it yet').toBe(404);
 });
 
+test('an owner can forward an old address, and stop', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const { createPost } = await import('../../src/server/content/posts');
+  const { db } = await import('../../src/server/db/client');
+  const settings = await getSiteSettings();
+  const [category] = await db.selectFrom('categories').select('id').where('is_default', '=', true).execute();
+  await createPost(settings!.owner_id, {
+    categoryIds: [category!.id], contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Here.' }] }] },
+    coverMediaId: null, excerpt: '', metaDescription: null, metaTitle: null,
+    slug: 'destination', status: 'published', title: 'Destination',
+  });
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/redirects`);
+  await page.locator('.redirect-add select').selectOption({ label: 'EN · Destination' });
+  // The field shows where the address will live once the article is chosen.
+  await expect(page.locator('.redirect-add .admin-control--prefixed > span')).toHaveText('/en/blog/');
+  await page.locator('.redirect-add input[type="text"]').fill('somewhere-old');
+  await page.getByRole('button', { name: /^Forward$/ }).click();
+
+  const row = page.locator('.redirect-row', { hasText: '/en/blog/somewhere-old' });
+  await expect(row, 'listed once it is saved').toBeVisible();
+  await expect(row.getByRole('link', { name: 'Destination' })).toHaveAttribute('href', '/en/blog/destination');
+
+  const forwarded = await fetch(`${origin}/en/blog/somewhere-old`, { redirect: 'manual' });
+  expect(forwarded.status, 'and a reader is sent on').toBe(301);
+
+  await row.getByRole('button', { name: /Stop forwarding/ }).click();
+  await expect(row, 'gone from the list').toHaveCount(0);
+  const stopped = await fetch(`${origin}/en/blog/somewhere-old`, { redirect: 'manual' });
+  expect(stopped.status, 'and from the site').toBe(404);
+});
+

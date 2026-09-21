@@ -2290,3 +2290,26 @@ body {
     opacity: 0;
   }
 }
+
+/* Redirects: the form to add one, then the list of old addresses and where each goes. */
+.redirect-manager { display: grid; gap: var(--space-lg); }
+.redirect-add { display: grid; gap: var(--space-md); }
+.redirect-add h2 { margin: 0; font-size: var(--text-lg); }
+.redirect-add p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.redirect-add .admin-button { justify-self: start; }
+.redirect-empty { color: var(--color-muted); }
+.redirect-list { display: grid; margin: 0; padding: 0; list-style: none; border-block-start: var(--rule-hair) solid var(--color-rule); }
+.redirect-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  align-items: center;
+  justify-content: space-between;
+  padding-block: var(--space-sm);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
+}
+.redirect-row__route { display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; min-width: 0; }
+.redirect-row__route code { overflow-wrap: anywhere; font-size: var(--text-sm); }
+.redirect-row__route span { display: grid; min-width: 0; }
+.redirect-row__route small, .redirect-row__meta small { color: var(--color-muted); overflow-wrap: anywhere; }
+.redirect-row__meta { display: flex; gap: var(--space-xs); align-items: center; }

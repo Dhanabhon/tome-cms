@@ -14,7 +14,7 @@ test('an address an article moved away from still reaches it', async (context) =
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const { createPost, deletePost, updatePost, updatePostStatus } = await import('../../src/server/content/posts');
   const { createPage, updatePage } = await import('../../src/server/content/pages');
-  const { movedPage, movedPost } = await import('../../src/server/content/redirects');
+  const { addRedirect, deleteRedirect, listRedirects, movedPage, movedPost } = await import('../../src/server/content/redirects');
   context.after(closeDatabase);
 
   await migrateToLatest();
@@ -96,4 +96,31 @@ test('an address an article moved away from still reaches it', async (context) =
   });
   assert.equal(await movedPage('th', 'about'), '/th/about-us', 'a page is forwarded too');
   assert.equal(await movedPost('th', 'about'), null, 'and only as a page');
+
+  // By hand: an address that changed before any of this was recorded.
+  const kept = await createPost('moving-owner', { ...base, slug: 'kept', title: 'Kept' });
+  const refused = (status: number) => (error: unknown) => (error as { status?: number }).status === status;
+  await assert.rejects(() => addRedirect('moving-owner', { kind: 'post', slug: 'Not An Address', targetId: kept.id }),
+    refused(400), 'an address is checked against the address rule');
+  await assert.rejects(() => addRedirect('moving-owner', { kind: 'post', slug: 'kept', targetId: kept.id }),
+    refused(409), 'and cannot be one something already lives at -- it would never be followed');
+  await assert.rejects(() => addRedirect('someone-else', { kind: 'post', slug: 'older', targetId: kept.id }),
+    refused(404), 'nor point at an article that is not the owner\'s');
+
+  await addRedirect('moving-owner', { kind: 'post', slug: 'kept-before-2026', targetId: kept.id });
+  assert.equal(await movedPost('th', 'kept-before-2026'), '/th/blog/kept', 'a hand-made address forwards like any other');
+
+  const listed = await listRedirects('moving-owner');
+  const mine = listed.find(({ slug }) => slug === 'kept-before-2026');
+  assert.deepEqual(
+    mine && { from: mine.from, kind: mine.kind, live: mine.live, targetTitle: mine.targetTitle, to: mine.to },
+    { from: '/th/blog/kept-before-2026', kind: 'post', live: true, targetTitle: 'Kept', to: '/th/blog/kept' },
+    'listed with where it goes and whether a reader arrives',
+  );
+  assert.ok(listed.some(({ from, kind }) => kind === 'page' && from === '/th/about'), 'pages are listed with posts');
+
+  await deleteRedirect('moving-owner', { kind: 'post', locale: 'th', slug: 'kept-before-2026' });
+  assert.equal(await movedPost('th', 'kept-before-2026'), null, 'and stops when it is removed');
+  await assert.rejects(() => deleteRedirect('moving-owner', { kind: 'post', locale: 'th', slug: 'kept-before-2026' }),
+    refused(404), 'removing one that is not there says so');
 });
