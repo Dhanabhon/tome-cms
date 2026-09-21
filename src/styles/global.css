@@ -2249,3 +2249,18 @@ body {
 @keyframes drawer-backdrop-out {
   to { opacity: 0; }
 }
+
+/* The suggestions sit under the boxes they would tick: a row of things to add, not a
+ * second list of things to choose between. */
+.drawer-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
+
+.admin-chip {
+  padding: var(--space-3xs) var(--space-xs);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+}
+
+.admin-chip:hover,
+.admin-chip:focus-visible { border-color: var(--color-accent); background: var(--color-paper-3); }

@@ -12,6 +12,7 @@ import { getPost, listPostTranslations } from '../../../server/content/posts';
 import { getSiteSettings, type SiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
 import type { Post, PostCategory, PostTranslationSummary } from '../../../types/cms';
+import { hasJudgement } from '../../../server/ai/typesafe';
 
 let post: Post | null = null;
 let editorPost: Omit<Post, 'translation_group_id'> | null = null;
@@ -64,7 +65,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
-      <Editor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
+      <Editor canSuggest={hasJudgement()} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </Editor>
     ) : (
