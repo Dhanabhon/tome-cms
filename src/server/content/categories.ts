@@ -4,6 +4,7 @@ import type { PostCategory, PostCategoryBadge, PostCategorySummary, PostLocale }
 import { db } from '../db/client';
 import type { Database } from '../db/types';
 import { HttpError } from '../http/errors';
+import { live } from './live';
 
 function category(row: {
   id: string;
@@ -72,7 +73,7 @@ export async function listPublishedCategoriesForOwner(
     ])
     .where('category.owner_id', '=', ownerId)
     .where('post.locale', '=', locale)
-    .where('post.status', '=', 'published')
+    .where(live('post'))
     .orderBy('category.is_default', 'desc')
     .orderBy('category.name')
     .orderBy('category.id')

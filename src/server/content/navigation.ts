@@ -13,6 +13,7 @@ import {
 import { db } from '../db/client';
 import type { Database, NavigationItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
+import { live } from './live';
 
 const label = z.string().trim().min(1).max(80);
 const customUrl = z.string().trim().transform(normalizeNavigationUrl)
@@ -147,7 +148,7 @@ async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigati
     const pages = await db.selectFrom('pages').select(['id', 'slug', 'updated_at'])
       .where('owner_id', '=', settings.owner_id)
       .where('locale', '=', locale)
-      .where('status', '=', 'published')
+      .where(live('pages'))
       .where('id', 'in', pageIds)
       .execute();
     for (const page of pages) {

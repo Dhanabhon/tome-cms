@@ -150,7 +150,9 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         meta_title: input.metaTitle,
         meta_description: input.metaDescription,
         status: input.status,
-        published_at: null,
+        // A first save can already carry a date: an owner who schedules before the autosave
+        // has run is scheduling the post that save creates.
+        published_at: input.publishedAt ? new Date(input.publishedAt) : null,
         owner_id: ownerId,
       }).returningAll().executeTakeFirstOrThrow();
       await replacePostGroupCategories(trx, ownerId, translationGroupId, input.categoryIds);
@@ -250,6 +252,8 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         meta_title: input.metaTitle,
         meta_description: input.metaDescription,
         status: input.status,
+        // Absent leaves it to the trigger: stamped on a first publish, carried forward after.
+        ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
       await replacePostGroupCategories(trx, ownerId, current.translation_group_id, input.categoryIds);
       return updated;
@@ -262,7 +266,7 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
 
 export async function updatePostStatus(
   ownerId: string,
-  input: { id: string; status: Post['status']; updatedAt: string },
+  input: { id: string; publishedAt?: string | null; status: Post['status']; updatedAt: string },
 ): Promise<Post> {
   const row = await db.transaction().execute(async (trx) => {
     const current = await trx.selectFrom('posts').selectAll()
@@ -274,6 +278,9 @@ export async function updatePostStatus(
       : null;
     return trx.updateTable('posts').set({
       status: input.status,
+      // Absent leaves it to the trigger, which stamps the moment for a first publish and
+      // carries the existing date forward otherwise.
+      ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
       ...(content ? { content_json: content.contentJson, content_html: content.contentHtml } : {}),
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();

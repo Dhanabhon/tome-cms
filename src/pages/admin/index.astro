@@ -188,7 +188,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                           {index === 0
                             ? <h2 class="admin-story-edition__title">{title}</h2>
                             : <span class="admin-story-edition__title">{title}</span>}
-                          <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
+                          <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status, edition.published_at)}</span>
                         </a>
                         <details class="admin-story-menu">
                           <summary aria-label={`${copy.posts.actionsFor} ${label}`}><Icon name="more" /></summary>

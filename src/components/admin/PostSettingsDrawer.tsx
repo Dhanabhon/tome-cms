@@ -8,8 +8,11 @@ import { COVER_IMAGE_GUIDANCE, MAX_IMAGE_BYTES } from '../../lib/media';
 import type { MediaAsset, PostCategory, PostLocale } from '../../types/cms';
 import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
+import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 
 interface PostSettingsDrawerProps {
+  publishedAt: string | null;
+  onChangePublishedAt: (value: string | null) => void;
   categories: PostCategory[];
   copy: AdminCopy;
   coverImage: string | null;
@@ -35,7 +38,7 @@ interface PostSettingsDrawerProps {
 export default function PostSettingsDrawer({
   categories, copy, coverImage, errorMessage, excerpt, locale, metaDescription, metaTitle,
   onChangeCategories, onChangeCover, onChangeExcerpt, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
-  onClose, onManageCategories, open, ownerLocale, selectedCategoryIds, slug,
+  onChangePublishedAt, onClose, onManageCategories, open, ownerLocale, publishedAt, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const coverButton = useRef<HTMLButtonElement>(null);
@@ -66,6 +69,16 @@ export default function PostSettingsDrawer({
             <input onChange={(event) => onChangeSlug(event.target.value)} placeholder="post-slug" type="text" value={slug} />
           </div>
           <small>{copy.drawer.slugHintPost}</small>
+        </label>
+        <label className="admin-field">
+          <span>{copy.drawer.publishAt}</span>
+          <input
+            className="admin-control"
+            onChange={(event) => onChangePublishedAt(fromLocalInput(event.target.value))}
+            type="datetime-local"
+            value={toLocalInput(publishedAt)}
+          />
+          <small>{copy.drawer.publishAtHint}</small>
         </label>
         <fieldset aria-describedby="category-fallback-help" className="admin-field">
           <legend>{copy.drawer.categories}</legend>

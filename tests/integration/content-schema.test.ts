@@ -92,7 +92,10 @@ test('content schema keeps ownership, translation, category, and navigation inva
 
   const published = await db.selectFrom('posts').select('published_at').where('id', '=', postId).executeTakeFirstOrThrow();
   assert.ok(published.published_at instanceof Date);
-  assert.ok(published.published_at.getTime() > Date.now() - 10_000, 'the database owns publication time');
+  // The database supplies a publication time; it no longer overrules one. A write that
+  // names a date is an owner scheduling a post or dating an old one, and the row keeps what
+  // it was given -- see tests/integration/scheduled-publishing.test.ts for what that buys.
+  assert.equal(published.published_at.toISOString(), '2000-01-01T00:00:00.000Z', 'a named date is kept');
   await db.updateTable('posts').set({ status: 'draft' }).where('id', '=', postId).execute();
   assert.equal((await db.selectFrom('posts').select('published_at').where('id', '=', postId).executeTakeFirstOrThrow()).published_at, null);
   await db.insertInto('posts').values({

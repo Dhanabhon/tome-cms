@@ -66,6 +66,10 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
   const slugTouched = useRef(Boolean(initialPage));
   const actionPending = useRef<boolean | 'navigation'>(false);
   const pageStatusRef = useRef<PageStatus>(initialPage?.status ?? 'draft');
+  // The owner's answer to "when", carried in a ref for the same reason the status is:
+  // an autosave fires from a callback that must not be rebuilt every keystroke.
+  const publishedAtRef = useRef<string | null>(initialPage?.published_at ?? null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(initialPage?.published_at ?? null);
   const autosaveTimer = useRef<number>();
 
   const [title, setTitle] = useState(initialPage?.title ?? '');
@@ -108,6 +112,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
         ...(!id && sourcePage ? { locale, sourcePageId: sourcePage.id } : {}),
         ...draft,
         status: status ?? pageStatusRef.current,
+        ...(publishedAtRef.current ? { publishedAt: publishedAtRef.current } : {}),
       }),
     });
     const payload: unknown = await response.json();
@@ -122,11 +127,16 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
     pageId.current = savedPage.id;
     updatedAt.current = savedPage.updated_at;
     pageStatusRef.current = savedPage.status;
+    // Only when there is one. A draft has no date at all -- the database drops it -- and a
+    // date the owner picked before publishing must survive the autosave that files the
+    // draft, or pressing Publish sends nothing and the article goes out now.
+    if (savedPage.published_at) publishedAtRef.current = savedPage.published_at;
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPage.slug };
       setSlug(savedPage.slug);
     }
     setPageStatus(savedPage.status);
+    if (savedPage.published_at) setPublishedAt(savedPage.published_at);
     setLanguageEditions((current) => [
       ...current.filter((edition) => edition.locale !== savedPage.locale),
       { id: savedPage.id, locale: savedPage.locale, status: savedPage.status, title: savedPage.title },
@@ -355,6 +365,8 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
         </article>
 
         <PageSettingsDrawer
+          publishedAt={publishedAt}
+          onChangePublishedAt={(value) => { publishedAtRef.current = value; setPublishedAt(value); markDirty(); }}
           copy={copy}
           errorMessage={errorMessage}
           excerpt={excerpt}

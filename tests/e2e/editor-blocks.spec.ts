@@ -87,6 +87,9 @@ test.beforeAll(async () => {
     values ('signin-test-owner', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
     values (true, 'signin-test-owner', 'Select Test', 'en', 'UTC', '/admin')`.execute(db);
+  // Somewhere for a post to be filed: saving one files it under the default category,
+  // and an installation always has one.
+  await sql`insert into categories (owner_id, name, is_default) values ('signin-test-owner', 'Uncategorized', true)`.execute(db);
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
@@ -239,5 +242,64 @@ test('the settings drawer opens where it can be seen, every time', async ({ cont
 
   await page.mouse.click(40, 400);
   await expect(drawer, 'a click on the editor behind closes it').toBeHidden();
+});
+
+test('a post can be published for later, and is nobody else\'s until then', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('Out on Friday');
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Words enough to be publishable.');
+
+  // Tomorrow, in the clock the owner is looking at -- which is what the input holds.
+  const friday = await page.evaluate(() => {
+    const when = new Date(Date.now() + 86_400_000);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
+  });
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  const when = page.locator('dialog.admin-editor-settings input[type="datetime-local"]');
+  await when.waitFor({ state: 'visible' });
+  await when.fill(friday);
+  await page.getByRole('button', { name: /Close settings/i }).click();
+
+  page.on('request', (r) => { if (r.url().includes('/api/admin/posts')) console.log('REQ', r.method(), (r.postData() || '').slice(0, 120), '| publishedAt:', /"publishedAt":"[^"]*"/.exec(r.postData() || '')?.[0] ?? 'ABSENT'); });
+  console.log('input value:', await when.inputValue());
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+
+  // The three places the answer has to agree: what the row says, what the list shows, and
+  // what a reader gets. A screen that says Scheduled over a page anyone can already read is
+  // the failure worth catching.
+  const { db } = await import('../../src/server/db/client');
+  const row = await db.selectFrom('posts').select(['slug', 'status', 'published_at'])
+    .where('title', '=', 'Out on Friday').executeTakeFirstOrThrow();
+  expect(row.status, 'published').toBe('published');
+  expect(row.published_at!.getTime(), 'for a date still to come').toBeGreaterThan(Date.now());
+
+  await page.goto(`${origin}/admin`);
+  // Scheduled is a kind of published, so that is the tab it belongs under.
+  await page.locator('.admin-post-tabs').getByRole('link', { name: /Published/ }).click();
+  await expect(page.getByRole('link', { name: /Out on Friday/ }).first()).toBeVisible();
+  await expect(page.locator('.admin-status').first(), 'the list says so in a word')
+    .toHaveText(/Scheduled/i);
+
+  const reader = await page.goto(`${origin}/en/blog/${row.slug}`);
+  expect(reader?.status(), 'and a reader is not served it yet').toBe(404);
 });
 

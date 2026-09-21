@@ -1,5 +1,6 @@
 import { THEME_LABELS } from './theme';
 import type { PostLocale } from '../types/cms';
+import { isScheduled } from './local-datetime';
 
 /**
  * Copy for the admin surfaces.
@@ -336,6 +337,7 @@ const en = {
     drafts: 'Drafts',
     published: 'Published',
     publishedAt: 'Published',
+    scheduled: 'Scheduled',
     updatedAt: 'Updated',
   },
   row: {
@@ -586,6 +588,8 @@ const en = {
     remove: 'Remove',
     removeCover: 'Remove cover image',
     publishing: 'Publishing',
+    publishAt: 'Publish at',
+    publishAtHint: 'Blank publishes the moment you press Publish. A time still to come keeps the article off the site until then, and the list says Scheduled. Your device\'s clock.',
     searchPreview: 'Search preview',
     slug: 'Slug',
     slugHintPage: 'Used in the page URL.',
@@ -929,6 +933,7 @@ const th: typeof en = {
     drafts: 'ฉบับร่าง',
     published: 'เผยแพร่แล้ว',
     publishedAt: 'เผยแพร่เมื่อ',
+    scheduled: 'รอเผยแพร่',
     updatedAt: 'แก้ไขเมื่อ',
   },
   row: {
@@ -1179,6 +1184,8 @@ const th: typeof en = {
     remove: 'ลบออก',
     removeCover: 'ลบภาพปก',
     publishing: 'การเผยแพร่',
+    publishAt: 'เผยแพร่เมื่อ',
+    publishAtHint: 'เว้นว่างไว้จะเผยแพร่ทันทีที่กดเผยแพร่ ถ้าใส่เวลาในอนาคต บทความจะยังไม่ขึ้นเว็บจนถึงเวลานั้น และในรายการจะขึ้นว่ารอเผยแพร่ — ใช้เวลาตามเครื่องของคุณ',
     searchPreview: 'ตัวอย่างบนผลการค้นหา',
     slug: 'ชื่อใน URL',
     slugHintPage: 'ใช้เป็นส่วนหนึ่งของ URL ของเพจ',
@@ -1207,7 +1214,11 @@ export function fill(template: string, values: Record<string, number | string>):
 }
 
 /** The stored status is an English enum; the badge must show the owner's language. */
-export function statusLabel(copy: AdminCopy, status: string): string {
+export function statusLabel(copy: AdminCopy, status: string, publishedAt?: string | Date | null): string {
+  // Published and still to come is its own state, and the one an owner most needs to see:
+  // a row that says "published" while the article is nowhere on the site is a row lying.
+  const when = publishedAt instanceof Date ? publishedAt.toISOString() : publishedAt;
+  if (isScheduled(status, when)) return copy.status.scheduled;
   return status === 'published' ? copy.status.published : copy.status.draft;
 }
 

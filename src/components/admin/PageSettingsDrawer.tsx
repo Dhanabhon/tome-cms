@@ -6,8 +6,11 @@ import type { AdminCopy } from '../../lib/admin-i18n';
 import { pagePath } from '../../lib/i18n';
 import type { PageLocale } from '../../types/cms';
 import Icon from '../Icon';
+import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 
 interface PageSettingsDrawerProps {
+  publishedAt: string | null;
+  onChangePublishedAt: (value: string | null) => void;
   copy: AdminCopy;
   errorMessage: string | null;
   excerpt: string;
@@ -25,7 +28,7 @@ interface PageSettingsDrawerProps {
 
 export default function PageSettingsDrawer({
   copy, errorMessage, excerpt, locale, metaDescription, metaTitle, onChangeExcerpt,
-  onChangeMetaDescription, onChangeMetaTitle, onChangeSlug, onClose, open, slug,
+  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onClose, open, publishedAt, slug,
 }: PageSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   /* Built by the same function that builds the real link, so the two cannot drift. */
@@ -52,6 +55,16 @@ export default function PageSettingsDrawer({
             <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="page-slug" type="text" value={slug} />
           </div>
           <small>{copy.drawer.slugHintPage}</small>
+        </label>
+        <label className="admin-field">
+          <span>{copy.drawer.publishAt}</span>
+          <input
+            className="admin-control"
+            onChange={(event) => onChangePublishedAt(fromLocalInput(event.target.value))}
+            type="datetime-local"
+            value={toLocalInput(publishedAt)}
+          />
+          <small>{copy.drawer.publishAtHint}</small>
         </label>
       </section>
 
