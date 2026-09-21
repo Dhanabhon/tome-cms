@@ -1,6 +1,7 @@
 import { sql, type Selectable } from 'kysely';
 import { z } from 'zod';
 
+import { parseStoredIcon, parseStoredImage, type StoredBrandIcon, type StoredBrandImage } from '../../lib/site-brand';
 import { isThemeId } from '../../themes/registry';
 import type { AuthorLink, Json } from '../../types/cms';
 import { db } from '../db/client';
@@ -18,6 +19,7 @@ const authorLinksSchema = z.array(z.object({
 export const siteSettingsMutationSchema = z.object({
   allowVisitorTheme: z.boolean(),
   defaultLocale: z.enum(['th', 'en']),
+  hideSiteName: z.boolean(),
   showPoweredBy: z.boolean(),
   siteDescription: z.string().trim().max(160),
   siteName: z.string().trim().min(1).max(120),
@@ -41,10 +43,22 @@ export const profileMutationSchema = z.object({
 
 export type SiteSettingsMutation = z.infer<typeof siteSettingsMutationSchema>;
 export type ProfileMutation = z.infer<typeof profileMutationSchema>;
-export type SiteSettings = Omit<Selectable<SiteSettingsTable>, 'author_links'> & { author_links: AuthorLink[] };
+type ParsedColumns = 'author_links' | 'brand_icon' | 'brand_logo' | 'brand_logo_dark';
+export type SiteSettings = Omit<Selectable<SiteSettingsTable>, ParsedColumns> & {
+  author_links: AuthorLink[];
+  brand_icon: StoredBrandIcon | null;
+  brand_logo: StoredBrandImage | null;
+  brand_logo_dark: StoredBrandImage | null;
+};
 
 function normalizeSettings(row: Selectable<SiteSettingsTable>): SiteSettings {
-  return { ...row, author_links: authorLinksSchema.parse(row.author_links) };
+  return {
+    ...row,
+    author_links: authorLinksSchema.parse(row.author_links),
+    brand_icon: parseStoredIcon(row.brand_icon),
+    brand_logo: parseStoredImage(row.brand_logo),
+    brand_logo_dark: parseStoredImage(row.brand_logo_dark),
+  };
 }
 
 async function missingOrStale(ownerId: string): Promise<never> {
@@ -93,6 +107,7 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
       theme: input.theme,
       allow_visitor_theme: input.allowVisitorTheme,
       show_powered_by: input.showPoweredBy,
+      hide_site_name: input.hideSiteName,
       theme_id: input.themeId,
       timezone: input.timezone,
       updated_at: nextVersion,
@@ -124,4 +139,33 @@ export async function updateOwnerProfile(ownerId: string, input: ProfileMutation
     .returningAll()
     .executeTakeFirst();
   return row ? normalizeSettings(row) : missingOrStale(ownerId);
+}
+
+export type BrandColumn = 'brand_icon' | 'brand_logo' | 'brand_logo_dark';
+
+/**
+ * One brand column set, and what it held before, so the caller can delete what it replaced.
+ *
+ * Moves updated_at like every write to this row: the public site's Last-Modified is read from
+ * it, and a cache must not keep serving the old logo. The Settings form is handed the new
+ * version, or its next save would be refused as stale. Not checked against a version itself --
+ * a file field applies on the spot and holds no edit the owner is still making.
+ */
+export async function writeSiteBrand(
+  ownerId: string,
+  column: BrandColumn,
+  value: StoredBrandImage | StoredBrandIcon | null,
+): Promise<{ previous: unknown; settings: SiteSettings }> {
+  return db.transaction().execute(async (trx) => {
+    const current = await trx.selectFrom('site_settings').select(column)
+      .where('id', '=', true).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
+    if (!current) throw new HttpError(404, 'Site settings not found.');
+    const stored = value === null ? null : sql<Json>`${JSON.stringify(value)}::jsonb`;
+    const row = await trx.updateTable('site_settings')
+      .set({ [column]: stored, updated_at: nextVersion })
+      .where('id', '=', true).where('owner_id', '=', ownerId)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    return { previous: current[column], settings: normalizeSettings(row) };
+  });
 }

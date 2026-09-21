@@ -15,7 +15,7 @@ import UiSelect from './UiSelect';
 type ThemeSettings = Pick<
   SiteSettings,
   'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id'
-  | 'allow_visitor_theme' | 'show_powered_by' | 'timezone' | 'updated_at'
+  | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'timezone' | 'updated_at'
 >;
 
 interface ThemeFormProps {
@@ -75,6 +75,7 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
         body: JSON.stringify({
           allowVisitorTheme: next.allowVisitorTheme,
           defaultLocale: initialSettings.default_locale,
+          hideSiteName: initialSettings.hide_site_name,
           showPoweredBy: initialSettings.show_powered_by,
           siteDescription: initialSettings.site_description,
           siteName: initialSettings.site_name,

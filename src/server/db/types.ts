@@ -165,6 +165,12 @@ export interface SiteSettingsTable {
   author_bio_th: Generated<string>;
   author_bio_en: Generated<string>;
   author_links: Generated<Json>;
+  /** { key, mime, width, height } or null -- see migrations/020_site_brand. */
+  brand_logo: unknown;
+  brand_logo_dark: unknown;
+  /** { svgKey, png32Key, png180Key } or null. */
+  brand_icon: unknown;
+  hide_site_name: Generated<boolean>;
   installed_at: Timestamp;
   updated_at: Timestamp;
 }

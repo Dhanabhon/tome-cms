@@ -218,6 +218,7 @@ export interface SiteSettings {
   author_bio_th: string;
   author_bio_en: string;
   author_links: AuthorLink[];
+  hide_site_name: boolean;
 }
 
 export interface PublicAuthorProfile {
