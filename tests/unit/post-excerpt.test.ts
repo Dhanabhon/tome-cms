@@ -10,8 +10,8 @@ const body = (text: string): EditorDocument => ({
   content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
 } as EditorDocument);
 
-const post = (excerpt: string, metaDescription: string | null, text = 'The opening of the post itself.') =>
-  ({ content_json: body(text), excerpt, meta_description: metaDescription });
+const post = (excerpt: string, metaDescription: string | null, text = 'The opening of the post itself.', locale: 'en' | 'th' = 'en') =>
+  ({ content_json: body(text), excerpt, locale, meta_description: metaDescription });
 
 test('a card shows the line the writer wrote for it', () => {
   assert.equal(postExcerpt(post('A reader decides on this.', 'For a search result.'), ''), 'A reader decides on this.');
@@ -35,6 +35,31 @@ test('the opening is cut at a length a card can use, and says it was cut', () =>
   assert.match(shown, /…$/);
 });
 
+test('and it is cut where the language has an end, not at the 157th character', () => {
+  // Thai is written without spaces between words, so a cut by character count lands inside
+  // a word almost every time -- and there is no space for trimEnd to tidy, which left the
+  // ellipsis stuck to half a syllable. ICU knows where the words are.
+  const thai = 'การจัดการเวลาระหว่างมื้ออาหารเป็นเรื่องที่ต้องอาศัยวินัยและความเข้าใจร่างกายของตัวเองอย่างมาก '
+    + 'ผมจึงตัดสินใจสร้างแอปสำหรับการทำ Intermittent Fasting ที่ปรับให้เหมาะกับแต่ละบุคคลขึ้นมาใช้เอง '
+    + 'แล้วพบว่ามันเปลี่ยนวิธีที่ผมมองอาหารไปอย่างสิ้นเชิง';
+  const shown = postExcerpt(post('', null, thai, 'th'), '');
+
+  assert.ok(shown.length <= 160, `${shown.length} characters`);
+  assert.match(shown, /…$/);
+  const kept = shown.slice(0, -1);
+  assert.ok(thai.startsWith(kept), 'what is shown is the opening, unaltered');
+
+  // Every offset a Thai word may end at, which is the only definition of "not mid-word"
+  // that means anything here.
+  const ends = new Set([0]);
+  let at = 0;
+  for (const { segment } of new Intl.Segmenter('th', { granularity: 'word' }).segment(thai)) {
+    at += segment.length;
+    ends.add(at);
+  }
+  assert.ok(ends.has(kept.length), `cut at ${kept.length}, which is inside a word`);
+});
+
 test('an excerpt is used as written, spaces and all', () => {
   // The field is bounded and trimmed where it is written, not where it is read: a card
   // showing something other than what the editor showed is its own kind of bug.
@@ -53,7 +78,7 @@ test('an excerpt is never what the post tells a search engine', () => {
 });
 
 test('a page splits the same two questions the same way', () => {
-  const page = { content_json: body('The opening of the page.'), excerpt: 'For a reader.', meta_description: 'For a search result.' };
+  const page = { content_json: body('The opening of the page.'), excerpt: 'For a reader.', locale: 'en' as const, meta_description: 'For a search result.' };
   assert.equal(pageExcerpt(page, ''), 'For a reader.');
   assert.equal(pageExcerpt({ ...page, excerpt: '' }, ''), 'For a search result.');
   assert.equal(pageExcerpt({ ...page, excerpt: '', meta_description: null }, ''), 'The opening of the page.');

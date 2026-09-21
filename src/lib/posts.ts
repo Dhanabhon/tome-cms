@@ -1,4 +1,5 @@
 import { editorText } from './editor-content';
+import { summaryText } from './summary-text';
 import type { EditorNode, Post, PostLocale, PostStatus } from '../types/cms';
 
 export { editorText, hasMeaningfulContent } from './editor-content';
@@ -10,10 +11,13 @@ export { editorText, hasMeaningfulContent } from './editor-content';
  * to open, and for a while it was in here -- so writing one silently replaced the meta
  * description of the article, which is the exact confusion the excerpt exists to end.
  */
-export function postDescription(post: Pick<Post, 'content_json' | 'meta_description'>, fallback: string) {
+export function postDescription(
+  post: Pick<Post, 'content_json' | 'locale' | 'meta_description'>,
+  fallback: string,
+) {
   if (post.meta_description) return post.meta_description;
   const text = editorText(post.content_json).replace(/\s+/g, ' ').trim();
-  return text ? (text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text) : fallback;
+  return text ? summaryText(text, post.locale) : fallback;
 }
 
 /**
@@ -23,7 +27,10 @@ export function postDescription(post: Pick<Post, 'content_json' | 'meta_descript
  * reader. Then what the post tells a search engine, because that is what a card showed
  * before excerpts existed and a site should not lose it by upgrading.
  */
-export function postExcerpt(post: Pick<Post, 'content_json' | 'excerpt' | 'meta_description'>, fallback: string) {
+export function postExcerpt(
+  post: Pick<Post, 'content_json' | 'excerpt' | 'locale' | 'meta_description'>,
+  fallback: string,
+) {
   return post.excerpt || postDescription(post, fallback);
 }
 
