@@ -2,6 +2,7 @@ import slugify from 'slugify';
 
 import type { Page, PageLocale, PageStatus } from '../types/cms';
 import { editorText } from './editor-content';
+import { summaryText } from './summary-text';
 
 export const RESERVED_PAGE_SLUGS = new Set(['blog']);
 
@@ -19,7 +20,7 @@ export function resolvePageSlug(value: string | undefined, title: string) {
  * tells a search engine.
  */
 export function pageExcerpt(
-  page: Pick<Page, 'content_json' | 'excerpt' | 'meta_description'>,
+  page: Pick<Page, 'content_json' | 'excerpt' | 'locale' | 'meta_description'>,
   fallback: string,
 ) {
   return page.excerpt || pageDescription(page, fallback);
@@ -27,12 +28,12 @@ export function pageExcerpt(
 
 /** What the page tells a search engine. The excerpt is deliberately not in this chain. */
 export function pageDescription(
-  page: Pick<Page, 'content_json' | 'meta_description'>,
+  page: Pick<Page, 'content_json' | 'locale' | 'meta_description'>,
   fallback: string,
 ) {
   if (page.meta_description) return page.meta_description;
   const text = editorText(page.content_json).replace(/\s+/g, ' ').trim();
-  return text ? (text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text) : fallback;
+  return text ? summaryText(text, page.locale) : fallback;
 }
 
 export interface AdminPageFilters {
