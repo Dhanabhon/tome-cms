@@ -1,0 +1,73 @@
+---
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
+import RedirectManager, { type RedirectTarget } from '../../components/admin/RedirectManager';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
+import { requireOwner } from '../../server/auth/session';
+import { db } from '../../server/db/client';
+import { listRedirects, type RedirectEntry } from '../../server/content/redirects';
+import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
+import { HttpError } from '../../server/http/errors';
+
+let initialRedirects: RedirectEntry[] = [];
+let targets: RedirectTarget[] = [];
+let userEmail: string | null = null;
+let settings: SiteSettings | null = null;
+let failed = false;
+let authRequired = false;
+
+try {
+  const current = await requireOwner(Astro.request.headers);
+  const ownerId = current.user.id;
+  // Every article an old address could be pointed at, drafts included: a forwarding address
+  // to a draft waits, and starts working the day it is published.
+  const [loadedSettings, redirects, posts, pages] = await Promise.all([
+    getOwnerSettings(ownerId),
+    listRedirects(ownerId),
+    db.selectFrom('posts').select(['id', 'locale', 'slug', 'title']).where('owner_id', '=', ownerId).orderBy('title').execute(),
+    db.selectFrom('pages').select(['id', 'locale', 'slug', 'title']).where('owner_id', '=', ownerId).orderBy('title').execute(),
+  ]);
+  settings = loadedSettings;
+  initialRedirects = redirects;
+  targets = [
+    ...posts.map((post) => ({ ...post, kind: 'post' as const })),
+    ...pages.map((page) => ({ ...page, kind: 'page' as const })),
+  ];
+  userEmail = current.user.email;
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    console.error('Redirect manager loading failed.');
+    Astro.response.status = 500;
+    failed = true;
+  }
+}
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+---
+
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.redirects.heading}>
+  {authRequired || failed ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{failed ? copy.errors.redirectsUnavailable : null}</p></main>
+  ) : (
+    <AdminShell active="redirects" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} title={copy.redirects.heading} userEmail={userEmail}>
+      <section class="admin-page">
+        <header class="admin-page__head">
+          <div>
+            <h1>{copy.redirects.heading}</h1>
+            <p>{copy.redirects.subheading}</p>
+          </div>
+        </header>
+        <RedirectManager initialRedirects={initialRedirects} ownerLocale={ownerLocale} targets={targets} client:only="react">
+          <AdminSkeleton head={false} kind="list" label={copy.redirects.heading} slot="fallback" />
+        </RedirectManager>
+      </section>
+    </AdminShell>
+  )}
+</AdminLayout>
