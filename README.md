@@ -2,16 +2,17 @@
 
 TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rendered Blog and a React-based Admin editor, while exposing the same Published content through a versioned Headless REST API.
 
-> **Development status:** the package is `0.3.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security gate is partly closed: the production audit now reports no critical and no high advisories, and the moderate ones that remain are all `@tiptap/core`, blocked behind the editor's own dependency. The full integration, browser and operations gates now run green against Astro 7. Public immutable release/attestation verification and real `amd64`/`arm64` HTTPS VPS acceptance are still open, because both need infrastructure this repository cannot stand up for itself. See the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
+> **Development status:** the package is `0.4.0`. The managed `1.0.0` updater foundation and disposable operation harness are implemented, but no production `v1.0.0` release exists. The dependency-security gate is partly closed: the production audit now reports no critical and no high advisories, and the moderate ones that remain are all `@tiptap/core`, blocked behind the editor's own dependency. The full integration, browser and operations gates now run green against Astro 7. Public immutable release/attestation verification and real `amd64`/`arm64` HTTPS VPS acceptance are still open, because both need infrastructure this repository cannot stand up for itself. See the [0.4.0 notes](docs/releases/0.4.0.md), the [0.3.0 notes](docs/releases/0.3.0.md), the [0.2.0 notes](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
 ## What is included
 
 - Six-step first-run Wizard with a configurable Admin URL
 - Passkey-only owner authentication and one-time recovery codes
-- Posts in Thai and English, shared Categories, drafts, previews, and SEO fields
+- Posts in Thai and English, shared Categories, drafts, previews, scheduled publishing, and SEO fields
+- Addresses in the language of the title, Thai included, and permanent redirects from old ones
 - Pages and configurable Header/Footer Navigation
 - File Manager backed by S3-compatible object storage
-- Server-rendered public pages with no application JavaScript
+- Server-rendered public pages; a reader downloads JavaScript only for a feature the owner turned on
 - Published-only REST API, OpenAPI 3.1 document, sitemap, and RSS feed
 - Themes: the public site is one of several, chosen under Appearance
 - Plugins: extras that fill hooks the core declares, switched on in the Admin
@@ -29,7 +30,7 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 | Deployment | Docker Compose |
 
 Database migrations live in `src/server/db/migrations/` and are applied with `npm run db:migrate`.
-An installation created before 0.3.0 has six migrations waiting for it; see the [0.3.0 notes](docs/releases/0.3.0.md#upgrading).
+An installation created from 0.3.0 has three migrations waiting for it, and one from before 0.3.0 has those and nine more; see the [0.4.0 notes](docs/releases/0.4.0.md#upgrading) and the [0.3.0 notes](docs/releases/0.3.0.md#upgrading). The admin names any it finds unapplied at the top of every screen.
 The bundled SeaweedFS service is a single-node default for local development and a single VPS. Point the same S3 settings at external object storage when high availability or multi-node operations are required.
 
 ## Prerequisites
@@ -256,6 +257,23 @@ back as a likelihood, and the core decides which are suggested and which are onl
 a maybe. An excerpt comes back as a choice among passages the core found in your article,
 and the core keeps it only if it is one of them -- so no plugin can put words on a card that
 you did not write.
+
+## Publishing, addresses and redirects
+
+A post or page can be published for a date that has not come: set **Publish at** in its
+settings drawer, press Publish, and it stays off the site -- the feed, its own address, the
+sitemap, its category, the menu -- until then. The list says *Scheduled* over it in the
+meantime. Blank publishes at the moment you press the button, as it always did.
+
+A title's address is made in its own language: a Thai title gets a Thai address, a word
+between each pair of hyphens, and a browser shows it in Thai. The field stays editable for
+anyone who wants a Latin one.
+
+When a published article's address changes, the old one keeps working: it answers with a
+permanent redirect to wherever the article is now, however many times it has moved since, and
+goes when the article is deleted. **Content → Redirects** lists every old address and where
+each one goes, lets you remove one, and lets you add one by hand -- for an address that changed
+before these were recorded.
 
 ## Bundled and Headless modes
 
