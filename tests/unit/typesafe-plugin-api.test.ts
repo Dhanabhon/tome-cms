@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { withRetry } from '../../src/server/ai/typesafe';
+import { withRetry } from '../../src/plugins/typesafe/api';
 
 /** A sender that answers each call with the next status in the list, and counts. */
 function replies(...statuses: number[]) {

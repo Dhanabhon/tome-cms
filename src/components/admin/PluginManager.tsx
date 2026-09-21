@@ -24,7 +24,7 @@ interface Report {
 
 /** The core's own words for its own hooks. A plugin names one; it does not describe it. */
 function hookLabel(copy: AdminCopy, hook: PluginHookId): string {
-  return { publicPage: copy.plugins.hookPublicPage, signIn: copy.plugins.hookSignIn }[hook];
+  return { editorSuggestions: copy.plugins.hookEditorSuggestions, publicPage: copy.plugins.hookPublicPage, signIn: copy.plugins.hookSignIn }[hook];
 }
 
 /**

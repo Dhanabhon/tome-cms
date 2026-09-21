@@ -67,9 +67,6 @@ test.beforeAll(async () => {
     S3_FORCE_PATH_STYLE: 'true',
     MEDIA_PUBLIC_URL: 'http://127.0.0.1:59000/tomecms-test-media/',
     TOME_CMS_FRONTEND_MODE: 'bundled',
-    // So the editors draw their suggestion buttons. Never used: the tests answer those
-    // requests in the browser, and nothing here reaches the real service.
-    TYPESAFE_API_KEY: 'e2e-key-never-sent',
     TOME_CMS_VITE_CACHE_DIR: 'node_modules/.vite-editor-blocks',
   };
 
@@ -369,6 +366,18 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  // An installation that has not switched a suggester on draws no button at all: sending an
+  // article anywhere is the owner's choice, made on the Plugins screen, not a default.
+  await page.goto(`${origin}/admin/new`);
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  await expect(page.getByRole('button', { name: /Suggest/ }), 'nothing to suggest with').toHaveCount(0);
+  await page.getByRole('button', { name: /Close settings/i }).click();
+
+  const { writePluginSettings } = await import('../../src/server/plugins/store');
+  // Never used: the tests answer the suggestion requests in the browser, so nothing here
+  // reaches the real service -- but it is stored sealed, exactly as the owner's would be.
+  await writePluginSettings(settings!.owner_id, { enabled: true, id: 'typesafe', values: { apiKey: 'e2e-key-never-sent' } });
 
   // The judgements are answered here, in the browser, as the service would answer them.
   await page.route('**/api/admin/posts/suggest-categories', (route) => route.fulfill({

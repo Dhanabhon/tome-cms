@@ -12,7 +12,7 @@ import { getPost, listPostTranslations } from '../../../server/content/posts';
 import { getSiteSettings, type SiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
 import type { Post, PostCategory, PostTranslationSummary } from '../../../types/cms';
-import { hasJudgement } from '../../../server/ai/typesafe';
+import { suggestionsAvailable } from '../../../server/plugins/suggestions';
 
 let post: Post | null = null;
 let editorPost: Omit<Post, 'translation_group_id'> | null = null;
@@ -60,12 +60,14 @@ try {
 
 const copy = adminCopy(settings?.default_locale);
 const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
+// Drawn only when the owner has switched on a plugin that can make suggestions.
+const canSuggest = settings ? await suggestionsAvailable(settings.owner_id) : false;
 ---
 
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
     {post && editorPost ? (
-      <Editor canSuggest={hasJudgement()} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
+      <Editor canSuggest={canSuggest} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </Editor>
     ) : (
