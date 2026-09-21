@@ -11,6 +11,8 @@ import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 
 export interface CategorySuggestion {
+  /** Likely is offered as a suggestion; possible as a maybe, apart from them. */
+  band: 'likely' | 'possible';
   id: string;
   name: string;
 }
@@ -125,19 +127,30 @@ export default function PostSettingsDrawer({
               </button>
               {/* Offered, never applied: the owner files their own writing, and a wrong
                   guess costs a glance rather than a correction. */}
-              {suggested?.map((suggestion) => (
-                <button
-                  className="admin-chip"
-                  key={suggestion.id}
-                  onClick={() => {
-                    onChangeCategories([...selectedCategoryIds, suggestion.id]);
-                    setSuggested((rest) => rest?.filter(({ id }) => id !== suggestion.id) ?? null);
-                  }}
-                  type="button"
-                >
-                  + {suggestion.name}
-                </button>
-              ))}
+              {(['likely', 'possible'] as const).map((band) => {
+                const inBand = suggested?.filter((suggestion) => suggestion.band === band) ?? [];
+                if (!inBand.length) return null;
+                return (
+                  <div className="drawer-suggest__band" data-band={band} key={band}>
+                    {/* The maybes are named as such: the model said it was not sure, and the
+                        screen should not make it sound as if it were. */}
+                    {band === 'possible' && <small>{copy.drawer.suggestCategoriesPossible}</small>}
+                    {inBand.map((suggestion) => (
+                      <button
+                        className="admin-chip"
+                        key={suggestion.id}
+                        onClick={() => {
+                          onChangeCategories([...selectedCategoryIds, suggestion.id]);
+                          setSuggested((rest) => rest?.filter(({ id }) => id !== suggestion.id) ?? null);
+                        }}
+                        type="button"
+                      >
+                        + {suggestion.name}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
               {suggested?.length === 0 && <small>{copy.drawer.suggestCategoriesEmpty}</small>}
             </div>
           )}

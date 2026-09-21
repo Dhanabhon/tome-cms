@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { categoryQuestions, worthShowing } from '../../src/server/content/category-judgement';
+import { categoryQuestions, LIKELY, POSSIBLE, suggestionBands } from '../../src/server/content/category-judgement';
 
 const categories = [
   { id: '11111111-1111-4111-8111-111111111111', name: 'Architecture' },
@@ -30,19 +30,38 @@ test('a passing mention is spelled out as a no', () => {
   assert.match(first!.question.criteria!.false, /in passing/);
 });
 
-test('only the likely ones are shown, likeliest first', () => {
+test('likely, possible and neither are three answers', () => {
   const asked = categoryQuestions(categories);
   const ids = [...asked.keys()];
-  const shown = worthShowing(asked, { [ids[0]!]: 0.71, [ids[1]!]: 0.94, [ids[2]!]: 0.12 });
+  const shown = suggestionBands(asked, { [ids[0]!]: 0.55, [ids[1]!]: 0.94, [ids[2]!]: 0.12 });
 
-  assert.deepEqual(shown.map(({ name }) => name), ['สถาปัตยกรรม', 'Architecture']);
-  assert.deepEqual(shown.map(({ id }) => id), [categories[1]!.id, categories[0]!.id]);
+  assert.deepEqual(
+    shown.map(({ band, name }) => [name, band]),
+    [['สถาปัตยกรรม', 'likely'], ['Architecture', 'possible']],
+    'a clear yes is suggested, a maybe is offered as one, and a clear no is not shown',
+  );
+  assert.deepEqual(shown.map(({ id }) => id), [categories[1]!.id, categories[0]!.id], 'likeliest first');
+});
+
+test('the two sides of a single line are not opposite answers', () => {
+  // 0.59 and 0.61 were hidden and suggested. Both are the model saying it is not sure, and
+  // both land in the same band now.
+  const asked = categoryQuestions(categories);
+  const [low, high] = [...asked.keys()];
+  const bands = suggestionBands(asked, { [low!]: 0.59, [high!]: 0.61 }).map(({ band }) => band);
+  assert.deepEqual(bands, ['possible', 'possible']);
+});
+
+test('the edges belong to the band above them', () => {
+  const asked = categoryQuestions(categories);
+  const [first, second] = [...asked.keys()];
+  const shown = suggestionBands(asked, { [first!]: LIKELY, [second!]: POSSIBLE });
+  assert.deepEqual(shown.map(({ band }) => band), ['likely', 'possible']);
 });
 
 test('an answer that did not come back is not a suggestion', () => {
   // A question the service dropped reads as absent rather than as certain: a missing
   // answer must never file an article, and must never look like a confident no either.
   const asked = categoryQuestions(categories);
-  assert.deepEqual(worthShowing(asked, {}), []);
-  assert.deepEqual(worthShowing(asked, { c0: 0.6 }).map(({ name }) => name), ['Architecture']);
+  assert.deepEqual(suggestionBands(asked, {}), []);
 });

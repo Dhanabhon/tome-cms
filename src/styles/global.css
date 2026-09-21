@@ -2257,6 +2257,9 @@ body {
 /* The suggestions sit under the boxes they would tick: a row of things to add, not a
  * second list of things to choose between. */
 .drawer-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
+.drawer-suggest__band { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
+/* A maybe reads as one: lighter, and after the suggestions rather than among them. */
+.drawer-suggest__band[data-band="possible"] .admin-chip { border-style: dashed; color: var(--color-muted); }
 
 .admin-chip {
   padding: var(--space-3xs) var(--space-xs);
