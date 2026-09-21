@@ -11,6 +11,7 @@ import { getPage, listPageTranslations } from '../../../../server/content/pages'
 import { getSiteSettings, type SiteSettings } from '../../../../server/content/settings';
 import { HttpError } from '../../../../server/http/errors';
 import type { Page, PageTranslationSummary } from '../../../../types/cms';
+import { hasJudgement } from '../../../../server/ai/typesafe';
 
 let page: Page | null = null;
 let editorPage: Omit<Page, 'translation_group_id'> | null = null;
@@ -57,7 +58,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={page?.title ?? 'Edit page'}>
   <main>
     {page && editorPage ? (
-      <PageEditor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
+      <PageEditor canSuggest={hasJudgement()} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </PageEditor>
     ) : (

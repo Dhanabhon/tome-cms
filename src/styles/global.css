@@ -2316,3 +2316,15 @@ body {
 .redirect-row__route span { display: grid; min-width: 0; }
 .redirect-row__route small, .redirect-row__meta small { color: var(--color-muted); overflow-wrap: anywhere; }
 .redirect-row__meta { display: flex; gap: var(--space-xs); align-items: center; }
+
+/* A line offered from the article: read where it came from before it becomes the card's. */
+.drawer-suggestion { display: grid; flex-basis: 100%; gap: var(--space-2xs); margin: 0; }
+.drawer-suggestion blockquote {
+  margin: 0;
+  padding-inline-start: var(--space-sm);
+  border-inline-start: 2px solid var(--color-accent);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+}
+.drawer-suggestion .admin-chip { justify-self: start; }
+

@@ -12,6 +12,7 @@ import { getPage, listPageTranslations } from '../../../server/content/pages';
 import { getSiteSettings, type SiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
 import type { PageLocale, PageTranslationSummary } from '../../../types/cms';
+import { hasJudgement } from '../../../server/ai/typesafe';
 
 let errorKey: 'editorUnavailable' | 'pageNotFound' | null = null;
 let serverMessage: string | null = null;
@@ -67,7 +68,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
     {errorMessage ? (
       <p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p>
     ) : locale ? (
-      <PageEditor adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
+      <PageEditor canSuggest={hasJudgement()} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" locale={locale} sourcePage={sourcePage} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </PageEditor>
     ) : null}

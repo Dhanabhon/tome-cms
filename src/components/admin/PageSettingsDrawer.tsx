@@ -7,8 +7,11 @@ import { pagePath } from '../../lib/i18n';
 import type { PageLocale } from '../../types/cms';
 import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
+import ExcerptSuggestion from './ExcerptSuggestion';
 
 interface PageSettingsDrawerProps {
+  /** Absent when this installation has no key for it. */
+  onSuggestExcerpt?: () => Promise<string | null>;
   publishedAt: string | null;
   onChangePublishedAt: (value: string | null) => void;
   copy: AdminCopy;
@@ -28,7 +31,7 @@ interface PageSettingsDrawerProps {
 
 export default function PageSettingsDrawer({
   copy, errorMessage, excerpt, locale, metaDescription, metaTitle, onChangeExcerpt,
-  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onClose, open, publishedAt, slug,
+  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onSuggestExcerpt, onClose, open, publishedAt, slug,
 }: PageSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   /* Built by the same function that builds the real link, so the two cannot drift. */
@@ -77,6 +80,7 @@ export default function PageSettingsDrawer({
           <textarea className="admin-control admin-control--textarea" maxLength={120} onChange={(event) => onChangeExcerpt(event.target.value)} placeholder={copy.drawer.excerptPlaceholder} value={excerpt} />
           <small>{copy.drawer.pageExcerptHint}</small>
         </label>
+        {onSuggestExcerpt && <ExcerptSuggestion copy={copy} onSuggest={onSuggestExcerpt} onUse={onChangeExcerpt} />}
       </section>
 
       <section className="drawer-group">

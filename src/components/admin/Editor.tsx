@@ -10,6 +10,7 @@ import PostSettingsDrawer from './PostSettingsDrawer';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 import { contentSlug } from '../../lib/slug';
+import { requestExcerpt } from './ExcerptSuggestion';
 
 interface EditorSourcePost {
   cover_image: string | null;
@@ -367,6 +368,9 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
         </article>
 
         <PostSettingsDrawer
+          onSuggestExcerpt={canSuggest ? (() => requestExcerpt({
+            contentJson: draftRef.current.contentJson, locale, title: draftRef.current.title,
+          })) : undefined}
           onSuggestCategories={canSuggest ? (async () => {
             const response = await fetch('/api/admin/posts/suggest-categories', {
               method: 'POST',

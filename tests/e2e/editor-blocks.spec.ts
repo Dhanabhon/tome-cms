@@ -67,6 +67,9 @@ test.beforeAll(async () => {
     S3_FORCE_PATH_STYLE: 'true',
     MEDIA_PUBLIC_URL: 'http://127.0.0.1:59000/tomecms-test-media/',
     TOME_CMS_FRONTEND_MODE: 'bundled',
+    // So the editors draw their suggestion buttons. Never used: the tests answer those
+    // requests in the browser, and nothing here reaches the real service.
+    TYPESAFE_API_KEY: 'e2e-key-never-sent',
     TOME_CMS_VITE_CACHE_DIR: 'node_modules/.vite-editor-blocks',
   };
 
@@ -344,5 +347,63 @@ test('an owner can forward an old address, and stop', async ({ context, page }) 
   await expect(row, 'gone from the list').toHaveCount(0);
   const stopped = await fetch(`${origin}/en/blog/somewhere-old`, { redirect: 'manual' });
   expect(stopped.status, 'and from the site').toBe(404);
+});
+
+test('suggestions are offered, never applied, and a maybe reads as one', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const { db } = await import('../../src/server/db/client');
+  const settings = await getSiteSettings();
+  const [fallback] = await db.selectFrom('categories').select('id').where('is_default', '=', true).execute();
+  const [design, travel] = await db.insertInto('categories').values([
+    { owner_id: settings!.owner_id, name: 'Design', is_default: false },
+    { owner_id: settings!.owner_id, name: 'Travel', is_default: false },
+  ]).returning(['id', 'name']).execute();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  // The judgements are answered here, in the browser, as the service would answer them.
+  await page.route('**/api/admin/posts/suggest-categories', (route) => route.fulfill({
+    json: { suggestions: [
+      { band: 'likely', id: design!.id, likelihood: 0.9, name: 'Design' },
+      { band: 'possible', id: travel!.id, likelihood: 0.45, name: 'Travel' },
+    ] },
+  }));
+  const line = 'This is the line that says what the article is about.';
+  await page.route('**/api/admin/suggest-excerpt', (route) => route.fulfill({ json: { excerpt: line } }));
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('Suggested');
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  const drawer = page.locator('dialog.admin-editor-settings');
+
+  await drawer.getByRole('button', { name: /Suggest from the text/ }).click();
+  const likely = drawer.locator('.drawer-suggest__band[data-band="likely"]');
+  const possible = drawer.locator('.drawer-suggest__band[data-band="possible"]');
+  await expect(likely.getByRole('button', { name: '+ Design' })).toBeVisible();
+  // A maybe is apart from the suggestions, and says so.
+  await expect(possible).toContainText('Perhaps');
+  await expect(possible.getByRole('button', { name: '+ Travel' })).toBeVisible();
+  const designBox = drawer.getByRole('checkbox', { name: 'Design' });
+  await expect(designBox, 'offered is not the same as filed').not.toBeChecked();
+  await likely.getByRole('button', { name: '+ Design' }).click();
+  await expect(designBox, 'until the owner presses it').toBeChecked();
+
+  const field = drawer.locator('textarea').first();
+  await field.fill('What I had written.');
+  await drawer.getByRole('button', { name: /Suggest a line from the text/ }).click();
+  await expect(drawer.locator('.drawer-suggestion blockquote')).toHaveText(line);
+  await expect(field, 'a suggestion does not overwrite what is there').toHaveValue('What I had written.');
+  await drawer.getByRole('button', { name: 'Use this line' }).click();
+  await expect(field, 'until the owner asks it to').toHaveValue(line);
+  void fallback;
 });
 
