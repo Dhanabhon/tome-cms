@@ -1,6 +1,6 @@
 import { isNodeSelection } from '@tiptap/core';
 import { CellSelection } from '@tiptap/pm/tables';
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import {
   EditorBubble,
@@ -22,7 +22,8 @@ import {
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { tableExtensions } from '../../lib/editor-table';
-import { promptUi } from '../../lib/ui-dialog';
+import { promptWithToggleUi } from '../../lib/ui-dialog';
+import Icon from '../Icon';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
 import SlashCommands, { createSlashCommand } from './SlashCommands';
@@ -90,7 +91,7 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
   const actions: Array<{
     active: boolean;
     label: string;
-    text: string;
+    text: ReactNode;
     run: (instance: EditorInstance) => void;
   }> = [
     { active: editor.isActive('bold'), label: copy.blocks.bold, text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
@@ -98,23 +99,25 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
     {
       active: editor.isActive('link'),
       label: copy.blocks.link,
-      text: '↗',
+      text: <Icon name="link" />,
       run: (instance) => {
         if (instance.isActive('link')) {
           instance.chain().focus().unsetLink().run();
           return;
         }
 
-        void promptUi({
+        void promptWithToggleUi({
           title: copy.blocks.linkTitle,
           message: copy.blocks.linkHint,
           label: copy.blocks.linkUrl,
           confirmLabel: copy.blocks.applyLink,
+          // Every link opened a new tab before there was a choice, so that is where it starts.
+          toggle: { checked: true, label: copy.blocks.linkNewTab },
           validate: (value) => normalizedLink(value) ? null : copy.blocks.invalidLink,
-        }).then((value) => {
-          if (value === null) return;
-          const href = normalizedLink(value);
-          if (href) instance.chain().focus().setLink({ href }).run();
+        }).then((answer) => {
+          if (answer === null) return;
+          const href = normalizedLink(answer.value);
+          if (href) instance.chain().focus().setLink({ href, target: answer.checked ? '_blank' : null }).run();
         });
       },
     },
@@ -134,7 +137,7 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
           <button
             aria-label={action.label}
             aria-pressed={action.active}
-            className={`min-w-9 rounded px-2 py-1.5 text-sm font-semibold hover:bg-soft ${action.active ? 'bg-soft text-accent' : 'text-ink'}`}
+            className={`flex h-8 min-w-9 items-center justify-center rounded px-2 text-sm font-semibold hover:bg-soft [&_.icon]:h-4 [&_.icon]:w-4 ${action.active ? 'bg-soft text-accent' : 'text-ink'}`}
             type="button"
           >
             {action.text}

@@ -91,6 +91,17 @@ test('server renders, sanitizes, and bounds editor content', () => {
   assert.equal(hasMeaningfulHtml(empty.contentHtml), false);
 });
 
+test('a link opens a new tab only when its writer asked it to', () => {
+  const link = (text: string, target: string | null): EditorNode => ({
+    type: 'text', text, marks: [{ type: 'link', attrs: { href: 'https://example.com', target } }],
+  });
+  const { contentHtml } = prepareEditorContent({
+    contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [link('Elsewhere', '_blank'), link(' Here', null)] }] },
+  });
+  assert.match(contentHtml, /<a target="_blank" rel="noopener noreferrer" href="https:\/\/example\.com">Elsewhere<\/a>/);
+  assert.match(contentHtml, /<a rel="noopener noreferrer" href="https:\/\/example\.com"> Here<\/a>/, 'no target, so the same tab');
+});
+
 test('a table is kept whole, and nothing that rides in with it', () => {
   // A cell holds paragraphs, and Enter in a cell starts another one in the same cell.
   const cell = (type: 'tableCell' | 'tableHeader', texts: string[], attrs?: { colspan: number }): EditorNode => ({

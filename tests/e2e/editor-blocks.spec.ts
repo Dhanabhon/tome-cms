@@ -295,6 +295,51 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
   await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
 });
 
+test('a link opens a new tab only when its writer asked it to', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  // Every link used to open a new tab, and the button that made one was an arrow. It is a
+  // link drawn as a link now, and the writer says where each one opens.
+  await page.goto(`${origin}/admin/new`);
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  const linkWord = async (address: string, newTab: boolean) => {
+    for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowLeft');
+    const button = page.getByRole('button', { name: 'Link' });
+    await expect(button.locator('svg'), 'a drawn icon, not a typed arrow').toHaveCount(1);
+    await button.click();
+    const dialog = page.getByRole('dialog', { name: 'Add a link' });
+    const choice = dialog.getByRole('checkbox', { name: 'Open in a new tab' });
+    await expect(choice, 'as every link did before there was a choice').toBeChecked();
+    await choice.setChecked(newTab);
+    await dialog.getByRole('textbox').fill(address);
+    await dialog.getByRole('button', { name: 'Apply link' }).click();
+    await expect(canvas).toBeFocused();
+  };
+  // The whole line first: words typed straight after a link join it.
+  await page.keyboard.type('Read this or that');
+  await linkWord('example.com/here', false);
+  // From the start of "that", back over " or " to the end of "this".
+  for (let step = 0; step < 5; step += 1) await page.keyboard.press('ArrowLeft');
+  await linkWord('example.com/away', true);
+
+  const links = await page.evaluate(() => [...document.querySelectorAll('.ProseMirror a')]
+    .map((link) => [link.textContent, link.getAttribute('target')]));
+  expect(links).toEqual([['this', '_blank'], ['that', null]]);
+});
+
 test('a draft that cannot be saved can still be left', async ({ context, page }) => {
   test.setTimeout(120_000);
   const cdp = await context.newCDPSession(page);
