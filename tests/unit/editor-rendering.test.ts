@@ -6,9 +6,11 @@ import { adminCopy } from '../../src/lib/admin-i18n';
 
 import {
   editorContentInputSchema,
+  editorText,
   hasMeaningfulContent,
   hasMeaningfulHtml,
   MAX_DOCUMENT_BYTES,
+  sanitizedContentHtmlSchema,
 } from '../../src/lib/editor-content';
 import { editorMediaIds, prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
@@ -87,6 +89,44 @@ test('server renders, sanitizes, and bounds editor content', () => {
   const empty = prepareEditorContent({ contentJson: { type: 'doc', content: [{ type: 'paragraph' }] } });
   assert.equal(hasMeaningfulContent(empty.contentJson), false);
   assert.equal(hasMeaningfulHtml(empty.contentHtml), false);
+});
+
+test('a table is kept whole, and nothing that rides in with it', () => {
+  // A cell holds paragraphs, and Enter in a cell starts another one in the same cell.
+  const cell = (type: 'tableCell' | 'tableHeader', texts: string[], attrs?: { colspan: number }): EditorNode => ({
+    type, ...(attrs ? { attrs } : {}),
+    content: texts.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })),
+  });
+  const contentJson: EditorDocument = {
+    type: 'doc',
+    content: [{
+      type: 'table',
+      content: [
+        { type: 'tableRow', content: [cell('tableHeader', ['Name']), cell('tableHeader', ['Age', 'in years'])] },
+        { type: 'tableRow', content: [cell('tableCell', ['Alice']), cell('tableCell', ['30'])] },
+        { type: 'tableRow', content: [cell('tableCell', ['Across', 'both'], { colspan: 2 })] },
+      ],
+    }],
+  };
+
+  // The wrapper is what lets a wide table scroll inside itself instead of widening the page.
+  const { contentHtml } = prepareEditorContent({ contentJson });
+  assert.match(contentHtml, /^<div class="tableWrapper"><table><tbody><tr><th[^>]*><p>Name<\/p><\/th><th[^>]*><p>Age<\/p><p>in years<\/p><\/th><\/tr>/);
+  assert.match(contentHtml, /<tr><td[^>]*><p>Alice<\/p><\/td><td[^>]*><p>30<\/p><\/td><\/tr>/);
+  assert.match(contentHtml, /<td colspan="2"[^>]*><p>Across<\/p><p>both<\/p><\/td>/, 'a cell pasted across two columns stays across two');
+  // Tiptap sizes a table inline, and adds a colgroup for dragging column widths, which this
+  // editor does not offer. Neither is anything a theme should have to fight.
+  assert.doesNotMatch(contentHtml, /style=|<colgroup|<col\b/);
+
+  const hostile = sanitizedContentHtmlSchema.parse(
+    '<div class="tableWrapper wide" onclick="x"><table style="position:fixed"><tbody>'
+    + '<tr><td colspan="2" style="color:red" onmouseover="x" data-x="1">A</td></tr></tbody></table></div>'
+    + '<div class="banner">B</div>',
+  );
+  assert.equal(hostile, '<div class="tableWrapper"><table><tbody><tr><td colspan="2">A</td></tr></tbody></table></div><div>B</div>');
+
+  // Each cell's words stand apart, so they are counted, read and judged as words.
+  assert.equal(editorText(contentJson), 'Name Age in years Alice 30 Across both');
 });
 
 test("an editor refuses to publish an empty document in the owner's own language", () => {

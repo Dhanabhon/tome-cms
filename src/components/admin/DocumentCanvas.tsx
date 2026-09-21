@@ -1,3 +1,5 @@
+import { isNodeSelection } from '@tiptap/core';
+import { CellSelection } from '@tiptap/pm/tables';
 import { useMemo } from 'react';
 
 import {
@@ -19,10 +21,12 @@ import {
 } from 'novel';
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
+import { tableExtensions } from '../../lib/editor-table';
 import { promptUi } from '../../lib/ui-dialog';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
 import SlashCommands, { createSlashCommand } from './SlashCommands';
+import TableBubble from './TableBubble';
 import type { PostLocale } from '../../types/cms';
 
 interface DocumentCanvasProps {
@@ -64,6 +68,7 @@ const buildExtensions = (copy: AdminCopy) => [
     HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
   }),
   editorImage,
+  ...tableExtensions,
   createSlashCommand(copy),
 ];
 
@@ -117,7 +122,13 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
   ];
 
   return (
-    <EditorBubble className="flex overflow-hidden rounded-md border border-line bg-surface p-1 font-sans" tippyOptions={{ duration: 100 }}>
+    <EditorBubble
+      className="flex overflow-hidden rounded-md border border-line bg-surface p-1 font-sans"
+      // novel's own test, less cells chosen together: those bring the table's bar instead.
+      shouldShow={({ editor: instance, state: { selection } }) => instance.isEditable && !instance.isActive('image')
+        && !selection.empty && !isNodeSelection(selection) && !(selection instanceof CellSelection)}
+      tippyOptions={{ duration: 100 }}
+    >
       {actions.map((action) => (
         <EditorBubbleItem key={action.label} onSelect={action.run}>
           <button
@@ -157,6 +168,7 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
       >
         <SlashCommands copy={copy} />
         <FormattingBubble copy={copy} />
+        <TableBubble copy={copy} />
         <BlockInsertMenu copy={copy} />
       </EditorContent>
     </EditorRoot>

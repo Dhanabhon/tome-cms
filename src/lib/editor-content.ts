@@ -45,12 +45,23 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     'a',
     'img',
     'hr',
+    'div',
+    'table',
+    'tbody',
+    'tr',
+    'th',
+    'td',
   ],
   allowedAttributes: {
     a: ['href', 'title', 'target', 'rel'],
     code: ['class'],
     img: ['src', 'alt', 'title', 'width', 'height'],
+    td: ['colspan', 'rowspan'],
+    th: ['colspan', 'rowspan'],
   },
+  // A table's wrapper is the only thing that may carry a class of its own: it is how a wide
+  // table scrolls inside its box on a phone.
+  allowedClasses: { div: ['tableWrapper'] },
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: { img: ['http', 'https'] },
   transformTags: {
@@ -65,7 +76,7 @@ export const sanitizedContentHtmlSchema: z.ZodType<string> = z
   .transform((html) => sanitizeHtml(html, sanitizeOptions))
   .pipe(z.string().max(MAX_DOCUMENT_BYTES));
 
-const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList']);
+const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList', 'table', 'tableCell', 'tableHeader', 'tableRow']);
 
 export function editorText(node: EditorNode): string {
   if (typeof node.text === 'string') return node.text;

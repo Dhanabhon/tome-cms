@@ -2,11 +2,20 @@ import { useEditor } from 'novel';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
+import { NEW_TABLE } from '../../lib/editor-table';
 import type { MediaAsset } from '../../types/cms';
 import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
 
 const MENU_ID = 'block-insert-menu';
+/** From the line's top to the menu's, when it opens below the + button. */
+const GAP_BELOW = 42;
+/** From the menu's bottom to the line's top, when it opens above. */
+const GAP_ABOVE = 6;
+/** Kept between the menu and whatever would cover or cut it. */
+const MARGIN = 8;
+/** Held any shorter than this, a menu is a slot to scroll a list through. */
+const LEAST_ROOM = 128;
 
 export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   const { editor } = useEditor();
@@ -18,7 +27,9 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 0, menuLeft: 0, menuTop: 42, top: 0 });
+  const [position, setPosition] = useState<{ left: number; menuLeft: number; menuMaxHeight?: number; menuTop: number; top: number }>(
+    { left: 0, menuLeft: 0, menuTop: GAP_BELOW, top: 0 },
+  );
   const [visible, setVisible] = useState(false);
 
   const update = useCallback(() => {
@@ -34,19 +45,25 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
     const canvasRect = canvas.getBoundingClientRect();
     const cursor = editor.view.coordsAtPos(editor.state.selection.from);
     const menuWidth = menu.current?.offsetWidth ?? 0;
-    const menuHeight = menu.current?.offsetHeight ?? 0;
+    // Its whole height, not the height it was held to the last time it was placed.
+    const menuHeight = menu.current?.scrollHeight ?? 0;
     const left = 0;
     const menuLeft = menuOpen ? Math.max(-left, Math.min(0, canvasRect.width - left - menuWidth)) : 0;
-    let menuViewportTop = cursor.top + 42;
-    if (menuOpen && menuViewportTop + menuHeight > window.innerHeight - 8) {
-      menuViewportTop = cursor.top - menuHeight - 6;
-    }
-    if (menuOpen) {
-      menuViewportTop = Math.max(8, Math.min(menuViewportTop, window.innerHeight - menuHeight - 8));
-    }
+    // The editor's bar stays at the top of the window and covers what passes under it, so the
+    // menu's room ends at the bar and not at the window's edge: a menu that opened under it
+    // had its first items covered, and they could not be chosen.
+    const ceiling = (document.querySelector('.admin-editor-bar')?.getBoundingClientRect().bottom ?? 0) + MARGIN;
+    const below = window.innerHeight - MARGIN - (cursor.top + GAP_BELOW);
+    const above = cursor.top - GAP_ABOVE - ceiling;
+    // Below the line when it fits there, else on the side with more room -- held to that room,
+    // and scrolled within when even that is short.
+    const opensAbove = menuHeight > below && above > below;
+    const room = Math.max(LEAST_ROOM, opensAbove ? above : below);
+    const menuViewportTop = opensAbove ? cursor.top - GAP_ABOVE - Math.min(menuHeight, room) : cursor.top + GAP_BELOW;
     setPosition({
       left,
       menuLeft,
+      menuMaxHeight: room,
       menuTop: menuViewportTop - cursor.top,
       top: cursor.top - canvasRect.top,
     });
@@ -84,7 +101,13 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   useLayoutEffect(() => {
     if (!menuOpen) return;
     update();
-    items.current[activeIndex]?.focus({ preventScroll: true });
+    const item = items.current[activeIndex];
+    item?.focus({ preventScroll: true });
+    // Into view inside a menu held short enough to scroll, and never by scrolling the page.
+    const list = menu.current;
+    if (item && list) {
+      list.scrollTop = Math.min(item.offsetTop, Math.max(list.scrollTop, item.offsetTop + item.offsetHeight - list.clientHeight));
+    }
   }, [activeIndex, menuOpen, update]);
 
   if (!editor) return null;
@@ -102,6 +125,10 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
     { icon: 'list', label: copy.blocks.bulletList, run: () => editor.chain().focus().toggleBulletList().run() },
     { icon: 'quote', label: copy.blocks.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
     { icon: 'code', label: copy.blocks.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() },
+    // Not inside a table: a table in a cell is one nobody meant to make.
+    ...(editor.isActive('table') ? [] : [
+      { icon: 'table', label: copy.blocks.table, run: () => editor.chain().focus().insertTable(NEW_TABLE).run() },
+    ] as const),
   ] as const;
 
   const openPicker = () => {
@@ -180,7 +207,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
               id={MENU_ID}
               ref={menu}
               role="menu"
-              style={{ left: position.menuLeft, top: position.menuTop }}
+              style={{ left: position.menuLeft, maxHeight: position.menuMaxHeight, top: position.menuTop }}
             >
               {actions.map((action, index) => (
                 <button

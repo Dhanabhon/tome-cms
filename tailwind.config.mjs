@@ -70,6 +70,8 @@ export default {
             '--tw-prose-code': 'var(--color-ink)',
             '--tw-prose-pre-code': 'var(--color-on-dark)',
             '--tw-prose-pre-bg': 'var(--color-code-bg)',
+            '--tw-prose-th-borders': 'var(--color-rule-strong)',
+            '--tw-prose-td-borders': 'var(--color-rule)',
             fontFamily: 'var(--font-body)',
             h2: {
               fontSize: 'var(--text-xl)',
