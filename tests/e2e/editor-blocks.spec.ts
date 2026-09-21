@@ -195,3 +195,49 @@ test('a quote is somewhere a writer can leave', async ({ context, page }) => {
   });
   expect(painted, 'no quotation mark stands where a caret cannot').toEqual(['none', 'none']);
 });
+
+test('the settings drawer opens where it can be seen, every time', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/new`);
+  const drawer = page.locator('dialog.admin-editor-settings');
+  const open = page.getByRole('button', { name: /^Settings$/ }).first();
+
+  /** On screen, and drawn where it says it is. */
+  const arrived = async () => page.evaluate(async () => {
+    const panel = document.querySelector('dialog.admin-editor-settings') as HTMLElement;
+    // After it has arrived, not while it is arriving.
+    await Promise.all(panel.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+    const box = panel.getBoundingClientRect();
+    return { left: Math.round(box.left), width: Math.round(box.width), within: box.right <= window.innerWidth + 1 };
+  });
+
+  await open.click();
+  await drawer.waitFor({ state: 'visible' });
+  const first = await arrived();
+  expect(first.within && first.width > 0, 'the drawer is on screen').toBe(true);
+
+  // This panel is closed rather than unmounted, so the mark its exit leaves is still on it
+  // when it is asked for again: without clearing that, the second open is off-screen.
+  await page.getByRole('button', { name: /Close settings/i }).click();
+  await expect(drawer).toBeHidden();
+  await open.click();
+  await drawer.waitFor({ state: 'visible' });
+  expect(await arrived(), 'and is in the same place the second time').toEqual(first);
+
+  await page.mouse.click(40, 400);
+  await expect(drawer, 'a click on the editor behind closes it').toBeHidden();
+});
+

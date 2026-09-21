@@ -2224,3 +2224,28 @@ body {
 @keyframes drawer-backdrop-in {
   from { opacity: 0; }
 }
+
+/*
+ * And leaves the way it arrived.
+ *
+ * `both` is right here where it was wrong on the way in: the panel is unmounted the moment
+ * this finishes, so there is nothing left to hold a containing block over. Quicker than the
+ * entrance, because leaving is not news.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .admin-editor-settings[data-closing] {
+    animation: drawer-out var(--dur-short) var(--ease-out) both;
+  }
+
+  .admin-editor-settings[data-closing]::backdrop {
+    animation: drawer-backdrop-out var(--dur-short) var(--ease-out) both;
+  }
+}
+
+@keyframes drawer-out {
+  to { transform: translateX(100%); }
+}
+
+@keyframes drawer-backdrop-out {
+  to { opacity: 0; }
+}

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
+
+import { useDrawer } from './useDrawer';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { PLUGIN_MANIFESTS } from '../../plugins/manifests';
@@ -180,20 +182,9 @@ interface PluginSetUpProps {
  * keeps a plugin from needing a screen of its own -- and what stops it from drawing one.
  */
 function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave, state }: PluginSetUpProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    element.showModal();
-    closeButton.current?.focus();
-    return () => {
-      element.close();
-      opener?.focus();
-    };
-  }, []);
+  const { close, dialog } = useDrawer({ focus: closeButton, onClose });
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -207,7 +198,7 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
       className="admin-editor-settings"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        close();
       }}
       ref={dialog}
     >
@@ -221,7 +212,7 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
         <button
           aria-label={copy.plugins.close}
           className="admin-button admin-button--ghost admin-button--icon"
-          onClick={onClose}
+          onClick={() => close()}
           ref={closeButton}
           type="button"
         >

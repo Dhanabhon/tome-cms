@@ -72,9 +72,10 @@ test('the panel of fields is the one the admin already has', () => {
   // A dialog of its own would be a second way to show a panel of fields, and the two would
   // drift. This is the editors' drawer, opened the way they open it.
   assert.match(SOURCE, /className="admin-editor-settings"/);
-  assert.match(SOURCE, /element\.showModal\(\);/);
-  assert.match(SOURCE, /closeButton\.current\?\.focus\(\);/);
+  // Opened, focused and dismissed by the hook all four drawers share, rather than by a
+  // copy of the same effect that can drift from the other three.
+  assert.match(SOURCE, /useDrawer\(\{ focus: closeButton, onClose \}\)/);
   // Escape closes it through onCancel rather than leaving the dialog closed and the screen
-  // still believing it is open.
-  assert.match(SOURCE, /onCancel=\{\(event\) => \{\n\s+event\.preventDefault\(\);\n\s+onClose\(\);/);
+  // still believing it is open, and closing plays the exit before the screen is told.
+  assert.match(SOURCE, /onCancel=\{\(event\) => \{\n\s+event\.preventDefault\(\);\n\s+close\(\);/);
 });
