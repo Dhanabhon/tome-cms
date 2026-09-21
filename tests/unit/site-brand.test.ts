@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { iconLinks, NO_BRAND, siteBrand, storedBrandKeys, type StoredBrand } from '../../src/lib/site-brand';
+import { editableBrand, iconLinks, NO_BRAND, siteBrand, storedBrandKeys, type StoredBrand } from '../../src/lib/site-brand';
 
 const logo = { height: 80, key: 'owners/o/2026/09/a.svg', mime: 'image/svg+xml' as const, width: 240 };
 const dark = { ...logo, key: 'owners/o/2026/09/b.svg' };
@@ -22,6 +22,13 @@ test('a dark logo is drawn only beside a logo', () => {
   const both = siteBrand(stored({ brand_logo: logo, brand_logo_dark: dark }), resolve);
   assert.equal(both.logoDark?.url, `https://media.test/${dark.key}`);
   assert.equal(siteBrand(stored({ brand_logo_dark: dark }), resolve).logoDark, null);
+});
+
+test('the owner sees a dark logo the header does not draw, so it can be removed', () => {
+  // Uploaded before a logo, or left when the logo was removed: stored, and not drawn.
+  const brand = editableBrand(stored({ brand_logo_dark: dark }), resolve);
+  assert.equal(brand.logoDark?.url, `https://media.test/${dark.key}`);
+  assert.equal(brand.logo, null);
 });
 
 test('keys become addresses, and nothing else of the key leaks', () => {

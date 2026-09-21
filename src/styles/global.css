@@ -259,6 +259,20 @@ html[data-notice-closed] .site-notice { display: none; }
 .admin-check > label { display: contents; }
 .admin-check input { width: 1.125rem; height: 1.125rem; margin-block-start: 0.15rem; accent-color: var(--color-accent); }
 .admin-check small { grid-column: 2; }
+/* The logo, dark logo and icon fields on Settings. Each preview sits on the surface it will be
+ * seen on, in either admin theme -- --color-sample-light and --color-hero do not turn with it. */
+.brand-fields { display: grid; gap: var(--space-lg); margin-block-end: var(--space-md); }
+.brand-field { display: grid; gap: var(--space-xs); }
+.brand-field__label { display: grid; gap: var(--space-3xs); }
+.brand-field__label small, .brand-field__status { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.brand-field__previews, .brand-field__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.brand-preview { display: grid; min-width: 10rem; min-height: 4.5rem; place-items: center; gap: var(--space-2xs); margin: 0; padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); }
+.brand-preview img { max-width: 14rem; max-height: 3rem; object-fit: contain; }
+.brand-preview--light { background: var(--color-sample-light); }
+.brand-preview--dark { background: var(--color-hero); }
+.brand-preview--dark figcaption { color: var(--color-on-dark-muted); font-size: var(--text-xs); }
+.brand-preview--icon { grid-auto-flow: column; }
+.brand-preview--icon img { max-height: none; }
 /* The ring belongs to the box, not to the sentence beside it: :focus-within drew a 2px
  * frame around the whole block -- label, hint and all -- and it fired on a mouse click
  * as well as a keyboard one. :focus-visible on the input is where a checkbox says it

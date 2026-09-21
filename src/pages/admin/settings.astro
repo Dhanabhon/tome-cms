@@ -4,9 +4,11 @@ import SettingsForm from '../../components/admin/SettingsForm';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../lib/admin-i18n';
 import { adminLoginPath } from '../../lib/admin';
+import { editableBrand } from '../../lib/site-brand';
 import { requireOwner } from '../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
+import { resolveMediaUrl } from '../../server/media/url';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
@@ -43,7 +45,7 @@ const copy = adminCopy(ownerLocale);
     <AdminShell active="settings" adminPath={settings.admin_path} locale={settings?.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
         <header class="admin-page__head"><div><h1>{copy.settings.heading}</h1><p>{copy.settings.subheading}</p></div></header>
-        <SettingsForm client:load ownerLocale={settings?.default_locale} initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
+        <SettingsForm client:load initialBrand={editableBrand(settings, resolveMediaUrl)} ownerLocale={settings?.default_locale} initialSettings={{ ...settings, updated_at: settings.updated_at.toISOString() }} />
       </section>
     </AdminShell>
   )}

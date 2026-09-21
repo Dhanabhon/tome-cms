@@ -170,6 +170,7 @@ the surface is dark *on purpose*.
 - **On Dark Muted** (`--color-on-dark-muted`): secondary text on those same surfaces.
 - **Code Background** (`--color-code-bg`): the code-block surface. Keyed separately from `--color-ink` because that token inverts with the theme.
 - **Scrim** (`--color-scrim`): the wash behind a modal. Always dark, in both themes.
+- **Light Sample** (`--color-sample-light`): the light page in either theme, where the admin shows how something will look on it — the logo preview. Its partner for the dark page is `--color-hero`.
 
 ### Dark Theme
 
