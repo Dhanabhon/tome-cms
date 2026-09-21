@@ -9,6 +9,7 @@ import type { MediaAsset, PostCategory, PostLocale } from '../../types/cms';
 import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
+import ExcerptSuggestion from './ExcerptSuggestion';
 
 export interface CategorySuggestion {
   /** Likely is offered as a suggestion; possible as a maybe, apart from them. */
@@ -18,6 +19,8 @@ export interface CategorySuggestion {
 }
 
 interface PostSettingsDrawerProps {
+  /** Absent when this installation has no key for it. */
+  onSuggestExcerpt?: () => Promise<string | null>;
   /** Absent when this installation has no key for it, which is the usual case. */
   onSuggestCategories?: () => Promise<CategorySuggestion[]>;
   publishedAt: string | null;
@@ -47,7 +50,7 @@ interface PostSettingsDrawerProps {
 export default function PostSettingsDrawer({
   categories, copy, coverImage, errorMessage, excerpt, locale, metaDescription, metaTitle,
   onChangeCategories, onChangeCover, onChangeExcerpt, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
-  onChangePublishedAt, onClose, onManageCategories, onSuggestCategories, open, ownerLocale, publishedAt, selectedCategoryIds, slug,
+  onChangePublishedAt, onSuggestExcerpt, onClose, onManageCategories, onSuggestCategories, open, ownerLocale, publishedAt, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const [suggesting, setSuggesting] = useState(false);
@@ -190,6 +193,7 @@ export default function PostSettingsDrawer({
           <textarea className="admin-control admin-control--textarea" maxLength={120} onChange={(event) => onChangeExcerpt(event.target.value)} placeholder={copy.drawer.excerptPlaceholder} value={excerpt} />
           <small>{copy.drawer.excerptHint}</small>
         </label>
+        {onSuggestExcerpt && <ExcerptSuggestion copy={copy} onSuggest={onSuggestExcerpt} onUse={onChangeExcerpt} />}
       </section>
 
       <section className="drawer-group">

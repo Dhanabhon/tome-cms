@@ -10,12 +10,15 @@ import PageSettingsDrawer from './PageSettingsDrawer';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 import { contentSlug } from '../../lib/slug';
+import { requestExcerpt } from './ExcerptSuggestion';
 
 interface EditorSourcePage {
   id: string;
 }
 
 interface PageEditorProps {
+  /** Whether this installation can be asked to suggest a line for the excerpt. */
+  canSuggest?: boolean;
   adminPath: string;
   initialPage?: Omit<Page, 'translation_group_id'>;
   locale: PageLocale;
@@ -58,7 +61,7 @@ function readPage(payload: unknown): Page | null {
   return typeof page === 'object' && page !== null && 'id' in page ? (page as Page) : null;
 }
 
-export default function PageEditor({ adminPath, initialPage, locale, ownerLocale, sourcePage, translations }: PageEditorProps) {
+export default function PageEditor({ adminPath, canSuggest = false, initialPage, locale, ownerLocale, sourcePage, translations }: PageEditorProps) {
   const copy = adminCopy(ownerLocale);
   const fallbackSlug = useRef(`page-${crypto.randomUUID().slice(0, 8)}`);
   const pageId = useRef(initialPage?.id);
@@ -365,6 +368,9 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
         </article>
 
         <PageSettingsDrawer
+          onSuggestExcerpt={canSuggest ? (() => requestExcerpt({
+            contentJson: draftRef.current.contentJson, locale, title: draftRef.current.title,
+          })) : undefined}
           publishedAt={publishedAt}
           onChangePublishedAt={(value) => { publishedAtRef.current = value; setPublishedAt(value); markDirty(); }}
           copy={copy}
