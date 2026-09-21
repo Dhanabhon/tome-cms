@@ -1,4 +1,5 @@
 ---
+import SiteBrand from '../../components/SiteBrand.astro';
 import ThemeToggle from '../../components/ThemeToggle.astro';
 import { currentYear, localePath, publicCopy } from '../../lib/i18n';
 import { THEME_LABELS } from '../../lib/theme';
@@ -11,7 +12,7 @@ import type { ThemeShellProps } from '../contract';
  */
 interface Props extends ThemeShellProps {}
 
-const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
+const { allowVisitorTheme, alternates, brand, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
 const copy = publicCopy(locale);
 const languages = alternates.filter(({ locale: option }) => option !== locale);
 ---
@@ -19,7 +20,7 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
 <body class="plain">
   <slot name="above" />
   <header class="plain-head">
-    <a class="plain-wordmark" href={localePath(locale)}>{siteName}</a>
+    <a class="plain-wordmark" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
     <nav class="plain-nav" aria-label={copy.primaryNavigation}>
       {header.map(({ href, label }) => <a href={href}>{label}</a>)}
       {languages.map(({ href, locale: option }) => <a href={href} lang={option}>{option.toUpperCase()}</a>)}

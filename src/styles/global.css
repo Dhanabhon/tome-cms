@@ -104,6 +104,20 @@
 /* Closed on an earlier visit: the head has already said so before this is drawn. */
 html[data-notice-closed] .site-notice { display: none; }
 
+/* The site's logo, drawn by the core inside each theme's home link. A theme sizes it with
+ * --site-logo-height. A dark logo swaps in by the selectors the colour tokens use, so it
+ * follows a visitor's toggle as well as their system; <picture> would follow only the system. */
+.site-brand { display: inline-flex; min-width: 0; max-width: 100%; align-items: center; gap: var(--space-sm); vertical-align: middle; }
+.site-brand__logo { display: block; width: auto; height: var(--site-logo-height, 2rem); max-width: 100%; object-fit: contain; }
+.site-brand__logo--dark { display: none; }
+.site-brand__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .site-brand--has-dark .site-brand__logo--light { display: none; }
+  :root:not([data-theme='light']) .site-brand--has-dark .site-brand__logo--dark { display: block; }
+}
+:root[data-theme='dark'] .site-brand--has-dark .site-brand__logo--light { display: none; }
+:root[data-theme='dark'] .site-brand--has-dark .site-brand__logo--dark { display: block; }
+
 .site-notice p { margin: 0; }
 
 .site-notice a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }

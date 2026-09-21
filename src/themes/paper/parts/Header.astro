@@ -1,13 +1,16 @@
 ---
 import LanguageSwitcher from '../../../components/LanguageSwitcher.astro';
+import SiteBrand from '../../../components/SiteBrand.astro';
 import ThemeToggle from '../../../components/ThemeToggle.astro';
 import { localePath, publicCopy } from '../../../lib/i18n';
 import { THEME_LABELS, type ThemeChoice } from '../../../lib/theme';
 import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../../types/cms';
+import type { ThemeBrand } from '../../contract';
 
 interface Props {
   allowVisitorTheme?: boolean;
   availableLocales?: PostAlternate[];
+  brand: ThemeBrand;
   items?: PublicNavigationItem[];
   locale?: PostLocale;
   siteName?: string;
@@ -17,7 +20,7 @@ interface Props {
   theme?: ThemeChoice;
 }
 
-const { allowVisitorTheme = true, availableLocales = [], items = [], locale = 'en', siteName = 'TomeCMS', sticky = false, theme = 'system' } = Astro.props;
+const { allowVisitorTheme = true, availableLocales = [], brand, items = [], locale = 'en', siteName = 'TomeCMS', sticky = false, theme = 'system' } = Astro.props;
 const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
@@ -26,7 +29,7 @@ const copy = publicCopy(locale);
 
 <header class="site-header border-b border-line" data-sticky={sticky ? "" : undefined}>
   <div class="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-7">
-    <a class="site-wordmark min-w-0 flex-1 truncate text-ink" href={localePath(locale)}>{siteName}</a>
+    <a class="site-wordmark min-w-0 flex-1 truncate text-ink" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
     {items.length > 0 && (
       <nav aria-label={copy.primaryNavigation} class="public-navigation site-header__desktop">
         <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>

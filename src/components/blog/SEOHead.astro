@@ -1,4 +1,6 @@
 ---
+import { iconLinks, type BrandIcon } from '../../lib/site-brand';
+
 interface AlternateLink {
   href: string;
   hreflang: 'th' | 'en' | 'x-default';
@@ -9,6 +11,8 @@ interface Props {
   description: string;
   canonical: string;
   author?: string;
+  /** The site's own icon; without one the page links TomeCMS's. */
+  icon?: BrandIcon | null;
   image?: string | null;
   imageAlt?: string;
   locale?: 'th' | 'en';
@@ -26,6 +30,7 @@ const {
   author,
   canonical,
   description,
+  icon,
   image,
   imageAlt,
   locale = 'en',
@@ -41,7 +46,7 @@ const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '
 ---
 
 <title>{title}</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+{iconLinks(icon ?? null).map(({ href, rel, sizes, type }) => <link rel={rel} href={href} sizes={sizes} type={type} />)}
 <link rel="alternate" type="application/rss+xml" title={`${siteName ?? 'TomeCMS'} RSS`} href="/rss.xml" />
 <meta name="description" content={description} />
 {author && <meta name="author" content={author} />}

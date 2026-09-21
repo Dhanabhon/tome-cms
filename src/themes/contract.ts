@@ -8,7 +8,11 @@ import type {
   PublicNavigationItem,
   SiteSettings,
 } from '../types/cms';
+import type { SiteBrand } from '../lib/site-brand';
 import type { ThemeChoice } from '../lib/theme';
+
+/** What a theme is told about the site's logo. It draws it with SiteBrand, not by hand. */
+export type ThemeBrand = Pick<SiteBrand, 'logo' | 'logoDark' | 'showSiteName'>;
 
 /**
  * Everything a theme is allowed to know.
@@ -77,6 +81,8 @@ export interface ThemeShellProps {
   /** Off means the header draws no theme control, and the page carries no script for one. */
   allowVisitorTheme: boolean;
   alternates: PostAlternate[];
+  /** The logo, a dark one, and whether the name is beside them: put <SiteBrand> in the home link. */
+  brand: ThemeBrand;
   footer: PublicNavigationItem[];
   header: PublicNavigationItem[];
   locale: PostLocale;
