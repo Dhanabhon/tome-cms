@@ -151,7 +151,7 @@
       "id": "plugins",
       "type": "security",
       "label": "ปลั๊กอิน",
-      "sublabel": "hook เข้าสู่ระบบ · หน้าเว็บ",
+      "sublabel": "เข้าสู่ระบบ · หน้าเว็บ · ขณะเขียน",
       "pos": [
         570,
         465
@@ -200,6 +200,20 @@
       ],
       "size": [
         180,
+        66
+      ]
+    },
+    {
+      "id": "typesafe",
+      "type": "external",
+      "label": "TypeSafe",
+      "sublabel": "ผ่านปลั๊กอิน · ไม่บังคับ",
+      "pos": [
+        280,
+        465
+      ],
+      "size": [
+        170,
         66
       ]
     }
@@ -290,6 +304,13 @@
       "from": "plugins",
       "to": "turnstile",
       "label": "siteverify",
+      "variant": "dashed"
+    },
+    {
+      "id": "plugin-suggests",
+      "from": "plugins",
+      "to": "typesafe",
+      "label": "เสนอขณะเขียน",
       "variant": "dashed"
     }
   ],
