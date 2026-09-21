@@ -8,6 +8,7 @@ import { createInterface } from 'node:readline/promises';
 import { pathToFileURL } from 'node:url';
 
 import { RESET_TABLES } from '../src/server/db/reset-tables.ts';
+import { storedBrandKeys } from '../src/lib/site-brand.ts';
 import { isTomeObjectKey } from '../src/server/media/keys.ts';
 
 export function parseResetOptions(args) {
@@ -67,11 +68,15 @@ async function inventory(database) {
   return result.rows[0];
 }
 
-async function knownObjects(database) {
+export async function knownObjects(database) {
   const media = await database.selectFrom('media_items').select(['id', 'object_key']).execute();
   const reservations = await database.selectFrom('media_upload_reservations').select(['id', 'object_key']).execute();
+  // The site's logos and icon live in the same bucket, and the settings row accounts for them.
+  const brand = (await database.selectFrom('site_settings').select(['brand_logo', 'brand_logo_dark', 'brand_icon']).execute())
+    .flatMap((row) => [row.brand_logo, row.brand_logo_dark, row.brand_icon].flatMap(storedBrandKeys))
+    .map((object_key) => ({ id: 'site_settings', object_key }));
   const objects = new Map();
-  for (const row of [...media, ...reservations]) {
+  for (const row of [...media, ...reservations, ...brand]) {
     const ids = objects.get(row.object_key) ?? [];
     ids.push(row.id);
     objects.set(row.object_key, ids);

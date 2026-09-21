@@ -11,7 +11,9 @@ const testFiles = runAll
   ? (await readdir(fileURLToPath(new URL('../tests/integration/', import.meta.url)), { recursive: true }))
     .filter((path) => path.endsWith('.test.ts')).sort().map((path) => `tests/integration/${path}`)
   : requested.length ? requested : ['tests/integration/foundation.test.ts'];
-const requiresStorage = runAll || testFiles.includes('tests/integration/foundation.test.ts');
+// Files that talk to object storage; every other focused run starts Postgres alone.
+const STORAGE_TESTS = new Set(['tests/integration/foundation.test.ts', 'tests/integration/site-brand.test.ts']);
+const requiresStorage = runAll || testFiles.some((file) => STORAGE_TESTS.has(file));
 // Database-only focused checks do not start storage; readiness and the full gate do.
 const composeEnv = process.env;
 const testEnv = {
