@@ -15,7 +15,11 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, which becomes Ubuntu 26 from 19 October 2026. The
+    # browser tests install Chromium's system libraries with --with-deps, which knows a
+    # fixed list of distributions, and a new one can arrive before the Playwright that
+    # supports it. Move this forward on purpose, in a commit that can fail on its own.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -23,7 +27,7 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 (node24)
         with:
           node-version: 22
           cache: npm
