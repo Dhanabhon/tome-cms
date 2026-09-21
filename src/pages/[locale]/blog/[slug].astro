@@ -8,6 +8,7 @@ import {
   type PublishedPost,
 } from '../../../server/content/published';
 import { getSiteSettings } from '../../../server/content/settings';
+import { movedPost } from '../../../server/content/redirects';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../../themes/registry';
 import { readThemeSettings } from '../../../server/themes/store';
 import type { PostAlternate, PostCategoryBadge, PublicAuthorProfile } from '../../../types/cms';
@@ -41,6 +42,10 @@ try {
   } else {
     post = await getPublishedPost(locale, slug);
     if (!post) {
+      // Nothing lives here. Something may have, and moved: a link someone shared before a
+      // rename should still reach the article, permanently, so search engines move with it.
+      const moved = await movedPost(locale, slug);
+      if (moved) return Astro.redirect(moved, 301);
       Astro.response.status = 404;
     } else {
       availableLocales = post.translations;

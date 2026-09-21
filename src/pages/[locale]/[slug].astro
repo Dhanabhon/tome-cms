@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, pagePath } from '../../lib/i18n';
 import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
 import { getPublishedPage, type PublishedPage } from '../../server/content/published';
+import { movedPage } from '../../server/content/redirects';
 import { getSiteSettings } from '../../server/content/settings';
 import { resolveTheme } from '../../themes/registry';
 import type { PostAlternate } from '../../types/cms';
@@ -22,6 +23,9 @@ try {
   } else {
     page = await getPublishedPage(locale, slug);
     if (!page) {
+      // A page that moved leaves its old address pointing at it, as a post does.
+      const moved = await movedPage(locale, slug);
+      if (moved) return Astro.redirect(moved, 301);
       Astro.response.status = 404;
     } else {
       availableLocales = page.translations;

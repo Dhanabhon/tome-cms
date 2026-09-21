@@ -35,6 +35,7 @@ export interface Database {
   media_items: MediaItemTable;
   media_upload_reservations: MediaUploadReservationTable;
   preview_tokens: PreviewTokenTable;
+  content_redirects: ContentRedirectTable;
 }
 
 export interface UserTable {
@@ -117,6 +118,15 @@ export interface RecoveryCodeTable {
   code_hash: string;
   created_at: Timestamp;
   consumed_at: Timestamp | null;
+}
+
+/** An address that was public once and is not any more -- see migrations/019_content_redirects. */
+export interface ContentRedirectTable {
+  locale: 'en' | 'th';
+  slug: string;
+  post_id: string | null;
+  page_id: string | null;
+  created_at: Generated<Timestamp>;
 }
 
 export interface PluginSettingsTable {
