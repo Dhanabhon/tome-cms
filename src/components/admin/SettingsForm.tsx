@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react';
 
 import { adminCopy } from '../../lib/admin-i18n';
+import type { SiteBrand } from '../../lib/site-brand';
 import { DEFAULT_THEME_ID, isThemeId } from '../../themes/registry';
 import type { PostLocale, SiteSettings } from '../../types/cms';
+import SiteBrandFields from './SiteBrandFields';
 import UiSelect from './UiSelect';
 
 interface SettingsFormProps {
+  /** Everything stored for the logo, dark logo and icon, as addresses. */
+  initialBrand: SiteBrand;
   ownerLocale?: PostLocale | null;
   initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'timezone' | 'updated_at'>;
 }
@@ -21,7 +25,7 @@ interface SaveResult {
   settings?: { updated_at?: string };
 }
 
-export default function SettingsForm({ initialSettings, ownerLocale }: SettingsFormProps) {
+export default function SettingsForm({ initialBrand, initialSettings, ownerLocale }: SettingsFormProps) {
   const copy = adminCopy(ownerLocale);
   const [siteName, setSiteName] = useState(initialSettings.site_name);
   const [tagline, setTagline] = useState(initialSettings.tagline);
@@ -29,7 +33,9 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
-  const [hideSiteName] = useState(initialSettings.hide_site_name);
+  const [hideSiteName, setHideSiteName] = useState(initialSettings.hide_site_name);
+  // The switch means something only while there is a logo to stand in for the name.
+  const [hasLogo, setHasLogo] = useState(Boolean(initialBrand.logo));
   // The record is written whole, so these three travel with every save although Themes is
   // where they are edited. A theme_id whose theme left the build would fail the write, so
   // the fallback the renderer already makes is made here too: saving a site name must not
@@ -47,9 +53,9 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot([
     initialSettings.site_name, initialSettings.tagline, initialSettings.site_description,
     initialSettings.default_locale, initialSettings.timezone,
-    initialSettings.show_powered_by,
+    initialSettings.show_powered_by, initialSettings.hide_site_name,
   ]));
-  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, showPoweredBy]);
+  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, showPoweredBy, hideSiteName]);
   const dirty = currentSnapshot !== savedSnapshot;
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -141,6 +147,36 @@ export default function SettingsForm({ initialSettings, ownerLocale }: SettingsF
               </label>
               <small id="showPoweredBy-help">{copy.settings.poweredByHint}</small>
             </div>
+          </section>
+
+          <section className="admin-card" aria-labelledby="settings-brand-heading">
+            <header className="admin-card__head">
+              <h2 id="settings-brand-heading">{copy.brand.heading}</h2>
+              <p>{copy.brand.hint}</p>
+            </header>
+            {/* A file applies on its own request and moves the row's version, which this form
+                must carry into its next save or have it refused as stale. */}
+            <SiteBrandFields
+              afterLogo={(
+                <div className="admin-check">
+                  <label>
+                    <input
+                      aria-describedby="hideSiteName-help"
+                      checked={hasLogo && hideSiteName}
+                      disabled={!hasLogo}
+                      name="hideSiteName"
+                      onChange={(event) => { setHideSiteName(event.target.checked); setStatus(''); }}
+                      type="checkbox"
+                    />
+                    <span>{copy.brand.hideName}</span>
+                  </label>
+                  <small id="hideSiteName-help">{hasLogo ? copy.brand.hideNameHint : copy.brand.hideNameNeedsLogo}</small>
+                </div>
+              )}
+              copy={copy}
+              initialBrand={initialBrand}
+              onChange={(brand, next) => { setHasLogo(Boolean(brand.logo)); setUpdatedAt(next); }}
+            />
           </section>
 
           <section className="admin-card" aria-labelledby="settings-regional-heading">

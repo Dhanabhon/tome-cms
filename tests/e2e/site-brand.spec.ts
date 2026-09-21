@@ -175,3 +175,47 @@ test('a public page wears the site icon, and the admin keeps TomeCMS\'s', async 
   await page.goto(`${origin}/admin`);
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/favicon.svg');
 });
+
+test('the owner uploads a logo and an icon, and hides the name behind the logo', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const { db } = await import('../../src/server/db/client');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const sharp = (await import('sharp')).default;
+  // What the two tests above left on the row is not this test's starting point.
+  await db.updateTable('site_settings').set({ brand_icon: null, brand_logo: null, brand_logo_dark: null, hide_site_name: false }).execute();
+
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const enrollment = await issueRecoveryEnrollment(OWNER);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/settings`);
+  const hide = page.getByRole('checkbox', { name: 'Hide the site name in the header' });
+  await expect(hide, 'nothing to hide the name behind yet').toBeDisabled();
+
+  const logo = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><script>alert(1)</script><rect width="120" height="40" fill="#2e7d5b"/></svg>');
+  await page.locator('input[name="brand-logo"]').setInputFiles({ buffer: logo, mimeType: 'image/svg+xml', name: 'logo.svg' });
+  const logoField = page.locator('.brand-field[data-kind="logo"]');
+  await expect(logoField.locator('[role="status"]')).toHaveText('Saved.');
+  await expect(logoField.locator('.brand-preview img').first()).toBeVisible();
+  await expect(hide).toBeEnabled();
+
+  // A file field applied on the spot; the form's own save still goes through after it.
+  await hide.check();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('.admin-save-bar [role="status"]')).toHaveText('Saved.');
+
+  await page.goto(`${origin}/en`);
+  await expect(page.locator('header .site-brand__name')).toHaveCount(0);
+  await expect(page.locator('header img.site-brand__logo--light')).toHaveAttribute('alt', 'Brand Test');
+
+  await page.goto(`${origin}/admin/settings`);
+  const tiny = await sharp({ create: { background: '#fff', channels: 4, height: 64, width: 64 } }).png().toBuffer();
+  await page.locator('input[name="brand-icon"]').setInputFiles({ buffer: tiny, mimeType: 'image/png', name: 'icon.png' });
+  await expect(page.locator('.brand-field[data-kind="icon"] [role="alert"]')).toHaveText('An icon must be at least 180 × 180 pixels.');
+});

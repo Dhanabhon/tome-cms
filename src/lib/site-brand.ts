@@ -46,6 +46,10 @@ export function parseStoredIcon(value: unknown): StoredBrandIcon | null {
   return parsed.success ? parsed.data : null;
 }
 
+function brandImage(value: StoredBrandImage | null, resolve: (key: string) => string): BrandImage | null {
+  return value ? { height: value.height, mimeType: value.mime, url: resolve(value.key), width: value.width } : null;
+}
+
 /**
  * What a site wears, with each key made an address.
  *
@@ -54,17 +58,23 @@ export function parseStoredIcon(value: unknown): StoredBrandIcon | null {
  * it is drawn only beside one.
  */
 export function siteBrand(stored: StoredBrand, resolve: (key: string) => string): SiteBrand {
-  const image = (value: StoredBrandImage | null): BrandImage | null => value
-    ? { height: value.height, mimeType: value.mime, url: resolve(value.key), width: value.width }
-    : null;
-  const logo = image(stored.brand_logo);
+  const logo = brandImage(stored.brand_logo, resolve);
   const icon = stored.brand_icon;
   return {
     icon: icon ? { png180: resolve(icon.png180Key), png32: resolve(icon.png32Key), svg: icon.svgKey ? resolve(icon.svgKey) : null } : null,
     logo,
-    logoDark: logo ? image(stored.brand_logo_dark) : null,
+    logoDark: logo ? brandImage(stored.brand_logo_dark, resolve) : null,
     showSiteName: !logo || !stored.hide_site_name,
   };
+}
+
+/**
+ * Everything that is stored, before the header's rule about the dark logo -- what the owner is
+ * shown in Settings. A dark logo uploaded before a logo, or left when the logo was removed, is
+ * not drawn anywhere, and the owner has to be able to see it to remove it.
+ */
+export function editableBrand(stored: StoredBrand, resolve: (key: string) => string): SiteBrand {
+  return { ...siteBrand(stored, resolve), logoDark: brandImage(stored.brand_logo_dark, resolve) };
 }
 
 /** Every object a stored value names -- what a replacement deletes and a reset accounts for. */
