@@ -8,6 +8,7 @@ const PLUGINS = {
   lightbox: () => import('./lightbox'),
   notice: () => import('./notice'),
   turnstile: () => import('./turnstile'),
+  typesafe: () => import('./typesafe'),
 } as const;
 
 export type PluginId = keyof typeof PLUGINS;

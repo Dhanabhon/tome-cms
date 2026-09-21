@@ -238,20 +238,24 @@ A plugin that is switched off ships nothing at all. Each one's browser code is a
 a dynamic import that only a mount point on the page asks for, so a reader of a site with
 both switched off downloads neither.
 
-## Suggested categories
+## Suggestions while writing
 
-The post settings drawer can read what you have written and say which of your own
-categories it belongs under. It is off unless you give the installation a key:
+The post and page settings drawers can read what you have written and suggest which of
+your own categories it belongs under, and a line from it for the excerpt. Nothing in the
+core does this: it is the **TypeSafe** plugin, off until you switch it on under
+**Appearance → Plugins** and give it an API key from your TypeSafe console. The key is
+stored encrypted, like any plugin secret, and never sent to a browser.
 
-```dotenv
-TYPESAFE_API_KEY=your-key
-```
+An installation that does not use TypeSafe draws no suggestion buttons at all, and nothing a
+reader sees depends on it either way. With it on, nothing is applied for you: a category is a
+chip you press, and a line is a quotation with its own button. The article's text is sent to
+`api.typesafe.ai` when you press one of those buttons, and at no other time.
 
-Without one the button is not drawn at all. With one, the drawer asks a yes-or-no question
-per category -- your categories, under the names they have now -- and offers the likely ones
-as chips. Nothing is filed for you: a suggestion is a button you press, which is what makes a
-wrong guess cost a glance rather than a correction. The article's text is sent to
-`api.typesafe.ai` when you press the button, and at no other time.
+What a plugin may return is decided by the core rather than by the plugin. A category comes
+back as a likelihood, and the core decides which are suggested and which are only offered as
+a maybe. An excerpt comes back as a choice among passages the core found in your article,
+and the core keeps it only if it is one of them -- so no plugin can put words on a card that
+you did not write.
 
 ## Bundled and Headless modes
 

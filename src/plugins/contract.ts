@@ -44,7 +44,7 @@ export interface PluginSetting {
  * 'signIn' is the admin's sign-in. 'publicPage' is every page a reader sees, and is the
  * larger of the two: see the note on publicClient.
  */
-export type PluginHookId = 'publicPage' | 'signIn';
+export type PluginHookId = 'editorSuggestions' | 'publicPage' | 'signIn';
 
 export interface PluginManifest {
   description: { en: string; th: string };
@@ -112,6 +112,18 @@ export interface SiteNotice {
   text: string;
 }
 
+/**
+ * The draft an owner is writing, as it stands -- saved or not -- flattened to its words.
+ *
+ * Text rather than the editor's document: a plugin that judges an article has no business
+ * with how the editor stores one, and nothing it returns can reach the document through this.
+ */
+export interface ArticleDraft {
+  locale: PostLocale;
+  text: string;
+  title: string;
+}
+
 export interface Plugin {
   /** Null when the plugin has nothing to add -- unconfigured, or not that kind of plugin. */
   signInWidget(settings: PluginSettings): SignInWidget | null;
@@ -139,4 +151,26 @@ export interface Plugin {
    * to be revisited before it is.
    */
   publicClient?(settings: PluginSettings, page: PublicPage): { dataset?: Readonly<Record<string, string>> } | null;
+
+  /**
+   * How likely the article belongs under each category, by category id. Null when it could
+   * not be asked this time -- which the core reports as "did not answer", never as "no".
+   *
+   * A plugin supplies likelihoods and nothing else. Which of them become suggestions, and in
+   * which band, is the core's policy, so no plugin can file an article or promote a guess.
+   */
+  categoryLikelihoods?(
+    settings: PluginSettings,
+    input: { article: ArticleDraft; categories: readonly { id: string; name: string }[] },
+  ): Promise<Readonly<Record<string, number>> | null>;
+
+  /**
+   * Which of the passages the core found best introduces the article: `passage: null` when
+   * none does, null when it could not be asked. The core keeps an answer only if it is one of
+   * the passages it offered, so a plugin cannot put words on a card the owner did not write.
+   */
+  pickExcerpt?(
+    settings: PluginSettings,
+    input: { article: ArticleDraft; candidates: readonly string[] },
+  ): Promise<{ passage: string | null } | null>;
 }

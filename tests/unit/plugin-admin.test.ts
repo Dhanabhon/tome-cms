@@ -21,6 +21,14 @@ test('a manifest names a hook the plugin actually fills', async () => {
         assert.equal(typeof plugin.verifySignIn, 'function', `${manifest.id} claims signIn without a check`);
         continue;
       }
+      if (hook === 'editorSuggestions') {
+        // Either kind of suggestion: likelihoods for the categories, a pick for the excerpt.
+        assert.ok(
+          typeof plugin.categoryLikelihoods === 'function' || typeof plugin.pickExcerpt === 'function',
+          `${manifest.id} claims editorSuggestions and suggests nothing`,
+        );
+        continue;
+      }
       assert.equal(hook, 'publicPage', `${manifest.id} names a hook the core does not declare`);
       // Either half of it: a band of words, browser code, or both.
       assert.ok(

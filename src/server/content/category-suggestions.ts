@@ -1,9 +1,9 @@
-import { ask, hasJudgement } from '../ai/typesafe';
-import { categoryQuestions, suggestionBands, type CategorySuggestion } from './category-judgement';
 import { editorText } from '../../lib/editor-content';
-import { listCategories } from './categories';
 import type { EditorDocument, PostLocale } from '../../types/cms';
 import { HttpError } from '../http/errors';
+import { findSuggester } from '../plugins/suggestions';
+import { suggestionBands, type CategorySuggestion } from './category-judgement';
+import { listCategories } from './categories';
 
 export type { CategorySuggestion } from './category-judgement';
 
@@ -11,36 +11,25 @@ export type { CategorySuggestion } from './category-judgement';
 const SAMPLE = 4_000;
 
 /**
- * Which of the owner's own categories this article belongs under.
- *
- * One yes-or-no judgement per category rather than one pick, because an article belongs
- * under as many as it belongs under -- and because a forced pick would file every article
- * somewhere even when none of them fit.
- *
- * The categories are the owner's, read from their own rows: nothing here invents a name,
- * and a category that was renamed is asked about under the name it has now.
- *
- * Suggestions only. Nothing is filed by this function; the drawer offers them and the
- * owner ticks what they agree with, which is also what makes a wrong answer cost nothing.
+ * Which of the owner's own categories this article belongs under, asked of whichever plugin
+ * they have switched on for it. Suggestions only: nothing is filed here.
  */
 export async function suggestCategories(
   ownerId: string,
   article: { contentJson: EditorDocument; locale: PostLocale; title: string },
 ): Promise<CategorySuggestion[]> {
-  if (!hasJudgement()) return [];
+  const suggester = await findSuggester(ownerId, 'categoryLikelihoods');
+  if (!suggester) return [];
   const categories = await listCategories(ownerId);
   if (!categories.length) return [];
+  const text = editorText(article.contentJson).replace(/\s+/g, ' ').trim().slice(0, SAMPLE);
+  if (!text && !article.title.trim()) return [];
 
-  const body = editorText(article.contentJson).replace(/\s+/g, ' ').trim().slice(0, SAMPLE);
-  if (!body && !article.title.trim()) return [];
-
-  const asked = categoryQuestions(categories);
-  const answers = await ask({
-    title: article.title,
-    language: article.locale === 'th' ? 'Thai' : 'English',
-    body,
-  }, Object.fromEntries([...asked].map(([id, { question }]) => [id, question])));
+  const likelihoods = await suggester.plugin.categoryLikelihoods!(suggester.settings, {
+    article: { locale: article.locale, text, title: article.title },
+    categories: categories.map(({ id, name }) => ({ id, name })),
+  });
   // Unavailable is not the same answer as nothing fitting, and the screen says which.
-  if (!answers) throw new HttpError(503, 'Suggestions are unavailable right now.', { code: 'judgement_unavailable' });
-  return suggestionBands(asked, answers);
+  if (!likelihoods) throw new HttpError(503, 'Suggestions are unavailable right now.', { code: 'judgement_unavailable' });
+  return suggestionBands(categories, likelihoods);
 }

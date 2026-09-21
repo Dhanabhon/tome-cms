@@ -23,14 +23,14 @@ const askSchema = z.object({
 export const POST: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    await requireInstalledOwner(request.headers);
+    const current = await requireInstalledOwner(request.headers);
     try {
       assertSameOrigin(request, configuredOrigin);
     } catch {
       throw new HttpError(403, 'Request origin is not allowed.');
     }
     // Null is the honest answer to "nothing works alone", to "no key" and to "no answer".
-    const excerpt = await suggestExcerpt(await parseJson(request, askSchema));
+    const excerpt = await suggestExcerpt(await parseJson(request, askSchema), current.user.id);
     return Response.json({ excerpt }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
     return adminErrorResponse(error, requestId);
