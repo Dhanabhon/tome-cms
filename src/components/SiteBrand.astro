@@ -1,0 +1,24 @@
+---
+import type { ThemeBrand } from '../themes/contract';
+
+interface Props {
+  brand: ThemeBrand;
+  siteName: string;
+}
+
+/**
+ * What goes inside a theme's home link: the site's logo, its name, or both.
+ *
+ * The core's, so every theme hides the name by one rule and never leaves the link without a
+ * name: with the name shown the logo is decoration, and with it hidden the logo carries it.
+ * A dark logo is the second image, swapped in by CSS (global.css) -- no script.
+ */
+const { brand, siteName } = Astro.props;
+const alt = brand.showSiteName ? '' : siteName;
+---
+
+<span class:list={['site-brand', { 'site-brand--has-dark': brand.logoDark }]}>
+  {brand.logo && <img alt={alt} class="site-brand__logo site-brand__logo--light" decoding="async" height={brand.logo.height} src={brand.logo.url} width={brand.logo.width} />}
+  {brand.logoDark && <img alt={alt} class="site-brand__logo site-brand__logo--dark" decoding="async" height={brand.logoDark.height} src={brand.logoDark.url} width={brand.logoDark.width} />}
+  {brand.showSiteName && <span class="site-brand__name">{siteName}</span>}
+</span>

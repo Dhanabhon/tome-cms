@@ -535,6 +535,7 @@
 /* line-height stays at Tailwind's text-xl 28px across both steps: sm:text-[22px]
  * was an arbitrary font-size and never touched it. */
 .site-wordmark {
+  --site-logo-height: 2.25rem;
   font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: 700;

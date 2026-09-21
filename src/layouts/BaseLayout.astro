@@ -5,6 +5,7 @@ import PluginClients from '../components/PluginClients.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { getPublicSiteUrl } from '../lib/seo';
+import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
 import { publicAdditions } from '../server/plugins/public';
 import { publicCopy } from '../lib/i18n';
@@ -12,6 +13,7 @@ import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../themes/registry';
 import { readThemeSettings } from '../server/themes/store';
+import { resolveMediaUrl } from '../server/media/url';
 import { themeStylesheet } from '../themes/styles';
 import type { PostAlternate, PostLocale } from '../types/cms';
 import '../styles/global.css';
@@ -52,6 +54,7 @@ const allowVisitorTheme = settings?.allow_visitor_theme ?? true;
 // A site whose settings could not be read still says what it runs on, which is the default.
 const showPoweredBy = settings?.show_powered_by ?? true;
 const siteName = settings?.site_name ?? 'TomeCMS';
+const brand = settings ? siteBrand(settings, resolveMediaUrl) : NO_BRAND;
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const {
   alternates,
@@ -151,6 +154,7 @@ const structuredData = robots.includes('noindex')
       title={pageTitle}
       description={description}
       canonical={canonical}
+      icon={brand.icon}
       image={absoluteImage}
       imageAlt={headline ?? title}
       locale={locale}
@@ -176,6 +180,7 @@ const structuredData = robots.includes('noindex')
   <activeTheme.Shell
     allowVisitorTheme={allowVisitorTheme}
     alternates={alternates ?? []}
+    brand={brand}
     footer={navigation.footer}
     header={navigation.header}
     locale={locale}

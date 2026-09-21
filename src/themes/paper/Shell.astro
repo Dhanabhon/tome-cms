@@ -12,7 +12,7 @@ import type { ThemeShellProps } from '../contract';
  */
 interface Props extends ThemeShellProps {}
 
-const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, siteName, theme, themeSettings } = Astro.props;
+const { allowVisitorTheme, alternates, brand, footer, header, locale, showPoweredBy, siteName, theme, themeSettings } = Astro.props;
 ---
 
 <body class="flex min-h-screen flex-col">
@@ -20,6 +20,7 @@ const { allowVisitorTheme, alternates, footer, header, locale, showPoweredBy, si
   <Header
     allowVisitorTheme={allowVisitorTheme}
     availableLocales={alternates}
+    brand={brand}
     items={header}
     locale={locale}
     siteName={siteName}
