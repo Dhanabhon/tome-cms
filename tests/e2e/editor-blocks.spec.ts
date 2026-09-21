@@ -122,6 +122,14 @@ test.afterAll(async () => {
 });
 
 
+// Every test here signs in on its own, through the recovery page, and recovery allows five in
+// half an hour -- a limit for a person at a keyboard, which this file reaches at its sixth
+// test. The limiter has tests of its own; here it only stands between a test and the editor.
+test.beforeEach(async () => {
+  const { db } = await import('../../src/server/db/client');
+  await db.deleteFrom('security_rate_limits').execute();
+});
+
 test.skip(
   ({ isMobile }) => Boolean(isMobile),
   'The editor is driven by a keyboard here, and the virtual authenticator needs Chromium.',
@@ -199,6 +207,43 @@ test('a quote is somewhere a writer can leave', async ({ context, page }) => {
     ];
   });
   expect(painted, 'no quotation mark stands where a caret cannot').toEqual(['none', 'none']);
+});
+
+test('the formatting bar is whole, wherever the words it formats begin', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  // Reported from a real draft: a word chosen at the start of a line, and the bar over it cut
+  // off at the canvas's edge with its first button half gone. The bar is centred on the words,
+  // so a short word at the start of a line puts its left end past the canvas -- and the bar
+  // lives inside the canvas, which clipped whatever crossed its edge. Popper moves a bar back
+  // inside the boxes that would clip it, but it does not count `overflow: clip` as one.
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Hi');
+  await page.keyboard.press('Shift+ArrowLeft');
+  await page.keyboard.press('Shift+ArrowLeft');
+
+  /** The buttons a pointer cannot press at both ends: a clipped end is not there to hit. */
+  const cut = () => page.evaluate(() => ['Bold', 'Italic', 'Link', 'Inline code'].filter((label) => {
+    const button = document.querySelector(`button[aria-label="${label}"]`);
+    if (!button) return true;
+    const box = button.getBoundingClientRect();
+    const middle = box.top + box.height / 2;
+    return [box.left + 1, box.right - 1].some((x) => !button.contains(document.elementFromPoint(x, middle)));
+  }));
+  await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
 });
 
 test('the settings drawer opens where it can be seen, every time', async ({ context, page }) => {
