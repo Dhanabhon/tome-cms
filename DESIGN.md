@@ -238,12 +238,14 @@ This system uses a 4px base grid with scale values 2, 3, 4, 5, 6, 8, 10, 12, 14,
 
 ## Elevation & Depth
 
-Keep depth flat unless validated shadow or interaction evidence appears in the extraction payload. Do not invent shadows beyond this evidence boundary.
+Flat, with one exception: a surface that floats over the page -- a panel opened from a
+control, such as the theme panel and the language menu -- carries `--shadow-float`, so it
+reads as above the page and not part of it. Nothing in the page's flow takes a shadow.
 
 ### Shadow Evidence
 | Shadow Token | Layers | Details |
 |--------------|--------|---------|
-| n/a | 0 | No validated shadow payload |
+| shadow-float | 2 | A 1px contact shadow and a soft 28px drop, mixed from the ink at 8% and 22%. Dark: black at 50% and 65%, since the ink turns light there. |
 
 ### Interaction Signals
 | Theme | Signal | Evidence |

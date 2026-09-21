@@ -191,6 +191,10 @@ html[data-notice-closed] .site-notice { display: none; }
 .admin-shell-account { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); }
 /* Label over control: "ธีมหน้าผู้ดูแล" beside a three-segment toggle overruns a 16rem column. */
 .admin-shell-theme { display: grid; gap: var(--space-2xs); justify-items: start; padding-inline: var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); }
+/* With a round button for the control, the label and the button share a row. */
+@supports selector(:popover-open) {
+  .admin-shell-theme { grid-template-columns: 1fr auto; align-items: center; }
+}
 /* The owner as a card at the foot of the column: who is signed in, and the way out. The
  * address truncates rather than wrapping, so it carries a title for the part that does
  * not fit. */

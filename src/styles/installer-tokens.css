@@ -30,6 +30,9 @@
   --color-placeholder: var(--color-muted);
   --color-rule: oklch(88.96% 0.0125 121.72);
   --color-rule-strong: oklch(62% 0.012 130);
+  /* Depth, for a surface that floats over the page and for nothing else: a panel opened from
+   * a control. A contact shadow and a soft drop, both mixed from the ink so they carry its hue. */
+  --shadow-float: 0 1px 2px color-mix(in oklch, var(--color-ink) 8%, transparent), 0 12px 28px -8px color-mix(in oklch, var(--color-ink) 22%, transparent);
 
   /* #2E7D5B is the master brand green. White on it measures 5.00; the deeper family
    * member keeps links above 4.5 even on the soft surface. */
@@ -136,6 +139,8 @@
     /* Rules are mixed from the ink side here; mixing the hero would be invisible. */
     --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
     --color-rule-strong: oklch(55% 0.012 140);
+    /* Ink is light here, so a shadow mixed from it would glow: these drops are black. */
+    --shadow-float: 0 1px 2px oklch(0% 0 0 / 0.5), 0 14px 32px -8px oklch(0% 0 0 / 0.65);
 
     --color-accent: oklch(72.24% 0.1018 158.93);
     --color-accent-hover: oklch(77.2% 0.1017 159.58);
@@ -178,6 +183,8 @@
   /* Rules are mixed from the ink side here; mixing the hero would be invisible. */
   --color-rule: color-mix(in oklch, var(--color-ink) 14%, transparent);
   --color-rule-strong: oklch(55% 0.012 140);
+  /* Ink is light here, so a shadow mixed from it would glow: these drops are black. */
+  --shadow-float: 0 1px 2px oklch(0% 0 0 / 0.5), 0 14px 32px -8px oklch(0% 0 0 / 0.65);
 
   --color-accent: oklch(72.24% 0.1018 158.93);
   --color-accent-hover: oklch(77.2% 0.1017 159.58);
