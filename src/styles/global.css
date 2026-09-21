@@ -399,10 +399,13 @@ body {
   outline-offset: var(--space-2xs);
 }
 
+/* No overflow clip. The formatting bar is drawn inside the canvas, centred on the words it
+ * formats, so a word at the start of a line puts its end past the canvas's edge -- and a clip
+ * cut it off there. Popper keeps a bar clear of an edge that hides, but does not count a clip
+ * as one. The page clips at its root, so nothing in here can scroll it sideways. */
 .editor-canvas {
   box-sizing: border-box;
   position: relative;
-  overflow-x: clip;
   padding-left: 3.25rem;
 }
 
