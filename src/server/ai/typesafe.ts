@@ -26,16 +26,46 @@ export function hasJudgement(): boolean {
   return Boolean(getServerEnv().TYPESAFE_API_KEY);
 }
 
+/**
+ * The statuses that mean "try again": the two the service documents, and 503, which it was
+ * measured returning in bursts -- the same request failing, then answering eight times in a
+ * row a minute later.
+ */
+const RETRYABLE = new Set([429, 503, 529]);
+/** Backing off, as the service asks, rather than asking again at once. */
+const BACKOFF_MS = [400, 1_200] as const;
+
+/**
+ * Sends, and sends again after a pause while the answer is "try again".
+ *
+ * Every attempt shares the caller's one deadline, so a retry spends what is left of the
+ * time the owner is already waiting rather than starting the wait over.
+ */
+export async function withRetry(
+  send: () => Promise<Response>,
+  pause: (milliseconds: number) => Promise<void> = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+): Promise<Response> {
+  let response = await send();
+  for (const delay of BACKOFF_MS) {
+    if (!RETRYABLE.has(response.status)) return response;
+    // A little jitter, so two drawers asking at once do not ask again at once.
+    await pause(delay + Math.floor(Math.random() * 200));
+    response = await send();
+  }
+  return response;
+}
+
 async function request(state: unknown, questions: Record<string, unknown>): Promise<unknown | null> {
   const key = getServerEnv().TYPESAFE_API_KEY;
   if (!key || !Object.keys(questions).length) return null;
+  const deadline = AbortSignal.timeout(TIMEOUT_MS);
   try {
-    const response = await fetch(ENDPOINT, {
+    const response = await withRetry(() => fetch(ENDPOINT, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({ state, model: 'jev-latest', questions }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+      signal: deadline,
+    }));
     if (!response.ok) {
       // The status, never the body: a refusal from a service holding our key is not
       // something to write into a log the owner reads.

@@ -19,6 +19,8 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse }: ExcerptSug
   const [asking, setAsking] = useState(false);
   // Undefined: not asked. Null: asked, and nothing in the article works on its own.
   const [found, setFound] = useState<string | null | undefined>(undefined);
+  // Asked, and not answered -- which is not the same as being told there is nothing.
+  const [failed, setFailed] = useState(false);
 
   return (
     <div className="drawer-suggest">
@@ -28,9 +30,10 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse }: ExcerptSug
         onClick={() => {
           setAsking(true);
           setFound(undefined);
+          setFailed(false);
           void onSuggest()
             .then(setFound)
-            .catch(() => setFound(null))
+            .catch(() => setFailed(true))
             .finally(() => setAsking(false));
         }}
         type="button"
@@ -53,6 +56,7 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse }: ExcerptSug
         </figure>
       )}
       {found === null && <small>{copy.drawer.suggestExcerptEmpty}</small>}
+      {failed && <small role="status">{copy.drawer.suggestUnavailable}</small>}
     </div>
   );
 }
@@ -64,7 +68,9 @@ export async function requestExcerpt(draft: { contentJson: unknown; locale: stri
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(draft),
   });
-  if (!response.ok) return null;
+  // A failed request is thrown, not returned as null: null means the article was read and
+  // had nothing, and the screen says something different for each.
+  if (!response.ok) throw new Error(`Suggestion request failed with ${response.status}`);
   const payload = await response.json() as { excerpt?: string | null };
   return payload.excerpt ?? null;
 }

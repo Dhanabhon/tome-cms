@@ -405,5 +405,21 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   await drawer.getByRole('button', { name: 'Use this line' }).click();
   await expect(field, 'until the owner asks it to').toHaveValue(line);
   void fallback;
+
+  // The service not answering is its own answer. It used to read as "no line works on its
+  // own" and "nothing matches a category" -- claims about the article that nobody made.
+  await page.unroute('**/api/admin/suggest-excerpt');
+  await page.unroute('**/api/admin/posts/suggest-categories');
+  const unavailable = { status: 503, json: { error: 'Suggestions are unavailable right now.' } };
+  await page.route('**/api/admin/suggest-excerpt', (route) => route.fulfill(unavailable));
+  await page.route('**/api/admin/posts/suggest-categories', (route) => route.fulfill(unavailable));
+
+  await drawer.getByRole('button', { name: /Suggest a line from the text/ }).click();
+  await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(1);
+  await expect(drawer.getByText('No line in the article works on its own'), 'not a claim about the article')
+    .toHaveCount(0);
+  await drawer.getByRole('button', { name: /Suggest from the text/ }).click();
+  await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(2);
+  await expect(drawer.getByText('Nothing here matches a category'), 'nor about the categories').toHaveCount(0);
 });
 
