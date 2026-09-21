@@ -1,5 +1,5 @@
 import { ask, hasJudgement } from '../ai/typesafe';
-import { categoryQuestions, worthShowing, type CategorySuggestion } from './category-judgement';
+import { categoryQuestions, suggestionBands, type CategorySuggestion } from './category-judgement';
 import { editorText } from '../../lib/editor-content';
 import { listCategories } from './categories';
 import type { EditorDocument, PostLocale } from '../../types/cms';
@@ -39,5 +39,5 @@ export async function suggestCategories(
     language: article.locale === 'th' ? 'Thai' : 'English',
     body,
   }, Object.fromEntries([...asked].map(([id, { question }]) => [id, question])));
-  return answers ? worthShowing(asked, answers) : [];
+  return answers ? suggestionBands(asked, answers) : [];
 }

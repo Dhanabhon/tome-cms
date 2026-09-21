@@ -1,9 +1,24 @@
 import type { Noul } from '../ai/typesafe';
 
-/** Above this, a category is worth putting in front of the owner. Below, it is noise. */
-export const WORTH_SHOWING = 0.6;
+/**
+ * Three answers, not two.
+ *
+ * One line at 0.6 made 0.59 invisible and gave 0.61 the same standing as 0.99, when both
+ * sides of that line are the model saying it is not sure. Between the two bands below is
+ * where it says so, and that is shown as a maybe for the owner to decide rather than
+ * decided either way on their behalf. The escalation is arithmetic over the probability
+ * already returned: no second question, no second request.
+ *
+ * The numbers are the cookbook's starting point, and it says plainly that they are
+ * illustrative. They are named here so they can be moved once there are enough of this
+ * owner's own articles to measure them against.
+ */
+export const LIKELY = 0.7;
+export const POSSIBLE = 0.3;
 
 export interface CategorySuggestion {
+  /** Likely: suggest it. Possible: offer it as a maybe. Anything lower is not shown. */
+  band: 'likely' | 'possible';
   id: string;
   likelihood: number;
   name: string;
@@ -36,13 +51,14 @@ export function categoryQuestions(
   }]));
 }
 
-/** The ones worth putting in front of the owner, likeliest first. */
-export function worthShowing(
+/** The ones worth putting in front of the owner, each in its band, likeliest first. */
+export function suggestionBands(
   asked: Map<string, AskedCategory>,
   answers: Readonly<Record<string, number>>,
 ): CategorySuggestion[] {
   return [...asked]
     .map(([id, { category }]) => ({ id: category.id, likelihood: answers[id] ?? 0, name: category.name }))
-    .filter(({ likelihood }) => likelihood >= WORTH_SHOWING)
+    .filter(({ likelihood }) => likelihood >= POSSIBLE)
+    .map((suggestion) => ({ ...suggestion, band: suggestion.likelihood >= LIKELY ? 'likely' as const : 'possible' as const }))
     .sort((left, right) => right.likelihood - left.likelihood);
 }
