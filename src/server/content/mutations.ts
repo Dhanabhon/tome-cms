@@ -1,13 +1,13 @@
-import slugify from 'slugify';
 import { z } from 'zod';
 
 import { editorDocumentSchema, hasMeaningfulContent, hasMeaningfulHtml } from '../../lib/editor-content';
+import { contentSlug, SLUG, SLUG_LENGTH } from '../../lib/slug';
 import type { PostStatus } from '../../types/cms';
 import { HttpError } from '../http/errors';
 import { prepareEditorContent, ValidationError, type StoredEditorContent } from './editor';
 
-export const normalizedContentSlugSchema = z.string().trim().min(1).max(160)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const normalizedContentSlugSchema = z.string().trim().normalize('NFC').min(1).max(SLUG_LENGTH)
+  .regex(SLUG);
 
 const contentSlugSchema = z.union([
   normalizedContentSlugSchema,
@@ -59,10 +59,7 @@ export function prepareContent(input: { contentJson: unknown; status: PostStatus
 }
 
 export function normalizedContentSlug(prefix: 'page' | 'post', requested: string, title: string, id: string): string {
-  const normalized = slugify(requested || title, { lower: true, strict: true, trim: true })
-    .slice(0, 160)
-    .replace(/-+$/, '');
-  return normalized || `${prefix}-${id.slice(0, 8)}`;
+  return contentSlug(requested || title) || `${prefix}-${id.slice(0, 8)}`;
 }
 
 /**

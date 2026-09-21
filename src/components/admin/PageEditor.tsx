@@ -1,6 +1,5 @@
 import { type JSONContent } from 'novel';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import slugify from 'slugify';
 
 import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
@@ -10,6 +9,7 @@ import DocumentCanvas from './DocumentCanvas';
 import PageSettingsDrawer from './PageSettingsDrawer';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
+import { contentSlug } from '../../lib/slug';
 
 interface EditorSourcePage {
   id: string;
@@ -277,7 +277,7 @@ export default function PageEditor({ adminPath, initialPage, locale, ownerLocale
   const changeTitle = (value: string) => {
     setTitle(value);
     if (!slugTouched.current) {
-      setSlug(slugify(value, { lower: true, strict: true, trim: true }).slice(0, 160).replace(/-+$/, '') || fallbackSlug.current);
+      setSlug(contentSlug(value) || fallbackSlug.current);
     }
     markDirty();
   };

@@ -298,3 +298,30 @@ test('the banner is the owner\'s colours, and stays or goes as they said', async
     'without being drawn first and taken away after').toBe(false);
 });
 
+test('a Thai address is an address', async ({ page }) => {
+  test.setTimeout(120_000);
+  // The whole trip a Thai slug makes: stored as Thai, linked as Thai, asked for by a browser
+  // that percent-encodes it, decoded by the router, and found by the query.
+  const slug = 'เขียน-ไว้-อย่าง-ตั้งใจ';
+  psql(`insert into post_translation_groups (id, owner_id) values ('7b0e5f4e-1c1a-4c5e-9f7a-2d7e8b6a1c01', '${OWNER}');
+    insert into post_category_assignments (translation_group_id, category_id, owner_id)
+      select '7b0e5f4e-1c1a-4c5e-9f7a-2d7e8b6a1c01', c.id, '${OWNER}' from categories c limit 1;
+    insert into posts (translation_group_id, locale, title, slug, content_json, content_html, status, published_at, owner_id)
+      values ('7b0e5f4e-1c1a-4c5e-9f7a-2d7e8b6a1c01', 'th', 'เขียนไว้อย่างตั้งใจ', '${slug}',
+        '{"type":"doc","content":[]}'::jsonb, '<p>เนื้อหา</p>', 'published', now() - interval '1 minute', '${OWNER}');`);
+
+  const answered = await page.goto(`${origin}/th/blog/${encodeURIComponent(slug)}`);
+  expect(answered?.status(), 'the router decodes it and the query finds it').toBe(200);
+  await expect(page.locator('h1')).toHaveText('เขียนไว้อย่างตั้งใจ');
+
+  // The homepage links it as Thai, which the browser follows as the same page.
+  await page.goto(`${origin}/th`);
+  await page.getByRole('link', { name: 'เขียนไว้อย่างตั้งใจ' }).first().click();
+  await expect(page.locator('h1')).toHaveText('เขียนไว้อย่างตั้งใจ');
+
+  // A sitemap is read by machines, and the protocol wants its addresses escaped.
+  const sitemap = await (await fetch(`${origin}/sitemap.xml`)).text();
+  expect(sitemap, 'the sitemap carries it percent-encoded')
+    .toContain(new URL(`/th/blog/${slug}`, origin).pathname);
+});
+
