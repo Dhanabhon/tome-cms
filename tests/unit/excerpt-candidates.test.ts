@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { EXCERPT_LENGTH, excerptCandidates } from '../../src/lib/excerpt-candidates';
+import { excerptCandidates, PASSAGE_LENGTH } from '../../src/lib/excerpt-candidates';
 
 // The opening of an article on this site, as written.
 const THAI = 'Claude Code Intent.MD ได้เปลี่ยนวิธีการออกแบบและพัฒนาซอฟต์แวร์ของผมไปอย่างสิ้นเชิงแล้ว '
@@ -31,11 +31,28 @@ test('every candidate is the article\'s own words, in its own order', () => {
   // The property the whole design rests on: whatever is chosen was written by the owner.
   for (const [text, locale] of [[THAI, 'th'], ['One sentence here. Another follows it! And a third one, too?', 'en']] as const) {
     const prose = text.replace(/\s+/g, ' ');
-    for (const passage of excerptCandidates(text, locale)) {
-      assert.ok(prose.includes(passage), `"${passage}" is not in the text`);
-      assert.ok(passage.length <= EXCERPT_LENGTH, `${passage.length} is more than the field holds`);
+    for (const purpose of ['excerpt', 'description'] as const) {
+      for (const passage of excerptCandidates(text, locale, purpose)) {
+        assert.ok(prose.includes(passage), `"${passage}" is not in the text`);
+        assert.ok(passage.length <= PASSAGE_LENGTH[purpose], `${passage.length} is more than the ${purpose} holds`);
+      }
     }
   }
+});
+
+test('a description may run as long as a search result shows, and no longer', () => {
+  const sentences = [
+    'TomeCMS keeps every article in PostgreSQL and every file in S3.',
+    'The owner signs in with a Passkey and writes in the language their readers read.',
+    'Nothing leaves the server unless the owner switches a plugin on.',
+  ];
+  const text = sentences.join(' ');
+  // 144 characters: too long for a card, short enough for a search result.
+  const two = sentences.slice(0, 2).join(' ');
+  assert.ok(!excerptCandidates(text, 'en').includes(two), 'a card cannot hold two of them');
+  const found = excerptCandidates(text, 'en', 'description');
+  assert.ok(found.includes(two), 'a search result can');
+  assert.ok(!found.includes(text), 'but not all three');
 });
 
 test('English sentences are units, and runs of them are candidates too', () => {

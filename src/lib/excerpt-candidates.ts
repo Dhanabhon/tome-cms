@@ -1,5 +1,13 @@
+import { DESCRIPTION_LENGTH } from './summary-text';
+
 /** What an excerpt may hold -- the same bound the field and the table keep. */
 export const EXCERPT_LENGTH = 120;
+/**
+ * How long a passage may run for each field that takes one. A description's field holds 320,
+ * but a search result shows 160 of it, and a summary cut off mid-sentence is not one.
+ */
+export const PASSAGE_LENGTH = { description: DESCRIPTION_LENGTH, excerpt: EXCERPT_LENGTH } as const;
+export type ExcerptPurpose = keyof typeof PASSAGE_LENGTH;
 /** Shorter than this is a fragment, not something a reader could decide on. */
 const SHORTEST = 20;
 /** Enough choice to find a good one; few enough that a request stays small. */
@@ -36,7 +44,7 @@ function clauses(sentence: string): string[] {
 }
 
 /**
- * The passages an excerpt could be, each copied from the article exactly.
+ * The passages an excerpt could be -- or a description -- each copied from the article exactly.
  *
  * Found by code and chosen by a judgement, the way TypeSafe's value-extraction cookbook does
  * it: over-find here, and let the choice be the filter. Every candidate is a run of whole
@@ -45,9 +53,10 @@ function clauses(sentence: string): string[] {
  * nothing invented can reach the page's description.
  *
  * Runs of one to three, because the best summary is often two short sentences together;
- * bounded by what the excerpt field can hold; deduplicated, in the order they appear.
+ * bounded by what the field they are for can show; deduplicated, in the order they appear.
  */
-export function excerptCandidates(text: string, locale: string): string[] {
+export function excerptCandidates(text: string, locale: string, purpose: ExcerptPurpose = 'excerpt'): string[] {
+  const limit = PASSAGE_LENGTH[purpose];
   const prose = text.replace(/\s+/g, ' ').trim();
   if (!prose) return [];
   const units = [...new Intl.Segmenter(locale, { granularity: 'sentence' }).segment(prose)]
@@ -58,7 +67,7 @@ export function excerptCandidates(text: string, locale: string): string[] {
   for (let start = 0; start < units.length && candidates.length < MOST; start += 1) {
     for (let length = 1; length <= 3 && start + length <= units.length; length += 1) {
       const passage = units.slice(start, start + length).join(' ');
-      if (passage.length > EXCERPT_LENGTH) break;
+      if (passage.length > limit) break;
       if (passage.length < SHORTEST || seen.has(passage)) continue;
       seen.add(passage);
       candidates.push(passage);

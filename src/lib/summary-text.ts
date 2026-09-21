@@ -1,3 +1,6 @@
+/** What a search result shows of a description before it cuts it off, so what one is made to fit. */
+export const DESCRIPTION_LENGTH = 160;
+
 /**
  * A bounded line of prose that ends where prose ends.
  *
@@ -11,7 +14,7 @@
  * case for a Thai paragraph -- whole words, which ICU knows the ends of and a count of code
  * units does not.
  */
-export function summaryText(text: string, locale: string, limit = 160): string {
+export function summaryText(text: string, locale: string, limit = DESCRIPTION_LENGTH): string {
   if (text.length <= limit) return text;
   // The ellipsis is a character of the answer, not an addition to it.
   const room = limit - 1;

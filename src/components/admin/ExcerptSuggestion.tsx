@@ -1,21 +1,32 @@
 import { useState } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
+import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
+
+/** What the button, the answer and an empty answer say, for each field. */
+const LABELS = {
+  description: { empty: 'suggestDescriptionEmpty', suggest: 'suggestDescription', use: 'useDescription' },
+  excerpt: { empty: 'suggestExcerptEmpty', suggest: 'suggestExcerpt', use: 'useExcerpt' },
+} as const;
 
 interface ExcerptSuggestionProps {
   copy: AdminCopy;
   onSuggest: () => Promise<string | null>;
   onUse: (excerpt: string) => void;
+  /** Which field the passage is for; the card's excerpt unless it says otherwise. */
+  purpose?: ExcerptPurpose;
 }
 
 /**
- * A line from the article, offered for the excerpt field and never written into it unasked.
+ * A passage from the article, offered for a field -- the excerpt, or the description -- and
+ * never written into it unasked.
  *
  * Shown as a quotation with its own button, because it is the owner's own words and they
  * should be able to read it where it came from before it becomes the line on their card.
  * Offered even when the field already has something in it, and replaces it only on the press.
  */
-export default function ExcerptSuggestion({ copy, onSuggest, onUse }: ExcerptSuggestionProps) {
+export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'excerpt' }: ExcerptSuggestionProps) {
+  const labels = LABELS[purpose];
   const [asking, setAsking] = useState(false);
   // Undefined: not asked. Null: asked, and nothing in the article works on its own.
   const [found, setFound] = useState<string | null | undefined>(undefined);
@@ -38,7 +49,7 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse }: ExcerptSug
         }}
         type="button"
       >
-        {asking ? copy.drawer.suggestingExcerpt : copy.drawer.suggestExcerpt}
+        {asking ? copy.drawer.suggestingExcerpt : copy.drawer[labels.suggest]}
       </button>
       {found && (
         <figure className="drawer-suggestion">
@@ -51,22 +62,25 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse }: ExcerptSug
             }}
             type="button"
           >
-            {copy.drawer.useExcerpt}
+            {copy.drawer[labels.use]}
           </button>
         </figure>
       )}
-      {found === null && <small>{copy.drawer.suggestExcerptEmpty}</small>}
+      {found === null && <small>{copy.drawer[labels.empty]}</small>}
       {failed && <small role="status">{copy.drawer.suggestUnavailable}</small>}
     </div>
   );
 }
 
 /** The request both editors make: the draft as it stands, whether or not it has been saved. */
-export async function requestExcerpt(draft: { contentJson: unknown; locale: string; title: string }): Promise<string | null> {
+export async function requestExcerpt(
+  draft: { contentJson: unknown; locale: string; title: string },
+  purpose: ExcerptPurpose,
+): Promise<string | null> {
   const response = await fetch('/api/admin/suggest-excerpt', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(draft),
+    body: JSON.stringify({ ...draft, purpose }),
   });
   // A failed request is thrown, not returned as null: null means the article was read and
   // had nothing, and the screen says something different for each.

@@ -242,21 +242,22 @@ both switched off downloads neither.
 ## Suggestions while writing
 
 The post and page settings drawers can read what you have written and suggest which of
-your own categories it belongs under, and a line from it for the excerpt. Nothing in the
-core does this: it is the **TypeSafe** plugin, off until you switch it on under
+your own categories it belongs under, a line from it for the excerpt, and a passage from it
+for the meta description. Nothing in the core does this: it is the **TypeSafe** plugin, off until you switch it on under
 **Appearance → Plugins** and give it an API key from your TypeSafe console. The key is
 stored encrypted, like any plugin secret, and never sent to a browser.
 
 An installation that does not use TypeSafe draws no suggestion buttons at all, and nothing a
 reader sees depends on it either way. With it on, nothing is applied for you: a category is a
-chip you press, and a line is a quotation with its own button. The article's text is sent to
+chip you press, and a line or a description is a quotation with its own button. The article's text is sent to
 `api.typesafe.ai` when you press one of those buttons, and at no other time.
 
 What a plugin may return is decided by the core rather than by the plugin. A category comes
 back as a likelihood, and the core decides which are suggested and which are only offered as
-a maybe. An excerpt comes back as a choice among passages the core found in your article,
-and the core keeps it only if it is one of them -- so no plugin can put words on a card that
-you did not write.
+a maybe. An excerpt or a description comes back as a choice among passages the core found
+in your article, each short enough for where it goes: 120 characters for a card, 160 for a
+search result. The core keeps a choice only if it is one of those passages, so no plugin can
+put words on a card or in a search result that you did not write.
 
 ## Publishing, addresses and redirects
 

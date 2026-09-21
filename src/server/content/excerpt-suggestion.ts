@@ -1,5 +1,5 @@
 import { editorText } from '../../lib/editor-content';
-import { excerptCandidates } from '../../lib/excerpt-candidates';
+import { excerptCandidates, type ExcerptPurpose } from '../../lib/excerpt-candidates';
 import type { EditorDocument, PostLocale } from '../../types/cms';
 import { HttpError } from '../http/errors';
 import { findSuggester } from '../plugins/suggestions';
@@ -8,8 +8,12 @@ import { acceptedExcerpt } from './excerpt-judgement';
 /** Enough of an article to judge its passages against. */
 const SAMPLE = 6_000;
 
+/** The plugin's judgement each field is chosen by. */
+const JUDGED_BY = { description: 'pickDescription', excerpt: 'pickExcerpt' } as const;
+
 /**
- * One line from the article that could go under its title on a card.
+ * A passage from the article for a field that takes one: the line under its title on a card,
+ * or the summary under it in a search result.
  *
  * The core finds every passage that could be one; a plugin picks; the core keeps the pick
  * only if it was offered. What comes back is a passage the owner wrote, or nothing.
@@ -18,13 +22,14 @@ export async function suggestExcerpt(article: {
   contentJson: EditorDocument;
   locale: PostLocale;
   title: string;
-}, ownerId: string): Promise<string | null> {
-  const suggester = await findSuggester(ownerId, 'pickExcerpt');
+}, ownerId: string, purpose: ExcerptPurpose): Promise<string | null> {
+  const method = JUDGED_BY[purpose];
+  const suggester = await findSuggester(ownerId, method);
   if (!suggester) return null;
   const text = editorText(article.contentJson).replace(/\s+/g, ' ').trim();
-  const candidates = excerptCandidates(text, article.locale);
+  const candidates = excerptCandidates(text, article.locale, purpose);
   if (!candidates.length) return null;
-  const answer = await suggester.plugin.pickExcerpt!(suggester.settings, {
+  const answer = await suggester.plugin[method]!(suggester.settings, {
     article: { locale: article.locale, text: text.slice(0, SAMPLE), title: article.title },
     candidates,
   });

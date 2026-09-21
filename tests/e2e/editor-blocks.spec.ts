@@ -1,6 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
+import type { Route } from '@playwright/test';
+
 import { expect, test } from './own-worker';
 
 /**
@@ -387,7 +389,13 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
     ] },
   }));
   const line = 'This is the line that says what the article is about.';
-  await page.route('**/api/admin/suggest-excerpt', (route) => route.fulfill({ json: { excerpt: line } }));
+  // A description is asked for by name. Answered as an excerpt instead, the description field
+  // would show the card's line, and the checks below would say so.
+  const summary = 'This passage sums up what the article says, the way a search result shows it under the title.';
+  const answerByPurpose = (route: Route) => route.fulfill({
+    json: { excerpt: route.request().postDataJSON()?.purpose === 'description' ? summary : line },
+  });
+  await page.route('**/api/admin/suggest-excerpt', answerByPurpose);
 
   await page.goto(`${origin}/admin/new`);
   await page.locator('#post-title').fill('Suggested');
@@ -415,6 +423,17 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   await expect(field, 'until the owner asks it to').toHaveValue(line);
   void fallback;
 
+  // The description has its own button, under its own field, and the same manners.
+  const search = drawer.locator('section', { has: page.getByRole('heading', { name: 'Search preview' }) });
+  const description = search.getByRole('textbox', { name: /Meta description/ });
+  await description.fill('What I had for search.');
+  await search.getByRole('button', { name: 'Suggest a description from the text' }).click();
+  await expect(search.locator('.drawer-suggestion blockquote')).toHaveText(summary);
+  await expect(description, 'a suggestion does not overwrite what is there').toHaveValue('What I had for search.');
+  await search.getByRole('button', { name: 'Use as the description' }).click();
+  await expect(description, 'until the owner asks it to').toHaveValue(summary);
+  await expect(field, 'and the excerpt is a field of its own').toHaveValue(line);
+
   // The service not answering is its own answer. It used to read as "no line works on its
   // own" and "nothing matches a category" -- claims about the article that nobody made.
   await page.unroute('**/api/admin/suggest-excerpt');
@@ -430,5 +449,19 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   await drawer.getByRole('button', { name: /Suggest from the text/ }).click();
   await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(2);
   await expect(drawer.getByText('Nothing here matches a category'), 'nor about the categories').toHaveCount(0);
+  await search.getByRole('button', { name: 'Suggest a description from the text' }).click();
+  await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(3);
+  await expect(drawer.getByText('Nothing in the article sums it up'), 'nor about the description').toHaveCount(0);
+
+  // A page's drawer offers the same, wired to its own field.
+  await page.unroute('**/api/admin/suggest-excerpt');
+  await page.route('**/api/admin/suggest-excerpt', answerByPurpose);
+  await page.goto(`${origin}/admin/pages/new`);
+  await page.locator('#page-title').fill('A page');
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  const pageSearch = page.locator('dialog.admin-editor-settings section', { has: page.getByRole('heading', { name: 'Search preview' }) });
+  await pageSearch.getByRole('button', { name: 'Suggest a description from the text' }).click();
+  await pageSearch.getByRole('button', { name: 'Use as the description' }).click();
+  await expect(pageSearch.getByRole('textbox', { name: /Meta description/ })).toHaveValue(summary);
 });
 

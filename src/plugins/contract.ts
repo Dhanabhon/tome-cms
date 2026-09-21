@@ -173,4 +173,16 @@ export interface Plugin {
     settings: PluginSettings,
     input: { article: ArticleDraft; candidates: readonly string[] },
   ): Promise<{ passage: string | null } | null>;
+
+  /**
+   * Which of the passages best sums the article up for someone who found it in a search --
+   * the description under its title there, and under a post's title on its own page. On
+   * `pickExcerpt`'s terms, and kept on the same condition. A question of its own rather than
+   * a flag on that one, so a plugin that only knows how to pick a card's line is never asked
+   * for a summary it would answer with a teaser.
+   */
+  pickDescription?(
+    settings: PluginSettings,
+    input: { article: ArticleDraft; candidates: readonly string[] },
+  ): Promise<{ passage: string | null } | null>;
 }
