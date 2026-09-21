@@ -3,6 +3,7 @@ import { editorText } from '../../lib/editor-content';
 import { excerptCandidates } from '../../lib/excerpt-candidates';
 import type { EditorDocument, PostLocale } from '../../types/cms';
 import { acceptedExcerpt, EXCERPT_INSTRUCTIONS, excerptCriteria } from './excerpt-judgement';
+import { HttpError } from '../http/errors';
 
 /** Enough of an article to judge its passages against. */
 const SAMPLE = 6_000;
@@ -27,5 +28,8 @@ export async function suggestExcerpt(article: {
     language: article.locale === 'th' ? 'Thai' : 'English',
     article: text.slice(0, SAMPLE),
   }, EXCERPT_INSTRUCTIONS, excerptCriteria(candidates));
+  // The service not answering is not the article having no good line, and the owner is
+  // told which it was: an empty answer here used to read as 'nothing works on its own'.
+  if (!answer) throw new HttpError(503, 'Suggestions are unavailable right now.', { code: 'judgement_unavailable' });
   return acceptedExcerpt(candidates, answer);
 }

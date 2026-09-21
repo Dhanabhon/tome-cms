@@ -55,6 +55,7 @@ export default function PostSettingsDrawer({
   const closeButton = useRef<HTMLButtonElement>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggested, setSuggested] = useState<CategorySuggestion[] | null>(null);
+  const [suggestFailed, setSuggestFailed] = useState(false);
   const coverButton = useRef<HTMLButtonElement>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   /* Built by the same function that builds the real link, so the two cannot drift. */
@@ -119,9 +120,11 @@ export default function PostSettingsDrawer({
                 onClick={() => {
                   setSuggesting(true);
                   setSuggested(null);
+                  setSuggestFailed(false);
                   void onSuggestCategories()
                     .then((found) => setSuggested(found.filter(({ id }) => !selectedCategoryIds.includes(id))))
-                    .catch(() => setSuggested([]))
+                    // Not an empty answer: "nothing matches" would be a claim nobody made.
+                    .catch(() => setSuggestFailed(true))
                     .finally(() => setSuggesting(false));
                 }}
                 type="button"
@@ -155,6 +158,7 @@ export default function PostSettingsDrawer({
                 );
               })}
               {suggested?.length === 0 && <small>{copy.drawer.suggestCategoriesEmpty}</small>}
+              {suggestFailed && <small role="status">{copy.drawer.suggestUnavailable}</small>}
             </div>
           )}
           <small id="category-fallback-help">{copy.drawer.categoryFallback}</small>

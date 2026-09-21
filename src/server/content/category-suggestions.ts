@@ -3,6 +3,7 @@ import { categoryQuestions, suggestionBands, type CategorySuggestion } from './c
 import { editorText } from '../../lib/editor-content';
 import { listCategories } from './categories';
 import type { EditorDocument, PostLocale } from '../../types/cms';
+import { HttpError } from '../http/errors';
 
 export type { CategorySuggestion } from './category-judgement';
 
@@ -39,5 +40,7 @@ export async function suggestCategories(
     language: article.locale === 'th' ? 'Thai' : 'English',
     body,
   }, Object.fromEntries([...asked].map(([id, { question }]) => [id, question])));
-  return answers ? suggestionBands(asked, answers) : [];
+  // Unavailable is not the same answer as nothing fitting, and the screen says which.
+  if (!answers) throw new HttpError(503, 'Suggestions are unavailable right now.', { code: 'judgement_unavailable' });
+  return suggestionBands(asked, answers);
 }

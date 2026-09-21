@@ -381,7 +381,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
                 locale,
               }),
             });
-            if (!response.ok) return [];
+            if (!response.ok) throw new Error(`Suggestion request failed with ${response.status}`);
             const payload = await response.json() as { suggestions?: Array<{ band: 'likely' | 'possible'; id: string; name: string }> };
             return payload.suggestions ?? [];
           }) : undefined}
