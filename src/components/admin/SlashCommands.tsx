@@ -1,3 +1,4 @@
+import type { Range } from '@tiptap/core';
 import {
   Command,
   createSuggestionItems,
@@ -5,14 +6,26 @@ import {
   EditorCommandEmpty,
   EditorCommandItem,
   EditorCommandList,
+  type EditorInstance,
   renderItems,
+  useEditor,
 } from 'novel';
 import { useMemo } from 'react';
 
 import Icon from '../Icon';
 import type { AdminCopy } from '../../lib/admin-i18n';
+import { NEW_TABLE } from '../../lib/editor-table';
+import { tableActions } from './TableBubble';
 
-const commandItems = (copy: AdminCopy) => createSuggestionItems([
+const commandItems = (copy: AdminCopy, inTable: boolean) => createSuggestionItems([
+  // Inside a table, what can be done to it comes first: this is how a keyboard reaches it.
+  ...(inTable ? tableActions(copy).map((action) => ({
+    title: action.label,
+    description: action.hint,
+    icon: <Icon name={action.icon} />,
+    searchTerms: ['table', 'row', 'column'],
+    command: ({ editor, range }: { editor: EditorInstance; range: Range }) => action.run(editor.chain().focus().deleteRange(range)).run(),
+  })) : []),
   {
     title: copy.blocks.heading2,
     description: copy.blocks.heading2Hint,
@@ -48,19 +61,29 @@ const commandItems = (copy: AdminCopy) => createSuggestionItems([
     searchTerms: ['blockquote', 'callout'],
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
   },
+  // Not inside a table: a table in a cell is one nobody meant to make.
+  ...(inTable ? [] : [{
+    title: copy.blocks.table,
+    description: copy.blocks.tableHint,
+    icon: <Icon name="table" />,
+    searchTerms: ['table', 'grid', 'rows', 'columns'],
+    command: ({ editor, range }: { editor: EditorInstance; range: Range }) => editor.chain().focus().deleteRange(range).insertTable(NEW_TABLE).run(),
+  }]),
 ]);
 
 /** The menu labels depend on the owner's language, so the extension is built per editor. */
 export const createSlashCommand = (copy: AdminCopy) => Command.configure({
   suggestion: {
-    items: () => commandItems(copy),
+    items: ({ editor }: { editor: EditorInstance }) => commandItems(copy, editor.isActive('table')),
     render: renderItems,
   },
 });
 
 export default function SlashCommands({ copy }: { copy: AdminCopy }) {
   // Same list the extension registers, so the menu and the '/' suggestions never disagree.
-  const items = useMemo(() => commandItems(copy), [copy]);
+  const { editor } = useEditor();
+  const inTable = editor?.isActive('table') ?? false;
+  const items = useMemo(() => commandItems(copy, inTable), [copy, inTable]);
 
   return (
     <EditorCommand className="max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-1.5 font-sans">

@@ -71,6 +71,12 @@
 .plain-body img { width: 100%; height: auto; }
 .plain-body blockquote { margin-inline: 0; padding-inline-start: var(--space-md); border-inline-start: var(--rule-thick, 2px) solid var(--color-rule); color: var(--color-ink-muted); }
 .plain-body pre { overflow-x: auto; padding: var(--space-md); background: var(--color-paper-2); }
+.plain-body table { width: 100%; border-collapse: collapse; }
+.plain-body :is(th, td) { padding: var(--space-2xs) var(--space-sm); border-block-end: var(--rule-hair) solid var(--color-rule); text-align: start; vertical-align: top; }
+.plain-body :is(th, td):first-child { padding-inline-start: 0; }
+.plain-body th { font-weight: 600; }
+.plain-body tr:has(> th) > * { border-block-end-color: var(--color-rule-strong); }
+.plain-body :is(th, td) > * + * { margin-block-start: var(--space-2xs); }
 
 .plain-author { margin-block-start: var(--space-2xl); padding-block-start: var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
 .plain-author h2 { margin: 0 0 var(--space-2xs); font-size: 1rem; }

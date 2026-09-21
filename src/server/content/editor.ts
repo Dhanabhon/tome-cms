@@ -9,6 +9,7 @@ import {
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
+import { tableExtensions } from '../../lib/editor-table';
 import type { EditorDocument, EditorNode } from '../../types/cms';
 import { isUuid } from '../media/keys';
 
@@ -44,6 +45,7 @@ const extensions = [
     allowBase64: false,
     HTMLAttributes: { class: 'rounded-lg' },
   }),
+  ...tableExtensions,
 ];
 
 export class ValidationError extends Error {

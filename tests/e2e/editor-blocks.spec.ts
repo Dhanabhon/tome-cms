@@ -209,6 +209,55 @@ test('a quote is somewhere a writer can leave', async ({ context, page }) => {
   expect(painted, 'no quotation mark stands where a caret cannot').toEqual(['none', 'none']);
 });
 
+test('the + menu opens where all of it can be seen, wherever the line is', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  // Found where the menu fit neither below the line nor above it: it opened above anyway and
+  // slid under the editor's bar, and its first items could not be chosen -- on a phone, and
+  // on a laptop once the menu grew an item. So this walks the line down the window at both
+  // sizes, and opens the menu at every step.
+  const canvas = page.locator('.ProseMirror');
+  const misplaced: string[] = [];
+  for (const size of [{ height: 720, width: 1280 }, { height: 740, width: 375 }]) {
+    await page.setViewportSize(size);
+    await page.goto(`${origin}/admin/new`);
+    await canvas.click();
+    for (let line = 0; line < 14; line += 1) {
+      await page.getByRole('button', { name: /Add block/i }).click();
+      await expect(page.getByRole('menu')).toBeVisible();
+      // Up from the first item is the last, which a menu held short has to scroll to.
+      await page.keyboard.press('ArrowUp');
+      await expect(page.getByRole('menuitem', { name: 'Image' })).toBeFocused();
+      const reachable = await page.evaluate(() => {
+        const menu = document.querySelector('.block-insert-menu')?.getBoundingClientRect();
+        const bar = document.querySelector('.admin-editor-bar')?.getBoundingClientRect();
+        const last = document.activeElement;
+        if (!menu || !bar || !(last instanceof HTMLElement)) return false;
+        const box = last.getBoundingClientRect();
+        return menu.top >= bar.bottom && menu.bottom <= innerHeight
+          && last.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
+      });
+      if (!reachable) misplaced.push(`${size.width}px, line ${line}`);
+      await page.keyboard.press('Escape');
+      await expect(canvas).toBeFocused();
+      await page.keyboard.press('Enter');
+    }
+  }
+  expect(misplaced, 'the lines where the menu was covered, cut off, or could not reach its end').toEqual([]);
+});
+
 test('the formatting bar is whole, wherever the words it formats begin', async ({ context, page }) => {
   test.setTimeout(120_000);
   const cdp = await context.newCDPSession(page);
@@ -293,6 +342,106 @@ test('a draft that cannot be saved can still be left', async ({ context, page })
   await page.getByRole('link', { name: /Back to Pages/ }).click();
   await page.getByRole('button', { name: 'Leave without saving' }).click();
   await page.waitForURL(`${origin}/admin/pages`, { timeout: 10_000 });
+});
+
+test('a table is written, grown and trimmed in the editor, and scrolls on a phone', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('A table');
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Before the table.');
+  await page.keyboard.press('Enter');
+
+  // From the + menu into its first cell, and Tab walks the cells from there. Tiptap hands focus
+  // back to the page a frame after a menu or bar button is pressed, and keys sent sooner are
+  // lost -- no hand is that quick, a test is.
+  const canvas = page.locator('.ProseMirror');
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'Table', exact: true }).click();
+  await expect(canvas).toBeFocused();
+  for (const word of ['Name', 'Word', 'Note', 'Alice']) {
+    if (word !== 'Name') await page.keyboard.press('Tab');
+    await page.keyboard.type(word);
+  }
+  /** How many cells each row has, top to bottom. */
+  const shape = () => page.evaluate(() => [...document.querySelectorAll('.ProseMirror table tr')].map((row) => row.children.length));
+  expect(await shape(), 'three rows of three').toEqual([3, 3, 3]);
+  await expect(page.locator('.ProseMirror tr').first().locator('th'), 'the first of them headers').toHaveCount(3);
+
+  // A cursor in a cell brings the table's bar and not the formatting one; words chosen in a
+  // cell bring the formatting bar and send the table's away. Both at once overlap.
+  const tableBar = page.getByRole('group', { name: 'Table' });
+  const bold = page.getByRole('button', { name: 'Bold' });
+  await expect(tableBar).toBeVisible();
+  await expect(bold).toBeHidden();
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect(bold).toBeVisible();
+  await expect(tableBar).toBeHidden();
+  await page.keyboard.press('ArrowRight');
+
+  await tableBar.getByRole('button', { name: 'Add column' }).click();
+  expect(await shape(), 'a column to the right').toEqual([4, 4, 4]);
+  await tableBar.getByRole('button', { name: 'Delete row' }).click();
+  expect(await shape(), 'the row the cursor was in is gone').toEqual([4, 4]);
+
+  // The keyboard's way to the same things, since Tab inside a table moves between cells: '/'
+  // offers them first, and does not offer another table inside this one.
+  await expect(canvas).toBeFocused();
+  await page.keyboard.type('/');
+  await expect(page.getByRole('option', { name: /^Add row/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /^Table/ })).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  expect(await shape(), '/ added a row').toEqual([4, 4, 4]);
+
+  // Nor does the + menu offer a table inside one.
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await expect(page.getByRole('menuitem', { name: 'Text', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Table', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(canvas).toBeFocused();
+
+  // Wider than a phone on purpose: one word that cannot break.
+  await page.keyboard.type('Pneumonoultramicroscopicsilicovolcanoconiosis');
+
+  // Cells chosen together are the table's to act on, so its bar stands for them. From words
+  // chosen straight to cells chosen, so both bars have to change places: each waits a moment
+  // after a selection before it moves, and a bar that never appears proves nothing sooner.
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect(bold).toBeVisible();
+  await expect(tableBar).toBeHidden();
+  await page.keyboard.press('Shift+ArrowDown');
+  await expect(tableBar).toBeVisible();
+  await expect(bold).toBeHidden();
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+
+  const { db } = await import('../../src/server/db/client');
+  const { slug } = await db.selectFrom('posts').select('slug').where('title', '=', 'A table')
+    .orderBy('created_at', 'desc').executeTakeFirstOrThrow();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(`${origin}/en/blog/${slug}`);
+  await expect(page.locator('.tableWrapper th').first(), 'a reader gets the table').toHaveText('Name');
+  const reach = await page.locator('.tableWrapper').evaluate((wrapper) => {
+    wrapper.scrollLeft = wrapper.scrollWidth;
+    return { right: wrapper.getBoundingClientRect().right, scrolled: wrapper.scrollLeft, width: innerWidth };
+  });
+  expect(reach.scrolled, 'on a phone the table scrolls inside its box').toBeGreaterThan(0);
+  expect(reach.right, 'and the box stays on the screen').toBeLessThanOrEqual(reach.width);
 });
 
 test('the settings drawer opens where it can be seen, every time', async ({ context, page }) => {

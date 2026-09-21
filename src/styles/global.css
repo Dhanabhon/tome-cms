@@ -363,6 +363,12 @@ body {
   background: var(--color-focus-soft);
 }
 
+/* A table in an article or a page scrolls inside its own box, so one wider than a phone does
+ * not widen the page. Here rather than in a theme, so every theme has it. */
+.tableWrapper {
+  overflow-x: auto;
+}
+
 :focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: var(--space-3xs);
@@ -397,6 +403,23 @@ body {
 .editor-content .ProseMirror-selectednode {
   outline: 2px solid var(--color-focus);
   outline-offset: var(--space-2xs);
+}
+
+/* A table while it is written: every cell ruled, so an empty one can be seen and clicked into,
+ * and cells chosen together tinted, which the browser's own selection does not show. */
+.editor-content .ProseMirror :is(th, td) {
+  min-width: 4rem;
+  padding: var(--space-2xs) var(--space-xs);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  vertical-align: top;
+}
+
+.editor-content .ProseMirror :is(th, td) > p {
+  margin-block: 0;
+}
+
+.editor-content .ProseMirror .selectedCell {
+  background: var(--color-focus-soft);
 }
 
 /* No overflow clip. The formatting bar is drawn inside the canvas, centred on the words it
@@ -439,6 +462,8 @@ body {
 .block-insert-menu {
   position: absolute;
   width: min(12rem, calc(100vw - 2rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--space-2xs);
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-card);
