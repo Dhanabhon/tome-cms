@@ -10,7 +10,14 @@ import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 
+export interface CategorySuggestion {
+  id: string;
+  name: string;
+}
+
 interface PostSettingsDrawerProps {
+  /** Absent when this installation has no key for it, which is the usual case. */
+  onSuggestCategories?: () => Promise<CategorySuggestion[]>;
   publishedAt: string | null;
   onChangePublishedAt: (value: string | null) => void;
   categories: PostCategory[];
@@ -38,9 +45,11 @@ interface PostSettingsDrawerProps {
 export default function PostSettingsDrawer({
   categories, copy, coverImage, errorMessage, excerpt, locale, metaDescription, metaTitle,
   onChangeCategories, onChangeCover, onChangeExcerpt, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
-  onChangePublishedAt, onClose, onManageCategories, open, ownerLocale, publishedAt, selectedCategoryIds, slug,
+  onChangePublishedAt, onClose, onManageCategories, onSuggestCategories, open, ownerLocale, publishedAt, selectedCategoryIds, slug,
 }: PostSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggested, setSuggested] = useState<CategorySuggestion[] | null>(null);
   const coverButton = useRef<HTMLButtonElement>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   /* Built by the same function that builds the real link, so the two cannot drift. */
@@ -97,6 +106,41 @@ export default function PostSettingsDrawer({
               </label>
             ))}
           </div>
+          {onSuggestCategories && (
+            <div className="drawer-suggest">
+              <button
+                className="admin-button admin-button--secondary"
+                disabled={suggesting}
+                onClick={() => {
+                  setSuggesting(true);
+                  setSuggested(null);
+                  void onSuggestCategories()
+                    .then((found) => setSuggested(found.filter(({ id }) => !selectedCategoryIds.includes(id))))
+                    .catch(() => setSuggested([]))
+                    .finally(() => setSuggesting(false));
+                }}
+                type="button"
+              >
+                {suggesting ? copy.drawer.suggestingCategories : copy.drawer.suggestCategories}
+              </button>
+              {/* Offered, never applied: the owner files their own writing, and a wrong
+                  guess costs a glance rather than a correction. */}
+              {suggested?.map((suggestion) => (
+                <button
+                  className="admin-chip"
+                  key={suggestion.id}
+                  onClick={() => {
+                    onChangeCategories([...selectedCategoryIds, suggestion.id]);
+                    setSuggested((rest) => rest?.filter(({ id }) => id !== suggestion.id) ?? null);
+                  }}
+                  type="button"
+                >
+                  + {suggestion.name}
+                </button>
+              ))}
+              {suggested?.length === 0 && <small>{copy.drawer.suggestCategoriesEmpty}</small>}
+            </div>
+          )}
           <small id="category-fallback-help">{copy.drawer.categoryFallback}</small>
           <button className="admin-button admin-button--secondary" onClick={onManageCategories} type="button">{copy.posts.manageCategories}</button>
         </fieldset>

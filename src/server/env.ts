@@ -46,6 +46,9 @@ const serverEnvSchema = z.object({
   MEDIA_PUBLIC_URL: z.url({ protocol: /^https?$/ }),
   TOME_CMS_FRONTEND_MODE: z.enum(['bundled', 'headless']).default('bundled'),
   TOME_CMS_UPDATE_MODE: z.enum(['check-only', 'managed']).default('check-only'),
+  /* Optional. Without it the admin simply offers no suggestions: the key buys a
+     convenience, and nothing the site does for a reader depends on it. */
+  TYPESAFE_API_KEY: z.string().trim().min(1).optional(),
   TOME_CMS_UPDATER_SOCKET: z.string()
     .regex(/^\/run\/tome-cms\/[a-z0-9.-]+\.sock$/)
     .default('/run/tome-cms/updater.sock'),

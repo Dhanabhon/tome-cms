@@ -235,6 +235,21 @@ A plugin that is switched off ships nothing at all. Each one's browser code is a
 a dynamic import that only a mount point on the page asks for, so a reader of a site with
 both switched off downloads neither.
 
+## Suggested categories
+
+The post settings drawer can read what you have written and say which of your own
+categories it belongs under. It is off unless you give the installation a key:
+
+```dotenv
+TYPESAFE_API_KEY=your-key
+```
+
+Without one the button is not drawn at all. With one, the drawer asks a yes-or-no question
+per category -- your categories, under the names they have now -- and offers the likely ones
+as chips. Nothing is filed for you: a suggestion is a button you press, which is what makes a
+wrong guess cost a glance rather than a correction. The article's text is sent to
+`api.typesafe.ai` when you press the button, and at no other time.
+
 ## Bundled and Headless modes
 
 The default is:

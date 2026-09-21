@@ -18,6 +18,8 @@ interface EditorSourcePost {
 }
 
 interface EditorProps {
+  /** Whether this installation can be asked to read an article and suggest categories. */
+  canSuggest?: boolean;
   adminPath: string;
   categories: PostCategory[];
   initialCategoryIds: string[];
@@ -51,7 +53,7 @@ function readPost(payload: unknown): Post | null {
   return typeof post === 'object' && post !== null && 'id' in post ? (post as Post) : null;
 }
 
-export default function Editor({ adminPath, categories, initialCategoryIds, initialPost, locale, ownerLocale, sourcePost, translations }: EditorProps) {
+export default function Editor({ canSuggest = false, adminPath, categories, initialCategoryIds, initialPost, locale, ownerLocale, sourcePost, translations }: EditorProps) {
   const copy = adminCopy(ownerLocale);
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
@@ -365,6 +367,20 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
         </article>
 
         <PostSettingsDrawer
+          onSuggestCategories={canSuggest ? (async () => {
+            const response = await fetch('/api/admin/posts/suggest-categories', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                title: draftRef.current.title,
+                contentJson: draftRef.current.contentJson,
+                locale,
+              }),
+            });
+            if (!response.ok) return [];
+            const payload = await response.json() as { suggestions?: Array<{ id: string; name: string }> };
+            return payload.suggestions ?? [];
+          }) : undefined}
           publishedAt={publishedAt}
           onChangePublishedAt={(value) => { publishedAtRef.current = value; setPublishedAt(value); markDirty(); }}
           categories={categories}
