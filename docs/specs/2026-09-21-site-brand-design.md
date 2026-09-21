@@ -43,10 +43,14 @@ Each jsonb column carries a check that it is null or an object, and is parsed wi
 is read, as the other jsonb columns are. The media tables, and their mime type checks, are not
 touched.
 
-The files live in the media bucket under `brand/`, named by kind and by the first sixteen hex
-digits of the SHA-256 of what is stored -- `brand/logo-3f9a….svg`, `brand/icon-77c0…-180.png`.
-A new file is a new address, so a changed logo is never served from a cache as the old one.
-Public addresses come from `src/server/media/url.ts`, as the media library's do.
+The files live in the media bucket under the library's own key grammar,
+`owners/<owner>/<yyyy>/<mm>/<uuid>.<ext>`, with a fresh UUID for every upload -- so a changed
+logo is a new address and is never served from a cache as the old one. Backup, restore-check
+and reset refuse any object whose key falls outside that grammar, which is why a brand file
+does not get a prefix of its own; `svg` joins the grammar's extensions, for these files alone.
+The reset's inventory of objects counts the keys on `site_settings`, or a bucket with a logo in
+it would read as holding something TomeCMS does not track. Public addresses come from
+`src/server/media/url.ts`, as the media library's do.
 
 ## Upload
 
@@ -74,6 +78,9 @@ endpoint.
   then delete the objects it replaced. If the write fails, the new objects are deleted; if a
   deletion of old ones fails, that is logged and left -- an orphan is harmless, a setting that
   points at nothing is not.
+- **The write moves `updated_at`**, as every write to that row does: the public site's
+  `Last-Modified` is read from it, and a cache must not keep the old logo. The new version goes
+  back to the Settings form, whose next save would otherwise be refused as stale.
 
 `hide_site_name` is not a file: it travels with the settings record like `show_powered_by`, and
 both forms that write that record whole -- `SettingsForm` and `ThemeForm` -- carry it.
@@ -144,7 +151,9 @@ Settings gains a section, "Logo and icon", after the site's identity:
 
 - three file fields -- logo, dark logo, icon -- each with a preview, a choose button and a remove
   button. The logo is previewed on the light surface and the dark logo on the dark one, so the
-  owner sees whether each can be read where it will be. The icon is previewed at tab size and at
+  owner sees whether each can be read where it will be -- in either admin theme, on
+  `--color-sample-light` and `--color-hero`, two roles that do not flip with it. Without a dark
+  logo, the logo is shown on the dark surface too, because that is where it will be used. The icon is previewed at tab size and at
   home-screen size.
 - the pressed button is the one that says it is working, by `aria-busy`, as everywhere since the
   Update fix; the others are disabled while it does.
