@@ -161,14 +161,17 @@
   .ui-dialog__button--confirm[data-tone='danger']:hover { background: color-mix(in srgb, var(--color-error-ink) 88%, var(--color-ink)); }
 }
 
-/* Theme toggle -- three mutually exclusive states in one row.
+/* Theme toggle -- one round button showing the choice in force, and a panel that floats from
+ * it with the three choices.
  *
- * Hidden unless the inline theme script ran: without scripting the control cannot
- * store or apply anything, and a dead segmented control is worse than none. The
- * radios are moved out of sight rather than display:none so they keep focus and
- * arrow-key navigation, and the focus ring is drawn on the label around them. */
-.ui-theme { display: none; border: 0; margin: 0; padding: 0; min-width: 0; }
+ * Hidden unless the inline theme script ran: without scripting the control cannot store or
+ * apply anything, and a dead control is worse than none. The radios are moved out of sight
+ * rather than display:none so they keep focus and arrow-key navigation, and the focus ring is
+ * drawn on the label around them. */
+.ui-theme { display: none; }
 :root[data-js] .ui-theme { display: block; }
+
+.ui-theme__panel { min-width: 0; margin: 0; padding: 0; border: 0; }
 
 .ui-theme__legend,
 .ui-theme__input {
@@ -183,40 +186,15 @@
   white-space: nowrap;
 }
 
-.ui-theme__track {
-  display: inline-flex;
-  gap: var(--rule-hair);
-  padding: var(--space-3xs);
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-pill);
-  background: var(--color-paper-2);
-}
+.ui-theme__icon,
+.ui-theme__check { display: inline-flex; }
 
 .ui-theme__option {
   position: relative;
-  display: inline-flex;
   align-items: center;
-  gap: var(--space-3xs);
-  padding: var(--space-3xs) var(--space-xs);
-  border-radius: var(--radius-pill);
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
-}
-
-.ui-theme__icon { display: inline-flex; }
-
-.ui-theme__option:hover { color: var(--color-ink); }
-
-/* The selected segment is filled with the accent, not a neighbouring surface.
- * Accent against the track and its label contrast are pinned by theme-contrast. */
-.ui-theme__option:has(.ui-theme__input:checked) {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  font-weight: 600;
 }
 
 .ui-theme__option:has(.ui-theme__input:focus-visible) {
@@ -224,29 +202,173 @@
   outline-offset: var(--rule-hair);
 }
 
-.ui-theme__option:active { background: var(--color-accent-hover); color: var(--color-accent-ink); }
-
 .ui-theme__option:has(.ui-theme__input:disabled) { cursor: not-allowed; opacity: 0.55; }
+
+/* A browser without popovers never hides the panel, so there it is the row of three this
+ * control used to be, and there is no button to open it. Scoped to that browser: a display
+ * set anywhere else would beat the one that keeps a closed popover hidden. */
+@supports not selector(:popover-open) {
+  .ui-theme__trigger { display: none; }
+
+  .ui-theme__panel {
+    display: inline-flex;
+    gap: var(--rule-hair);
+    padding: var(--space-3xs);
+    border: var(--rule-hair) solid var(--color-rule);
+    border-radius: var(--radius-pill);
+    background: var(--color-paper-2);
+  }
+
+  .ui-theme__option {
+    display: inline-flex;
+    gap: var(--space-3xs);
+    padding: var(--space-3xs) var(--space-xs);
+    border-radius: var(--radius-pill);
+    color: var(--color-muted);
+    font-size: var(--text-xs);
+    line-height: 1;
+  }
+
+  .ui-theme__option:hover { color: var(--color-ink); }
+
+  /* The selected segment is filled with the accent, not a neighbouring surface.
+   * Accent against the track and its label contrast are pinned by theme-contrast. */
+  .ui-theme__option:has(.ui-theme__input:checked) {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    font-weight: 600;
+  }
+
+  .ui-theme__option:active { background: var(--color-accent-hover); color: var(--color-accent-ink); }
+
+  .ui-theme__check { display: none; }
+
+  /* Labels are the first thing to give up when a row runs out of room; the icons still
+   * carry the meaning and the text stays in the accessibility tree. 48rem is where the
+   * site header already swaps its nav for a menu, and holding the labels past that
+   * point squeezed the site name down to an ellipsis. */
+  @media (max-width: 47.999rem) {
+    .ui-theme__label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+}
+
+@supports selector(:popover-open) {
+  .ui-theme__trigger {
+    display: inline-grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    padding: 0;
+    border: var(--rule-hair) solid var(--color-rule-strong);
+    border-radius: var(--radius-pill);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    cursor: pointer;
+    transition:
+      background var(--dur-micro) var(--ease-out),
+      border-color var(--dur-micro) var(--ease-out),
+      transform var(--dur-micro) var(--ease-out);
+  }
+
+  .ui-theme__trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
+  .ui-theme__trigger:active { transform: scale(0.94); }
+  .ui-theme:has(.ui-theme__panel:popover-open) .ui-theme__trigger { border-color: var(--color-focus); background: var(--color-paper-2); }
+
+  /* The three icons share one cell, and the one in force shows: when the choice changes, the
+   * old one turns away as the new one turns in. Read from the root, which the head script set
+   * before the first paint, so nothing turns on arrival. */
+  .ui-theme__glyphs { display: grid; }
+
+  .ui-theme__glyph {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+    transition: opacity var(--dur-long) var(--ease-out), transform var(--dur-long) var(--ease-out);
+  }
+
+  :root:not([data-theme]) .ui-theme__glyph--system,
+  :root[data-theme='light'] .ui-theme__glyph--light,
+  :root[data-theme='dark'] .ui-theme__glyph--dark { opacity: 1; transform: none; }
+
+  /* The panel floats over the page, which makes it the one kind of surface with a shadow. It
+   * grows from the button's corner as it opens, and shrinks back, quicker, as it closes. */
+  .ui-theme__panel {
+    position: fixed;
+    inset: auto;
+    min-width: 10rem;
+    overflow: visible;
+    padding: var(--space-2xs);
+    border: var(--rule-hair) solid var(--color-rule-strong);
+    border-radius: var(--radius-card);
+    background: var(--color-paper);
+    box-shadow: var(--shadow-float);
+    color: var(--color-ink);
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-2xs))) scale(0.96);
+    transform-origin: top right;
+    transition:
+      opacity var(--dur-micro) var(--ease-in),
+      transform var(--dur-micro) var(--ease-in),
+      display var(--dur-micro) allow-discrete,
+      overlay var(--dur-micro) allow-discrete;
+  }
+
+  .ui-theme__panel:popover-open {
+    display: grid;
+    opacity: 1;
+    transform: none;
+    transition-duration: var(--dur-short);
+    transition-timing-function: var(--ease-out);
+  }
+
+  @starting-style {
+    .ui-theme__panel:popover-open { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))) scale(0.96); }
+  }
+
+  /* Tethered to its button where the browser can do it; the inline script places it otherwise.
+   * Under the button and lined up with its end; over it, or reaching the other way, when that
+   * would leave the window. */
+  @supports (anchor-name: --theme) {
+    .ui-theme__panel {
+      margin-block: var(--space-2xs);
+      position-area: block-end span-inline-start;
+      position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    }
+  }
+
+  .ui-theme__option {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-xs);
+    min-height: 2.75rem;
+    padding-inline: var(--space-sm);
+    border-radius: var(--radius-input);
+    color: var(--color-ink);
+    font-size: var(--text-sm);
+  }
+
+  .ui-theme__option:has(.ui-theme__input:checked) { font-weight: 600; }
+  .ui-theme__check { visibility: hidden; color: var(--color-accent); }
+  .ui-theme__option:has(.ui-theme__input:checked) .ui-theme__check { visibility: visible; }
+  .ui-theme__option:active { background: var(--color-paper-3); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-theme__trigger:hover { border-color: var(--color-ink-2); background: var(--color-paper-2); }
+    .ui-theme__option:hover { background: var(--color-paper-2); }
+  }
+}
 
 @media (max-width: 31.999rem) {
   .ui-dialog__actions { flex-direction: column-reverse; }
   .ui-dialog__button { width: 100%; }
-}
-
-/* Labels are the first thing to give up when a row runs out of room; the icons still
- * carry the meaning and the text stays in the accessibility tree. 48rem is where the
- * site header already swaps its nav for a menu, and holding the labels past that
- * point squeezed the site name down to an ellipsis. */
-@media (max-width: 47.999rem) {
-  .ui-theme__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -254,4 +376,13 @@
   .ui-theme__option,
   .ui-dialog__button { transition: none; }
   .ui-dialog__button:active { transform: none; }
+
+  /* The theme panel and the button's icons fade, and nothing moves. */
+  .ui-theme__trigger:active,
+  .ui-theme__glyph,
+  .ui-theme__panel { transform: none; }
+
+  @starting-style {
+    .ui-theme__panel:popover-open { transform: none; }
+  }
 }

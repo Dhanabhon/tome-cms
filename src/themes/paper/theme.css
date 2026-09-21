@@ -55,10 +55,13 @@
 .site-footer p { overflow-wrap: anywhere; }
 
 @media (min-width: 48rem) {
-  /* The wordmark stops growing so the margin has something to push against; it still
-     truncates, because min-width and the truncation it needs are on the link itself. */
-  .site-header__inner > .site-wordmark { flex: 0 1 auto; }
-  .site-header__desktop { display: block; order: 1; flex: 0 0 auto; margin-inline-start: auto; }
+  /* The wordmark stops growing, and its own margin pushes everything after it to the right:
+     the nav when there is one, and the controls either way. The nav used to carry that margin,
+     so a site with no navigation had its controls spread along the row, the theme button
+     stranded in the middle of it. The wordmark still truncates, because min-width and the
+     truncation it needs are on the link itself. */
+  .site-header__inner > .site-wordmark { flex: 0 1 auto; margin-inline-end: auto; }
+  .site-header__desktop { display: block; order: 1; flex: 0 0 auto; }
   .site-header__desktop ul { justify-content: flex-end; }
   .site-header__mobile { display: none; }
 }
