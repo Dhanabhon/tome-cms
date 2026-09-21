@@ -21,9 +21,11 @@ import {
 } from 'novel';
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
+import { textAlign } from '../../lib/editor-align';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
 import Icon from '../Icon';
+import AlignButtons from './AlignButtons';
 import BlockInsertMenu from './BlockInsertMenu';
 import { uploadFn } from './ImageUploader';
 import SlashCommands, { createSlashCommand } from './SlashCommands';
@@ -70,6 +72,7 @@ const buildExtensions = (copy: AdminCopy) => [
   }),
   editorImage,
   ...tableExtensions,
+  textAlign,
   createSlashCommand(copy),
 ];
 
@@ -144,6 +147,8 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
           </button>
         </EditorBubbleItem>
       ))}
+      <span aria-hidden="true" className="mx-1 w-px self-stretch bg-line" />
+      <AlignButtons copy={copy} />
     </EditorBubble>
   );
 }

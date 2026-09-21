@@ -55,13 +55,19 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedAttributes: {
     a: ['href', 'title', 'target', 'rel'],
     code: ['class'],
+    h1: ['style'],
+    h2: ['style'],
+    h3: ['style'],
     img: ['src', 'alt', 'title', 'width', 'height'],
+    p: ['style'],
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan'],
   },
   // A table's wrapper is the only thing that may carry a class of its own: it is how a wide
   // table scrolls inside its box on a phone.
   allowedClasses: { div: ['tableWrapper'] },
+  // Alignment is the one style a writer can set, and only to these three values.
+  allowedStyles: { '*': { 'text-align': [/^(left|center|right)$/] } },
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: { img: ['http', 'https'] },
   transformTags: {
