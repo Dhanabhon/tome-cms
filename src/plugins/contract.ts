@@ -19,11 +19,18 @@ export type PluginSettings = Readonly<Record<string, string>>;
 /** A setting the admin renders a field for, and the API validates a write against. */
 export interface PluginSetting {
   key: string;
-  /** A secret is encrypted at rest and never sent to a browser -- only whether it is set. */
-  kind: 'secret' | 'text';
+  /**
+   * A secret is encrypted at rest and never sent to a browser -- only whether it is set.
+   * A switch is 'on' or 'off'. A colour is `#rrggbb`, which is the one shape that is safe to
+   * put in a style attribute on a page every reader loads, so it is the only one accepted.
+   */
+  kind: 'color' | 'secret' | 'switch' | 'text';
   label: { en: string; th: string };
   hint?: { en: string; th: string };
   required: boolean;
+  /** What a setting nobody has answered reads as. Every switch and colour declares one, so
+   *  the core never has to guess what "missing" means for a plugin. */
+  fallback?: string;
 }
 
 /**
@@ -96,8 +103,10 @@ export interface PublicPage {
  * and its dismissal, and refuses a link that is neither same-origin nor https.
  */
 export interface SiteNotice {
+  /** The band's own colours, as `#rrggbb`. Absent means the core's. */
+  colors?: { background: string; text: string };
   /** What closing it is remembered under. Derive it from the words and a new message is
-   *  shown again; hard-code it and it is not. */
+   *  shown again; hard-code it and it is not. Absent means it cannot be closed at all. */
   dismissKey?: string;
   link?: { href: string; label: string };
   text: string;

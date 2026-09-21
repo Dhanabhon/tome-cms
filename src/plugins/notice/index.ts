@@ -25,17 +25,20 @@ export function siteNotice(settings: PluginSettings, page: PublicPage): SiteNoti
   const href = settings.linkHref?.trim();
   const label = settings.linkLabel?.trim();
   return {
+    colors: { background: settings.background || '#000000', text: settings.text || '#ffffff' },
     // Derived from the words, so a new message is shown again to a reader who closed the
-    // last one, and the same message is not.
-    dismissKey: `notice-${[...text].reduce((hash, character) => (hash * 31 + character.codePointAt(0)!) >>> 0, 7)}`,
+    // last one, and the same message is not. Absent when the owner wants it to stay.
+    ...(settings.dismissible !== 'off'
+      ? { dismissKey: `notice-${[...text].reduce((hash, character) => (hash * 31 + character.codePointAt(0)!) >>> 0, 7)}` }
+      : {}),
     text,
     ...(href && label ? { link: { href, label } } : {}),
   };
 }
 
-/** Only where there is something to close. */
+/** Only where there is something to close: a band that stays needs no script at all. */
 export function publicClient(settings: PluginSettings, page: PublicPage) {
-  return siteNotice(settings, page) ? {} : null;
+  return siteNotice(settings, page)?.dismissKey ? {} : null;
 }
 
 const plugin: Plugin = { publicClient, signInWidget, siteNotice, verifySignIn };

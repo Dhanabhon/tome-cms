@@ -70,4 +70,34 @@ test('a plugin write keeps what it was not given, and refuses to switch on what 
     (error: unknown) => (error as { status?: number }).status === 404,
     'a plugin this build does not ship is not found',
   );
+
+  // A colour is written into a style attribute on every public page, so the store takes
+  // the one shape that is nothing but a colour and refuses the rest rather than cleaning it.
+  const refusedAs = (status: number) => (error: unknown) => (error as { status?: number }).status === status;
+  for (const hostile of ['red', '#000', '#000000; background: url(https://evil.invalid)', 'rgb(0,0,0)', '#gggggg']) {
+    await assert.rejects(
+      () => writePluginSettings('owner-p', { enabled: false, id: 'notice', values: { background: hostile } }),
+      refusedAs(400),
+      `${hostile} is not accepted as a colour`,
+    );
+  }
+  await assert.rejects(
+    () => writePluginSettings('owner-p', { enabled: false, id: 'notice', values: { dismissible: 'yes' } }),
+    refusedAs(400),
+    'a switch is on or off, and nothing else',
+  );
+
+  // Nobody has answered yet, so the plugin reads as what it declared.
+  const untouched = (await readPluginStates('owner-p')).find(({ id }) => id === 'notice')!;
+  assert.deepEqual(
+    { background: untouched.values.background, dismissible: untouched.values.dismissible, text: untouched.values.text },
+    { background: '#000000', dismissible: 'on', text: '#ffffff' },
+    'black, closable, white words -- as declared',
+  );
+
+  await writePluginSettings('owner-p', { enabled: false, id: 'notice', values: { background: '#FFAA00', dismissible: 'off' } });
+  const answered = (await readPluginStates('owner-p')).find(({ id }) => id === 'notice')!;
+  assert.equal(answered.values.background, '#ffaa00', 'one colour is one stored value, however it was typed');
+  assert.equal(answered.values.dismissible, 'off', 'and off is an answer that is kept');
+  assert.equal(answered.values.text, '#ffffff', 'while what was not sent keeps its fallback');
 });

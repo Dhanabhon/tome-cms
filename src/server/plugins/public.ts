@@ -1,6 +1,6 @@
 import { PLUGIN_IDS, loadPlugin } from '../../plugins/registry';
 import type { PublicPage, SiteNotice } from '../../plugins/contract';
-import { readEnabledPlugin } from './store';
+import { COLOR, readEnabledPlugin } from './store';
 
 export interface PublicAdditions {
   /** Each enabled plugin whose browser code runs here, in the order they are declared. */
@@ -36,7 +36,13 @@ export async function publicAdditions(ownerId: string, page: PublicPage, origin:
     const notice = plugin.siteNotice?.(settings, page) ?? null;
     if (notice && !additions.notice && notice.text.trim()) {
       const href = notice.link ? safeHref(notice.link.href, origin) : null;
+      // Checked here as well as where it was stored: this is the line that turns a setting
+      // into CSS on every public page, and a row edited by hand never went through the store.
+      const colors = notice.colors && COLOR.test(notice.colors.background) && COLOR.test(notice.colors.text)
+        ? notice.colors
+        : undefined;
       additions.notice = {
+        ...(colors ? { colors } : {}),
         dismissKey: notice.dismissKey,
         pluginId,
         text: notice.text.trim(),
