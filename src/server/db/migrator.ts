@@ -17,6 +17,7 @@ import * as postExcerpt from './migrations/014_post_excerpt';
 import * as pageExcerpt from './migrations/015_page_excerpt';
 import * as themeSettings from './migrations/016_theme_settings';
 import * as scheduledPublishing from './migrations/017_scheduled_publishing';
+import * as thaiSlugs from './migrations/018_thai_slugs';
 
 export const migrations = {
   '001_system': system,
@@ -36,6 +37,7 @@ export const migrations = {
   '015_page_excerpt': pageExcerpt,
   '016_theme_settings': themeSettings,
   '017_scheduled_publishing': scheduledPublishing,
+  '018_thai_slugs': thaiSlugs,
 } as const;
 
 const provider: MigrationProvider = {

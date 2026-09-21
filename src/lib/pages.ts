@@ -1,15 +1,13 @@
-import slugify from 'slugify';
 
 import type { Page, PageLocale, PageStatus } from '../types/cms';
 import { editorText } from './editor-content';
+import { contentSlug } from './slug';
 import { summaryText } from './summary-text';
 
 export const RESERVED_PAGE_SLUGS = new Set(['blog']);
 
 export function resolvePageSlug(value: string | undefined, title: string) {
-  const normalized = slugify(value || title, { lower: true, strict: true, trim: true });
-  const slug = value ? normalized : normalized.slice(0, 160).replace(/-+$/, '');
-  return slug || `page-${crypto.randomUUID().slice(0, 8)}`;
+  return contentSlug(value || title) || `page-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 /**
