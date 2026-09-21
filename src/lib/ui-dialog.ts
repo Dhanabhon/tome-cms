@@ -14,6 +14,17 @@ interface PromptOptions extends DialogOptions {
   value?: string;
 }
 
+/** A prompt that also asks one yes-or-no question, as a checkbox under its field. */
+interface ToggledPromptOptions extends PromptOptions {
+  toggle: { checked: boolean; label: string };
+}
+
+/** What a dialog was answered with: the field's value, and whether its checkbox was ticked. */
+interface DialogAnswer {
+  checked: boolean;
+  value: string;
+}
+
 let sequence = 0;
 let dismissActive: (() => void) | null = null;
 
@@ -26,7 +37,7 @@ function button(label: string, kind: 'cancel' | 'confirm', tone: DialogTone) {
   return element;
 }
 
-function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions | PromptOptions) {
+function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions | PromptOptions | ToggledPromptOptions) {
   dismissActive?.();
   const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const dialog = document.createElement('dialog');
@@ -50,6 +61,7 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
 
   let input: HTMLInputElement | null = null;
   let inputError: HTMLParagraphElement | null = null;
+  let toggle: HTMLInputElement | null = null;
   if (kind === 'prompt') {
     const promptOptions = options as PromptOptions;
     const field = document.createElement('label');
@@ -70,6 +82,19 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
     });
     field.append(label, input, inputError);
     surface.append(field);
+
+    const question = (options as Partial<ToggledPromptOptions>).toggle;
+    if (question) {
+      const check = document.createElement('label');
+      check.className = 'ui-dialog__check';
+      toggle = document.createElement('input');
+      toggle.type = 'checkbox';
+      toggle.checked = question.checked;
+      const text = document.createElement('span');
+      text.textContent = question.label;
+      check.append(toggle, text);
+      surface.append(check);
+    }
   }
 
   const actions = document.createElement('div');
@@ -83,9 +108,9 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
   dialog.append(surface);
   document.body.append(dialog);
 
-  return new Promise<string | null>((resolve) => {
+  return new Promise<DialogAnswer | null>((resolve) => {
     let settled = false;
-    const finish = (result: string | null) => {
+    const finish = (result: DialogAnswer | null) => {
       if (settled) return;
       settled = true;
       dismissActive = null;
@@ -105,10 +130,10 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
           input.focus();
           return;
         }
-        finish(input.value);
+        finish({ checked: toggle?.checked ?? false, value: input.value });
         return;
       }
-      finish('confirmed');
+      finish({ checked: false, value: '' });
     });
     input?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -136,6 +161,11 @@ export async function confirmUi(options: DialogOptions) {
   return (await openDialog('confirm', options)) !== null;
 }
 
-export function promptUi(options: PromptOptions) {
+export async function promptUi(options: PromptOptions) {
+  return (await openDialog('prompt', options))?.value ?? null;
+}
+
+/** A prompt with one checkbox under its field: what was typed, and whether the box was ticked. */
+export function promptWithToggleUi(options: ToggledPromptOptions) {
   return openDialog('prompt', options);
 }

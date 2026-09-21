@@ -48,6 +48,12 @@ test('the category rows have the icon they draw', () => {
   assert.ok(ICONS.pencil, 'no icon for pencil');
 });
 
+test('the formatting bar draws a link as a link', () => {
+  // It was an arrow, '↗', which reads as "open" or "go" and never as "link".
+  assert.ok(ICONS.link, 'no icon for link');
+  assert.doesNotMatch(read('src/components/admin/DocumentCanvas.tsx'), /'↗'/, 'the formatting bar still types an arrow');
+});
+
 test('the block menus have the icons they draw', () => {
   // Both of them drew letters and punctuation before this -- "H2", a bullet, a curly quote
   // -- whose weight and size came from whatever font rendered them, in a screen of drawn
