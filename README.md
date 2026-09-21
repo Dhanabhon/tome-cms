@@ -15,6 +15,7 @@ TomeCMS is a lightweight, bilingual CMS built with Astro. It ships a server-rend
 - Server-rendered public pages; a reader downloads JavaScript only for a feature the owner turned on
 - Published-only REST API, OpenAPI 3.1 document, sitemap, and RSS feed
 - Themes: the public site is one of several, chosen under Appearance
+- The site's own logo (SVG included), an optional logo for the dark theme, and its icon, under Settings
 - Plugins: extras that fill hooks the core declares, switched on in the Admin
 - Optional Headless mode that keeps Admin and APIs while hiding the bundled Blog
 
