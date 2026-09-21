@@ -21,6 +21,8 @@ export const contentMutationSchema = z.object({
   metaTitle: z.string().trim().max(70).nullable(),
   metaDescription: z.string().trim().max(320).nullable(),
   status: z.enum(['draft', 'published']),
+  /** When it becomes the public's. Absent means now, and a date still to come means later. */
+  publishedAt: z.iso.datetime({ offset: true }).nullish(),
   updatedAt: z.iso.datetime({ offset: true }).optional(),
 }).strict();
 
@@ -28,6 +30,8 @@ export const statusMutationSchema = z.object({
   id: z.uuid(),
   status: z.enum(['draft', 'published']),
   updatedAt: z.iso.datetime({ offset: true }),
+  /** When it becomes the public's. Absent means now, and a date still to come means later. */
+  publishedAt: z.iso.datetime({ offset: true }).nullish(),
 }).strict();
 
 export const deleteMutationSchema = z.object({

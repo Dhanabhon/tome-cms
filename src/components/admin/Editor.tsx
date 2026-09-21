@@ -59,6 +59,10 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
   const slugTouched = useRef(Boolean(initialPost));
   const actionPending = useRef<boolean | 'navigation'>(false);
   const postStatusRef = useRef<PostStatus>(initialPost?.status ?? 'draft');
+  // The owner's answer to "when", carried in a ref for the same reason the status is:
+  // an autosave fires from a callback that must not be rebuilt every keystroke.
+  const publishedAtRef = useRef<string | null>(initialPost?.published_at ?? null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(initialPost?.published_at ?? null);
   const autosaveTimer = useRef<number>();
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
@@ -104,6 +108,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
         ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
         ...draft,
         status: status ?? postStatusRef.current,
+        ...(publishedAtRef.current ? { publishedAt: publishedAtRef.current } : {}),
       }),
     });
     const payload: unknown = await response.json();
@@ -116,6 +121,10 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
     updatedAt.current = savedPost.updated_at;
     // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
+    // Only when there is one. A draft has no date at all -- the database drops it -- and a
+    // date the owner picked before publishing must survive the autosave that files the
+    // draft, or pressing Publish sends nothing and the article goes out now.
+    if (savedPost.published_at) publishedAtRef.current = savedPost.published_at;
     setErrorMessage(null);
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPost.slug };
@@ -127,6 +136,7 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
       setCoverImage(savedPost.cover_image);
     }
     setPostStatus(savedPost.status);
+    if (savedPost.published_at) setPublishedAt(savedPost.published_at);
     setLanguageEditions((current) => [
       ...current.filter((edition) => edition.locale !== savedPost.locale),
       { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
@@ -355,6 +365,8 @@ export default function Editor({ adminPath, categories, initialCategoryIds, init
         </article>
 
         <PostSettingsDrawer
+          publishedAt={publishedAt}
+          onChangePublishedAt={(value) => { publishedAtRef.current = value; setPublishedAt(value); markDirty(); }}
           categories={categories}
           copy={copy}
           coverImage={coverImage}

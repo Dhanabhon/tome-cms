@@ -1,5 +1,4 @@
 import { sql } from 'kysely';
-
 import { pagePath, postPath } from '../../lib/i18n';
 import type {
   Page,
@@ -16,7 +15,7 @@ import { editorMediaIds } from './editor';
 import { pageFromRow } from './pages';
 import { postFromRow } from './posts';
 import { getSiteSettings, type SiteSettings } from './settings';
-
+import { live } from './live';
 export interface PublishedPost extends Post {
   categories: PostCategoryBadge[];
   coverImage: ReadyMedia | null;
@@ -92,7 +91,7 @@ export async function enrichPosts(ownerId: string, posts: Post[]): Promise<Publi
     db.selectFrom('posts').select(['translation_group_id', 'locale', 'slug', 'updated_at'])
       .where('owner_id', '=', ownerId)
       .where('translation_group_id', 'in', groupIds)
-      .where('status', '=', 'published')
+      .where(live('posts'))
       .orderBy('translation_group_id').orderBy('locale').execute(),
     listReadyMediaByIds(ownerId, mediaIds),
   ]);
@@ -149,7 +148,7 @@ export async function enrichPages(ownerId: string, pages: Page[]): Promise<Publi
     db.selectFrom('pages').select(['translation_group_id', 'locale', 'slug', 'updated_at'])
       .where('owner_id', '=', ownerId)
       .where('translation_group_id', 'in', groupIds)
-      .where('status', '=', 'published')
+      .where(live('pages'))
       .orderBy('translation_group_id').orderBy('locale').execute(),
     listReadyMediaByIds(ownerId, mediaIds),
   ]);
@@ -189,8 +188,7 @@ export async function listPublishedPosts(input: PublicPostListInput): Promise<Pu
   let query = db.selectFrom('posts as post').selectAll('post')
     .where('post.owner_id', '=', settings.owner_id)
     .where('post.locale', '=', input.locale)
-    .where('post.status', '=', 'published')
-    .where('post.published_at', 'is not', null);
+    .where(live('post'));
   if (input.category) {
     query = query.where(sql<boolean>`exists (
       select 1
@@ -238,7 +236,7 @@ export async function getPublishedPost(locale: PostLocale, slug: string): Promis
     .where('owner_id', '=', settings.owner_id)
     .where('locale', '=', locale)
     .where('slug', '=', slug)
-    .where('status', '=', 'published')
+    .where(live('posts'))
     .executeTakeFirst();
   return row ? (await enrichPosts(settings.owner_id, [postFromRow(row)]))[0] ?? null : null;
 }
@@ -252,8 +250,7 @@ export async function listPublishedPages(input: PublicPageListInput): Promise<Pu
   let query = db.selectFrom('pages as page').selectAll('page')
     .where('page.owner_id', '=', settings.owner_id)
     .where('page.locale', '=', input.locale)
-    .where('page.status', '=', 'published')
-    .where('page.published_at', 'is not', null);
+    .where(live('page'));
   if (cursor) {
     query = query.where(sql<boolean>`(
       date_trunc('milliseconds', page.published_at) < ${cursor.publishedAt}::timestamptz
@@ -290,7 +287,7 @@ export async function getPublishedPage(locale: PostLocale, slug: string): Promis
     .where('owner_id', '=', settings.owner_id)
     .where('locale', '=', locale)
     .where('slug', '=', slug)
-    .where('status', '=', 'published')
+    .where(live('pages'))
     .executeTakeFirst();
   return row ? (await enrichPages(settings.owner_id, [pageFromRow(row)]))[0] ?? null : null;
 }
@@ -319,7 +316,7 @@ export async function listPublishedPostAlternates(translationGroupId: string): P
   const rows = await db.selectFrom('posts').select(['locale', 'slug'])
     .where('owner_id', '=', settings.owner_id)
     .where('translation_group_id', '=', translationGroupId)
-    .where('status', '=', 'published')
+    .where(live('posts'))
     .orderBy('locale')
     .execute();
   return rows.map((row) => ({ href: postPath(row), locale: row.locale }));
@@ -331,7 +328,7 @@ export async function listPublishedPageAlternates(translationGroupId: string): P
   const rows = await db.selectFrom('pages').select(['locale', 'slug'])
     .where('owner_id', '=', settings.owner_id)
     .where('translation_group_id', '=', translationGroupId)
-    .where('status', '=', 'published')
+    .where(live('pages'))
     .orderBy('locale')
     .execute();
   return rows.map((row) => ({ href: pagePath(row), locale: row.locale }));

@@ -135,7 +135,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                               : <span class="admin-story-edition__title">{title}</span>}
                             <span class="admin-page-path">/{edition.locale}/{edition.slug}</span>
                           </a>
-                          <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status)}</span>
+                          <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status, edition.published_at)}</span>
                           <details class="admin-story-menu">
                             <summary aria-label={`${copy.pages.actionsFor} ${label}`}><Icon name="more" /></summary>
                             <div>

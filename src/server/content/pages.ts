@@ -129,7 +129,9 @@ export async function createPage(ownerId: string, input: CreatePageInput): Promi
         excerpt: input.excerpt,
         meta_description: input.metaDescription,
         status: input.status,
-        published_at: null,
+        // A first save can already carry a date: an owner who schedules before the autosave
+        // has run is scheduling the post that save creates.
+        published_at: input.publishedAt ? new Date(input.publishedAt) : null,
         owner_id: ownerId,
       }).returningAll().executeTakeFirstOrThrow();
     });
@@ -202,6 +204,8 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
         excerpt: input.excerpt,
         meta_description: input.metaDescription,
         status: input.status,
+        // Absent leaves it to the trigger: stamped on a first publish, carried forward after.
+        ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
     });
     invalidatePublicNavigationCache();
@@ -213,7 +217,7 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
 
 export async function updatePageStatus(
   ownerId: string,
-  input: { id: string; status: Page['status']; updatedAt: string },
+  input: { id: string; publishedAt?: string | null; status: Page['status']; updatedAt: string },
 ): Promise<Page> {
   const row = await db.transaction().execute(async (trx) => {
     const current = await trx.selectFrom('pages').selectAll()
@@ -225,6 +229,9 @@ export async function updatePageStatus(
       : null;
     return trx.updateTable('pages').set({
       status: input.status,
+      // Absent leaves it to the trigger, which stamps the moment for a first publish and
+      // carries the existing date forward otherwise.
+      ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
       ...(content ? { content_json: content.contentJson, content_html: content.contentHtml } : {}),
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
