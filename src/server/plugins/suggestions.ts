@@ -3,7 +3,7 @@ import { pluginManifest } from '../../plugins/manifests';
 import { loadPlugin, PLUGIN_IDS } from '../../plugins/registry';
 import { readEnabledPlugin } from './store';
 
-type SuggestionMethod = 'categoryLikelihoods' | 'pickExcerpt';
+type SuggestionMethod = 'categoryLikelihoods' | 'pickDescription' | 'pickExcerpt';
 
 /**
  * The plugin this owner has switched on that can make a given kind of suggestion, if any.
@@ -28,5 +28,8 @@ export async function findSuggester(
 
 /** Whether the editors should draw their suggestion buttons at all. */
 export async function suggestionsAvailable(ownerId: string): Promise<boolean> {
-  return Boolean((await findSuggester(ownerId, 'categoryLikelihoods')) ?? (await findSuggester(ownerId, 'pickExcerpt')));
+  for (const method of ['categoryLikelihoods', 'pickExcerpt', 'pickDescription'] as const) {
+    if (await findSuggester(ownerId, method)) return true;
+  }
+  return false;
 }

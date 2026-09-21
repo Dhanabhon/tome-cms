@@ -3,8 +3,8 @@ import type { PluginManifest } from '../contract';
 /** Kept apart from the hooks so the admin can name the plugin without loading it. */
 export const manifest: PluginManifest = {
   description: {
-    en: 'Reads what you have written and suggests categories and a line for the excerpt. Nothing is applied until you press it.',
-    th: 'อ่านสิ่งที่คุณเขียนแล้วเสนอหมวดหมู่และประโยคสำหรับข้อความย่อ ไม่มีอะไรถูกใส่จนกว่าคุณจะกดเอง',
+    en: 'Reads what you have written and suggests categories, a line for the excerpt and a summary for search. Nothing is applied until you press it.',
+    th: 'อ่านสิ่งที่คุณเขียนแล้วเสนอหมวดหมู่ ประโยคสำหรับข้อความย่อ และคำอธิบายสำหรับผลค้นหา ไม่มีอะไรถูกใส่จนกว่าคุณจะกดเอง',
   },
   hooks: ['editorSuggestions'],
   icon: 'pencil',

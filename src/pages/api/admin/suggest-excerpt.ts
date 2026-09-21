@@ -13,11 +13,15 @@ import { parseJson } from '../../../server/http/json';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 
-/** The draft as it stands, for a post or a page alike: an excerpt is the same thing on both. */
+/**
+ * The draft as it stands, for a post or a page alike -- a passage is the same thing on both --
+ * and which of its fields the passage is for.
+ */
 const askSchema = z.object({
   title: z.string().trim().max(200),
   contentJson: editorDocumentSchema,
   locale: z.enum(['th', 'en']),
+  purpose: z.enum(['excerpt', 'description']).default('excerpt'),
 }).strict();
 
 export const POST: APIRoute = async ({ request }) => {
@@ -30,7 +34,8 @@ export const POST: APIRoute = async ({ request }) => {
       throw new HttpError(403, 'Request origin is not allowed.');
     }
     // Null is the honest answer to "nothing works alone", to "no key" and to "no answer".
-    const excerpt = await suggestExcerpt(await parseJson(request, askSchema), current.user.id);
+    const { purpose, ...draft } = await parseJson(request, askSchema);
+    const excerpt = await suggestExcerpt(draft, current.user.id, purpose);
     return Response.json({ excerpt }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
     return adminErrorResponse(error, requestId);

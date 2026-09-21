@@ -12,6 +12,8 @@ import ExcerptSuggestion from './ExcerptSuggestion';
 interface PageSettingsDrawerProps {
   /** Absent when this installation has no key for it. */
   onSuggestExcerpt?: () => Promise<string | null>;
+  /** Absent on the same terms. */
+  onSuggestDescription?: () => Promise<string | null>;
   publishedAt: string | null;
   onChangePublishedAt: (value: string | null) => void;
   copy: AdminCopy;
@@ -31,7 +33,7 @@ interface PageSettingsDrawerProps {
 
 export default function PageSettingsDrawer({
   copy, errorMessage, excerpt, locale, metaDescription, metaTitle, onChangeExcerpt,
-  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onSuggestExcerpt, onClose, open, publishedAt, slug,
+  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onSuggestDescription, onSuggestExcerpt, onClose, open, publishedAt, slug,
 }: PageSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   /* Built by the same function that builds the real link, so the two cannot drift. */
@@ -95,6 +97,7 @@ export default function PageSettingsDrawer({
           <textarea className="admin-control admin-control--textarea" maxLength={320} onChange={(event) => onChangeMetaDescription(event.target.value)} placeholder={copy.drawer.metaDescriptionPlaceholder} value={metaDescription} />
           <small>{copy.drawer.metaDescriptionHintPage}</small>
         </label>
+        {onSuggestDescription && <ExcerptSuggestion copy={copy} onSuggest={onSuggestDescription} onUse={onChangeMetaDescription} purpose="description" />}
       </section>
     </dialog>
   );

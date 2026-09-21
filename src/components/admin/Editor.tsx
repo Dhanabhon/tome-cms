@@ -11,6 +11,7 @@ import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
 import { contentSlug } from '../../lib/slug';
 import { requestExcerpt } from './ExcerptSuggestion';
+import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
 
 interface EditorSourcePost {
   cover_image: string | null;
@@ -285,6 +286,12 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     markDirty();
   };
 
+  // The draft as it stands when the button is pressed, saved or not. Absent without a
+  // suggester, and then the drawers draw no button for it.
+  const suggestPassage = (purpose: ExcerptPurpose) => (canSuggest ? () => requestExcerpt({
+    contentJson: draftRef.current.contentJson, locale, title: draftRef.current.title,
+  }, purpose) : undefined);
+
   return (
     <div className="admin-editor">
       <header className="admin-editor-bar">
@@ -368,9 +375,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
         </article>
 
         <PostSettingsDrawer
-          onSuggestExcerpt={canSuggest ? (() => requestExcerpt({
-            contentJson: draftRef.current.contentJson, locale, title: draftRef.current.title,
-          })) : undefined}
+          onSuggestDescription={suggestPassage('description')}
+          onSuggestExcerpt={suggestPassage('excerpt')}
           onSuggestCategories={canSuggest ? (async () => {
             const response = await fetch('/api/admin/posts/suggest-categories', {
               method: 'POST',

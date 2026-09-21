@@ -34,6 +34,14 @@ export const EXCERPT_INSTRUCTIONS = 'Which passage would best tell someone brows
   + 'read on its own as the line under the title?';
 
 /**
+ * A summary, where the excerpt is a teaser: the card asks what the article is about, and a
+ * search result is asked what it says -- someone searching wants to know whether it answers
+ * them before they open it.
+ */
+export const DESCRIPTION_INSTRUCTIONS = 'Which passage would best sum up what this article says for someone who found it in a search, '
+  + 'read on its own as the summary under the title?';
+
+/**
  * The passages as the options themselves, and a way out. An option's name is what comes
  * back, so naming the options with the passages makes the answer a passage. The way out
  * matters as much: an article whose every sentence leans on the one before has no line that

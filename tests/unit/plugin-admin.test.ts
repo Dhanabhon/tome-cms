@@ -22,9 +22,11 @@ test('a manifest names a hook the plugin actually fills', async () => {
         continue;
       }
       if (hook === 'editorSuggestions') {
-        // Either kind of suggestion: likelihoods for the categories, a pick for the excerpt.
+        // Any kind of suggestion: likelihoods for the categories, a pick for the excerpt or
+        // for the description.
         assert.ok(
-          typeof plugin.categoryLikelihoods === 'function' || typeof plugin.pickExcerpt === 'function',
+          typeof plugin.categoryLikelihoods === 'function' || typeof plugin.pickExcerpt === 'function'
+            || typeof plugin.pickDescription === 'function',
           `${manifest.id} claims editorSuggestions and suggests nothing`,
         );
         continue;
