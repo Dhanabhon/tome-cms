@@ -31,10 +31,11 @@
  * centre of a row with a long wordmark at one end and a pill at the other is not its middle.
  *
  * The order of the three lives here and not in the core sheet: this is one theme's header.
- * `plain` draws its own, and the admin draws none. */
-.site-header .ui-theme { order: 2; }
+ * `plain` draws its own, and the admin draws none. The theme button comes last, at the far
+ * end of the row, after the language. */
+.site-header .language-switcher { order: 2; flex: 0 0 auto; margin-inline-start: 0; }
 
-.site-header .language-switcher { order: 3; flex: 0 0 auto; margin-inline-start: 0; }
+.site-header .ui-theme { order: 3; }
 
 .site-header__mobile { order: 4; flex-basis: 100%; min-width: 0; }
 
