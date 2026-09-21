@@ -6,6 +6,7 @@ import { DEFAULT_THEME_ID, isThemeId } from '../../themes/registry';
 import type { PostLocale, SiteSettings } from '../../types/cms';
 import SiteBrandFields from './SiteBrandFields';
 import UiSelect from './UiSelect';
+import { atLeast } from '../../lib/busy';
 
 interface SettingsFormProps {
   /** Everything stored for the logo, dark logo and icon, as addresses. */
@@ -66,11 +67,11 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
     setFieldErrors({});
     setStatus('');
     try {
-      const response = await fetch('/api/admin/settings', {
+      const response = await atLeast(fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ allowVisitorTheme, defaultLocale, hideSiteName, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
-      });
+      }));
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};

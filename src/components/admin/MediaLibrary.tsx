@@ -18,6 +18,7 @@ import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
+import { atLeast } from '../../lib/busy';
 
 type MediaLibraryProps = { ownerLocale?: PostLocale | null } & (
   | { mode: 'manage' }
@@ -67,6 +68,9 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [draft, setDraft] = useState<MediaDraft>({ altText: '', folderId: '' });
   const [detailsStatus, setDetailsStatus] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Which of the dialog's and the folders' actions is running, so only its button spins.
+  const [working, setWorking] = useState<string | null>(null);
+  const pressed = (action: string) => working === action;
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [referencingPosts, setReferencingPosts] = useState<ReferencingPost[]>([]);
   const [referencingPages, setReferencingPages] = useState<ReferencingPage[]>([]);
@@ -156,10 +160,10 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setUploadProgress(0);
     setError(null);
     try {
-      const asset = await uploadImage(file, {
+      const asset = await atLeast(uploadImage(file, {
         folderId: folderId(uploadSelection) ?? null,
         onProgress: setUploadProgress,
-      });
+      }));
       if (props.mode === 'select') {
         props.onSelect(asset);
         return;
@@ -179,26 +183,33 @@ export default function MediaLibrary(props: MediaLibraryProps) {
 
   async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (working) return;
+    setWorking('create-folder');
     setCategoryError(null);
     try {
-      const folder = await createMediaFolder(categoryName);
+      const folder = await atLeast(createMediaFolder(categoryName));
       setFolders((current) => [...current, folder].sort((left, right) => left.name.localeCompare(right.name)));
       setCategoryName('');
     } catch (createError) {
       setCategoryError(errorMessage(createError, copy));
+    } finally {
+      setWorking(null);
     }
   }
 
   async function handleRenameCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!renaming) return;
+    if (!renaming || working) return;
+    setWorking('rename-folder');
     setCategoryError(null);
     try {
-      const folder = await renameMediaFolder(renaming.id, renameName);
+      const folder = await atLeast(renameMediaFolder(renaming.id, renameName));
       setFolders((current) => current.map((currentFolder) => (currentFolder.id === folder.id ? folder : currentFolder)).sort((left, right) => left.name.localeCompare(right.name)));
       setRenaming(null);
     } catch (renameError) {
       setCategoryError(errorMessage(renameError, copy));
+    } finally {
+      setWorking(null);
     }
   }
 
@@ -236,10 +247,11 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }
 
   async function saveDetails() {
-    if (!selected) return;
+    if (!selected || working) return;
+    setWorking('save-details');
     setDetailsStatus(null);
     try {
-      const updated = await saveMediaDraft(selected.id, draft);
+      const updated = await atLeast(saveMediaDraft(selected.id, draft));
       setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       if (selectedId.current === updated.id) {
         setSelected(updated);
@@ -248,6 +260,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       await load(1, false, currentQuery.current, currentSelection.current);
     } catch (saveError) {
       setDetailsStatus(errorMessage(saveError, copy));
+    } finally {
+      setWorking(null);
     }
   }
 
@@ -282,7 +296,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setReferencingPages([]);
     setProfileReference(false);
     try {
-      await deleteMedia(item.id);
+      await atLeast(deleteMedia(item.id));
       await load(1, false, currentQuery.current, currentSelection.current);
       if (selectedId.current === item.id) closeDetails();
     } catch (deleteFailure) {
@@ -362,8 +376,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <nav aria-label={copy.media.folders}>{categoryButtons}</nav>
           <div className="media-category-select"><UiSelect ariaLabel={copy.media.folders} className="admin-control" id="media-category" onValueChange={(next) => selectCategory(next)} options={categoryOptions} value={selection} /></div>
           {props.mode === 'manage' && selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
-          {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-label={copy.media.folderName} className="admin-control" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} placeholder={copy.media.folderName} required value={categoryName} /></label><button className="admin-button" type="submit">{copy.media.createFolder}</button></form>}
-          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button className="admin-button" type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
+          {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-label={copy.media.folderName} className="admin-control" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} placeholder={copy.media.folderName} required value={categoryName} /></label><button aria-busy={pressed('create-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.createFolder}</button></form>}
+          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button aria-busy={pressed('rename-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
           {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="admin-button admin-button--ghost" onClick={() => void loadFolders()} type="button">{copy.media.retryFolders}</button></p>}
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>
@@ -385,7 +399,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         </div>
       </div>
 
-      {props.mode === 'manage' && <dialog aria-label={copy.media.imageDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><Icon name="close" /></button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} /><label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>{copy.media.imageUrl}<input aria-label={copy.media.imageUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button className="admin-button admin-button--primary" onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button className="admin-button admin-button--danger" disabled={deleting} onClick={() => void deleteSelected(true)} type="button">{deleting ? copy.media.deleting : copy.media.delete}</button></div>{detailsStatus && <p role="status">{detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{!referencingPosts.length && !referencingPages.length && !profileReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
+      {props.mode === 'manage' && <dialog aria-label={copy.media.imageDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><Icon name="close" /></button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} /><label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>{copy.media.imageUrl}<input aria-label={copy.media.imageUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button aria-busy={pressed('save-details')} className="admin-button admin-button--primary" disabled={working !== null || deleting} onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{!referencingPosts.length && !referencingPages.length && !profileReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
     </section>
   );
 }

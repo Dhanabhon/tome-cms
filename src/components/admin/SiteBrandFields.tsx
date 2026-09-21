@@ -3,6 +3,7 @@ import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { AdminCopy } from '../../lib/admin-i18n';
 import type { SiteBrand } from '../../lib/site-brand';
 import Icon from '../Icon';
+import { atLeast } from '../../lib/busy';
 
 type Kind = 'icon' | 'logo' | 'logo-dark';
 type Action = 'remove' | 'upload';
@@ -51,9 +52,9 @@ export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChang
     setBusy({ action, kind });
     setMessage(null);
     try {
-      const response = await fetch(`/api/admin/brand/${kind}`, action === 'upload'
+      const response = await atLeast(fetch(`/api/admin/brand/${kind}`, action === 'upload'
         ? { body: file, headers: { 'content-type': file?.type || 'application/octet-stream' }, method: 'POST' }
-        : { method: 'DELETE' });
+        : { method: 'DELETE' }));
       const result = await response.json().catch(() => ({})) as { brand?: SiteBrand; code?: string; updatedAt?: string };
       if (!response.ok || !result.brand || !result.updatedAt) {
         const refusal = result.code ? REFUSALS[result.code] : undefined;

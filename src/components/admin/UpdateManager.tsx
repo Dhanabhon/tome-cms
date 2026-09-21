@@ -7,6 +7,7 @@ import { authClient } from '../../lib/auth-client';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
 import type { PublicUpdateJob } from '../../updater/state';
+import { atLeast, MIN_BUSY_MS } from '../../lib/busy';
 
 type UpdateCheck = {
   checkedAt: string;
@@ -62,6 +63,8 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [installing, setInstalling] = useState(false);
+  // Pressed, as against the check the page makes on its own when it opens.
+  const [checking, setChecking] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [watch, setWatch] = useState<{ targetVersion: string; previousJobId?: string } | null>(null);
   const mounted = useRef(true);
@@ -69,11 +72,13 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
 
   const load = useCallback(async (refresh = false) => {
     setBusy(true);
+    setChecking(refresh);
     setError('');
     try {
-      const response = await fetch('/api/admin/system/updates', refresh ? {
+      // Only a pressed check waits out the minimum; the page's own first look does not.
+      const response = await atLeast(fetch('/api/admin/system/updates', refresh ? {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'check' }), signal: AbortSignal.timeout(10_000),
-      } : { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
+      } : { cache: 'no-store', signal: AbortSignal.timeout(10_000) }), refresh ? MIN_BUSY_MS : 0);
       const result = await response.json().catch(() => ({})) as UpdateCheck & { error?: string };
       if (!response.ok || !result.availability) throw new Error(result.error ?? copy.updates.updateCheckUnavailable);
       if (!mounted.current) return;
@@ -85,7 +90,10 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     } catch (failure) {
       if (mounted.current) setError(failure instanceof Error ? failure.message : copy.updates.updateCheckUnavailable);
     } finally {
-      if (mounted.current) setBusy(false);
+      if (mounted.current) {
+        setBusy(false);
+        setChecking(false);
+      }
     }
   }, []);
 
@@ -194,6 +202,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   const availability = busy ? 'checking' : error ? 'unavailable' : check?.availability ?? 'unavailable';
   const message = busy ? copy.updates.checkingForUpdates : error || check?.message || copy.updates.updateCheckUnavailable;
   const availabilityLabel = busy ? copy.updates.checkingForUpdates : availabilityLabels(copy)[availability === 'checking' ? 'unavailable' : availability];
+  const progress = installing ? copy.updates.verifying : message;
   const installability = check?.installability ?? {
     mode: 'check-only' as const,
     installable: false as const,
@@ -219,13 +228,14 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
             {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
             {check?.latest && <div><dt>{copy.updates.published}</dt><dd>{formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</dd></div>}
           </dl>
-          {!busy && <p>{message}</p>}
+          {/* The words live here, so neither button changes width while it works. */}
+          <p>{progress}</p>
           {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
         </div>
         <div className="update-actions">
-          <button className="admin-button admin-button--secondary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{busy ? copy.updates.checking : copy.updates.checkAgain}</button>
-          {installability.installable && check?.latest && <button className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void install()} type="button">
-            {installing ? copy.updates.verifying : fill(copy.updates.install, { version: check.latest.manifest.version })}
+          <button aria-busy={checking} className="admin-button admin-button--secondary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{copy.updates.checkAgain}</button>
+          {installability.installable && check?.latest && <button aria-busy={installing} className="admin-button admin-button--primary" disabled={busy || installing || !!watch} onClick={() => void install()} type="button">
+            {fill(copy.updates.install, { version: check.latest.manifest.version })}
           </button>}
         </div>
       </section>

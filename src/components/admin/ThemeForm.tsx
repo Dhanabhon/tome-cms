@@ -10,6 +10,7 @@ import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from '../../themes/registry
 import type { PostLocale, SiteSettings } from '../../types/cms';
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
+import { atLeast } from '../../lib/busy';
 
 /** Everything the settings record holds, because a write has to send all of it. */
 type ThemeSettings = Pick<
@@ -69,7 +70,7 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
     setError('');
     setStatus('');
     try {
-      const response = await fetch('/api/admin/settings', {
+      const response = await atLeast(fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -85,7 +86,7 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
           timezone: initialSettings.timezone,
           updatedAt,
         }),
-      });
+      }));
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) throw new Error(result.error ?? copy.theme.activateFailed);
       if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
@@ -245,11 +246,11 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
     setBusy(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/themes', {
+      const response = await atLeast(fetch('/api/admin/themes', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id: manifest.id, values: sent }),
-      });
+      }));
       const payload = await response.json().catch(() => null) as { error?: string; settings?: Record<string, string> } | null;
       if (!response.ok || !payload?.settings) throw new Error(payload?.error || copy.theme.customizeFailed);
       // Named here: inside the closure the check above no longer narrows it.

@@ -12,6 +12,7 @@ import useEditorSaveQueue from './useEditorSaveQueue';
 import { contentSlug } from '../../lib/slug';
 import { requestExcerpt } from './ExcerptSuggestion';
 import type { ExcerptPurpose } from '../../lib/excerpt-candidates';
+import { atLeast } from '../../lib/busy';
 
 interface EditorSourcePage {
   id: string;
@@ -280,7 +281,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
     }
     setPublishing(true);
     try {
-      await saveBefore(() => undefined, 'published');
+      await atLeast(saveBefore(() => undefined, 'published'));
     } finally {
       setPublishing(false);
     }
