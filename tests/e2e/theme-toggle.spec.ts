@@ -138,10 +138,12 @@ test('the theme button opens a panel under itself, and a choice made there close
   expect(boxes.panel.top, 'under its button').toBeGreaterThanOrEqual(boxes.button.bottom);
   expect(Math.abs(boxes.panel.right - boxes.button.right), 'lined up with its end').toBeLessThan(1);
   expect(boxes.panel.left, 'and on the screen').toBeGreaterThanOrEqual(0);
-  // This site has no navigation, which is what used to leave the button stranded mid-row.
-  const apart = await page.evaluate(() => document.querySelector('.site-header .language-switcher')!.getBoundingClientRect().left
-    - document.querySelector('.site-header .ui-theme__trigger')!.getBoundingClientRect().right);
-  expect(apart, 'the controls gather on the right, whether or not a nav pushes them there').toBeLessThan(32);
+  // This site has no navigation, which is what used to leave the button stranded mid-row. The
+  // button is last on the right, just after the language.
+  const apart = await page.evaluate(() => document.querySelector('.site-header .ui-theme__trigger')!.getBoundingClientRect().left
+    - document.querySelector('.site-header .language-switcher')!.getBoundingClientRect().right);
+  expect(apart, 'the button follows the language').toBeGreaterThanOrEqual(0);
+  expect(apart, 'and the controls gather on the right, whether or not a nav pushes them there').toBeLessThan(32);
 
   await page.locator('.ui-theme__option', { hasText: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

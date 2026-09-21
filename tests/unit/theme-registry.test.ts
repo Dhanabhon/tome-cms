@@ -84,8 +84,9 @@ test('a shared component does not place itself in a header it does not own', () 
   assert.doesNotMatch(scoped, placement, 'the switcher places itself');
   // Its installer variant may, because that variant exists to fit one specific header.
   assert.match(scoped, /\.language-switcher--installer \{[^}]*margin-inline-start: auto;/);
-  // And the theme that puts it in a row says where it goes.
-  assert.match(read('paper/theme.css'), /\.site-header \.language-switcher \{ order: 3;/);
+  // And the theme that puts it in a row says where it goes. Which place is the theme's own
+  // business, and the theme toggle's spec checks the order a reader sees.
+  assert.match(read('paper/theme.css'), /\.site-header \.language-switcher \{ order: \d+;/);
 });
 
 test('a theme stylesheet is linked by the page, not imported by the template', () => {
