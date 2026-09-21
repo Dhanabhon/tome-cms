@@ -276,7 +276,25 @@ test('the banner is the owner\'s colours, and stays or goes as they said', async
     'it slides away rather than vanishing').toBe('notice-out');
   await expect(band, 'and is gone once it has').toHaveCount(0);
 
+  // Gone once the page has settled is not the same as never shown. The check for "closed
+  // before" ran in a module script, which runs after the first paint -- so every load drew
+  // the band, then took it away, and a reader refreshing quickly saw it flash each time.
+  // Watched from the first frame of the next load, before any of the page's own code.
+  await page.addInitScript(() => {
+    const seen = { painted: false };
+    (window as unknown as { banner: typeof seen }).banner = seen;
+    const look = () => {
+      const shown = document.querySelector<HTMLElement>('[data-site-notice]');
+      if (shown && getComputedStyle(shown).display !== 'none' && shown.getBoundingClientRect().height > 0) {
+        seen.painted = true;
+      }
+      if (document.readyState !== 'complete') requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
   await page.reload({ waitUntil: 'networkidle' });
   await expect(band, 'and stays gone for the reader who closed it').toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { banner: { painted: boolean } }).banner.painted),
+    'without being drawn first and taken away after').toBe(false);
 });
 

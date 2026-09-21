@@ -1,5 +1,6 @@
 ---
 import Icon from '../components/Icon.astro';
+import NoticeScript from '../components/NoticeScript.astro';
 import PluginClients from '../components/PluginClients.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
@@ -170,6 +171,7 @@ const structuredData = robots.includes('noindex')
     <link rel="stylesheet" href="/fonts.css" />
     <link rel="stylesheet" href={themeCss} />
     {allowVisitorTheme && <ThemeScript />}
+    {plugins.notice?.dismissKey && <NoticeScript dismissKey={plugins.notice.dismissKey} />}
   </head>
   <activeTheme.Shell
     allowVisitorTheme={allowVisitorTheme}
