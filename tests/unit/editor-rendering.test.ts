@@ -67,9 +67,10 @@ test('server renders, sanitizes, and bounds editor content', () => {
     },
   });
   assert.doesNotMatch(unsafe.contentHtml, /javascript:|onclick|onerror|onmouseover/i);
-  // GHSA-cp6q-959q-f8rh: Tiptap 2's mergeAttributes turns an own __proto__ key into inherited DOM
-  // attributes, and JSON.parse makes such a key. The schema drops it before anything is stored,
-  // so the editor never loads one back; nor does it reach the HTML.
+  // GHSA-cp6q-959q-f8rh: mergeAttributes before Tiptap 2.27.3 turned an own __proto__ key into
+  // inherited DOM attributes, and JSON.parse makes such a key. The pinned 2.27.3 carries the
+  // backported fix, and the schema drops the key before anything is stored in any case, so the
+  // editor never loads one back; nor does it reach the HTML.
   const polluted = prepareEditorContent(JSON.parse('{"contentJson":{"type":"doc","content":[{"type":"paragraph","attrs":{"__proto__":{"onclick":"alert(1)"}},"content":[{"type":"text","text":"Hi","marks":[{"type":"link","attrs":{"href":"https://example.com","__proto__":{"onmouseover":"alert(2)"}}}]}]}]}}'));
   assert.equal(JSON.stringify(polluted.contentJson).includes('__proto__'), false, 'no own __proto__ key reaches what is stored');
   assert.equal(Object.getPrototypeOf(polluted.contentJson.content?.[0]?.attrs), Object.prototype);
