@@ -299,18 +299,26 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
 
   await page.goto(`${origin}/admin/navigation`);
   const dialog = page.locator('dialog.navigation-dialog');
-  const add = async (url: string, label: string, newTab: boolean) => {
+  const add = async (url: string, label: string, newTab: boolean, both = false) => {
     await page.getByRole('button', { name: /Add item/i }).first().click();
     await dialog.waitFor({ state: 'visible' });
     await dialog.getByRole('radio', { name: 'Custom URL' }).check();
     await dialog.getByRole('textbox', { name: 'URL' }).fill(url);
     await dialog.getByRole('textbox', { name: 'Label' }).fill(label);
     if (newTab) await dialog.getByRole('checkbox', { name: 'Open in a new tab' }).check();
+    if (both) {
+      await dialog.locator('#navigation-placement').click();
+      await page.locator('.ui-select__option', { hasText: /^Both$/ }).click();
+    }
     await dialog.getByRole('button', { name: 'Add to menu' }).click();
     await dialog.waitFor({ state: 'hidden' });
   };
-  await add('https://example.com/elsewhere', 'Elsewhere', true);
+  await add('https://example.com/elsewhere', 'Elsewhere', true, true);
   await add('/contact', 'Contact', false);
+  await page.getByRole('button', { name: 'Save menu' }).click();
+  await expect(page.getByText('No unsaved changes in this menu')).toBeVisible();
+  // Both menus had it added, and each is saved on its own.
+  await page.getByRole('tab', { name: 'Footer' }).click();
   await page.getByRole('button', { name: 'Save menu' }).click();
   await expect(page.getByText('No unsaved changes in this menu')).toBeVisible();
 
@@ -333,4 +341,20 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
   await expect(onPhone).toHaveAttribute('rel', 'noopener noreferrer');
   const contact = page.locator('.site-header__desktop a', { hasText: 'Contact' });
   await expect(contact).not.toHaveAttribute('target');
+  const inFooter = page.locator('.site-footer a', { hasText: 'Elsewhere' });
+  await expect(inFooter).toHaveAttribute('target', '_blank');
+  await expect(inFooter).toHaveAttribute('rel', 'noopener noreferrer');
+
+  // The second theme reads the same field, in its header and its footer.
+  await page.goto(`${origin}/admin/themes`);
+  await page.getByRole('button', { name: 'Use this theme' }).click();
+  await expect(page.getByText('Plain draws your site now.')).toBeVisible();
+  await page.goto(`${origin}/th`);
+  for (const place of ['.plain-head', '.plain-foot']) {
+    const link = page.locator(`${place} a`, { hasText: 'Elsewhere' });
+    await expect(link, place).toHaveAttribute('target', '_blank');
+    await expect(link, place).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect(link.locator('.sr-only'), place).toHaveText('(เปิดในแท็บใหม่)');
+  }
+  await expect(page.locator('.plain-head a', { hasText: 'Contact' })).not.toHaveAttribute('target');
 });
