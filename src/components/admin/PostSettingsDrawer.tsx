@@ -222,6 +222,7 @@ export default function PostSettingsDrawer({
       </section>
     </dialog>
     {coverPickerOpen && <MediaPicker
+      kind="image"
       onCancel={() => setCoverPickerOpen(false)}
       ownerLocale={ownerLocale}
       onSelect={(asset) => { onChangeCover(asset); setCoverPickerOpen(false); }}

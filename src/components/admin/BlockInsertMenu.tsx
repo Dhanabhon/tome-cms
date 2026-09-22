@@ -229,6 +229,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
       )}
       {pickerOpen && (
         <MediaPicker
+          kind="image"
           onCancel={() => {
             setPickerOpen(false);
             editor.commands.focus();

@@ -133,6 +133,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
                 </div>
               </div>
               {avatarPickerOpen && <MediaPicker
+                kind="image"
                 onCancel={() => setAvatarPickerOpen(false)}
                 onSelect={(asset) => {
                   setAuthorAvatarMediaId(asset.id);

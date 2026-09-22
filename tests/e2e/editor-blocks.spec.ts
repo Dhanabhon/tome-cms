@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
-import type { Route } from '@playwright/test';
+import type { BrowserContext, Page, Route } from '@playwright/test';
 
 import { expect, test } from './own-worker';
 
@@ -23,6 +23,8 @@ test.use({ stack: 'editor-blocks' });
 const PROJECT = 'tomecms-select-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
 const CREDENTIAL = 'editor-blocks-secret-at-least-32-ch';
+// A media key is filed under its owner's UUID, so the owner has to have one.
+const OWNER = '6c1f2e3d-4b5a-4c7d-8e9f-0a1b2c3d4e5f';
 
 function docker(args: string[], timeout = 180_000) {
   const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
@@ -49,6 +51,8 @@ let serverEnv: NodeJS.ProcessEnv = {};
 test.beforeAll(async () => {
   const port = await freePort();
   origin = `http://localhost:${port}`;
+  // The browser puts a file straight into the store, which answers only the origin it is told.
+  process.env.TOME_CMS_TEST_ORIGIN = origin;
   serverEnv = {
     ...process.env,
     NODE_ENV: 'development',
@@ -86,12 +90,12 @@ test.beforeAll(async () => {
   const { sql } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
   await sql`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
-    values ('signin-test-owner', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
+    values (${OWNER}, 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
-    values (true, 'signin-test-owner', 'Select Test', 'en', 'UTC', '/admin')`.execute(db);
+    values (true, ${OWNER}, 'Select Test', 'en', 'UTC', '/admin')`.execute(db);
   // Somewhere for a post to be filed: saving one files it under the default category,
   // and an installation always has one.
-  await sql`insert into categories (owner_id, name, is_default) values ('signin-test-owner', 'Uncategorized', true)`.execute(db);
+  await sql`insert into categories (owner_id, name, is_default) values (${OWNER}, 'Uncategorized', true)`.execute(db);
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
@@ -826,4 +830,66 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   await pageSearch.getByRole('button', { name: 'Use as the description' }).click();
   await expect(pageSearch.getByRole('textbox', { name: /Meta description/ })).toHaveValue(summary);
 });
+
+test('a file joins the library, is found by its type, and the filter holds through a reload', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  const sharp = (await import('sharp')).default;
+  const png = await sharp({ create: { width: 4, height: 3, channels: 4, background: '#2a9d8f' } }).png().toBuffer();
+
+  await page.goto(`${origin}/admin/media`);
+  const upload = page.locator('.media-upload input[type="file"]');
+  await upload.setInputFiles({ name: 'Swatch.png', mimeType: 'image/png', buffer: png });
+  const swatch = page.getByRole('button', { name: /^Swatch\.png,/ });
+  await expect(swatch).toBeVisible();
+  await upload.setInputFiles({ name: 'Guide.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') });
+  const guide = page.getByRole('button', { name: /^Guide\.pdf, PDF,/ });
+  await expect(guide).toBeVisible();
+
+  const types = page.getByRole('group', { name: 'File types' });
+  await types.getByRole('button', { name: 'PDF', exact: true }).click();
+  await expect(page).toHaveURL(/[?&]type=pdf(&|$)/);
+  await expect(guide).toBeVisible();
+  await expect(swatch).toHaveCount(0);
+
+  // The address is the view: a reload opens the same one.
+  await page.reload();
+  await expect(types.getByRole('button', { name: 'PDF', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(guide).toBeVisible();
+  await expect(swatch).toHaveCount(0);
+
+  await types.getByRole('button', { name: 'Images', exact: true }).click();
+  await expect(swatch).toBeVisible();
+  await expect(guide).toHaveCount(0);
+
+  // A document's details have no alternative text, and name it a file.
+  await types.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page).not.toHaveURL(/type=/);
+  await guide.click();
+  const details = page.getByRole('dialog', { name: 'File details' });
+  await expect(details.getByLabel('File URL')).toHaveValue(/^\/media\/[0-9a-f-]{36}$/);
+  await expect(details.getByLabel('Alt text')).toHaveCount(0);
+  await details.getByRole('button', { name: 'Close details' }).click();
+
+  // A spreadsheet saved in the Thai code page is refused, and the owner is told how to save it --
+  // in the admin's words ("this file"), not the API's ("the file").
+  await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
+  await expect(page.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, "CSV UTF-8")');
+});
+
+/** Signs the owner in through a recovery enrollment, as a new device would. */
+async function signIn(context: BrowserContext, page: Page) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+}
 

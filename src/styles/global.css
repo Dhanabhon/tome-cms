@@ -554,6 +554,11 @@ body {
 /* Upload, and -- in the picker -- the way out, at the toolbar's other end. */
 .media-toolbar__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 
+/* The library's types: a row of choices under the search on a wide screen, a select on a phone. */
+.media-types { order: 3; flex: 1 1 100%; min-width: 0; }
+.media-types__choices { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.media-types__select { display: none; }
+
 .media-upload {
   cursor: pointer;
 }
@@ -592,6 +597,22 @@ body {
   border-radius: calc(var(--radius-card) - var(--rule-hair)) calc(var(--radius-card) - var(--rule-hair)) 0 0;
   background: var(--color-paper-3);
 }
+
+/* A document has no picture to show, so its tile says what it is. */
+.media-card__file {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  width: 100%;
+  margin-block-end: var(--space-xs);
+  border-radius: calc(var(--radius-card) - var(--rule-hair)) calc(var(--radius-card) - var(--rule-hair)) 0 0;
+  background: var(--color-paper-3);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.media-details__file { @apply mb-4 aspect-video rounded-md; }
 
 .media-card strong { padding-inline: var(--space-sm); font-size: var(--text-sm); }
 .media-card > span:not(.media-card-select) { padding: 0 var(--space-sm) var(--space-sm); }
@@ -761,6 +782,14 @@ body {
   }
 
   .media-category-select {
+    display: block;
+  }
+
+  .media-types__choices {
+    display: none;
+  }
+
+  .media-types__select {
     display: block;
   }
 
