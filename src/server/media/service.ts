@@ -99,10 +99,10 @@ function readyMedia(row: Selectable<MediaItemTable>): ReadyMedia {
     id: row.id,
     folder_id: row.folder_id,
     original_name: row.original_name,
-    mime_type: row.mime_type,
+    mime_type: row.mime_type as SupportedImageType,
     size_bytes: size,
-    width: row.width,
-    height: row.height,
+    width: row.width ?? 0,
+    height: row.height ?? 0,
     alt_text: row.alt_text,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -235,7 +235,7 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
 
       let dimensions: { height: number; width: number };
       try {
-        dimensions = await inspectImage(body, reservation.mime_type);
+        dimensions = await inspectImage(body, reservation.mime_type as SupportedImageType);
       } catch {
         throw new InvalidUploadError('The uploaded object is not a valid supported image.', reservation.object_key);
       }

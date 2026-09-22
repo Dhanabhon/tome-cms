@@ -1,6 +1,6 @@
 import type { ColumnType, Generated } from 'kysely';
 
-import type { SupportedImageType } from '../../lib/media';
+import type { SupportedMediaType } from '../../lib/media';
 import type { EditorDocument, Json } from '../../types/cms';
 
 export type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
@@ -256,11 +256,12 @@ export interface MediaItemTable {
   folder_id: string | null;
   object_key: string;
   original_name: string;
-  mime_type: SupportedImageType;
+  mime_type: SupportedMediaType;
   size_bytes: ColumnType<string, number, number>;
   checksum_sha256: string;
-  width: number;
-  height: number;
+  /** Null for a document: only an image has dimensions. */
+  width: number | null;
+  height: number | null;
   alt_text: string | null;
   state: MediaState;
   delete_error_code: string | null;
@@ -274,7 +275,7 @@ export interface MediaUploadReservationTable {
   folder_id: string | null;
   object_key: string;
   original_name: string;
-  mime_type: SupportedImageType;
+  mime_type: SupportedMediaType;
   expected_size_bytes: ColumnType<string, number, number>;
   expected_checksum_sha256: string;
   alt_text: string | null;
