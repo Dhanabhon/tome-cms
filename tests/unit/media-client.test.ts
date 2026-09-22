@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
 import { MediaFileError, uploadTimeoutMs } from '../../src/lib/media';
-import { bytesToBase64, MediaRequestError, uploadFailureText, uploadFile } from '../../src/lib/media-client';
+import { bytesToBase64, MediaRequestError, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
 
 test('browser checksum encoding handles the maximum upload size without a spread overflow', () => {
   const bytes = new Uint8Array(8 * 1024 * 1024).fill(0xab);
@@ -65,4 +65,12 @@ test('a failed upload reads in the owner\'s language when its cause is known', (
     assert.equal(failure('media_unknown'), undefined);
     assert.equal(uploadFailureText(new Error('Network down'), copy), undefined);
   }
+});
+
+test('an image the editor cannot keep is refused before anything is sent, in words the admin has', async () => {
+  const refused = (refusal: string) => (error: unknown) => error instanceof MediaFileError && error.refusal === refusal;
+  const large = new File([new Uint8Array(8 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' });
+  await assert.rejects(uploadImage(large), refused('imageTooLarge'));
+  await assert.rejects(uploadImage(new File(['%PDF'], 'guide.pdf', { type: 'application/pdf' })), refused('unsupportedImage'));
+  await assert.rejects(uploadImage(new File([], 'empty.png', { type: 'image/png' })), refused('empty'));
 });
