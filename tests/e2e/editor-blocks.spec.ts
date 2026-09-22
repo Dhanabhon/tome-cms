@@ -141,18 +141,7 @@ test.skip(
 
 test('a quote is somewhere a writer can leave', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   /** What the document is made of: a paragraph the doc owns is a paragraph outside the quote. */
   const shape = () => page.evaluate(() => {
@@ -215,18 +204,7 @@ test('a quote is somewhere a writer can leave', async ({ context, page }) => {
 
 test('the + menu opens where all of it can be seen, wherever the line is', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   // Found where the menu fit neither below the line nor above it: it opened above anyway and
   // slid under the editor's bar, and its first items could not be chosen -- on a phone, and
@@ -268,18 +246,7 @@ test('the + menu opens where all of it can be seen, wherever the line is', async
 
 test('the formatting bar is whole, wherever the words it formats begin', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   // Reported from a real draft: a word chosen at the start of a line, and the bar over it cut
   // off at the canvas's edge with its first button half gone. The bar is centred on the words,
@@ -305,18 +272,7 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
 
 test('a link opens a new tab only when its writer asked it to', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   // Every link used to open a new tab, and the button that made one was an arrow. It is a
   // link drawn as a link now, and the writer says where each one opens.
@@ -325,7 +281,8 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
   await canvas.click();
   const linkWord = async (address: string, newTab: boolean) => {
     for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowLeft');
-    const button = page.getByRole('button', { name: 'Link' });
+    // Exact: "Unlink" or "Copy link" beside it would be counted too.
+    const button = page.getByRole('button', { name: 'Link', exact: true });
     await expect(button.locator('svg'), 'a drawn icon, not a typed arrow').toHaveCount(1);
     await button.click();
     const dialog = page.getByRole('dialog', { name: 'Add a link' });
@@ -338,6 +295,10 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
   };
   // The whole line first: words typed straight after a link join it.
   await page.keyboard.type('Read this or that');
+  // Select only once the editor has taken in every letter. Keys sent 1 ms after the last one
+  // were overwritten by the selection it drew on reading it, and "at" was linked for "that".
+  await expect.poll(() => canvas.evaluate((node) => (node as HTMLElement & { editor?: { state: { doc: { textContent: string } } } }).editor?.state.doc.textContent))
+    .toBe('Read this or that');
   await linkWord('example.com/here', false);
   // From the start of "that", back over " or " to the end of "this".
   for (let step = 0; step < 5; step += 1) await page.keyboard.press('ArrowLeft');
@@ -350,18 +311,7 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
 
 test('a line and a table cell can be aligned, from either bar', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   await page.goto(`${origin}/admin/new`);
   const canvas = page.locator('.ProseMirror');
@@ -394,18 +344,7 @@ test('a line and a table cell can be aligned, from either bar', async ({ context
 
 test('a draft that cannot be saved can still be left', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   // Reported from a real draft: words typed, then not wanted, and no way out of the editor.
   // Back saves before it leaves, so nothing is lost on the way -- and a draft with no title
@@ -443,18 +382,7 @@ test('a draft that cannot be saved can still be left', async ({ context, page })
 
 test('a table is written, grown and trimmed in the editor, and scrolls on a phone', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   await page.goto(`${origin}/admin/new`);
   await page.locator('#post-title').fill('A table');
@@ -543,18 +471,7 @@ test('a table is written, grown and trimmed in the editor, and scrolls on a phon
 
 test('the settings drawer opens where it can be seen, every time', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   await page.goto(`${origin}/admin/new`);
   const drawer = page.locator('dialog.admin-editor-settings');
@@ -588,18 +505,7 @@ test('the settings drawer opens where it can be seen, every time', async ({ cont
 
 test('a post can be published for later, and is nobody else\'s until then', async ({ context, page }) => {
   test.setTimeout(120_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
 
   await page.goto(`${origin}/admin/new`);
   await page.locator('#post-title').fill('Out on Friday');
@@ -949,6 +855,19 @@ test('a file goes into an article from + or /, and a reader downloads it', async
   await canvas.getByText('Before the files.').click();
   await page.keyboard.press('End');
   await page.keyboard.press('ControlOrMeta+v');
+  await expect(cards).toHaveCount(2);
+
+  // An image goes in from + as well: its picker offers images alone, and the picture lands.
+  const sharp = (await import('sharp')).default;
+  const png = await sharp({ create: { width: 4, height: 3, channels: 4, background: '#e76f51' } }).png().toBuffer();
+  await canvas.getByText('Before the files.').click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'Image', exact: true }).click();
+  await expect(picker.getByText('Upload image')).toBeVisible();
+  await picker.locator('input[type="file"]').setInputFiles({ name: 'Swatch.png', mimeType: 'image/png', buffer: png });
+  await expect(canvas.locator('img')).toHaveCount(1);
   await expect(cards).toHaveCount(2);
 
   const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
