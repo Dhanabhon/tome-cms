@@ -4,16 +4,33 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+## 0.9.0 - 2026-09-23
+
+### Changed
+
+- The editor runs on Tiptap 3, and `novel`, the package it used to reach Tiptap through, is gone with the eight libraries it brought and never used. What a writer stores is unchanged: a post saved before this release opens, renders and saves exactly as it did. The `/` menu, both bars and the picture dropped or pasted into a page are about three hundred lines in `src/components/admin/editor/` now.
+- On a phone, the library's type and folder selects are captioned.
+
 ### Fixed
 
+- A quick image upload could answer before the picture had been read from disk, which threw the picture away and left a placeholder in the article for good.
+- A failed image upload used to leave a writer's chosen words deleted with nothing in their place.
+- Leaving the editor while an image was uploading threw.
 - A link to a library folder that no longer exists opens All, instead of an empty view that read as files gone.
 - Alternative text sent with a document is refused as a bad request, where it failed as a server error.
 - A card whose file has left the library says to choose a file from this site, not that the content is invalid.
 - A document is checked from one object: both of its reads carry `If-Match`, so a file replaced while it is checked is refused.
 
-### Changed
+### Upgrading
 
-- On a phone, the library's type and folder selects are captioned.
+- No migration.
+- A site that forked anything under `src/components/admin/` has more to merge than usual, and `SlashCommands.tsx` moved to `src/components/admin/editor/slash-items.tsx`.
+
+### For theme authors and headless sites
+
+- Nothing changed. `contentHtml`, `contentJson`, the public API and every theme hook are what 0.8.0 left them.
+
+Full notes: [docs/releases/0.9.0.md](docs/releases/0.9.0.md)
 
 ## 0.8.0 - 2026-09-22
 
