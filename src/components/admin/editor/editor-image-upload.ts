@@ -82,8 +82,9 @@ export function createImageUpload({ onUpload, validate }: {
 
 /** A file dropped onto the page, unless the editor is moving something of its own. */
 export function handleImageDrop(view: EditorView, event: DragEvent, moved: boolean, upload: UploadFn): boolean {
+  // Any file, not only an image: the uploader is what refuses one, and it says why.
   const file = moved ? undefined : event.dataTransfer?.files[0];
-  if (!file?.type.startsWith('image/')) return false;
+  if (!file) return false;
   event.preventDefault();
   upload(file, view, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? -1);
   return true;
@@ -92,7 +93,7 @@ export function handleImageDrop(view: EditorView, event: DragEvent, moved: boole
 /** A file pasted into the page, which lands where the cursor is. */
 export function handleImagePaste(view: EditorView, event: ClipboardEvent, upload: UploadFn): boolean {
   const file = event.clipboardData?.files[0];
-  if (!file?.type.startsWith('image/')) return false;
+  if (!file) return false;
   event.preventDefault();
   upload(file, view, view.state.selection.from);
   return true;
