@@ -11,7 +11,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { z } from 'zod';
 
-import { type AttachmentFile } from '../../lib/editor-attachment';
+import type { AttachmentFile } from '../../lib/editor-attachment';
 import {
   ACCEPTED_DOCUMENT_TYPES,
   ACCEPTED_IMAGE_TYPES,
@@ -25,6 +25,7 @@ import {
   MAX_IMAGE_BYTES,
   MEDIA_TYPE_FILTERS,
   typesForFilter,
+  uploadTimeoutMs,
   type MediaKind,
   type SupportedDocumentType,
   type SupportedImageType,
@@ -215,7 +216,9 @@ export async function reserveUpload(ownerId: string, input: ReserveUploadInput):
   const disposition = uploadDisposition(input);
   await assertOwnedFolder(ownerId, input.folderId);
   const objectKey = createObjectKey(ownerId, input.mimeType);
-  const expiresAt = new Date(Date.now() + 300_000);
+  // The browser's time to send it, then three minutes to finalize; five minutes, as before, for
+  // 6,000,000 bytes or less.
+  const expiresAt = new Date(Date.now() + uploadTimeoutMs(input.sizeBytes) + 180_000);
   const reservation = await db.insertInto('media_upload_reservations').values({
     owner_id: ownerId,
     folder_id: input.folderId,
@@ -234,12 +237,13 @@ export async function reserveUpload(ownerId: string, input: ReserveUploadInput):
     Key: objectKey,
     ContentType: input.mimeType,
     ChecksumSHA256: input.checksumSha256,
+    // Presigning signs every header the command carries, so it is this that makes the store
+    // refuse an upload that changes or drops it.
     ...(disposition ? { ContentDisposition: disposition } : {}),
   });
   try {
     const uploadUrl = await getSignedUrl(s3, command, {
       expiresIn: 300,
-      // Signed, so the store refuses an upload that would change how the file is handed out.
       signableHeaders: new Set(disposition ? ['content-type', 'content-disposition'] : ['content-type']),
       unhoistableHeaders: new Set(['x-amz-checksum-sha256']),
     });

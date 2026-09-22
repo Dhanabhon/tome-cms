@@ -1,4 +1,4 @@
-import { declaredMediaType, isImageType, validateImageFile, type MediaKind, type MediaTypeFilter, type SupportedImageType, type SupportedMediaType } from './media';
+import { declaredMediaType, isImageType, uploadTimeoutMs, validateImageFile, type MediaKind, type MediaTypeFilter, type SupportedImageType, type SupportedMediaType } from './media';
 import type {
   MediaAsset,
   MediaFolder,
@@ -88,7 +88,7 @@ function uploadToStorage(
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open('PUT', reservation.uploadUrl);
-    request.timeout = 120_000;
+    request.timeout = uploadTimeoutMs(file.size);
     for (const [name, value] of Object.entries(reservation.headers)) request.setRequestHeader(name, value);
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));

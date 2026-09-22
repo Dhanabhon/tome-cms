@@ -33,6 +33,11 @@ export const ACCEPTED_DOCUMENT_TYPES = [
 
 export const ACCEPTED_MEDIA_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_DOCUMENT_TYPES] as const;
 
+/** Two minutes, or 50 KB a second when that is longer -- enough for a 25 MB document on a slow link. */
+export function uploadTimeoutMs(sizeBytes: number): number {
+  return Math.max(120_000, Math.ceil(sizeBytes / 50));
+}
+
 export const COVER_IMAGE_GUIDANCE = {
   hardLimitBytes: MAX_IMAGE_BYTES,
   recommendedHeight: 900,
