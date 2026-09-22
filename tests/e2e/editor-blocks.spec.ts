@@ -882,6 +882,19 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await expect(details.getByLabel('Alt text')).toHaveCount(0);
   await details.getByRole('button', { name: 'Close details' }).click();
 
+  // The folder is in the address too, and a folder the address names that is gone opens All
+  // rather than an empty view under the folder's name.
+  const folders = page.locator('.media-categories nav');
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('Plans');
+  await page.getByRole('button', { name: 'Create folder' }).click();
+  await folders.getByRole('button', { name: 'Plans', exact: true }).click();
+  await expect(page).toHaveURL(/[?&]folder=[0-9a-f-]{36}(&|$)/);
+  await page.reload();
+  await expect(folders.getByRole('button', { name: 'Plans', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.goto(`${origin}/admin/media?folder=${crypto.randomUUID()}`);
+  await expect(folders.getByRole('button', { name: 'All files', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page).not.toHaveURL(/folder=/);
+
   // A spreadsheet saved in the Thai code page is refused, and the owner is told how to save it --
   // in the admin's words ("this file"), not the API's ("the file").
   await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
@@ -907,6 +920,11 @@ test('a file goes into an article from + or /, and a reader downloads it', async
   const picker = page.locator('dialog.media-picker');
   await expect(picker.getByRole('group', { name: 'File types' }).getByRole('button', { name: 'PDF', exact: true }), 'documents, by type').toBeVisible();
   await expect(picker.getByRole('button', { name: 'Images', exact: true }), 'and no images').toHaveCount(0);
+  // A picker's view is its own: choosing a type in it leaves the page's address alone.
+  const address = page.url();
+  await picker.getByRole('group', { name: 'File types' }).getByRole('button', { name: 'PDF', exact: true }).click();
+  await expect(page).toHaveURL(address);
+  await picker.getByRole('group', { name: 'File types' }).getByRole('button', { name: 'All', exact: true }).click();
   await picker.locator('input[type="file"]').setInputFiles({
     name: 'แผนงาน.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: office('word/document.xml'),
   });
