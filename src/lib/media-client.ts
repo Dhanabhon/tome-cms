@@ -1,5 +1,5 @@
 import type { AdminCopy } from './admin-i18n';
-import { declaredMediaType, isImageType, MediaFileError, uploadTimeoutMs, validateImageFile, type MediaKind, type MediaTypeFilter, type SupportedImageType, type SupportedMediaType } from './media';
+import { declaredMediaType, isImageType, MediaFileError, uploadTimeoutMs, type MediaKind, type MediaTypeFilter, type SupportedMediaType } from './media';
 import type {
   MediaAsset,
   MediaFolder,
@@ -176,8 +176,7 @@ async function upload(file: File, mimeType: SupportedMediaType, options: UploadI
 
 /** An image dropped or pasted into the editor. */
 export async function uploadImage(file: File, options: UploadImageOptions = {}): Promise<MediaAsset> {
-  validateImageFile(file);
-  return upload(file, file.type as SupportedImageType, options);
+  return upload(file, declaredMediaType(file, 'image'), options);
 }
 
 /** Any file the library keeps, refused in the browser -- with a MediaFileError -- when it cannot be kept. */

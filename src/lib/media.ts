@@ -168,12 +168,6 @@ export function acceptAttribute(accept: MediaKind | 'any'): string {
   return [...images, ...documents].join(',');
 }
 
-export function validateImageFile(file: File): void {
-  if (!file.size) throw new Error('Images must be at least 1 byte.');
-  if (!imageExtension(file.type)) throw new Error('Use a JPEG, PNG, WebP, GIF, or AVIF image.');
-  if (file.size > MAX_IMAGE_BYTES) throw new Error('Images must be 8 MB or smaller.');
-}
-
 export async function imageDimensions(file: File): Promise<{ height: number; width: number }> {
   const objectUrl = URL.createObjectURL(file);
   try {
