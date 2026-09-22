@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "TomeCMS — system overview",
+    "output": "tome-cms-overview.en.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "public-read",
+        "label": "Reading path",
+        "focus": [
+          "visitor",
+          "public",
+          "themes",
+          "server",
+          "plugins",
+          "postgres"
+        ],
+        "note": "The server renders with the owner's chosen theme and reads only what is published. A plugin that is on can add a banner or code."
+      },
+      {
+        "id": "admin-write",
+        "label": "Writing path",
+        "focus": [
+          "owner",
+          "admin",
+          "server",
+          "postgres",
+          "storage"
+        ],
+        "note": "The owner works in the admin. Every change goes through an API checked by Zod before it reaches the database or the file store."
+      },
+      {
+        "id": "sign-in",
+        "label": "Signing in",
+        "focus": [
+          "admin",
+          "auth",
+          "plugins",
+          "turnstile",
+          "server"
+        ],
+        "note": "Passkeys only. A plugin may stop one attempt first, but it cannot close the way back in."
+      },
+      {
+        "id": "suggestions",
+        "label": "Suggestions while writing",
+        "focus": [
+          "owner",
+          "admin",
+          "server",
+          "plugins",
+          "typesafe"
+        ],
+        "note": "Jev (TypeSafe AI) suggests categories, an excerpt and a description; the sentences are the article's own. Nothing applies until pressed."
+      }
+    ],
+    "locale": "en"
+  },
+  "components": [
+    {
+      "id": "visitor",
+      "type": "external",
+      "label": "Visitor",
+      "sublabel": "no sign-in",
+      "pos": [
+        40,
+        170
+      ],
+      "size": [
+        140,
+        62
+      ]
+    },
+    {
+      "id": "owner",
+      "type": "external",
+      "label": "Site owner",
+      "sublabel": "the one admin",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        140,
+        62
+      ]
+    },
+    {
+      "id": "themes",
+      "type": "frontend",
+      "label": "Themes",
+      "sublabel": "src/themes/<id>",
+      "pos": [
+        280,
+        30
+      ],
+      "size": [
+        170,
+        66
+      ],
+      "tag": "paper · plain"
+    },
+    {
+      "id": "public",
+      "type": "frontend",
+      "label": "Public pages",
+      "sublabel": "/th · /en · drawn by the theme",
+      "pos": [
+        280,
+        170
+      ],
+      "size": [
+        170,
+        66
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "frontend",
+      "label": "Admin UI",
+      "sublabel": "React islands · Novel",
+      "pos": [
+        280,
+        330
+      ],
+      "size": [
+        170,
+        66
+      ]
+    },
+    {
+      "id": "server",
+      "type": "backend",
+      "label": "Astro Server",
+      "sublabel": "SSR · /api · Zod on every route",
+      "pos": [
+        570,
+        170
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "tag": "Node.js 22"
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Better Auth",
+      "sublabel": "Passkey · WebAuthn",
+      "pos": [
+        570,
+        330
+      ],
+      "size": [
+        180,
+        66
+      ],
+      "tag": "rate limit"
+    },
+    {
+      "id": "plugins",
+      "type": "security",
+      "label": "Plugins",
+      "sublabel": "sign-in · pages · writing",
+      "pos": [
+        570,
+        465
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 17",
+      "sublabel": "Kysely · migrations",
+      "pos": [
+        880,
+        170
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "S3-compatible",
+      "sublabel": "SeaweedFS or any S3",
+      "pos": [
+        880,
+        330
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "turnstile",
+      "type": "external",
+      "label": "Cloudflare Turnstile",
+      "sublabel": "via plugin · optional",
+      "pos": [
+        880,
+        465
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "typesafe",
+      "type": "external",
+      "label": "Jev (TypeSafe AI)",
+      "sublabel": "via plugin · optional",
+      "pos": [
+        280,
+        465
+      ],
+      "size": [
+        170,
+        66
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "TomeCMS server — one Node.js process",
+      "wraps": [
+        "server",
+        "auth",
+        "plugins"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Data — local Docker Compose or external services",
+      "wraps": [
+        "postgres",
+        "storage"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "visitor-reads",
+      "from": "visitor",
+      "to": "public",
+      "label": "HTTPS GET",
+      "variant": "emphasis"
+    },
+    {
+      "id": "theme-draws",
+      "from": "themes",
+      "to": "public",
+      "label": "templates + CSS",
+      "labelDy": 24
+    },
+    {
+      "id": "public-ssr",
+      "from": "public",
+      "to": "server",
+      "label": "SSR on every request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "owner-writes",
+      "from": "owner",
+      "to": "admin",
+      "label": "write · publish"
+    },
+    {
+      "id": "admin-calls",
+      "from": "admin",
+      "to": "server",
+      "label": "same-origin fetch"
+    },
+    {
+      "id": "owner-signs-in",
+      "from": "admin",
+      "to": "auth",
+      "label": "passkey sign-in",
+      "variant": "security",
+      "labelDy": 38
+    },
+    {
+      "id": "server-content",
+      "from": "server",
+      "to": "postgres",
+      "label": "read · write content",
+      "variant": "emphasis"
+    },
+    {
+      "id": "server-media",
+      "from": "server",
+      "to": "storage",
+      "label": "presigned upload"
+    },
+    {
+      "id": "plugin-guards",
+      "from": "plugins",
+      "to": "auth",
+      "label": "checks before sign-in",
+      "variant": "security"
+    },
+    {
+      "id": "plugin-verifies",
+      "from": "plugins",
+      "to": "turnstile",
+      "label": "siteverify",
+      "variant": "dashed"
+    },
+    {
+      "id": "plugin-suggests",
+      "from": "plugins",
+      "to": "typesafe",
+      "label": "suggests while writing",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Reading (public)",
+      "items": [
+        "A theme owns its templates and CSS; routes, SEO and tokens stay in core",
+        "Themes declare settings the owner tunes: hero, grid and header",
+        "Public pages ship no React, and code a page does not use is never sent"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Writing (admin)",
+      "items": [
+        "The admin is React islands on server-rendered pages",
+        "All changes pass /api/admin: Zod and a same-origin check",
+        "Uploads go straight to S3; logos go via the server to scrub SVG"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security",
+      "items": [
+        "Passkeys only; a session is tied to the credential that made it",
+        "Rate limits: sign-in 10 per 15 minutes, recovery 5 per 30 minutes",
+        "Plugins may block sign-in, never recovery; secrets are encrypted"
+      ]
+    }
+  ]
+}

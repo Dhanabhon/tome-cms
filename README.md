@@ -46,6 +46,15 @@ This README has two parts. [Running TomeCMS](#running-tomecms) is for installing
 - Backups that keep the database and the media together, and a check that restores one into throwaway containers and compares it
 - A deploy helper for a single VPS, with minimum and recommended server sizes
 
+## Architecture
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/tome-cms-overview.en.dark.png">
+  <img alt="How TomeCMS fits together: a visitor reads public pages that the chosen theme draws and the Astro server renders on every request; the site owner writes in the React admin, which calls the same server; the server keeps content in PostgreSQL and files in S3-compatible storage; Better Auth signs the owner in with a passkey; plugins can check a sign-in with Cloudflare Turnstile and suggest while writing through Jev (TypeSafe AI)." src="docs/tome-cms-overview.en.light.png">
+</picture>
+
+One Node.js process serves the public pages, the admin and both APIs, and PostgreSQL and the object store hold everything that lasts. [docs/tome-cms-overview.en.html](docs/tome-cms-overview.en.html) is the same diagram to explore, with a guided view of each path through it: download it and open it in a browser. A Thai edition sits beside it.
+
 # Running TomeCMS
 
 ## What the server needs
