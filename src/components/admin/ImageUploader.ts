@@ -1,4 +1,4 @@
-import { createImageUpload } from 'novel';
+import { createImageUpload } from './editor/editor-image-upload';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import { declaredMediaType } from '../../lib/media';
@@ -16,7 +16,7 @@ export function createUploadFn(copy: AdminCopy) {
     message: uploadFailureText(error, copy) ?? (error instanceof Error ? error.message : copy.media.imageUploadFailed),
   });
   return createImageUpload({
-    validateFn: (file) => {
+    validate: (file) => {
       try {
         declaredMediaType(file, 'image');
         return true;
