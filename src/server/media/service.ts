@@ -237,13 +237,14 @@ export async function reserveUpload(ownerId: string, input: ReserveUploadInput):
     Key: objectKey,
     ContentType: input.mimeType,
     ChecksumSHA256: input.checksumSha256,
-    // Presigning signs every header the command carries, so it is this that makes the store
-    // refuse an upload that changes or drops it.
+    // On the command, so the presigned URL signs it and the store refuses an upload that
+    // changes or drops it.
     ...(disposition ? { ContentDisposition: disposition } : {}),
   });
   try {
     const uploadUrl = await getSignedUrl(s3, command, {
       expiresIn: 300,
+      // The presigner leaves content-type unsigned unless it is named here.
       signableHeaders: new Set(disposition ? ['content-type', 'content-disposition'] : ['content-type']),
       unhoistableHeaders: new Set(['x-amz-checksum-sha256']),
     });
