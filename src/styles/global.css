@@ -569,7 +569,8 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
   }
 }
 
-/* The bars and the slash menu, which Floating UI places at the end of the body. */
+/* The two bars, which Tiptap puts beside the editor, and the slash menu, which its
+ * suggestion plugin puts at the end of the body. */
 .editor-menu {
   max-width: calc(100vw - 1rem);
   z-index: 50;
