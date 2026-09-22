@@ -51,9 +51,10 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     'tr',
     'th',
     'td',
+    'span',
   ],
   allowedAttributes: {
-    a: ['href', 'title', 'target', 'rel'],
+    a: ['href', 'title', 'target', 'rel', 'type'],
     code: ['class'],
     h1: ['style'],
     h2: ['style'],
@@ -63,9 +64,9 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan'],
   },
-  // A table's wrapper is the only thing that may carry a class of its own: it is how a wide
-  // table scrolls inside its box on a phone.
-  allowedClasses: { div: ['tableWrapper'] },
+  // A table's wrapper and a file card's parts are the only things that carry a class: the
+  // wrapper is how a wide table scrolls inside its box on a phone, and the card is drawn by it.
+  allowedClasses: { div: ['tableWrapper'], p: ['file-card'], span: ['file-card__name', 'file-card__meta'] },
   // Alignment is the one style a writer can set, and only to these three values.
   allowedStyles: { '*': { 'text-align': [/^(left|center|right)$/] } },
   allowedSchemes: ['http', 'https', 'mailto'],
@@ -90,7 +91,7 @@ export function editorText(node: EditorNode): string {
 }
 
 export function hasMeaningfulContent(node: EditorNode): boolean {
-  if (node.type === 'image') return true;
+  if (node.type === 'image' || node.type === 'attachment') return true;
   if (typeof node.text === 'string' && node.text.trim()) return true;
   return (node.content ?? []).some(hasMeaningfulContent);
 }

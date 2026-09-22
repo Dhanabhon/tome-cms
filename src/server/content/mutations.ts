@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { AttachmentFile } from '../../lib/editor-attachment';
 import { editorDocumentSchema, hasMeaningfulContent, hasMeaningfulHtml } from '../../lib/editor-content';
 import { contentSlug, SLUG, SLUG_LENGTH } from '../../lib/slug';
 import type { PostStatus } from '../../types/cms';
@@ -39,10 +40,18 @@ export const deleteMutationSchema = z.object({
   updatedAt: z.iso.datetime({ offset: true }),
 }).strict();
 
-export function prepareContent(input: { contentJson: unknown; status: PostStatus }): StoredEditorContent {
+/**
+ * A document ready to store: checked, its cards filled from `files`, and refused for
+ * publishing if there is nothing in it. The files are the library's word on each card; a
+ * caller with no cards to fill passes none.
+ */
+export function prepareContent(
+  input: { contentJson: unknown; status: PostStatus },
+  files: ReadonlyMap<string, AttachmentFile> = new Map(),
+): StoredEditorContent {
   let content: StoredEditorContent;
   try {
-    content = prepareEditorContent({ contentJson: input.contentJson });
+    content = prepareEditorContent({ contentJson: input.contentJson }, files);
   } catch (error) {
     if (error instanceof ValidationError || error instanceof z.ZodError) {
       throw new HttpError(400, 'The editor content is invalid.');
