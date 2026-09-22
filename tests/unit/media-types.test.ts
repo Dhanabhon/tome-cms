@@ -15,6 +15,7 @@ import {
   MediaFileError,
   mediaExtension,
   typesForFilter,
+  uploadTimeoutMs,
 } from '../../src/lib/media';
 import { createObjectKey, isTomeObjectKey } from '../../src/server/media/keys';
 
@@ -78,6 +79,12 @@ test('a filter admits its group, and an input takes what its picker takes', () =
   assert.match(acceptAttribute('document'), /(^|,)\.csv(,|$)/);
   assert.doesNotMatch(acceptAttribute('document'), /image\//);
   assert.match(acceptAttribute('any'), /image\/png.*\.pdf/);
+});
+
+test('the upload timeout is two minutes, or 50 KB a second when that is longer', () => {
+  assert.equal(uploadTimeoutMs(1), 120_000);
+  assert.equal(uploadTimeoutMs(6_000_000), 120_000);
+  assert.equal(uploadTimeoutMs(MAX_DOCUMENT_FILE_BYTES), 524_288);
 });
 
 test('a document lives under the grammar backup, restore and reset accept', () => {
