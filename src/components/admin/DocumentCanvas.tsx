@@ -22,6 +22,7 @@ import {
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { textAlign } from '../../lib/editor-align';
+import { attachment, attachmentMeta } from '../../lib/editor-attachment';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
 import Icon from '../Icon';
@@ -57,6 +58,30 @@ const editorImage = TiptapImage.extend({
   HTMLAttributes: { class: 'rounded-lg' },
 });
 
+/**
+ * The editor draws a card with no link in it: a click selects the card, as a click on a picture
+ * does, and a drag moves the card rather than its address. The stored HTML keeps the link.
+ */
+const editorAttachment = attachment.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('p');
+      dom.className = 'file-card';
+      const box = document.createElement('span');
+      box.className = 'file-card__link';
+      const name = document.createElement('span');
+      name.className = 'file-card__name';
+      name.textContent = String(node.attrs.name ?? '');
+      const meta = document.createElement('span');
+      meta.className = 'file-card__meta';
+      meta.textContent = attachmentMeta({ mimeType: node.attrs.mimeType, size: Number(node.attrs.size) || 0 });
+      box.append(name, ' ', meta);
+      dom.append(box);
+      return { dom };
+    };
+  },
+});
+
 const buildExtensions = (copy: AdminCopy) => [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
@@ -73,6 +98,7 @@ const buildExtensions = (copy: AdminCopy) => [
   editorImage,
   ...tableExtensions,
   textAlign,
+  editorAttachment,
   createSlashCommand(copy),
 ];
 
@@ -177,7 +203,7 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
         <SlashCommands copy={copy} />
         <FormattingBubble copy={copy} />
         <TableBubble copy={copy} />
-        <BlockInsertMenu copy={copy} />
+        <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
       </EditorContent>
     </EditorRoot>
   );
