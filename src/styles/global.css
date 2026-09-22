@@ -569,9 +569,10 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
   }
 }
 
-[data-tippy-root] {
+/* The bars and the slash menu, which Floating UI places at the end of the body. */
+.editor-menu {
   max-width: calc(100vw - 1rem);
-  z-index: 50 !important;
+  z-index: 50;
 }
 
 /* The same frame Posts and Pages stand in, rather than a page width of its own. In the
@@ -842,15 +843,6 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
   .media-category-mobile-actions {
     @apply mt-2 flex flex-wrap gap-2;
   }
-}
-
-.tippy-box,
-.tippy-content {
-  position: relative;
-}
-
-.tippy-content {
-  padding: 0;
 }
 
 /* The admin's own shape and density (docs/specs/2026-09-17-admin-modern-ui-design.md):

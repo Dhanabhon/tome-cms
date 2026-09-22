@@ -1,24 +1,12 @@
-import { isNodeSelection } from '@tiptap/core';
+import { type Editor, isNodeSelection, type JSONContent } from '@tiptap/core';
+import { Placeholder } from '@tiptap/extensions';
+import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
 import { CellSelection } from '@tiptap/pm/tables';
+import { EditorContent, EditorContext, useCurrentEditor, useEditor, useEditorState } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
+import StarterKit from '@tiptap/starter-kit';
 import { type ReactNode, useMemo } from 'react';
-
-import {
-  EditorBubble,
-  EditorBubbleItem,
-  EditorContent,
-  type EditorInstance,
-  EditorRoot,
-  handleCommandNavigation,
-  handleImageDrop,
-  handleImagePaste,
-  type JSONContent,
-  Placeholder,
-  StarterKit,
-  TiptapImage,
-  TiptapLink,
-  UploadImagesPlugin,
-  useEditor,
-} from 'novel';
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { textAlign } from '../../lib/editor-align';
@@ -28,8 +16,9 @@ import { promptWithToggleUi } from '../../lib/ui-dialog';
 import Icon from '../Icon';
 import AlignButtons from './AlignButtons';
 import BlockInsertMenu from './BlockInsertMenu';
+import { handleImageDrop, handleImagePaste, imageUploadPlugin } from './editor/editor-image-upload';
+import { createSlashCommand } from './editor/slash-command';
 import { createUploadFn } from './ImageUploader';
-import SlashCommands, { createSlashCommand } from './SlashCommands';
 import TableBubble from './TableBubble';
 import type { PostLocale } from '../../types/cms';
 
@@ -39,7 +28,7 @@ interface DocumentCanvasProps {
   ownerLocale?: PostLocale | null;
 }
 
-const editorImage = TiptapImage.extend({
+const editorImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -51,7 +40,7 @@ const editorImage = TiptapImage.extend({
     };
   },
   addProseMirrorPlugins() {
-    return [UploadImagesPlugin({ imageClass: 'rounded-lg opacity-50' })];
+    return [imageUploadPlugin()];
   },
 }).configure({
   allowBase64: false,
@@ -88,9 +77,13 @@ const buildExtensions = (copy: AdminCopy) => [
     blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
     codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-code p-5 font-mono text-sm text-ondark' } },
+    link: false,
+    underline: false,
   }),
-  Placeholder.configure({ placeholder: copy.blocks.placeholder }),
-  TiptapLink.configure({
+  // includeChildren is what puts the hint inside an empty heading or list item, not only in an
+  // empty document. The removed editor package set it; now it is said here.
+  Placeholder.configure({ includeChildren: true, placeholder: copy.blocks.placeholder }),
+  Link.configure({
     autolink: true,
     openOnClick: false,
     HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
@@ -114,19 +107,28 @@ function normalizedLink(value: string): string | null {
 }
 
 function FormattingBubble({ copy }: { copy: AdminCopy }) {
-  const { editor } = useEditor();
-  if (!editor) return null;
+  const { editor } = useCurrentEditor();
+  const active = useEditorState({
+    editor,
+    selector: ({ editor: instance }) => ({
+      bold: instance?.isActive('bold') ?? false,
+      code: instance?.isActive('code') ?? false,
+      italic: instance?.isActive('italic') ?? false,
+      link: instance?.isActive('link') ?? false,
+    }),
+  });
+  if (!editor || !active) return null;
 
   const actions: Array<{
     active: boolean;
     label: string;
     text: ReactNode;
-    run: (instance: EditorInstance) => void;
+    run: (instance: Editor) => void;
   }> = [
-    { active: editor.isActive('bold'), label: copy.blocks.bold, text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
-    { active: editor.isActive('italic'), label: copy.blocks.italic, text: 'I', run: (instance) => void instance.chain().focus().toggleItalic().run() },
+    { active: active.bold, label: copy.blocks.bold, text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
+    { active: active.italic, label: copy.blocks.italic, text: 'I', run: (instance) => void instance.chain().focus().toggleItalic().run() },
     {
-      active: editor.isActive('link'),
+      active: active.link,
       label: copy.blocks.link,
       text: <Icon name="link" />,
       run: (instance) => {
@@ -150,32 +152,32 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
         });
       },
     },
-    { active: editor.isActive('code'), label: copy.blocks.inlineCode, text: '</>', run: (instance) => void instance.chain().focus().toggleCode().run() },
+    { active: active.code, label: copy.blocks.inlineCode, text: '</>', run: (instance) => void instance.chain().focus().toggleCode().run() },
   ];
 
   return (
-    <EditorBubble
-      className="flex overflow-hidden rounded-md border border-line bg-surface p-1 font-sans"
-      // novel's own test, less cells chosen together: those bring the table's bar instead.
+    <BubbleMenu
+      className="editor-menu flex overflow-hidden rounded-md border border-line bg-surface p-1 font-sans"
+      editor={editor}
+      // Less cells chosen together: those bring the table's bar instead.
       shouldShow={({ editor: instance, state: { selection } }) => instance.isEditable && !instance.isActive('image')
         && !selection.empty && !isNodeSelection(selection) && !(selection instanceof CellSelection)}
-      tippyOptions={{ duration: 100 }}
     >
       {actions.map((action) => (
-        <EditorBubbleItem key={action.label} onSelect={action.run}>
-          <button
-            aria-label={action.label}
-            aria-pressed={action.active}
-            className={`flex h-8 min-w-9 items-center justify-center rounded px-2 text-sm font-semibold hover:bg-soft [&_.icon]:h-4 [&_.icon]:w-4 ${action.active ? 'bg-soft text-accent' : 'text-ink'}`}
-            type="button"
-          >
-            {action.text}
-          </button>
-        </EditorBubbleItem>
+        <button
+          aria-label={action.label}
+          aria-pressed={action.active}
+          className={`flex h-8 min-w-9 items-center justify-center rounded px-2 text-sm font-semibold hover:bg-soft [&_.icon]:h-4 [&_.icon]:w-4 ${action.active ? 'bg-soft text-accent' : 'text-ink'}`}
+          key={action.label}
+          onClick={() => action.run(editor)}
+          type="button"
+        >
+          {action.text}
+        </button>
       ))}
       <span aria-hidden="true" className="mx-1 w-px self-stretch bg-line" />
       <AlignButtons copy={copy} />
-    </EditorBubble>
+    </BubbleMenu>
   );
 }
 
@@ -184,28 +186,28 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
   // Rebuilding the extension list would reset the editor, so it is tied to the copy only.
   const extensions = useMemo(() => buildExtensions(copy), [copy]);
   const uploadFn = useMemo(() => createUploadFn(copy), [copy]);
+  // The island is client:only, so there is no server render to hold the editor back.
+  const editor = useEditor({
+    content: initialContent,
+    editorProps: {
+      attributes: {
+        class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
+      },
+      handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
+      handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
+    },
+    extensions,
+    onUpdate: ({ editor: instance }) => onChange(instance.getJSON()),
+  }, [extensions, uploadFn]);
+
+  if (!editor) return null;
 
   return (
-    <EditorRoot>
-      <EditorContent
-        className="editor-canvas editor-content admin-editor-content"
-        editorProps={{
-          attributes: {
-            class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
-          },
-          handleDOMEvents: { keydown: (_view, event) => handleCommandNavigation(event) },
-          handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
-          handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
-        }}
-        extensions={extensions}
-        initialContent={initialContent}
-        onUpdate={({ editor }) => onChange(editor.getJSON())}
-      >
-        <SlashCommands copy={copy} />
-        <FormattingBubble copy={copy} />
-        <TableBubble copy={copy} />
-        <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
-      </EditorContent>
-    </EditorRoot>
+    <EditorContext.Provider value={{ editor }}>
+      <EditorContent className="editor-canvas editor-content admin-editor-content" editor={editor} />
+      <FormattingBubble copy={copy} />
+      <TableBubble copy={copy} />
+      <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
+    </EditorContext.Provider>
   );
 }

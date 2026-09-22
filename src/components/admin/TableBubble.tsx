@@ -1,6 +1,7 @@
-import type { ChainedCommands } from '@tiptap/core';
+import type { ChainedCommands, Editor } from '@tiptap/core';
 import { CellSelection } from '@tiptap/pm/tables';
-import { EditorBubble, EditorBubbleItem, type EditorInstance, useEditor } from 'novel';
+import { useCurrentEditor } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import type { IconName } from '../../lib/icons';
@@ -27,7 +28,7 @@ export const tableActions = (copy: AdminCopy): TableAction[] => [
 ];
 
 /** The box of the table the cursor is in. */
-function tableBox(editor: EditorInstance): DOMRect {
+function tableBox(editor: Editor): DOMRect {
   const { node } = editor.view.domAtPos(editor.state.selection.from);
   const element = node instanceof Element ? node : node.parentElement;
   return element?.closest('.tableWrapper')?.getBoundingClientRect() ?? new DOMRect();
@@ -42,29 +43,35 @@ function tableBox(editor: EditorInstance): DOMRect {
  * once would stand over each other above the table's first row.
  */
 export default function TableBubble({ copy }: { copy: AdminCopy }) {
-  const { editor } = useEditor();
+  const { editor } = useCurrentEditor();
   if (!editor) return null;
 
   return (
-    <EditorBubble
-      className="rounded-md border border-line bg-surface p-1 font-sans"
+    <BubbleMenu
+      className="editor-menu rounded-md border border-line bg-surface p-1 font-sans"
+      editor={editor}
+      // tippy took a rect; Floating UI takes a thing that has one.
+      getReferencedVirtualElement={() => ({ getBoundingClientRect: () => tableBox(editor) })}
+      options={{ placement: 'top-start' }}
       pluginKey="tableBubble"
       shouldShow={({ editor: instance, state }) => instance.isEditable && instance.isActive('table')
         && (state.selection.empty || state.selection instanceof CellSelection)}
-      tippyOptions={{ duration: 100, getReferenceClientRect: () => tableBox(editor), maxWidth: 'none', placement: 'top-start' }}
     >
       <div aria-label={copy.blocks.table} className="flex max-w-[calc(100vw-2rem)] flex-wrap" role="group">
         {tableActions(copy).map((action) => (
-          <EditorBubbleItem key={action.label} onSelect={(instance) => void action.run(instance.chain().focus()).run()}>
-            <button className="flex h-8 items-center gap-1.5 rounded px-2 text-sm font-semibold text-ink hover:bg-soft [&_.icon]:h-4 [&_.icon]:w-4" type="button">
-              <Icon name={action.icon} />
-              {action.label}
-            </button>
-          </EditorBubbleItem>
+          <button
+            className="flex h-8 items-center gap-1.5 rounded px-2 text-sm font-semibold text-ink hover:bg-soft [&_.icon]:h-4 [&_.icon]:w-4"
+            key={action.label}
+            onClick={() => void action.run(editor.chain().focus()).run()}
+            type="button"
+          >
+            <Icon name={action.icon} />
+            {action.label}
+          </button>
         ))}
         <span aria-hidden="true" className="mx-1 w-px self-stretch bg-line" />
         <AlignButtons copy={copy} />
       </div>
-    </EditorBubble>
+    </BubbleMenu>
   );
 }
