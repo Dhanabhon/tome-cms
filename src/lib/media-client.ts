@@ -37,6 +37,7 @@ interface UploadReservation {
 export class MediaRequestError extends Error {
   constructor(message: string, readonly references?: MediaReferences, readonly code?: string) {
     super(message);
+    this.name = 'MediaRequestError';
   }
 }
 
