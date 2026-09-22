@@ -448,6 +448,9 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
   outline-offset: var(--space-2xs);
 }
 
+/* Line 413 already recolors a selected file card's own border; this outline drew a second frame. */
+.editor-content .ProseMirror-selectednode.file-card { outline: none; }
+
 /* A table while it is written: every cell ruled, so an empty one can be seen and clicked into,
  * and cells chosen together tinted, which the browser's own selection does not show. */
 .editor-content .ProseMirror :is(th, td) {
