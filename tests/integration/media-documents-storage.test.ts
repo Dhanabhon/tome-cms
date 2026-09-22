@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 
+import sharp from 'sharp';
+
 import { office } from '../helpers/zip';
 
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' as const;
@@ -56,6 +58,25 @@ test('the store keeps how a document is handed out, and refuses an upload that c
   const plan = await upload('แผนงาน.docx', DOCX, office('word/document.xml'));
   assert.equal(plan.download.headers.get('content-disposition'), contentDisposition('แผนงาน.docx', DOCX));
 
+  // An image signs no Content-Disposition at all; finalize's HEAD check now requires the store to
+  // agree there is none, so this has to run against the real store, not a mock.
+  const png = await sharp({ create: { width: 2, height: 1, channels: 4, background: '#2a9d8f' } }).png().toBuffer();
+  const photoReservation = await reserveUpload(ownerId, {
+    originalName: 'photo.png', mimeType: 'image/png', sizeBytes: png.length, checksumSha256: sha(png), folderId: null, altText: 'A cover',
+  });
+  assert.equal((await fetch(photoReservation.uploadUrl, {
+    method: 'PUT', headers: photoReservation.headers as Record<string, string>, body: new Uint8Array(png),
+  })).status, 200);
+  const photo = await finalizeUpload(ownerId, photoReservation.id);
+  assert.deepEqual({ height: photo.height, width: photo.width }, { height: 1, width: 2 });
+  const { object_key: photoKey } = await db.selectFrom('media_items').select('object_key')
+    .where('id', '=', photo.id).executeTakeFirstOrThrow();
+  const photoDownload = await fetch(resolveMediaUrl(photoKey));
+  assert.equal(photoDownload.status, 200);
+  assert.equal(photoDownload.headers.get('content-type'), 'image/png');
+  assert.equal(photoDownload.headers.get('content-disposition'), null);
+
   await deleteMedia(ownerId, guide.item.id);
   await deleteMedia(ownerId, plan.item.id);
+  await deleteMedia(ownerId, photo.id);
 });
