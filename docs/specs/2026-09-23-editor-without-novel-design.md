@@ -52,13 +52,17 @@ Eight files import it. This is everything it provides, and what each becomes:
 
 ## The extensions, and the schema they make
 
-`StarterKit` in 3.x includes three extensions it did not include in 2.x: Link, Underline and
-ListKeymap. Two of them would change what a writer can store:
+`StarterKit` in 3.x includes four extensions it did not include in 2.x: Link, Underline,
+ListKeymap and TrailingNode. Three of them would change what a writer can store:
 
 - `link: false`, because this repository configures its own Link (autolink on, no open on
   click, its own classes and `rel`). Leaving both in place would register the mark twice.
 - `underline: false`. The sanitizer allows no `u` tag, so an underline would survive in the
   editor, disappear on the page, and read as a bug.
+- `trailingNode: false`. It appends an empty paragraph after any document whose last node is
+  not one, so a post that ends in a quote, a table, a code block or a file card would store and
+  render a paragraph it never had. It is a real convenience, and adopting it is a decision about
+  stored documents, not a side effect of a version bump.
 - `listKeymap` stays on. It binds keys and touches no node type, and it fixes the backspace
   behaviour at the start of a list item that we have today.
 

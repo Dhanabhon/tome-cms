@@ -29,8 +29,8 @@ Playwright, `node --test`.
 - React stays at `^18.3.1`. Nothing in this plan upgrades React or `@types/react`.
 - No user-visible string is invented. Every label comes from `adminCopy` in
   `src/lib/admin-i18n.ts`, which already holds all of them.
-- `StarterKit.configure` carries `link: false` and `underline: false` in both extension lists,
-  the editor's and the server's, and both lists keep describing the same document.
+- `StarterKit.configure` carries `link: false`, `trailingNode: false` and `underline: false` in
+  both extension lists, the editor's and the server's, and both lists keep describing the same document.
 - The DOM contracts the tests and the CSS read do not move: `.ProseMirror`, the `editor`
   property Tiptap sets on that element, `role="option"` on a slash item, `is-editor-empty` and
   `data-placeholder` on an empty paragraph, `p.file-card` with its two spans, and `aria-pressed`
@@ -105,6 +105,9 @@ In `src/server/content/editor.ts`, the `StarterKit.configure({ ... })` call gain
     // StarterKit 3 brings both. Link is configured here already, and an underline would be
     // dropped by the sanitizer on its way to the page, so neither belongs in the schema.
     link: false,
+    // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
+    // one. A post that ends in a quote or a table would store a paragraph it never had.
+    trailingNode: false,
     underline: false,
   }),
 ```
@@ -700,6 +703,9 @@ has, and the Placeholder line spelling out what novel used to set:
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
     codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-code p-5 font-mono text-sm text-ondark' } },
     link: false,
+    // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
+    // one. A post that ends in a quote or a table would store a paragraph it never had.
+    trailingNode: false,
     underline: false,
   }),
   // includeChildren is what puts the hint inside an empty heading or list item, not only in an
