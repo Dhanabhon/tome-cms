@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 
 import type { EditorDocument, PostStatus } from '../../types/cms';
 import type { Database } from '../db/types';
+import { HttpError } from '../http/errors';
 import { assertReadyMediaReferences, listReadyDocumentFiles } from '../media/service';
 import { editorFileIds, editorMediaIds, parseEditorContent, type StoredEditorContent } from './editor';
 import { prepareContent } from './mutations';
@@ -27,7 +28,11 @@ export async function prepareContentWithFiles(
   } catch {
     // Not a document at all: prepareContent refuses it below, in the words it always has.
   }
-  return prepareContent(input, await listReadyDocumentFiles(database, ownerId, ids));
+  const files = await listReadyDocumentFiles(database, ownerId, ids);
+  // A card whose file the library does not have -- deleted while a draft still held it, or never a
+  // document -- is named as that, not as content that is invalid.
+  if (ids.some((id) => !files.has(id))) throw new HttpError(400, 'Choose a file from this site.');
+  return prepareContent(input, files);
 }
 
 /** A document's pictures, and `imageIds` beside them, are ready images; its cards, ready documents. */
