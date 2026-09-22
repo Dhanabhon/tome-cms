@@ -94,7 +94,7 @@ export function serializePublicSite(row: SiteSettings, avatar: ReadyImage | null
 
 export function serializePublicNavigation(row: PublicNavigation): PublicNavigation {
   return publicNavigationSchema.parse({
-    footer: row.footer.map(({ href, kind, label }) => ({ href, kind, label })),
-    header: row.header.map(({ href, kind, label }) => ({ href, kind, label })),
+    footer: row.footer.map(({ href, kind, label, newTab }) => ({ href, kind, label, newTab })),
+    header: row.header.map(({ href, kind, label, newTab }) => ({ href, kind, label, newTab })),
   });
 }

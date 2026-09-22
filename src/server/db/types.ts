@@ -235,6 +235,7 @@ export interface NavigationItemTable {
   page_id: string | null;
   url: string | null;
   position: number;
+  new_tab: Generated<boolean>;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

@@ -162,6 +162,7 @@ export interface NavigationItem {
   page_id: string | null;
   url: string | null;
   position: number;
+  new_tab: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -171,12 +172,16 @@ export interface NavigationMutationItem {
   label: string;
   pageId: string | null;
   url: string | null;
+  /** Only a custom item may: the site's own pages open in place. */
+  newTab: boolean;
 }
 
 export interface PublicNavigationItem {
   href: string;
   kind: NavigationKind;
   label: string;
+  /** The owner asked for this link to open in a new tab; a theme adds target and rel. */
+  newTab: boolean;
 }
 
 export interface PublicNavigation {

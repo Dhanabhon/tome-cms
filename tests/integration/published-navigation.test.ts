@@ -98,15 +98,24 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
       { kind: 'home', label: 'Home', pageId: null, url: null },
       { kind: 'page', label: 'Draft', pageId: draftPage.id, url: null },
       { kind: 'page', label: 'About', pageId: publishedPage.id, url: null },
-      { kind: 'custom', label: 'External', pageId: null, url: 'https://example.com' },
+      { kind: 'custom', label: 'External', pageId: null, url: 'https://example.com', newTab: true },
     ],
   });
   await replaceNavigation('public-owner', menu);
   assert.deepEqual((await getPublicNavigation('th')).header, [
-    { href: '/th', kind: 'home', label: 'Home' },
-    { href: '/th/about', kind: 'page', label: 'About' },
-    { href: 'https://example.com/', kind: 'custom', label: 'External' },
+    { href: '/th', kind: 'home', label: 'Home', newTab: false },
+    { href: '/th/about', kind: 'page', label: 'About', newTab: false },
+    { href: 'https://example.com/', kind: 'custom', label: 'External', newTab: true },
   ]);
+  assert.equal((await listNavigation('public-owner')).items.find(({ kind }) => kind === 'custom')?.new_tab, true);
+
+  // Only a link the owner typed may open in a new tab; the site's own pages open in place.
+  assert.equal(navigationMenuSchema.safeParse({
+    locale: 'th', location: 'footer', items: [{ kind: 'page', label: 'About', pageId: publishedPage.id, url: null, newTab: true }],
+  }).success, false);
+  await assert.rejects(db.insertInto('navigation_items').values({
+    owner_id: 'public-owner', locale: 'th', location: 'footer', kind: 'home', label: 'Home', page_id: null, url: null, position: 0, new_tab: true,
+  }).execute(), { code: '23514' });
 
   await assert.rejects(
     replaceNavigation('public-owner', navigationMenuSchema.parse({

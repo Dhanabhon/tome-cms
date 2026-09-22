@@ -14,7 +14,7 @@ type SavedItem = Omit<NavigationItem, 'owner_id'>;
 const languages = [{ value: 'th', label: 'ไทย' }, { value: 'en', label: 'English' }] as const;
 const emptyMenus = (): Record<MenuKey, LocalItem[]> => ({ 'header:th': [], 'header:en': [], 'footer:th': [], 'footer:en': [] });
 const cleanMenus = (): Record<MenuKey, boolean> => ({ 'header:th': false, 'header:en': false, 'footer:th': false, 'footer:en': false });
-const localItem = (item: SavedItem): LocalItem => ({ id: item.id, kind: item.kind, label: item.label, pageId: item.page_id, url: item.url });
+const localItem = (item: SavedItem): LocalItem => ({ id: item.id, kind: item.kind, label: item.label, pageId: item.page_id, url: item.url, newTab: item.new_tab });
 const target = (item: NavigationMutationItem) => `${item.kind}:${item.pageId ?? item.url ?? ''}`;
 
 interface NavigationManagerProps {
@@ -44,6 +44,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   const [pageId, setPageId] = useState('');
   const [label, setLabel] = useState(copy.navigation.home);
   const [url, setUrl] = useState('');
+  const [newTab, setNewTab] = useState(false);
   const [placement, setPlacement] = useState<NavigationLocation | 'both'>('header');
   const [addError, setAddError] = useState('');
   const savingRef = useRef(false);
@@ -100,6 +101,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     setLabel('Home');
     setPageId(availablePages[0]?.id ?? '');
     setUrl('');
+    setNewTab(false);
     setPlacement(location);
     setAddError('');
     dialog.current?.showModal();
@@ -127,7 +129,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
       setAddError(copy.navigation.pageTranslationRequired);
       return;
     }
-    const item: NavigationMutationItem = { kind, label: label.trim(), pageId: kind === 'page' ? pageId : null, url: normalizedUrl };
+    const item: NavigationMutationItem = { kind, label: label.trim(), pageId: kind === 'page' ? pageId : null, url: normalizedUrl, newTab: kind === 'custom' && newTab };
     const keys: MenuKey[] = placement === 'both' ? [`header:${locale}`, `footer:${locale}`] : [`${placement}:${locale}`];
     if (keys.some((destination) => menus[destination].some((entry) => target(entry) === target(item)))) {
       setAddError(copy.navigation.targetInUse);
@@ -242,6 +244,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                     <label className="admin-field"><span className="sr-only">{fill(copy.navigation.itemLabel, { index: index + 1 })}</span><input aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
                     <p className="navigation-target">{summary}</p>
                     <p className="navigation-visibility">{item.kind === 'page' && page?.status !== 'published' ? page ? copy.navigation.hiddenDraft : copy.navigation.hiddenUnavailable : copy.navigation.visible}</p>
+                    {item.kind === 'custom' && <div className="admin-check navigation-new-tab"><label><input aria-label={fill(copy.navigation.newTabForItem, { index: index + 1 })} checked={item.newTab} disabled={saving} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, newTab: event.target.checked } : entry))} type="checkbox" /><span>{copy.navigation.newTab}</span></label></div>}
                   </div>
                   <div aria-label={fill(copy.navigation.actionsForItem, { index: index + 1 })} className="navigation-item__actions" role="group">
                     <button aria-label={copy.navigation.moveUp} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || index === 0} onClick={(event) => move(index, index - 1, event.currentTarget)} title={copy.navigation.moveUp} type="button"><Icon name="up" /></button>
@@ -271,6 +274,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
             {missingPages.length > 0 && <ul className="navigation-missing">{missingPages.map((page) => <li key={page.id}><button disabled type="button">{fill(copy.navigation.missingTranslation, { language: locale === 'th' ? copy.filters.thai : copy.filters.english, title: page.title })}</button></li>)}</ul>}
           </div>}
           {kind === 'custom' && <label className="admin-field">{copy.navigation.urlLabel}<input className="admin-control" onChange={(event) => setUrl(event.target.value)} placeholder={copy.navigation.urlPlaceholder} required value={url} /></label>}
+          {kind === 'custom' && <div className="admin-check"><label><input checked={newTab} onChange={(event) => setNewTab(event.target.checked)} type="checkbox" /><span>{copy.navigation.newTab}</span></label></div>}
           <label className="admin-field">{copy.navigation.label}<input className="admin-control" maxLength={80} onChange={(event) => setLabel(event.target.value)} required value={label} /></label>
           <div className="admin-field"><label htmlFor="navigation-placement">{copy.navigation.placement}</label><UiSelect ariaLabel={copy.navigation.placement} className="admin-control" id="navigation-placement" onValueChange={(next) => setPlacement(next as NavigationLocation | 'both')} options={[...locations, { value: 'both', label: copy.navigation.both }]} value={placement} /><small>{fill(copy.navigation.placementHelp, { language: locale === 'th' ? copy.filters.thai : copy.filters.english })}</small></div>
           {addError && <p className="admin-alert" role="alert">{addError}</p>}

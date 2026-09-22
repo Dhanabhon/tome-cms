@@ -18,10 +18,12 @@ import { live } from './live';
 const label = z.string().trim().min(1).max(80);
 const customUrl = z.string().trim().transform(normalizeNavigationUrl)
   .pipe(z.string().min(1).max(2_048));
+/** The site's own home and pages open in place; only a link the owner typed may open a new tab. */
+const inPlace = z.literal(false).default(false);
 const navigationMutationItemSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('home'), label, pageId: z.null(), url: z.null() }).strict(),
-  z.object({ kind: z.literal('page'), label, pageId: z.uuid().transform((id) => id.toLowerCase()), url: z.null() }).strict(),
-  z.object({ kind: z.literal('custom'), label, pageId: z.null(), url: customUrl }).strict(),
+  z.object({ kind: z.literal('home'), label, pageId: z.null(), url: z.null(), newTab: inPlace }).strict(),
+  z.object({ kind: z.literal('page'), label, pageId: z.uuid().transform((id) => id.toLowerCase()), url: z.null(), newTab: inPlace }).strict(),
+  z.object({ kind: z.literal('custom'), label, pageId: z.null(), url: customUrl, newTab: z.boolean().default(false) }).strict(),
 ]);
 
 export const navigationMenuSchema = z.object({
@@ -102,6 +104,7 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
         label: item.label,
         page_id: item.pageId,
         url: item.url,
+        new_tab: item.newTab,
         position,
       }))).returningAll().execute();
     });
@@ -162,7 +165,7 @@ async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigati
       : item.kind === 'page' ? pageUrls.get(item.page_id ?? '')
         : normalizeNavigationUrl(item.url ?? '');
     if (href && navigation[item.location].length < 50) {
-      navigation[item.location].push({ href, kind: item.kind, label: item.label });
+      navigation[item.location].push({ href, kind: item.kind, label: item.label, newTab: item.new_tab });
     }
   }
   return { lastModified: new Date(modified), navigation };

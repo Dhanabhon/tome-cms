@@ -211,10 +211,10 @@ test('Published query services paginate, enrich, and isolate the installed site'
   ]);
   const navigation = await getPublicNavigationSnapshot('th');
   assert.deepEqual(navigation.navigation, {
-    footer: [{ href: 'https://example.com/', kind: 'custom', label: 'External' }],
+    footer: [{ href: 'https://example.com/', kind: 'custom', label: 'External', newTab: false }],
     header: [
-      { href: '/th', kind: 'home', label: 'Home' },
-      { href: '/th/about', kind: 'page', label: 'About' },
+      { href: '/th', kind: 'home', label: 'Home', newTab: false },
+      { href: '/th/about', kind: 'page', label: 'About', newTab: false },
     ],
   });
   const site = await getPublishedSite();

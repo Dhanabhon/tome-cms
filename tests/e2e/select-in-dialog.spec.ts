@@ -279,3 +279,58 @@ test('a drawer slides in, and leaves nothing behind for a menu to be measured ag
   await expect(drawer, 'a click on the page behind closes it').toBeHidden();
 });
 
+
+// The menu dialog again, for what it now asks of a link the owner types.
+test('a menu link opens in a new tab only when its owner asked it to', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.goto(`${origin}/admin/navigation`);
+  const dialog = page.locator('dialog.navigation-dialog');
+  const add = async (url: string, label: string, newTab: boolean) => {
+    await page.getByRole('button', { name: /Add item/i }).first().click();
+    await dialog.waitFor({ state: 'visible' });
+    await dialog.getByRole('radio', { name: 'Custom URL' }).check();
+    await dialog.getByRole('textbox', { name: 'URL' }).fill(url);
+    await dialog.getByRole('textbox', { name: 'Label' }).fill(label);
+    if (newTab) await dialog.getByRole('checkbox', { name: 'Open in a new tab' }).check();
+    await dialog.getByRole('button', { name: 'Add to menu' }).click();
+    await dialog.waitFor({ state: 'hidden' });
+  };
+  await add('https://example.com/elsewhere', 'Elsewhere', true);
+  await add('/contact', 'Contact', false);
+  await page.getByRole('button', { name: 'Save menu' }).click();
+  await expect(page.getByText('No unsaved changes in this menu')).toBeVisible();
+
+  // What was chosen comes back from the server, and each link can still change its mind.
+  await page.reload();
+  const rows = page.locator('.navigation-item');
+  await expect(rows.filter({ hasText: 'https://example.com/elsewhere' }).getByRole('checkbox', { name: 'Open in a new tab' })).toBeChecked();
+  await expect(rows.filter({ hasText: '/contact' }).getByRole('checkbox', { name: 'Open in a new tab' })).not.toBeChecked();
+  // Each box says which item it belongs to, where a screen reader lists the form's controls.
+  await expect(page.getByRole('checkbox', { exact: true, name: 'Open in a new tab (item 2)' })).not.toBeChecked();
+
+  await page.goto(`${origin}/th`);
+  const elsewhere = page.locator('.site-header__desktop a', { hasText: 'Elsewhere' });
+  await expect(elsewhere).toHaveAttribute('target', '_blank');
+  await expect(elsewhere).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(elsewhere.locator('.sr-only')).toHaveText('(เปิดในแท็บใหม่)');
+  // The phone menu draws the same items from its own list.
+  const onPhone = page.locator('.site-header__mobile a', { hasText: 'Elsewhere' });
+  await expect(onPhone).toHaveAttribute('target', '_blank');
+  await expect(onPhone).toHaveAttribute('rel', 'noopener noreferrer');
+  const contact = page.locator('.site-header__desktop a', { hasText: 'Contact' });
+  await expect(contact).not.toHaveAttribute('target');
+});

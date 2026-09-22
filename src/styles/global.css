@@ -2217,6 +2217,7 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
 .navigation-item__actions .admin-button { padding-inline: var(--space-sm); }
 .navigation-target { overflow-wrap: anywhere; margin-block-start: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); }
 .navigation-visibility { margin-block-start: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
+.navigation-new-tab { margin-block-start: var(--space-2xs); font-size: var(--text-sm); }
 .navigation-empty { min-height: 0; padding-block: var(--space-lg); }
 .navigation-save { margin-block: var(--space-lg); }
 .navigation-save > span { color: var(--color-muted); font-size: var(--text-sm); }
@@ -2242,6 +2243,8 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
    * field's width now, so it needs no max-width of its own. */
   .navigation-item__content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2xs) var(--space-lg); align-items: center; }
   .navigation-item__content .admin-field { grid-row: 1 / span 2; }
+  /* A link the owner typed has a third line, its new-tab box, and the field spans that too. */
+  .navigation-item__content:has(.navigation-new-tab) .admin-field { grid-row: 1 / span 3; }
 }
 @media (prefers-reduced-motion: reduce) {
   .navigation-manager *, .navigation-manager *::before { transition: none !important; animation: none !important; }
