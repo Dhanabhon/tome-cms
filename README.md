@@ -38,7 +38,7 @@ This README has two parts. [Running TomeCMS](#running-tomecms) is for installing
 - A six-step first-run wizard, with an admin address you choose
 - Passkey-only owner sign-in, with one-time recovery codes
 - An admin in Thai or English, following the site's language
-- Plugins that fill hooks the core declares, each off until you switch it on: Cloudflare Turnstile on the sign-in form, a sticky banner, an image lightbox, and TypeSafe suggestions while writing
+- Plugins that fill hooks the core declares, each off until you switch it on: Cloudflare Turnstile on the sign-in form, a sticky banner, an image lightbox, and suggestions while writing from Jev (TypeSafe AI)
 
 ### Running a site
 
@@ -184,9 +184,9 @@ A plugin that is switched off ships nothing at all. Each one's browser code is a
 
 ### Suggestions while writing
 
-The post and page settings drawers can read what you have written and suggest which of your own categories it belongs under, a line from it for the excerpt, and a passage from it for the meta description. Nothing in the core does this. It is the **TypeSafe** plugin, off until you switch it on under **Appearance → Plugins** and give it an API key from your TypeSafe console. The key is stored encrypted, like any plugin secret, and never sent to a browser.
+The post and page settings drawers can read what you have written and suggest which of your own categories it belongs under, a line from it for the excerpt, and a passage from it for the meta description. Nothing in the core does this. It is the **Jev (TypeSafe AI)** plugin, off until you switch it on under **Appearance → Plugins** and give it an API key from your TypeSafe console. The key is stored encrypted, like any plugin secret, and never sent to a browser.
 
-An installation that does not use TypeSafe draws no suggestion buttons at all, and nothing a reader sees depends on it either way. With it on, nothing is applied for you: a category is a chip you press, and a line or a description is a quotation with its own button. The article's text is sent to `api.typesafe.ai` when you press one of those buttons, and at no other time.
+An installation that leaves it off draws no suggestion buttons at all, and nothing a reader sees depends on it either way. With it on, nothing is applied for you: a category is a chip you press, and a line or a description is a quotation with its own button. The article's text is sent to `api.typesafe.ai` when you press one of those buttons, and at no other time.
 
 What a plugin may return is decided by the core rather than by the plugin. A category comes back as a likelihood, and the core decides which are suggested and which are only offered as a maybe. An excerpt or a description comes back as a choice among passages the core found in your article, each short enough for where it goes: 120 characters for a card, 160 for a search result. The core keeps a choice only if it is one of those passages, so no plugin can put words on a card or in a search result that you did not write.
 

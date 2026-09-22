@@ -9,7 +9,7 @@ export const manifest: PluginManifest = {
   hooks: ['editorSuggestions'],
   icon: 'pencil',
   id: 'typesafe',
-  name: 'TypeSafe',
+  name: 'Jev (TypeSafe AI)',
   settings: [
     {
       key: 'apiKey',
