@@ -42,6 +42,9 @@ const extensions = [
     // StarterKit 3 brings both. Link is configured here already, and an underline would be
     // dropped by the sanitizer on its way to the page, so neither belongs in the schema.
     link: false,
+    // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
+    // one. A post that ends in a quote or a table would store a paragraph it never had.
+    trailingNode: false,
     underline: false,
   }),
   Link.configure({
