@@ -866,6 +866,13 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await expect(swatch).toBeVisible();
   await expect(guide).toHaveCount(0);
 
+  // A file the chosen type would hide is not left looking as if it never landed, to be uploaded
+  // again: the view opens to every type, where it is.
+  await upload.setInputFiles({ name: 'Notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n% notes\n%%EOF\n') });
+  await expect(page.getByRole('button', { name: /^Notes\.pdf, PDF,/ })).toBeVisible();
+  await expect(types.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page).not.toHaveURL(/type=/);
+
   // A document's details have no alternative text, and name it a file.
   await types.getByRole('button', { name: 'All', exact: true }).click();
   await expect(page).not.toHaveURL(/type=/);

@@ -20,6 +20,7 @@ import {
   formatBytes,
   formatLabel,
   isImageAsset,
+  typesForFilter,
   type MediaKind,
   type MediaTypeFilter,
 } from '../../lib/media';
@@ -219,7 +220,11 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         props.onSelect(asset);
         return;
       }
-      if (currentSelection.current === uploadSelection && currentQuery.current === uploadQuery && currentFilter.current === uploadFilter) await load(1, false, uploadQuery, uploadSelection, uploadFilter);
+      if (currentSelection.current === uploadSelection && currentQuery.current === uploadQuery && currentFilter.current === uploadFilter) {
+        // A file the chosen type hides would look as if it had not landed, and be uploaded again.
+        if (uploadFilter && !typesForFilter(uploadFilter).includes(asset.mime_type)) selectType(null);
+        else await load(1, false, uploadQuery, uploadSelection, uploadFilter);
+      }
     } catch (uploadError) {
       setError(errorMessage(uploadError, copy));
       setFailedRequest(null);
