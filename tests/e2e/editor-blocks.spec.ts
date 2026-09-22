@@ -243,7 +243,8 @@ test('the + menu opens where all of it can be seen, wherever the line is', async
       await expect(page.getByRole('menu')).toBeVisible();
       // Up from the first item is the last, which a menu held short has to scroll to.
       await page.keyboard.press('ArrowUp');
-      await expect(page.getByRole('menuitem', { name: 'Image' })).toBeFocused();
+      // The last, whichever item that is: a new item at the end must not break this.
+      await expect(page.getByRole('menuitem').last()).toBeFocused();
       const reachable = await page.evaluate(() => {
         const menu = document.querySelector('.block-insert-menu')?.getBoundingClientRect();
         const bar = document.querySelector('.admin-editor-bar')?.getBoundingClientRect();
@@ -875,6 +876,85 @@ test('a file joins the library, is found by its type, and the filter holds throu
   // in the admin's words ("this file"), not the API's ("the file").
   await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
   await expect(page.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, "CSV UTF-8")');
+});
+
+test('a file goes into an article from + or /, and a reader downloads it', async ({ context, page }) => {
+  test.setTimeout(150_000);
+  await signIn(context, page);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  const { office } = await import('../helpers/zip');
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('With files');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.keyboard.type('Before the files.');
+  await page.keyboard.press('Enter');
+
+  // From +, uploading in the picker: the file joins the library and its card goes in.
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'File', exact: true }).click();
+  const picker = page.locator('dialog.media-picker');
+  await expect(picker.getByRole('group', { name: 'File types' }).getByRole('button', { name: 'PDF', exact: true }), 'documents, by type').toBeVisible();
+  await expect(picker.getByRole('button', { name: 'Images', exact: true }), 'and no images').toHaveCount(0);
+  await picker.locator('input[type="file"]').setInputFiles({
+    name: 'แผนงาน.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: office('word/document.xml'),
+  });
+  const cards = canvas.locator('.file-card');
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('แผนงาน.docx');
+  await expect(cards.first()).toContainText('DOCX');
+
+  // From /, choosing the file now in the library.
+  await canvas.getByText('Before the files.').click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/');
+  await page.getByRole('option', { name: /^File/ }).click();
+  await picker.getByRole('button', { name: /^Select แผนงาน\.docx,/ }).click();
+  await expect(cards).toHaveCount(2);
+
+  // A card that is cut and pasted is still a card: the clipboard carries it as HTML.
+  await cards.first().click();
+  await page.keyboard.press('ControlOrMeta+x');
+  await expect(cards).toHaveCount(1);
+  await canvas.getByText('Before the files.').click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('ControlOrMeta+v');
+  await expect(cards).toHaveCount(2);
+
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+
+  const { db } = await import('../../src/server/db/client');
+  const { slug } = await db.selectFrom('posts').select('slug').where('title', '=', 'With files')
+    .orderBy('created_at', 'desc').executeTakeFirstOrThrow();
+  await page.goto(`${origin}/en/blog/${slug}`);
+  const links = page.locator('article p.file-card > a');
+  await expect(links).toHaveCount(2);
+  await expect(links.first()).toContainText('แผนงาน.docx');
+  await expect(links.first()).toContainText(/DOCX · \d+ B/);
+  await expect(links.first(), 'a document downloads where it is').not.toHaveAttribute('target', '_blank');
+  expect(await links.first().evaluate((link) => getComputedStyle(link).textDecorationLine), 'a card, not an underlined word').toBe('none');
+
+  // The link answers with the file, which the store hands out under its own name.
+  const href = await links.first().getAttribute('href');
+  const redirect = await fetch(`${origin}${href}`, { redirect: 'manual' });
+  expect(redirect.status).toBe(302);
+  const download = await fetch(redirect.headers.get('location') ?? '');
+  expect(download.headers.get('content-disposition'))
+    .toBe(`attachment; filename="file.docx"; filename*=UTF-8''${encodeURIComponent('แผนงาน.docx')}`);
+
+  // The library will not delete a file an article uses, and says where.
+  await page.goto(`${origin}/admin/media`);
+  await page.getByRole('button', { name: /^แผนงาน\.docx, DOCX,/ }).click();
+  const details = page.getByRole('dialog', { name: 'File details' });
+  await details.getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete file', exact: true }).click();
+  await expect(details.getByRole('alert')).toContainText('still used');
+  await expect(details.getByRole('link', { name: 'With files' })).toBeVisible();
 });
 
 /** Signs the owner in through a recovery enrollment, as a new device would. */

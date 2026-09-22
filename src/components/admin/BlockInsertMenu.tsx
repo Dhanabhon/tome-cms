@@ -2,8 +2,10 @@ import { useEditor } from 'novel';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
+import { PICK_FILE_EVENT } from '../../lib/editor-attachment';
 import { NEW_TABLE } from '../../lib/editor-table';
-import type { MediaAsset } from '../../types/cms';
+import { isImageAsset, type MediaKind } from '../../lib/media';
+import type { MediaAsset, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
 
@@ -17,7 +19,7 @@ const MARGIN = 8;
 /** Held any shorter than this, a menu is a slot to scroll a list through. */
 const LEAST_ROOM = 128;
 
-export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
+export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
   const { editor } = useEditor();
   const root = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -26,7 +28,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   const savedPosition = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [picker, setPicker] = useState<MediaKind | null>(null);
   const [position, setPosition] = useState<{ left: number; menuLeft: number; menuMaxHeight?: number; menuTop: number; top: number }>(
     { left: 0, menuLeft: 0, menuTop: GAP_BELOW, top: 0 },
   );
@@ -37,7 +39,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
     const ownsFocus = editor.isFocused || Boolean(root.current?.contains(document.activeElement));
     const shouldShow = editor.isEditable && editor.state.selection.empty && ownsFocus;
     setVisible(shouldShow);
-    if (!shouldShow && !pickerOpen) setMenuOpen(false);
+    if (!shouldShow && picker === null) setMenuOpen(false);
     if (!shouldShow) return;
 
     const canvas = editor.view.dom.closest<HTMLElement>('.editor-canvas');
@@ -67,7 +69,7 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
       menuTop: menuViewportTop - cursor.top,
       top: cursor.top - canvasRect.top,
     });
-  }, [editor, menuOpen, pickerOpen]);
+  }, [editor, menuOpen, picker]);
 
   const scheduleUpdate = useCallback(() => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
@@ -110,6 +112,19 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
     }
   }, [activeIndex, menuOpen, update]);
 
+  // '/' has no picker of its own. It asks for this one, at the cursor it leaves behind.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const pickFile = () => {
+      savedPosition.current = editor.state.selection.from;
+      setMenuOpen(false);
+      setPicker('document');
+    };
+    dom.addEventListener(PICK_FILE_EVENT, pickFile);
+    return () => dom.removeEventListener(PICK_FILE_EVENT, pickFile);
+  }, [editor]);
+
   if (!editor) return null;
 
   const closeMenu = () => {
@@ -131,13 +146,17 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
     ] as const),
   ] as const;
 
-  const openPicker = () => {
+  const openPicker = (kind: MediaKind) => {
     savedPosition.current = editor.state.selection.from;
     setMenuOpen(false);
-    setPickerOpen(true);
+    setPicker(kind);
   };
 
-  const actions = [...blockActions, { icon: 'media', label: copy.blocks.image, run: openPicker }] as const;
+  const actions = [
+    ...blockActions,
+    { icon: 'media', label: copy.blocks.image, run: () => openPicker('image') },
+    { icon: 'file', label: copy.blocks.file, run: () => openPicker('document') },
+  ] as const;
 
   const runAction = (index: number) => {
     actions[index]?.run();
@@ -163,17 +182,22 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
   };
 
   const selectAsset = (asset: MediaAsset) => {
-    setPickerOpen(false);
+    const kind = picker;
+    setPicker(null);
     const position = Math.min(savedPosition.current, editor.state.doc.content.size);
-    editor
-      .chain()
-      .focus()
-      .setTextSelection(position)
-      .insertContent({
+    const chain = editor.chain().focus().setTextSelection(position);
+    if (kind === 'image' && isImageAsset(asset)) {
+      chain.insertContent({
         type: 'image',
         attrs: { alt: asset.alt_text || asset.original_name, mediaId: asset.id, src: asset.publicUrl, title: asset.original_name },
-      })
-      .run();
+      }).run();
+    } else if (kind === 'document') {
+      // These draw the card until it is saved; then the server fills it from the library.
+      chain.insertContent({
+        type: 'attachment',
+        attrs: { href: asset.publicUrl, mediaId: asset.id, mimeType: asset.mime_type, name: asset.original_name, size: asset.size_bytes },
+      }).run();
+    }
   };
 
   return (
@@ -227,14 +251,15 @@ export default function BlockInsertMenu({ copy }: { copy: AdminCopy }) {
           )}
         </div>
       )}
-      {pickerOpen && (
+      {picker && (
         <MediaPicker
-          kind="image"
+          kind={picker}
           onCancel={() => {
-            setPickerOpen(false);
+            setPicker(null);
             editor.commands.focus();
           }}
           onSelect={selectAsset}
+          ownerLocale={ownerLocale}
           returnFocus={editor.view.dom}
         />
       )}

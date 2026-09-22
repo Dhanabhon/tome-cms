@@ -14,6 +14,7 @@ import { useMemo } from 'react';
 
 import Icon from '../Icon';
 import type { AdminCopy } from '../../lib/admin-i18n';
+import { PICK_FILE_EVENT } from '../../lib/editor-attachment';
 import { NEW_TABLE } from '../../lib/editor-table';
 import { tableActions } from './TableBubble';
 
@@ -69,6 +70,17 @@ const commandItems = (copy: AdminCopy, inTable: boolean) => createSuggestionItem
     searchTerms: ['table', 'grid', 'rows', 'columns'],
     command: ({ editor, range }: { editor: EditorInstance; range: Range }) => editor.chain().focus().deleteRange(range).insertTable(NEW_TABLE).run(),
   }]),
+  {
+    title: copy.blocks.file,
+    description: copy.blocks.fileHint,
+    icon: <Icon name="file" />,
+    searchTerms: ['file', 'attachment', 'document', 'pdf', 'download'],
+    // The picker belongs to the + menu; this asks it to open where the command was typed.
+    command: ({ editor, range }: { editor: EditorInstance; range: Range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      editor.view.dom.dispatchEvent(new CustomEvent(PICK_FILE_EVENT));
+    },
+  },
 ]);
 
 /** The menu labels depend on the owner's language, so the extension is built per editor. */
