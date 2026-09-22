@@ -1,5 +1,5 @@
 import type { AdminCopy } from '../../lib/admin-i18n';
-import type { MediaTypeFilter } from '../../lib/media';
+import { formatLabel, type MediaTypeFilter } from '../../lib/media';
 import UiSelect from './UiSelect';
 
 interface MediaTypesProps {
@@ -10,7 +10,7 @@ interface MediaTypesProps {
   value: MediaTypeFilter | null;
 }
 
-/** "PDF" and "ZIP" are the same word in every language; the rest are the owner's. */
+/** PDF and ZIP are called what their cards call them, in every language; the rest are the owner's. */
 function filterLabel(filter: MediaTypeFilter | null, copy: AdminCopy): string {
   switch (filter) {
     case null:
@@ -25,9 +25,9 @@ function filterLabel(filter: MediaTypeFilter | null, copy: AdminCopy): string {
     case 'slides':
       return copy.media.slides;
     case 'pdf':
-      return 'PDF';
+      return formatLabel('application/pdf');
     case 'zip':
-      return 'ZIP';
+      return formatLabel('application/zip');
   }
 }
 
@@ -45,6 +45,7 @@ export default function MediaTypes({ copy, filters, onChange, value }: MediaType
         ))}
       </div>
       <div className="media-types__select">
+        <span aria-hidden="true" className="media-select-label">{copy.media.fileTypes}</span>
         <UiSelect
           ariaLabel={copy.media.fileTypes}
           className="admin-control"
