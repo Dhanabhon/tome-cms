@@ -165,10 +165,16 @@ test('public contracts validate queries and serialize only explicit fields', () 
 
   const navigationWithInternalField = {
     footer: [],
-    header: [{ href: '/th', kind: 'home' as const, label: 'Home', owner_id: 'private-owner' }],
+    header: [
+      { href: '/th', kind: 'home' as const, label: 'Home', newTab: false, owner_id: 'private-owner' },
+      { href: 'https://example.com/', kind: 'custom' as const, label: 'Elsewhere', newTab: true },
+    ],
   };
   assert.deepEqual(serializePublicNavigation(navigationWithInternalField), {
-    footer: [], header: [{ href: '/th', kind: 'home', label: 'Home' }],
+    footer: [], header: [
+      { href: '/th', kind: 'home', label: 'Home', newTab: false },
+      { href: 'https://example.com/', kind: 'custom', label: 'Elsewhere', newTab: true },
+    ],
   });
 
   const serialized = JSON.stringify({ publicPage, publicPost, publicSite });

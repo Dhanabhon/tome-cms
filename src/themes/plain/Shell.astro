@@ -22,7 +22,7 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
   <header class="plain-head">
     <a class="plain-wordmark" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
     <nav class="plain-nav" aria-label={copy.primaryNavigation}>
-      {header.map(({ href, label }) => <a href={href}>{label}</a>)}
+      {header.map(({ href, label, newTab }) => <a href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a>)}
       {languages.map(({ href, locale: option }) => <a href={href} lang={option}>{option.toUpperCase()}</a>)}
       {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     </nav>
@@ -32,7 +32,7 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
   </main>
   <footer class="plain-foot">
     <nav aria-label={copy.footerNavigation}>
-      {footer.map(({ href, label }) => <a href={href}>{label}</a>)}
+      {footer.map(({ href, label, newTab }) => <a href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a>)}
     </nav>
     <p>&copy; {currentYear(locale)} {siteName}.{showPoweredBy && ` ${copy.poweredBy}`}</p>
   </footer>

@@ -32,7 +32,7 @@ const copy = publicCopy(locale);
     <a class="site-wordmark min-w-0 flex-1 truncate text-ink" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
     {items.length > 0 && (
       <nav aria-label={copy.primaryNavigation} class="public-navigation site-header__desktop">
-        <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
+        <ul>{items.map(({ href, label, newTab }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a></li>)}</ul>
       </nav>
     )}
     {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
@@ -43,7 +43,7 @@ const copy = publicCopy(locale);
       <details class="site-header__mobile">
         <summary>{copy.menu}</summary>
         <nav aria-label={copy.primaryNavigation} class="public-navigation">
-          <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
+          <ul>{items.map(({ href, label, newTab }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a></li>)}</ul>
         </nav>
       </details>
     )}

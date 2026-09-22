@@ -144,6 +144,7 @@ const publicNavigationItemSchema = z.object({
   href: publicUrlSchema,
   kind: z.enum(['home', 'page', 'custom']),
   label: z.string().min(1).max(80),
+  newTab: z.boolean(),
 }).strict();
 
 export const publicNavigationSchema: z.ZodType<PublicNavigation> = z.object({

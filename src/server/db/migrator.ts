@@ -21,6 +21,7 @@ import * as thaiSlugs from './migrations/018_thai_slugs';
 import * as contentRedirects from './migrations/019_content_redirects';
 import * as siteBrand from './migrations/020_site_brand';
 import * as mediaDocuments from './migrations/021_media_documents';
+import * as navigationNewTab from './migrations/022_navigation_new_tab';
 
 export const migrations = {
   '001_system': system,
@@ -44,6 +45,7 @@ export const migrations = {
   '019_content_redirects': contentRedirects,
   '020_site_brand': siteBrand,
   '021_media_documents': mediaDocuments,
+  '022_navigation_new_tab': navigationNewTab,
 } as const;
 
 const provider: MigrationProvider = {

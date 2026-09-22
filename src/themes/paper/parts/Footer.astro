@@ -18,7 +18,7 @@ const copy = publicCopy(locale);
 <footer class="site-footer mx-auto w-full max-w-7xl border-t border-line px-5 py-7 text-sm text-muted sm:px-7">
   {items.length > 0 && (
     <nav aria-label={copy.footerNavigation} class="public-navigation">
-      <ul>{items.map(({ href, label }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href}>{label}</a></li>)}</ul>
+      <ul>{items.map(({ href, label, newTab }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a></li>)}</ul>
     </nav>
   )}
   <p>
