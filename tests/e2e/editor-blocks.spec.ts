@@ -801,6 +801,39 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await expect(folders.getByRole('button', { name: 'All files', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page).not.toHaveURL(/folder=/);
 
+  // A folder list that answers late, read before a folder was made, neither takes the new
+  // folder away nor moves its owner out of it.
+  let release!: () => void;
+  const late = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/api/admin/media/folders', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const answer = await route.fetch();
+    await late;
+    await route.fulfill({ response: answer });
+  });
+  await page.goto(`${origin}/admin/media`);
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('Drafts');
+  await page.getByRole('button', { name: 'Create folder' }).click();
+  const drafts = folders.getByRole('button', { name: 'Drafts', exact: true });
+  await drafts.click();
+  await expect(drafts).toHaveAttribute('aria-pressed', 'true');
+  const landed = page.waitForResponse((response) => response.url().includes('/api/admin/media/folders') && response.request().method() === 'GET');
+  release();
+  await landed;
+  await page.unroute('**/api/admin/media/folders');
+  // Two frames: time for the late list to be read and drawn, had it been taken.
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(drafts).toHaveAttribute('aria-pressed', 'true');
+
+  // On a phone the two selects say what they choose; a screen reader already hears it from each.
+  await page.setViewportSize({ width: 375, height: 812 });
+  for (const caption of ['File types', 'File folders']) {
+    const label = page.locator('.media-select-label', { hasText: caption });
+    await expect(label).toBeVisible();
+    await expect(label).toHaveAttribute('aria-hidden', 'true');
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   // A spreadsheet saved in the Thai code page is refused, and the owner is told how to save it --
   // in the admin's words ("this file"), not the API's ("the file").
   await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
