@@ -105,7 +105,10 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
   });
   await assert.rejects(reserve('guide.docx', 'application/pdf', 100), badRequest, 'a PDF named .docx');
   await assert.rejects(reserve('photo.png', 'image/png', 8_388_609), badRequest, 'an image over 8 MB');
-  await reserve('big.zip', 'application/zip', 26_214_400);
+  const before = Date.now();
+  const big = await reserve('big.zip', 'application/zip', 26_214_400);
+  // 50 KB a second for the browser to send it, then three minutes to finalize.
+  assert.ok(Date.parse(big.expiresAt) >= before + 524_288 + 180_000, 'a 25 MB reservation outlives its upload');
   assert.equal(reserveUploadSchema.safeParse({
     originalName: 'big.zip', mimeType: 'application/zip', sizeBytes: 26_214_401, checksumSha256: sha(pdf), folderId: null, altText: '',
   }).success, false);
