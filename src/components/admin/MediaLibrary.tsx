@@ -110,6 +110,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const currentSelection = useRef<CategorySelection>(view.selection);
   const currentFilter = useRef<MediaTypeFilter | null>(view.filter);
   const requestId = useRef(0);
+  /** Bumped by every folder list asked for and every folder made, renamed or deleted. */
+  const foldersRequest = useRef(0);
   const selectedId = useRef<string | null>(null);
   const urlInput = useRef<HTMLInputElement>(null);
   const detailsDialog = useRef<HTMLDialogElement>(null);
@@ -139,15 +141,18 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }, []);
 
   const loadFolders = useCallback(async () => {
+    const request = ++foldersRequest.current;
     setFolderLoadError(null);
     try {
       const loaded = await listMediaFolders();
+      // A list that answers after a folder was made, renamed or deleted is older than the view.
+      if (request !== foldersRequest.current) return;
       setFolders(loaded);
       // A folder the address names that is gone would show an empty view titled as a folder.
       const current = currentSelection.current;
       if (FOLDER_ID.test(current) && !loaded.some((folder) => folder.id === current)) selectCategory('all');
     } catch (folderError) {
-      setFolderLoadError(errorMessage(folderError, copy));
+      if (request === foldersRequest.current) setFolderLoadError(errorMessage(folderError, copy));
     }
   }, []);
 
@@ -246,6 +251,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setCategoryError(null);
     try {
       const folder = await atLeast(createMediaFolder(categoryName));
+      foldersRequest.current += 1;
       setFolders((current) => [...current, folder].sort((left, right) => left.name.localeCompare(right.name)));
       setCategoryName('');
     } catch (createError) {
@@ -262,6 +268,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setCategoryError(null);
     try {
       const folder = await atLeast(renameMediaFolder(renaming.id, renameName));
+      foldersRequest.current += 1;
       setFolders((current) => current.map((currentFolder) => (currentFolder.id === folder.id ? folder : currentFolder)).sort((left, right) => left.name.localeCompare(right.name)));
       setRenaming(null);
     } catch (renameError) {
@@ -282,6 +289,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setCategoryError(null);
     try {
       await deleteMediaFolder(folder.id);
+      foldersRequest.current += 1;
       setFolders((current) => current.filter((currentFolder) => currentFolder.id !== folder.id));
       setItems((current) => current.map((item) => (item.folder_id === folder.id ? { ...item, folder_id: null } : item)));
       if (selected?.folder_id === folder.id) setSelected((current) => (current ? { ...current, folder_id: null } : current));

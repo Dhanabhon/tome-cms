@@ -484,7 +484,8 @@ export async function updateMedia(ownerId: string, id: string, input: MediaMutat
     .returningAll().executeTakeFirst()
     .catch((error: unknown) => {
       // The table keeps alternative text for images alone, so a document sent some is a bad request.
-      if (typeof error === 'object' && error !== null && 'constraint' in error && error.constraint === 'media_items_alt_text_kind_check') {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23514'
+        && 'constraint' in error && error.constraint === 'media_items_alt_text_kind_check') {
         throw new HttpError(400, 'A document has no alternative text.');
       }
       throw error;
