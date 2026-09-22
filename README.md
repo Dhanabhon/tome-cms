@@ -15,10 +15,10 @@ This README has two parts. [Running TomeCMS](#running-tomecms) is for installing
 
 ### Writing
 
-- An editor with headings, lists, quotes, code, images, tables, links and alignment; its writer decides whether a link opens in a new tab
+- An editor with headings, lists, quotes, code, images, files, tables, links and alignment; its writer decides whether a link opens in a new tab, and a file from the library goes into an article as a card a reader downloads, a PDF opening in the browser
 - Posts in Thai and English, each language an edition of the same post, with shared categories, drafts, previews, scheduled publishing and SEO fields
 - Pages, and header and footer navigation you configure
-- A file manager backed by S3-compatible object storage, with folders and search
+- A file manager backed by S3-compatible object storage, keeping documents (PDF, Word, Excel, PowerPoint, CSV, text and ZIP) beside images, with folders, search and a filter by type
 
 ### Publishing
 
