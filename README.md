@@ -124,6 +124,8 @@ Never commit `.env.local`, credentials, database dumps or object-storage backups
 
 The bundled SeaweedFS is a single node, which suits local development and a single VPS. Point the same S3 settings at external object storage when you need high availability or more than one node.
 
+The browser puts uploads straight into the bucket, so an external store needs a CORS rule for the site's origin that allows `PUT` with the `content-type`, `x-amz-checksum-sha256` and `content-disposition` headers. The last carries a document's name and how it opens, and is signed into the upload. The bundled SeaweedFS allows what the site's origin asks for, and nothing to any other origin.
+
 ### Bundled and headless modes
 
 The default is:
