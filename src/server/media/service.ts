@@ -11,6 +11,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { z } from 'zod';
 
+import { type AttachmentFile } from '../../lib/editor-attachment';
 import {
   ACCEPTED_DOCUMENT_TYPES,
   ACCEPTED_IMAGE_TYPES,
@@ -418,6 +419,24 @@ export async function listReadyMediaByIds(ownerId: string, requestedIds: readonl
 /** Images only: covers, the author's photo and an article's pictures, which carry dimensions. */
 export async function listReadyImagesByIds(ownerId: string, requestedIds: readonly string[]): Promise<ReadyImage[]> {
   return (await listReadyMediaByIds(ownerId, requestedIds)).filter(isReadyImage);
+}
+
+/** The library's word on each document a card points at: its name, its type and its size. */
+export async function listReadyDocumentFiles(
+  database: Kysely<Database>,
+  ownerId: string,
+  requestedIds: readonly string[],
+): Promise<Map<string, AttachmentFile>> {
+  const ids = [...new Set(requestedIds)];
+  if (!ids.length) return new Map();
+  const rows = await database.selectFrom('media_items').select(['id', 'mime_type', 'original_name', 'size_bytes'])
+    .where('owner_id', '=', ownerId).where('state', '=', 'ready').where('id', 'in', ids)
+    .where('mime_type', 'in', [...ACCEPTED_DOCUMENT_TYPES]).execute();
+  const files = new Map<string, AttachmentFile>();
+  for (const row of rows) {
+    if (isDocumentType(row.mime_type)) files.set(row.id, { mimeType: row.mime_type, name: row.original_name, size: Number(row.size_bytes) });
+  }
+  return files;
 }
 
 export async function listFolders(ownerId: string): Promise<MediaFolder[]> {

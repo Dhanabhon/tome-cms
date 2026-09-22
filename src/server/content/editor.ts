@@ -12,6 +12,7 @@ import {
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
 import { textAlign } from '../../lib/editor-align';
+import { attachment, type AttachmentFile } from '../../lib/editor-attachment';
 import { tableExtensions } from '../../lib/editor-table';
 import type { EditorDocument, EditorNode } from '../../types/cms';
 import { isUuid } from '../media/keys';
@@ -50,6 +51,7 @@ const extensions = [
   }),
   ...tableExtensions,
   textAlign,
+  attachment,
 ];
 
 const schema = getSchema(extensions);
@@ -81,7 +83,7 @@ export interface StoredEditorContent {
   contentHtml: string;
 }
 
-function normalizeMediaNodes(document: EditorDocument): void {
+function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string, AttachmentFile>): void {
   const pending: EditorNode[] = [document];
   while (pending.length) {
     const node = pending.pop();
@@ -109,6 +111,13 @@ function normalizeMediaNodes(document: EditorDocument): void {
         }
       }
     }
+    if (node.type === 'attachment') {
+      const mediaId = typeof node.attrs?.mediaId === 'string' ? node.attrs.mediaId.toLowerCase() : '';
+      const file = files.get(mediaId);
+      if (!file) throw new ValidationError('Attachments require a file from this site.');
+      // The library's word, not the editor's: the card is stored, and says what its file is.
+      node.attrs = { href: `/media/${mediaId}`, mediaId, mimeType: file.mimeType, name: file.name, size: file.size };
+    }
     pending.push(...(node.content ?? []));
   }
 }
@@ -120,6 +129,20 @@ export function editorMediaIds(document: EditorDocument): string[] {
     const node = pending.pop();
     if (!node) break;
     if (node.type === 'image' && typeof node.attrs?.mediaId === 'string') ids.add(node.attrs.mediaId);
+    pending.push(...(node.content ?? []));
+  }
+  return [...ids];
+}
+
+/** The documents a document's cards point at, as ids a lookup can take. */
+export function editorFileIds(document: EditorDocument): string[] {
+  const ids = new Set<string>();
+  const pending: EditorNode[] = [document];
+  while (pending.length) {
+    const node = pending.pop();
+    if (!node) break;
+    const mediaId = node.attrs?.mediaId;
+    if (node.type === 'attachment' && typeof mediaId === 'string' && isUuid(mediaId)) ids.add(mediaId.toLowerCase());
     pending.push(...(node.content ?? []));
   }
   return [...ids];
@@ -173,10 +196,19 @@ export function renderEditorHtml(document: EditorDocument): string {
   return result.data;
 }
 
-export function prepareEditorContent(input: unknown): StoredEditorContent {
+/** The bounds and the shape of a document sent by an editor, before anything is looked up. */
+export function parseEditorContent(input: unknown): EditorDocument {
   const raw = rawEditorContentInputSchema.parse(input);
   assertJsonBounds(raw.contentJson);
-  const { contentJson } = editorContentInputSchema.parse(input);
-  normalizeMediaNodes(contentJson);
+  return editorContentInputSchema.parse(input).contentJson;
+}
+
+/** A parsed document made safe to store: its media named by id, its cards filled from `files`. */
+export function renderEditorContent(contentJson: EditorDocument, files: ReadonlyMap<string, AttachmentFile> = new Map()): StoredEditorContent {
+  normalizeMediaNodes(contentJson, files);
   return { contentJson, contentHtml: renderEditorHtml(contentJson) };
+}
+
+export function prepareEditorContent(input: unknown, files: ReadonlyMap<string, AttachmentFile> = new Map()): StoredEditorContent {
+  return renderEditorContent(parseEditorContent(input), files);
 }

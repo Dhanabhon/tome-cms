@@ -7,10 +7,9 @@ import type { Post, PostLocale, PostTranslationSummary } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database, PostTable } from '../db/types';
 import { HttpError } from '../http/errors';
-import { assertReadyMediaReferences } from '../media/service';
 import { stableMediaPath } from '../media/url';
 import { replacePostGroupCategories } from './categories';
-import { editorMediaIds } from './editor';
+import { assertContentMedia, prepareContentWithFiles } from './content-media';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -18,7 +17,6 @@ import {
   duplicateTitle,
   isUniqueViolation,
   normalizedContentSlug,
-  prepareContent,
 } from './mutations';
 
 const categoryIdsSchema = z.array(z.uuid()).max(20).superRefine((ids, context) => {
@@ -107,7 +105,7 @@ export async function listPostTranslations(ownerId: string, translationGroupId: 
 
 export async function createPost(ownerId: string, input: CreatePostInput): Promise<Post> {
   const id = randomUUID();
-  const content = prepareContent(input);
+  const content = await prepareContentWithFiles(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
@@ -132,10 +130,7 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         await trx.insertInto('post_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
       }
 
-      await assertReadyMediaReferences(trx, ownerId, [
-        ...editorMediaIds(content.contentJson),
-        ...(coverMediaId ? [coverMediaId] : []),
-      ]);
+      await assertContentMedia(trx, ownerId, content.contentJson, coverMediaId ? [coverMediaId] : []);
 
       const created = await trx.insertInto('posts').values({
         id,
@@ -227,7 +222,7 @@ export async function duplicatePost(ownerId: string, id: string): Promise<Post> 
 }
 
 export async function updatePost(ownerId: string, input: UpdatePostInput): Promise<Post> {
-  const content = prepareContent(input);
+  const content = await prepareContentWithFiles(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
@@ -235,10 +230,7 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         .where('id', '=', input.id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!current) throw new HttpError(404, 'Post not found.');
       assertCurrentVersion(current.updated_at, input.updatedAt, 'post');
-      await assertReadyMediaReferences(trx, ownerId, [
-        ...editorMediaIds(content.contentJson),
-        ...(input.coverMediaId ? [input.coverMediaId] : []),
-      ]);
+      await assertContentMedia(trx, ownerId, content.contentJson, input.coverMediaId ? [input.coverMediaId] : []);
       await trx.selectFrom('post_translation_groups').select('id')
         .where('id', '=', current.translation_group_id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
 
@@ -274,7 +266,7 @@ export async function updatePostStatus(
     if (!current) throw new HttpError(404, 'Post not found.');
     assertCurrentVersion(current.updated_at, input.updatedAt, 'post');
     const content = input.status === 'published'
-      ? prepareContent({ contentJson: current.content_json, status: input.status })
+      ? await prepareContentWithFiles(trx, ownerId, { contentJson: current.content_json, status: input.status })
       : null;
     return trx.updateTable('posts').set({
       status: input.status,

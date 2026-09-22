@@ -12,7 +12,7 @@ import {
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
 } from '../../src/lib/editor-content';
-import { editorMediaIds, prepareEditorContent, ValidationError } from '../../src/server/content/editor';
+import { editorFileIds, editorMediaIds, prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 
 test('server renders, sanitizes, and bounds editor content', () => {
@@ -155,6 +155,46 @@ test('a table is kept whole, and nothing that rides in with it', () => {
 
   // Each cell's words stand apart, so they are counted, read and judged as words.
   assert.equal(editorText(contentJson), 'Name Age in years Alice 30 Across both');
+});
+
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' as const;
+
+test('a file card says what the library says of its file, and nothing the editor sent', () => {
+  const mediaId = '22222222-2222-4222-8222-222222222222';
+  const files = new Map([[mediaId, { mimeType: 'application/pdf' as const, name: 'คู่มือการสมัคร.pdf', size: 1_258_291 }]]);
+  const card = (attrs: Record<string, string | number>): EditorDocument => ({ type: 'doc', content: [{ type: 'attachment', attrs }] });
+  const { contentHtml, contentJson } = prepareEditorContent({
+    contentJson: card({ href: 'https://elsewhere.example/x', mediaId: mediaId.toUpperCase(), mimeType: 'application/zip', name: 'lie.zip', size: 1 }),
+  }, files);
+  assert.deepEqual(contentJson.content?.[0]?.attrs,
+    { href: `/media/${mediaId}`, mediaId, mimeType: 'application/pdf', name: 'คู่มือการสมัคร.pdf', size: 1_258_291 });
+  assert.match(contentHtml,
+    /^<p class="file-card"><a [^>]*><span class="file-card__name">คู่มือการสมัคร\.pdf<\/span> <span class="file-card__meta">PDF · 1\.2 MB<\/span><\/a><\/p>$/);
+  assert.match(contentHtml, new RegExp(`<a [^>]*href="/media/${mediaId}"`));
+  assert.match(contentHtml, /<a [^>]*type="application\/pdf"/);
+  assert.match(contentHtml, /<a [^>]*target="_blank"/, 'a PDF opens in a tab of its own');
+  assert.doesNotMatch(contentHtml, /data-|elsewhere|lie\.zip/, "what the editor sent, and the clipboard's attributes, are not kept");
+  assert.equal(editorText(contentJson), '', "a card's name is not among the article's words");
+  assert.equal(hasMeaningfulContent(contentJson), true, 'a card alone is content');
+
+  const docxId = '33333333-3333-4333-8333-333333333333';
+  const docx = prepareEditorContent({ contentJson: card({ mediaId: docxId }) },
+    new Map([[docxId, { mimeType: DOCX, name: '<b>Plan</b>.docx', size: 84 * 1024 }]]));
+  assert.doesNotMatch(docx.contentHtml, /target=/, 'anything but a PDF downloads where it is');
+  assert.match(docx.contentHtml, /&lt;b&gt;Plan&lt;\/b&gt;\.docx/, 'a name is text, never markup');
+  assert.match(docx.contentHtml, /DOCX · 84 KB/);
+  assert.throws(() => prepareEditorContent({ contentJson: card({ mediaId }) }), ValidationError, 'a card for a file the library does not have');
+  assert.deepEqual(editorFileIds(card({ mediaId: mediaId.toUpperCase() })), [mediaId]);
+  assert.deepEqual(editorFileIds(card({ mediaId: 'not-a-uuid' })), [], 'nothing a lookup would choke on');
+});
+
+test('a card keeps its parts through the sanitizer, and nothing that rides in with them', () => {
+  const html = sanitizedContentHtmlSchema.parse(
+    '<p class="file-card intruder" data-media-id="x" onclick="x"><a href="/media/11111111-1111-4111-8111-111111111111" type="application/pdf" data-size="1">'
+    + '<span class="file-card__name wide" style="color:red">A</span> <span class="file-card__meta">PDF · 1 B</span></a></p><span class="other">B</span>',
+  );
+  assert.equal(html, '<p class="file-card"><a href="/media/11111111-1111-4111-8111-111111111111" type="application/pdf" rel="noopener noreferrer">'
+    + '<span class="file-card__name">A</span> <span class="file-card__meta">PDF · 1 B</span></a></p><span>B</span>');
 });
 
 test("an editor refuses to publish an empty document in the owner's own language", () => {

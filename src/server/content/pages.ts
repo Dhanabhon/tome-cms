@@ -8,8 +8,7 @@ import type { Page, PageLocale, PageTranslationSummary } from '../../types/cms';
 import { db } from '../db/client';
 import type { PageTable } from '../db/types';
 import { HttpError } from '../http/errors';
-import { assertReadyMediaReferences } from '../media/service';
-import { editorMediaIds } from './editor';
+import { assertContentMedia, prepareContentWithFiles } from './content-media';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -17,7 +16,6 @@ import {
   duplicateTitle,
   isUniqueViolation,
   normalizedContentSlug,
-  prepareContent,
 } from './mutations';
 import { invalidatePublicNavigationCache } from './navigation';
 
@@ -93,7 +91,7 @@ export async function listPageTranslations(ownerId: string, translationGroupId: 
 
 export async function createPage(ownerId: string, input: CreatePageInput): Promise<Page> {
   const id = randomUUID();
-  const content = prepareContent(input);
+  const content = await prepareContentWithFiles(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       let translationGroupId: string = randomUUID();
@@ -115,7 +113,7 @@ export async function createPage(ownerId: string, input: CreatePageInput): Promi
         await trx.insertInto('page_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
       }
 
-      await assertReadyMediaReferences(trx, ownerId, editorMediaIds(content.contentJson));
+      await assertContentMedia(trx, ownerId, content.contentJson);
 
       return trx.insertInto('pages').values({
         id,
@@ -187,14 +185,14 @@ export async function duplicatePage(ownerId: string, id: string): Promise<Page> 
 }
 
 export async function updatePage(ownerId: string, input: UpdatePageInput): Promise<Page> {
-  const content = prepareContent(input);
+  const content = await prepareContentWithFiles(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       const current = await trx.selectFrom('pages').selectAll()
         .where('id', '=', input.id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!current) throw new HttpError(404, 'Page not found.');
       assertCurrentVersion(current.updated_at, input.updatedAt, 'page');
-      await assertReadyMediaReferences(trx, ownerId, editorMediaIds(content.contentJson));
+      await assertContentMedia(trx, ownerId, content.contentJson);
       return trx.updateTable('pages').set({
         title: input.title,
         slug: pageSlug({ id: input.id, requested: input.slug, title: input.title }),
@@ -225,7 +223,7 @@ export async function updatePageStatus(
     if (!current) throw new HttpError(404, 'Page not found.');
     assertCurrentVersion(current.updated_at, input.updatedAt, 'page');
     const content = input.status === 'published'
-      ? prepareContent({ contentJson: current.content_json, status: input.status })
+      ? await prepareContentWithFiles(trx, ownerId, { contentJson: current.content_json, status: input.status })
       : null;
     return trx.updateTable('pages').set({
       status: input.status,
