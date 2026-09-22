@@ -81,10 +81,11 @@ test('bounds command output and terminates timed-out children', { timeout: 8_000
   ], { timeoutMs: 2_000 });
   assert.ok(Buffer.byteLength(splitUtf8.stdout) <= 32 * 1024);
 
+  // SIGTERM is ignored before the program runs: the shell sets it, and exec keeps it. A child
+  // that installed its own handler raced its start-up, and under load was killed by the SIGTERM
+  // it was meant to ignore. Node resets signals as it starts, so the program is sleep.
   const started = Date.now();
-  const timedOut = await runCommand(process.execPath, [
-    '-e', "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)",
-  ], { timeoutMs: 100 });
+  const timedOut = await runCommand('/bin/sh', ['-c', "trap '' TERM; exec sleep 30"], { timeoutMs: 500 });
   assert.equal(timedOut.code, 124);
   assert.ok(Date.now() - started >= 5_000);
 });
