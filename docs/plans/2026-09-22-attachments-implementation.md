@@ -387,6 +387,7 @@ typed by its name in the browser, since browsers disagree on a CSV's type and so
 none for a ZIP; an image keeps the type the browser read. Sizes read in MB now as well.
 
 The key grammar that backup, restore-check and reset accept gains the seven extensions.
+```
 
 ---
 
@@ -637,6 +638,7 @@ many words rather than by a range.
 Its down refuses while the library holds a document, and says to delete them first:
 dimensions cannot be required again with documents in the table, and dropping their rows
 would leave cards pointing at nothing.
+```
 
 ---
 
@@ -1039,6 +1041,7 @@ part and no macro project.
 
 Content-Disposition is written here too: attachment, or inline for a PDF, with the file's own
 name in UTF-8 and a plain one beside it for the clients that read nothing else.
+```
 
 ---
 
@@ -1656,6 +1659,7 @@ refusals a person causes carry a code, so the admin can say them in the owner's 
 The library lists by type. And the checks that a cover, the author's photo or an article's
 picture is ready now also ask that it is an image, which the library holding PDFs made
 necessary. The public API's media list reads images only, as its schema always said.
+```
 
 ---
 
@@ -2081,6 +2085,7 @@ not used, since the card is stored and a stale or crafted request could otherwis
 A PDF's card opens in a new tab and anything else downloads in place. The sanitizer keeps the
 card's classes and a link's type, and a card alone is content. A card points at a document
 and a picture at an image, and a file a card uses cannot be deleted.
+```
 
 ---
 
@@ -2755,6 +2760,7 @@ in the owner's language too; it never had it.
 
 The test store takes the spec's origin from TOME_CMS_TEST_ORIGIN, since the browser now puts
 files into it from a server on a free port.
+```
 
 ---
 
@@ -3108,6 +3114,7 @@ In the editor a card is drawn without its link, so a click selects it as a click
 does, and a drag moves it; cut and paste keep it a card. On the page it is one bordered row,
 styled beside the table's wrapper so every theme has it, and no theme's underline reaches it.
 The editor's image picker opens in the owner's language now, which it never did.
+```
 
 ---
 
@@ -3159,3 +3166,4 @@ A document's upload carries content-disposition beside content-type and the chec
 into its URL. The bundled SeaweedFS allows whatever the site's own origin asks for; an
 external store whose rule lists headers has to list this one, or documents fail at the
 preflight.
+```
