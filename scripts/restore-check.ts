@@ -5,11 +5,20 @@ import { spawn, spawnSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
+import { isDocumentType, type SupportedDocumentType } from '../src/lib/media';
+import { contentDisposition } from '../src/server/media/disposition';
 import { isTomeObjectKey } from '../src/server/media/keys';
 import { parseBackupManifest, parseBackupRecordCounts, type BackupManifest } from '../src/update/backup';
 import { sha256File } from './backup';
+
+/**
+ * Every ready document's key, name and type: a backup does not carry `Content-Disposition`
+ * (only `contentType` travels with each object), so restore-check rebuilds it from the row that
+ * survived the database restore, the same header finalize signs into an upload.
+ */
+export const RESTORED_DOCUMENTS_QUERY = `select coalesce(json_agg(json_build_object('key', object_key, 'name', original_name, 'type', mime_type) order by object_key), '[]'::json)::text from media_items where state = 'ready' and mime_type not like 'image/%'`;
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const projectPattern = /^tomecms-restore-check-[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -34,9 +43,27 @@ function compose(project: string, args: string[], env: NodeJS.ProcessEnv, output
     env,
     encoding: 'utf8',
     stdio: output ? ['ignore', 'pipe', 'ignore'] : 'ignore',
+    // A library may hold 100,000 items; spawnSync's own default (1 MiB) is too small for that.
+    ...(output ? { maxBuffer: 256 * 1024 * 1024 } : {}),
   });
   if (result.error || result.status !== 0) throw new Error('Disposable restore environment failed.');
   return output ? result.stdout.trim() : '';
+}
+
+function documentRow(value: unknown): { key: string; name: string; type: SupportedDocumentType } {
+  if (typeof value !== 'object' || value === null) throw new Error('Restored media rows are invalid.');
+  const { key, name, type } = value as Record<string, unknown>;
+  if (typeof key !== 'string' || !isTomeObjectKey(key) || typeof name !== 'string' || !name ||
+    typeof type !== 'string' || !isDocumentType(type)) {
+    throw new Error('Restored media rows are invalid.');
+  }
+  return { key, name, type };
+}
+
+/** Each ready document's key mapped to the `Content-Disposition` a restore has to put back. */
+export function documentDispositions(rows: unknown): Map<string, string> {
+  if (!Array.isArray(rows)) throw new Error('Restored media rows are invalid.');
+  return new Map<string, string>(rows.map(documentRow).map((row) => [row.key, contentDisposition(row.name, row.type)]));
 }
 
 async function verifyBackup(backup: string): Promise<BackupManifest> {
@@ -72,7 +99,7 @@ async function restoreDatabase(project: string, backup: string, env: NodeJS.Proc
   }
 }
 
-async function restoreObjects(backup: string, manifest: BackupManifest): Promise<string[]> {
+async function restoreObjects(backup: string, manifest: BackupManifest, dispositions: Map<string, string>): Promise<string[]> {
   const storage = new S3Client({
     endpoint: 'http://127.0.0.1:59000',
     region: 'us-east-1',
@@ -81,13 +108,22 @@ async function restoreObjects(backup: string, manifest: BackupManifest): Promise
   });
   try {
     for (const object of manifest.objects) {
+      const disposition = dispositions.get(object.key);
       await storage.send(new PutObjectCommand({
         Bucket: 'tomecms-test-media',
         Key: object.key,
         Body: createReadStream(join(backup, 'objects', ...object.key.split('/'))),
         ContentLength: object.sizeBytes,
         ContentType: object.contentType,
+        // A document with no ready row -- an unfinished upload -- goes back with no header, as today.
+        ...(disposition ? { ContentDisposition: disposition } : {}),
       }));
+    }
+    for (const object of manifest.objects) {
+      const disposition = dispositions.get(object.key);
+      if (!disposition) continue;
+      const head = await storage.send(new HeadObjectCommand({ Bucket: 'tomecms-test-media', Key: object.key }));
+      if (head.ContentDisposition !== disposition) throw new Error('Restored document headers do not match the database.');
     }
     const keys: string[] = [];
     let continuationToken: string | undefined;
@@ -104,6 +140,14 @@ async function restoreObjects(backup: string, manifest: BackupManifest): Promise
   } finally {
     storage.destroy();
   }
+}
+
+function restoredDocumentDispositions(project: string, env: NodeJS.ProcessEnv): Map<string, string> {
+  const result = compose(project, [
+    'exec', '-T', 'postgres', 'psql', '--host=127.0.0.1', '--username=tomecms_test',
+    '--dbname=tomecms_test', '--tuples-only', '--no-align', '--command', RESTORED_DOCUMENTS_QUERY,
+  ], env, true);
+  return documentDispositions(JSON.parse(result));
 }
 
 function restoredCounts(project: string, env: NodeJS.ProcessEnv): BackupManifest['records'] {
@@ -132,7 +176,8 @@ async function main(): Promise<void> {
     started = true;
     compose(options.project, ['up', '-d', '--wait', '--wait-timeout', '90', 'postgres', 'seaweedfs'], env);
     await restoreDatabase(options.project, options.backup, env);
-    const keys = await restoreObjects(options.backup, manifest);
+    const dispositions = restoredDocumentDispositions(options.project, env);
+    const keys = await restoreObjects(options.backup, manifest, dispositions);
     compose(options.project, ['exec', '-T', 'postgres', 'pg_isready', '--username=tomecms_test', '--dbname=tomecms_test'], env);
     const counts = restoredCounts(options.project, env);
     if (JSON.stringify(counts) !== JSON.stringify(manifest.records)) throw new Error('Restored database counts do not match the backup.');

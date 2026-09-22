@@ -70,7 +70,8 @@ PDF, with the file's own name as `filename*=UTF-8''…` and an ASCII `filename` 
 few clients that read no other: the name itself when it is plain ASCII, `file.<ext>` when it
 is not. A reader reaches a file through `/media/<id>`, which redirects to
 the object store, so the application never serves the bytes and has no moment to add a header;
-the header travels with the object instead. It is signed into the upload's URL, so the store
+the header travels with the object instead. A backup does not carry it, and restore-check
+rebuilds it from each document's row. It is signed into the upload's URL, so the store
 refuses an upload that changes it or leaves it out.
 
 This was checked against SeaweedFS 4.46, the version the stack pins, on a throwaway container:
