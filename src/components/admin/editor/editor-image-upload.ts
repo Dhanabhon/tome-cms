@@ -58,15 +58,9 @@ export function createImageUpload({ onUpload, validate }: {
   return (file, view, pos) => {
     if (!validate(file)) return;
     const id = {};
-    const reader = new FileReader();
-    reader.onload = () => {
-      const tr = view.state.tr;
-      if (!tr.selection.empty) tr.deleteSelection();
-      view.dispatch(tr.setMeta(imageUploadKey, { add: { id, pos, src: String(reader.result) } }));
-    };
-    reader.readAsDataURL(file);
 
-    onUpload(file).then((src) => {
+    const finish = () => onUpload(file).then((src) => {
+      if (view.isDestroyed) return;
       const at = placeholderAt(view, id);
       // Gone from the document while it uploaded: there is nothing to put the picture in.
       if (at === null) return;
@@ -75,8 +69,20 @@ export function createImageUpload({ onUpload, validate }: {
       view.dispatch(view.state.tr.replaceWith(at, at, image).setMeta(imageUploadKey, { remove: { id } }));
     }, () => {
       // The alert is the uploader's; here the placeholder just leaves.
+      if (view.isDestroyed) return;
       view.dispatch(view.state.tr.setMeta(imageUploadKey, { remove: { id } }));
     });
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (view.isDestroyed) return;
+      // The placeholder goes in first and the upload starts after it. Both at once let a quick
+      // upload answer before there was anything to replace, which lost the picture and left the
+      // placeholder in the document for good.
+      view.dispatch(view.state.tr.setMeta(imageUploadKey, { add: { id, pos, src: String(reader.result) } }));
+      void finish();
+    };
+    reader.readAsDataURL(file);
   };
 }
 
