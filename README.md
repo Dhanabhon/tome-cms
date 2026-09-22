@@ -1,4 +1,9 @@
-# TomeCMS
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/brand/tomecms-logo-reverse.png">
+    <img alt="TomeCMS" src="public/brand/tomecms-logo-color.png" width="360">
+  </picture>
+</h1>
 
 TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It ships a server-rendered blog and a React admin editor, and serves the same published content through a versioned headless REST API.
 
@@ -6,21 +11,40 @@ TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It
 
 This README has two parts. [Running TomeCMS](#running-tomecms) is for installing it and looking after a site. [Developing TomeCMS](#developing-tomecms) is for working on the code.
 
-## What TomeCMS does
+## Key features
+
+### Writing
+
+- An editor with headings, lists, quotes, code, images, tables, links and alignment; its writer decides whether a link opens in a new tab
+- Posts in Thai and English, each language an edition of the same post, with shared categories, drafts, previews, scheduled publishing and SEO fields
+- Pages, and header and footer navigation you configure
+- A file manager backed by S3-compatible object storage, with folders and search
+
+### Publishing
+
+- Server-rendered public pages: a reader downloads JavaScript only for a feature the owner turned on
+- Addresses in the language of the title, Thai included, and permanent redirects from old ones
+- A sitemap and an RSS feed
+- A published-only REST API with an OpenAPI 3.1 document, and an optional headless mode that keeps the admin and the APIs and hides the bundled blog
+
+### Look
+
+- Themes chosen under Appearance, each previewed drawing your own posts: `paper`, and a spare second called `plain`
+- Light and dark for the admin and for readers, who can pick their own unless you turn that off
+- The site's own logo (SVG included), an optional logo for the dark theme, and its icon
+
+### Sign-in and plugins
 
 - A six-step first-run wizard, with an admin address you choose
 - Passkey-only owner sign-in, with one-time recovery codes
-- Posts in Thai and English with shared categories, drafts, previews, scheduled publishing and SEO fields
-- Addresses in the language of the title, Thai included, and permanent redirects from old ones
-- Pages, and header and footer navigation you configure
-- A file manager backed by S3-compatible object storage
-- A writing editor with headings, lists, quotes, code, images, tables, links and alignment
-- Server-rendered public pages: a reader downloads JavaScript only for a feature the owner turned on
-- A published-only REST API with an OpenAPI 3.1 document, plus a sitemap and an RSS feed
-- Themes: the public site is drawn by one of several, chosen under Appearance
-- The site's own logo (SVG included), an optional logo for the dark theme, and its icon, under Settings
-- Plugins: extras that fill hooks the core declares, switched on in the admin
-- An optional headless mode that keeps the admin and the APIs and hides the bundled blog
+- An admin in Thai or English, following the site's language
+- Plugins that fill hooks the core declares, each off until you switch it on: Cloudflare Turnstile on the sign-in form, a sticky banner, an image lightbox, and TypeSafe suggestions while writing
+
+### Running a site
+
+- Docker Compose with PostgreSQL and a bundled SeaweedFS, or external S3-compatible storage
+- Backups that keep the database and the media together, and a check that restores one into throwaway containers and compares it
+- A deploy helper for a single VPS, with minimum and recommended server sizes
 
 # Running TomeCMS
 
