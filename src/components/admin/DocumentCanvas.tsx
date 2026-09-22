@@ -28,7 +28,7 @@ import { promptWithToggleUi } from '../../lib/ui-dialog';
 import Icon from '../Icon';
 import AlignButtons from './AlignButtons';
 import BlockInsertMenu from './BlockInsertMenu';
-import { uploadFn } from './ImageUploader';
+import { createUploadFn } from './ImageUploader';
 import SlashCommands, { createSlashCommand } from './SlashCommands';
 import TableBubble from './TableBubble';
 import type { PostLocale } from '../../types/cms';
@@ -183,6 +183,7 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
   const copy = adminCopy(ownerLocale);
   // Rebuilding the extension list would reset the editor, so it is tied to the copy only.
   const extensions = useMemo(() => buildExtensions(copy), [copy]);
+  const uploadFn = useMemo(() => createUploadFn(copy), [copy]);
 
   return (
     <EditorRoot>

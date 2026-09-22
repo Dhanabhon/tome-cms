@@ -1,4 +1,5 @@
-import { declaredMediaType, isImageType, uploadTimeoutMs, validateImageFile, type MediaKind, type MediaTypeFilter, type SupportedImageType, type SupportedMediaType } from './media';
+import type { AdminCopy } from './admin-i18n';
+import { declaredMediaType, isImageType, MediaFileError, uploadTimeoutMs, validateImageFile, type MediaKind, type MediaTypeFilter, type SupportedImageType, type SupportedMediaType } from './media';
 import type {
   MediaAsset,
   MediaFolder,
@@ -36,6 +37,21 @@ interface UploadReservation {
 export class MediaRequestError extends Error {
   constructor(message: string, readonly references?: MediaReferences, readonly code?: string) {
     super(message);
+  }
+}
+
+/** Why an upload failed, in its owner's language, when its cause is one the admin can name. */
+export function uploadFailureText(error: unknown, copy: AdminCopy): string | undefined {
+  if (error instanceof MediaFileError) return copy.media.refusals[error.refusal];
+  if (!(error instanceof MediaRequestError)) return undefined;
+  switch (error.code) {
+    case 'media_macros': return copy.media.refusals.macros;
+    case 'media_text_encoding': return copy.media.refusals.textEncoding;
+    case 'media_type_mismatch': return copy.media.refusals.typeMismatch;
+    case 'storage_rejected': return copy.media.storageRejected;
+    case 'storage_timeout': return copy.media.storageTimedOut;
+    case 'storage_unreachable': return copy.media.storageUnreachable;
+    default: return undefined;
   }
 }
 
@@ -95,9 +111,9 @@ function uploadToStorage(
     };
     request.onload = () => request.status >= 200 && request.status < 300
       ? resolve()
-      : reject(new Error('Storage rejected the upload. Try again.'));
-    request.onerror = () => reject(new Error('The upload could not reach storage. Try again.'));
-    request.ontimeout = () => reject(new Error('The upload timed out. Try again.'));
+      : reject(new MediaRequestError('Storage rejected the upload. Try again.', undefined, 'storage_rejected'));
+    request.onerror = () => reject(new MediaRequestError('The upload could not reach storage. Try again.', undefined, 'storage_unreachable'));
+    request.ontimeout = () => reject(new MediaRequestError('The upload timed out. Try again.', undefined, 'storage_timeout'));
     request.send(file);
   });
 }
