@@ -78,6 +78,9 @@ const buildExtensions = (copy: AdminCopy) => [
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
     codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-code p-5 font-mono text-sm text-ondark' } },
     link: false,
+    // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
+    // one. A post that ends in a quote or a table would store a paragraph it never had.
+    trailingNode: false,
     underline: false,
   }),
   // includeChildren is what puts the hint inside an empty heading or list item, not only in an
@@ -204,10 +207,15 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
 
   return (
     <EditorContext.Provider value={{ editor }}>
-      <EditorContent className="editor-canvas editor-content admin-editor-content" editor={editor} />
-      <FormattingBubble copy={copy} />
-      <TableBubble copy={copy} />
-      <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
+      {/* One box around the editor and everything that points at it: the + button places
+          itself against this element, which is the only positioned one, and its padding is
+          the gutter that button sits in. */}
+      <div className="editor-canvas editor-content admin-editor-content">
+        <EditorContent editor={editor} />
+        <FormattingBubble copy={copy} />
+        <TableBubble copy={copy} />
+        <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
+      </div>
     </EditorContext.Provider>
   );
 }
