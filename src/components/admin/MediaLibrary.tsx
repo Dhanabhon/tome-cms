@@ -8,6 +8,7 @@ import {
   listMediaFolders,
   renameMediaFolder,
   saveMediaDraft,
+  uploadFailureText,
   uploadFile,
   MediaRequestError,
   type MediaDraft,
@@ -19,7 +20,6 @@ import {
   formatBytes,
   formatLabel,
   isImageAsset,
-  MediaFileError,
   type MediaKind,
   type MediaTypeFilter,
 } from '../../lib/media';
@@ -40,21 +40,14 @@ type ReferencingPost = { id: string; title: string };
 type ReferencingPage = { id: string; title: string };
 type FailedRequest = { append: boolean; filter: MediaTypeFilter | null; page: number; selection: CategorySelection; term: string };
 
-/** The server's refusal codes, by the copy that says them in the owner's language. */
-const REFUSAL_COPY: Partial<Record<string, 'macros' | 'textEncoding' | 'typeMismatch'>> = {
-  media_macros: 'macros',
-  media_text_encoding: 'textEncoding',
-  media_type_mismatch: 'typeMismatch',
-};
 /** The library page filters by every kind; a file picker by documents alone. */
 const LIBRARY_FILTERS: ReadonlyArray<MediaTypeFilter | null> = [null, 'image', ...DOCUMENT_GROUPS];
 const FILE_FILTERS: ReadonlyArray<MediaTypeFilter | null> = ['file', ...DOCUMENT_GROUPS];
 const FOLDER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function errorMessage(error: unknown, copy: AdminCopy) {
-  if (error instanceof MediaFileError) return copy.media.refusals[error.refusal];
-  const refusal = error instanceof MediaRequestError && error.code ? REFUSAL_COPY[error.code] : undefined;
-  if (refusal) return copy.media.refusals[refusal];
+  const known = uploadFailureText(error, copy);
+  if (known) return known;
   if (error instanceof Error) return error.message;
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
   return copy.media.unavailable;
