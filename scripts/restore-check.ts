@@ -99,7 +99,7 @@ async function restoreDatabase(project: string, backup: string, env: NodeJS.Proc
   }
 }
 
-async function restoreObjects(backup: string, manifest: BackupManifest, dispositions: Map<string, string>): Promise<string[]> {
+export async function restoreObjects(backup: string, manifest: BackupManifest, dispositions: Map<string, string>): Promise<string[]> {
   const storage = new S3Client({
     endpoint: 'http://127.0.0.1:59000',
     region: 'us-east-1',
