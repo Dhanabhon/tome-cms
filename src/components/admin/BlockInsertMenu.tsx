@@ -1,4 +1,4 @@
-import { useEditor } from 'novel';
+import { useCurrentEditor, useEditorState } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
@@ -18,7 +18,7 @@ const MARGIN = 8;
 const LEAST_ROOM = 128;
 
 export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
-  const { editor } = useEditor();
+  const { editor } = useCurrentEditor();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -127,6 +127,8 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
     return () => dom.removeEventListener(PICK_FILE_EVENT, pickFile);
   }, [editor]);
 
+  const inTable = useEditorState({ editor, selector: ({ editor: instance }) => instance?.isActive('table') ?? false });
+
   if (!editor) return null;
 
   const closeMenu = () => {
@@ -143,7 +145,7 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
     { icon: 'quote', label: copy.blocks.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
     { icon: 'code', label: copy.blocks.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() },
     // Not inside a table: a table in a cell is one nobody meant to make.
-    ...(editor.isActive('table') ? [] : [
+    ...(inTable ? [] : [
       { icon: 'table', label: copy.blocks.table, run: () => editor.chain().focus().insertTable(NEW_TABLE).run() },
     ] as const),
   ] as const;
