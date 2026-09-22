@@ -136,6 +136,7 @@ export type MediaRefusal = 'documentTooLarge' | 'empty' | 'imageTooLarge' | 'uns
 export class MediaFileError extends Error {
   constructor(readonly refusal: MediaRefusal) {
     super(refusal);
+    this.name = 'MediaFileError';
   }
 }
 

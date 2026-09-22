@@ -27,11 +27,15 @@ export function createObjectKey(ownerId: string, mimeType: SupportedMediaType, n
   return objectKey(ownerId, extension, now);
 }
 
+/** What a site's logos and its icon may be stored as; backup-manifest.test.ts reads it too. */
+export const BRAND_EXTENSIONS = ['jpg', 'png', 'svg', 'webp'] as const;
+export type BrandExtension = (typeof BRAND_EXTENSIONS)[number];
+
 /**
  * A key for one of the site's logos or its icon: files the library does not hold, in the
  * grammar that backup, restore and reset accept. SVG is in that grammar for these alone --
  * the library's own types, and the checks on its tables, do not include it.
  */
-export function createBrandObjectKey(ownerId: string, extension: 'jpg' | 'png' | 'svg' | 'webp', now = new Date()): string {
+export function createBrandObjectKey(ownerId: string, extension: BrandExtension, now = new Date()): string {
   return objectKey(ownerId, extension, now);
 }

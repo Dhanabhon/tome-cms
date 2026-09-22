@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ACCEPTED_MEDIA_TYPES, MAX_DOCUMENT_FILE_BYTES } from '../../src/lib/media';
-import { createBrandObjectKey, createObjectKey } from '../../src/server/media/keys';
+import { BRAND_EXTENSIONS, createBrandObjectKey, createObjectKey } from '../../src/server/media/keys';
 import { parseBackupManifest } from '../../src/update/backup';
 
 const OWNER = '123e4567-e89b-42d3-a456-426614174000';
 const DATE = new Date('2026-09-22T00:00:00Z');
 const SHA256 = 'a'.repeat(64);
-const BRAND_EXTENSIONS = ['jpg', 'png', 'svg', 'webp'] as const;
 
 function objectEntry(key: string, sizeBytes: number) {
   return { key, contentType: 'application/octet-stream', sizeBytes, sha256: SHA256 };

@@ -2,6 +2,7 @@ import sharp from 'sharp';
 
 import { HttpError } from '../http/errors';
 import { detectImageType } from './image';
+import type { BrandExtension } from './keys';
 import { sanitizeSvg } from './svg';
 
 export type BrandKind = 'logo' | 'logo-dark' | 'icon';
@@ -22,7 +23,7 @@ const ACCEPTED: Record<BrandKind, readonly BrandMime[]> = {
   'logo-dark': ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'],
 };
 
-export interface PreparedFile { body: Buffer; contentType: BrandMime; extension: 'jpg' | 'png' | 'svg' | 'webp' }
+export interface PreparedFile { body: Buffer; contentType: BrandMime; extension: BrandExtension }
 export type PreparedBrand =
   | { kind: 'logo' | 'logo-dark'; source: PreparedFile; mime: BrandMime; width: number; height: number }
   | { kind: 'icon'; svg: PreparedFile | null; png32: PreparedFile; png180: PreparedFile };
