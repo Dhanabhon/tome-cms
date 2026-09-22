@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import type { SupportedDocumentType } from '../../src/lib/media';
 import { contentDisposition } from '../../src/server/media/disposition';
-import { centralDirectoryNames, documentRefusal, findCentralDirectory, readDocument } from '../../src/server/media/document';
+import { centralDirectoryNames, documentRefusal, findCentralDirectory, MAX_CENTRAL_DIRECTORY_BYTES, readDocument } from '../../src/server/media/document';
 import { office, zip } from '../helpers/zip';
 
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' as const;
@@ -73,6 +73,25 @@ test('an Office file is its type and carries no macro project, and only its end 
   assert.equal(refusal, null);
   assert.deepEqual(ranges[0], [large.length - 65_557, large.length - 1], 'the end, and only the end');
   assert.ok(ranges.every(([start, end]) => end - start < 70_000), 'never the whole file');
+});
+
+test('a directory said to be over a megabyte is refused before a byte of it is read', async () => {
+  // Large enough for such a directory to lie before the end record, as the record then says it does.
+  const docx = office('word/document.xml', [{ data: Buffer.alloc(MAX_CENTRAL_DIRECTORY_BYTES + 64, 1), name: 'word/media/photo.bin' }]);
+  const record = docx.length - 22;
+  assert.equal(docx.readUInt32LE(record), 0x06054b50, 'the end record, with no comment');
+  const oversized = Buffer.from(docx);
+  oversized.writeUInt32LE(MAX_CENTRAL_DIRECTORY_BYTES + 1, record + 12);
+  oversized.writeUInt32LE(0, record + 16);
+  const read = await readDocument(pieces(oversized, 65_536), oversized.length, false);
+  assert.ok(read);
+  const ranges: Array<[number, number]> = [];
+  const refusal = await documentRefusal(DOCX, read, async (start, end) => {
+    ranges.push([start, end]);
+    return oversized.subarray(start, end + 1);
+  });
+  assert.equal(refusal, 'media_type_mismatch');
+  assert.equal(ranges.length, 1, 'the end is fetched, never the directory it names');
 });
 
 test('a ZIP is one to its end, and an empty one is still one', async () => {
