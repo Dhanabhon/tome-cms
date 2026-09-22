@@ -62,7 +62,7 @@ test('the block menus have the icons they draw', () => {
   const names = ['text', 'heading1', 'heading2', 'heading3', 'list', 'quote', 'code', 'media', 'table', 'plus', 'minus', 'trash'] as const;
   for (const name of names) assert.ok(ICONS[name], `no icon for ${name}`);
 
-  for (const path of ['src/components/admin/BlockInsertMenu.tsx', 'src/components/admin/SlashCommands.tsx']) {
+  for (const path of ['src/components/admin/BlockInsertMenu.tsx', 'src/components/admin/editor/slash-items.tsx']) {
     const source = read(path);
     assert.doesNotMatch(source, /aria-hidden="true">(H[123]|•|“|\{'<\/>'\})/, `${path} still types a glyph`);
   }
