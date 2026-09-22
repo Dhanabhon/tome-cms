@@ -20,7 +20,7 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
   const { createPost } = await import('../../src/server/content/posts');
   const { HttpError } = await import('../../src/server/http/errors');
   const { contentDisposition } = await import('../../src/server/media/disposition');
-  const { finalizeUpload, listMedia, mediaListInputSchema, reserveUpload, reserveUploadSchema } = await import('../../src/server/media/service');
+  const { finalizeUpload, listMedia, mediaListInputSchema, reserveUpload, reserveUploadSchema, updateMedia } = await import('../../src/server/media/service');
   const { s3 } = await import('../../src/server/media/storage');
   context.after(closeDatabase);
 
@@ -30,12 +30,13 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
     id: ownerId, name: 'Files Owner', email: 'files@example.invalid', emailVerified: true, image: null, role: 'owner',
   }).execute();
 
-  const objects = new Map<string, { body: Buffer; disposition?: string; mimeType: string }>();
+  // An object is replaced -- given a new ETag -- after the step `replaceAfter` names, as a second PUT would.
+  const objects = new Map<string, { body: Buffer; disposition?: string; etag: string; mimeType: string; replaceAfter?: 'get' | 'head' }>();
   const deleted = new Set<string>();
   const transport = s3 as unknown as { send(command: object): Promise<object> };
   const originalSend = transport.send;
   transport.send = async (command) => {
-    const input = (command as { input?: { Key?: string; Range?: string } }).input ?? {};
+    const input = (command as { input?: { IfMatch?: string; Key?: string; Range?: string } }).input ?? {};
     const key = input.Key ?? '';
     if (command instanceof DeleteObjectCommand) {
       objects.delete(key);
@@ -45,10 +46,16 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
     const object = objects.get(key);
     if (!object) throw Object.assign(new Error('missing'), { name: 'NoSuchKey', $metadata: { httpStatusCode: 404 } });
     if (command instanceof HeadObjectCommand) {
-      return { ChecksumSHA256: sha(object.body), ContentDisposition: object.disposition, ContentLength: object.body.length, ContentType: object.mimeType };
+      const head = { ChecksumSHA256: sha(object.body), ContentDisposition: object.disposition, ContentLength: object.body.length, ContentType: object.mimeType, ETag: object.etag };
+      if (object.replaceAfter === 'head') object.etag = '"replaced"';
+      return head;
     }
     if (command instanceof GetObjectCommand) {
+      if (input.IfMatch !== undefined && input.IfMatch !== object.etag) {
+        throw Object.assign(new Error('changed'), { name: 'PreconditionFailed', $metadata: { httpStatusCode: 412 } });
+      }
       const range = /^bytes=(\d+)-(\d+)$/.exec(input.Range ?? '');
+      if (!range && object.replaceAfter === 'get') object.etag = '"replaced"';
       const body = range ? object.body.subarray(Number(range[1]), Number(range[2]) + 1) : object.body;
       return { Body: Readable.from([body.subarray(0, 5), body.subarray(5)]) };
     }
@@ -57,14 +64,14 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
   context.after(() => { transport.send = originalSend; });
 
   /** Reserves a file and stores what the browser would put -- or `stored` in its place. */
-  const put = async (originalName: string, mimeType: string, body: Buffer, stored: { disposition?: string } = {}) => {
+  const put = async (originalName: string, mimeType: string, body: Buffer, stored: { disposition?: string; replaceAfter?: 'get' | 'head' } = {}) => {
     const reservation = await reserveUpload(ownerId, {
       originalName, mimeType: mimeType as SupportedMediaType, sizeBytes: body.length, checksumSha256: sha(body),
       folderId: null, altText: 'Only an image keeps this',
     });
     const { object_key: key } = await db.selectFrom('media_upload_reservations').select('object_key')
       .where('id', '=', reservation.id).executeTakeFirstOrThrow();
-    objects.set(key, { body, disposition: stored.disposition ?? reservation.headers['content-disposition'], mimeType });
+    objects.set(key, { body, disposition: stored.disposition ?? reservation.headers['content-disposition'], etag: `"${sha(body)}"`, mimeType, replaceAfter: stored.replaceAfter });
     return { key, reservation };
   };
   const refusedAs = (code: string) => (error: unknown) => error instanceof HttpError && error.status === 400 && error.details?.code === code;
@@ -80,12 +87,21 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
     { alt: guideItem.alt_text, height: guideItem.height, type: guideItem.mime_type, width: guideItem.width },
     { alt: null, height: null, type: 'application/pdf', width: null },
   );
+  // A document has no alternative text: asking for some is the request's mistake, not a server error.
+  await assert.rejects(updateMedia(ownerId, guideItem.id, { altText: 'A guide', folderId: null }), badRequest);
+  assert.equal((await updateMedia(ownerId, guideItem.id, { altText: '', folderId: null })).alt_text, null);
 
   // An Office file is judged by its directory; a macro project is refused, and nothing is kept of it.
   const plan = await put('plan.docx', DOCX, office('word/document.xml'));
   assert.equal((await finalizeUpload(ownerId, plan.reservation.id)).mime_type, DOCX);
   const macro = await put('macro.docx', DOCX, office('word/document.xml', [{ data: 'x', name: 'word/vbaProject.bin' }]));
   await assert.rejects(finalizeUpload(ownerId, macro.reservation.id), refusedAs('media_macros'));
+  // A document replaced while it is checked is not judged by two files: every read is pinned to
+  // the object the head described, and a changed one is refused rather than judged.
+  for (const replaceAfter of ['head', 'get'] as const) {
+    const changing = await put(`changing-${replaceAfter}.docx`, DOCX, office('word/document.xml'), { replaceAfter });
+    await assert.rejects(finalizeUpload(ownerId, changing.reservation.id), (error: unknown) => error instanceof HttpError && error.status === 409, replaceAfter);
+  }
   assert.ok(deleted.has(macro.key), 'its object is deleted');
   assert.equal((await db.selectFrom('media_upload_reservations').select('state')
     .where('id', '=', macro.reservation.id).executeTakeFirstOrThrow()).state, 'expired');
@@ -116,6 +132,8 @@ test('a document is reserved with how it is handed out, judged by its bytes, and
   // The list filters by type, and an image is still an image.
   const png = await sharp({ create: { width: 2, height: 1, channels: 4, background: '#2a9d8f' } }).png().toBuffer();
   const image = await finalizeUpload(ownerId, (await put('photo.png', 'image/png', png)).reservation.id);
+  // An image is handed out as images always were: one stored with a disposition is not the one reserved.
+  await assert.rejects(finalizeUpload(ownerId, (await put('framed.png', 'image/png', png, { disposition: 'attachment; filename="framed.png"' })).reservation.id), badRequest);
   assert.deepEqual({ height: image.height, width: image.width }, { height: 1, width: 2 });
   const listed = async (type?: string) => (await listMedia(ownerId, mediaListInputSchema.parse({ page: 1, search: '', type })))
     .items.map((entry) => entry.original_name).sort();
