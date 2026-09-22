@@ -60,7 +60,10 @@ Object keys keep the library's grammar, `owners/<owner>/<yyyy>/<mm>/<uuid>.<ext>
 extensions join it. Backup, restore-check, media-cleanup and reset all read keys through
 `isTomeObjectKey` (`src/server/media/keys.ts`), and the reset's inventory already reads every key
 on `media_items` and `media_upload_reservations`, so a document is accounted for with nothing
-else added.
+else added. Backup and restore-check also parse the manifest with `parseBackupManifest`
+(`src/update/backup.ts`), which keeps its own copy of the grammar and a per-object size cap
+because the updater's build is self-contained; the copy now accepts the seven extensions and
+25 MB, and `tests/unit/backup-manifest.test.ts` holds the two together.
 
 **Each document is stored with its `Content-Disposition`.** It is `attachment`, or `inline` for a
 PDF, with the file's own name as `filename*=UTF-8''…` and an ASCII `filename` beside it for the

@@ -1,9 +1,14 @@
 const sha256Pattern = /^[0-9a-f]{64}$/;
 const createdAtPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
-const objectKeyPattern = /^owners\/([0-9a-f-]{36})\/(\d{4})\/(0[1-9]|1[0-2])\/([0-9a-f-]{36})\.(avif|gif|jpg|png|webp)$/i;
+/**
+ * Its own copy of the grammar `isTomeObjectKey` accepts (src/server/media/keys.ts): the updater's
+ * build is self-contained, so it must accept every key `isTomeObjectKey` accepts, and
+ * tests/unit/backup-manifest.test.ts holds the two together.
+ */
+const objectKeyPattern = /^owners\/([0-9a-f-]{36})\/(\d{4})\/(0[1-9]|1[0-2])\/([0-9a-f-]{36})\.(avif|csv|docx|gif|jpg|pdf|png|pptx|svg|txt|webp|xlsx|zip)$/i;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const maximumObjects = 100_000;
-const maximumObjectBytes = 8 * 1024 * 1024;
+const maximumObjectBytes = 25 * 1024 * 1024;
 
 export interface BackupRecordCounts {
   siteSettings: number;
