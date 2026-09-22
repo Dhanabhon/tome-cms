@@ -297,7 +297,7 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
 
       const dimensions = isImageType(reservation.mime_type)
         ? await verifiedImage(reservation.object_key, reservation.mime_type, expectedSize, reservation.expected_checksum_sha256)
-        : await verifiedDocument(reservation.object_key, reservation.mime_type, expectedSize, reservation.expected_checksum_sha256);
+        : await verifiedDocument(reservation.object_key, reservation.mime_type, expectedSize, reservation.expected_checksum_sha256, head.ETag);
       const item = await trx.insertInto('media_items').values({
         id: reservation.id,
         owner_id: ownerId,
@@ -347,28 +347,36 @@ async function verifiedImage(objectKey: string, type: SupportedImageType, size: 
   }
 }
 
-/** A document, read once as it streams and again only at a ZIP's end: never held whole. */
-async function verifiedDocument(objectKey: string, type: SupportedDocumentType, size: number, checksum: string): Promise<null> {
+/**
+ * A document, read once as it streams and again only at a ZIP's end: never held whole. Both reads
+ * are pinned to the object the head described, so one replaced between them is not judged by
+ * the bytes of two different files.
+ */
+async function verifiedDocument(objectKey: string, type: SupportedDocumentType, size: number, checksum: string, etag: string | undefined): Promise<null> {
   let refusal: DocumentRefusal | null;
   try {
-    const object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: objectKey, ChecksumMode: 'ENABLED' }));
+    const object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: objectKey, ChecksumMode: 'ENABLED', IfMatch: etag }));
     if (!object.Body || !(Symbol.asyncIterator in object.Body)) throw new Error('Object body is unavailable.');
     const read = await readDocument(object.Body as AsyncIterable<Uint8Array>, size, isTextDocument(type));
     if (!read) throw new InvalidUploadError('The uploaded object is larger than declared.', objectKey);
     if (read.size !== size || read.checksum !== checksum) {
       throw new InvalidUploadError('The uploaded object checksum or size is invalid.', objectKey);
     }
-    refusal = await documentRefusal(type, read, (start, end) => readRange(objectKey, start, end));
+    refusal = await documentRefusal(type, read, (start, end) => readRange(objectKey, start, end, etag));
   } catch (error) {
     if (error instanceof InvalidUploadError) throw error;
+    if (storageErrorCode(error) === 'PreconditionFailed') {
+      throw new InvalidUploadError('The uploaded object changed while it was checked. Upload the file again.', objectKey, 409);
+    }
+    console.error('Document verification failed:', storageErrorCode(error));
     throw new HttpError(503, 'Storage verification is temporarily unavailable. Try finalizing again.');
   }
   if (refusal) throw new InvalidUploadError(REFUSALS[refusal], objectKey, 400, refusal);
   return null;
 }
 
-async function readRange(objectKey: string, start: number, end: number): Promise<Buffer> {
-  const object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: objectKey, Range: `bytes=${start}-${end}` }));
+async function readRange(objectKey: string, start: number, end: number, etag: string | undefined): Promise<Buffer> {
+  const object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: objectKey, Range: `bytes=${start}-${end}`, IfMatch: etag }));
   return readObjectBody(object.Body, end - start + 1, objectKey);
 }
 
@@ -473,7 +481,14 @@ export async function updateMedia(ownerId: string, id: string, input: MediaMutat
     alt_text: input.altText || null,
     folder_id: input.folderId,
   }).where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'ready')
-    .returningAll().executeTakeFirst();
+    .returningAll().executeTakeFirst()
+    .catch((error: unknown) => {
+      // The table keeps alternative text for images alone, so a document sent some is a bad request.
+      if (typeof error === 'object' && error !== null && 'constraint' in error && error.constraint === 'media_items_alt_text_kind_check') {
+        throw new HttpError(400, 'A document has no alternative text.');
+      }
+      throw error;
+    });
   if (!row) throw new HttpError(404, 'Media not found.');
   return readyMedia(row);
 }
