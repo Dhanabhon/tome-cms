@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 
 import { office } from '../helpers/zip';
@@ -14,8 +15,10 @@ test('the store keeps how a document is handed out, and refuses an upload that c
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test');
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
+  const { HttpError } = await import('../../src/server/http/errors');
   const { contentDisposition } = await import('../../src/server/media/disposition');
   const { deleteMedia, finalizeUpload, reserveUpload } = await import('../../src/server/media/service');
+  const { s3, s3Bucket } = await import('../../src/server/media/storage');
   const { resolveMediaUrl } = await import('../../src/server/media/url');
   context.after(closeDatabase);
 
@@ -57,6 +60,25 @@ test('the store keeps how a document is handed out, and refuses an upload that c
   assert.equal(guide.download.headers.get('content-type'), 'application/pdf');
   const plan = await upload('แผนงาน.docx', DOCX, office('word/document.xml'));
   assert.equal(plan.download.headers.get('content-disposition'), contentDisposition('แผนงาน.docx', DOCX));
+
+  // A macro-carrying document is refused against the real store, and nothing of it is left there.
+  const macroBody = office('word/document.xml', [{ data: 'x', name: 'word/vbaProject.bin' }]);
+  const macroReservation = await reserveUpload(ownerId, {
+    originalName: 'macro.docx', mimeType: DOCX, sizeBytes: macroBody.length, checksumSha256: sha(macroBody), folderId: null, altText: '',
+  });
+  const { object_key: macroKey } = await db.selectFrom('media_upload_reservations').select('object_key')
+    .where('id', '=', macroReservation.id).executeTakeFirstOrThrow();
+  assert.equal((await fetch(macroReservation.uploadUrl, {
+    method: 'PUT', headers: macroReservation.headers as Record<string, string>, body: new Uint8Array(macroBody),
+  })).status, 200);
+  await assert.rejects(
+    finalizeUpload(ownerId, macroReservation.id),
+    (error: unknown) => error instanceof HttpError && error.status === 400 && error.details?.code === 'media_macros',
+  );
+  await assert.rejects(
+    s3.send(new HeadObjectCommand({ Bucket: s3Bucket, Key: macroKey })),
+    (error: unknown) => (error as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata?.httpStatusCode === 404,
+  );
 
   // An image signs no Content-Disposition at all; finalize's HEAD check now requires the store to
   // agree there is none, so this has to run against the real store, not a mock.
