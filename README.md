@@ -271,7 +271,7 @@ npm run restore:check -- \
   --project tomecms-restore-check-20260913
 ```
 
-The check validates the checksums, restores PostgreSQL and every object, compares the record and object inventories, and always removes the disposable containers and volumes. It never targets the normal `tomecms` project. Keep local ports `55432` and `59000` free while it runs.
+The check validates the checksums, restores PostgreSQL and every object, compares the record and object inventories, and always removes the disposable containers and volumes. It also puts back each document's `Content-Disposition` (the name it downloads under, and whether a PDF opens in the browser) from its row in `media_items`, because that header lives on the object in the store and the backup does not carry it. A restore done by hand has to set it the same way, with `contentDisposition` in `src/server/media/disposition.ts`. It never targets the normal `tomecms` project. Keep local ports `55432` and `59000` free while it runs.
 
 ## Managed installation from 1.0.0
 
