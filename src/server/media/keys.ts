@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { imageExtension, type SupportedImageType } from '../../lib/media';
+import { mediaExtension, type SupportedMediaType } from '../../lib/media';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const OBJECT_KEY = /^owners\/([0-9a-f-]{36})\/(\d{4})\/(0[1-9]|1[0-2])\/([0-9a-f-]{36})\.(avif|gif|jpg|png|svg|webp)$/i;
+const OBJECT_KEY = /^owners\/([0-9a-f-]{36})\/(\d{4})\/(0[1-9]|1[0-2])\/([0-9a-f-]{36})\.(avif|csv|docx|gif|jpg|pdf|png|pptx|svg|txt|webp|xlsx|zip)$/i;
 
 export function isUuid(value: string): boolean {
   return UUID.test(value);
@@ -20,9 +20,9 @@ function objectKey(ownerId: string, extension: string, now: Date): string {
   return `owners/${ownerId.toLowerCase()}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}.${extension}`;
 }
 
-export function createObjectKey(ownerId: string, mimeType: SupportedImageType, now = new Date()): string {
+export function createObjectKey(ownerId: string, mimeType: SupportedMediaType, now = new Date()): string {
   if (!isUuid(ownerId)) throw new Error('Media owner ID must be a UUID.');
-  const extension = imageExtension(mimeType);
+  const extension = mediaExtension(mimeType);
   if (!extension) throw new Error('Unsupported media type.');
   return objectKey(ownerId, extension, now);
 }
