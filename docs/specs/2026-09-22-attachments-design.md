@@ -142,7 +142,10 @@ The library's three steps stay: reserve, PUT to the store from the browser, fina
 - **Without that style it is a paragraph with a link**, which is what a theme or a feed reader that
   knows nothing of cards shows.
 - **The sanitizer keeps what the card is made of** -- `p.file-card`, the two `span`s and their
-  classes, and `type` on a link -- and nothing more than before otherwise.
+  classes, and `type` on a link -- and now keeps a plain `span` anywhere too
+  (`<span class="other">` becomes `<span>`; before, the tag was dropped and its text kept).
+  That is harmless: stored HTML is rendered on the server from a fixed schema, and a plain span
+  carries no attributes.
 - **A file an article or a page uses cannot be deleted from the library.** The refusal names where
   it is used: today's rule, which finds `attrs.mediaId` anywhere in a document. Its words say
   "file" where they said "image".
