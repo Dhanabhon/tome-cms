@@ -4,12 +4,16 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.8.0 - 2026-09-22
+
 ### Added
 
 - The media library keeps documents beside images: PDF, Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`), CSV, text and ZIP, up to 25 MB each. Each is judged by its bytes as it arrives, a legacy or macro-enabled Office file is refused, and the library filters by type.
 - A file goes into a post or a page from **+** or **/** as a card with its name, type and size. A reader downloads it under its own name, and a PDF opens in the browser.
 - A menu item with a custom URL can open in a new tab. Home and the site's own pages always open in place.
-- The README shows the system's architecture, and [`docs/tome-cms-overview.en.html`](docs/tome-cms-overview.en.html) is an English edition of the interactive overview.
+- The README shows the system's architecture, and [`docs/tome-cms-overview.en.html`](docs/tome-cms-overview.en.html) is an English edition of the interactive overview. The Thai one names Jev (TypeSafe AI) too.
 
 ### Changed
 
@@ -21,19 +25,26 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 - A backup failed for any document, for any object over 8 MB and, already in 0.7.0, for an SVG site logo. A managed update runs a backup first, so it would have been blocked as well.
 - `npm run restore:check` puts back how each document is handed out, which the backup does not carry, and checks it.
 - The **+** menu in the editor opened across its own button.
+- An article's images kept neither `loading="lazy"` nor `decoding="async"`: the sanitizer removed what it had added.
+- A file the library's chosen type hid seemed not to have landed when it was uploaded. The view now switches to All, where it is.
+- A failed upload, and an image dropped or pasted into the editor, said why in English whatever the admin's language.
 
 ### Upgrading
 
 - Two migrations: `021_media_documents` and `022_navigation_new_tab`. Run `npm run db:migrate`.
 - An external S3 store whose CORS rule lists headers must also allow `content-disposition` for the site's origin, or document uploads fail at the preflight while images keep working.
 - `021_media_documents` cannot be undone while the library holds a document.
+- Posts and pages keep the HTML they were saved with; their images gain the two lazy-loading attributes when each is next saved.
 
 ### For theme authors and headless sites
 
 - `contentHtml` can hold a `p.file-card` paragraph, and `contentJson` an `attachment` node with `href`, `mediaId`, `mimeType`, `name` and `size`. A client that switches on node types has to render it or skip it.
 - `/media/<id>` can now redirect to a document: a PDF opens in the browser, and anything else downloads. The public `media` list stays images only.
 - Every navigation item carries `newTab`. A theme that honours it adds `target="_blank"` and `rel="noopener noreferrer"`.
+- An article's images carry `decoding="async"` and `loading="lazy"`. A site that sanitizes `contentHtml` again has to allow them, the card's classes and `type` on a link.
 - A file in the library is public at its address whether an article uses it or not, as images already were.
+
+Full notes: [docs/releases/0.8.0.md](docs/releases/0.8.0.md)
 
 ## 0.7.0 - 2026-09-22
 
