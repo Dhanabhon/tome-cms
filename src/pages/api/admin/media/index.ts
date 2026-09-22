@@ -24,6 +24,7 @@ export const GET: APIRoute = async ({ request, url }) => {
       folderId: requestedFolder === 'unfiled' ? null : requestedFolder || undefined,
       page: url.searchParams.get('page') || undefined,
       search: url.searchParams.get('search') ?? '',
+      type: url.searchParams.get('type') || undefined,
     });
     return Response.json(await listMedia(current.user.id, input), {
       headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId },

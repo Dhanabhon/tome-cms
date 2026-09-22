@@ -9,7 +9,7 @@ import type {
 } from '../../types/cms';
 import { db } from '../db/client';
 import { cursorQueryHash, decodeCursor, encodeCursor, type CursorQuery } from '../http/cursor';
-import { listReadyMediaByIds, type ReadyMedia } from '../media/service';
+import { listReadyImagesByIds, type ReadyImage } from '../media/service';
 import { listPublishedCategoriesForOwner } from './categories';
 import { editorMediaIds } from './editor';
 import { pageFromRow } from './pages';
@@ -20,15 +20,15 @@ import { getSiteSettings, type SiteSettings } from './settings';
 import { live } from './live';
 export interface PublishedPost extends Post {
   categories: PostCategoryBadge[];
-  coverImage: ReadyMedia | null;
+  coverImage: ReadyImage | null;
   lastModified: Date;
-  media: ReadyMedia[];
+  media: ReadyImage[];
   translations: PostAlternate[];
 }
 
 export interface PublishedPage extends Page {
   lastModified: Date;
-  media: ReadyMedia[];
+  media: ReadyImage[];
   translations: PostAlternate[];
 }
 
@@ -50,7 +50,7 @@ export interface PublishedPageResult<T> {
 }
 
 export interface PublishedSiteResult {
-  avatar: ReadyMedia | null;
+  avatar: ReadyImage | null;
   brand: SiteBrand;
   lastModified: Date;
   settings: SiteSettings;
@@ -96,7 +96,7 @@ export async function enrichPosts(ownerId: string, posts: Post[]): Promise<Publi
       .where('translation_group_id', 'in', groupIds)
       .where(live('posts'))
       .orderBy('translation_group_id').orderBy('locale').execute(),
-    listReadyMediaByIds(ownerId, mediaIds),
+    listReadyImagesByIds(ownerId, mediaIds),
   ]);
 
   const categories = new Map<string, PostCategoryBadge[]>();
@@ -153,7 +153,7 @@ export async function enrichPages(ownerId: string, pages: Page[]): Promise<Publi
       .where('translation_group_id', 'in', groupIds)
       .where(live('pages'))
       .orderBy('translation_group_id').orderBy('locale').execute(),
-    listReadyMediaByIds(ownerId, mediaIds),
+    listReadyImagesByIds(ownerId, mediaIds),
   ]);
   const translations = new Map<string, PostAlternate[]>();
   const translationDates = new Map<string, Date>();
@@ -299,7 +299,7 @@ export async function getPublishedSite(): Promise<PublishedSiteResult | null> {
   const settings = await getSiteSettings();
   if (!settings) return null;
   const avatar = settings.author_avatar_media_id
-    ? (await listReadyMediaByIds(settings.owner_id, [settings.author_avatar_media_id]))[0] ?? null
+    ? (await listReadyImagesByIds(settings.owner_id, [settings.author_avatar_media_id]))[0] ?? null
     : null;
   return { avatar, brand: brandOf(settings), lastModified: newer(settings.updated_at, avatar?.updated_at), settings };
 }

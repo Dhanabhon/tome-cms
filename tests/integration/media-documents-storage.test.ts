@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
+import test from 'node:test';
+
+import { office } from '../helpers/zip';
+
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' as const;
+const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('base64');
+
+test('the store keeps how a document is handed out, and refuses an upload that changes it', async (context) => {
+  assert.equal(process.env.NODE_ENV, 'test');
+  assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test');
+  const { db, closeDatabase } = await import('../../src/server/db/client');
+  const { migrateToLatest } = await import('../../src/server/db/migrator');
+  const { contentDisposition } = await import('../../src/server/media/disposition');
+  const { deleteMedia, finalizeUpload, reserveUpload } = await import('../../src/server/media/service');
+  const { resolveMediaUrl } = await import('../../src/server/media/url');
+  context.after(closeDatabase);
+
+  await migrateToLatest();
+  const ownerId = randomUUID();
+  await db.insertInto('user').values({
+    id: ownerId, name: 'Owner', email: 'stored-files@example.invalid', emailVerified: true, image: null, role: 'owner',
+  }).execute();
+
+  const upload = async (originalName: string, mimeType: 'application/pdf' | typeof DOCX, body: Buffer) => {
+    const bytes = new Uint8Array(body);
+    const reservation = await reserveUpload(ownerId, {
+      originalName, mimeType, sizeBytes: body.length, checksumSha256: sha(body), folderId: null, altText: '',
+    });
+    const headers = reservation.headers as Record<string, string>;
+    // The browser asks first, from the site's origin, and may send the header.
+    const preflight = await fetch(reservation.uploadUrl, {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:4321', 'Access-Control-Request-Method': 'PUT', 'Access-Control-Request-Headers': Object.keys(headers).join(',') },
+    });
+    assert.equal(preflight.status, 200);
+    assert.match(preflight.headers.get('access-control-allow-headers') ?? '', /content-disposition/i);
+    // A changed header, or none, breaks the signature, and the store refuses the upload.
+    const changed = { ...headers, 'content-disposition': 'attachment; filename="page.html"' };
+    const missing = Object.fromEntries(Object.entries(headers).filter(([name]) => name !== 'content-disposition'));
+    for (const sent of [changed, missing]) {
+      assert.equal((await fetch(reservation.uploadUrl, { method: 'PUT', headers: sent, body: bytes })).status, 403);
+    }
+    assert.equal((await fetch(reservation.uploadUrl, { method: 'PUT', headers, body: bytes })).status, 200);
+    const item = await finalizeUpload(ownerId, reservation.id);
+    const { object_key: key } = await db.selectFrom('media_items').select('object_key').where('id', '=', item.id).executeTakeFirstOrThrow();
+    const download = await fetch(resolveMediaUrl(key));
+    assert.equal(download.status, 200);
+    return { download, item };
+  };
+
+  const guide = await upload('คู่มือการสมัคร.pdf', 'application/pdf', Buffer.from('%PDF-1.7\n%%EOF\n'));
+  assert.equal(guide.download.headers.get('content-disposition'), contentDisposition('คู่มือการสมัคร.pdf', 'application/pdf'));
+  assert.equal(guide.download.headers.get('content-type'), 'application/pdf');
+  const plan = await upload('แผนงาน.docx', DOCX, office('word/document.xml'));
+  assert.equal(plan.download.headers.get('content-disposition'), contentDisposition('แผนงาน.docx', DOCX));
+
+  await deleteMedia(ownerId, guide.item.id);
+  await deleteMedia(ownerId, plan.item.id);
+});
