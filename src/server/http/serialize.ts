@@ -2,7 +2,7 @@ import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicMedia, Pub
 import type { PublishedPage, PublishedPost } from '../content/published';
 import type { SiteBrand } from '../../lib/site-brand';
 import type { SiteSettings } from '../content/settings';
-import type { ReadyMedia } from '../media/service';
+import type { ReadyImage } from '../media/service';
 import {
   publicCategorySchema,
   publicMediaSchema,
@@ -12,7 +12,7 @@ import {
   publicSiteSchema,
 } from './public-schemas';
 
-export function serializePublicMedia(row: ReadyMedia): PublicMedia {
+export function serializePublicMedia(row: ReadyImage): PublicMedia {
   return publicMediaSchema.parse({
     altText: row.alt_text,
     height: row.height,
@@ -73,7 +73,7 @@ export function serializePublicPage(row: PublishedPage): PublicPage {
 }
 
 /** The brand is resolved by the caller, which knows where media is served from; this does not. */
-export function serializePublicSite(row: SiteSettings, avatar: ReadyMedia | null, brand: SiteBrand): PublicSite {
+export function serializePublicSite(row: SiteSettings, avatar: ReadyImage | null, brand: SiteBrand): PublicSite {
   return publicSiteSchema.parse({
     author: row.author_name.trim() ? {
       avatar: avatar ? serializePublicMedia(avatar) : null,
