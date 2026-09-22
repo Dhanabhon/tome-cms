@@ -9,8 +9,8 @@ test('a card is written from the library, keeps its file from deletion, and is w
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test');
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
-  const { createPage } = await import('../../src/server/content/pages');
-  const { createPost, updatePostStatus } = await import('../../src/server/content/posts');
+  const { createPage, updatePageStatus } = await import('../../src/server/content/pages');
+  const { createPost, updatePost, updatePostStatus } = await import('../../src/server/content/posts');
   const { HttpError } = await import('../../src/server/http/errors');
   const { deleteMedia } = await import('../../src/server/media/service');
   context.after(closeDatabase);
@@ -53,20 +53,27 @@ test('a card is written from the library, keeps its file from deletion, and is w
   assert.match(post.content_html, /<span class="file-card__meta">PDF · 1\.2 MB<\/span>/);
   assert.doesNotMatch(post.content_html, /elsewhere|lie\.zip/);
 
-  // An image is not a file to attach, and neither is one the library does not have.
-  await assert.rejects(createPost(ownerId, input(card(png.id))), badRequest);
-  await assert.rejects(createPost(ownerId, input(card(randomUUID()))), badRequest);
+  // An image is not a file to attach, and neither is one the library does not have -- deleted,
+  // say, while a draft still held its card. Either is named as such, not as invalid content.
+  const noSuchFile = (error: unknown) => badRequest(error) && (error as Error).message === 'Choose a file from this site.';
+  await assert.rejects(createPost(ownerId, input(card(png.id))), noSuchFile);
+  await assert.rejects(createPost(ownerId, input(card(randomUUID()))), noSuchFile);
 
   // Publishing writes the card again, through the transaction it runs in: the pool holds one connection.
   const published = await updatePostStatus(ownerId, { id: post.id, status: 'published', updatedAt: post.updated_at });
   assert.equal(published.status, 'published');
   assert.match(published.content_html, /class="file-card"/);
+  // An edit that keeps it published writes the card again, from the library.
+  const edited = await updatePost(ownerId, { ...input(card(pdf.id)), id: post.id, status: 'published', title: 'With a file, edited', updatedAt: published.updated_at });
+  assert.match(edited.content_html, /<span class="file-card__meta">PDF · 1\.2 MB<\/span>/);
 
   // A page takes a card as well, and the file cannot be deleted while either uses it.
-  await createPage(ownerId, {
+  const page = await createPage(ownerId, {
     excerpt: '', contentJson: card(pdf.id), metaDescription: null, metaTitle: null,
     slug: `page-${randomUUID()}`, status: 'draft', title: 'A page with a file',
   });
+  const publishedPage = await updatePageStatus(ownerId, { id: page.id, status: 'published', updatedAt: page.updated_at });
+  assert.match(publishedPage.content_html, /<span class="file-card__name">คู่มือการสมัคร\.pdf<\/span>/);
   await assert.rejects(deleteMedia(ownerId, pdf.id), (error: unknown) => {
     const counts = (error as { details?: { references?: { counts?: Record<string, number> } } }).details?.references?.counts;
     return error instanceof HttpError && error.status === 409 && counts?.postContent === 1 && counts.pageContent === 1;

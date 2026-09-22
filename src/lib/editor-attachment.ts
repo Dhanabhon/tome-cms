@@ -65,7 +65,7 @@ export const attachment = Node.create({
   },
 
   renderHTML({ node }) {
-    const { mediaId, mimeType, name, size } = node.attrs as { href: string; mediaId: string; mimeType: SupportedDocumentType; name: string; size: number };
+    const { mediaId, mimeType, name, size } = node.attrs as { mediaId: string; mimeType: SupportedDocumentType; name: string; size: number };
     // A PDF opens in the browser, so it gets a tab of its own; anything else downloads in place.
     const tab = mimeType === 'application/pdf' ? { target: '_blank', rel: 'noopener noreferrer' } : {};
     return ['p', { class: 'file-card', 'data-media-id': mediaId, 'data-size': String(size) },
