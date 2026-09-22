@@ -39,6 +39,10 @@ const extensions = [
     blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
     codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-ink p-5 font-mono text-sm text-white' } },
+    // StarterKit 3 brings both. Link is configured here already, and an underline would be
+    // dropped by the sanitizer on its way to the page, so neither belongs in the schema.
+    link: false,
+    underline: false,
   }),
   Link.configure({
     autolink: true,

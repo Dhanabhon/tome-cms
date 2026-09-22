@@ -1,4 +1,4 @@
-import { type JSONContent } from 'novel';
+import { type JSONContent } from '@tiptap/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
