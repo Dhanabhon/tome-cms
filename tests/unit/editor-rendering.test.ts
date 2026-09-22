@@ -47,8 +47,9 @@ test('server renders, sanitizes, and bounds editor content', () => {
   assert.match(prepared.contentHtml, /<ol><li><p>First<\/p><\/li><\/ol>/);
   assert.match(prepared.contentHtml, /<blockquote><p>Quote<\/p><\/blockquote>/);
   assert.match(prepared.contentHtml, /<pre><code>const x = 1;<\/code><\/pre>/);
-  assert.match(prepared.contentHtml, /<img src="https:\/\/example\.com\/image\.webp" alt="Example" \/>/);
-  assert.match(prepared.contentHtml, new RegExp(`<img src="/media/${mediaId}" alt="Stored image" \\/>`));
+  // Every image in an article loads as it nears the window, and decodes off the main thread.
+  assert.match(prepared.contentHtml, /<img src="https:\/\/example\.com\/image\.webp" alt="Example" decoding="async" loading="lazy" \/>/);
+  assert.match(prepared.contentHtml, new RegExp(`<img src="/media/${mediaId}" alt="Stored image" decoding="async" loading="lazy" \\/>`));
   assert.deepEqual(editorMediaIds(prepared.contentJson), [mediaId]);
   assert.equal(prepared.contentJson.content?.at(-1)?.attrs?.mediaId, mediaId);
   assert.equal(prepareEditorContent({ contentJson }).contentHtml, prepared.contentHtml);
@@ -116,7 +117,12 @@ test('a line keeps its alignment, and no other style', () => {
   const hostile = sanitizedContentHtmlSchema.parse(
     '<p style="text-align:center;position:fixed;background:url(x)">A</p><p style="text-align:expression(alert(1))">B</p><img src="https://example.com/a.webp" style="position:fixed">',
   );
-  assert.equal(hostile, '<p style="text-align:center">A</p><p>B</p><img src="https://example.com/a.webp" />');
+  assert.equal(hostile, '<p style="text-align:center">A</p><p>B</p><img src="https://example.com/a.webp" decoding="async" loading="lazy" />');
+  // Those two, with those values and no others: an image asked to load at once is still lazy.
+  assert.equal(
+    sanitizedContentHtmlSchema.parse('<img src="https://example.com/a.webp" loading="eager" decoding="sync" fetchpriority="high">'),
+    '<img src="https://example.com/a.webp" loading="lazy" decoding="async" />',
+  );
 });
 
 test('a table is kept whole, and nothing that rides in with it', () => {

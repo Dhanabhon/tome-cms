@@ -59,7 +59,9 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     h1: ['style'],
     h2: ['style'],
     h3: ['style'],
-    img: ['src', 'alt', 'title', 'width', 'height'],
+    // The transform below gives every image these two. sanitize-html filters after it transforms,
+    // so they are allowed here as well, with no value but the one the transform writes.
+    img: ['src', 'alt', 'title', 'width', 'height', { name: 'decoding', values: ['async'] }, { name: 'loading', values: ['lazy'] }],
     p: ['style'],
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan'],
