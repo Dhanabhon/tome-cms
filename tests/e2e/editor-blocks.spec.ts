@@ -248,10 +248,13 @@ test('the + menu opens where all of it can be seen, wherever the line is', async
       const reachable = await page.evaluate(() => {
         const menu = document.querySelector('.block-insert-menu')?.getBoundingClientRect();
         const bar = document.querySelector('.admin-editor-bar')?.getBoundingClientRect();
+        const button = document.querySelector('.block-insert-trigger')?.getBoundingClientRect();
         const last = document.activeElement;
-        if (!menu || !bar || !(last instanceof HTMLElement)) return false;
+        if (!menu || !bar || !button || !(last instanceof HTMLElement)) return false;
         const box = last.getBoundingClientRect();
-        return menu.top >= bar.bottom && menu.bottom <= innerHeight
+        // Wholly under the + button or wholly over it, never across it.
+        return (menu.top >= button.bottom || menu.bottom <= button.top)
+          && menu.top >= bar.bottom && menu.bottom <= innerHeight
           && last.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
       });
       if (!reachable) misplaced.push(`${size.width}px, line ${line}`);
@@ -260,7 +263,7 @@ test('the + menu opens where all of it can be seen, wherever the line is', async
       await page.keyboard.press('Enter');
     }
   }
-  expect(misplaced, 'the lines where the menu was covered, cut off, or could not reach its end').toEqual([]);
+  expect(misplaced, 'the lines where the menu covered its button, was covered, cut off, or could not reach its end').toEqual([]);
 });
 
 test('the formatting bar is whole, wherever the words it formats begin', async ({ context, page }) => {

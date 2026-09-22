@@ -10,10 +10,8 @@ import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
 
 const MENU_ID = 'block-insert-menu';
-/** From the line's top to the menu's, when it opens below the + button. */
-const GAP_BELOW = 42;
-/** From the menu's bottom to the line's top, when it opens above. */
-const GAP_ABOVE = 6;
+/** Between the menu and the + button, on whichever side of it the menu opens. */
+const GAP = 6;
 /** Kept between the menu and whatever would cover or cut it. */
 const MARGIN = 8;
 /** Held any shorter than this, a menu is a slot to scroll a list through. */
@@ -22,6 +20,7 @@ const LEAST_ROOM = 128;
 export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
   const { editor } = useEditor();
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const items = useRef<Array<HTMLButtonElement | null>>([]);
   const frame = useRef<number | null>(null);
@@ -30,7 +29,7 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
   const [menuOpen, setMenuOpen] = useState(false);
   const [picker, setPicker] = useState<MediaKind | null>(null);
   const [position, setPosition] = useState<{ left: number; menuLeft: number; menuMaxHeight?: number; menuTop: number; top: number }>(
-    { left: 0, menuLeft: 0, menuTop: GAP_BELOW, top: 0 },
+    { left: 0, menuLeft: 0, menuTop: 0, top: 0 },
   );
   const [visible, setVisible] = useState(false);
 
@@ -55,13 +54,16 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
     // menu's room ends at the bar and not at the window's edge: a menu that opened under it
     // had its first items covered, and they could not be chosen.
     const ceiling = (document.querySelector('.admin-editor-bar')?.getBoundingClientRect().bottom ?? 0) + MARGIN;
-    const below = window.innerHeight - MARGIN - (cursor.top + GAP_BELOW);
-    const above = cursor.top - GAP_ABOVE - ceiling;
+    // Under the button as it is drawn. Its height is the stylesheet's to decide: a number kept
+    // here once stayed at 36px when the button grew to 44, and the menu opened across it.
+    const underButton = cursor.top + (trigger.current?.offsetHeight ?? 0) + GAP;
+    const below = window.innerHeight - MARGIN - underButton;
+    const above = cursor.top - GAP - ceiling;
     // Below the line when it fits there, else on the side with more room -- held to that room,
     // and scrolled within when even that is short.
     const opensAbove = menuHeight > below && above > below;
     const room = Math.max(LEAST_ROOM, opensAbove ? above : below);
-    const menuViewportTop = opensAbove ? cursor.top - GAP_ABOVE - Math.min(menuHeight, room) : cursor.top + GAP_BELOW;
+    const menuViewportTop = opensAbove ? cursor.top - GAP - Math.min(menuHeight, room) : underButton;
     setPosition({
       left,
       menuLeft,
@@ -220,6 +222,7 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
               setMenuOpen((open) => !open);
             }}
             onMouseDown={(event) => event.preventDefault()}
+            ref={trigger}
             type="button"
           >
             <span aria-hidden="true">+</span>
