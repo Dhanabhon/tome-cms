@@ -4,7 +4,16 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- A link to a library folder that no longer exists opens All, instead of an empty view that read as files gone.
+- Alternative text sent with a document is refused as a bad request, where it failed as a server error.
+- A card whose file has left the library says to choose a file from this site, not that the content is invalid.
+- A document is checked from one object: both of its reads carry `If-Match`, so a file replaced while it is checked is refused.
+
+### Changed
+
+- On a phone, the library's type and folder selects are captioned.
 
 ## 0.8.0 - 2026-09-22
 
