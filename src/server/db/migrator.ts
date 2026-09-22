@@ -20,6 +20,7 @@ import * as scheduledPublishing from './migrations/017_scheduled_publishing';
 import * as thaiSlugs from './migrations/018_thai_slugs';
 import * as contentRedirects from './migrations/019_content_redirects';
 import * as siteBrand from './migrations/020_site_brand';
+import * as mediaDocuments from './migrations/021_media_documents';
 
 export const migrations = {
   '001_system': system,
@@ -42,6 +43,7 @@ export const migrations = {
   '018_thai_slugs': thaiSlugs,
   '019_content_redirects': contentRedirects,
   '020_site_brand': siteBrand,
+  '021_media_documents': mediaDocuments,
 } as const;
 
 const provider: MigrationProvider = {
