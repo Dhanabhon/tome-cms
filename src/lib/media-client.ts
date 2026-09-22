@@ -1,4 +1,4 @@
-import { validateImageFile } from './media';
+import { declaredMediaType, isImageType, validateImageFile, type MediaKind, type MediaTypeFilter, type SupportedImageType, type SupportedMediaType } from './media';
 import type {
   MediaAsset,
   MediaFolder,
@@ -12,6 +12,7 @@ export interface ListMediaInput {
   folderId?: string | null;
   page?: number;
   search?: string;
+  type?: MediaTypeFilter;
 }
 
 export interface MediaPage {
@@ -26,13 +27,14 @@ export interface MediaDraft {
 
 interface UploadReservation {
   expiresAt: string;
-  headers: { 'content-type': string; 'x-amz-checksum-sha256': string };
+  /** Every header the store signed; a document's include its Content-Disposition. */
+  headers: Record<string, string>;
   id: string;
   uploadUrl: string;
 }
 
 export class MediaRequestError extends Error {
-  constructor(message: string, readonly references?: MediaReferences) {
+  constructor(message: string, readonly references?: MediaReferences, readonly code?: string) {
     super(message);
   }
 }
@@ -48,9 +50,13 @@ function errorReferences(payload: unknown): MediaReferences | undefined {
   return payload.references as MediaReferences;
 }
 
+function errorCode(payload: unknown): string | undefined {
+  return typeof payload === 'object' && payload !== null && 'code' in payload && typeof payload.code === 'string' ? payload.code : undefined;
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new MediaRequestError(errorMessage(payload) ?? 'The request could not be completed.', errorReferences(payload));
+  if (!response.ok) throw new MediaRequestError(errorMessage(payload) ?? 'The request could not be completed.', errorReferences(payload), errorCode(payload));
   return payload as T;
 }
 
@@ -128,21 +134,37 @@ export async function listMedia(input: ListMediaInput = {}): Promise<MediaPage> 
   if (input.search) params.set('search', input.search);
   if (input.folderId === null) params.set('folderId', 'unfiled');
   else if (input.folderId) params.set('folderId', input.folderId);
+  if (input.type) params.set('type', input.type);
   return readJson<MediaPage>(await fetch(`/api/admin/media?${params}`));
 }
 
-export async function uploadImage(file: File, options: UploadImageOptions = {}): Promise<MediaAsset> {
-  validateImageFile(file);
+export interface UploadFileOptions extends UploadImageOptions {
+  /** What the picker it is chosen in takes: images, documents, or -- the library page -- any. */
+  accept?: MediaKind | 'any';
+}
+
+async function upload(file: File, mimeType: SupportedMediaType, options: UploadImageOptions): Promise<MediaAsset> {
   const checksumSha256 = await sha256(file);
   const reservation = (await sendJson<{ reservation: UploadReservation }>('/api/admin/media/uploads', 'POST', {
     originalName: file.name,
-    mimeType: file.type,
+    mimeType,
     sizeBytes: file.size,
     checksumSha256,
     folderId: options.folderId ?? null,
-    altText: options.altText ?? '',
+    altText: isImageType(mimeType) ? options.altText ?? '' : '',
   })).reservation;
   await uploadToStorage(reservation, file, options.onProgress);
   options.onProgress?.(100);
   return (await sendJson<{ item: MediaAsset }>(`/api/admin/media/uploads/${reservation.id}/finalize`, 'POST', {})).item;
+}
+
+/** An image dropped or pasted into the editor. */
+export async function uploadImage(file: File, options: UploadImageOptions = {}): Promise<MediaAsset> {
+  validateImageFile(file);
+  return upload(file, file.type as SupportedImageType, options);
+}
+
+/** Any file the library keeps, refused in the browser -- with a MediaFileError -- when it cannot be kept. */
+export async function uploadFile(file: File, options: UploadFileOptions = {}): Promise<MediaAsset> {
+  return upload(file, declaredMediaType(file, options.accept ?? 'any'), options);
 }

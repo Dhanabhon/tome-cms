@@ -21,7 +21,7 @@ services:
       - -dir=/data
       - -bucket=tomecms-test-media
       - -s3.config=/etc/seaweedfs/s3.json
-      - -s3.allowedOrigins=http://localhost:4321
+      - -s3.allowedOrigins=${TOME_CMS_TEST_ORIGIN:-http://localhost:4321}
       - -admin.ui=false
       - -webdav=false
       - -s3.port.iceberg=0

@@ -1,3 +1,5 @@
+import type { MediaAsset } from '../types/cms';
+
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 /**
@@ -180,4 +182,9 @@ export async function imageDimensions(file: File): Promise<{ height: number; wid
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
+}
+
+/** A library item that is an image, with the dimensions every image has. */
+export function isImageAsset(asset: MediaAsset): asset is MediaAsset & { height: number; mime_type: SupportedImageType; width: number } {
+  return isImageType(asset.mime_type) && asset.width !== null && asset.height !== null;
 }

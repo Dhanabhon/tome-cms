@@ -8,36 +8,56 @@ import {
   listMediaFolders,
   renameMediaFolder,
   saveMediaDraft,
-  uploadImage,
+  uploadFile,
   MediaRequestError,
   type MediaDraft,
 } from '../../lib/media-client';
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
-import { ACCEPTED_IMAGE_TYPES } from '../../lib/media';
+import {
+  acceptAttribute,
+  DOCUMENT_GROUPS,
+  formatBytes,
+  formatLabel,
+  isImageAsset,
+  MediaFileError,
+  type MediaKind,
+  type MediaTypeFilter,
+} from '../../lib/media';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
+import MediaTypes from './MediaTypes';
 import { atLeast } from '../../lib/busy';
 
 type MediaLibraryProps = { ownerLocale?: PostLocale | null } & (
   | { mode: 'manage' }
-  | { mode: 'select'; onCancel: () => void; onSelect: (asset: MediaAsset) => void }
+  | { kind: MediaKind; mode: 'select'; onCancel: () => void; onSelect: (asset: MediaAsset) => void }
 );
 
 type CategorySelection = 'all' | 'unsorted' | string;
 type ReferencingPost = { id: string; title: string };
 type ReferencingPage = { id: string; title: string };
+type FailedRequest = { append: boolean; filter: MediaTypeFilter | null; page: number; selection: CategorySelection; term: string };
+
+/** The server's refusal codes, by the copy that says them in the owner's language. */
+const REFUSAL_COPY: Partial<Record<string, 'macros' | 'textEncoding' | 'typeMismatch'>> = {
+  media_macros: 'macros',
+  media_text_encoding: 'textEncoding',
+  media_type_mismatch: 'typeMismatch',
+};
+/** The library page filters by every kind; a file picker by documents alone. */
+const LIBRARY_FILTERS: ReadonlyArray<MediaTypeFilter | null> = [null, 'image', ...DOCUMENT_GROUPS];
+const FILE_FILTERS: ReadonlyArray<MediaTypeFilter | null> = ['file', ...DOCUMENT_GROUPS];
+const FOLDER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function errorMessage(error: unknown, copy: AdminCopy) {
+  if (error instanceof MediaFileError) return copy.media.refusals[error.refusal];
+  const refusal = error instanceof MediaRequestError && error.code ? REFUSAL_COPY[error.code] : undefined;
+  if (refusal) return copy.media.refusals[refusal];
   if (error instanceof Error) return error.message;
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
   return copy.media.unavailable;
-}
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
 }
 
 function folderId(selection: CategorySelection) {
@@ -45,18 +65,35 @@ function folderId(selection: CategorySelection) {
   return selection === 'unsorted' ? null : selection;
 }
 
+/**
+ * Where a library opens. The page takes its type and folder from its address, so a reload or a
+ * shared link shows the same files; a picker starts from its kind and never reads the address.
+ */
+function initialView(props: MediaLibraryProps): { filter: MediaTypeFilter | null; selection: CategorySelection } {
+  if (props.mode === 'select') return { filter: props.kind === 'image' ? 'image' : 'file', selection: 'all' };
+  const query = new URLSearchParams(window.location.search);
+  const type = query.get('type');
+  const folder = query.get('folder') ?? '';
+  return {
+    filter: LIBRARY_FILTERS.find((filter) => filter !== null && filter === type) ?? null,
+    selection: folder === 'unsorted' || FOLDER_ID.test(folder) ? folder : 'all',
+  };
+}
+
 export default function MediaLibrary(props: MediaLibraryProps) {
   const copy = adminCopy(props.ownerLocale);
   const [items, setItems] = useState<MediaAsset[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
-  const [selection, setSelection] = useState<CategorySelection>('all');
+  const [view] = useState(() => initialView(props));
+  const [selection, setSelection] = useState<CategorySelection>(view.selection);
+  const [filter, setFilter] = useState<MediaTypeFilter | null>(view.filter);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [failedRequest, setFailedRequest] = useState<{ append: boolean; page: number; selection: CategorySelection; term: string } | null>(null);
+  const [failedRequest, setFailedRequest] = useState<FailedRequest | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryName, setCategoryName] = useState('');
@@ -76,7 +113,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [referencingPages, setReferencingPages] = useState<ReferencingPage[]>([]);
   const [profileReference, setProfileReference] = useState(false);
   const currentQuery = useRef('');
-  const currentSelection = useRef<CategorySelection>('all');
+  const currentSelection = useRef<CategorySelection>(view.selection);
+  const currentFilter = useRef<MediaTypeFilter | null>(view.filter);
   const requestId = useRef(0);
   const selectedId = useRef<string | null>(null);
   const urlInput = useRef<HTMLInputElement>(null);
@@ -85,13 +123,13 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const detailsOpener = useRef<HTMLButtonElement | null>(null);
   const mediaHeading = useRef<HTMLHeadingElement>(null);
 
-  const load = useCallback(async (nextPage: number, append: boolean, term: string, nextSelection: CategorySelection) => {
+  const load = useCallback(async (nextPage: number, append: boolean, term: string, nextSelection: CategorySelection, nextFilter: MediaTypeFilter | null) => {
     const id = ++requestId.current;
     setLoading(true);
     setError(null);
     setFailedRequest(null);
     try {
-      const result = await listMedia({ folderId: folderId(nextSelection), page: nextPage, search: term });
+      const result = await listMedia({ folderId: folderId(nextSelection), page: nextPage, search: term, type: nextFilter ?? undefined });
       if (id !== requestId.current) return;
       setItems((current) => (append ? [...current, ...result.items] : result.items));
       setHasMore(result.hasMore);
@@ -99,7 +137,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     } catch (loadError) {
       if (id === requestId.current) {
         setError(errorMessage(loadError, copy));
-        setFailedRequest({ append, page: nextPage, selection: nextSelection, term });
+        setFailedRequest({ append, filter: nextFilter, page: nextPage, selection: nextSelection, term });
       }
     } finally {
       if (id === requestId.current) setLoading(false);
@@ -128,8 +166,20 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   }, [search]);
 
   useEffect(() => {
-    void load(1, false, debouncedSearch, selection);
-  }, [debouncedSearch, load, selection]);
+    void load(1, false, debouncedSearch, selection, filter);
+  }, [debouncedSearch, filter, load, selection]);
+
+  // The library page's address says which files it shows, and a change of view is not a step to
+  // go back through. A picker's view is its own.
+  useEffect(() => {
+    if (props.mode !== 'manage') return;
+    const url = new URL(window.location.href);
+    if (filter) url.searchParams.set('type', filter);
+    else url.searchParams.delete('type');
+    if (selection === 'all') url.searchParams.delete('folder');
+    else url.searchParams.set('folder', selection);
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url);
+  }, [filter, props.mode, selection]);
 
   useEffect(() => {
     const dialog = detailsDialog.current;
@@ -150,17 +200,25 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setSelection(nextSelection);
   }
 
+  function selectType(nextFilter: MediaTypeFilter | null) {
+    currentFilter.current = nextFilter;
+    setPage(1);
+    setFilter(nextFilter);
+  }
+
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
     const uploadSelection = currentSelection.current;
     const uploadQuery = currentQuery.current;
+    const uploadFilter = currentFilter.current;
     setUploading(true);
     setUploadProgress(0);
     setError(null);
     try {
-      const asset = await atLeast(uploadImage(file, {
+      const asset = await atLeast(uploadFile(file, {
+        accept: props.mode === 'select' ? props.kind : 'any',
         folderId: folderId(uploadSelection) ?? null,
         onProgress: setUploadProgress,
       }));
@@ -168,9 +226,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         props.onSelect(asset);
         return;
       }
-      if (currentSelection.current === uploadSelection && currentQuery.current === uploadQuery) {
-        await load(1, false, uploadQuery, uploadSelection);
-      }
+      if (currentSelection.current === uploadSelection && currentQuery.current === uploadQuery && currentFilter.current === uploadFilter) await load(1, false, uploadQuery, uploadSelection, uploadFilter);
     } catch (uploadError) {
       setError(errorMessage(uploadError, copy));
       setFailedRequest(null);
@@ -257,7 +313,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         setSelected(updated);
         setDetailsStatus(copy.media.saved);
       }
-      await load(1, false, currentQuery.current, currentSelection.current);
+      await load(1, false, currentQuery.current, currentSelection.current, currentFilter.current);
     } catch (saveError) {
       setDetailsStatus(errorMessage(saveError, copy));
     } finally {
@@ -281,9 +337,9 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     if (!selected) return;
     if (confirmDeletion) {
       const confirmed = await confirmUi({
-        title: copy.media.deleteImageTitle,
-        message: fill(copy.media.deleteImageMessage, { name: selected.original_name }),
-        confirmLabel: copy.media.deleteImage,
+        title: copy.media.deleteFileTitle,
+        message: fill(copy.media.deleteFileMessage, { name: selected.original_name }),
+        confirmLabel: copy.media.deleteFile,
         tone: 'danger',
       });
       if (!confirmed) return;
@@ -297,7 +353,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setProfileReference(false);
     try {
       await atLeast(deleteMedia(item.id));
-      await load(1, false, currentQuery.current, currentSelection.current);
+      await load(1, false, currentQuery.current, currentSelection.current, currentFilter.current);
       if (selectedId.current === item.id) closeDetails();
     } catch (deleteFailure) {
       if (selectedId.current === item.id) {
@@ -365,8 +421,14 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <Icon name="search" />
           <input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
+        {!(props.mode === 'select' && props.kind === 'image') && (
+          <MediaTypes copy={copy} filters={props.mode === 'select' ? FILE_FILTERS : LIBRARY_FILTERS} onChange={selectType} value={filter} />
+        )}
         <div className="media-toolbar__end">
-          <label aria-busy={uploading} className="admin-button admin-button--primary media-upload"><span>{copy.media.uploadImage}</span><input accept={ACCEPTED_IMAGE_TYPES.join(',')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" /></label>
+          <label aria-busy={uploading} className="admin-button admin-button--primary media-upload">
+            <span>{props.mode === 'select' && props.kind === 'image' ? copy.media.uploadImage : copy.media.uploadFile}</span>
+            <input accept={acceptAttribute(props.mode === 'select' ? props.kind : 'any')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" />
+          </label>
           {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><Icon name="close" /></button>}
         </div>
       </div>
@@ -384,7 +446,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
 
         <div className="min-w-0">
           {uploading && <p className="media-status" role="status">{copy.media.uploadingProgress} {uploadProgress ?? 0}%</p>}
-          {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection)} type="button">{copy.media.retry}</button>}</div>}
+          {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection, failedRequest.filter)} type="button">{copy.media.retry}</button>}</div>}
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}
           {!loading && !error && !items.length && (
             <div className="admin-empty media-empty">
@@ -393,13 +455,29 @@ export default function MediaLibrary(props: MediaLibraryProps) {
             </div>
           )}
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {
-            const format = item.mime_type.replace('image/', '').toUpperCase();
-            return <button aria-label={fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: item.height, name: item.original_name, size: formatSize(item.size_bytes), width: item.width })} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button"><img alt="" className="aspect-square w-full object-cover" height={item.height} loading="lazy" src={item.publicUrl} width={item.width} /><strong className="block truncate text-sm">{item.original_name}</strong><span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted"><span>{item.width} × {item.height}</span><span>{format}</span><span>{formatSize(item.size_bytes)}</span></span>{props.mode === 'select' && <span className="media-card-select">{copy.media.select}</span>}</button>;
-          })}</div>{hasMore && <div className="media-status"><button aria-busy={loading} className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection)} type="button">{copy.media.loadMore}</button></div>}</>}
+            const image = isImageAsset(item) ? item : null;
+            const format = formatLabel(item.mime_type);
+            const size = formatBytes(item.size_bytes);
+            const label = image
+              ? fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: image.height, name: item.original_name, size, width: image.width })
+              : fill(props.mode === 'select' ? copy.media.selectFileLabel : copy.media.fileLabel, { format, name: item.original_name, size });
+            return <button aria-label={label} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button">
+              {image
+                ? <img alt="" className="aspect-square w-full object-cover" height={image.height} loading="lazy" src={item.publicUrl} width={image.width} />
+                : <span aria-hidden="true" className="media-card__file">{format}</span>}
+              <strong className="block truncate text-sm">{item.original_name}</strong>
+              <span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">{image && <span>{image.width} × {image.height}</span>}<span>{format}</span><span>{size}</span></span>
+              {props.mode === 'select' && <span className="media-card-select">{copy.media.select}</span>}
+            </button>;
+          })}</div>{hasMore && <div className="media-status"><button aria-busy={loading} className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection, filter)} type="button">{copy.media.loadMore}</button></div>}</>}
         </div>
       </div>
 
-      {props.mode === 'manage' && <dialog aria-label={copy.media.imageDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><Icon name="close" /></button><img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} /><p className="break-all font-medium">{selected.original_name}</p><p className="text-sm text-muted">{selected.width} × {selected.height} · {selected.mime_type} · {formatSize(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} /><label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label><label>{copy.media.imageUrl}<input aria-label={copy.media.imageUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button aria-busy={pressed('save-details')} className="admin-button admin-button--primary" disabled={working !== null || deleting} onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{!referencingPosts.length && !referencingPages.length && !profileReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
+      {props.mode === 'manage' && <dialog aria-label={copy.media.fileDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><Icon name="close" /></button>{isImageAsset(selected)
+  ? <img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} />
+  : <span aria-hidden="true" className="media-card__file media-details__file">{formatLabel(selected.mime_type)}</span>}
+<p className="break-all font-medium">{selected.original_name}</p>
+<p className="text-sm text-muted">{isImageAsset(selected) ? `${selected.width} × ${selected.height} · ` : ''}{formatLabel(selected.mime_type)} · {formatBytes(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} />{isImageAsset(selected) && <label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label>}<label>{copy.media.fileUrl}<input aria-label={copy.media.fileUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button aria-busy={pressed('save-details')} className="admin-button admin-button--primary" disabled={working !== null || deleting} onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{!referencingPosts.length && !referencingPages.length && !profileReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
     </section>
   );
 }

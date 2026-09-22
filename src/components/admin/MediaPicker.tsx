@@ -1,17 +1,19 @@
 import { useEffect, useRef } from 'react';
 
 import { adminCopy } from '../../lib/admin-i18n';
+import type { MediaKind } from '../../lib/media';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 import MediaLibrary from './MediaLibrary';
 
 interface MediaPickerProps {
+  kind: MediaKind;
   onCancel: () => void;
   ownerLocale?: PostLocale | null;
   onSelect: (asset: MediaAsset) => void;
   returnFocus?: HTMLElement | null;
 }
 
-export default function MediaPicker({ onCancel, onSelect, ownerLocale, returnFocus }: MediaPickerProps) {
+export default function MediaPicker({ kind, onCancel, onSelect, ownerLocale, returnFocus }: MediaPickerProps) {
   const copy = adminCopy(ownerLocale);
   const dialog = useRef<HTMLDialogElement>(null);
   const completed = useRef(false);
@@ -54,7 +56,7 @@ export default function MediaPicker({ onCancel, onSelect, ownerLocale, returnFoc
       }}
       ref={dialog}
     >
-      <MediaLibrary mode="select" onCancel={cancel} onSelect={select} ownerLocale={ownerLocale} />
+      <MediaLibrary kind={kind} mode="select" onCancel={cancel} onSelect={select} ownerLocale={ownerLocale} />
     </dialog>
   );
 }

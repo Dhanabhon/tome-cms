@@ -1,4 +1,4 @@
-import type { SupportedImageType } from '../lib/media';
+import type { SupportedImageType, SupportedMediaType } from '../lib/media';
 import type { SiteBrand } from '../lib/site-brand';
 
 export type { SupportedImageType } from '../lib/media';
@@ -256,14 +256,15 @@ export interface MediaAsset {
   alt_text: string | null;
   created_at: string;
   folder_id: string | null;
-  height: number;
+  /** Null for a document: only an image has dimensions. */
+  height: number | null;
   id: string;
-  mime_type: SupportedImageType;
+  mime_type: SupportedMediaType;
   original_name: string;
   publicUrl: string;
   size_bytes: number;
   updated_at: string;
-  width: number;
+  width: number | null;
 }
 
 export interface MediaReferences {
