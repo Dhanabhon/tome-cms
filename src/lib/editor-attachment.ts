@@ -30,12 +30,14 @@ export const attachment = Node.create({
   draggable: true,
 
   addAttributes() {
+    // Each attribute is read from the card as a whole by the rule below, never one by one from
+    // the pasted element: Tiptap would otherwise lay whatever the element carries over it.
     return {
-      href: { default: null, rendered: false },
-      mediaId: { default: null, rendered: false },
-      mimeType: { default: null, rendered: false },
-      name: { default: '', rendered: false },
-      size: { default: 0, rendered: false },
+      href: { default: null, rendered: false, parseHTML: () => null },
+      mediaId: { default: null, rendered: false, parseHTML: () => null },
+      mimeType: { default: null, rendered: false, parseHTML: () => null },
+      name: { default: '', rendered: false, parseHTML: () => null },
+      size: { default: 0, rendered: false, parseHTML: () => null },
     };
   },
 
@@ -44,6 +46,8 @@ export const attachment = Node.create({
   parseHTML() {
     return [{
       tag: 'p.file-card',
+      // Above a paragraph's rule, which would otherwise take the <p> first.
+      priority: 51,
       getAttrs: (element) => {
         const link = element.querySelector('a');
         const mediaId = MEDIA_PATH.exec(link?.getAttribute('href') ?? '')?.[1]?.toLowerCase();
@@ -61,11 +65,11 @@ export const attachment = Node.create({
   },
 
   renderHTML({ node }) {
-    const { href, mediaId, mimeType, name, size } = node.attrs as { href: string; mediaId: string; mimeType: SupportedDocumentType; name: string; size: number };
+    const { mediaId, mimeType, name, size } = node.attrs as { href: string; mediaId: string; mimeType: SupportedDocumentType; name: string; size: number };
     // A PDF opens in the browser, so it gets a tab of its own; anything else downloads in place.
     const tab = mimeType === 'application/pdf' ? { target: '_blank', rel: 'noopener noreferrer' } : {};
     return ['p', { class: 'file-card', 'data-media-id': mediaId, 'data-size': String(size) },
-      ['a', { href, type: mimeType, ...tab },
+      ['a', { href: `/media/${mediaId}`, type: mimeType, ...tab },
         ['span', { class: 'file-card__name' }, name],
         ' ',
         ['span', { class: 'file-card__meta' }, attachmentMeta({ mimeType, size })]]];

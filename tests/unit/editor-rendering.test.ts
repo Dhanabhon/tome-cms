@@ -173,6 +173,7 @@ test('a file card says what the library says of its file, and nothing the editor
   assert.match(contentHtml, new RegExp(`<a [^>]*href="/media/${mediaId}"`));
   assert.match(contentHtml, /<a [^>]*type="application\/pdf"/);
   assert.match(contentHtml, /<a [^>]*target="_blank"/, 'a PDF opens in a tab of its own');
+  assert.equal(contentHtml, `<p class="file-card"><a href="/media/${mediaId}" type="application/pdf" target="_blank" rel="noopener noreferrer"><span class="file-card__name">คู่มือการสมัคร.pdf</span> <span class="file-card__meta">PDF · 1.2 MB</span></a></p>`);
   assert.doesNotMatch(contentHtml, /data-|elsewhere|lie\.zip/, "what the editor sent, and the clipboard's attributes, are not kept");
   assert.equal(editorText(contentJson), '', "a card's name is not among the article's words");
   assert.equal(hasMeaningfulContent(contentJson), true, 'a card alone is content');
@@ -183,6 +184,7 @@ test('a file card says what the library says of its file, and nothing the editor
   assert.doesNotMatch(docx.contentHtml, /target=/, 'anything but a PDF downloads where it is');
   assert.match(docx.contentHtml, /&lt;b&gt;Plan&lt;\/b&gt;\.docx/, 'a name is text, never markup');
   assert.match(docx.contentHtml, /DOCX · 84 KB/);
+  assert.equal(docx.contentHtml, `<p class="file-card"><a href="/media/${docxId}" type="application/vnd.openxmlformats-officedocument.wordprocessingml.document" rel="noopener noreferrer"><span class="file-card__name">&lt;b&gt;Plan&lt;/b&gt;.docx</span> <span class="file-card__meta">DOCX · 84 KB</span></a></p>`);
   assert.throws(() => prepareEditorContent({ contentJson: card({ mediaId }) }), ValidationError, 'a card for a file the library does not have');
   assert.deepEqual(editorFileIds(card({ mediaId: mediaId.toUpperCase() })), [mediaId]);
   assert.deepEqual(editorFileIds(card({ mediaId: 'not-a-uuid' })), [], 'nothing a lookup would choke on');
