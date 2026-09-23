@@ -8,5 +8,5 @@ test('ships ordered, uniquely named forward migrations', () => {
   assert.deepEqual(names, [...names].sort());
   assert.equal(new Set(names).size, names.length);
   assert.match(names[0] ?? '', /^001_/);
-  assert.equal(names.at(-1), '023_home_slides');
+  assert.equal(names.at(-1), '024_site_maintenance');
 });
