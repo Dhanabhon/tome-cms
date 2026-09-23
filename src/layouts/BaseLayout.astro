@@ -4,6 +4,7 @@ import NoticeScript from '../components/NoticeScript.astro';
 import PluginClients from '../components/PluginClients.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
+import { adminHref } from '../lib/admin';
 import { getPublicSiteUrl } from '../lib/seo';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
@@ -190,6 +191,11 @@ const structuredData = robots.includes('noindex')
     themeSettings={themeSettings}
   >
     <Fragment slot="above">
+      {Astro.locals.maintenanceOwner && settings && (
+        <aside class="site-maintenance-bar">
+          <p>{publicText.maintenanceBar} <a href={adminHref(settings, '/maintenance')}>{publicText.maintenanceManage}</a></p>
+        </aside>
+      )}
       {plugins.notice && (
         <aside
           class="site-notice"

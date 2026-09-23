@@ -29,6 +29,21 @@ export function isBundledFrontendPath(pathname: string): boolean {
     || LEGACY_POST.test(pathname);
 }
 
+/**
+ * What a closed site does with a path: draw the maintenance page, refuse a feed, refuse the
+ * content API with the owner's words -- or leave it alone. Everything that is not a reader's
+ * page or the public content stays open: the admin, sign-in, health, media, the API's own
+ * description and the owner's previews.
+ */
+export function maintenanceRoute(pathname: string): 'api' | 'feed' | 'page' | null {
+  if (pathname === '/sitemap.xml' || pathname === '/rss.xml') return 'feed';
+  if (isBundledFrontendPath(pathname)) return 'page';
+  if (!pathname.startsWith('/api/v1/content/')) return null;
+  if (pathname === '/api/v1/content/openapi.json') return null;
+  if (pathname === '/api/v1/content/preview' || pathname.startsWith('/api/v1/content/preview/')) return null;
+  return 'api';
+}
+
 function isSetupBypass(pathname: string): boolean {
   return SETUP_PATHS.has(pathname)
     || pathname === '/api/auth'
@@ -101,6 +116,44 @@ async function routeConfiguredAdmin(
   return next();
 }
 
+const CLOSED = 'The site is closed for maintenance.';
+
+/**
+ * A site closed for maintenance. A visitor gets 503 -- the page rewritten in place, so the address
+ * does not change and a crawler sees the 503 where the page lives. The signed-in owner passes
+ * through, marked private so no cache keeps what they were shown. Only while the site is closed
+ * does a public request read the session at all.
+ */
+async function closedForMaintenance(context: APIContext, next: MiddlewareNext, settings: SiteSettings): Promise<Response | null> {
+  if (!settings.maintenance_enabled) return null;
+  const { pathname } = context.url;
+  const route = maintenanceRoute(pathname);
+  // A preflight answered 503 would hide the 503 that follows it from a headless site's browser.
+  if (!route || (route === 'api' && context.request.method === 'OPTIONS')) return null;
+  if (matchAdminPath(pathname, normalizeAdminPath(settings.admin_path)) !== null) return null;
+
+  if (await setBetterAuthLocals(context, settings.owner_id)) {
+    context.locals.maintenanceOwner = true;
+    const response = await next();
+    const own = new Response(response.body, response);
+    own.headers.set('Cache-Control', 'private, no-store');
+    return own;
+  }
+
+  const { maintenanceLocale, maintenanceNotice, retryAfter } = await import('./lib/site-maintenance');
+  const locale = maintenanceLocale(context.url, settings.default_locale);
+  if (route === 'page') {
+    context.locals.maintenance = { locale, settings };
+    return next('/maintenance');
+  }
+  const response = route === 'feed'
+    ? new Response(`${CLOSED}\n`, { headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' }, status: 503 })
+    : (await import('./server/http/problem')).problem(context.request, 503, CLOSED, { maintenance: maintenanceNotice(settings, locale) });
+  const retry = retryAfter(settings.maintenance_back_at, new Date());
+  if (retry) response.headers.set('Retry-After', retry);
+  return response;
+}
+
 export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) => {
   if (context.url.pathname === AUTHENTICATE_OPTIONS_PATH) {
     const { withOwnerAllowedCredentials } = await import('./server/auth/allowed-credentials');
@@ -119,6 +172,8 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
       });
     }
   }
+  const closed = await closedForMaintenance(context, next, settings);
+  if (closed) return closed;
   return routeConfiguredAdmin(context, next, settings);
 };
 

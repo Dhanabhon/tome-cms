@@ -1,0 +1,19 @@
+---
+/**
+ * Where the gate sends a page it closed (src/middleware.ts). Reached any other way it does not
+ * exist: only a rewrite sets the locals it reads.
+ */
+import MaintenancePage from '../components/maintenance/MaintenancePage.astro';
+import { retryAfter } from '../lib/site-maintenance';
+
+const closed = Astro.locals.maintenance;
+if (!closed) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+Astro.response.status = 503;
+Astro.response.headers.set('Cache-Control', 'no-store');
+const retry = retryAfter(closed.settings.maintenance_back_at, new Date());
+if (retry) Astro.response.headers.set('Retry-After', retry);
+---
+
+<MaintenancePage locale={closed.locale} settings={closed.settings} />
