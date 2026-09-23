@@ -1,0 +1,21 @@
+---
+import Icon from '../../../components/Icon.astro';
+
+interface Props {
+  next: string;
+  previous: string;
+  start: string;
+  stop: string;
+}
+
+const { next, previous, start, stop } = Astro.props;
+---
+
+<div class="hero-slider__controls">
+  <button aria-label={previous} class="hero-slider__step" data-hero-prev type="button"><Icon name="arrowLeft" /></button>
+  <button class="hero-slider__step" data-hero-toggle data-start={start} data-stop={stop} type="button">
+    <Icon name="pause" />
+    <Icon name="play" />
+  </button>
+  <button aria-label={next} class="hero-slider__step" data-hero-next type="button"><Icon name="arrowRight" /></button>
+</div>

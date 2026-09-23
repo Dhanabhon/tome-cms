@@ -5,6 +5,7 @@ import type {
   PostCategoryBadge,
   PostLocale,
   PublicAuthorProfile,
+  PublicHomeSlide,
   PublicNavigationItem,
   SiteSettings,
 } from '../types/cms';
@@ -105,6 +106,9 @@ export interface ThemeHomeProps {
   nextCursor: string | null;
   posts: Post[];
   profile: PublicAuthorProfile | null;
+  /** The live home slides of this language, in order, at most five. A theme that draws no
+   *  hero, or a hero of its own making, ignores them. */
+  slides: PublicHomeSlide[];
   siteName: string;
   /** Always a line: a site that has not written one is given the product's own. */
   tagline: string;

@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, publicCopy } from '../../lib/i18n';
 import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
+import { getPublicSlides } from '../../server/content/slides';
 import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../themes/registry';
@@ -29,6 +30,9 @@ const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? se
 const PAGE_SIZE = Number(themeSettings.postsPerLoad ?? 6) || 6;
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
+// Read whatever the theme will do with them: which hero it draws is its own setting, and the
+// read is five seconds of cache away. It never throws: a failure is a hero without slides.
+const slides = await getPublicSlides(locale);
 
 try {
   const [page, published] = await Promise.all([
@@ -73,6 +77,7 @@ const activeTheme = await resolveTheme(settings?.theme_id);
     nextCursor={nextCursor}
     posts={posts}
     profile={profile}
+    slides={slides}
     siteName={settings?.site_name ?? 'TomeCMS'}
     tagline={settings?.tagline?.trim() || publicCopy(locale).defaultTagline}
     timezone={settings?.timezone ?? 'UTC'}

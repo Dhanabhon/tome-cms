@@ -13,6 +13,7 @@ import { getPublicAuthorProfile } from '../../../../lib/profile';
 import { adminLoginPath } from '../../../../lib/admin';
 import { requireOwner } from '../../../../server/auth/session';
 import { listPublishedCategories, listPublishedPosts } from '../../../../server/content/published';
+import { getPublicSlides } from '../../../../server/content/slides';
 import { getOwnerSettings, type SiteSettings } from '../../../../server/content/settings';
 import { HttpError } from '../../../../server/http/errors';
 import { isThemeId, resolveTheme } from '../../../../themes/registry';
@@ -41,6 +42,9 @@ if (!settings) {
 const PAGE_SIZE = 3;
 const locale = settings.default_locale;
 const profile = await getPublicAuthorProfile(settings, locale);
+// Read whatever the theme will do with them: which hero it draws is its own setting, and the
+// read is five seconds of cache away. It never throws: a failure is a hero without slides.
+const slides = await getPublicSlides(locale);
 let posts: Post[] = [];
 let categories: PostCategoryBadge[] = [];
 try {
@@ -77,6 +81,7 @@ const activeTheme = await resolveTheme(themeId);
     nextCursor={null}
     posts={posts}
     profile={profile}
+    slides={slides}
     siteName={settings.site_name}
     tagline={settings.tagline?.trim() || publicCopy(locale).defaultTagline}
     timezone={settings.timezone}

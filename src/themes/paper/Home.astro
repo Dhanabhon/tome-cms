@@ -1,13 +1,15 @@
 ---
 import Icon from '../../components/Icon.astro';
-import { dateLocale, localePath, postPath } from '../../lib/i18n';
+import HeroControls from './parts/HeroControls.astro';
+import { FOCUS_POSITION } from '../../lib/home-slides';
+import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
 import { postExcerpt, readingMinutes } from '../../lib/posts';
 import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, profile, siteName, tagline, themeSettings, timezone } = Astro.props;
+const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, profile, slides: ownSlides, siteName, tagline, themeSettings, timezone } = Astro.props;
 // Off leaves the link a reader without JavaScript already follows, and the script below
 // finds nothing to wire -- the marker is what it looks for.
 const endless = themeSettings.infiniteScroll !== 'off';
@@ -15,6 +17,10 @@ const endless = themeSettings.infiniteScroll !== 'off';
 // so asking for four is also asking for that much less room per title.
 const columns = themeSettings.gridColumns ?? '3';
 const hero = themeSettings.hero ?? 'text';
+// The owner's slides turn, how often, and how: covers keep turning every six seconds, sliding.
+const turn = themeSettings.heroTurn === 'off' ? 'off' : 'on';
+const every = themeSettings.heroEvery === '4' || themeSettings.heroEvery === '8' ? themeSettings.heroEvery : '6';
+const moveBy = themeSettings.heroMove === 'fade' ? 'fade' : 'slide';
 const gridStyle = `--post-grid-columns: ${columns}; --post-grid-min: ${columns === '4' ? '16rem' : '19rem'};`;
 
 const copy = locale === 'th'
@@ -22,6 +28,7 @@ const copy = locale === 'th'
     all: 'บทความทั้งหมด',
     defaultHeadline: 'เขียนไว้อย่างตั้งใจ เผยแพร่อย่างพิถีพิถัน',
     featured: 'บทความล่าสุด',
+    highlights: 'ไฮไลต์',
     nextSlide: 'ภาพถัดไป',
     previousSlide: 'ภาพก่อนหน้า',
     slideOf: 'ภาพที่ {index} จาก {count}',
@@ -41,6 +48,7 @@ const copy = locale === 'th'
     all: 'All posts',
     defaultHeadline: 'Ideas, carefully published.',
     featured: 'Newest posts',
+    highlights: 'Highlights',
     nextSlide: 'Next image',
     previousSlide: 'Previous image',
     slideOf: 'Image {index} of {count}',
@@ -69,7 +77,11 @@ const headline = themeSettings.heroHeadline?.trim() || copy.defaultHeadline;
 // The covers the route already fetched. A hero of one is not a slider, and a page whose
 // newest posts have no covers falls back to text rather than to an empty band.
 const slides = hero === 'slider' ? posts.filter(({ cover_image }) => cover_image).slice(0, 5) : [];
-const band = slides.length > 1 ? 'slider' : hero === 'slider' ? 'text' : hero;
+// The owner's own slides: a still banner for one, the slider for more, and the text hero when
+// none is live, as covers falls back when no post has a cover.
+const band = hero === 'slides'
+  ? ownSlides.length > 1 ? 'slides' : ownSlides.length === 1 ? 'banner' : 'text'
+  : slides.length > 1 ? 'slider' : hero === 'slider' ? 'text' : hero;
 
 const olderHref = nextCursor
   ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), cursor: nextCursor })}`
@@ -112,7 +124,7 @@ const initial = (title: string) => {
                 priority, and the ones a reader has not reached are not asked for at all. */}
             <img
               alt=""
-              fetchpriority={index === 0 ? 'high' : undefined}
+              fetchpriority={index === 0 ? 'high' : 'low'}
               height="900"
               loading={index === 0 ? 'eager' : 'lazy'}
               src={post.cover_image}
@@ -123,24 +135,65 @@ const initial = (title: string) => {
         </li>
       ))}
     </ul>
-    <div class="hero-slider__controls">
-      <button aria-label={copy.previousSlide} class="hero-slider__step" data-hero-prev type="button"><Icon name="arrowLeft" /></button>
-      <button
-        class="hero-slider__step"
-        data-hero-toggle
-        data-start={copy.startRotating}
-        data-stop={copy.stopRotating}
-        type="button"
-      >
-        <Icon name="pause" />
-        <Icon name="play" />
-      </button>
-      <button aria-label={copy.nextSlide} class="hero-slider__step" data-hero-next type="button"><Icon name="arrowRight" /></button>
-    </div>
+    <HeroControls next={copy.nextSlide} previous={copy.previousSlide} start={copy.startRotating} stop={copy.stopRotating} />
   </section>
 )}
 
-{band !== 'slider' && band !== 'off' && (
+{(band === 'slides' || band === 'banner') && (
+  <section
+    aria-label={copy.highlights}
+    aria-roledescription={band === 'slides' ? 'carousel' : undefined}
+    class="home-hero home-hero--slider home-hero--slides"
+    data-every={every}
+    data-hero-slider={band === 'slides' ? '' : undefined}
+    data-turn={turn}
+  >
+    <ul class="hero-slider" data-hero-track data-move={moveBy}>
+      {ownSlides.map((slide, index) => (
+        <li
+          aria-label={band === 'slides' ? copy.slideOf.replace('{index}', String(index + 1)).replace('{count}', String(ownSlides.length)) : undefined}
+          aria-roledescription={band === 'slides' ? 'slide' : undefined}
+          class="hero-slide"
+          data-align={slide.align}
+          data-hero-slide
+          data-overlay={slide.overlay}
+        >
+          {/* The first is the page's largest paint: asked for at once and first. The others are
+              behind it until they turn, so they are asked for last, and only as they near. */}
+          <img
+            alt={slide.image.alt}
+            decoding="async"
+            fetchpriority={index === 0 ? 'high' : 'low'}
+            height={slide.image.height}
+            loading={index === 0 ? 'eager' : 'lazy'}
+            src={slide.image.src}
+            style={`object-position: ${FOCUS_POSITION[slide.focus]};`}
+            width={slide.image.width}
+          />
+          {(slide.heading || slide.body || slide.button) && (
+            <div class="hero-slide__words">
+              {slide.heading && <h2 class="hero-slide__heading">{slide.heading}</h2>}
+              {slide.body && <p class="hero-slide__body">{slide.body}</p>}
+              {slide.button && (
+                <a
+                  class="hero-slide__button"
+                  href={slide.button.href}
+                  rel={slide.button.newTab ? 'noopener noreferrer' : undefined}
+                  target={slide.button.newTab ? '_blank' : undefined}
+                >
+                  {slide.button.label}{slide.button.newTab && <span class="sr-only"> {publicCopy(locale).opensInNewTab}</span>}
+                </a>
+              )}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+    {band === 'slides' && <HeroControls next={copy.nextSlide} previous={copy.previousSlide} start={copy.startRotating} stop={copy.stopRotating} />}
+  </section>
+)}
+
+{(band === 'text' || band === 'animated') && (
   <section class="home-hero" data-hero={band === 'animated' ? 'moving' : undefined}>
     <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
       <h1 class="hero-title max-w-xl">{headline}</h1>

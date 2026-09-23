@@ -18,9 +18,13 @@ export default function wireHeroSlider(root: HTMLElement): () => void {
   const toggle = root.querySelector<HTMLButtonElement>('[data-hero-toggle]');
   if (!track || slides.length < 2) return () => {};
 
+  // An owner's slides say how long each stays and whether they turn at all. Covers say
+  // neither, and keep six seconds and turning.
+  const every = Number(root.dataset.every) * 1_000 || EVERY;
+
   const still = window.matchMedia('(prefers-reduced-motion: reduce)');
   let timer = 0;
-  let wanted = true;
+  let wanted = root.dataset.turn !== 'off';
   let held = false;
 
   const at = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
@@ -36,7 +40,7 @@ export default function wireHeroSlider(root: HTMLElement): () => void {
 
   const start = () => {
     stop();
-    if (wanted && !held && !still.matches) timer = window.setInterval(() => go(at() + 1), EVERY);
+    if (wanted && !held && !still.matches) timer = window.setInterval(() => go(at() + 1), every);
   };
 
   const say = () => {
