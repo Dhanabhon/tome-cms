@@ -126,9 +126,14 @@ hero ignores them, and `plain`, which draws none, does exactly that.
 - The slider is the one that exists, in `hero-slider.ts`: the carousel's ARIA roles and its
   "slide 2 of 4" labels, previous, next, and the pause button motion that turns by itself must
   have. A reader who asks for reduced motion gets no turning and no animation between slides.
-- Every picture keeps one shape, 16:9 as today, cropped with `object-fit: cover` around its
-  focus point, and carries the width and height the library recorded, so nothing moves when it
-  loads.
+- Every slide keeps the shapes the covers slider already has, 16:7 on a phone and 21:9 from
+  48rem, and its picture is cropped with `object-fit: cover` around its focus point, so nothing
+  moves when it loads. A slide with words may grow taller than that shape when its words need
+  the room: at 16:7 a phone's band is about 160 pixels, and a heading, a line and a button do
+  not fit in it.
+- **Move by: fade** fades each slide in and out as the track moves, with a scroll-driven
+  animation in CSS. Swiping still works, nothing blocks a click while it runs, and a browser
+  without scroll-driven animations (Firefox, as this is written) simply slides.
 
 **What loads first.** The first slide's picture is fetched at once and with high priority. The
 others are hidden until they turn, so each is asked for lazily and with low priority, which the
