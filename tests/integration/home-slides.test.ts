@@ -9,7 +9,7 @@ test('slides are kept per language, refused when they point outside the site, an
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const { HttpError } = await import('../../src/server/http/errors');
   const { homeSlidesSchema } = await import('../../src/lib/home-slides');
-  const { getPublicSlidesSnapshot, listSlides, replaceSlides } = await import('../../src/server/content/slides');
+  const { getPublicSlidesSnapshot, invalidatePublicSlidesCache, listSlides, replaceSlides } = await import('../../src/server/content/slides');
   const { pagePath } = await import('../../src/lib/i18n');
   context.after(closeDatabase);
 
@@ -82,6 +82,21 @@ test('slides are kept per language, refused when they point outside the site, an
   assert.deepEqual(slides[2]!.button, { href: 'https://example.com/', label: 'Away', newTab: true });
   assert.deepEqual(slides[4]!.button, { href: '/th', label: 'Home', newTab: false });
   assert.deepEqual((await getPublicSlidesSnapshot('en')).slides.map((slide) => slide.heading), ['English'], 'each language its own');
+
+  // The page a button leads to is deleted: the slide keeps its words and loses its button.
+  await db.deleteFrom('pages').where('id', '=', about.id).execute();
+  invalidatePublicSlidesCache();
+  const afterDelete = (await getPublicSlidesSnapshot('th')).slides;
+  assert.equal(afterDelete[0]!.heading, 'First', 'the slide is still there');
+  assert.equal(afterDelete[0]!.button, null, 'and its button is not drawn');
+
+  // A picture loses its description in the library after a slide without a heading was saved
+  // with it: that slide is not drawn with nothing to say what it shows.
+  await db.updateTable('media_items').set({ alt_text: null }).where('id', '=', lake).execute();
+  invalidatePublicSlidesCache();
+  assert.deepEqual((await getPublicSlidesSnapshot('th')).slides.map((slide) => slide.heading),
+    ['First', 'No words of its own, but a heading', 'Five', 'Six', 'Seven, too many to show'],
+    'the slide with no heading steps aside, and the next live one takes its place');
 
   await save('th', []);
   assert.deepEqual((await getPublicSlidesSnapshot('th')).slides, [], 'saving an empty list empties it, and the cache is told');

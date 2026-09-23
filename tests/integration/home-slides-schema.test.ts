@@ -21,16 +21,16 @@ test('a home slide is refused by the database whenever it breaks a rule', async 
   }).returning('id').executeTakeFirstOrThrow();
 
   const slide = { owner_id: ownerId, locale: 'th' as const, position: 0, media_id: image.id };
-  const refused = async (why: string, values: Record<string, unknown>) => {
+  const refused = async (why: string, values: Record<string, unknown>, code = '23514') => {
     await assert.rejects(
       db.insertInto('home_slides').values({ ...slide, ...values } as never).execute(),
-      (error: unknown) => (error as { code?: string }).code === '23514' || (error as { code?: string }).code === '23505',
+      (error: unknown) => (error as { code?: string }).code === code,
       why,
     );
   };
 
   await db.insertInto('home_slides').values(slide).execute();
-  await refused('two slides in one place', {});
+  await refused('two slides in one place', {}, '23505');
   await refused('an eleventh slide', { position: 10 });
   await refused('a language the site does not have', { position: 1, locale: 'de' });
   await refused('a heading with spaces around it', { position: 1, heading: ' Hi ' });
