@@ -1,5 +1,5 @@
 ---
-import { sanitizedContentHtmlSchema } from '../../lib/editor-content';
+import { sanitizedContentHtmlSchema, withLeadImage } from '../../lib/editor-content';
 import { publicCopy } from '../../lib/i18n';
 import type { ThemePageProps } from '../contract';
 
@@ -14,5 +14,5 @@ const copy = publicCopy(page.locale);
 <article class="plain-page plain-article">
   {preview && <p class="plain-draft">{copy.draftPreview}</p>}
   <h1>{page.title}</h1>
-  <div class="plain-body" set:html={contentHtml} />
+  <div class="plain-body" set:html={withLeadImage(contentHtml)} />
 </article>

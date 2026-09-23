@@ -1,4 +1,5 @@
 ---
+import { withLeadImage } from '../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import type { ThemePostProps } from '../contract';
 
@@ -18,8 +19,8 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     <span>{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></span>
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
-  {post.cover_image && <img src={post.cover_image} alt={post.title} width="1200" height="675" />}
-  <div class="plain-body" set:html={post.content_html} />
+  {post.cover_image && <img src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />}
+  <div class="plain-body" set:html={post.cover_image ? post.content_html : withLeadImage(post.content_html)} />
   {profile?.bio && (
     <footer class="plain-author">
       <h2>{copy.aboutTheAuthor}</h2>

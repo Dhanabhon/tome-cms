@@ -1,5 +1,5 @@
 ---
-import { sanitizedContentHtmlSchema } from '../../../lib/editor-content';
+import { sanitizedContentHtmlSchema, withLeadImage } from '../../../lib/editor-content';
 import type { Page } from '../../../types/cms';
 import { publicCopy } from '../../../lib/i18n';
 
@@ -19,5 +19,5 @@ const copy = publicCopy(page.locale);
     {preview && <p class="post-draft-note">{copy.draftPreview}</p>}
     <h1 class="article-title">{page.title}</h1>
   </header>
-  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={contentHtml} />
+  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={withLeadImage(contentHtml)} />
 </article>

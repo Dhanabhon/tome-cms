@@ -85,6 +85,19 @@ export const sanitizedContentHtmlSchema: z.ZodType<string> = z
   .transform((html) => sanitizeHtml(html, sanitizeOptions))
   .pipe(z.string().max(MAX_DOCUMENT_BYTES));
 
+/**
+ * An article that opens with a picture, with no cover drawn above it: that picture is what the
+ * reader's screen is waiting on, so it is fetched first rather than lazily. Only an opening
+ * picture qualifies. One further down loads as the reader nears it, and raising a guess would
+ * take bandwidth from what the screen actually needs. Themes call this, never the API: a
+ * headless site knows its own layout.
+ */
+export function withLeadImage(html: string): string {
+  return html.replace(/^<img\b[^>]*>/, (tag) => tag
+    .replace(/\sloading="[^"]*"/, '')
+    .replace(/^<img\b/, '<img fetchpriority="high"'));
+}
+
 const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList', 'table', 'tableCell', 'tableHeader', 'tableRow']);
 
 export function editorText(node: EditorNode): string {

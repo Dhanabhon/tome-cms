@@ -4,9 +4,15 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+### Changed
+
+- In Thai, the site's appearance setting reads the same way as the admin's.
+
 ### Fixed
 
 - In Thai, the label over the admin's light and dark switch was too long for the sidebar and broke inside a word.
+- An article that opens with a picture and has no cover asked for that picture lazily, which held back the moment the page looked ready. Both themes now fetch it first. A picture further down still loads as the reader nears it, and `contentHtml` from the API is unchanged.
+- The `plain` theme's cover image is fetched first, as `paper`'s already was.
 
 ## 0.9.0 - 2026-09-23
 
