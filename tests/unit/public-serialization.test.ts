@@ -14,6 +14,7 @@ import {
   serializePublicPage,
   serializePublicPost,
   serializePublicSite,
+  serializePublicSlides,
 } from '../../src/server/http/serialize';
 
 const media = {
@@ -181,4 +182,20 @@ test('public contracts validate queries and serialize only explicit fields', () 
   for (const secret of ['private-owner', '/private-admin', 'private/object.webp', 'private-original.webp', 'private-checksum', 'private-script']) {
     assert.equal(serialized.includes(secret), false);
   }
+});
+
+test('a public slide carries what a headless site needs to draw it, and nothing else', () => {
+  const slide = {
+    align: 'center' as const,
+    body: 'Words under it',
+    button: { href: '/th/about', label: 'About', newTab: false },
+    focus: 'top' as const,
+    heading: 'A heading',
+    image: { alt: '', height: 1350, src: '/media/5f0c2a9e-3b1d-4c6e-9a8f-7b2d1e0c4a55', width: 2400 },
+    overlay: 'soft' as const,
+  };
+  assert.deepEqual(serializePublicSlides([{ ...slide, ownerId: 'someone' } as typeof slide]), [slide], 'an extra field is dropped');
+  assert.throws(() => serializePublicSlides([{ ...slide, button: { ...slide.button, href: 'javascript:alert(1)' } }]),
+    'an address the schema would never publish');
+  assert.throws(() => serializePublicSlides(Array.from({ length: 6 }, () => slide)), 'six slides are one more than a home page shows');
 });

@@ -6,6 +6,7 @@ import type {
   ProblemDetails,
   PublicAuthor,
   PublicCategory,
+  PublicHomeSlide,
   PublicListLinks,
   PublicListMeta,
   PublicMedia,
@@ -16,7 +17,7 @@ import type {
   PublicSite,
   PublicTranslation,
 } from '../../types/cms';
-import { POST_LOCALES, POST_STATUSES } from '../../types/cms';
+import { HOME_SLIDE_FOCUS, POST_LOCALES, POST_STATUSES } from '../../types/cms';
 import { normalizedContentSlugSchema } from '../content/mutations';
 
 export const localeQuerySchema = z.enum(POST_LOCALES);
@@ -151,6 +152,24 @@ export const publicNavigationSchema: z.ZodType<PublicNavigation> = z.object({
   footer: z.array(publicNavigationItemSchema).max(50),
   header: z.array(publicNavigationItemSchema).max(50),
 }).strict();
+
+const publicHomeSlideSchema = z.object({
+  align: z.enum(['start', 'center', 'end']),
+  body: z.string().min(1).max(200).nullable(),
+  button: z.object({ href: publicUrlSchema, label: z.string().min(1).max(30), newTab: z.boolean() }).strict().nullable(),
+  focus: z.enum(HOME_SLIDE_FOCUS),
+  heading: z.string().min(1).max(80).nullable(),
+  image: z.object({
+    alt: z.string().max(300),
+    height: z.number().int().positive(),
+    src: publicUrlSchema,
+    width: z.number().int().positive(),
+  }).strict(),
+  overlay: z.enum(['none', 'soft', 'strong']),
+}).strict();
+
+/** The live slides of one language, in order: at most the five a home page shows. */
+export const publicHomeSlidesSchema: z.ZodType<PublicHomeSlide[]> = z.array(publicHomeSlideSchema).max(5);
 
 export const publicListMetaSchema: z.ZodType<PublicListMeta> = z.object({
   hasMore: z.boolean(),
