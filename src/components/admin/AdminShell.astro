@@ -235,10 +235,11 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
           <span>{fill(copy.shell.migrationsPendingBody, { names: pendingMigrations.join(', ') })}</span>
         </p>
       )}
-      {maintenanceOn && (
+      {/* Not on Maintenance itself: its Status card says so, and follows the switch live. */}
+      {maintenanceOn && active !== 'maintenance' && (
         <div class="admin-maintenance-notice" role="status">
           <p><strong>{copy.shell.maintenanceOn}</strong> {copy.shell.maintenanceOnBody}</p>
-          {active !== 'maintenance' && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/maintenance')}>{copy.shell.maintenanceManage}</a>}
+          <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/maintenance')}>{copy.shell.maintenanceManage}</a>
         </div>
       )}
       <slot />

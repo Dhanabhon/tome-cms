@@ -81,9 +81,13 @@ export default function MaintenanceForm({ ownerLocale, previewHref }: Maintenanc
     setStatus('');
     setError('');
   };
-  const changeWords = (patch: Partial<Draft['copy'][PageLocale]>) => setDraft((current) => current && {
-    ...current, copy: { ...current.copy, [locale]: { ...current.copy[locale], ...patch } },
-  });
+  const changeWords = (patch: Partial<Draft['copy'][PageLocale]>) => {
+    setDraft((current) => current && {
+      ...current, copy: { ...current.copy, [locale]: { ...current.copy[locale], ...patch } },
+    });
+    setStatus('');
+    setError('');
+  };
 
   /** The same rules the server keeps, said here so the page is fixed before it is sent. */
   function problem(page: Draft): string {

@@ -252,6 +252,10 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await expect(page.getByText('Save your changes before turning maintenance on.')).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(status).toHaveText('Saved.');
+  await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades!');
+  await expect(status, 'typing replaces the last message').toHaveText('Unsaved changes · Preview shows the last saved version.');
+  await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades');
+  await expect(status).toHaveText('No unsaved changes');
 
   const [preview] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: /Preview/ }).click()]);
   await expect(preview.getByRole('heading', { level: 1 }), 'the preview follows the language tab').toHaveText('Closed for upgrades');
@@ -261,7 +265,10 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await page.getByRole('button', { name: 'Close the site', exact: true }).click();
   await expect(status).toHaveText('Maintenance is on. Visitors see the maintenance page.');
   await page.reload();
-  await expect(page.getByText('The site is closed for maintenance', { exact: true }), 'every admin screen says so').toBeVisible();
+  await expect(page.getByText('The site is closed for maintenance', { exact: true }), 'here the Status card says it').toHaveCount(0);
+  await page.goto(`${origin}/admin/settings`);
+  await expect(page.getByText('The site is closed for maintenance', { exact: true }), 'every other admin screen says so').toBeVisible();
+  await expect(page.getByRole('link', { name: 'Maintenance settings' })).toBeVisible();
 
   const own = await page.goto(`${origin}/th`);
   expect(own?.status(), 'the owner still sees the site').toBe(200);
