@@ -7,11 +7,12 @@ import type { APIContext } from 'astro';
 import { expect, test } from './own-worker';
 
 /**
- * A site closed for maintenance, as a visitor and a headless site meet it.
+ * A site closed for maintenance, as a visitor, a headless site and its owner meet it.
  *
  * A reader's page answers 503 with the owner's maintenance page at the address they asked for,
  * in its language; the feeds and the content API refuse with the same 503 and the return time;
- * and what must stay open -- the API's description, a preflight, health -- stays open.
+ * and what must stay open -- the API's description, a preflight, health -- stays open. The
+ * owner writes the page, closes the site from the admin, and still sees the site while it is.
  */
 
 test.use({ stack: 'maintenance' });
@@ -19,7 +20,7 @@ test.use({ stack: 'maintenance' });
 const PROJECT = 'tomecms-select-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
 const CREDENTIAL = 'maintenance-secret-at-least-32-chars';
-// A media key is filed under its owner's UUID, so the owner has to have one.
+// The owner signs in as this id, and the site's settings are filed under it.
 const OWNER = '6c1f2e3d-4b5a-4c7d-8e9f-0a1b2c3d4e5f';
 
 function docker(args: string[], timeout = 180_000) {
@@ -47,7 +48,7 @@ let serverEnv: NodeJS.ProcessEnv = {};
 test.beforeAll(async () => {
   const port = await freePort();
   origin = `http://localhost:${port}`;
-  // The browser puts a file straight into the store, which answers only the origin it is told.
+  // The test store allows one browser origin. This file uploads nothing, but starts it as the others do.
   process.env.TOME_CMS_TEST_ORIGIN = origin;
   serverEnv = {
     ...process.env,
@@ -89,8 +90,7 @@ test.beforeAll(async () => {
     values (${OWNER}, 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
     values (true, ${OWNER}, 'Maintenance Test', 'en', 'UTC', '/admin')`.execute(db);
-  // Somewhere for a post to be filed: saving one files it under the default category,
-  // and an installation always has one.
+  // An installation always has a default category, so this one does too.
   await sql`insert into categories (owner_id, name, is_default) values (${OWNER}, 'Uncategorized', true)`.execute(db);
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
@@ -99,7 +99,7 @@ test.beforeAll(async () => {
   server.stdout?.on('data', (chunk: Buffer) => { output = `${output}${chunk}`.slice(-4_000); });
   server.stderr?.on('data', (chunk: Buffer) => { output = `${output}${chunk}`.slice(-4_000); });
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (server.exitCode !== null) throw new Error(`Sign-in test server exited early.\n${output}`);
+    if (server.exitCode !== null) throw new Error(`Maintenance test server exited early.\n${output}`);
     try {
       if ((await fetch(`${origin}/health/ready`)).ok) return;
     } catch {
@@ -107,7 +107,7 @@ test.beforeAll(async () => {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`Sign-in test server never became ready.\n${output}`);
+  throw new Error(`Maintenance test server never became ready.\n${output}`);
 });
 
 test.afterAll(async () => {
@@ -122,9 +122,9 @@ test.afterAll(async () => {
 });
 
 
-// Every test here signs in on its own, through the recovery page, and recovery allows five in
-// half an hour -- a limit for a person at a keyboard, which this file reaches at its sixth
-// test. The limiter has tests of its own; here it only stands between a test and the editor.
+// The owner's test signs in through the recovery page, and recovery allows five in half an
+// hour -- a limit for a person at a keyboard. The limiter has tests of its own; here it only
+// stands between a test and the admin.
 test.beforeEach(async () => {
   const { db } = await import('../../src/server/db/client');
   await db.deleteFrom('security_rate_limits').execute();
@@ -150,7 +150,7 @@ async function openSite() {
     maintenance_copy = '{}'::jsonb, maintenance_back_at = null`.execute(db);
 }
 
-test('a closed site answers 503 in the reader’s language, and leaves health and media open', async ({ page }) => {
+test('a closed site answers 503 in the reader’s language, and leaves health open', async ({ page }) => {
   test.setTimeout(120_000);
   // Whole seconds: Retry-After is an HTTP date, which has no milliseconds.
   const until = new Date(Math.ceil(Date.now() / 1000) * 1000 + 2 * 3_600_000);
@@ -228,3 +228,57 @@ async function signIn(context: BrowserContext, page: Page) {
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
 }
+
+test('the owner writes the page, previews it, closes the site, still sees it, and opens it again', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  await openSite();
+  await signIn(context, page);
+  const status = page.locator('.admin-save-bar [role="status"]');
+
+  await page.goto(`${origin}/admin/maintenance`);
+  await expect(page.getByRole('heading', { name: 'Maintenance', level: 1 })).toBeVisible();
+  await expect(page.getByText('The site is open to everyone.')).toBeVisible();
+
+  await page.getByRole('radio', { name: /^Countdown/ }).check();
+  await page.getByLabel('Heading', { exact: true }).fill('ปิดปรับปรุงระบบ');
+  await page.getByLabel('Message', { exact: true }).fill('ขอบคุณที่รอ');
+  await page.getByRole('tab', { name: 'English' }).click();
+  await expect(page.getByLabel('Heading', { exact: true }), 'the product’s words shown as the placeholder').toHaveAttribute('placeholder', 'Down for maintenance');
+  await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades');
+  await page.getByLabel('Date and time', { exact: true }).fill('2030-01-01T09:00');
+
+  const turnOn = page.getByRole('button', { name: 'Turn on maintenance' });
+  await expect(turnOn, 'the site never closes on unsaved words').toBeDisabled();
+  await expect(page.getByText('Save your changes before turning maintenance on.')).toBeVisible();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(status).toHaveText('Saved.');
+
+  const [preview] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: /Preview/ }).click()]);
+  await expect(preview.getByRole('heading', { level: 1 }), 'the preview follows the language tab').toHaveText('Closed for upgrades');
+  await preview.close();
+
+  await turnOn.click();
+  await page.getByRole('button', { name: 'Close the site', exact: true }).click();
+  await expect(status).toHaveText('Maintenance is on. Visitors see the maintenance page.');
+  await page.reload();
+  await expect(page.getByText('The site is closed for maintenance', { exact: true }), 'every admin screen says so').toBeVisible();
+
+  const own = await page.goto(`${origin}/th`);
+  expect(own?.status(), 'the owner still sees the site').toBe(200);
+  expect(own?.headers()['cache-control']).toBe('private, no-store');
+  await expect(page.getByText('เว็บปิดปรับปรุงอยู่ ผู้เยี่ยมชมจะเห็นหน้าปิดปรับปรุง')).toBeVisible();
+
+  const visitor = await fetch(`${origin}/th`);
+  expect(visitor.status).toBe(503);
+  expect(await visitor.text()).toContain('ปิดปรับปรุงระบบ');
+  const stranger = await fetch(`${origin}/api/admin/maintenance/state`, {
+    body: JSON.stringify({ enabled: false }), headers: { 'content-type': 'application/json', origin }, method: 'PUT',
+  });
+  expect(stranger.status, 'only the owner switches it').toBe(401);
+  expect((await fetch(`${origin}/api/admin/maintenance`, { headers: { origin } })).status, 'or reads it').toBe(401);
+
+  await page.goto(`${origin}/admin/maintenance`);
+  await page.getByRole('button', { name: 'Turn off maintenance' }).click();
+  await expect(status).toHaveText('Maintenance is off. The site is open again.');
+  expect((await fetch(`${origin}/th`)).status).toBe(200);
+});

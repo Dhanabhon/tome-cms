@@ -1,0 +1,30 @@
+---
+/**
+ * The saved maintenance page, for its owner, with the same component a visitor gets -- so what
+ * the preview shows is what closing the site would show. 200 and noindex, open or closed.
+ */
+import MaintenancePage from '../../../components/maintenance/MaintenancePage.astro';
+import { adminLoginPath } from '../../../lib/admin';
+import { requireOwner } from '../../../server/auth/session';
+import { getOwnerSettings, type SiteSettings } from '../../../server/content/settings';
+import { HttpError } from '../../../server/http/errors';
+
+let settings: SiteSettings | null = null;
+try {
+  const current = await requireOwner(Astro.request.headers);
+  settings = await getOwnerSettings(current.user.id);
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    return Astro.redirect(adminLoginPath(Astro.url.pathname + Astro.url.search), 302);
+  }
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+if (!settings) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+const asked = Astro.url.searchParams.get('lang');
+const locale = asked === 'th' || asked === 'en' ? asked : settings.default_locale;
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<MaintenancePage locale={locale} settings={settings} />

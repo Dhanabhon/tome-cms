@@ -2250,15 +2250,47 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
 /* The drawer's form lays its groups out as the post settings drawer does, a group's width
  * apart, and keeps Cancel and Done in reach at the foot of the panel however far it scrolls. */
 .home-slides-form { display: grid; gap: var(--space-lg); min-width: 0; }
-.home-slides-preview { aspect-ratio: 16 / 7; margin-block-start: 0; }
-.home-slides-facts { display: grid; gap: var(--space-3xs); }
-.home-slides-facts small { color: var(--color-muted); font-size: var(--text-xs); font-weight: 400; line-height: 1.6; }
+.home-slides-preview, .maintenance-preview { aspect-ratio: 16 / 7; margin-block-start: 0; }
+.home-slides-facts, .maintenance-facts { display: grid; gap: var(--space-3xs); }
+.home-slides-facts small, .maintenance-facts small { color: var(--color-muted); font-size: var(--text-xs); font-weight: 400; line-height: 1.6; }
 .home-slides-actions { position: sticky; inset-block-end: calc(var(--space-lg) * -1); z-index: 1; margin-inline: calc(var(--space-lg) * -1); padding: var(--space-md) var(--space-lg) calc(var(--space-md) + var(--space-lg)); border-block-start: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
 /* Slides the home page will not show yet: said once, calmly, with the way to change it. It is
  * advice, not a failure, so it wears a card's surface rather than the error's red, and it
  * keeps its distance from the page head, whose button sits on the head's bottom edge. */
-.home-slides-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
-.home-slides-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+.home-slides-notice, .admin-maintenance-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+.home-slides-notice p, .admin-maintenance-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+/* Maintenance: the notice sits above the screen's head, not below it, inset from the shell's
+ * edges as the migrations alert in the same place is. */
+.admin-maintenance-notice { margin: var(--space-lg) var(--space-lg) 0; }
+/* The cards keep the distance from the head that Settings keeps from its. */
+.maintenance-screen > .admin-card-stack { margin-block-start: var(--space-xl); }
+/* In a card, the card's gap spaces the tabs; their page margins would double it. */
+.maintenance-screen .navigation-tabs { margin-block: 0; }
+.maintenance-state__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; }
+.maintenance-state__actions small { color: var(--color-muted); font-size: var(--text-xs); }
+.maintenance-state[data-enabled='true'] { border-color: var(--color-rule-strong); }
+.maintenance-words { display: grid; gap: var(--space-md); }
+
+/* Four templates, each a card with a small drawing of its layout and its radio beside its
+ * name, clear of the drawing (Picture's is dark). */
+.maintenance-templates { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-sm); margin: 0; padding: 0; border: 0; }
+.maintenance-template { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3xs) var(--space-xs); align-content: start; align-items: center; padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); cursor: pointer; }
+.maintenance-template input { grid-row: 2; grid-column: 1; margin: 0; }
+.maintenance-template strong { grid-row: 2; grid-column: 2; }
+.maintenance-template:has(input:checked) { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
+.maintenance-template:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.maintenance-template small { grid-column: 1 / -1; color: var(--color-muted); font-size: var(--text-xs); line-height: 1.5; }
+.maintenance-template__sketch { grid-row: 1; grid-column: 1 / -1; display: grid; gap: 4px; align-content: center; height: 4rem; margin-block-end: var(--space-2xs); padding: var(--space-xs); border-radius: var(--radius-sm); background: var(--color-surface); }
+.maintenance-template__sketch span { display: block; height: 6px; border-radius: 3px; background: var(--color-rule-strong); }
+.maintenance-template__sketch span:first-child { width: 70%; height: 9px; }
+.maintenance-template__sketch span:nth-child(2) { width: 90%; }
+.maintenance-template__sketch span:last-child { width: 40%; }
+.maintenance-template__sketch[data-template='logo'],
+.maintenance-template__sketch[data-template='countdown'] { justify-items: center; }
+.maintenance-template__sketch[data-template='logo'] span:first-child { width: 18px; height: 18px; border-radius: 50%; }
+.maintenance-template__sketch[data-template='countdown'] span:nth-child(2) { width: 60%; height: 12px; }
+.maintenance-template__sketch[data-template='picture'] { background: var(--color-hero); }
+.maintenance-template__sketch[data-template='picture'] span { background: var(--color-on-dark-muted); }
 @media (min-width: 80rem) {
   /* start, not center: the actions belong to the label field, and centring them
    * against the whole block left them floating 37px below it, aligned to nothing. */

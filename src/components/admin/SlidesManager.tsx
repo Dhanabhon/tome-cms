@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import { atLeast } from '../../lib/busy';
@@ -9,6 +9,7 @@ import {
   SHOWN_HOME_SLIDES,
   slideStatus,
 } from '../../lib/home-slides';
+import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 import { formatBytes } from '../../lib/media';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import {
@@ -25,6 +26,7 @@ import {
 } from '../../types/cms';
 import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
+import { moveTabFocus } from './tabs';
 import UiSelect from './UiSelect';
 import { useDrawer } from './useDrawer';
 
@@ -62,13 +64,6 @@ const local = (slide: HomeSlide): LocalSlide => ({
   linkKind: slide.link_kind ?? 'home', mediaId: slide.media_id, newTab: slide.new_tab, overlay: slide.overlay,
   pageId: slide.page_id ?? '', startsAt: slide.starts_at ?? '', url: slide.url ?? '',
 });
-/** `datetime-local` speaks the device's own time and no zone; the server keeps UTC. */
-const toInput = (iso: string) => {
-  if (!iso) return '';
-  const moment = new Date(iso);
-  return new Date(moment.getTime() - moment.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-};
-const fromInput = (value: string) => value ? new Date(value).toISOString() : '';
 const status = (slide: LocalSlide, now: Date) => slideStatus({ enabled: slide.enabled, endsAt: slide.endsAt || null, startsAt: slide.startsAt || null }, now);
 
 function mutation(slide: LocalSlide) {
@@ -151,16 +146,6 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     setSlides((current) => ({ ...current, [locale]: next }));
     setDirty((current) => ({ ...current, [locale]: true }));
     setSaveError('');
-  }
-
-  function switchTab(event: KeyboardEvent<HTMLButtonElement>) {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const tabs = Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-    const index = tabs.indexOf(event.currentTarget);
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-    tabs[next].focus();
-    tabs[next].click();
   }
 
   function move(from: number, to: number, button?: HTMLButtonElement) {
@@ -312,7 +297,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
         <div aria-label={text.language} className="navigation-tabs" role="tablist">
           {languages.map((tab) => (
             <button aria-controls="home-slides-panel" aria-selected={locale === tab.value} className="navigation-tab" id={`home-slides-${tab.value}-tab`} key={tab.value}
-              onClick={() => setLocale(tab.value)} onKeyDown={switchTab} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">
+              onClick={() => setLocale(tab.value)} onKeyDown={moveTabFocus} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">
               {tab.label}{dirty[tab.value] ? ' •' : ''}
             </button>
           ))}
@@ -429,10 +414,10 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
           <section className="drawer-group">
             <h3>{text.whenGroup}</h3>
             <div className="drawer-checks"><label><input checked={draft.slide.enabled} onChange={(event) => change({ enabled: event.target.checked })} type="checkbox" />{text.enabled}</label></div>
-            <label className="admin-field">{text.starts}<input className="admin-control" onChange={(event) => change({ startsAt: fromInput(event.target.value) })} type="datetime-local" value={toInput(draft.slide.startsAt)} /></label>
+            <label className="admin-field">{text.starts}<input className="admin-control" onChange={(event) => change({ startsAt: fromLocalInput(event.target.value) ?? '' })} type="datetime-local" value={toLocalInput(draft.slide.startsAt)} /></label>
             <div className="admin-field">
               <label htmlFor="home-slide-ends">{text.ends}</label>
-              <input aria-describedby="home-slides-times-hint" className="admin-control" id="home-slide-ends" onChange={(event) => change({ endsAt: fromInput(event.target.value) })} type="datetime-local" value={toInput(draft.slide.endsAt)} />
+              <input aria-describedby="home-slides-times-hint" className="admin-control" id="home-slide-ends" onChange={(event) => change({ endsAt: fromLocalInput(event.target.value) ?? '' })} type="datetime-local" value={toLocalInput(draft.slide.endsAt)} />
               <small id="home-slides-times-hint">{text.timesHint}</small>
             </div>
           </section>
