@@ -286,7 +286,7 @@ test('the hero of covers rotates, and lets itself be stopped', async ({ page }) 
     slides: 5,
     carousel: 'carousel',
     first: ['eager', 'high'],
-    rest: ['lazy', null],
+    rest: ['lazy', 'low'],
     slideLabel: 'Image 1 of 5',
   });
 
