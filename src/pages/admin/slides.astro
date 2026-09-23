@@ -1,0 +1,63 @@
+---
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import SlidesManager from '../../components/admin/SlidesManager';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminHref, adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
+import { requireInstalledOwner } from '../../server/auth/session';
+import { getSiteSettings, type SiteSettings } from '../../server/content/settings';
+import { HttpError } from '../../server/http/errors';
+import { readThemeSettings } from '../../server/themes/store';
+import { DEFAULT_THEME_ID, isThemeId } from '../../themes/registry';
+
+let userEmail: string | null = null;
+let errorKey: 'slidesHidden' | 'slidesUnavailable' | null = null;
+let settings: SiteSettings | null = null;
+let authRequired = false;
+let heroUsesSlides = false;
+
+try {
+  settings = await getSiteSettings();
+  const current = await requireInstalledOwner(Astro.request.headers);
+  if (!settings) {
+    Astro.response.status = 404;
+    errorKey = 'slidesHidden';
+  } else {
+    userEmail = current.user.email;
+    // Slides nobody will see are worth saying so about, on the screen that makes them.
+    const themeId = isThemeId(settings.theme_id) ? settings.theme_id : DEFAULT_THEME_ID;
+    heroUsesSlides = (await readThemeSettings(themeId)).hero === 'slides';
+  }
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path));
+  } else if (error instanceof HttpError && error.status === 403) {
+    Astro.response.status = 404;
+    errorKey = 'slidesHidden';
+  } else {
+    console.error('Slides page failed to load.');
+    Astro.response.status = 500;
+    errorKey = 'slidesUnavailable';
+  }
+}
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
+const themesHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, '/themes');
+---
+
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.slides.heading}>
+  {authRequired || errorMessage ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
+  ) : (
+    <AdminShell active="slides" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+      <SlidesManager client:only="react" heroUsesSlides={heroUsesSlides} ownerLocale={ownerLocale} themesHref={themesHref}>
+        <AdminSkeleton kind="list" label={copy.slides.loading} slot="fallback" />
+      </SlidesManager>
+    </AdminShell>
+  )}
+</AdminLayout>
