@@ -11,6 +11,7 @@ import {
   hasMeaningfulHtml,
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
+  withLeadImage,
 } from '../../src/lib/editor-content';
 import { editorFileIds, editorMediaIds, prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
@@ -239,4 +240,32 @@ test('an editor that is refused anyway is refused in the same language', () => {
     // Each editor had grown its own reader of the same body.
     assert.doesNotMatch(source, /function readApiError/);
   }
+});
+
+test('an article that opens with a picture fetches that picture first, and only that one', () => {
+  const lead = '<img src="https://example.com/a.jpg" alt="A" decoding="async" loading="lazy" />';
+  const later = '<img src="https://example.com/b.jpg" alt="B" decoding="async" loading="lazy" />';
+
+  const opened = withLeadImage(`${lead}<p>Words</p>${later}`);
+  assert.equal(
+    opened,
+    `<img fetchpriority="high" src="https://example.com/a.jpg" alt="A" decoding="async" />${'<p>Words</p>'}${later}`,
+    'the opening picture is fetched first and not lazily; the one further down is left alone',
+  );
+
+  const text = `<p>Words</p>${lead}`;
+  assert.equal(withLeadImage(text), text, 'a picture after the words is not what the screen waits on');
+
+  // Saved before 0.8.0, when no picture carried loading at all.
+  assert.equal(
+    withLeadImage('<img src="https://example.com/a.jpg" alt="A" /><p>Words</p>'),
+    '<img fetchpriority="high" src="https://example.com/a.jpg" alt="A" /><p>Words</p>',
+    'an older post gets the same priority',
+  );
+
+  assert.equal(
+    withLeadImage(`${lead}${later}`),
+    `<img fetchpriority="high" src="https://example.com/a.jpg" alt="A" decoding="async" />${later}`,
+    'two pictures in a row: only the first is raised',
+  );
 });
