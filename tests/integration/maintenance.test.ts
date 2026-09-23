@@ -61,6 +61,16 @@ test('the page is saved apart from the switch, points only at this site’s pict
   assert.equal(read.media?.publicUrl, `/media/${street}`);
   assert.equal((await setMaintenanceState(ownerId, false)).enabled, false);
   assert.equal(
+    (await saveMaintenance(ownerId, maintenanceSchema.parse({ template: 'picture', mediaId: street }))).enabled,
+    false,
+    'saving with the switch off does not turn it on',
+  );
+  assert.equal(
+    (await db.selectFrom('site_settings').select('maintenance_enabled').executeTakeFirstOrThrow()).maintenance_enabled,
+    false,
+    'the stored switch stays off',
+  );
+  assert.equal(
     (await db.selectFrom('site_settings').select('updated_at').executeTakeFirstOrThrow()).updated_at.getTime(),
     before.getTime(),
     'neither moves the settings row’s version',
