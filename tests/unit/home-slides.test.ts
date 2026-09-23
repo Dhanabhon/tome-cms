@@ -4,17 +4,16 @@ import test from 'node:test';
 import { homeSlidesSchema, slideStatus } from '../../src/lib/home-slides';
 
 const now = new Date('2026-10-01T12:00:00Z');
-const at = (iso: string) => iso;
 
 test('a slide is live, waiting, ended or off, and its edges belong to one side', () => {
   const on = { enabled: true, endsAt: null, startsAt: null };
   assert.equal(slideStatus(on, now), 'live');
   assert.equal(slideStatus({ ...on, enabled: false }, now), 'off');
-  assert.equal(slideStatus({ ...on, startsAt: at('2026-10-01T12:00:01Z') }, now), 'waiting');
-  assert.equal(slideStatus({ ...on, startsAt: at('2026-10-01T12:00:00Z') }, now), 'live', 'a slide that starts this instant has started');
-  assert.equal(slideStatus({ ...on, endsAt: at('2026-10-01T12:00:00Z') }, now), 'ended', 'a slide that ends this instant has ended');
-  assert.equal(slideStatus({ ...on, endsAt: at('2026-10-01T12:00:01Z') }, now), 'live');
-  assert.equal(slideStatus({ enabled: false, endsAt: at('2020-01-01T00:00:00Z'), startsAt: null }, now), 'off', 'off says more than ended');
+  assert.equal(slideStatus({ ...on, startsAt: '2026-10-01T12:00:01Z' }, now), 'waiting');
+  assert.equal(slideStatus({ ...on, startsAt: '2026-10-01T12:00:00Z' }, now), 'live', 'a slide that starts this instant has started');
+  assert.equal(slideStatus({ ...on, endsAt: '2026-10-01T12:00:00Z' }, now), 'ended', 'a slide that ends this instant has ended');
+  assert.equal(slideStatus({ ...on, endsAt: '2026-10-01T12:00:01Z' }, now), 'live');
+  assert.equal(slideStatus({ enabled: false, endsAt: '2020-01-01T00:00:00Z', startsAt: null }, now), 'off', 'off says more than ended');
 });
 
 const mediaId = '5f0c2a9e-3b1d-4c6e-9a8f-7b2d1e0c4a55';
@@ -47,6 +46,13 @@ test('a slide that breaks a rule is refused before it reaches the table', () => 
   refuses('an end before its start', { startsAt: '2026-10-02T00:00:00Z', endsAt: '2026-10-01T00:00:00Z' });
   refuses('a focus point that is not one of the nine', { focus: 'middle' });
   refuses('a field the table does not have', { colour: 'red' });
+  refuses('an end the same moment as its start', { startsAt: '2026-10-01T00:00:00Z', endsAt: '2026-10-01T00:00:00Z' });
+  refuses('a button with no link', { button: { label: 'Read' } });
+  refuses('a page link that opens a new tab', { button: { label: 'Read', link: { kind: 'page', pageId, newTab: true } } });
+  refuses('the home opening a new tab', { button: { label: 'Home', link: { kind: 'home', newTab: true } } });
+  refuses('an alignment that is not one of the three', { align: 'justify' });
+  refuses('an overlay that is not one of the three', { overlay: 'dark' });
+  assert.equal(homeSlidesSchema.safeParse({ locale: 'de', slides: [] }).success, false, 'a language the site does not have');
   assert.equal(homeSlidesSchema.safeParse({ locale: 'th', slides: Array.from({ length: 11 }, () => ({ mediaId })) }).success, false, 'an eleventh slide');
   assert.equal(parse([{ mediaId, overlay: 'none' }]).success, true, 'a picture alone may be bare');
   assert.equal(parse([{ mediaId, button: { label: 'Read', link: { kind: 'page', pageId } } }]).success, true);

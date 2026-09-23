@@ -8,7 +8,7 @@ import { getSiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../themes/registry';
 import { readThemeSettings } from '../../server/themes/store';
-import type { Post, PostAlternate, PostCategoryBadge } from '../../types/cms';
+import type { Post, PostAlternate, PostCategoryBadge, PublicHomeSlide } from '../../types/cms';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
@@ -20,6 +20,9 @@ const locale = localeValue;
 const category = Astro.url.searchParams.get('category')?.trim().slice(0, 100) || undefined;
 const cursor = Astro.url.searchParams.get('cursor') || undefined;
 let posts: Post[] = [];
+// Read whatever the theme will do with them: which hero it draws is its own setting, and the
+// read is five seconds of cache away. It never throws: a failure is a hero without slides.
+let slides: PublicHomeSlide[] = [];
 let categories: PostCategoryBadge[] = [];
 let nextCursor: string | null = null;
 let loadError = false;
@@ -30,18 +33,17 @@ const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? se
 const PAGE_SIZE = Number(themeSettings.postsPerLoad ?? 6) || 6;
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
-// Read whatever the theme will do with them: which hero it draws is its own setting, and the
-// read is five seconds of cache away. It never throws: a failure is a hero without slides.
-const slides = await getPublicSlides(locale);
 
 try {
-  const [page, published] = await Promise.all([
+  const [page, published, liveSlides] = await Promise.all([
     listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale }),
     listPublishedCategories(locale),
+    getPublicSlides(locale),
   ]);
   posts = page.items;
   nextCursor = page.nextCursor;
   categories = published.items;
+  slides = liveSlides;
 } catch (error) {
   // A cursor that fails to verify is a bad request, not the server failing.
   if (error instanceof HttpError) {

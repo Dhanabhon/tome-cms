@@ -48,13 +48,13 @@ async function slideMedia(ownerId: string, ids: string[]): Promise<HomeSlideMedi
 
 export async function listSlides(ownerId: string): Promise<{
   media: HomeSlideMedia[];
-  pages: Array<{ id: string; locale: PageLocale; status: string; title: string }>;
+  pages: Array<{ id: string; locale: PageLocale; published_at: Date | null; status: string; title: string }>;
   slides: HomeSlide[];
 }> {
   const [slides, pages] = await Promise.all([
     db.selectFrom('home_slides').selectAll().where('owner_id', '=', ownerId)
       .orderBy('locale').orderBy('position').execute(),
-    db.selectFrom('pages').select(['id', 'locale', 'status', 'title'])
+    db.selectFrom('pages').select(['id', 'locale', 'published_at', 'status', 'title'])
       .where('owner_id', '=', ownerId).orderBy('title').orderBy('id').execute(),
   ]);
   const media = await slideMedia(ownerId, [...new Set(slides.map((slide) => slide.media_id))]);
@@ -150,11 +150,18 @@ async function queryPublicSlides(locale: PageLocale, now: Date): Promise<PublicS
     .orderBy('home_slides.position').execute();
 
   const shown = rows.filter((row) => row.media_state === 'ready' && row.media_width && row.media_height
+    && (row.heading || row.media_alt?.trim())
     && slideStatus({ enabled: row.enabled, endsAt: row.ends_at?.toISOString() ?? null, startsAt: row.starts_at?.toISOString() ?? null }, now) === 'live')
     .slice(0, SHOWN_HOME_SLIDES);
 
   let modified = settings.updated_at.getTime();
-  for (const row of rows) modified = Math.max(modified, row.updated_at.getTime());
+  for (const row of rows) {
+    modified = Math.max(modified, row.updated_at.getTime());
+    // A start or an end that has passed changed what is live without writing a row.
+    for (const edge of [row.starts_at, row.ends_at]) {
+      if (edge && edge.getTime() <= now.getTime()) modified = Math.max(modified, edge.getTime());
+    }
+  }
 
   const pageIds = [...new Set(shown.flatMap((row) => row.link_kind === 'page' && row.page_id ? [row.page_id] : []))];
   const pageUrls = new Map<string, string>();

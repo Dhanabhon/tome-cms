@@ -28,7 +28,7 @@ import MediaPicker from './MediaPicker';
 import UiSelect from './UiSelect';
 import { useDrawer } from './useDrawer';
 
-interface SlidePage { id: string; locale: PageLocale; status: string; title: string }
+interface SlidePage { id: string; locale: PageLocale; published_at: string | null; status: string; title: string }
 
 /** A slide as the form holds it: every field a string or a flag, converted only on save. */
 interface LocalSlide {
@@ -236,6 +236,16 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
 
   async function save(retry = false) {
     if (savingRef.current || !dirty[locale]) return;
+    // The server keeps the drawer's rules, and a slide can break one after it was saved: its
+    // button's page deleted, its picture's description cleared. Say which, and open it.
+    const broken = items.findIndex((slide) => problem(slide));
+    if (broken >= 0) {
+      const found = problem(items[broken]!);
+      setSaveError(fill(text.fixFirst, { index: broken + 1, problem: found }));
+      open(broken);
+      setDraftError(found);
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     setSaveError('');
@@ -275,7 +285,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     if (slide.linkKind === 'page') {
       const page = pages.find((entry) => entry.id === slide.pageId);
       if (!page) return text.pageGone;
-      if (page.status !== 'published') return text.pageDraft;
+      if (page.status !== 'published' || !page.published_at || Date.parse(page.published_at) > Date.now()) return text.pageDraft;
     }
     return fill(text.buttonTo, { label });
   };
@@ -320,6 +330,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
                     {picture ? <img alt="" className="home-slides-thumb" src={picture.publicUrl} /> : <span aria-hidden="true" className="home-slides-thumb" />}
                     <p>{slide.heading.trim() || text.pictureOnly}</p>
                     <p className="navigation-visibility">{describe(slide)}</p>
+                    {problem(slide) && <p className="navigation-target">{problem(slide)}</p>}
                     {note && <p className="navigation-target">{note}</p>}
                   </div>
                   <div aria-label={fill(text.actionsFor, { index: index + 1 })} className="navigation-item__actions" role="group">
@@ -335,7 +346,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
           <div className="navigation-save">
             <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty[locale]} onClick={() => void save()} type="button">{text.save}</button>
             <span>{saving ? text.saving : dirty[locale] ? text.unsaved : text.noUnsaved}</span>
-            <a href={`/${locale}`} rel="noopener noreferrer" target="_blank">{text.viewOnSite}</a>
+            <a href={`/${locale}`} rel="noopener noreferrer" target="_blank">{text.viewOnSite}<span className="sr-only"> {text.opensInNewTab}</span></a>
           </div>
           {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{text.retry}</button></div>}
         </div>
