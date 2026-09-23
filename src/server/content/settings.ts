@@ -2,6 +2,7 @@ import { sql, type Selectable } from 'kysely';
 import { z } from 'zod';
 
 import { parseStoredIcon, parseStoredImage, type StoredBrandIcon, type StoredBrandImage } from '../../lib/site-brand';
+import { parseMaintenanceCopy, type MaintenanceCopy } from '../../lib/site-maintenance';
 import { isThemeId } from '../../themes/registry';
 import type { AuthorLink, Json } from '../../types/cms';
 import { db } from '../db/client';
@@ -43,12 +44,13 @@ export const profileMutationSchema = z.object({
 
 export type SiteSettingsMutation = z.infer<typeof siteSettingsMutationSchema>;
 export type ProfileMutation = z.infer<typeof profileMutationSchema>;
-type ParsedColumns = 'author_links' | 'brand_icon' | 'brand_logo' | 'brand_logo_dark';
+type ParsedColumns = 'author_links' | 'brand_icon' | 'brand_logo' | 'brand_logo_dark' | 'maintenance_copy';
 export type SiteSettings = Omit<Selectable<SiteSettingsTable>, ParsedColumns> & {
   author_links: AuthorLink[];
   brand_icon: StoredBrandIcon | null;
   brand_logo: StoredBrandImage | null;
   brand_logo_dark: StoredBrandImage | null;
+  maintenance_copy: MaintenanceCopy;
 };
 
 function normalizeSettings(row: Selectable<SiteSettingsTable>): SiteSettings {
@@ -58,6 +60,7 @@ function normalizeSettings(row: Selectable<SiteSettingsTable>): SiteSettings {
     brand_icon: parseStoredIcon(row.brand_icon),
     brand_logo: parseStoredImage(row.brand_logo),
     brand_logo_dark: parseStoredImage(row.brand_logo_dark),
+    maintenance_copy: parseMaintenanceCopy(row.maintenance_copy),
   };
 }
 

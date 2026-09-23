@@ -23,6 +23,7 @@ import * as siteBrand from './migrations/020_site_brand';
 import * as mediaDocuments from './migrations/021_media_documents';
 import * as navigationNewTab from './migrations/022_navigation_new_tab';
 import * as homeSlides from './migrations/023_home_slides';
+import * as siteMaintenance from './migrations/024_site_maintenance';
 
 export const migrations = {
   '001_system': system,
@@ -48,6 +49,7 @@ export const migrations = {
   '021_media_documents': mediaDocuments,
   '022_navigation_new_tab': navigationNewTab,
   '023_home_slides': homeSlides,
+  '024_site_maintenance': siteMaintenance,
 } as const;
 
 const provider: MigrationProvider = {

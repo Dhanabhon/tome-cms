@@ -172,6 +172,12 @@ export interface SiteSettingsTable {
   /** { svgKey, png32Key, png180Key } or null. */
   brand_icon: unknown;
   hide_site_name: Generated<boolean>;
+  maintenance_enabled: Generated<boolean>;
+  maintenance_template: Generated<'minimal' | 'logo' | 'picture' | 'countdown'>;
+  /** { th?: { heading, message }, en?: { heading, message } } -- see migrations/024_site_maintenance. */
+  maintenance_copy: Generated<unknown>;
+  maintenance_media_id: string | null;
+  maintenance_back_at: Timestamp | null;
   installed_at: Timestamp;
   updated_at: Timestamp;
 }
