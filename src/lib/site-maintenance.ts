@@ -19,7 +19,7 @@ export interface MaintenanceSettings {
 
 /** What the page says where its owner wrote nothing: a site closed in a hurry still says something. */
 export const DEFAULT_MAINTENANCE_WORDS: Readonly<Record<PostLocale, MaintenanceWords>> = {
-  en: { heading: 'Down for maintenance', message: 'We\'ll be back soon.' },
+  en: { heading: 'Down for maintenance', message: 'We’ll be back soon.' },
   th: { heading: 'ปิดปรับปรุงชั่วคราว', message: 'เราจะกลับมาเร็ว ๆ นี้' },
 };
 
@@ -31,9 +31,9 @@ const wordsSchema = z.object({
 const copySchema = z.object({ en: wordsSchema.optional(), th: wordsSchema.optional() }).strict();
 
 export const maintenanceSchema = z.object({
-  backAt: z.string().datetime({ offset: true }).nullable().default(null),
+  backAt: z.iso.datetime({ offset: true }).nullable().default(null),
   copy: copySchema.default({}),
-  mediaId: z.string().uuid().transform((id) => id.toLowerCase()).nullable().default(null),
+  mediaId: z.uuid().transform((id) => id.toLowerCase()).nullable().default(null),
   template: z.enum(MAINTENANCE_TEMPLATES),
 }).strict().superRefine((page, context) => {
   if (page.template === 'picture' && !page.mediaId) {

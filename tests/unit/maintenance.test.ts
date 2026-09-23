@@ -28,17 +28,17 @@ test('a maintenance page is refused when its template lacks what it draws', () =
   assert.ok(maintenanceSchema.parse({ template: 'countdown', backAt: '2030-01-01T02:00:00.000Z' }));
 });
 
-test('words are trimmed, bounded, and fall back to the product\'s own in their language', () => {
+test('words are trimmed, bounded, and fall back to the product’s own in their language', () => {
   const parsed = maintenanceSchema.parse({ template: 'minimal', copy: { th: { heading: '  ปิดซ่อม  ', message: '' } } });
   assert.deepEqual(parsed.copy.th, { heading: 'ปิดซ่อม', message: '' });
   assert.equal(maintenanceSchema.safeParse({ template: 'minimal', copy: { en: { heading: 'x'.repeat(81) } } }).success, false, 'a heading over 80');
   assert.equal(maintenanceSchema.safeParse({ template: 'minimal', copy: { en: { message: 'x'.repeat(281) } } }).success, false, 'a message over 280');
-  assert.equal(maintenanceSchema.safeParse({ template: 'minimal', copy: { de: { heading: 'Hallo' } } }).success, false, 'only the site\'s languages');
+  assert.equal(maintenanceSchema.safeParse({ template: 'minimal', copy: { de: { heading: 'Hallo' } } }).success, false, 'only the site’s languages');
 
   assert.deepEqual(maintenanceWords(parsed.copy, 'th'), { heading: 'ปิดซ่อม', message: 'เราจะกลับมาเร็ว ๆ นี้' });
   assert.deepEqual(maintenanceWords({}, 'en'), DEFAULT_MAINTENANCE_WORDS.en);
   assert.deepEqual(DEFAULT_MAINTENANCE_WORDS.th, { heading: 'ปิดปรับปรุงชั่วคราว', message: 'เราจะกลับมาเร็ว ๆ นี้' });
-  assert.deepEqual(DEFAULT_MAINTENANCE_WORDS.en, { heading: 'Down for maintenance', message: 'We\'ll be back soon.' });
+  assert.deepEqual(DEFAULT_MAINTENANCE_WORDS.en, { heading: 'Down for maintenance', message: 'We’ll be back soon.' });
 });
 
 test('stored words of the wrong shape read as none', () => {
@@ -57,7 +57,7 @@ test('a return time is ahead only while it has not come, and only then is it sen
   assert.equal(retryAfter(null, now), null);
 });
 
-test('the page speaks the language of its path, then of the API\'s query, then the site\'s', () => {
+test('the page speaks the language of its path, then of the API’s query, then the site’s', () => {
   const at = (path: string) => maintenanceLocale(new URL(path, 'https://example.com'), 'en');
   assert.equal(at('/th/'), 'th');
   assert.equal(at('/th/blog/a-post'), 'th');
