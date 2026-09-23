@@ -428,6 +428,14 @@ export interface PublicListLinks {
   next: string | null;
 }
 
+/** What a closed site tells a headless client, in the language it asked for. */
+export interface MaintenanceNotice {
+  backAt: string | null;
+  heading: string;
+  locale: PostLocale;
+  message: string;
+}
+
 export interface ProblemDetails {
   detail: string;
   instance: string;
