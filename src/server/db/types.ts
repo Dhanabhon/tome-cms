@@ -31,6 +31,7 @@ export interface Database {
   categories: CategoryTable;
   post_category_assignments: PostCategoryAssignmentTable;
   navigation_items: NavigationItemTable;
+  home_slides: HomeSlideTable;
   media_folders: MediaFolderTable;
   media_items: MediaItemTable;
   media_upload_reservations: MediaUploadReservationTable;
@@ -236,6 +237,29 @@ export interface NavigationItemTable {
   url: string | null;
   position: number;
   new_tab: Generated<boolean>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface HomeSlideTable {
+  id: Generated<string>;
+  owner_id: string;
+  locale: 'th' | 'en';
+  position: number;
+  media_id: string;
+  heading: string | null;
+  body: string | null;
+  button_label: string | null;
+  link_kind: 'home' | 'page' | 'custom' | null;
+  page_id: string | null;
+  url: string | null;
+  new_tab: Generated<boolean>;
+  align: Generated<'start' | 'center' | 'end'>;
+  overlay: Generated<'none' | 'soft' | 'strong'>;
+  focus: Generated<'top-start' | 'top' | 'top-end' | 'start' | 'center' | 'end' | 'bottom-start' | 'bottom' | 'bottom-end'>;
+  enabled: Generated<boolean>;
+  starts_at: Timestamp | null;
+  ends_at: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

@@ -22,6 +22,7 @@ import * as contentRedirects from './migrations/019_content_redirects';
 import * as siteBrand from './migrations/020_site_brand';
 import * as mediaDocuments from './migrations/021_media_documents';
 import * as navigationNewTab from './migrations/022_navigation_new_tab';
+import * as homeSlides from './migrations/023_home_slides';
 
 export const migrations = {
   '001_system': system,
@@ -46,6 +47,7 @@ export const migrations = {
   '020_site_brand': siteBrand,
   '021_media_documents': mediaDocuments,
   '022_navigation_new_tab': navigationNewTab,
+  '023_home_slides': homeSlides,
 } as const;
 
 const provider: MigrationProvider = {

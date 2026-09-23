@@ -33,6 +33,9 @@ const PLAN: Readonly<Record<keyof Database, 'preserve' | 'truncate'>> = {
   categories: 'truncate',
   post_category_assignments: 'truncate',
   navigation_items: 'truncate',
+  // The owner's own slides, gone with the owner. It holds a key into media_items, which the
+  // same statement truncates, so Postgres accepts the pair.
+  home_slides: 'truncate',
   media_folders: 'truncate',
   media_items: 'truncate',
   media_upload_reservations: 'truncate',
