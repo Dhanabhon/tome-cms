@@ -9,8 +9,8 @@ export const manifest: ThemeManifest = {
     {
       fallback: 'text',
       hint: {
-        en: 'The band above the grid. Moving reveals the headline once, on arrival. Covers shows the newest posts that have one and falls back to text when none do; either way a reader who asked for less motion gets none.',
-        th: 'แถบเหนือ grid — แบบเคลื่อนไหวจะเผยหัวข้อครั้งเดียวตอนเปิดหน้า ส่วนแบบปกจะแสดงบทความล่าสุดที่มีปก และกลับไปเป็นข้อความถ้าไม่มีสักบทความ ทั้งสองแบบจะไม่เคลื่อนไหวเลยกับผู้อ่านที่ขอการเคลื่อนไหวน้อยลง',
+        en: 'The band above the grid. Moving reveals the headline once, on arrival. Covers shows the newest posts that have one, and Your slides the ones kept under Home slides; each falls back to text when it has nothing to show, and a reader who asked for less motion gets none.',
+        th: 'แถบเหนือ grid แบบเคลื่อนไหวจะเผยหัวข้อครั้งเดียวตอนเปิดหน้า แบบปกจะแสดงบทความล่าสุดที่มีปก และแบบสไลด์ที่จัดเองจะแสดงสไลด์จากเมนูสไลด์หน้าแรก ทุกแบบจะกลับไปเป็นข้อความเมื่อไม่มีอะไรให้แสดง และจะไม่เคลื่อนไหวเลยกับผู้อ่านที่ขอการเคลื่อนไหวน้อยลง',
       },
       key: 'hero',
       kind: 'choice',
@@ -19,19 +19,59 @@ export const manifest: ThemeManifest = {
         { label: { en: 'Text', th: 'ข้อความ' }, value: 'text' },
         { label: { en: 'Moving text', th: 'ข้อความแบบเคลื่อนไหว' }, value: 'animated' },
         { label: { en: 'Covers of the newest posts', th: 'ปกบทความล่าสุด' }, value: 'slider' },
+        { label: { en: 'Your slides', th: 'สไลด์ที่จัดเอง' }, value: 'slides' },
         { label: { en: 'Hidden', th: 'ไม่แสดง' }, value: 'off' },
       ],
     },
     {
       fallback: '',
       hint: {
-        en: 'Left blank, the hero says what the theme says, in the language the page is being read in. Not shown when the hero is covers.',
-        th: 'ถ้าเว้นว่าง จะใช้ข้อความของธีมตามภาษาที่หน้านั้นถูกอ่าน — ไม่แสดงเมื่อเลือกแบบปกบทความ',
+        en: 'Left blank, the hero says what the theme says, in the language the page is being read in. Not shown when the hero is covers or your slides.',
+        th: 'ถ้าเว้นว่าง จะใช้ข้อความของธีมตามภาษาที่หน้านั้นถูกอ่าน ไม่แสดงเมื่อเลือกแบบปกบทความหรือสไลด์ที่จัดเอง',
       },
       key: 'heroHeadline',
       kind: 'text',
       label: { en: 'Headline', th: 'หัวข้อ' },
       max: 60,
+    },
+    {
+      fallback: 'on',
+      hint: {
+        en: 'Only for your slides. A reader can always stop them, and one who asked for less motion never sees them turn.',
+        th: 'ใช้กับสไลด์ที่จัดเองเท่านั้น ผู้อ่านหยุดได้เสมอ และผู้อ่านที่ขอการเคลื่อนไหวน้อยลงจะไม่เห็นสไลด์เลื่อนเลย',
+      },
+      key: 'heroTurn',
+      kind: 'switch',
+      label: { en: 'Slides turn by themselves', th: 'สไลด์เลื่อนเอง' },
+    },
+    {
+      fallback: '6',
+      hint: {
+        en: 'How long each of your slides stays before the next.',
+        th: 'เวลาที่แต่ละสไลด์ค้างอยู่ก่อนเลื่อนไปสไลด์ถัดไป',
+      },
+      key: 'heroEvery',
+      kind: 'choice',
+      label: { en: 'Seconds per slide', th: 'วินาทีต่อสไลด์' },
+      options: [
+        { label: { en: '4', th: '4' }, value: '4' },
+        { label: { en: '6', th: '6' }, value: '6' },
+        { label: { en: '8', th: '8' }, value: '8' },
+      ],
+    },
+    {
+      fallback: 'slide',
+      hint: {
+        en: 'Fading needs a browser that animates as it scrolls; any other one slides instead.',
+        th: 'แบบจางหายต้องใช้เบราว์เซอร์ที่ทำแอนิเมชันตามการเลื่อนได้ เบราว์เซอร์อื่นจะเลื่อนแทน',
+      },
+      key: 'heroMove',
+      kind: 'choice',
+      label: { en: 'Slides change by', th: 'การเปลี่ยนสไลด์' },
+      options: [
+        { label: { en: 'Sliding', th: 'เลื่อน' }, value: 'slide' },
+        { label: { en: 'Fading', th: 'จางหาย' }, value: 'fade' },
+      ],
     },
     {
       fallback: '6',
