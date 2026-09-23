@@ -192,6 +192,17 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   ]);
   expect(await home('en'), 'the English home page has slides of its own, and none yet').toEqual([]);
 
+  // On a phone the band grows to hold its words rather than cutting them off.
+  await page.setViewportSize({ width: 375, height: 740 });
+  await page.goto(`${origin}/th`);
+  const clipped = await page.evaluate(() => [...document.querySelectorAll('.hero-slide')].some((slide) => {
+    const box = slide.getBoundingClientRect();
+    const words = slide.querySelector('.hero-slide__words')?.getBoundingClientRect();
+    return words ? words.top < box.top - 0.5 || words.bottom > box.bottom + 0.5 : false;
+  }));
+  expect(clipped, 'no slide cuts off its words on a phone').toBe(false);
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   // Reordered by keyboard alone, and the home page follows once it is saved.
   await page.goto(`${origin}/admin/slides`);
   await page.getByRole('group', { name: 'Actions for slide 1' }).getByRole('button', { name: 'Move down' }).focus();

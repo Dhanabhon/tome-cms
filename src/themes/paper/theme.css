@@ -194,7 +194,6 @@
   flex: 0 0 100%;
   align-content: end;
   min-width: 0;
-  overflow: hidden;
   aspect-ratio: 16 / 7;
   scroll-snap-align: start;
 }
