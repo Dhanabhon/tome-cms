@@ -12,6 +12,7 @@ const expectedPaths = [
   '/api/v1/content/pages/{slug}',
   '/api/v1/content/categories',
   '/api/v1/content/navigation',
+  '/api/v1/content/slides',
   '/api/v1/content/openapi.json',
 ] as const;
 

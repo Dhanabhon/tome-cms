@@ -8,6 +8,7 @@ import {
   publicListLinksSchema,
   publicListMetaSchema,
   publicMediaSchema,
+  publicHomeSlidesSchema,
   publicNavigationSchema,
   publicPageSchema,
   publicPostSchema,
@@ -162,6 +163,19 @@ export const openApiDocument = {
       },
       options: optionsOperation('optionsPublicNavigation'),
     },
+    '/api/v1/content/slides': {
+      get: {
+        operationId: 'getPublicSlides',
+        summary: 'Get the home page slides that are live now',
+        tags: ['Content'],
+        parameters: [parameterRef('Locale')],
+        responses: {
+          '200': jsonResponse('The live home page slides for one locale, in order, at most five.', 'PublicHomeSlidesResponse'),
+          ...standardResponses,
+        },
+      },
+      options: optionsOperation('optionsPublicSlides'),
+    },
     '/api/v1/content/openapi.json': {
       get: {
         operationId: 'getContentApiContract',
@@ -266,6 +280,7 @@ export const openApiDocument = {
       PublicAuthor: componentSchema(publicAuthorSchema),
       PublicSite: componentSchema(publicSiteSchema),
       PublicNavigation: componentSchema(publicNavigationSchema),
+      PublicHomeSlides: componentSchema(publicHomeSlidesSchema),
       PublicListMeta: componentSchema(publicListMetaSchema),
       PublicListLinks: componentSchema(publicListLinksSchema),
       ProblemDetails: componentSchema(problemDetailsSchema),
@@ -326,6 +341,15 @@ export const openApiDocument = {
         type: 'object',
         properties: {
           data: schemaRef('PublicNavigation'),
+          meta: schemaRef('PublicLocaleMeta'),
+        },
+        required: ['data', 'meta'],
+        additionalProperties: false,
+      },
+      PublicHomeSlidesResponse: {
+        type: 'object',
+        properties: {
+          data: schemaRef('PublicHomeSlides'),
           meta: schemaRef('PublicLocaleMeta'),
         },
         required: ['data', 'meta'],

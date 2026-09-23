@@ -1,10 +1,11 @@
-import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicMedia, PublicNavigation, PublicPage, PublicPost, PublicSite } from '../../types/cms';
+import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicHomeSlide, PublicMedia, PublicNavigation, PublicPage, PublicPost, PublicSite } from '../../types/cms';
 import type { PublishedPage, PublishedPost } from '../content/published';
 import type { SiteBrand } from '../../lib/site-brand';
 import type { SiteSettings } from '../content/settings';
 import type { ReadyImage } from '../media/service';
 import {
   publicCategorySchema,
+  publicHomeSlidesSchema,
   publicMediaSchema,
   publicNavigationSchema,
   publicPageSchema,
@@ -97,4 +98,17 @@ export function serializePublicNavigation(row: PublicNavigation): PublicNavigati
     footer: row.footer.map(({ href, kind, label, newTab }) => ({ href, kind, label, newTab })),
     header: row.header.map(({ href, kind, label, newTab }) => ({ href, kind, label, newTab })),
   });
+}
+
+/** Each field named, so a field added to the row never reaches a reader by accident. */
+export function serializePublicSlides(slides: PublicHomeSlide[]): PublicHomeSlide[] {
+  return publicHomeSlidesSchema.parse(slides.map(({ align, body, button, focus, heading, image, overlay }) => ({
+    align,
+    body,
+    button: button ? { href: button.href, label: button.label, newTab: button.newTab } : null,
+    focus,
+    heading,
+    image: { alt: image.alt, height: image.height, src: image.src, width: image.width },
+    overlay,
+  })));
 }
