@@ -30,6 +30,7 @@ This README has two parts. [Running TomeCMS](#running-tomecms) is for installing
 ### Look
 
 - Themes chosen under Appearance, each previewed drawing your own posts: `paper`, and a spare second called `plain`
+- Home slides for each language, kept under Content: a picture, a few words and a button, drawn as a still banner or a slider by the theme
 - Light and dark for the admin and for readers, who can pick their own unless you turn that off
 - The site's own logo (SVG included), an optional logo for the dark theme, and its icon
 

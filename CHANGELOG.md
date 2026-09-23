@@ -4,6 +4,11 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+### Added
+
+- **Home slides**, under Content: a picture, a heading, a line and a button for the top of each language's home page, up to ten a language and five shown, each with its own start and end if it wants them. `paper` draws them when its hero is set to Your slides, as a still banner for one and a slider for more, turning by itself or not, sliding or fading. A headless site reads the live ones from `/api/v1/content/slides`.
+- A picture a slide uses cannot be deleted from the library, and the refusal names the slide.
+
 ### Changed
 
 - In Thai, the site's appearance setting reads the same way as the admin's.
@@ -13,6 +18,7 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 - In Thai, the label over the admin's light and dark switch was too long for the sidebar and broke inside a word.
 - An article that opens with a picture and has no cover asked for that picture lazily, which held back the moment the page looked ready. Both themes now fetch it first. A picture further down still loads as the reader nears it, and `contentHtml` from the API is unchanged.
 - The `plain` theme's cover image is fetched first, as `paper`'s already was.
+- The covers slider fetched the pictures a reader had not reached at the same priority as the one on screen. They come last now.
 
 ## 0.9.0 - 2026-09-23
 
