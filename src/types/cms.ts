@@ -189,6 +189,57 @@ export interface PublicNavigation {
   header: PublicNavigationItem[];
 }
 
+export const HOME_SLIDE_FOCUS = [
+  'top-start', 'top', 'top-end', 'start', 'center', 'end', 'bottom-start', 'bottom', 'bottom-end',
+] as const;
+export type HomeSlideFocus = (typeof HOME_SLIDE_FOCUS)[number];
+export type HomeSlideAlign = 'start' | 'center' | 'end';
+export type HomeSlideOverlay = 'none' | 'soft' | 'strong';
+
+/** A slide as the admin keeps it. */
+export interface HomeSlide {
+  align: HomeSlideAlign;
+  body: string | null;
+  button_label: string | null;
+  created_at: string;
+  enabled: boolean;
+  ends_at: string | null;
+  focus: HomeSlideFocus;
+  heading: string | null;
+  id: string;
+  link_kind: NavigationKind | null;
+  locale: PostLocale;
+  media_id: string;
+  new_tab: boolean;
+  overlay: HomeSlideOverlay;
+  page_id: string | null;
+  position: number;
+  starts_at: string | null;
+  updated_at: string;
+  url: string | null;
+}
+
+/** What the admin needs to draw and judge a slide's picture. */
+export interface HomeSlideMedia {
+  alt_text: string | null;
+  height: number;
+  id: string;
+  publicUrl: string;
+  size_bytes: number;
+  width: number;
+}
+
+/** A live slide, resolved for a theme or a headless site to draw. */
+export interface PublicHomeSlide {
+  align: HomeSlideAlign;
+  body: string | null;
+  button: { href: string; label: string; newTab: boolean } | null;
+  focus: HomeSlideFocus;
+  heading: string | null;
+  image: { alt: string; height: number; src: string; width: number };
+  overlay: HomeSlideOverlay;
+}
+
 export interface Meta {
   title: string | null;
   description: string | null;
