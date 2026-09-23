@@ -67,7 +67,8 @@ one. A fourth link kind for posts would be the first place this design grows.
 
 **Its text alternative.** A slide with a heading lets the heading speak for it, and the picture
 is drawn with `alt=""`. A slide with no heading uses the library's alternative text, and cannot
-be saved with a picture that has none.
+be saved with a picture that has none. A slide with no heading whose picture later loses its
+description in the library is not shown until the picture has one again, and the admin says why.
 
 **Live** means enabled, started (or no start) and not ended (or no end), read at the moment the
 page is drawn. The home page shows the first five live slides of its language, in order.
@@ -84,7 +85,7 @@ page is drawn. The home page shows the first five live slides of its language, i
 - **Weight and width, said plainly.** Under the chosen picture the drawer gives its width and
   its size, and says so when it is heavier than 800 KB or narrower than 1600 pixels: heavy
   slows the home page, narrow looks soft on a wide screen. A warning, not a refusal.
-- **See it** opens the theme preview of the home page, which draws the live slides.
+- **View the saved slides on the site** opens the home page of the tab's language in a new tab. The theme preview draws only the owner's default language, and slides are per language.
 
 A picture a slide uses cannot be deleted from the library. `findMediaReferences` gains a count
 for slides, and the refusal names them, as it names the posts and pages a file is used in.
@@ -190,5 +191,6 @@ navigation's is. A headless site draws its own hero from it.
 - **Heavy pictures.** Until the library makes smaller copies, a 6 MB photograph is a 6 MB home
   page. The warning is the only guard, and it is advice.
 - **Words over pictures.** The overlay rule stops words standing on a bare picture, but a pale
-  picture under a soft overlay can still be hard to read. The drawer's preview is where an
-  owner sees it; nothing measures the contrast automatically.
+  picture under a soft overlay can still be hard to read. The drawer shows the picture alone, so
+  an owner judges the words on it on the site, after saving; nothing measures the contrast
+  automatically.
