@@ -127,8 +127,10 @@ Every response the owner is given this way is `Cache-Control: private, no-store`
 keeps the barred page for someone else. While maintenance is off there is no session read and
 no extra cost.
 
-Known limit, accepted: a CDN that cached an API, feed or sitemap response before maintenance
-began may serve it for up to its `s-maxage` of 300 seconds. There is no purge.
+Known limit, accepted: a CDN may keep serving an API, feed or sitemap response it cached before
+maintenance began for its `s-maxage` plus `stale-while-revalidate` -- up to about an hour for
+the feeds (`s-maxage=300, stale-while-revalidate=3600`) -- and a browser may keep an API
+response for its `max-age`. There is still no purge.
 
 ## The maintenance page
 
@@ -174,8 +176,9 @@ adds no component of its own.
   maintenance is on or off. It has a language switch.
 
 Every admin screen shows a notice under its head while maintenance is on, the way it shows an
-unapplied migration, so the owner does not forget the site is closed. All copy is in
-`src/lib/admin-i18n.ts`, in Thai and English.
+unapplied migration, so the owner does not forget the site is closed. The Maintenance screen
+itself does not draw that notice, because its own Status card already says the same thing and
+updates as the owner switches. All copy is in `src/lib/admin-i18n.ts`, in Thai and English.
 
 ## Not in this design
 
@@ -216,7 +219,8 @@ bug it guards against.
 2. A visitor (a context with no session) opening `/th/` and a post gets 503 and the Thai heading;
    `/en/` gets the English one.
 3. `/api/v1/content/posts` gets a 503 problem with `maintenance.heading`, while a `/media/...`
-   file and `/health/ready` still get 200.
+   request for a file id that does not exist still gets 404, not 503, and `/health/ready` still
+   gets 200.
 4. The owner sees the real site with the bar, and the admin shows its notice.
 5. Turned off, the visitor gets 200 on the next request.
 6. Countdown does not overflow at phone width.

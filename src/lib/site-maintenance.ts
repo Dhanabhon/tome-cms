@@ -42,7 +42,7 @@ export const maintenanceSchema = z.object({
   if (page.template === 'countdown' && !page.backAt) {
     context.addIssue({ code: 'custom', message: 'Countdown needs a time to count down to.', path: ['backAt'] });
   }
-});
+}).transform((page) => (page.template === 'picture' ? page : { ...page, mediaId: null }));
 
 export type MaintenanceMutation = z.infer<typeof maintenanceSchema>;
 

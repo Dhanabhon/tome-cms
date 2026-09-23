@@ -30,6 +30,11 @@ test('a maintenance page is refused when its template lacks what it draws', () =
   assert.ok(maintenanceSchema.parse({ template: 'countdown', backAt: '2030-01-01T02:00:00.000Z' }));
 });
 
+test('a picture is kept only for the Picture template', () => {
+  assert.equal(maintenanceSchema.parse({ template: 'minimal', mediaId: picture }).mediaId, null, 'another template drops it');
+  assert.equal(maintenanceSchema.parse({ template: 'picture', mediaId: picture }).mediaId, picture.toLowerCase(), 'Picture keeps it');
+});
+
 test('words are trimmed, bounded, and fall back to the product’s own in their language', () => {
   const parsed = maintenanceSchema.parse({ template: 'minimal', copy: { th: { heading: '  ปิดซ่อม  ', message: '' } } });
   assert.deepEqual(parsed.copy.th, { heading: 'ปิดซ่อม', message: '' });
