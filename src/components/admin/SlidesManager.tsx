@@ -300,7 +300,12 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
         <div><h1>{text.heading}</h1><p>{text.subheading}</p></div>
         <button className="admin-button admin-button--primary" disabled={loading || !!loadError || saving} onClick={() => open(null)} ref={addButton} type="button">{text.add}</button>
       </header>
-      {!heroUsesSlides && <p className="admin-alert">{text.notShown} <a href={themesHref}>{text.openThemes}</a></p>}
+      {!heroUsesSlides && (
+        <div className="home-slides-notice">
+          <p>{text.notShown}</p>
+          <a className="admin-button admin-button--secondary" href={themesHref}>{text.openThemes}</a>
+        </div>
+      )}
       <p aria-atomic="true" aria-live="polite" className="navigation-status" role="status">{loading ? text.loading : message}</p>
       {loadError && <div className="admin-alert" role="alert">{loadError} <button className="admin-button" onClick={() => void load()} type="button">{text.retry}</button></div>}
       {!loading && !loadError && <>
