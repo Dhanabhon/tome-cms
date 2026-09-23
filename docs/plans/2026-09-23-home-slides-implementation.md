@@ -214,7 +214,7 @@ export async function up(db: Kysely<Database>): Promise<void> {
       ),
       constraint home_slides_button_check check (
         (button_label is null and link_kind is null and page_id is null and url is null and not new_tab)
-        or (button_label is not null and (
+        or (button_label is not null and link_kind is not null and (
           (link_kind = 'home' and page_id is null and url is null and not new_tab)
           or (link_kind = 'page' and page_id is not null and url is null and not new_tab)
           or (link_kind = 'custom' and page_id is null and url is not null)
@@ -1788,6 +1788,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   const savingRef = useRef(false);
   const dragged = useRef<number | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLOListElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const pictureButton = useRef<HTMLButtonElement>(null);
   const { close, dialog } = useDrawer({ focus: closeButton, onClose: () => setDraft(null), open: draft !== null });
@@ -1846,7 +1847,12 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   function remove(index: number) {
     edit(items.filter((_, position) => position !== index));
     setMessage(fill(text.removed, { index: index + 1 }));
-    requestAnimationFrame(() => addButton.current?.focus());
+    // The nearest slide left takes the focus, as a menu item does; an empty list gives it to Add.
+    requestAnimationFrame(() => {
+      const edits = list.current?.querySelectorAll<HTMLButtonElement>('.navigation-item__actions > button:first-child');
+      if (edits?.length) edits[Math.min(index, edits.length - 1)]!.focus();
+      else addButton.current?.focus();
+    });
   }
 
   function open(index: number | null) {
@@ -1867,7 +1873,10 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     if (slide.overlay === 'none' && (slide.heading.trim() || slide.body.trim())) return text.needOverlay;
     if (!slide.heading.trim() && !picture.alt_text?.trim()) return text.needAlt;
     if (slide.buttonLabel.trim() && slide.linkKind === 'page' && !localePages.some((page) => page.id === slide.pageId)) return text.needPage;
-    if (slide.buttonLabel.trim() && slide.linkKind === 'custom' && !normalizeNavigationUrl(slide.url)) return text.badUrl;
+    if (slide.buttonLabel.trim() && slide.linkKind === 'custom') {
+      const url = normalizeNavigationUrl(slide.url);
+      if (!url || url.length > 2048) return text.badUrl;
+    }
     if (slide.startsAt && slide.endsAt && Date.parse(slide.endsAt) <= Date.parse(slide.startsAt)) return text.badWindow;
     return '';
   }
@@ -1968,7 +1977,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
               <div><p>{text.empty}</p></div>
             </div>
           )}
-          <ol aria-label={text.list} className="navigation-items">
+          <ol aria-label={text.list} className="navigation-items" ref={list}>
             {items.map((slide, index) => {
               const picture = media[slide.mediaId];
               const note = buttonNote(slide);
@@ -2014,9 +2023,11 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
           <section className="drawer-group home-slides-picture">
             <h3>{text.picture}</h3>
             {draftPicture && <img alt="" src={draftPicture.publicUrl} />}
-            {draftPicture && <p className="home-slides-note">{draftPicture.width} × {draftPicture.height} · {formatBytes(draftPicture.size_bytes)}</p>}
-            {draftPicture && draftPicture.size_bytes > HEAVY_SLIDE_BYTES && <p className="home-slides-note">{fill(text.heavy, { size: formatBytes(draftPicture.size_bytes) })}</p>}
-            {draftPicture && draftPicture.width < NARROW_SLIDE_PIXELS && <p className="home-slides-note">{fill(text.narrow, { width: draftPicture.width })}</p>}
+            <div aria-live="polite">
+              {draftPicture && <p className="home-slides-note">{draftPicture.width} × {draftPicture.height} · {formatBytes(draftPicture.size_bytes)}</p>}
+              {draftPicture && draftPicture.size_bytes > HEAVY_SLIDE_BYTES && <p className="home-slides-note">{fill(text.heavy, { size: formatBytes(draftPicture.size_bytes) })}</p>}
+              {draftPicture && draftPicture.width < NARROW_SLIDE_PIXELS && <p className="home-slides-note">{fill(text.narrow, { width: draftPicture.width })}</p>}
+            </div>
             <button className="admin-button" onClick={() => setPicking(true)} ref={pictureButton} type="button">{draftPicture ? text.changePicture : text.choosePicture}</button>
           </section>
           <section className="drawer-group">
