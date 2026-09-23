@@ -508,7 +508,7 @@ async function findMediaReferences(
   ownerId: string,
   id: string,
 ): Promise<MediaReferences> {
-  const [coverPosts, contentPosts, pages, profile, slides] = await Promise.all([
+  const [coverPosts, contentPosts, pages, profile, slides, maintenance] = await Promise.all([
     trx.selectFrom('posts').select(['id', 'title']).where('owner_id', '=', ownerId).where('cover_media_id', '=', id).execute(),
     trx.selectFrom('posts').select(['id', 'title']).where('owner_id', '=', ownerId).where(contentReferencesMedia(id)).execute(),
     trx.selectFrom('pages').select(['id', 'title']).where('owner_id', '=', ownerId).where(contentReferencesMedia(id)).execute(),
@@ -516,16 +516,19 @@ async function findMediaReferences(
     trx.selectFrom('home_slides').select(['id', 'heading', 'locale', 'position'])
       .where('owner_id', '=', ownerId).where('media_id', '=', id)
       .orderBy('locale').orderBy('position').execute(),
+    trx.selectFrom('site_settings').select('id').where('owner_id', '=', ownerId).where('maintenance_media_id', '=', id).executeTakeFirst(),
   ]);
   const posts = [...new Map([...coverPosts, ...contentPosts].map((post) => [post.id, post])).values()];
   return {
     counts: {
+      maintenance: maintenance ? 1 : 0,
       pageContent: pages.length,
       postContent: contentPosts.length,
       postCovers: coverPosts.length,
       profile: profile ? 1 : 0,
       slides: slides.length,
     },
+    maintenance: Boolean(maintenance),
     pages,
     posts,
     profile: Boolean(profile),

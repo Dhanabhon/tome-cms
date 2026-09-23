@@ -324,7 +324,8 @@ export interface MediaAsset {
 }
 
 export interface MediaReferences {
-  counts: { pageContent: number; postContent: number; postCovers: number; profile: number; slides: number };
+  counts: { maintenance: number; pageContent: number; postContent: number; postCovers: number; profile: number; slides: number };
+  maintenance: boolean;
   pages: Array<{ id: string; title: string }>;
   posts: Array<{ id: string; title: string }>;
   profile: boolean;
