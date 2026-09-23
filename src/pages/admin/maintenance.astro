@@ -1,0 +1,57 @@
+---
+import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
+import AdminShell from '../../components/admin/AdminShell.astro';
+import MaintenanceForm from '../../components/admin/MaintenanceForm';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminHref, adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
+import { requireInstalledOwner } from '../../server/auth/session';
+import { getSiteSettings, type SiteSettings } from '../../server/content/settings';
+import { HttpError } from '../../server/http/errors';
+
+let userEmail: string | null = null;
+let errorKey: 'maintenanceHidden' | 'maintenanceUnavailable' | null = null;
+let settings: SiteSettings | null = null;
+let authRequired = false;
+
+try {
+  settings = await getSiteSettings();
+  const current = await requireInstalledOwner(Astro.request.headers);
+  if (!settings) {
+    Astro.response.status = 404;
+    errorKey = 'maintenanceHidden';
+  } else {
+    userEmail = current.user.email;
+  }
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search, settings?.admin_path));
+  } else if (error instanceof HttpError && error.status === 403) {
+    Astro.response.status = 404;
+    errorKey = 'maintenanceHidden';
+  } else {
+    console.error('Maintenance page failed to load.');
+    Astro.response.status = 500;
+    errorKey = 'maintenanceUnavailable';
+  }
+}
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
+const previewHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, '/maintenance/preview');
+---
+
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.maintenance.heading}>
+  {authRequired || errorMessage ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
+  ) : (
+    <AdminShell active="maintenance" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
+      <MaintenanceForm client:only="react" ownerLocale={ownerLocale} previewHref={previewHref}>
+        <AdminSkeleton kind="form" label={copy.maintenance.loading} slot="fallback" />
+      </MaintenanceForm>
+    </AdminShell>
+  )}
+</AdminLayout>

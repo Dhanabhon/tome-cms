@@ -3,6 +3,7 @@
 
 .maintenance {
   display: grid;
+  box-sizing: border-box;
   min-height: 100dvh;
   margin: 0;
   place-items: center start;

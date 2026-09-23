@@ -26,6 +26,7 @@ const copy = adminCopy(locale);
 // Counted only for a signed-in owner -- the Security screen renders this shell around its sign-in
 // form too. A count that fails leaves the badges out; it never takes the shell down with it.
 let counts: AdminStoryCounts | null = null;
+let maintenanceOn = false;
 /**
  * A build whose migrations have not run writes to columns that are not there, and the
  * owner meets that as a save that failed for no stated reason -- which is how it was met
@@ -38,6 +39,7 @@ let pendingMigrations: string[] = [];
 if (userEmail) {
   try {
     const settings = await getSiteSettings();
+    maintenanceOn = settings?.maintenance_enabled ?? false;
     if (settings) counts = await countAdminStories(settings.owner_id);
   } catch (error) {
     console.error('Admin story counts could not be read:', error);
@@ -97,6 +99,7 @@ const groups: Array<{ id: string; label: string; links: Array<NavLink | NavSecti
       { href: adminHref(adminSettings, '/profile'), id: 'profile', label: copy.nav.profile },
       { href: adminHref(adminSettings, '/security'), id: 'security', label: copy.nav.security },
       { href: adminHref(adminSettings, '/settings'), id: 'settings', label: copy.nav.settings },
+      { href: adminHref(adminSettings, '/maintenance'), id: 'maintenance', label: copy.nav.maintenance },
       {
         children: [
           { href: adminHref(adminSettings, '/themes'), id: 'themes', label: copy.nav.themes },
@@ -231,6 +234,12 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
           <strong>{copy.shell.migrationsPending}</strong>
           <span>{fill(copy.shell.migrationsPendingBody, { names: pendingMigrations.join(', ') })}</span>
         </p>
+      )}
+      {maintenanceOn && (
+        <div class="admin-maintenance-notice" role="status">
+          <p><strong>{copy.shell.maintenanceOn}</strong> {copy.shell.maintenanceOnBody}</p>
+          {active !== 'maintenance' && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/maintenance')}>{copy.shell.maintenanceManage}</a>}
+        </div>
       )}
       <slot />
     </main>

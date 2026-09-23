@@ -14,7 +14,7 @@ test('each admin screen gets the skeleton of its own layout', () => {
   assert.equal(kind('/admin/media'), 'media');
   assert.equal(kind('/admin/navigation'), 'list');
   assert.equal(kind('/admin/categories'), 'list');
-  for (const form of ['/admin/profile', '/admin/security', '/admin/settings', '/admin/system']) {
+  for (const form of ['/admin/profile', '/admin/security', '/admin/settings', '/admin/system', '/admin/maintenance']) {
     assert.equal(kind(form), 'form', form);
   }
 });

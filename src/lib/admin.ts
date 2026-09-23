@@ -106,7 +106,7 @@ export function postSearchState(url: URL, postsPath: string): { hidden: Array<[s
 }
 
 /** The sidebar's links, in order. Each one's id is also the name of its icon. */
-export const ADMIN_NAV_IDS = ['posts', 'pages', 'media', 'navigation', 'slides', 'redirects', 'profile', 'security', 'settings', 'appearance', 'themes', 'plugins', 'system'] as const;
+export const ADMIN_NAV_IDS = ['posts', 'pages', 'media', 'navigation', 'slides', 'redirects', 'profile', 'security', 'settings', 'maintenance', 'appearance', 'themes', 'plugins', 'system'] as const;
 export type AdminNavId = (typeof ADMIN_NAV_IDS)[number];
 
 /**

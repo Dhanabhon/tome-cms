@@ -107,6 +107,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [referencingPages, setReferencingPages] = useState<ReferencingPage[]>([]);
   const [profileReference, setProfileReference] = useState(false);
   const [referencingSlides, setReferencingSlides] = useState<MediaReferences['slides']>([]);
+  const [maintenanceReference, setMaintenanceReference] = useState(false);
   const currentQuery = useRef('');
   const currentSelection = useRef<CategorySelection>(view.selection);
   const currentFilter = useRef<MediaTypeFilter | null>(view.filter);
@@ -311,6 +312,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setReferencingPosts([]);
     setReferencingPages([]);
     setProfileReference(false);
+    setMaintenanceReference(false);
   }
 
   async function saveDetails() {
@@ -362,6 +364,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setReferencingPosts([]);
     setReferencingPages([]);
     setProfileReference(false);
+    setMaintenanceReference(false);
     setReferencingSlides([]);
     try {
       await atLeast(deleteMedia(item.id));
@@ -375,6 +378,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           setReferencingPages(deleteFailure.references.pages);
           setProfileReference(deleteFailure.references.profile);
           setReferencingSlides(deleteFailure.references.slides ?? []);
+          setMaintenanceReference(deleteFailure.references.maintenance ?? false);
         }
       }
     } finally {
@@ -490,7 +494,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           ? <img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} />
           : <span aria-hidden="true" className="media-card__file media-details__file">{formatLabel(selected.mime_type)}</span>}
         <p className="break-all font-medium">{selected.original_name}</p>
-        <p className="text-sm text-muted">{isImageAsset(selected) ? `${selected.width} × ${selected.height} · ` : ''}{formatLabel(selected.mime_type)} · {formatBytes(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} />{isImageAsset(selected) && <label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label>}<label>{copy.media.fileUrl}<input aria-label={copy.media.fileUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button aria-busy={pressed('save-details')} className="admin-button admin-button--primary" disabled={working !== null || deleting} onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{referencingSlides.length > 0 && <ul>{referencingSlides.map((slide) => <li key={slide.id}><a href="/admin/slides">{slide.heading ?? fill(copy.media.slideReference, { language: slide.locale === 'th' ? 'ไทย' : 'English', position: String(slide.position + 1) })}</a></li>)}</ul>}{!referencingPosts.length && !referencingPages.length && !profileReference && !referencingSlides.length && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
+        <p className="text-sm text-muted">{isImageAsset(selected) ? `${selected.width} × ${selected.height} · ` : ''}{formatLabel(selected.mime_type)} · {formatBytes(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} />{isImageAsset(selected) && <label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label>}<label>{copy.media.fileUrl}<input aria-label={copy.media.fileUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><button aria-busy={pressed('save-details')} className="admin-button admin-button--primary" disabled={working !== null || deleting} onClick={() => void saveDetails()} type="button">{copy.media.save}</button><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{referencingSlides.length > 0 && <ul>{referencingSlides.map((slide) => <li key={slide.id}><a href="/admin/slides">{slide.heading ?? fill(copy.media.slideReference, { language: slide.locale === 'th' ? 'ไทย' : 'English', position: String(slide.position + 1) })}</a></li>)}</ul>}{maintenanceReference && <p><a href="/admin/maintenance">{copy.media.maintenanceReference}</a></p>}{!referencingPosts.length && !referencingPages.length && !profileReference && !referencingSlides.length && !maintenanceReference && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
     </section>
   );
 }
