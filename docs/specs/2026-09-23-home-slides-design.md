@@ -149,8 +149,10 @@ navigation's is. A headless site draws its own hero from it.
 
 - `src/server/db/reset-tables.ts`: `home_slides` is `truncate`. The file does not typecheck
   until the table is placed, which is its purpose.
-- The backup and the restore check: the table's rows travel with the database, and the pictures
-  with the library's objects. The plan confirms both with a restore rather than assuming it.
+- The backup: `pg_dump` takes the whole database with no table list, so the table's rows travel
+  without a change, and the pictures travel as the library's objects already do. The restore
+  check compares the four record counts a v1 manifest holds and cannot gain a fifth, so it does
+  not count slides.
 - Deleting a page a slide links to: the slide keeps its words and loses its button, and the
   admin list says the button's page is gone. A slide is never deleted because a page was.
 
