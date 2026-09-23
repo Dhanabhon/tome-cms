@@ -363,33 +363,42 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     {draft && (
       <dialog aria-label={draft.index === null ? text.newTitle : fill(text.editTitle, { index: draft.index + 1 })} className="admin-editor-settings"
         onCancel={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); close(); }} ref={dialog}>
-        <form noValidate onSubmit={apply}>
+        <form className="home-slides-form" noValidate onSubmit={apply}>
           <div className="admin-editor-settings__head">
             <div><h2>{draft.index === null ? text.newTitle : fill(text.editTitle, { index: draft.index + 1 })}</h2></div>
             <button aria-label={text.close} className="admin-button admin-button--ghost admin-button--icon" onClick={() => close()} ref={closeButton} type="button"><Icon name="close" /></button>
           </div>
-          <section className="drawer-group home-slides-picture">
+          <section className="drawer-group">
             <h3>{text.picture}</h3>
-            {draftPicture && <img alt="" src={draftPicture.publicUrl} />}
-            <div aria-live="polite">
-              {draftPicture && <p className="home-slides-note">{draftPicture.width} × {draftPicture.height} · {formatBytes(draftPicture.size_bytes)}</p>}
-              {draftPicture && draftPicture.size_bytes > HEAVY_SLIDE_BYTES && <p className="home-slides-note">{fill(text.heavy, { size: formatBytes(draftPicture.size_bytes) })}</p>}
-              {draftPicture && draftPicture.width < NARROW_SLIDE_PIXELS && <p className="home-slides-note">{fill(text.narrow, { width: draftPicture.width })}</p>}
+            <div className="admin-field">
+              {draftPicture && <img alt="" className="admin-cover-preview home-slides-preview" src={draftPicture.publicUrl} />}
+              <div className="admin-cover-actions">
+                <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setPicking(true)} ref={pictureButton} type="button">{draftPicture ? text.changePicture : text.choosePicture}</button>
+              </div>
+              <div aria-live="polite" className="home-slides-facts">
+                {draftPicture && <small>{draftPicture.width} × {draftPicture.height} · {formatBytes(draftPicture.size_bytes)}</small>}
+                {draftPicture && draftPicture.size_bytes > HEAVY_SLIDE_BYTES && <small>{fill(text.heavy, { size: formatBytes(draftPicture.size_bytes) })}</small>}
+                {draftPicture && draftPicture.width < NARROW_SLIDE_PIXELS && <small>{fill(text.narrow, { width: draftPicture.width })}</small>}
+              </div>
             </div>
-            <button className="admin-button" onClick={() => setPicking(true)} ref={pictureButton} type="button">{draftPicture ? text.changePicture : text.choosePicture}</button>
           </section>
           <section className="drawer-group">
+            <h3>{text.wordsGroup}</h3>
             <label className="admin-field">{text.headingField}<input className="admin-control" maxLength={80} onChange={(event) => change({ heading: event.target.value })} value={draft.slide.heading} /></label>
             <label className="admin-field">{text.body}<textarea className="admin-control" maxLength={200} onChange={(event) => change({ body: event.target.value })} rows={3} value={draft.slide.body} /></label>
           </section>
           <section className="drawer-group">
-            <label className="admin-field">{text.button}<input aria-describedby="home-slides-button-hint" className="admin-control" maxLength={30} onChange={(event) => change({ buttonLabel: event.target.value })} value={draft.slide.buttonLabel} /></label>
-            <small id="home-slides-button-hint">{text.buttonHint}</small>
+            <h3>{text.button}</h3>
+            <div className="admin-field">
+              <label htmlFor="home-slide-button">{text.buttonText}</label>
+              <input aria-describedby="home-slides-button-hint" className="admin-control" id="home-slide-button" maxLength={30} onChange={(event) => change({ buttonLabel: event.target.value })} value={draft.slide.buttonLabel} />
+              <small id="home-slides-button-hint">{text.buttonHint}</small>
+            </div>
             {draft.slide.buttonLabel.trim() && <>
               <fieldset className="navigation-kinds">
                 <legend>{text.linkTarget}</legend>
                 {([['home', text.linkHome], ['page', text.linkPage], ['custom', text.linkCustom]] as const).map(([value, label]) => (
-                  <label className="admin-check" key={value}><input checked={draft.slide.linkKind === value} name="home-slide-link" onChange={() => change({ linkKind: value })} type="radio" /><span>{label}</span></label>
+                  <label key={value}><input checked={draft.slide.linkKind === value} name="home-slide-link" onChange={() => change({ linkKind: value })} type="radio" /><span>{label}</span></label>
                 ))}
               </fieldset>
               {draft.slide.linkKind === 'page' && <div className="admin-field">
@@ -401,11 +410,12 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
               </div>}
               {draft.slide.linkKind === 'custom' && <>
                 <label className="admin-field">{text.url}<input className="admin-control" onChange={(event) => change({ url: event.target.value })} placeholder={text.urlPlaceholder} value={draft.slide.url} /></label>
-                <label className="admin-check"><input checked={draft.slide.newTab} onChange={(event) => change({ newTab: event.target.checked })} type="checkbox" /><span>{text.newTab}</span></label>
+                <div className="drawer-checks"><label><input checked={draft.slide.newTab} onChange={(event) => change({ newTab: event.target.checked })} type="checkbox" />{text.newTab}</label></div>
               </>}
             </>}
           </section>
           <section className="drawer-group">
+            <h3>{text.lookGroup}</h3>
             <div className="admin-field"><label htmlFor="home-slide-align">{text.align}</label>
               <UiSelect ariaLabel={text.align} className="admin-control" id="home-slide-align" onValueChange={(value) => change({ align: value as HomeSlideAlign })}
                 options={[{ label: text.alignStart, value: 'start' }, { label: text.alignCenter, value: 'center' }, { label: text.alignEnd, value: 'end' }]} value={draft.slide.align} /></div>
@@ -417,13 +427,17 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
                 options={HOME_SLIDE_FOCUS.map((value) => ({ label: text.focusLabels[value], value }))} value={draft.slide.focus} /></div>
           </section>
           <section className="drawer-group">
-            <label className="admin-check"><input checked={draft.slide.enabled} onChange={(event) => change({ enabled: event.target.checked })} type="checkbox" /><span>{text.enabled}</span></label>
+            <h3>{text.whenGroup}</h3>
+            <div className="drawer-checks"><label><input checked={draft.slide.enabled} onChange={(event) => change({ enabled: event.target.checked })} type="checkbox" />{text.enabled}</label></div>
             <label className="admin-field">{text.starts}<input className="admin-control" onChange={(event) => change({ startsAt: fromInput(event.target.value) })} type="datetime-local" value={toInput(draft.slide.startsAt)} /></label>
-            <label className="admin-field">{text.ends}<input className="admin-control" onChange={(event) => change({ endsAt: fromInput(event.target.value) })} type="datetime-local" value={toInput(draft.slide.endsAt)} /></label>
-            <small>{text.timesHint}</small>
+            <div className="admin-field">
+              <label htmlFor="home-slide-ends">{text.ends}</label>
+              <input aria-describedby="home-slides-times-hint" className="admin-control" id="home-slide-ends" onChange={(event) => change({ endsAt: fromInput(event.target.value) })} type="datetime-local" value={toInput(draft.slide.endsAt)} />
+              <small id="home-slides-times-hint">{text.timesHint}</small>
+            </div>
           </section>
           {draftError && <p className="admin-alert" role="alert">{draftError}</p>}
-          <div className="navigation-dialog__actions">
+          <div className="navigation-dialog__actions home-slides-actions">
             <button className="admin-button" onClick={() => close()} type="button">{text.cancel}</button>
             <button className="admin-button admin-button--primary" type="submit">{text.done}</button>
           </div>

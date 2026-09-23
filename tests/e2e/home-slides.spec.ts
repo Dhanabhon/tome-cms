@@ -157,7 +157,7 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   await expect(drawer.getByText('1800 × 800'), 'the picture is chosen and its size said').toBeVisible();
   await expect(drawer.getByText(/Under 1,600/), 'wide enough, so no warning').toHaveCount(0);
   await drawer.getByLabel('Heading', { exact: true }).fill('ทะเลสาบยามเช้า');
-  await drawer.getByLabel('Button', { exact: true }).fill('อ่านต่อ');
+  await drawer.getByLabel('Button text', { exact: true }).fill('อ่านต่อ');
   await drawer.getByRole('radio', { name: 'An address' }).check();
   await drawer.getByLabel('Address', { exact: true }).fill('https://example.com/');
   await drawer.getByRole('checkbox', { name: 'Open in a new tab' }).check();
