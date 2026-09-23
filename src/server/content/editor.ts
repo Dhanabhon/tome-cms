@@ -36,9 +36,9 @@ const rawEditorContentInputSchema = z.object({ contentJson: z.unknown() }).stric
 const extensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
-    blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
+    // No class for a quote or a code block: the sanitizer keeps none on blockquote or pre, so
+    // the theme draws both. The editor's own classes match paper's, which is why they differ.
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
-    codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-ink p-5 font-mono text-sm text-white' } },
     // StarterKit 3 brings both. Link is configured here already, and an underline would be
     // dropped by the sanitizer on its way to the page, so neither belongs in the schema.
     link: false,
