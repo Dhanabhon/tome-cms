@@ -275,6 +275,9 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   let liveSeen = 0;
   const describe = (slide: LocalSlide) => {
     const state = status(slide, now);
+    // The site passes over a slide with no heading whose picture has lost its description, so
+    // it is neither on the home page nor one of the five.
+    if (state === 'live' && !slide.heading.trim() && !media[slide.mediaId]?.alt_text?.trim()) return text.hiddenNoWords;
     if (state === 'live') return liveSeen++ < SHOWN_HOME_SLIDES ? text.status.live : text.beyondFive;
     if (state === 'waiting') return fill(text.status.waiting, { when: new Date(slide.startsAt).toLocaleString(ownerLocale ?? undefined) });
     return text.status[state];

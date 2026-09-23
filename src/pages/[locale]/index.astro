@@ -34,16 +34,15 @@ const PAGE_SIZE = Number(themeSettings.postsPerLoad ?? 6) || 6;
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
 
+const slidesRead = getPublicSlides(locale);
 try {
-  const [page, published, liveSlides] = await Promise.all([
+  const [page, published] = await Promise.all([
     listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale }),
     listPublishedCategories(locale),
-    getPublicSlides(locale),
   ]);
   posts = page.items;
   nextCursor = page.nextCursor;
   categories = published.items;
-  slides = liveSlides;
 } catch (error) {
   // A cursor that fails to verify is a bad request, not the server failing.
   if (error instanceof HttpError) {
@@ -54,6 +53,9 @@ try {
   }
   loadError = true;
 }
+// Asked for beside the posts, and awaited apart from them: a failed post read is not a reason
+// to lose the hero as well.
+slides = await slidesRead;
 
 const availableLocales: PostAlternate[] = [
   { href: localePath('th'), locale: 'th' },
