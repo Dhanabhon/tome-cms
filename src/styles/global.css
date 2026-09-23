@@ -139,6 +139,18 @@ html[data-notice-closed] .site-notice { display: none; }
 
 .site-notice button:focus-visible { outline: 2px solid currentColor; outline-offset: var(--space-3xs); }
 
+/* The owner's reminder, over their own site, that visitors are meeting the maintenance page.
+ * Only the gate sets the local that draws it, and only for the signed-in owner. */
+.site-maintenance-bar {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-hero);
+  color: var(--color-on-dark);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+.site-maintenance-bar p { margin: 0; }
+.site-maintenance-bar a { color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
+
 /* An article's images, opened in the element the platform already has for this: the top
  * layer, the backdrop, Escape and the focus return are the browser's. */
 [data-lightbox] { cursor: zoom-in; }

@@ -1,0 +1,97 @@
+---
+/**
+ * The page a visitor meets while the site is closed, in one of four templates.
+ *
+ * The core's, not the theme's: a theme broken by the very work maintenance is for must not take
+ * this page down with it. Tokens from installer-tokens.css, the single source of every token.
+ * Only Countdown runs script, and a reader without it still reads the return time in words.
+ */
+import { dateLocale, publicCopy } from '../../lib/i18n';
+import { iconLinks, siteBrand } from '../../lib/site-brand';
+import { isAhead, maintenanceWords } from '../../lib/site-maintenance';
+import { normalizeTheme, themeAttribute } from '../../lib/theme';
+import type { SiteSettings } from '../../server/content/settings';
+import { resolveMediaUrl, stableMediaPath } from '../../server/media/url';
+import type { PostLocale } from '../../types/cms';
+import '../../styles/installer-tokens.css';
+import '../../styles/maintenance.css';
+
+interface Props {
+  locale: PostLocale;
+  settings: SiteSettings;
+}
+
+const { locale, settings } = Astro.props;
+const now = new Date();
+const text = publicCopy(locale);
+const words = maintenanceWords(settings.maintenance_copy, locale);
+const brand = siteBrand(settings, resolveMediaUrl);
+const template = settings.maintenance_template;
+const backAt = settings.maintenance_back_at;
+const ahead = isAhead(backAt, now);
+const when = backAt
+  ? new Intl.DateTimeFormat(dateLocale(locale), { dateStyle: 'medium', timeStyle: 'short', timeZone: settings.timezone }).format(backAt)
+  : null;
+const picture = template === 'picture' && settings.maintenance_media_id ? stableMediaPath(settings.maintenance_media_id) : null;
+const clock = template === 'countdown' && ahead && backAt;
+const units = [
+  ['days', text.maintenanceDays], ['hours', text.maintenanceHours],
+  ['minutes', text.maintenanceMinutes], ['seconds', text.maintenanceSeconds],
+] as const;
+---
+
+<!doctype html>
+<html data-theme={themeAttribute(normalizeTheme(settings.theme))} lang={locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{words.heading} · {settings.site_name}</title>
+    {iconLinks(brand.icon).map((link) => <link {...link} />)}
+    <link rel="stylesheet" href="/fonts.css" />
+  </head>
+  <body class="maintenance" data-template={template}>
+    {picture && <img alt="" class="maintenance__picture" decoding="async" fetchpriority="high" src={picture} />}
+    <main class="maintenance__main">
+      {template === 'logo' && (brand.logo ? (
+        <span class:list={['maintenance__logos', { 'maintenance__logos--has-dark': brand.logoDark }]}>
+          <img alt={settings.site_name} class="maintenance__logo maintenance__logo--light" height={brand.logo.height} src={brand.logo.url} width={brand.logo.width} />
+          {brand.logoDark && <img alt={settings.site_name} class="maintenance__logo maintenance__logo--dark" height={brand.logoDark.height} src={brand.logoDark.url} width={brand.logoDark.width} />}
+        </span>
+      ) : <p class="maintenance__logo-name">{settings.site_name}</p>)}
+      <h1>{words.heading}</h1>
+      <p class="maintenance__message">{words.message}</p>
+      {clock && (
+        <div aria-hidden="true" class="maintenance__clock" data-countdown data-until={clock.toISOString()} hidden>
+          {units.map(([unit, label]) => <span class="maintenance__unit"><strong data-unit={unit}>00</strong><span>{label}</span></span>)}
+        </div>
+      )}
+      {when && ahead && <p class="maintenance__back" data-back-at>{text.maintenanceBack.replace('{when}', when)}</p>}
+      <p class="maintenance__back" data-back-soon hidden={!(when && !ahead)}>{text.maintenanceSoon}</p>
+      {template !== 'logo' && <p class="maintenance__name">{settings.site_name}</p>}
+    </main>
+    <script>
+      // Ticks toward the owner's return time. The time is also written out in words above, so a
+      // reader without script, or with a screen reader, loses only the ticking.
+      const clock = document.querySelector<HTMLElement>('[data-countdown]');
+      if (clock) {
+        const until = Date.parse(clock.dataset.until ?? '');
+        const digits = ['days', 'hours', 'minutes', 'seconds'].map((unit) => clock.querySelector<HTMLElement>(`[data-unit="${unit}"]`));
+        const tick = () => {
+          const left = Math.floor((until - Date.now()) / 1000);
+          if (!(left > 0)) {
+            clock.hidden = true;
+            document.querySelector<HTMLElement>('[data-back-at]')?.setAttribute('hidden', '');
+            document.querySelector<HTMLElement>('[data-back-soon]')?.removeAttribute('hidden');
+            return;
+          }
+          const values = [Math.floor(left / 86_400), Math.floor(left / 3_600) % 24, Math.floor(left / 60) % 60, left % 60];
+          values.forEach((value, index) => { digits[index]!.textContent = String(value).padStart(2, '0'); });
+          clock.hidden = false;
+          setTimeout(tick, 1_000 - (Date.now() % 1_000));
+        };
+        tick();
+      }
+    </script>
+  </body>
+</html>

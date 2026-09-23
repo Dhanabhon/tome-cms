@@ -235,7 +235,7 @@ export const openApiDocument = {
       BadRequest: { description: 'The request parameters are invalid.', content: problemContent },
       NotFound: { description: 'The published resource does not exist.', content: problemContent },
       ServerError: { description: 'The request could not be completed.', content: problemContent },
-      ServiceUnavailable: { description: 'The content service is not ready.', content: problemContent },
+      ServiceUnavailable: { description: 'The content service is not ready, or the site is closed for maintenance; then `maintenance` carries what the owner wrote for visitors.', content: problemContent },
     },
     schemas: {
       EditorMark: {

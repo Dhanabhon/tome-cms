@@ -12,6 +12,8 @@ import {
   parseMaintenanceCopy,
   retryAfter,
 } from '../../src/lib/site-maintenance';
+import { maintenanceRoute } from '../../src/middleware';
+import { problem } from '../../src/server/http/problem';
 
 const picture = '0F8FAD5B-D9CB-469F-A165-70867728950E';
 
@@ -81,4 +83,30 @@ test('the switch takes a flag and nothing else', () => {
   assert.deepEqual(maintenanceStateSchema.parse({ enabled: true }), { enabled: true });
   assert.equal(maintenanceStateSchema.safeParse({ enabled: 'yes' }).success, false);
   assert.equal(maintenanceStateSchema.safeParse({ enabled: true, template: 'logo' }).success, false);
+});
+
+test('the gate closes pages, feeds and the content API, and leaves everything else open', () => {
+  for (const path of ['/', '/th', '/en/', '/th/blog/a-post', '/en/about', '/blog/legacy-post']) {
+    assert.equal(maintenanceRoute(path), 'page', path);
+  }
+  for (const path of ['/sitemap.xml', '/rss.xml']) assert.equal(maintenanceRoute(path), 'feed', path);
+  for (const path of ['/api/v1/content/posts', '/api/v1/content/posts/a-post', '/api/v1/content/site', '/api/v1/content/slides']) {
+    assert.equal(maintenanceRoute(path), 'api', path);
+  }
+  for (const path of [
+    '/admin', '/admin/maintenance', '/backstage', '/api/admin/maintenance', '/api/auth/session', '/install',
+    '/api/install/status', '/recovery', '/api/recovery/enroll', '/health/live', '/health/ready', '/_astro/page.js',
+    '/media/0f8fad5b-d9cb-469f-a165-70867728950e', '/favicon.svg', '/api/v1/content/openapi.json',
+    '/api/v1/content/preview/a-token', '/maintenance', '/robots.txt',
+  ]) assert.equal(maintenanceRoute(path), null, path);
+});
+
+test('a problem can carry the maintenance notice, and the schema says so', async () => {
+  const notice = { backAt: null, heading: 'ปิดซ่อม', locale: 'th' as const, message: 'เราจะกลับมาเร็ว ๆ นี้' };
+  const response = problem(new Request('https://example.com/api/v1/content/posts'), 503, 'The site is closed for maintenance.', { maintenance: notice });
+  assert.equal(response.status, 503);
+  const body = await response.json() as { maintenance?: unknown; status: number };
+  assert.deepEqual(body.maintenance, notice);
+  const plain = await problem(new Request('https://example.com/api/v1/content/posts'), 503, 'Not ready.').json() as Record<string, unknown>;
+  assert.equal('maintenance' in plain, false, 'an ordinary 503 carries none');
 });

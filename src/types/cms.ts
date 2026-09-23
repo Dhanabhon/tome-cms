@@ -440,6 +440,7 @@ export interface MaintenanceNotice {
 export interface ProblemDetails {
   detail: string;
   instance: string;
+  maintenance?: MaintenanceNotice;
   requestId: string;
   status: number;
   title: string;

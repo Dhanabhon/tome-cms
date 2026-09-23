@@ -184,6 +184,12 @@ export const publicListLinksSchema: z.ZodType<PublicListLinks> = z.object({
 export const problemDetailsSchema: z.ZodType<ProblemDetails> = z.object({
   detail: z.string().min(1),
   instance: z.string().min(1).max(2_048),
+  maintenance: z.object({
+    backAt: z.iso.datetime().nullable(),
+    heading: z.string().min(1),
+    locale: z.enum(POST_LOCALES),
+    message: z.string().min(1),
+  }).strict().optional(),
   requestId: z.uuid(),
   status: z.number().int().min(400).max(599),
   title: z.string().min(1),

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { ZodError } from 'zod';
 
+import type { MaintenanceNotice } from '../../types/cms';
 import { problemDetailsSchema } from './public-schemas';
 import { HttpError } from './errors';
 import { logPublicRequest, safePathname } from './request-log';
@@ -20,7 +21,7 @@ export function problem(
   request: Request,
   status: PublicErrorStatus,
   detail: string,
-  options: { cors?: boolean; error?: unknown; startedAt?: number } = {},
+  options: { cors?: boolean; error?: unknown; maintenance?: MaintenanceNotice; startedAt?: number } = {},
 ): Response {
   const requestId = randomUUID();
   const body = problemDetailsSchema.parse({
@@ -30,6 +31,7 @@ export function problem(
     detail,
     instance: safePathname(request),
     requestId,
+    ...(options.maintenance ? { maintenance: options.maintenance } : {}),
   });
   logPublicRequest(request, requestId, status, options.startedAt, options.error);
   const headers = new Headers({
