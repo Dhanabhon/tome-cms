@@ -4,6 +4,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+### Fixed
+
+- In Thai, the label over the admin's light and dark switch was too long for the sidebar and broke inside a word.
+
 ## 0.9.0 - 2026-09-23
 
 ### Changed

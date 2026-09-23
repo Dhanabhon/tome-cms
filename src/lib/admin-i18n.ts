@@ -1031,7 +1031,7 @@ const th: typeof en = {
     system: THEME_LABELS.th.system,
     light: THEME_LABELS.th.light,
     dark: THEME_LABELS.th.dark,
-    adminLabel: 'โหมดการแสดงผลหน้าผู้ดูแล',
+    adminLabel: 'การแสดงผลหน้าผู้ดูแล',
     adminHint: 'มีผลกับหน้าผู้ดูแลบนอุปกรณ์นี้เท่านั้น',
     heading: 'ธีม',
     subheading: 'ธีมที่ใช้วาดหน้าเว็บของคุณ และผู้อ่านจะพบมันแบบสว่างหรือมืด',
