@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 
 import type { BrowserContext, Page } from '@playwright/test';
@@ -191,6 +192,7 @@ test('a closed site answers 503 in the reader’s language, and leaves health op
   expect(await reached?.text(), 'the gate lets a preflight through to the route').toBe('the route');
   expect((await fetch(`${origin}/api/v1/content/openapi.json`)).status).toBe(200);
   expect((await fetch(`${origin}/health/ready`)).status, 'health stays open, or the deploy helper would roll back').toBe(200);
+  expect((await fetch(`${origin}/media/${randomUUID()}`, { redirect: 'manual' })).status, 'media stays open: a missing file is 404, not 503').toBe(404);
   expect((await fetch(`${origin}/maintenance`)).status, 'the page is not an address of its own').toBe(404);
 
   // On a phone: the clock ticks and nothing runs off the side.
