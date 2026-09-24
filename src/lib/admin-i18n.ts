@@ -91,6 +91,7 @@ const en = {
   },
   nav: {
     appearance: 'Appearance',
+    general: 'General',
     groupConfig: 'Configuration',
     groupContent: 'Content',
     label: 'Admin',
@@ -945,6 +946,7 @@ const th: typeof en = {
   },
   nav: {
     appearance: 'หน้าตาเว็บไซต์',
+    general: 'ทั่วไป',
     groupConfig: 'การตั้งค่า',
     groupContent: 'เนื้อหา',
     label: 'ผู้ดูแล',

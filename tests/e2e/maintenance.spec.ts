@@ -240,6 +240,10 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await page.goto(`${origin}/admin/maintenance`);
   await expect(page.getByRole('heading', { name: 'Maintenance', level: 1 })).toBeVisible();
   await expect(page.getByText('The site is open to everyone.')).toBeVisible();
+  const section = page.locator('details.admin-nav-section[open]:visible').filter({ has: page.locator('a[aria-current="page"]') });
+  await expect(section.locator('summary'), 'Maintenance sits under Settings, open while it is read').toContainText('Settings');
+  await expect(section.locator('a[aria-current="page"]')).toHaveText('Maintenance');
+  await expect(section.getByRole('link', { name: 'General', exact: true })).toBeVisible();
 
   await page.getByRole('radio', { name: /^Countdown/ }).check();
   await page.getByLabel('Heading', { exact: true }).fill('ปิดปรับปรุงระบบ');
