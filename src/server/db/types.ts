@@ -37,6 +37,7 @@ export interface Database {
   media_upload_reservations: MediaUploadReservationTable;
   preview_tokens: PreviewTokenTable;
   content_redirects: ContentRedirectTable;
+  content_stats_daily: ContentStatsDailyTable;
 }
 
 export interface UserTable {
@@ -268,6 +269,20 @@ export interface HomeSlideTable {
   ends_at: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export interface ContentStatsDailyTable {
+  owner_id: string;
+  /** A day at the site, written as YYYY-MM-DD. Read it through to_char: node-postgres turns a date into a local midnight. */
+  day: ColumnType<Date, string, never>;
+  kind: 'home' | 'page' | 'post';
+  content_id: string | null;
+  locale: 'en' | 'th';
+  referrer: Generated<string>;
+  device: 'desktop' | 'mobile';
+  country: Generated<string>;
+  views: Generated<number>;
+  reads: Generated<number>;
 }
 
 export type MediaState = 'ready' | 'deleting' | 'delete_failed';

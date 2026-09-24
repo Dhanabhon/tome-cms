@@ -24,6 +24,7 @@ import * as mediaDocuments from './migrations/021_media_documents';
 import * as navigationNewTab from './migrations/022_navigation_new_tab';
 import * as homeSlides from './migrations/023_home_slides';
 import * as siteMaintenance from './migrations/024_site_maintenance';
+import * as contentStats from './migrations/025_content_stats';
 
 export const migrations = {
   '001_system': system,
@@ -50,6 +51,7 @@ export const migrations = {
   '022_navigation_new_tab': navigationNewTab,
   '023_home_slides': homeSlides,
   '024_site_maintenance': siteMaintenance,
+  '025_content_stats': contentStats,
 } as const;
 
 const provider: MigrationProvider = {
