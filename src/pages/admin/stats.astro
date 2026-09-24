@@ -47,7 +47,7 @@ try {
     Astro.response.status = 302;
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
   } else {
-    console.error('Stats loading failed.');
+    console.error('Stats loading failed:', error instanceof Error ? error.message : 'unknown error');
     Astro.response.status = 500;
     failed = true;
   }
