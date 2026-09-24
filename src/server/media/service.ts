@@ -12,6 +12,7 @@ import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import type { AttachmentFile } from '../../lib/editor-attachment';
+import { PLUGIN_MANIFESTS } from '../../plugins/manifests';
 import {
   ACCEPTED_DOCUMENT_TYPES,
   ACCEPTED_IMAGE_TYPES,
@@ -495,6 +496,11 @@ export async function updateMedia(ownerId: string, id: string, input: MediaMutat
   return readyMedia(row);
 }
 
+/** Each plugin with a picture setting, and the keys it keeps pictures under. */
+const PLUGIN_PICTURES = PLUGIN_MANIFESTS
+  .map(({ id, name, settings }) => ({ id, keys: settings.filter((setting) => setting.kind === 'image').map((setting) => setting.key), name }))
+  .filter(({ keys }) => keys.length > 0);
+
 function contentReferencesMedia(id: string) {
   return sql<boolean>`jsonb_path_exists(
     content_json,
@@ -508,7 +514,7 @@ async function findMediaReferences(
   ownerId: string,
   id: string,
 ): Promise<MediaReferences> {
-  const [coverPosts, contentPosts, pages, profile, slides, maintenance] = await Promise.all([
+  const [coverPosts, contentPosts, pages, profile, slides, maintenance, pluginRows] = await Promise.all([
     trx.selectFrom('posts').select(['id', 'title']).where('owner_id', '=', ownerId).where('cover_media_id', '=', id).execute(),
     trx.selectFrom('posts').select(['id', 'title']).where('owner_id', '=', ownerId).where(contentReferencesMedia(id)).execute(),
     trx.selectFrom('pages').select(['id', 'title']).where('owner_id', '=', ownerId).where(contentReferencesMedia(id)).execute(),
@@ -517,12 +523,21 @@ async function findMediaReferences(
       .where('owner_id', '=', ownerId).where('media_id', '=', id)
       .orderBy('locale').orderBy('position').execute(),
     trx.selectFrom('site_settings').select('id').where('owner_id', '=', ownerId).where('maintenance_media_id', '=', id).executeTakeFirst(),
+    trx.selectFrom('plugin_settings').select(['id', 'settings']).where('owner_id', '=', ownerId).execute(),
   ]);
   const posts = [...new Map([...coverPosts, ...contentPosts].map((post) => [post.id, post])).values()];
+  // On or off: a plugin switched off still keeps the picture it will show when switched on.
+  // ponytail: checked here but not locked; a plugin saving the same picture in the same
+  // instant can slip past, and the popup then simply draws without it.
+  const plugins = PLUGIN_PICTURES.filter(({ id: pluginId, keys }) => {
+    const stored = pluginRows.find((row) => row.id === pluginId)?.settings as Record<string, unknown> | undefined;
+    return keys.some((key) => stored?.[key] === id);
+  }).map(({ id: pluginId, name }) => ({ id: pluginId, name }));
   return {
     counts: {
       maintenance: maintenance ? 1 : 0,
       pageContent: pages.length,
+      plugins: plugins.length,
       postContent: contentPosts.length,
       postCovers: coverPosts.length,
       profile: profile ? 1 : 0,
@@ -530,6 +545,7 @@ async function findMediaReferences(
     },
     maintenance: Boolean(maintenance),
     pages,
+    plugins,
     posts,
     profile: Boolean(profile),
     slides,
