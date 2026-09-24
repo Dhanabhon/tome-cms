@@ -1,14 +1,16 @@
 ---
 import type { PublicAuthorProfile } from '../../../types/cms';
 import { publicCopy } from '../../../lib/i18n';
+import { AUTHOR_LINK_MARKS, linkMark } from '../author-links';
 import type { PostLocale } from '../../../types/cms';
 
 interface Props {
+  linkStyle: 'both' | 'icons' | 'text';
   locale: PostLocale;
   profile: PublicAuthorProfile;
 }
 
-const { locale, profile } = Astro.props;
+const { linkStyle, locale, profile } = Astro.props;
 const copy = publicCopy(locale);
 ---
 
@@ -18,8 +20,18 @@ const copy = publicCopy(locale);
     <h2>{profile.name}</h2>
     {profile.bio && <p>{profile.bio}</p>}
     {profile.links.length > 0 && (
-      <nav aria-label={copy.authorLinks}>
-        {profile.links.map((link) => <a href={link.url} rel="noopener noreferrer" target="_blank">{link.label}</a>)}
+      <nav aria-label={copy.authorLinks} class:list={['author-block__links', `author-block__links--${linkStyle}`]}>
+        {profile.links.map((link) => (
+          // With the words gone the owner's name for the link still names it, to a screen reader
+          // and to a pointer that rests on it.
+          <a aria-label={linkStyle === 'icons' ? link.label : undefined} href={link.url} rel="noopener noreferrer"
+            target="_blank" title={linkStyle === 'icons' ? link.label : undefined}>
+            {linkStyle !== 'text' && (
+              <svg aria-hidden="true" class="author-block__mark" height="20" set:html={AUTHOR_LINK_MARKS[linkMark(link.url)]} viewBox="0 0 24 24" width="20" />
+            )}
+            {linkStyle !== 'icons' && link.label}
+          </a>
+        ))}
       </nav>
     )}
   </div>

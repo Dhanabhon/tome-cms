@@ -6,8 +6,13 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ### Added
 
-- **Maintenance**, under Configuration: close the site to visitors while you work on it. Visitors get a 503 page in their language, built from one of four templates (Minimal, Logo, Picture, Countdown) with your own heading, message, picture and return time. The feeds and `/api/v1/content/*` answer 503 too, and the API's answer carries your words so a headless site can draw its own page. The admin, sign-in, health checks and media stay open, and you still see the site while signed in, under a bar that says visitors do not. The site never reopens by itself.
+- **Maintenance**, under Settings: close the site to visitors while you work on it. Visitors get a 503 page in their language, built from one of four templates (Minimal, Logo, Picture, Countdown) with your own heading, message, picture and return time. The feeds and `/api/v1/content/*` answer 503 too, and the API's answer carries your words so a headless site can draw its own page. The admin, sign-in, health checks and media stay open, and you still see the site while signed in, under a bar that says visitors do not. The site never reopens by itself.
 - A picture the maintenance page uses cannot be deleted from the library, and the refusal names the page.
+- `paper` can show the author's links under an article as icons, or as icons and words. GitHub, X, LinkedIn, Facebook, Instagram and YouTube are drawn as their own marks, told by the link's address; any other link gets a plain one. Words stay the default.
+
+### Changed
+
+- Settings in the admin's menu folds out to General and Maintenance, the way Appearance holds Themes and Plugins.
 
 ## 0.10.0 - 2026-09-23
 

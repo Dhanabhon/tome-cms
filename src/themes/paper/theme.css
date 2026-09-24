@@ -88,6 +88,21 @@
 
 .author-block__body a { color: var(--color-link); font-size: var(--text-sm); font-weight: 500; }
 
+/* Links with a mark: the mark sits before the words, and alone it is a round target big enough
+   for a finger, pulled back so its glyph lines up with the text above it. */
+.author-block__links a { display: inline-flex; gap: var(--space-2xs); align-items: center; }
+.author-block__mark { flex: none; }
+.author-block__body .author-block__links--icons { gap: var(--space-2xs); margin-inline-start: -0.625rem; }
+.author-block__links--icons a {
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  color: var(--color-muted);
+  transition: color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
+}
+.author-block__links--icons a:hover { background: color-mix(in oklch, var(--color-link) 10%, transparent); color: var(--color-link); }
+
 @media (max-width: 31.999rem) {
   .author-block { grid-template-columns: minmax(0, 1fr); }
 }

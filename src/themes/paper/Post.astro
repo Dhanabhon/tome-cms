@@ -9,4 +9,4 @@ const { categories, post, preview, profile, settings, themeSettings } = Astro.pr
 
 {themeSettings.readingProgress === 'on' && <div class="reading-progress" aria-hidden="true"></div>}
 
-<PostArticle categories={categories} post={post} preview={preview} profile={profile} settings={settings} />
+<PostArticle authorLinks={themeSettings.authorLinks} categories={categories} post={post} preview={preview} profile={profile} settings={settings} />
