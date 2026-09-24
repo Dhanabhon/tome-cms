@@ -151,7 +151,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   };
 
   expect(await readThemeSettings('paper'), 'a theme nobody has answered gets what it declared')
-    .toEqual({ gridColumns: '3', hero: 'text', heroEvery: '6', heroHeadline: '', heroMove: 'slide', heroTurn: 'on', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
+    .toEqual({ authorLinks: 'text', gridColumns: '3', hero: 'text', heroEvery: '6', heroHeadline: '', heroMove: 'slide', heroTurn: 'on', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
   expect(await feed()).toEqual({ cards: 6, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { postsPerLoad: '12' } });
@@ -170,7 +170,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   // A row edited by hand, or a release that dropped a choice, must not reach a template.
   await query`update site_settings set theme_settings = '{"paper":{"postsPerLoad":"99"}}'::jsonb`.execute(db);
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
-    .toEqual({ gridColumns: '3', hero: 'text', heroEvery: '6', heroHeadline: '', heroMove: 'slide', heroTurn: 'on', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
+    .toEqual({ authorLinks: 'text', gridColumns: '3', hero: 'text', heroEvery: '6', heroHeadline: '', heroMove: 'slide', heroTurn: 'on', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
 });
 
 test('how many cards go across is asked for, not fixed', async ({ page }) => {

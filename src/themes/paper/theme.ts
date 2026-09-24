@@ -124,6 +124,21 @@ export const manifest: ThemeManifest = {
       label: { en: 'Reading progress bar', th: 'แถบความคืบหน้าการอ่าน' },
     },
     {
+      fallback: 'text',
+      hint: {
+        en: 'How the links under the author at the end of an article appear. A link to GitHub, X, LinkedIn, Facebook, Instagram or YouTube shows that site by its mark; any other shows a plain link.',
+        th: 'ลักษณะของลิงก์ใต้ชื่อผู้เขียนท้ายบทความ ลิงก์ไปยัง GitHub, X, LinkedIn, Facebook, Instagram หรือ YouTube จะแสดงโลโก้ของเว็บนั้น ลิงก์อื่นแสดงไอคอนลิงก์ทั่วไป',
+      },
+      key: 'authorLinks',
+      kind: 'choice',
+      label: { en: 'Author links', th: 'ลิงก์ของผู้เขียน' },
+      options: [
+        { label: { en: 'Words', th: 'ข้อความ' }, value: 'text' },
+        { label: { en: 'Icons', th: 'ไอคอน' }, value: 'icons' },
+        { label: { en: 'Icons and words', th: 'ไอคอนกับข้อความ' }, value: 'both' },
+      ],
+    },
+    {
       fallback: 'on',
       hint: {
         en: 'Rows appear as the end of the grid comes near. Off leaves the link to older posts that a reader without JavaScript already follows.',
