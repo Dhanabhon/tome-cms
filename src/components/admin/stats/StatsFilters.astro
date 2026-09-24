@@ -1,0 +1,34 @@
+---
+import type { AdminCopy } from '../../../lib/admin-i18n';
+import { STATS_RANGES, statsHref, type StatsQuery } from '../../../server/stats/report';
+
+interface Props {
+  base: string;
+  copy: AdminCopy;
+  /** One article is in one language, so its own screen has none to choose. */
+  languages?: boolean;
+  query: StatsQuery;
+}
+
+const { base, copy, languages = true, query } = Astro.props;
+const LANGUAGES = [null, 'th', 'en'] as const;
+---
+
+<div class="stats-filters">
+  <nav aria-label={copy.stats.rangeLabel} class="stats-segments">
+    {STATS_RANGES.map((range) => (
+      <a aria-current={query.range === range ? 'true' : undefined} href={statsHref(base, query, { page: 1, range })}>
+        {copy.stats.ranges[range]}
+      </a>
+    ))}
+  </nav>
+  {languages && (
+    <nav aria-label={copy.stats.language} class="stats-segments">
+      {LANGUAGES.map((lang) => (
+        <a aria-current={query.lang === lang ? 'true' : undefined} href={statsHref(base, query, { lang, page: 1 })}>
+          {lang ? copy.stats.languages[lang] : copy.stats.allLanguages}
+        </a>
+      ))}
+    </nav>
+  )}
+</div>

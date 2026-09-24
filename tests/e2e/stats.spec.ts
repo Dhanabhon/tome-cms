@@ -226,3 +226,80 @@ test('the owner’s own browser counts nothing, and neither does a theme preview
   await page.goto(`${origin}/admin/themes/preview/paper`);
   await expect(page.locator('[data-stats]')).toHaveCount(0);
 });
+
+test('Stats shows what was counted, by range, language and sort, and one article alone', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  await signIn(context, page);
+  const shoot = (name: string) => page.screenshot({ fullPage: true, path: test.info().outputPath(`stats-${name}.png`) });
+
+  query('delete from content_stats_daily');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`${origin}/admin/stats`);
+  await expect(page.getByRole('heading', { name: 'Stats', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No readers counted yet' })).toBeVisible();
+  await expect(page.getByText('Your own visits are not counted.')).toBeVisible();
+  await expect(page.locator('a[href="/admin/stats"]').first()).toBeAttached();
+  await shoot('empty-1280-light');
+
+  query(`insert into content_stats_daily (owner_id, day, kind, content_id, locale, referrer, device, country, views, reads) values
+    ('${OWNER}', current_date, 'post', '${ARTICLE}', 'en', 'news.example', 'desktop', 'TH', 10, 4),
+    ('${OWNER}', current_date - 4, 'post', '${ARTICLE}', 'en', '', 'mobile', 'US', 6, 1),
+    ('${OWNER}', current_date - 14, 'post', '${THAI}', 'th', 'internal', 'mobile', 'TH', 8, 6),
+    ('${OWNER}', current_date - 1, 'home', null, 'en', '', 'desktop', '', 5, 0),
+    ('${OWNER}', current_date - 19, 'post', '${GONE}', 'en', 'news.example', 'desktop', 'TH', 3, 3),
+    ('${OWNER}', current_date - 45, 'post', '${ARTICLE}', 'en', '', 'desktop', 'TH', 20, 5)`);
+  await page.reload();
+  const summary = page.locator('.stats-summary > div');
+  await expect(summary.nth(0)).toHaveText(/Views\s*32\s*↑ 60%/);
+  await expect(summary.nth(1)).toHaveText(/Reads\s*14\s*↑ 180%/);
+  await expect(summary.nth(2)).toHaveText(/Read ratio\s*44%\s*↑ 19 points/);
+  await expect(page.getByRole('heading', { name: 'Views and reads per day' })).toBeVisible();
+  await expect(page.locator('.stats-share').filter({ hasText: 'Where readers came from' })).toContainText('news.example');
+  await expect(page.locator('.stats-share').filter({ hasText: 'Where readers came from' })).toContainText('This site');
+  await expect(page.locator('.stats-share').filter({ hasText: 'Countries' })).toContainText('Thailand');
+  await expect(page.getByRole('link', { name: 'IP Geolocation by DB-IP' })).toHaveAttribute('href', 'https://db-ip.com');
+  const rows = page.locator('.stats-articles tbody tr');
+  await expect(rows.first().locator('th')).toHaveText('Worth reading');
+  await expect(rows.last().locator('th')).toHaveText('Deleted');
+  await shoot('data-1280-light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await shoot('data-1280-dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+
+  await page.getByRole('link', { name: 'Last 7 days' }).click();
+  await expect(page).toHaveURL(/range=7d/);
+  await expect(summary.nth(0)).toHaveText(/Views\s*21\s*Nothing to compare with yet/);
+
+  await page.getByRole('link', { name: 'Last 30 days' }).click();
+  await page.getByRole('link', { name: 'Thai', exact: true }).click();
+  await expect(page).toHaveURL(/lang=th/);
+  await expect(summary.nth(0)).toHaveText(/Views\s*8/);
+  await expect(page.locator('.stats-articles thead').getByRole('link', { name: 'Reads' }), 'a sort keeps the language').toHaveAttribute('href', '/admin/stats?lang=th&sort=reads');
+  await page.getByRole('link', { name: 'All languages' }).click();
+
+  await page.locator('.stats-articles thead').getByRole('link', { name: 'Reads' }).click();
+  await expect(page).toHaveURL(/sort=reads/);
+  await expect(rows.first().locator('th')).toHaveText('บทความภาษาไทย');
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  // The admin clips the page itself (html and body, overflow-x: clip), so an overflow shows in its main, not the document.
+  expect(await page.locator('main').evaluate((main) => main.scrollWidth), 'nothing wider than a small phone').toBeLessThanOrEqual(375);
+  await shoot('data-375-light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await shoot('data-375-dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.getByRole('link', { name: 'Worth reading' }).click();
+  await expect(page.getByRole('heading', { name: 'Worth reading', level: 1 })).toBeVisible();
+  await expect(summary.nth(0)).toHaveText(/Views\s*16/);
+  await expect(page.getByRole('link', { name: 'Edit', exact: true })).toHaveAttribute('href', `/admin/edit/${ARTICLE}`);
+  await expect(page.getByRole('link', { name: 'View on site' })).toHaveAttribute('href', '/en/blog/worth-reading');
+  await page.getByRole('link', { name: 'All stats' }).click();
+  await expect(page).toHaveURL(/\/admin\/stats\?sort=reads$/);
+
+  await page.goto(`${origin}/admin/stats/${GONE}`);
+  await expect(page.getByRole('heading', { name: 'Deleted', level: 1 })).toBeVisible();
+  const missing = await page.goto(`${origin}/admin/stats/00000000-0000-4000-8000-000000000000`);
+  expect(missing?.status()).toBe(404);
+});
