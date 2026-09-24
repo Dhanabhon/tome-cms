@@ -58,6 +58,26 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Fetch the DB-IP Lite country database
+        # CC BY 4.0: the Stats screen and the README carry DB-IP's attribution. The month's file
+        # appears some days into the month, so the previous month's stands in until then.
+        run: |
+          mkdir -p data/geoip
+          for month in "$(date -u +%Y-%m)" "$(date -u -d '-1 month' +%Y-%m)"; do
+            if curl -fsSL --retry 3 "https://download.db-ip.com/free/dbip-country-lite-${month}.mmdb.gz" -o dbip.mmdb.gz; then
+              gunzip -c dbip.mmdb.gz > data/geoip/dbip-country-lite.mmdb
+              rm dbip.mmdb.gz
+              break
+            fi
+          done
+          test -s data/geoip/dbip-country-lite.mmdb
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            import { Reader } from 'mmdb-lib';
+            const code = new Reader(readFileSync('data/geoip/dbip-country-lite.mmdb')).get('8.8.8.8')?.country?.iso_code ?? '';
+            if (!/^[A-Z]{2}$/.test(code)) { console.error('The GeoIP file does not answer.'); process.exit(1); }
+          "
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0 (node24)
 

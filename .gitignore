@@ -40,6 +40,9 @@ docs/*.visual-check.*
 # an anchored pattern is how tomecms-brand-kit-v5.png got committed in the first place.
 docs/brand/
 
+# DB-IP Lite, downloaded by the release workflow (or by hand for local Stats countries).
+/data/geoip/
+
 # OS and logs
 .DS_Store
 *.log
