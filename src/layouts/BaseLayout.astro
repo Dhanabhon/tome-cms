@@ -216,6 +216,40 @@ const structuredData = robots.includes('noindex')
           )}
         </aside>
       )}
+      {plugins.popup && (
+        <dialog
+          aria-labelledby="site-popup-heading"
+          class:list={['site-popup', { 'site-popup--picture': plugins.popup.image }]}
+          data-delay={String(plugins.popup.delaySeconds)}
+          data-dismiss-key={plugins.popup.dismissKey}
+          data-site-popup
+          data-trigger={plugins.popup.trigger}
+        >
+          <form class="site-popup__close" method="dialog">
+            <button aria-label={publicText.closePopup} type="submit" value="close"><Icon name="close" /></button>
+          </form>
+          {plugins.popup.image && (
+            <img
+              alt=""
+              class="site-popup__image"
+              decoding="async"
+              height={plugins.popup.image.height}
+              loading="lazy"
+              src={plugins.popup.image.src}
+              width={plugins.popup.image.width}
+            />
+          )}
+          <div class="site-popup__body">
+            <h2 id="site-popup-heading">{plugins.popup.heading}</h2>
+            {plugins.popup.text && <p class="site-popup__text">{plugins.popup.text}</p>}
+            <a class="site-popup__action" href={plugins.popup.action.href}>{plugins.popup.action.label}</a>
+            <form method="dialog">
+              <button class="site-popup__decline" type="submit" value="decline">{plugins.popup.decline ?? publicText.popupDecline}</button>
+            </form>
+            {plugins.popup.finePrint && <p class="site-popup__fine">{plugins.popup.finePrint}</p>}
+          </div>
+        </dialog>
+      )}
       {plugins.clients.map(({ dataset, id }) => (
         <span
           data-close={publicText.closeImage}

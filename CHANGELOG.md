@@ -8,6 +8,7 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 - **Maintenance**, under Settings: close the site to visitors while you work on it. Visitors get a 503 page in their language, built from one of four templates (Minimal, Logo, Picture, Countdown) with your own heading, message, picture and return time. The feeds and `/api/v1/content/*` answer 503 too, and the API's answer carries your words so a headless site can draw its own page. The admin, sign-in, health checks and media stay open, and you still see the site while signed in, under a bar that says visitors do not. The site never reopens by itself.
 - A picture the maintenance page uses cannot be deleted from the library, and the refusal names the page.
+- **Popup**, a plugin: a box over the public site with a picture, a heading, a few words, a button that links to a page or an https address, a way to decline and small print, in Thai and English. It opens after 5, 10 or 20 seconds or as the reader leaves, on every page or the home page only, never over another dialog, and not again once closed until its content changes. Plugins gain a picture setting chosen from the library and a choice setting, and the library will not delete a picture a plugin holds.
 - `paper` can show the author's links under an article as icons, or as icons and words. GitHub, X, LinkedIn, Facebook, Instagram and YouTube are drawn as their own marks, told by the link's address; any other link gets a plain one. Words stay the default.
 
 ### Changed

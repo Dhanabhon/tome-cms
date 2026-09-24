@@ -139,6 +139,76 @@ html[data-notice-closed] .site-notice { display: none; }
 
 .site-notice button:focus-visible { outline: 2px solid currentColor; outline-offset: var(--space-3xs); }
 
+/* The popup a plugin describes and the core draws. <dialog> brings the top layer, the backdrop,
+ * the focus trap and Escape; what is here is how it looks. The words are centred under the
+ * picture on a phone and beside it on anything wider, and the box scrolls inside itself
+ * rather than running off a short screen. Words alone take a narrower box than words beside
+ * a picture, so the button is not stretched across the screen. */
+.site-popup {
+  width: min(30rem, calc(100vw - 2 * var(--space-md)));
+  max-height: 90dvh;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-float);
+}
+.site-popup--picture { width: min(52rem, calc(100vw - 2 * var(--space-md))); }
+.site-popup[open] { display: grid; }
+.site-popup::backdrop { background: var(--color-scrim); }
+@media (min-width: 40rem) {
+  .site-popup--picture[open] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.site-popup__close { position: absolute; inset-block-start: var(--space-xs); inset-inline-end: var(--space-xs); z-index: 1; margin: 0; }
+.site-popup__close button {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--color-paper) 85%, transparent);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.site-popup__image { display: block; width: 100%; height: 100%; max-height: 12rem; object-fit: cover; }
+@media (min-width: 40rem) {
+  .site-popup__image { min-height: 22rem; max-height: none; }
+}
+.site-popup__body { display: grid; gap: var(--space-md); align-content: center; padding: var(--space-xl) var(--space-lg) var(--space-lg); text-align: center; }
+.site-popup__body h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-2xl); line-height: 1.2; text-wrap: balance; }
+.site-popup__body form { margin: 0; }
+.site-popup__text { margin: 0; color: var(--color-muted); }
+.site-popup__action {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-input);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.site-popup__action:hover { background: var(--color-accent-hover); }
+.site-popup__decline {
+  padding: var(--space-xs);
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.site-popup__fine { margin: 0; color: var(--color-muted); font-size: var(--text-xs); }
+@media (prefers-reduced-motion: no-preference) {
+  .site-popup[open] { animation: site-popup-in var(--dur-short) var(--ease-out); }
+}
+@keyframes site-popup-in {
+  from { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
+}
+
 /* The owner's reminder, over their own site, that visitors are meeting the maintenance page.
  * Only the gate sets the local that draws it, and only for the signed-in owner. */
 .site-maintenance-bar {
