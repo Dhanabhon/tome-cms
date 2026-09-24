@@ -50,6 +50,7 @@ const xDefaultHref = availableLocales.find((alternate) => alternate.locale === s
   headline={page?.title}
   locale={locale}
   robots={page ? undefined : 'noindex, follow'}
+  stats={page ? { id: page.id, kind: 'page' } : undefined}
   title={page?.meta_title ?? page?.title ?? (loadError ? 'Unavailable' : 'Page not found')}
   type={page ? 'page' : 'website'}
   xDefaultHref={xDefaultHref}

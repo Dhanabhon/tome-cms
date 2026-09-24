@@ -3,6 +3,7 @@ import ThemeToggle from '../ThemeToggle.astro';
 import Icon from '../Icon.astro';
 import { adminHref, normalizeAdminPath, postSearchState, type AdminNavId } from '../../lib/admin';
 import { adminCopy, fill } from '../../lib/admin-i18n';
+import { STATS_OWNER_KEY } from '../../lib/stats';
 import { countAdminStories, type AdminStoryCounts } from '../../server/content/admin-counts';
 import { getSiteSettings } from '../../server/content/settings';
 import type { PostLocale } from '../../types/cms';
@@ -252,6 +253,15 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
     </main>
   </div>
 </div>
+
+<script is:inline define:vars={{ key: STATS_OWNER_KEY }}>
+  // This browser is the owner's: the site's own counter leaves it out from now on.
+  try {
+    localStorage.setItem(key, '1');
+  } catch (error) {
+    // Storage blocked: this browser will be counted like a reader's.
+  }
+</script>
 
 <script>
   import { authClient } from '../../lib/auth-client';
