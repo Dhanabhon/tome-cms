@@ -42,6 +42,7 @@ const PLAN: Readonly<Record<keyof Database, 'preserve' | 'truncate'>> = {
   preview_tokens: 'truncate',
   // Forwarding addresses for articles a reset removes: nothing left for them to point at.
   content_redirects: 'truncate',
+  content_stats_daily: 'truncate',
 };
 
 /** One order for both the lock and the truncate, so a reset cannot deadlock itself. */
