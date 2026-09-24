@@ -1,12 +1,14 @@
 import { useRef, useState, type FormEvent } from 'react';
 
+import MediaPicker from './MediaPicker';
+import UiSelect from './UiSelect';
 import { useDrawer } from './useDrawer';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { PLUGIN_MANIFESTS } from '../../plugins/manifests';
 import type { PluginHookId, PluginManifest } from '../../plugins/contract';
 import type { PluginState } from '../../server/plugins/store';
-import type { PostLocale } from '../../types/cms';
+import type { MediaAsset, PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
@@ -165,6 +167,47 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
   );
 }
 
+interface PluginPictureProps {
+  copy: AdminCopy;
+  hint?: string;
+  id: string;
+  initial: string;
+  label: string;
+  locale: 'en' | 'th';
+  name: string;
+}
+
+/**
+ * A picture from the library, sent with the rest of the form as its id. The preview is the
+ * library's own stable address for it, so nothing but the id travels.
+ */
+function PluginPicture({ copy, hint, id, initial, label, locale, name }: PluginPictureProps) {
+  const [mediaId, setMediaId] = useState(initial);
+  const [picking, setPicking] = useState(false);
+  const choose = useRef<HTMLButtonElement>(null);
+
+  function pick(asset: MediaAsset) {
+    setMediaId(asset.id);
+    setPicking(false);
+  }
+
+  return (
+    <div className="admin-field" role="group" aria-labelledby={id}>
+      <span className="plugin-setup__label" id={id}>{label}</span>
+      {mediaId && <img alt="" className="admin-cover-preview plugin-setup__picture" src={`/media/${mediaId}`} />}
+      <input name={name} type="hidden" value={mediaId} />
+      <div className="admin-cover-actions">
+        <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setPicking(true)} ref={choose} type="button">
+          {mediaId ? copy.plugins.changePicture : copy.plugins.choosePicture}
+        </button>
+        {mediaId && <button className="admin-button admin-button--ghost" onClick={() => setMediaId('')} type="button">{copy.plugins.removePicture}</button>}
+      </div>
+      {hint && <small>{hint}</small>}
+      {picking && <MediaPicker kind="image" onCancel={() => setPicking(false)} onSelect={pick} ownerLocale={locale} returnFocus={choose.current} />}
+    </div>
+  );
+}
+
 interface PluginSetUpProps {
   busy: boolean;
   configured: boolean;
@@ -240,6 +283,30 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
               </label>
               {setting.hint && <small>{setting.hint[locale]}</small>}
             </div>
+          ) : setting.kind === 'image' ? (
+            <PluginPicture
+              copy={copy}
+              hint={setting.hint?.[locale]}
+              id={`${manifest.id}-${setting.key}`}
+              initial={state?.values[setting.key] ?? ''}
+              key={setting.key}
+              label={setting.label[locale]}
+              locale={locale}
+              name={setting.key}
+            />
+          ) : setting.kind === 'choice' ? (
+            <div className="admin-field" key={setting.key}>
+              <label htmlFor={`${manifest.id}-${setting.key}`}>{setting.label[locale]}</label>
+              <UiSelect
+                ariaLabel={setting.label[locale]}
+                className="admin-control"
+                defaultValue={state?.values[setting.key] || setting.fallback}
+                id={`${manifest.id}-${setting.key}`}
+                name={setting.key}
+                options={(setting.options ?? []).map((option) => ({ label: option.label[locale], value: option.value }))}
+              />
+              {setting.hint && <small>{setting.hint[locale]}</small>}
+            </div>
           ) : setting.kind === 'color' ? (
             <div className="admin-field admin-field--color" key={setting.key}>
               <label htmlFor={`${manifest.id}-${setting.key}`}>{setting.label[locale]}</label>
@@ -274,6 +341,9 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
             <button aria-busy={busy} className="admin-button admin-button--primary" type="submit">
               {copy.plugins.save}
             </button>
+            {manifest.previewHref && (state?.enabled
+              ? <a className="admin-button admin-button--secondary" href={manifest.previewHref} rel="noopener" target="_blank">{copy.plugins.preview}</a>
+              : <small>{copy.plugins.previewOff}</small>)}
           </div>
         </fieldset>
       </form>

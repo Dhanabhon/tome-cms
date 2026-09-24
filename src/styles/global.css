@@ -1865,6 +1865,9 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
 /* The panel is the editors' drawer, which spaces its own direct children; the fields are
  * a level further in, inside the fieldset that disables them while a save is in flight. */
 .plugin-setup fieldset { display: grid; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
+/* A picture field in a plugin's settings: its name above, the chosen picture, then the buttons. */
+.plugin-setup__label { font-size: var(--text-sm); font-weight: 600; }
+.plugin-setup__picture { aspect-ratio: 16 / 9; margin-block-start: 0; }
 .admin-card--note { gap: var(--space-2xs); background: none; border-style: dashed; }
 .admin-card--note h2 { margin: 0; font-size: var(--text-base); }
 .admin-card--note p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
