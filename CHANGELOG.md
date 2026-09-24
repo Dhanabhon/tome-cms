@@ -4,6 +4,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+## 0.11.0 - 2026-09-24
+
+The feature freeze before 1.0.0: only fixes from here until then.
+
 ### Added
 
 - **Stats**, first under Content: views, reads and the read ratio of every article and page, against the period before, with a chart by day or month and where readers came from, their devices, countries and languages. TomeCMS counts these itself into daily totals, with no cookie and no record of any reader, and leaves out your own browser, readers who ask not to be tracked, and self-declared bots. Countries come from a CDN's header or from DB-IP Lite, which the release image now carries. A headless site counts through `POST /api/v1/stats/hit`.
@@ -15,6 +19,19 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 ### Changed
 
 - Settings in the admin's menu folds out to General and Maintenance, the way Appearance holds Themes and Plugins.
+
+### Upgrading
+
+- Two migrations, `024_site_maintenance` and `025_content_stats`. Run `npm run db:migrate`; the deploy helper runs it for you.
+- One new runtime dependency, `mmdb-lib`. The release image carries the DB-IP Lite country database; an image built on your own server shows countries as unknown until you add it.
+
+### For theme, plugin and headless authors
+
+- A read is measured from the end of the first `<article>` on a post or page. Keep the article's own `<article>` first there.
+- Plugins gain `choice` and `image` settings, `previewHref`, and the `sitePopup` half of the `publicPage` hook.
+- `POST /api/v1/stats/hit` is new. While the site is closed, `/api/v1/content/*` answers 503 with a `maintenance` object. The OpenAPI document describes both.
+
+Full notes: [docs/releases/0.11.0.md](docs/releases/0.11.0.md)
 
 ## 0.10.0 - 2026-09-23
 
