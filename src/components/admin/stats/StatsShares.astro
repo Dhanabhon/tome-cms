@@ -1,0 +1,27 @@
+---
+interface Props {
+  format: Intl.NumberFormat;
+  heading: string;
+  rows: Array<{ label: string; views: number }>;
+}
+
+const { format, heading, rows } = Astro.props;
+const most = Math.max(1, ...rows.map(({ views }) => views));
+---
+
+<section class="stats-panel stats-share">
+  <h2>{heading}</h2>
+  {rows.length === 0 ? (
+    <p class="stats-share__none">—</p>
+  ) : (
+    <ol>
+      {rows.map(({ label, views }) => (
+        <li style={`--share: ${Math.round((views / most) * 100)}%`}>
+          <span class="stats-share__label">{label}</span>
+          <span class="stats-share__value">{format.format(views)}</span>
+        </li>
+      ))}
+    </ol>
+  )}
+  <slot />
+</section>

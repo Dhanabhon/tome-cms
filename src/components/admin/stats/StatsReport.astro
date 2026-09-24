@@ -1,0 +1,108 @@
+---
+import { fill, type AdminCopy } from '../../../lib/admin-i18n';
+import type { StatsReport } from '../../../server/stats/dashboard';
+import { percentChange, pointsChange, readRatio, type SeriesPoint } from '../../../server/stats/report';
+import StatsChart from './StatsChart.astro';
+import StatsShares from './StatsShares.astro';
+
+interface Props {
+  copy: AdminCopy;
+  locale: 'en' | 'th';
+  report: StatsReport;
+  unit: 'day' | 'month';
+}
+
+const { copy, locale, report, unit } = Astro.props;
+const tag = locale === 'th' ? 'th-TH' : 'en';
+const number = new Intl.NumberFormat(tag);
+const percent = new Intl.NumberFormat(tag, { maximumFractionDigits: 0, style: 'percent' });
+const regions = new Intl.DisplayNames([tag], { type: 'region' });
+const calendar = new Intl.DateTimeFormat(tag, unit === 'day'
+  ? { day: 'numeric', month: 'short', timeZone: 'UTC' }
+  : { month: 'short', timeZone: 'UTC', year: 'numeric' });
+const dateOf = (key: string) => calendar.format(new Date(`${unit === 'day' ? key : `${key}-01`}T00:00:00Z`));
+const chartTitle = unit === 'day' ? copy.stats.chartDaily : copy.stats.chartMonthly;
+
+/** ↑ 12% or ↓ 3%: how a count changed. */
+function countChange(current: number, previous: number): string {
+  const value = percentChange(current, previous);
+  if (value === null) return copy.stats.noPrevious;
+  if (value === 0) return copy.stats.noChange;
+  return `${value > 0 ? '↑' : '↓'} ${number.format(Math.abs(value))}%`;
+}
+
+/** ↓ 2 points: how the read ratio changed, never a percentage of a percentage. */
+function ratioChange(): string {
+  const value = pointsChange(report.totals, report.previous);
+  if (value === null) return copy.stats.noPrevious;
+  if (value === 0) return copy.stats.noChange;
+  const size = Math.abs(value);
+  return `${value > 0 ? '↑' : '↓'} ${fill(size === 1 ? copy.stats.point : copy.stats.points, { value: number.format(size) })}`;
+}
+
+const describe = (point: SeriesPoint) => fill(copy.stats.barTitle, {
+  date: dateOf(point.key), reads: number.format(point.reads), views: number.format(point.views),
+});
+const referrerName = (key: string) => (key === '' ? copy.stats.direct : key === 'internal' ? copy.stats.thisSite : key);
+const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : regions.of(key) ?? key);
+---
+
+<dl class="stats-summary">
+  <div>
+    <dt>{copy.stats.views}</dt>
+    <dd class="stats-summary__value">{number.format(report.totals.views)}</dd>
+    <dd class="stats-summary__change">{countChange(report.totals.views, report.previous.views)}</dd>
+  </div>
+  <div>
+    <dt>{copy.stats.reads}</dt>
+    <dd class="stats-summary__value">{number.format(report.totals.reads)}</dd>
+    <dd class="stats-summary__change">{countChange(report.totals.reads, report.previous.reads)}</dd>
+  </div>
+  <div>
+    <dt>{copy.stats.readRatio}</dt>
+    <dd class="stats-summary__value">{percent.format(readRatio(report.totals))}</dd>
+    <dd class="stats-summary__change">{ratioChange()}</dd>
+  </div>
+</dl>
+<p class="stats-note">{copy.stats.previousPeriod}</p>
+
+<section aria-labelledby="stats-chart-heading" class="stats-panel">
+  <h2 id="stats-chart-heading">{chartTitle}</h2>
+  <p class="stats-legend">
+    <span class="stats-legend__views">{copy.stats.views}</span>
+    <span class="stats-legend__reads">{copy.stats.reads}</span>
+  </p>
+  <StatsChart describe={describe} label={chartTitle} points={report.series} tick={dateOf} />
+  <details class="stats-numbers">
+    <summary>{copy.stats.chartTable}</summary>
+    <div class="stats-table-wrap">
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th scope="col">{copy.stats.date}</th>
+            <th class="stats-table__number" scope="col">{copy.stats.views}</th>
+            <th class="stats-table__number" scope="col">{copy.stats.reads}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.series.map((point) => (
+            <tr>
+              <th scope="row">{dateOf(point.key)}</th>
+              <td class="stats-table__number">{number.format(point.views)}</td>
+              <td class="stats-table__number">{number.format(point.reads)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<div class="stats-shares">
+  <StatsShares format={number} heading={copy.stats.referrers} rows={report.referrers.map(({ key, views }) => ({ label: referrerName(key), views }))} />
+  <StatsShares format={number} heading={copy.stats.devices} rows={report.devices.map(({ key, views }) => ({ label: key === 'mobile' ? copy.stats.mobile : copy.stats.desktop, views }))} />
+  <StatsShares format={number} heading={copy.stats.countries} rows={report.countries.map(({ key, views }) => ({ label: countryName(key), views }))}>
+    <p class="stats-attribution"><a href="https://db-ip.com">{copy.stats.attribution}</a></p>
+  </StatsShares>
+  <StatsShares format={number} heading={copy.stats.locales} rows={report.locales.map(({ key, views }) => ({ label: key === 'th' ? copy.stats.languages.th : copy.stats.languages.en, views }))} />
+</div>

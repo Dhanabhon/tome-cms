@@ -1,0 +1,43 @@
+---
+import type { SeriesPoint } from '../../../server/stats/report';
+
+interface Props {
+  /** A bar's title: its date and both numbers. */
+  describe: (point: SeriesPoint) => string;
+  label: string;
+  points: SeriesPoint[];
+  tick: (key: string) => string;
+}
+
+/*
+ * Views as bars with reads inside them, drawn on the server. The table under the chart carries
+ * the same numbers for anyone the picture does not reach.
+ */
+const { describe, label, points, tick } = Astro.props;
+const WIDTH = 720;
+const HEIGHT = 180;
+const highest = Math.max(1, ...points.map(({ reads, views }) => Math.max(reads, views)));
+const slot = WIDTH / Math.max(1, points.length);
+const barWidth = Math.max(1, slot * 0.72);
+const heightOf = (value: number) => (value / highest) * HEIGHT;
+---
+
+<svg aria-label={label} class="stats-chart" preserveAspectRatio="none" role="img" viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
+  {points.map((point, index) => {
+    const x = index * slot + (slot - barWidth) / 2;
+    return (
+      <g class="stats-chart__day">
+        <title>{describe(point)}</title>
+        <rect class="stats-chart__hit" height={HEIGHT} width={slot} x={index * slot} y="0" />
+        <rect class="stats-chart__views" height={heightOf(point.views)} width={barWidth} x={x} y={HEIGHT - heightOf(point.views)} />
+        <rect class="stats-chart__reads" height={heightOf(point.reads)} width={barWidth} x={x} y={HEIGHT - heightOf(point.reads)} />
+      </g>
+    );
+  })}
+</svg>
+{points.length > 0 && (
+  <p aria-hidden="true" class="stats-chart__axis">
+    <span>{tick(points[0].key)}</span>
+    <span>{tick(points[points.length - 1].key)}</span>
+  </p>
+)}

@@ -1,0 +1,180 @@
+/* The Stats screen. Drawn on the server; coloured only with the admin's tokens, so dark mode is the tokens' own. */
+
+.stats-page .admin-page__head { margin-block-end: var(--space-lg); }
+
+/* The admin's reset leaves a bare link looking like its text: these say they go somewhere. */
+.stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution) a { color: var(--color-link); }
+.stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution, .stats-articles tbody) a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.stats-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-block-end: var(--space-lg);
+}
+
+.stats-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+}
+
+.stats-segments a {
+  flex: 1 1 auto;
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  text-align: center;
+  text-decoration: none;
+}
+
+.stats-segments a:hover { color: var(--color-ink); }
+.stats-segments a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.stats-segments a[aria-current='true'] {
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-rule-strong);
+  color: var(--color-ink);
+}
+
+.stats-summary {
+  display: grid;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-xs);
+}
+
+.stats-summary > div,
+.stats-panel {
+  min-inline-size: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.stats-summary dt { color: var(--color-muted); font-size: 0.875rem; }
+.stats-summary dd { margin: 0; }
+
+.stats-summary__value {
+  color: var(--color-ink);
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stats-summary__change { color: var(--color-muted); font-size: 0.875rem; }
+.stats-note { margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: 0.8125rem; }
+.stats-panel h2 { margin: 0 0 var(--space-sm); font-size: 1rem; }
+
+.stats-legend {
+  display: flex;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-xs);
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.stats-legend span::before {
+  content: '';
+  display: inline-block;
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+  margin-inline-end: var(--space-2xs);
+  border-radius: var(--radius-sm);
+}
+
+.stats-legend__views::before,
+.stats-chart__views { background: var(--color-rule-strong); fill: var(--color-rule-strong); }
+
+.stats-legend__reads::before,
+.stats-chart__reads { background: var(--color-accent); fill: var(--color-accent); }
+
+.stats-chart { display: block; inline-size: 100%; block-size: 12rem; }
+.stats-chart__hit { fill: transparent; }
+.stats-chart__day:hover .stats-chart__views { fill: var(--color-ink-2); }
+
+.stats-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  margin: var(--space-2xs) 0 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.stats-numbers { margin-block-start: var(--space-sm); }
+.stats-numbers summary { color: var(--color-link); cursor: pointer; font-size: 0.875rem; }
+
+.stats-shares {
+  display: grid;
+  gap: var(--space-md);
+  margin-block: var(--space-lg);
+}
+
+.stats-share ol { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; }
+
+.stats-share li {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xs);
+}
+
+.stats-share li::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: -1;
+  inline-size: var(--share);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-3);
+}
+
+.stats-share__label { overflow-wrap: anywhere; }
+.stats-share__value { color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.stats-share__none { color: var(--color-muted); }
+.stats-attribution { margin: var(--space-sm) 0 0; color: var(--color-muted); font-size: 0.75rem; }
+
+.stats-table-wrap { overflow-x: auto; }
+.stats-table { inline-size: 100%; border-collapse: collapse; font-size: 0.875rem; }
+
+.stats-table th,
+.stats-table td {
+  padding: var(--space-xs);
+  border-block-end: 1px solid var(--color-rule);
+  text-align: start;
+}
+
+.stats-table .stats-table__number { font-variant-numeric: tabular-nums; text-align: end; }
+.stats-articles tbody th { min-inline-size: 10rem; }
+.stats-table thead a { color: var(--color-muted); text-decoration: none; }
+.stats-table thead [aria-sort] a { color: var(--color-ink); font-weight: 600; }
+.stats-table thead a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.stats-empty {
+  padding: var(--space-xl) var(--space-lg);
+  border: 1px dashed var(--color-rule-strong);
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+
+.stats-empty h2 { margin: 0 0 var(--space-xs); }
+.stats-empty p { margin: 0; color: var(--color-muted); }
+.stats-pages { display: flex; justify-content: space-between; margin-block-start: var(--space-sm); }
+.stats-links { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+.stats-back { margin: 0 0 var(--space-sm); }
+.stats-articles { margin-block-start: var(--space-lg); }
+
+/* Three totals and four breakdowns: one column on a phone, then all three and two by two, so no panel is left alone on a row. */
+@media (min-width: 40rem) {
+  .stats-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stats-shares { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -85,6 +85,7 @@ const groups: Array<{ id: string; label: string; links: Array<NavLink | NavSecti
     id: 'content',
     label: copy.nav.groupContent,
     links: [
+      { href: adminHref(adminSettings, '/stats'), id: 'stats', label: copy.nav.stats },
       { count: counts?.posts, href: adminHref(adminSettings), id: 'posts', label: copy.nav.posts },
       { count: counts?.pages, href: adminHref(adminSettings, '/pages'), id: 'pages', label: copy.nav.pages },
       { href: adminHref(adminSettings, '/media'), id: 'media', label: copy.nav.media },

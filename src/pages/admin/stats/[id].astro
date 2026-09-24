@@ -1,0 +1,95 @@
+---
+import AdminShell from '../../../components/admin/AdminShell.astro';
+import StatsFilters from '../../../components/admin/stats/StatsFilters.astro';
+import StatsReport from '../../../components/admin/stats/StatsReport.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { adminHref, adminLoginPath } from '../../../lib/admin';
+import { adminCopy } from '../../../lib/admin-i18n';
+import { pagePath, postPath } from '../../../lib/i18n';
+import { requireOwner } from '../../../server/auth/session';
+import { getOwnerSettings, type SiteSettings } from '../../../server/content/settings';
+import { HttpError } from '../../../server/http/errors';
+import { isUuid } from '../../../server/media/keys';
+import { readStats, readStatsEdition, type StatsEdition, type StatsReport as Report } from '../../../server/stats/dashboard';
+import { parseStatsQuery, statsHref, statsPeriods } from '../../../server/stats/report';
+import { statsDay } from '../../../server/stats/rules';
+import '../../../styles/stats.css';
+
+const query = parseStatsQuery(Astro.url.searchParams);
+const id = Astro.params.id?.toLowerCase() ?? '';
+let settings: SiteSettings | null = null;
+let userEmail: string | null = null;
+let edition: StatsEdition | null = null;
+let report: Report | null = null;
+let unit: 'day' | 'month' = 'day';
+let failed = false;
+let authRequired = false;
+
+try {
+  const current = await requireOwner(Astro.request.headers);
+  userEmail = current.user.email;
+  settings = await getOwnerSettings(current.user.id);
+  edition = settings && isUuid(id) ? await readStatsEdition(current.user.id, id) : null;
+  if (settings && edition) {
+    const periods = statsPeriods(query.range, statsDay(new Date(), settings.timezone));
+    unit = periods.unit;
+    report = await readStats({ contentId: edition.id, lang: null, ownerId: current.user.id }, periods);
+  } else if (settings) {
+    Astro.response.status = 404;
+  }
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    console.error('Stats loading failed.');
+    Astro.response.status = 500;
+    failed = true;
+  }
+}
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const base = settings ? adminHref(settings, '/stats') : '/admin/stats';
+// A deleted edition has neither: nothing to edit, and nowhere on the site to see it.
+const editHref = settings && edition && edition.title !== null
+  ? adminHref(settings, edition.kind === 'post' ? `/edit/${edition.id}` : `/pages/edit/${edition.id}`)
+  : null;
+const siteHref = edition?.slug
+  ? (edition.kind === 'post' ? postPath({ locale: edition.locale, slug: edition.slug }) : pagePath({ locale: edition.locale, slug: edition.slug }))
+  : null;
+---
+
+<AdminLayout lang={ownerLocale ?? 'en'} title={edition?.title ?? copy.stats.heading}>
+  {authRequired || failed || !settings ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{failed ? copy.errors.statsUnavailable : null}</p></main>
+  ) : (
+    <AdminShell active="stats" adminPath={settings.admin_path} locale={settings.default_locale} siteName={settings.site_name} title={copy.stats.heading} userEmail={userEmail}>
+      <section class="admin-page stats-page">
+        <p class="stats-back"><a href={statsHref(base, query, { page: 1 })}>← {copy.stats.back}</a></p>
+        {!edition || !report ? (
+          <div class="stats-empty">
+            <h1>{copy.stats.heading}</h1>
+            <p>{copy.stats.notFound}</p>
+          </div>
+        ) : (
+          <>
+            <header class="admin-page__head">
+              <div>
+                <h1>{edition.title ?? copy.stats.deleted}</h1>
+                <p>{edition.kind === 'post' ? copy.stats.post : copy.stats.page} · {copy.stats.languages[edition.locale]}</p>
+              </div>
+              <div class="stats-links">
+                {editHref && <a href={editHref}>{copy.stats.edit}</a>}
+                {siteHref && <a href={siteHref}>{copy.stats.viewOnSite}</a>}
+              </div>
+            </header>
+            <StatsFilters base={`${base}/${edition.id}`} copy={copy} languages={false} query={query} />
+            <StatsReport copy={copy} locale={settings.default_locale} report={report} unit={unit} />
+          </>
+        )}
+      </section>
+    </AdminShell>
+  )}
+</AdminLayout>

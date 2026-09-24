@@ -1,0 +1,134 @@
+---
+import AdminShell from '../../components/admin/AdminShell.astro';
+import StatsFilters from '../../components/admin/stats/StatsFilters.astro';
+import StatsReport from '../../components/admin/stats/StatsReport.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminHref, adminLoginPath } from '../../lib/admin';
+import { adminCopy } from '../../lib/admin-i18n';
+import { requireOwner } from '../../server/auth/session';
+import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
+import { HttpError } from '../../server/http/errors';
+import { hasStats, readStats, readStatsArticles, type StatsArticle, type StatsReport as Report } from '../../server/stats/dashboard';
+import { parseStatsQuery, readRatio, statsHref, statsPeriods, type StatsSort } from '../../server/stats/report';
+import { statsDay } from '../../server/stats/rules';
+import '../../styles/stats.css';
+
+const query = parseStatsQuery(Astro.url.searchParams);
+let settings: SiteSettings | null = null;
+let userEmail: string | null = null;
+let counted = false;
+let report: Report | null = null;
+let articles: StatsArticle[] = [];
+let hasMore = false;
+let unit: 'day' | 'month' = 'day';
+let failed = false;
+let authRequired = false;
+
+try {
+  const current = await requireOwner(Astro.request.headers);
+  userEmail = current.user.email;
+  settings = await getOwnerSettings(current.user.id);
+  counted = settings ? await hasStats(current.user.id) : false;
+  if (settings && counted) {
+    const periods = statsPeriods(query.range, statsDay(new Date(), settings.timezone));
+    const filter = { lang: query.lang, ownerId: current.user.id };
+    unit = periods.unit;
+    const [loaded, table] = await Promise.all([
+      readStats(filter, periods),
+      readStatsArticles(filter, periods.current, query.sort, query.page),
+    ]);
+    report = loaded;
+    articles = table.articles;
+    hasMore = table.hasMore;
+  }
+} catch (error) {
+  if (error instanceof HttpError && error.status === 401) {
+    authRequired = true;
+    Astro.response.status = 302;
+    Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
+  } else {
+    console.error('Stats loading failed.');
+    Astro.response.status = 500;
+    failed = true;
+  }
+}
+
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const base = settings ? adminHref(settings, '/stats') : '/admin/stats';
+const tag = ownerLocale === 'th' ? 'th-TH' : 'en';
+const number = new Intl.NumberFormat(tag);
+const percent = new Intl.NumberFormat(tag, { maximumFractionDigits: 0, style: 'percent' });
+const COLUMNS: Array<[StatsSort, string]> = [['views', copy.stats.views], ['reads', copy.stats.reads], ['ratio', copy.stats.readRatio]];
+---
+
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.stats.heading}>
+  {authRequired || failed || !settings ? (
+    <main><p class="admin-alert admin-alert--page" role="alert">{failed ? copy.errors.statsUnavailable : null}</p></main>
+  ) : (
+    <AdminShell active="stats" adminPath={settings.admin_path} locale={settings.default_locale} siteName={settings.site_name} title={copy.stats.heading} userEmail={userEmail}>
+      <section class="admin-page stats-page">
+        <header class="admin-page__head">
+          <div>
+            <h1>{copy.stats.heading}</h1>
+            <p>{copy.stats.subheading}</p>
+          </div>
+        </header>
+        {!counted || !report ? (
+          <div class="stats-empty">
+            <h2>{copy.stats.emptyHeading}</h2>
+            <p>{copy.stats.emptyBody}</p>
+          </div>
+        ) : (
+          <>
+            <StatsFilters base={base} copy={copy} query={query} />
+            <StatsReport copy={copy} locale={settings.default_locale} report={report} unit={unit} />
+            <section aria-labelledby="stats-articles-heading" class="stats-panel stats-articles">
+              <h2 id="stats-articles-heading">{copy.stats.articles}</h2>
+              {articles.length === 0 ? (
+                <p>{copy.stats.noViews}</p>
+              ) : (
+                <div class="stats-table-wrap">
+                  <table class="stats-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">{copy.stats.title}</th>
+                        <th scope="col">{copy.stats.kind}</th>
+                        <th scope="col">{copy.stats.language}</th>
+                        {COLUMNS.map(([sort, label]) => (
+                          <th aria-sort={query.sort === sort ? 'descending' : undefined} class="stats-table__number" scope="col">
+                            <a href={statsHref(base, query, { page: 1, sort })}>{label}</a>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {articles.map((article) => (
+                        <tr>
+                          <th scope="row">
+                            <a href={statsHref(`${base}/${article.id}`, query, { page: 1 })}>{article.title ?? copy.stats.deleted}</a>
+                          </th>
+                          <td>{article.kind === 'post' ? copy.stats.post : copy.stats.page}</td>
+                          <td>{copy.stats.languages[article.locale]}</td>
+                          <td class="stats-table__number">{number.format(article.views)}</td>
+                          <td class="stats-table__number">{number.format(article.reads)}</td>
+                          <td class="stats-table__number">{percent.format(readRatio(article))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {(query.page > 1 || hasMore) && (
+                <nav aria-label={copy.stats.articles} class="stats-pages">
+                  {query.page > 1 ? <a href={statsHref(base, query, { page: query.page - 1 })}>{copy.stats.previousPage}</a> : <span />}
+                  {hasMore && <a href={statsHref(base, query, { page: query.page + 1 })}>{copy.stats.nextPage}</a>}
+                </nav>
+              )}
+            </section>
+          </>
+        )}
+      </section>
+    </AdminShell>
+  )}
+</AdminLayout>
