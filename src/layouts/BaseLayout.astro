@@ -83,7 +83,7 @@ const plugins = settings
     { kind: type === 'article' ? 'post' : type === 'page' ? 'page' : 'home', locale },
     getPublicSiteUrl(Astro.request, Astro.site).origin,
   )
-  : { clients: [], notice: null };
+  : { clients: [], notice: null, popup: null };
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
 const activeTheme = await resolveTheme(themeId);
