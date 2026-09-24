@@ -352,3 +352,92 @@ test('an old address sends a reader on, permanently', async ({ page }) => {
   expect(nothing.status, 'no forwarding address is invented').toBe(404);
 });
 
+
+const POPUP = {
+  actionEn: 'Claim my savings', actionHref: '/en', declineEn: 'No thanks', finePrintEn: 'Exclusions apply.',
+  headingEn: 'Hottest deals', textEn: 'Fifteen percent off your first order.',
+};
+
+test('a popup opens when it was told, once, and is remembered', async ({ page }) => {
+  test.setTimeout(120_000);
+  setPlugin('popup', true, { ...POPUP, delay: '5', trigger: 'delay' });
+  const popup = page.getByRole('dialog', { name: 'Hottest deals' });
+
+  await page.clock.install();
+  await page.goto(`${origin}/en`);
+  await expect(page.locator('dialog.site-popup')).toHaveCount(1);
+  await expect(popup, 'not at once').toBeHidden();
+  await page.clock.runFor(4_000);
+  await expect(popup, 'not before its time').toBeHidden();
+  await page.clock.runFor(1_500);
+  await expect(popup).toBeVisible();
+  expect(await page.evaluate(() => document.activeElement?.closest('dialog.site-popup') !== null), 'focus is inside it').toBe(true);
+  await expect(popup.getByRole('link', { name: 'Claim my savings' })).toHaveAttribute('href', '/en');
+  await expect(popup.getByText('Exclusions apply.')).toBeVisible();
+
+  await popup.getByRole('button', { name: 'No thanks' }).click();
+  await expect(popup).toBeHidden();
+  await page.reload();
+  await page.clock.runFor(20_000);
+  await expect(popup, 'declined is remembered').toBeHidden();
+
+  setPlugin('popup', true, { ...POPUP, delay: '5', headingEn: 'New deals', trigger: 'delay' });
+  await page.reload();
+  await page.clock.runFor(6_000);
+  const fresh = page.getByRole('dialog', { name: 'New deals' });
+  await expect(fresh, 'a new popup is shown again').toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(fresh, 'Escape closes it').toBeHidden();
+  await page.reload();
+  await page.clock.runFor(20_000);
+  await expect(fresh, 'and closed by Escape is remembered too').toBeHidden();
+
+  // Another page, not the same one with a hash: a hash alone does not load the page again.
+  await page.goto(`${origin}/en/blog/an-article#popup-preview`);
+  await expect(fresh, 'the preview opens it at once, though it was closed').toBeVisible();
+  await page.mouse.click(4, 4);
+  await expect(fresh, 'a click outside closes it').toBeHidden();
+});
+
+test('a popup for a leaving reader, on a mouse and on a phone', async ({ browser, page }) => {
+  test.setTimeout(120_000);
+  setPlugin('popup', true, { ...POPUP, trigger: 'exit' });
+  const popup = page.getByRole('dialog', { name: 'Hottest deals' });
+  await page.goto(`${origin}/en`);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await expect(popup).toBeHidden();
+  await page.evaluate(() => document.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientY: -1, relatedTarget: null })));
+  await expect(popup, 'the pointer leaving through the top opens it').toBeVisible();
+
+  const phone = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 740 } });
+  const small = await phone.newPage();
+  await small.goto(`${origin}/en/blog/an-article`);
+  const shown = small.getByRole('dialog', { name: 'Hottest deals' });
+  await expect(shown).toBeHidden();
+  await small.evaluate(() => {
+    document.body.append(Object.assign(document.createElement('div'), { style: 'height: 4000px' }));
+    window.scrollTo(0, 2_600);
+  });
+  await expect(shown, 'past half the page opens it on a phone').toBeVisible();
+  expect(await small.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'nothing runs off the side').toBe(true);
+  const box = await shown.boundingBox();
+  expect(box!.x >= 0 && box!.x + box!.width <= 375, 'the popup fits the phone').toBe(true);
+  await phone.close();
+});
+
+test('a popup where it was asked for, and none where it is off', async ({ page }) => {
+  test.setTimeout(120_000);
+  setPlugin('popup', true, { ...POPUP, pages: 'home' });
+  await page.goto(`${origin}/en/blog/an-article`);
+  await expect(page.locator('dialog.site-popup'), 'home only is not an article').toHaveCount(0);
+  await page.goto(`${origin}/en`);
+  await expect(page.locator('dialog.site-popup')).toHaveCount(1);
+
+  setPlugin('popup', false, POPUP);
+  const asked: string[] = [];
+  page.on('request', (request) => { if (request.resourceType() === 'script') asked.push(request.url()); });
+  await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+  await expect(page.locator('dialog.site-popup'), 'off draws nothing').toHaveCount(0);
+  expect(asked.some((url) => url.includes('popup')), 'and ships none of its code').toBe(false);
+});
