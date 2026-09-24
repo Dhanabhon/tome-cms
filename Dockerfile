@@ -8,7 +8,9 @@ LABEL org.opencontainers.image.source="https://github.com/Dhanabhon/tome-cms" \
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+# The release workflow puts DB-IP Lite here; a build without it ships an empty folder, and Stats
+# shows countries as unknown.
+RUN mkdir -p data/geoip && npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
@@ -24,6 +26,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 RUN apk add --no-cache postgresql-client
 COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/data/geoip ./data/geoip
 COPY --from=builder --chown=node:node /app/scripts/db-migrate.ts ./scripts/db-migrate.ts
 COPY --from=builder --chown=node:node /app/scripts/backup.ts ./scripts/backup.ts
 COPY --from=builder --chown=node:node /app/src/server/db ./src/server/db

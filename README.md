@@ -208,6 +208,16 @@ A title's address is made in its own language: a Thai title gets a Thai address,
 
 When a published article's address changes, the old one keeps working. It answers with a permanent redirect to wherever the article is now, however many times it has moved since, and goes when the article is deleted. **Content → Redirects** lists every old address and where each one goes, lets you remove one, and lets you add one by hand, for an address that changed before these were recorded.
 
+### Stats
+
+**Content → Stats** shows how often each article and page was opened (views) and read to its end (reads), the share of views that became reads, a chart by day or by month, where readers came from, their devices, countries and languages, each against the period of the same length before. Pick 7, 30 or 90 days or 12 months, a language, and a column to sort by; every choice is in the address. An article's own screen links to editing it and to seeing it on the site.
+
+TomeCMS counts these itself, into daily totals: no cookie, no outside service, and no record of any one reader. A view counts once per page per browser tab. A read needs the end of the article on screen and 15 seconds, in all, with the tab visible. Your own browser is left out once it has opened the admin, as are readers who set Do Not Track or Global Privacy Control, and fetchers that call themselves bots. The numbers are estimates: someone determined can add to them, up to 120 hits from one address in ten minutes. Counting starts with the version that brought it and cannot reach back.
+
+Countries come from the `CF-IPCountry` header when a CDN such as Cloudflare sends one (set `TOME_CMS_COUNTRY_HEADER` to read another), and otherwise from the DB-IP Lite country database in the release image: [IP Geolocation by DB-IP](https://db-ip.com), CC BY 4.0. An image built on your own server has no database until you put `dbip-country-lite.mmdb` in `data/geoip/` (or point `TOME_CMS_GEOIP_PATH` at it); without one, countries show as unknown. The reader's address is used for that lookup and for the limit, in memory, and never stored.
+
+Behind a reverse proxy the reader's address is the last `X-Forwarded-For` entry, believed only from a loopback or private address, which is where your proxy connects from. With a CDN in front of the proxy, have the proxy put the reader's own address there (with Caddy, `trusted_proxies` for the CDN's ranges and `header_up X-Forwarded-For {client_ip}`), or every reader behind one CDN address shares one limit.
+
 ## Headless content API
 
 The anonymous API is read-only and returns published content only:
@@ -224,6 +234,19 @@ GET /api/v1/content/openapi.json
 ```
 
 List routes support signed cursor pagination. Public responses include cache validators and wildcard CORS. Draft preview responses are token-scoped and private, and never enable wildcard CORS.
+
+A headless site counts its readers for the Stats screen by posting to the one route that writes. It answers `204` whether or not the hit counted, and in headless mode it accepts any origin:
+
+```js
+fetch('https://cms.example.com/api/v1/stats/hit', {
+  body: JSON.stringify({ event: 'view', kind: 'post', id: post.id, locale: 'th', referrer: document.referrer, width: innerWidth }),
+  headers: { 'Content-Type': 'application/json' },
+  keepalive: true,
+  method: 'POST',
+});
+```
+
+Send it once per page per tab, `event: 'read'` once the reader reaches the end after 15 visible seconds, and `kind: 'home'` without an `id` for the home page. Leave out a browser that set Do Not Track or Global Privacy Control, and your own.
 
 In bundled mode the site also serves:
 
