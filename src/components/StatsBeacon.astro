@@ -52,7 +52,9 @@ const { locale, stats } = Astro.props;
       id: page.id,
       kind: page.kind,
       locale: page.locale,
-      referrer: document.referrer || undefined,
+      // Only the origin: the server keeps just the host anyway, and a same-site path can be
+      // long enough on its own to push the body past the 1 KB limit.
+      referrer: document.referrer ? new URL(document.referrer).origin : undefined,
       width: window.innerWidth,
     });
     // keepalive lets it finish after the reader has gone, as a beacon would; JSON keeps it clear

@@ -189,6 +189,24 @@ test('a view counts once a tab, and a read takes the end and fifteen visible sec
   await expect.poll(() => counts(ARTICLE)).toEqual({ reads: 2, views: 2 });
 });
 
+test('a long same-site referrer is sent as just its origin, staying well under the 1 KB body limit', async ({ page }) => {
+  test.setTimeout(60_000);
+  // Percent-encoded, as a real same-site link's referrer would be: a Thai slug is 9 bytes a
+  // character encoded, so 160 of them alone would push the body past the 1 KB limit.
+  const referer = `${origin}/th/${encodeURIComponent('ก'.repeat(160))}`;
+  let sentReferrer: string | undefined;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/stats/hit') {
+      const body = JSON.parse(request.postData() ?? '{}');
+      if (body.event === 'view') sentReferrer = body.referrer;
+    }
+  });
+  const before = counts(ARTICLE);
+  await page.goto(`${origin}/en/blog/worth-reading`, { referer });
+  await expect.poll(() => counts(ARTICLE), 'a long referrer must not push the hit over the body limit').toEqual({ ...before, views: before.views + 1 });
+  expect(sentReferrer, 'the beacon sends only the referrer’s origin, not its long Thai path').toBe(origin);
+});
+
 test('a reader who asked not to be followed, and a hit from another site, count nothing', async ({ browser, request }) => {
   for (const [why, script] of [
     ['Do Not Track', 'Object.defineProperty(Navigator.prototype, "doNotTrack", { get: () => "1" })'],

@@ -79,24 +79,27 @@ test('a hit is counted once into the right row, and anything else is dropped wit
   ]);
 
   const before = await rows();
-  for (const [reason, dropped] of [
-    ['not-live', send({ ...view, id: draft })],
-    ['not-live', send({ ...view, id: due })],
-    ['not-live', send({ ...view, id: thai })],
-    ['not-live', send({ ...view, id: randomUUID() })],
-    ['invalid', send({ ...view, kind: 'home' })],
-    ['invalid', send({ event: 'read', kind: 'home', locale: 'en', width: 800 })],
-    ['invalid', send({ ...view, width: 0 })],
-    ['not-json', send('{"event":')],
-    ['not-json', send(view, { 'Content-Type': 'text/plain' })],
-    ['too-large', send({ ...view, referrer: `https://a.example/${'x'.repeat(1_100)}` })],
-    ['bot', send(view, { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' })],
-    ['cross-origin', send(view, { Origin: 'https://elsewhere.example' })],
-    ['cross-origin', receiveHit(new Request(`${SITE}/api/v1/stats/hit`, {
+  // Thunks, run one after another: started together, an assertion that fails early would leave
+  // the rest still in flight when `after(closeDatabase)` tears down the pool, and the run hangs
+  // instead of failing. Concurrency itself is covered separately, by the 200-writer case below.
+  for (const [reason, drop] of [
+    ['not-live', () => send({ ...view, id: draft })],
+    ['not-live', () => send({ ...view, id: due })],
+    ['not-live', () => send({ ...view, id: thai })],
+    ['not-live', () => send({ ...view, id: randomUUID() })],
+    ['invalid', () => send({ ...view, kind: 'home' })],
+    ['invalid', () => send({ event: 'read', kind: 'home', locale: 'en', width: 800 })],
+    ['invalid', () => send({ ...view, width: 0 })],
+    ['not-json', () => send('{"event":')],
+    ['not-json', () => send(view, { 'Content-Type': 'text/plain' })],
+    ['too-large', () => send({ ...view, referrer: `https://a.example/${'x'.repeat(1_100)}` })],
+    ['bot', () => send(view, { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' })],
+    ['cross-origin', () => send(view, { Origin: 'https://elsewhere.example' })],
+    ['cross-origin', () => receiveHit(new Request(`${SITE}/api/v1/stats/hit`, {
       body: JSON.stringify(view), headers: { 'Content-Type': 'application/json', 'User-Agent': BROWSER }, method: 'POST',
     }), '203.0.113.200', { headless: false, now: NOON })],
   ] as const) {
-    assert.equal(await dropped, reason);
+    assert.equal(await drop(), reason);
   }
   assert.deepEqual(await rows(), before, 'nothing dropped reached a row');
 

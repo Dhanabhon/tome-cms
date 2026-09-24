@@ -80,11 +80,45 @@ function fromProxySide(address: string): boolean {
  * Only the owner's proxy can reach the app from its side, and it adds the address it saw as the
  * last entry of X-Forwarded-For. Anything earlier in the header is whatever the sender wrote.
  * From anywhere else the header is the sender's own words and is ignored.
+ *
+ * This is safe because `security.allowedDomains` is unset in astro.config.mjs, so Astro hands
+ * `clientAddress` here as the raw socket address. If `allowedDomains` is ever set, Astro takes
+ * `clientAddress` from the first X-Forwarded-For entry instead -- which the sender controls --
+ * and this function would then trust an address the sender made up.
  */
 export function readerAddress(request: Request, clientAddress: string): string {
   if (!fromProxySide(clientAddress)) return clientAddress;
   const forwarded = request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ?? '';
   return isIP(forwarded) ? forwarded : clientAddress;
+}
+
+/** An IPv6 address's eight hextets, `::` expanded and each one's leading zeros dropped. */
+function expandIPv6(address: string): string[] {
+  const [head, tail] = address.split('::');
+  if (tail === undefined) return address.split(':').map((hextet) => Number.parseInt(hextet, 16).toString(16));
+  const headParts = head ? head.split(':') : [];
+  const tailParts = tail ? tail.split(':') : [];
+  const middle = Array<string>(8 - headParts.length - tailParts.length).fill('0');
+  return [...headParts, ...middle, ...tailParts].map((hextet) => Number.parseInt(hextet || '0', 16).toString(16));
+}
+
+const IPV4_MAPPED = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i;
+
+/**
+ * The key the per-address limit counts by: an IPv4 address as itself, an IPv4-mapped IPv6
+ * address (`::ffff:a.b.c.d`) as that IPv4 address, and any other IPv6 address reduced to its
+ * first four hextets -- its /64 -- normalised so equivalent spellings give the same key.
+ *
+ * ponytail: everyone behind one /64 shares one limit. IPv6 routes most residential connections
+ * a /64 of their own, so counting each address in it apart would let one reader multiply the
+ * limit by reconnecting with a new address from the same block.
+ */
+export function rateLimitKey(address: string): string {
+  const family = isIP(address);
+  if (family !== 6) return address;
+  const mapped = IPV4_MAPPED.exec(address);
+  if (mapped) return mapped[1];
+  return expandIPv6(address).slice(0, 4).join(':');
 }
 
 export interface RateLimit {
