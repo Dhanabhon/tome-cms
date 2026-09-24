@@ -58,8 +58,8 @@ export const manifest: PluginManifest = {
       kind: 'text',
       label: { en: 'Button link', th: 'ลิงก์ของปุ่ม' },
       hint: {
-        en: 'A path on this site, or an https address; anything else is ignored.',
-        th: 'ใส่เป็นพาธในเว็บนี้ หรือที่อยู่ https เท่านั้น นอกนั้นจะถูกละเว้น',
+        en: 'A path on this site, or an https address. Anything else, and the popup is not shown.',
+        th: 'ใส่เป็นพาธในเว็บนี้ หรือที่อยู่ https เท่านั้น ถ้าเป็นอย่างอื่น popup จะไม่แสดง',
       },
       required: true,
     },

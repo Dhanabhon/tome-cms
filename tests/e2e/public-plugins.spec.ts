@@ -1,6 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
+import type { Page } from '@playwright/test';
+
 import { expect, test } from './own-worker';
 
 /**
@@ -352,19 +354,37 @@ test('an old address sends a reader on, permanently', async ({ page }) => {
   expect(nothing.status, 'no forwarding address is invented').toBe(404);
 });
 
-
 const POPUP = {
   actionEn: 'Claim my savings', actionHref: '/en', declineEn: 'No thanks', finePrintEn: 'Exclusions apply.',
   headingEn: 'Hottest deals', textEn: 'Fifteen percent off your first order.',
 };
+
+/**
+ * The popup's code wires itself after `goto` and `reload` have returned, and it removes its
+ * mount point first, in the same task that adds its listeners and starts its timer. So a test
+ * that leaves the page, scrolls or runs the clock waits for the mount to go before it does.
+ */
+const wired = (page: Page) => expect(page.locator('[data-plugin="popup"]')).toHaveCount(0);
+
+/**
+ * Time stands still from before the first load and moves only when a test runs it. A clock
+ * that is installed and left running keeps real time, so the delay would start counting at
+ * a moment the test does not know. The pause is kept across reloads.
+ */
+async function stillClock(page: Page) {
+  const now = Date.now();
+  await page.clock.install({ time: now });
+  await page.clock.pauseAt(now + 1_000);
+}
 
 test('a popup opens when it was told, once, and is remembered', async ({ page }) => {
   test.setTimeout(120_000);
   setPlugin('popup', true, { ...POPUP, delay: '5', trigger: 'delay' });
   const popup = page.getByRole('dialog', { name: 'Hottest deals' });
 
-  await page.clock.install();
+  await stillClock(page);
   await page.goto(`${origin}/en`);
+  await wired(page);
   await expect(page.locator('dialog.site-popup')).toHaveCount(1);
   await expect(popup, 'not at once').toBeHidden();
   await page.clock.runFor(4_000);
@@ -378,66 +398,121 @@ test('a popup opens when it was told, once, and is remembered', async ({ page })
   await popup.getByRole('button', { name: 'No thanks' }).click();
   await expect(popup).toBeHidden();
   await page.reload();
+  await wired(page);
   await page.clock.runFor(20_000);
   await expect(popup, 'declined is remembered').toBeHidden();
 
   setPlugin('popup', true, { ...POPUP, delay: '5', headingEn: 'New deals', trigger: 'delay' });
   await page.reload();
+  await wired(page);
   await page.clock.runFor(6_000);
   const fresh = page.getByRole('dialog', { name: 'New deals' });
   await expect(fresh, 'a new popup is shown again').toBeVisible();
   await page.keyboard.press('Escape');
   await expect(fresh, 'Escape closes it').toBeHidden();
   await page.reload();
+  await wired(page);
   await page.clock.runFor(20_000);
   await expect(fresh, 'and closed by Escape is remembered too').toBeHidden();
 
   // Another page, not the same one with a hash: a hash alone does not load the page again.
   await page.goto(`${origin}/en/blog/an-article#popup-preview`);
+  await wired(page);
   await expect(fresh, 'the preview opens it at once, though it was closed').toBeVisible();
+  // Selecting its words by dragging out past its edge is not asking for it to go: the click
+  // that ends a drag lands on the dialog, which is where a click on the backdrop lands too.
+  const words = (await fresh.getByRole('heading', { name: 'New deals' }).boundingBox())!;
+  await page.mouse.move(words.x + words.width / 2, words.y + words.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(4, 4, { steps: 4 });
+  await page.mouse.up();
+  await expect(fresh, 'a drag from inside the box onto the backdrop leaves it open').toBeVisible();
   await page.mouse.click(4, 4);
   await expect(fresh, 'a click outside closes it').toBeHidden();
 });
 
-test('a popup for a leaving reader, on a mouse and on a phone', async ({ browser, page }) => {
+test('a popup never opens over another dialog', async ({ page }) => {
+  test.setTimeout(120_000);
+  setPlugin('lightbox', true, {});
+  setPlugin('popup', true, { ...POPUP, delay: '5', trigger: 'delay' });
+  const popup = page.getByRole('dialog', { name: 'Hottest deals' });
+  const viewer = page.locator('dialog.lightbox');
+
+  await stillClock(page);
+  await page.goto(`${origin}/en/blog/an-article`);
+  await wired(page);
+  await expect(viewer, 'the picture viewer is wired too').toHaveCount(1);
+  await page.locator('article img[data-lightbox]').first().click();
+  await expect(viewer).toBeVisible();
+  await page.clock.runFor(6_000);
+  await expect(popup, 'its time has come, but a picture is open').toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(viewer).toBeHidden();
+  await expect(popup, 'and it opens once the picture is closed').toBeVisible();
+});
+
+test('a popup for a leaving reader, on a mouse and on a phone', async ({ browser, isMobile, page }) => {
+  test.skip(isMobile, 'This test builds its own phone context; the mouse half needs a fine pointer.');
   test.setTimeout(120_000);
   setPlugin('popup', true, { ...POPUP, trigger: 'exit' });
   const popup = page.getByRole('dialog', { name: 'Hottest deals' });
   await page.goto(`${origin}/en`);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
+  await wired(page);
   await expect(popup).toBeHidden();
   await page.evaluate(() => document.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientY: -1, relatedTarget: null })));
   await expect(popup, 'the pointer leaving through the top opens it').toBeVisible();
 
   const phone = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 740 } });
-  const small = await phone.newPage();
-  await small.goto(`${origin}/en/blog/an-article`);
-  const shown = small.getByRole('dialog', { name: 'Hottest deals' });
-  await expect(shown).toBeHidden();
-  await small.evaluate(() => {
-    document.body.append(Object.assign(document.createElement('div'), { style: 'height: 4000px' }));
-    window.scrollTo(0, 2_600);
-  });
-  await expect(shown, 'past half the page opens it on a phone').toBeVisible();
-  expect(await small.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'nothing runs off the side').toBe(true);
-  const box = await shown.boundingBox();
-  expect(box!.x >= 0 && box!.x + box!.width <= 375, 'the popup fits the phone').toBe(true);
-  await phone.close();
+  try {
+    const small = await phone.newPage();
+    await small.goto(`${origin}/en/blog/an-article`);
+    await wired(small);
+    const shown = small.getByRole('dialog', { name: 'Hottest deals' });
+    await expect(shown).toBeHidden();
+    /** Scrolls to this far from half of the distance there is to scroll, and waits until the
+     *  scroll has been told to every listener -- the popup's was added first. */
+    const scrollFromHalf = (offset: number) => small.evaluate((by) => new Promise<void>((resolve) => {
+      window.addEventListener('scroll', () => requestAnimationFrame(() => resolve()), { once: true });
+      window.scrollTo(0, (document.documentElement.scrollHeight - window.innerHeight) / 2 + by);
+    }), offset);
+    await small.evaluate(() => {
+      document.body.append(Object.assign(document.createElement('div'), { style: 'height: 4000px' }));
+    });
+    await scrollFromHalf(-40);
+    await expect(shown, 'short of half of the way down is still reading').toBeHidden();
+    await scrollFromHalf(40);
+    await expect(shown, 'past half the page opens it on a phone').toBeVisible();
+    expect(await small.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'nothing runs off the side').toBe(true);
+    const box = await shown.boundingBox();
+    expect(box!.x >= 0 && box!.x + box!.width <= 375, 'the popup fits the phone').toBe(true);
+  } finally {
+    await phone.close();
+  }
 });
 
 test('a popup where it was asked for, and none where it is off', async ({ page }) => {
   test.setTimeout(120_000);
+  const asked: string[] = [];
+  page.on('request', (request) => { if (request.resourceType() === 'script') asked.push(request.url()); });
+  const popupCode = () => asked.some((url) => url.includes('popup'));
+
   setPlugin('popup', true, { ...POPUP, pages: 'home' });
   await page.goto(`${origin}/en/blog/an-article`);
   await expect(page.locator('dialog.site-popup'), 'home only is not an article').toHaveCount(0);
   await page.goto(`${origin}/en`);
+  await wired(page);
   await expect(page.locator('dialog.site-popup')).toHaveCount(1);
+  expect(popupCode(), 'on, it brings its code').toBe(true);
+  await page.goto(`${origin}/th`);
+  await wired(page);
+  await expect(page.locator('dialog.site-popup'), 'English words on a Thai page are read as English')
+    .toHaveAttribute('lang', 'en');
 
   setPlugin('popup', false, POPUP);
-  const asked: string[] = [];
-  page.on('request', (request) => { if (request.resourceType() === 'script') asked.push(request.url()); });
+  asked.splice(0);
   await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
   await expect(page.locator('dialog.site-popup'), 'off draws nothing').toHaveCount(0);
-  expect(asked.some((url) => url.includes('popup')), 'and ships none of its code').toBe(false);
+  expect(popupCode(), 'and off, it ships none of its code').toBe(false);
 });

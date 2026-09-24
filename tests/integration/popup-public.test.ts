@@ -47,6 +47,7 @@ test('the core draws the popup it can check, and only that', async (context) => 
   assert.deepEqual(drawn?.action, { href: '/en/deals', label: 'Claim my savings' });
   assert.deepEqual(drawn?.image, { height: 900, src: `/media/${picture}`, width: 1600 });
   assert.equal(drawn?.pluginId, 'popup');
+  assert.equal(drawn?.locale, 'en', 'the language of its words reaches the page');
   assert.equal(drawn?.trigger, 'delay');
   assert.equal(drawn?.delaySeconds, 10);
   assert.deepEqual((await publicAdditions(ownerId, home, origin)).clients.map(({ id }) => id), ['popup'], 'and its browser code is asked for');

@@ -61,6 +61,8 @@ interface SitePopup {
   delaySeconds?: number;
   /** What closing it is remembered under. Derived from its content, so a new popup is shown again. */
   dismissKey: string;
+  /** The language of the words, which is the other one's when the page's own had none. */
+  locale: PostLocale;
 }
 
 sitePopup?(settings: PluginSettings, page: PublicPage): SitePopup | null;
@@ -90,8 +92,10 @@ notice band:
 - Its colours, type and spacing are the site's tokens, as the notice band's are, so it follows
   `paper` and `plain` and the light, dark and system setting. The styles live in
   `src/styles/global.css` beside `.site-notice`.
-- The admin, the previews and the maintenance page do not use `BaseLayout`, so they never
-  carry a popup.
+- The admin, the post and page previews and the maintenance page do not use `BaseLayout`, so
+  they never carry a popup. The admin's theme previews do use it -- they are the homepage drawn
+  with the theme named in the URL, shown in small frames on the Themes screen -- and it leaves
+  them without the popup and without its code, since a box nobody can close would cover them.
 
 ## Opening and remembering
 
@@ -101,7 +105,8 @@ existing registry of dynamic imports.
 - **Delay:** it opens with `showModal()` after the chosen 5, 10 or 20 seconds on the page.
 - **About to leave:** where the primary pointer is fine (a mouse), it opens when the pointer
   leaves the window through its top edge (`mouseout` with no `relatedTarget` and `clientY <= 0`).
-  Where it is coarse (a phone), it opens once the reader has scrolled past half the page.
+  Where it is coarse (a phone), it opens once the reader has scrolled past half of the distance
+  there is to scroll, so a page under two screens long does not open it on the first scroll.
 - It never opens over another open modal dialog, such as the picture viewer; it waits until
   that one closes.
 - **Remembering:** the dialog's `close` event, however it closed (✕, decline, Esc, a click on
@@ -136,7 +141,9 @@ The settings are listed in that order: picture, the Thai set, the English set, t
 timing.
 
 **Language.** The popup takes the page's language set when that set has a heading, and the
-other language's whole set when it does not; it never mixes the two in one popup. `sitePopup`
+other language's whole set when it does not; it never mixes the two in one popup. It says which
+language it chose as `locale`, and the dialog carries it as `lang`, so words shown on a page of
+the other language are still read in their own voice. `sitePopup`
 answers null when the chosen set has no heading or no button text, or when `pages` is `home` and
 the page is not the home page. The dismiss key is a hash of the chosen set, the link and the
 picture, the way the notice band derives its key from its words.

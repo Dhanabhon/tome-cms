@@ -140,6 +140,8 @@ export interface SitePopup {
   finePrint?: string;
   heading: string;
   imageId?: string;
+  /** The language of the words, which is the other one's when the page's own had none. */
+  locale: PostLocale;
   text?: string;
   trigger: 'delay' | 'exit';
 }

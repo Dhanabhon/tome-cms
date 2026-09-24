@@ -19,6 +19,8 @@ test('the page’s own language is used whole when it has a heading', () => {
   assert.equal(popup.action.label, 'รับส่วนลด');
   assert.equal(popup.decline, undefined, 'the English decline is not borrowed');
   assert.equal(popup.finePrint, undefined, 'nor its small print');
+  assert.equal(popup.locale, 'th', 'and it is read as Thai');
+  assert.equal(sitePopup({ ...thai, ...english }, { kind: 'home', locale: 'en' })!.locale, 'en');
 });
 
 test('a language with no heading shows the other language’s popup, whole', () => {
@@ -27,6 +29,8 @@ test('a language with no heading shows the other language’s popup, whole', () 
   assert.equal(popup.text, undefined, 'the Thai message does not ride along');
   assert.equal(popup.decline, 'Maybe later');
   assert.equal(popup.finePrint, 'Exclusions apply.');
+  assert.equal(popup.locale, 'en', 'read in the voice of the words it shows, not the page');
+  assert.equal(sitePopup(thai, { kind: 'home', locale: 'en' })!.locale, 'th', 'and the other way round');
 });
 
 test('a popup needs a heading, a button and a link', () => {

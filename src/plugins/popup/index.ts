@@ -43,6 +43,7 @@ export function sitePopup(settings: PluginSettings, page: PublicPage): SitePopup
     ...(chosen.finePrint ? { finePrint: chosen.finePrint } : {}),
     heading: chosen.heading,
     ...(imageId ? { imageId } : {}),
+    locale: own.heading ? page.locale : page.locale === 'th' ? 'en' : 'th',
     ...(chosen.text ? { text: chosen.text } : {}),
     trigger: settings.trigger === 'exit' ? 'exit' : 'delay',
   };
