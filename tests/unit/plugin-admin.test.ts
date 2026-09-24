@@ -34,11 +34,34 @@ test('a manifest names a hook the plugin actually fills', async () => {
       assert.equal(hook, 'publicPage', `${manifest.id} names a hook the core does not declare`);
       // Either half of it: a band of words, browser code, or both.
       assert.ok(
-        typeof plugin.siteNotice === 'function' || typeof plugin.publicClient === 'function',
+        typeof plugin.siteNotice === 'function' || typeof plugin.sitePopup === 'function'
+          || typeof plugin.publicClient === 'function',
         `${manifest.id} claims publicPage and adds nothing to a public page`,
       );
     }
   }
+});
+
+test('a choice lists its options with its fallback among them, and nothing else lists options', () => {
+  for (const manifest of PLUGIN_MANIFESTS) {
+    for (const setting of manifest.settings) {
+      if (setting.kind === 'choice') {
+        assert.ok(setting.options?.length, `${manifest.id}.${setting.key} offers no options`);
+        assert.ok(
+          setting.options!.some((option) => option.value === setting.fallback),
+          `${manifest.id}.${setting.key} falls back to a value it does not offer`,
+        );
+      } else {
+        assert.equal(setting.options, undefined, `${manifest.id}.${setting.key} lists options it cannot use`);
+      }
+    }
+  }
+});
+
+test('the popup plugin answers both halves of a public page', async () => {
+  const plugin = await loadPlugin('popup');
+  assert.equal(typeof plugin?.sitePopup, 'function');
+  assert.equal(typeof plugin?.publicClient, 'function');
 });
 
 test('a plugin draws with the admin\'s own icons', () => {

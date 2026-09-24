@@ -7,6 +7,7 @@ import type { Plugin } from './contract';
 const PLUGINS = {
   lightbox: () => import('./lightbox'),
   notice: () => import('./notice'),
+  popup: () => import('./popup'),
   turnstile: () => import('./turnstile'),
   typesafe: () => import('./typesafe'),
 } as const;
