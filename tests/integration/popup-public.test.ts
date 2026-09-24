@@ -22,6 +22,14 @@ test('the core draws the popup it can check, and only that', async (context) => 
   } as never).returning('id').executeTakeFirstOrThrow()).id;
   const picture = await media({});
   const guide = await media({ mime_type: 'application/pdf', width: null, height: null });
+  // Dimensions and being a non-document image are the same fact to media_items' own
+  // media_items_dimensions_check: width/height are required exactly when mime_type is one of
+  // the five ACCEPTED_IMAGE_TYPES, and forbidden otherwise. So a row that fails the mime_type
+  // filter can never carry real dimensions -- the table itself already denies it a picture,
+  // before popupImage's own mime_type check gets a say. `drawing` is the nearest row the
+  // table accepts: a document, dimensionless like `guide`, distinct only in its mime type.
+  const leaving = await media({ state: 'deleting' });
+  const drawing = await media({ mime_type: 'text/csv', width: null, height: null });
 
   // Written as the row, not through the store: this is about what the page does with a row,
   // including one edited by hand that the store would have refused.
@@ -52,7 +60,7 @@ test('the core draws the popup it can check, and only that', async (context) => 
     assert.equal((await publicAdditions(ownerId, home, origin)).popup, null, `${href} draws no popup`);
   }
 
-  for (const image of [guide, randomUUID(), 'lake.jpg']) {
+  for (const image of [guide, leaving, drawing, randomUUID(), 'lake.jpg']) {
     await popup({ ...base, image });
     const kept = (await publicAdditions(ownerId, home, origin)).popup;
     assert.equal(kept?.heading, 'Hottest deals', 'a picture that cannot be drawn does not take the popup with it');
