@@ -16,6 +16,12 @@ import type { PostLocale } from '../types/cms';
 
 export type PluginSettings = Readonly<Record<string, string>>;
 
+/** One answer a 'choice' offers: what is stored, and what the owner reads. */
+export interface PluginSettingOption {
+  label: { en: string; th: string };
+  value: string;
+}
+
 /** A setting the admin renders a field for, and the API validates a write against. */
 export interface PluginSetting {
   key: string;
@@ -23,14 +29,18 @@ export interface PluginSetting {
    * A secret is encrypted at rest and never sent to a browser -- only whether it is set.
    * A switch is 'on' or 'off'. A colour is `#rrggbb`, which is the one shape that is safe to
    * put in a style attribute on a page every reader loads, so it is the only one accepted.
+   * A choice is one of its `options`. An image is the id of a ready picture in this owner's
+   * library, which the library then will not delete from under it.
    */
-  kind: 'color' | 'secret' | 'switch' | 'text';
+  kind: 'choice' | 'color' | 'image' | 'secret' | 'switch' | 'text';
   label: { en: string; th: string };
   hint?: { en: string; th: string };
   required: boolean;
   /** What a setting nobody has answered reads as. Every switch and colour declares one, so
    *  the core never has to guess what "missing" means for a plugin. */
   fallback?: string;
+  /** Required by 'choice', and the only values a write may store for it. */
+  options?: readonly PluginSettingOption[];
 }
 
 /**
@@ -57,6 +67,8 @@ export interface PluginManifest {
   icon: IconName;
   id: string;
   name: string;
+  /** A public address that shows this plugin at once, for the owner to look at. */
+  previewHref?: string;
   settings: readonly PluginSetting[];
 }
 
@@ -113,6 +125,26 @@ export interface SiteNotice {
 }
 
 /**
+ * A box over the page: one picture from the library, words, and one link -- not markup, for
+ * the reason the notice is not markup. The core draws it, checks the link as it checks the
+ * notice's, and draws the picture only while it is still a ready image of this owner's.
+ */
+export interface SitePopup {
+  action: { href: string; label: string };
+  /** The words on the button that closes it. Absent means the core's. */
+  decline?: string;
+  /** Seconds, for `trigger: 'delay'`. */
+  delaySeconds?: number;
+  /** What closing it is remembered under. Derive it from its content and a new popup is shown again. */
+  dismissKey: string;
+  finePrint?: string;
+  heading: string;
+  imageId?: string;
+  text?: string;
+  trigger: 'delay' | 'exit';
+}
+
+/**
  * The draft an owner is writing, as it stands -- saved or not -- flattened to its words.
  *
  * Text rather than the editor's document: a plugin that judges an article has no business
@@ -135,6 +167,9 @@ export interface Plugin {
 
   /** Null when this plugin has nothing to say on this page. */
   siteNotice?(settings: PluginSettings, page: PublicPage): SiteNotice | null;
+
+  /** Null when this plugin has no popup for this page. */
+  sitePopup?(settings: PluginSettings, page: PublicPage): SitePopup | null;
 
   /**
    * Whether this plugin's own client module runs on this page, and what it is told.
