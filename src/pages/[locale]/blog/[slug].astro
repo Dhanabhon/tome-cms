@@ -79,6 +79,7 @@ const xDefaultHref = settings
   modifiedTime={post?.updated_at}
   publishedTime={post?.published_at ?? post?.created_at}
   robots={post ? undefined : 'noindex, follow'}
+  stats={post ? { id: post.id, kind: 'post' } : undefined}
   title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
   type={post ? 'article' : 'website'}
   xDefaultHref={xDefaultHref}

@@ -70,6 +70,7 @@ const activeTheme = await resolveTheme(settings?.theme_id);
   description={siteDescription}
   locale={locale}
   robots={loadError ? 'noindex, nofollow' : cursor ? 'noindex, follow' : undefined}
+  stats={loadError ? undefined : { kind: 'home' }}
 >
   <activeTheme.Home
     themeSettings={themeSettings}

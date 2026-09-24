@@ -2,6 +2,7 @@
 import Icon from '../components/Icon.astro';
 import NoticeScript from '../components/NoticeScript.astro';
 import PluginClients from '../components/PluginClients.astro';
+import StatsBeacon from '../components/StatsBeacon.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
@@ -10,6 +11,7 @@ import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
 import { publicAdditions } from '../server/plugins/public';
 import { publicCopy } from '../lib/i18n';
+import type { CountedPage } from '../lib/stats';
 import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../themes/registry';
@@ -30,6 +32,11 @@ interface Props {
   modifiedTime?: string | null;
   publishedTime?: string | null;
   robots?: string;
+  /**
+   * What this page is, for the owner's Stats screen. Only the home page, a post and a page pass
+   * it; everything else -- a 404, an error, a preview -- carries no counting script.
+   */
+  stats?: CountedPage;
   type?: 'article' | 'page' | 'website';
   alternates?: PostAlternate[];
   canonicalPath?: string;
@@ -67,6 +74,7 @@ const {
   modifiedTime,
   publishedTime,
   robots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+  stats,
   title = siteName,
   type = 'website',
   locale = settings?.default_locale ?? 'en',
@@ -270,4 +278,6 @@ const structuredData = robots.includes('noindex')
     <slot />
   </activeTheme.Shell>
   {plugins.clients.length + (plugins.notice ? 1 : 0) > 0 && <PluginClients />}
+  {/* A theme preview is the admin's own picture of a theme, not a reader. */}
+  {stats && !Astro.props.themeId && <StatsBeacon locale={locale} stats={stats} />}
 </html>
