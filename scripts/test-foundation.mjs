@@ -16,6 +16,7 @@ const STORAGE_TESTS = new Set([
   'tests/integration/foundation.test.ts',
   'tests/integration/site-brand.test.ts',
   'tests/integration/media-documents-storage.test.ts',
+  'tests/integration/popup-plugin-media.test.ts',
   'tests/integration/restore-objects.test.ts',
 ]);
 const requiresStorage = runAll || testFiles.some((file) => STORAGE_TESTS.has(file));

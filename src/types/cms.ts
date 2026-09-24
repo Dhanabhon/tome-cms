@@ -324,9 +324,10 @@ export interface MediaAsset {
 }
 
 export interface MediaReferences {
-  counts: { maintenance: number; pageContent: number; postContent: number; postCovers: number; profile: number; slides: number };
+  counts: { maintenance: number; pageContent: number; plugins: number; postContent: number; postCovers: number; profile: number; slides: number };
   maintenance: boolean;
   pages: Array<{ id: string; title: string }>;
+  plugins: Array<{ id: string; name: string }>;
   posts: Array<{ id: string; title: string }>;
   profile: boolean;
   slides: Array<{ heading: string | null; id: string; locale: PostLocale; position: number }>;
