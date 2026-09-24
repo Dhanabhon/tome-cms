@@ -40,29 +40,31 @@ interface DocumentShape {
   };
   readonly openapi: string;
   readonly paths: Readonly<Record<string, {
-    readonly get: OperationShape;
+    readonly get?: OperationShape;
     readonly options: OperationShape;
+    readonly post?: OperationShape & { readonly requestBody?: { readonly content: Readonly<Record<string, unknown>> } };
   }>>;
 }
 
 test('OpenAPI describes only the complete public content contract', () => {
   const document: DocumentShape = openApiDocument;
   assert.equal(document.openapi, '3.1.0');
-  assert.deepEqual(Object.keys(document.paths), expectedPaths);
+  assert.deepEqual(Object.keys(document.paths), [...expectedPaths, '/api/v1/stats/hit']);
 
   for (const path of expectedPaths) {
     const item = document.paths[path];
     assert.ok(item, `${path} is documented`);
     assert.deepEqual(Object.keys(item).sort(), ['get', 'options']);
-    assert.ok(item.get.operationId);
-    assert.ok(item.get.responses['200']);
-    assert.ok(item.get.responses['304']);
-    assert.deepEqual(Object.keys(item.get.responses['200'].content ?? {}), ['application/json']);
+    const get = item.get!;
+    assert.ok(get.operationId);
+    assert.ok(get.responses['200']);
+    assert.ok(get.responses['304']);
+    assert.deepEqual(Object.keys(get.responses['200'].content ?? {}), ['application/json']);
     assert.ok(item.options.responses['204']);
   }
 
   assert.deepEqual(
-    document.paths['/api/v1/content/posts'].get.parameters?.map(({ $ref }) => $ref),
+    document.paths['/api/v1/content/posts'].get?.parameters?.map(({ $ref }) => $ref),
     [
       '#/components/parameters/Locale',
       '#/components/parameters/Limit',
@@ -71,11 +73,17 @@ test('OpenAPI describes only the complete public content contract', () => {
     ],
   );
   assert.deepEqual(
-    document.paths['/api/v1/content/pages/{slug}'].get.parameters?.map(({ $ref }) => $ref),
+    document.paths['/api/v1/content/pages/{slug}'].get?.parameters?.map(({ $ref }) => $ref),
     ['#/components/parameters/Slug', '#/components/parameters/Locale'],
   );
-  assert.ok(document.paths['/api/v1/content/posts/{slug}'].get.responses['404']);
-  assert.ok(document.paths['/api/v1/content/site'].get.responses['503']);
+  assert.ok(document.paths['/api/v1/content/posts/{slug}'].get?.responses['404']);
+  assert.ok(document.paths['/api/v1/content/site'].get?.responses['503']);
+
+  const stats = document.paths['/api/v1/stats/hit'];
+  assert.deepEqual(Object.keys(stats).sort(), ['options', 'post'], 'the one write: a count, and its preflight');
+  assert.deepEqual(Object.keys(stats.post?.responses ?? {}), ['204'], 'it answers nothing but 204');
+  assert.deepEqual(Object.keys(stats.post?.requestBody?.content ?? {}), ['application/json']);
+  assert.ok(document.components.schemas.StatsHit, 'StatsHit is described');
 
   for (const name of [
     'EditorDocument',

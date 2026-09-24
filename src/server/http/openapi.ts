@@ -16,6 +16,7 @@ import {
   publicSiteSchema,
   publicTranslationSchema,
 } from './public-schemas';
+import { hitSchema } from '../stats/rules';
 
 const schemaRef = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const parameterRef = (name: string) => ({ $ref: `#/components/parameters/${name}` });
@@ -63,12 +64,13 @@ export const openApiDocument = {
   info: {
     title: 'TomeCMS Content API',
     version: '1.0.0',
-    description: 'Read-only published content for websites, applications, and other headless clients.',
+    description: 'Published content for websites, applications, and other headless clients, and the one thing they may write: a count of a reader.',
   },
   servers: [{ url: '/', description: 'Current TomeCMS installation' }],
   tags: [
     { name: 'Content', description: 'Published site content' },
     { name: 'Contract', description: 'Machine-readable API contract' },
+    { name: 'Stats', description: 'Counting readers' },
   ],
   paths: {
     '/api/v1/content/site': {
@@ -190,6 +192,17 @@ export const openApiDocument = {
       },
       options: optionsOperation('optionsContentApiContract'),
     },
+    '/api/v1/stats/hit': {
+      post: {
+        operationId: 'postStatsHit',
+        summary: 'Count a view or a read',
+        description: 'Answers 204 whether or not the hit was counted. In bundled mode only this site may send; in headless mode any origin may, with Content-Type: application/json.',
+        tags: ['Stats'],
+        requestBody: { required: true, content: { 'application/json': { schema: schemaRef('StatsHit') } } },
+        responses: { '204': responseRef('NoContent') },
+      },
+      options: optionsOperation('optionsStatsHit'),
+    },
   },
   components: {
     parameters: {
@@ -284,6 +297,7 @@ export const openApiDocument = {
       PublicListMeta: componentSchema(publicListMetaSchema),
       PublicListLinks: componentSchema(publicListLinksSchema),
       ProblemDetails: componentSchema(problemDetailsSchema),
+      StatsHit: componentSchema(hitSchema),
       PublicLocaleMeta: {
         type: 'object',
         properties: { locale: { type: 'string', enum: ['th', 'en'] } },
