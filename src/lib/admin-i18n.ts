@@ -597,6 +597,7 @@ const en = {
     stateError: 'The site could not be switched. Try again.',
     stateGroup: 'Status',
     subheading: 'Close the site to visitors while you work on it, and choose what they see instead.',
+    switchLabel: 'Close the site for maintenance',
     templateGroup: 'Template',
     templateHints: {
       countdown: 'A clock counting down to your return.',
@@ -605,8 +606,6 @@ const en = {
       picture: 'Your picture behind the words.',
     },
     templates: { countdown: 'Countdown', logo: 'Logo', minimal: 'Minimal', picture: 'Picture' },
-    turnOff: 'Turn off maintenance',
-    turnOn: 'Turn on maintenance',
     turnedOff: 'Maintenance is off. The site is open again.',
     turnedOn: 'Maintenance is on. Visitors see the maintenance page.',
     unsaved: 'Unsaved changes',
@@ -1451,6 +1450,7 @@ const th: typeof en = {
     stateError: 'สลับสถานะเว็บไม่สำเร็จ ลองอีกครั้ง',
     stateGroup: 'สถานะ',
     subheading: 'ปิดเว็บไม่ให้ผู้เยี่ยมชมเข้าระหว่างที่คุณปรับปรุง และเลือกว่าพวกเขาจะเห็นอะไรแทน',
+    switchLabel: 'ปิดเว็บเพื่อปรับปรุง',
     templateGroup: 'แบบ',
     templateHints: {
       countdown: 'นาฬิกานับถอยหลังถึงเวลาที่กลับมา',
@@ -1459,8 +1459,6 @@ const th: typeof en = {
       picture: 'รูปของคุณเป็นฉากหลังข้อความ',
     },
     templates: { countdown: 'นับถอยหลัง', logo: 'โลโก้', minimal: 'เรียบง่าย', picture: 'รูปภาพ' },
-    turnOff: 'เปิดเว็บอีกครั้ง',
-    turnOn: 'ปิดเว็บเพื่อปรับปรุง',
     turnedOff: 'เปิดเว็บแล้ว เว็บกลับมาเปิดตามปกติ',
     turnedOn: 'ปิดเว็บแล้ว ผู้เยี่ยมชมจะเห็นหน้าปิดปรับปรุง',
     unsaved: 'มีการแก้ไขที่ยังไม่บันทึก',

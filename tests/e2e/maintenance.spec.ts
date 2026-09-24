@@ -249,8 +249,9 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades');
   await page.getByLabel('Date and time', { exact: true }).fill('2030-01-01T09:00');
 
-  const turnOn = page.getByRole('button', { name: 'Turn on maintenance' });
-  await expect(turnOn, 'the site never closes on unsaved words').toBeDisabled();
+  const closeSwitch = page.getByRole('switch', { name: 'Close the site for maintenance' });
+  await expect(closeSwitch).not.toBeChecked();
+  await expect(closeSwitch, 'the site never closes on unsaved words').toBeDisabled();
   await expect(page.getByText('Save your changes before turning maintenance on.')).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(status).toHaveText('Saved.');
@@ -263,9 +264,13 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await expect(preview.getByRole('heading', { level: 1 }), 'the preview follows the language tab').toHaveText('Closed for upgrades');
   await preview.close();
 
-  await turnOn.click();
+  await closeSwitch.click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(closeSwitch, 'a cancelled confirmation leaves the site open').not.toBeChecked();
+  await closeSwitch.click();
   await page.getByRole('button', { name: 'Close the site', exact: true }).click();
   await expect(status).toHaveText('Maintenance is on. Visitors see the maintenance page.');
+  await expect(closeSwitch).toBeChecked();
   await page.reload();
   await expect(page.getByText('The site is closed for maintenance', { exact: true }), 'here the Status card says it').toHaveCount(0);
   await page.goto(`${origin}/admin/settings`);
@@ -287,7 +292,8 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   expect((await fetch(`${origin}/api/admin/maintenance`, { headers: { origin } })).status, 'or reads it').toBe(401);
 
   await page.goto(`${origin}/admin/maintenance`);
-  await page.getByRole('button', { name: 'Turn off maintenance' }).click();
+  await closeSwitch.click();
   await expect(status).toHaveText('Maintenance is off. The site is open again.');
+  await expect(closeSwitch).not.toBeChecked();
   expect((await fetch(`${origin}/th`)).status).toBe(200);
 });
