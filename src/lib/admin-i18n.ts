@@ -882,7 +882,7 @@ const en = {
     noChange: 'No change',
     noPrevious: 'Nothing to compare with yet',
     notFound: 'There are no stats for this article.',
-    noViews: 'Nothing was read in this period.',
+    noViews: 'Nothing was viewed in this period.',
     page: 'Page',
     point: '{value} point',
     points: '{value} points',

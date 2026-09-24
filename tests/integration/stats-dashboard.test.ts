@@ -21,11 +21,15 @@ test('the Stats screen reads the right totals, periods, filters, top tens and pa
   }))).execute();
   const category = await db.insertInto('categories').values({ owner_id: owner, name: 'Uncategorized', is_default: true })
     .returning('id').executeTakeFirstOrThrow();
-  const edition = (kind: 'page' | 'post', locale: 'en' | 'th', title: string) => db.transaction().execute(async (trx) => {
+  const edition = (
+    kind: 'page' | 'post', locale: 'en' | 'th', title: string,
+    overrides: { published_at?: Date | null; status?: 'draft' | 'published' } = {},
+  ) => db.transaction().execute(async (trx) => {
     const fields = {
       content_html: '<p>Words</p>', content_json: { content: [], type: 'doc' as const }, locale, meta_description: null,
-      meta_title: null, owner_id: owner, published_at: new Date('2026-01-01T00:00:00Z'), slug: `s-${randomUUID()}`,
-      status: 'published' as const, title,
+      meta_title: null, owner_id: owner,
+      published_at: overrides.published_at === undefined ? new Date('2026-01-01T00:00:00Z') : overrides.published_at,
+      slug: `s-${randomUUID()}`, status: overrides.status ?? 'published' as const, title,
     };
     if (kind === 'page') {
       const group = await trx.insertInto('page_translation_groups').values({ owner_id: owner }).returning('id').executeTakeFirstOrThrow();
@@ -46,6 +50,7 @@ test('the Stats screen reads the right totals, periods, filters, top tens and pa
   const alpha = await edition('post', 'en', 'Alpha');
   const beta = await edition('post', 'th', 'บีตา');
   const about = await edition('page', 'en', 'About');
+  const draft = await edition('post', 'en', 'Draft', { published_at: null, status: 'draft' });
   const gone = randomUUID();
   await seed(owner, [
     ['2026-09-24', 'post', alpha, 'en', 'news.example', 'desktop', 'TH', 10, 4],
@@ -118,10 +123,31 @@ test('the Stats screen reads the right totals, periods, filters, top tens and pa
   assert.equal(new Set([...pageOne.articles, ...pageTwo.articles].map(({ id }) => id)).size, 51, 'no row on both pages');
 
   assert.equal((await readStatsEdition(owner, alpha))?.title, 'Alpha');
+  assert.equal((await readStatsEdition(owner, alpha))?.live, true);
   assert.equal((await readStatsEdition(owner, about))?.kind, 'page');
-  assert.deepEqual(await readStatsEdition(owner, gone), { id: gone, kind: 'post', locale: 'en', slug: null, title: null });
+  assert.equal((await readStatsEdition(owner, draft))?.live, false, 'a draft is not live');
+  assert.deepEqual(await readStatsEdition(owner, gone), { id: gone, kind: 'post', live: false, locale: 'en', slug: null, title: null });
   assert.equal(await readStatsEdition(owner, randomUUID()), null);
   assert.equal(await readStatsEdition(other, alpha), null, 'another owner’s article');
+
+  // A read past its view caps the ratio at 100%, the way the screen does, instead of outranking a true 100%.
+  const ratioOwner = randomUUID();
+  await db.insertInto('user').values({
+    id: ratioOwner, name: 'Owner', email: 'stats-ratio@example.invalid', emailVerified: true, image: null, role: 'owner',
+  }).execute();
+  const over = randomUUID();
+  const full = randomUUID();
+  await seed(ratioOwner, [
+    [TODAY, 'post', over, 'en', '', 'desktop', '', 2, 5],
+    [TODAY, 'post', full, 'en', '', 'desktop', '', 4, 4],
+  ]);
+  const tieOrder = [over, full].sort();
+  const ratioArticles = (await readStatsArticles({ lang: null, ownerId: ratioOwner }, period, 'ratio', 1)).articles;
+  assert.deepEqual(ratioArticles.map(({ id }) => id), tieOrder, 'a ratio past 100% ties a true 100% and falls back to id order');
+  assert.deepEqual(
+    ratioArticles.map(({ reads, views }) => ({ reads, views })),
+    tieOrder.map((id) => (id === over ? { reads: 5, views: 2 } : { reads: 4, views: 4 })),
+  );
 
   assert.equal(await hasStats(owner), true);
   assert.equal(await hasStats(randomUUID()), false);

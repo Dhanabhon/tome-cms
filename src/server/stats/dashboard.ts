@@ -1,5 +1,6 @@
 import { sql, type RawBuilder } from 'kysely';
 
+import { live } from '../content/live';
 import { db } from '../db/client';
 import { fillSeries, type SeriesPoint, type StatsPeriod, type StatsPeriods, type StatsSort } from './report';
 
@@ -43,6 +44,8 @@ export interface StatsArticle {
 export interface StatsEdition {
   id: string;
   kind: 'page' | 'post';
+  /** Whether a reader could open it now: published, dated, and its moment has come. */
+  live: boolean;
   locale: 'en' | 'th';
   slug: string | null;
   title: string | null;
@@ -109,7 +112,7 @@ export async function hasStats(ownerId: string): Promise<boolean> {
 }
 
 const ORDER: Record<StatsSort, RawBuilder<unknown>> = {
-  ratio: sql`sum(s.reads)::float / nullif(sum(s.views), 0) desc nulls last`,
+  ratio: sql`least(1, sum(s.reads)::float / nullif(sum(s.views), 0)) desc nulls last`,
   reads: sql`sum(s.reads) desc`,
   views: sql`sum(s.views) desc`,
 };
@@ -143,13 +146,13 @@ export async function readStatsArticles(
 
 /** What one edition is, for its screen's heading and links; a deleted one is known by its counts. */
 export async function readStatsEdition(ownerId: string, id: string): Promise<StatsEdition | null> {
-  const post = await db.selectFrom('posts').select(['id', 'locale', 'slug', 'title'])
+  const post = await db.selectFrom('posts').select(['id', 'locale', 'slug', 'title', live('posts').as('live')])
     .where('owner_id', '=', ownerId).where('id', '=', id).executeTakeFirst();
   if (post) return { ...post, kind: 'post' };
-  const page = await db.selectFrom('pages').select(['id', 'locale', 'slug', 'title'])
+  const page = await db.selectFrom('pages').select(['id', 'locale', 'slug', 'title', live('pages').as('live')])
     .where('owner_id', '=', ownerId).where('id', '=', id).executeTakeFirst();
   if (page) return { ...page, kind: 'page' };
   const counted = await db.selectFrom('content_stats_daily').select(['kind', 'locale'])
     .where('owner_id', '=', ownerId).where('content_id', '=', id).limit(1).executeTakeFirst();
-  return counted && counted.kind !== 'home' ? { id, kind: counted.kind, locale: counted.locale, slug: null, title: null } : null;
+  return counted && counted.kind !== 'home' ? { id, kind: counted.kind, live: false, locale: counted.locale, slug: null, title: null } : null;
 }

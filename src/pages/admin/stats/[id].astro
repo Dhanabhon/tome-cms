@@ -8,6 +8,7 @@ import { adminCopy } from '../../../lib/admin-i18n';
 import { pagePath, postPath } from '../../../lib/i18n';
 import { requireOwner } from '../../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../../server/content/settings';
+import { getServerEnv } from '../../../server/env';
 import { HttpError } from '../../../server/http/errors';
 import { isUuid } from '../../../server/media/keys';
 import { readStats, readStatsEdition, type StatsEdition, type StatsReport as Report } from '../../../server/stats/dashboard';
@@ -56,7 +57,9 @@ const base = settings ? adminHref(settings, '/stats') : '/admin/stats';
 const editHref = settings && edition && edition.title !== null
   ? adminHref(settings, edition.kind === 'post' ? `/edit/${edition.id}` : `/pages/edit/${edition.id}`)
   : null;
-const siteHref = edition?.slug
+// A draft, an edition not yet due, or a headless site answers 404 for this, so the link is
+// shown only when the bundled site would actually have the page.
+const siteHref = edition?.slug && edition.live && getServerEnv().TOME_CMS_FRONTEND_MODE === 'bundled'
   ? (edition.kind === 'post' ? postPath({ locale: edition.locale, slug: edition.slug }) : pagePath({ locale: edition.locale, slug: edition.slug }))
   : null;
 ---

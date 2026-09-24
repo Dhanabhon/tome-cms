@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  createRateLimit, deviceOf, hitSchema, isBot, readerAddress, referrerHost, statsDay,
+  createRateLimit, deviceOf, hitSchema, isBot, rateLimitKey, readerAddress, referrerHost, statsDay,
 } from '../../src/server/stats/rules';
 
 const ARTICLE = '5d0c7a1e-8b2f-4c3d-9e4f-1a2b3c4d5e6f';
@@ -113,4 +113,18 @@ test('the limit drops past 120 in ten minutes, starts again after, and remembers
 
   for (const address of ['a', 'b', 'c', 'd', 'e']) limit.allow(address, 700_000);
   assert.equal(limit.size, 3, 'never more addresses than the cap');
+});
+
+test('the rate limit key holds an IPv4 address, unwraps an IPv4-mapped one, and reduces any other IPv6 address to its /64', () => {
+  assert.equal(rateLimitKey('203.0.113.9'), '203.0.113.9');
+  assert.equal(rateLimitKey('::ffff:203.0.113.9'), '203.0.113.9');
+  assert.equal(
+    rateLimitKey('2001:db8:0:0:1::7'), rateLimitKey('2001:0DB8::1:0:0:7'),
+    'equivalent spellings of the same /64 give the same key',
+  );
+  assert.equal(
+    rateLimitKey('2001:db8::1'), rateLimitKey('2001:db8::ffff:1'),
+    'addresses that differ only past the /64 share one key',
+  );
+  assert.notEqual(rateLimitKey('2001:db8:1::1'), rateLimitKey('2001:db8:2::1'), 'a different /64 is a different key');
 });

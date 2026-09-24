@@ -60,7 +60,9 @@ jobs:
 
       - name: Fetch the DB-IP Lite country database
         # CC BY 4.0: the Stats screen and the README carry DB-IP's attribution. The month's file
-        # appears some days into the month, so the previous month's stands in until then.
+        # appears some days into the month, so the previous month's stands in until then. DB-IP
+        # publishes no checksum for the Lite file, so the lookup below -- getting a real country
+        # back out of the file we just downloaded -- is the check that it is whole.
         run: |
           mkdir -p data/geoip
           for month in "$(date -u +%Y-%m)" "$(date -u -d '-1 month' +%Y-%m)"; do

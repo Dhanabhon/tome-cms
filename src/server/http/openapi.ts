@@ -199,7 +199,7 @@ export const openApiDocument = {
         description: 'Answers 204 whether or not the hit was counted. In bundled mode only this site may send; in headless mode any origin may, with Content-Type: application/json.',
         tags: ['Stats'],
         requestBody: { required: true, content: { 'application/json': { schema: schemaRef('StatsHit') } } },
-        responses: { '204': responseRef('NoContent') },
+        responses: { '204': { description: 'Received. The answer is the same whether or not the hit was counted.' } },
       },
       options: optionsOperation('optionsStatsHit'),
     },

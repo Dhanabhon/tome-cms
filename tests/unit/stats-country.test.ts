@@ -4,7 +4,7 @@ import test from 'node:test';
 // A file that is not there: a site without the GeoIP database is allowed, and knows no countries.
 process.env.TOME_CMS_GEOIP_PATH = '/nonexistent/dbip-country-lite.mmdb';
 
-const { lookupCountry, readerCountry } = await import('../../src/server/stats/country');
+const { geoipOpenAttemptsForTests, lookupCountry, readerCountry, resetGeoipReaderForTests } = await import('../../src/server/stats/country');
 
 test('the CDN’s country wins, the GeoIP file answers without it, and neither is unknown', () => {
   const somewhere = () => 'AU';
@@ -30,4 +30,25 @@ test('a configured header is read instead of Cloudflare’s', () => {
 test('without the database file every address is unknown, and nothing throws', () => {
   assert.equal(lookupCountry('8.8.8.8'), '');
   assert.equal(lookupCountry('not an address'), '');
+});
+
+test('an invalid TOME_CMS_COUNTRY_HEADER name does not throw, and cf-ipcountry is used instead', () => {
+  process.env.TOME_CMS_COUNTRY_HEADER = 'X Country Code';
+  try {
+    assert.doesNotThrow(() => readerCountry(new Headers({ 'CF-IPCountry': 'TH' }), '1.1.1.1', () => 'AU'));
+    assert.equal(readerCountry(new Headers({ 'CF-IPCountry': 'TH' }), '1.1.1.1', () => 'AU'), 'TH');
+  } finally {
+    delete process.env.TOME_CMS_COUNTRY_HEADER;
+  }
+});
+
+test('a missing GeoIP file is opened once, not looked for again on every lookup', () => {
+  // node:fs's readFileSync is not a mockable property on the built-in module, so this counts
+  // openReader's own attempts instead -- a small seam used only by this test.
+  resetGeoipReaderForTests();
+  const before = geoipOpenAttemptsForTests();
+  lookupCountry('8.8.8.8');
+  lookupCountry('1.1.1.1');
+  lookupCountry('9.9.9.9');
+  assert.equal(geoipOpenAttemptsForTests() - before, 1, 'the file is looked for once, not on every hit');
 });

@@ -3,7 +3,7 @@ import { live } from '../content/live';
 import { getSiteSettings } from '../content/settings';
 import { db } from '../db/client';
 import { readerCountry } from './country';
-import { createRateLimit, deviceOf, hitSchema, isBot, readerAddress, referrerHost, statsDay, type Hit } from './rules';
+import { createRateLimit, deviceOf, hitSchema, isBot, rateLimitKey, readerAddress, referrerHost, statsDay, type Hit } from './rules';
 
 const MAX_BODY_BYTES = 1_024;
 const LIVE_FOR_MS = 5 * 60_000;
@@ -120,7 +120,7 @@ export async function receiveHit(
   const referrer = referrerHost(hit.referrer, home);
   if (isBot(request.headers.get('user-agent'))) return 'bot';
   const address = readerAddress(request, clientAddress);
-  if (!limit.allow(address)) return 'rate-limited';
+  if (!limit.allow(rateLimitKey(address))) return 'rate-limited';
 
   await countHit({
     contentId: hit.id ?? null,

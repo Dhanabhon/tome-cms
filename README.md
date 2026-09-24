@@ -214,7 +214,7 @@ When a published article's address changes, the old one keeps working. It answer
 
 TomeCMS counts these itself, into daily totals: no cookie, no outside service, and no record of any one reader. A view counts once per page per browser tab. A read needs the end of the article on screen and 15 seconds, in all, with the tab visible. Your own browser is left out once it has opened the admin, as are readers who set Do Not Track or Global Privacy Control, and fetchers that call themselves bots. The numbers are estimates: someone determined can add to them, up to 120 hits from one address in ten minutes. Counting starts with the version that brought it and cannot reach back.
 
-Countries come from the `CF-IPCountry` header when a CDN such as Cloudflare sends one (set `TOME_CMS_COUNTRY_HEADER` to read another), and otherwise from the DB-IP Lite country database in the release image: [IP Geolocation by DB-IP](https://db-ip.com), CC BY 4.0. An image built on your own server has no database until you put `dbip-country-lite.mmdb` in `data/geoip/` (or point `TOME_CMS_GEOIP_PATH` at it); without one, countries show as unknown. The reader's address is used for that lookup and for the limit, in memory, and never stored.
+Countries come from the `CF-IPCountry` header when a CDN such as Cloudflare sends one (set `TOME_CMS_COUNTRY_HEADER` to read another), and otherwise from the DB-IP Lite country database in the release image: [IP Geolocation by DB-IP](https://db-ip.com), CC BY 4.0. An image built on your own server has no database until you put `dbip-country-lite.mmdb` in `data/geoip/` (or point `TOME_CMS_GEOIP_PATH` at it) and restart TomeCMS to pick it up; without one, countries show as unknown. The reader's address is used for that lookup and for the limit, in memory, and never stored.
 
 Behind a reverse proxy the reader's address is the last `X-Forwarded-For` entry, believed only from a loopback or private address, which is where your proxy connects from. With a CDN in front of the proxy, have the proxy put the reader's own address there (with Caddy, `trusted_proxies` for the CDN's ranges and `header_up X-Forwarded-For {client_ip}`), or every reader behind one CDN address shares one limit.
 
@@ -239,14 +239,18 @@ A headless site counts its readers for the Stats screen by posting to the one ro
 
 ```js
 fetch('https://cms.example.com/api/v1/stats/hit', {
-  body: JSON.stringify({ event: 'view', kind: 'post', id: post.id, locale: 'th', referrer: document.referrer, width: innerWidth }),
+  body: JSON.stringify({
+    event: 'view', kind: 'post', id: post.id, locale: 'th',
+    referrer: document.referrer ? new URL(document.referrer).origin : undefined,
+    width: innerWidth,
+  }),
   headers: { 'Content-Type': 'application/json' },
   keepalive: true,
   method: 'POST',
 });
 ```
 
-Send it once per page per tab, `event: 'read'` once the reader reaches the end after 15 visible seconds, and `kind: 'home'` without an `id` for the home page. Leave out a browser that set Do Not Track or Global Privacy Control, and your own.
+Send it once per page per tab, `event: 'read'` once the reader reaches the end after 15 visible seconds, and `kind: 'home'` without an `id` for the home page. Leave out a browser that set Do Not Track or Global Privacy Control, and your own. The server keeps only the referrer's host, so send just its origin -- the body is capped at 1 KB, and a same-site path can be long enough on its own to go past that.
 
 In bundled mode the site also serves:
 
