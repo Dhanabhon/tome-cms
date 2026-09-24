@@ -98,8 +98,14 @@ const groups: Array<{ id: string; label: string; links: Array<NavLink | NavSecti
     links: [
       { href: adminHref(adminSettings, '/profile'), id: 'profile', label: copy.nav.profile },
       { href: adminHref(adminSettings, '/security'), id: 'security', label: copy.nav.security },
-      { href: adminHref(adminSettings, '/settings'), id: 'settings', label: copy.nav.settings },
-      { href: adminHref(adminSettings, '/maintenance'), id: 'maintenance', label: copy.nav.maintenance },
+      {
+        children: [
+          { href: adminHref(adminSettings, '/settings'), id: 'settings', label: copy.nav.general },
+          { href: adminHref(adminSettings, '/maintenance'), id: 'maintenance', label: copy.nav.maintenance },
+        ],
+        id: 'siteSettings',
+        label: copy.nav.settings,
+      },
       {
         children: [
           { href: adminHref(adminSettings, '/themes'), id: 'themes', label: copy.nav.themes },
