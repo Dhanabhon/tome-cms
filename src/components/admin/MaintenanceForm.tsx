@@ -180,11 +180,14 @@ export default function MaintenanceForm({ ownerLocale, previewHref }: Maintenanc
             <p>{enabled ? text.closed : text.open}</p>
           </header>
           <div className="maintenance-state__actions">
-            <button aria-busy={busy === 'state'} aria-describedby={!enabled && dirty ? 'maintenance-save-first' : undefined}
-              className={`admin-button ${enabled ? 'admin-button--secondary' : 'admin-button--primary'}`}
-              disabled={busy !== null || (!enabled && dirty)} onClick={() => void switchState()} type="button">
-              {enabled ? text.turnOff : text.turnOn}
-            </button>
+            {/* A switch, as the plugins have: the site is open or closed. It moves only once the
+                server says so, so a cancelled confirmation or a failed request leaves it where it was. */}
+            <label className="admin-switch">
+              <input aria-busy={busy === 'state'} aria-describedby={!enabled && dirty ? 'maintenance-save-first' : undefined}
+                checked={enabled} disabled={busy !== null || (!enabled && dirty)} onChange={() => void switchState()}
+                role="switch" type="checkbox" />
+              <span className="admin-switch__state">{text.switchLabel}</span>
+            </label>
             {!enabled && dirty && <small id="maintenance-save-first">{text.saveFirst}</small>}
           </div>
         </section>
