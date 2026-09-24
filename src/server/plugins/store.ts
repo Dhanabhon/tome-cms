@@ -4,6 +4,8 @@ import { pluginManifest, PLUGIN_MANIFESTS } from '../../plugins/manifests';
 import type { PluginSettings } from '../../plugins/contract';
 import { db } from '../db/client';
 import { HttpError } from '../http/errors';
+import { isUuid } from '../media/keys';
+import { assertReadyMediaReferences } from '../media/service';
 import { isSealed, openSecret, sealSecret } from './secrets';
 
 /** The one shape of colour a style attribute can be trusted with. */
@@ -98,12 +100,21 @@ export async function writePluginSettings(ownerId: string, input: {
       // and the only colour that is safe to put there is one that is nothing but a colour.
       throw new HttpError(400, `${setting.label.en} is a colour like #000000.`, { code: 'plugin_setting_invalid' });
     }
+    if (supplied !== undefined && setting.kind === 'choice' && !setting.options?.some((option) => option.value === supplied)) {
+      throw new HttpError(400, `${setting.label.en} is one of its choices.`, { code: 'plugin_setting_invalid' });
+    }
+    if (supplied && setting.kind === 'image') {
+      // An id the library knows, of a picture that is ready and this owner's -- the store is the
+      // one place every write passes, and the library refuses to delete what this names.
+      if (!isUuid(supplied)) throw new HttpError(400, 'Choose media from this site.', { code: 'plugin_setting_invalid' });
+      await assertReadyMediaReferences(db, ownerId, [supplied.toLowerCase()]);
+    }
     if (setting.kind !== 'secret') {
       // Absent is not empty. A request that only switches the plugin on does not have to
       // restate the fields it is not touching, and before this it erased them by omission
       // -- which a secret was already safe from, and a site key was not.
       const kept = supplied ?? existing[setting.key] ?? '';
-      settings[setting.key] = setting.kind === 'color' ? kept.toLowerCase() : kept;
+      settings[setting.key] = setting.kind === 'color' || setting.kind === 'image' ? kept.toLowerCase() : kept;
       continue;
     }
     // Blank means "keep what is stored": the browser was never told the secret, so it
