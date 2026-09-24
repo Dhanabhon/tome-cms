@@ -29,9 +29,15 @@ export default function wirePopup(mount: HTMLElement): void {
       // It closes either way; it just comes back next time.
     }
   });
-  // Clicking the backdrop means clicking the dialog itself: its children are inside it.
+  // Clicking the backdrop means clicking the dialog itself: its children are inside it. A drag
+  // that starts inside the box and ends on the backdrop clicks the dialog as well, as their
+  // nearest shared element, so the press has to have started out there too.
+  let pressedOutside = false;
+  dialog.addEventListener('pointerdown', (event) => {
+    pressedOutside = event.target === dialog;
+  });
   dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) dialog.close();
+    if (pressedOutside && event.target === dialog) dialog.close();
   });
   dialog.querySelector('.site-popup__action')?.addEventListener('click', () => dialog.close());
 
@@ -66,9 +72,11 @@ export default function wirePopup(mount: HTMLElement): void {
       };
       document.addEventListener('mouseout', leaving);
     } else {
-      // A phone has no pointer to leave with; reading past half the page stands in for it.
+      // A phone has no pointer to leave with; reading past half the page stands in for it. Half
+      // of the distance there is to scroll, so a page under two screens long does not count
+      // its first scroll as the reader leaving.
       const reading = () => {
-        if (window.scrollY + window.innerHeight < document.documentElement.scrollHeight / 2) return;
+        if (window.scrollY < (document.documentElement.scrollHeight - window.innerHeight) / 2) return;
         window.removeEventListener('scroll', reading);
         open();
       };

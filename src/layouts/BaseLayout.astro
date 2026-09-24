@@ -77,13 +77,19 @@ const navigation = await getPublicNavigation(locale);
 const publicText = publicCopy(locale);
 // What the enabled plugins add here. The band is drawn by this layout, from words and at
 // most one checked link -- nothing a plugin returns is written into the page as markup.
-const plugins = settings
+const additions = settings
   ? await publicAdditions(
     settings.owner_id,
     { kind: type === 'article' ? 'post' : type === 'page' ? 'page' : 'home', locale },
     getPublicSiteUrl(Astro.request, Astro.site).origin,
   )
   : { clients: [], notice: null, popup: null };
+// Only the admin's theme previews name a theme, and they are drawn in small frames on the
+// Themes screen, where a popup would cover the picture of the theme with a box nobody can
+// close. They keep the band, which is part of how the site looks, and go without the popup.
+const plugins = Astro.props.themeId && additions.popup
+  ? { ...additions, clients: additions.clients.filter(({ id }) => id !== additions.popup?.pluginId), popup: null }
+  : additions;
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
 const activeTheme = await resolveTheme(themeId);
@@ -224,6 +230,7 @@ const structuredData = robots.includes('noindex')
           data-dismiss-key={plugins.popup.dismissKey}
           data-site-popup
           data-trigger={plugins.popup.trigger}
+          lang={plugins.popup.locale}
         >
           <form class="site-popup__close" method="dialog">
             <button aria-label={publicText.closePopup} type="submit" value="close"><Icon name="close" /></button>

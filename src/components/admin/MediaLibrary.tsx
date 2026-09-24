@@ -440,7 +440,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         <label className="admin-search media-search">
           <span className="sr-only">{copy.media.searchFiles}</span>
           <Icon name="search" />
-          <input className="admin-control" onChange={(event) => setSearch(event.target.value)} placeholder={copy.media.searchFiles} type="search" value={search} />
+          <input className="admin-control" onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
         {!(props.mode === 'select' && props.kind === 'image') && (
           <MediaTypes copy={copy} filters={props.mode === 'select' ? FILE_FILTERS : LIBRARY_FILTERS} onChange={selectType} value={filter} />

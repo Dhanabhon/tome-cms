@@ -117,6 +117,12 @@ test('a picture setting is chosen from the library and sent as its id', () => {
   // The picker the rest of the admin uses, and a plain field the form sends like any other.
   assert.match(SOURCE, /<MediaPicker kind="image"/);
   assert.match(SOURCE, /<input name=\{name\} type="hidden" value=\{mediaId\} \/>/);
+  // The picker opens inside the plugin's form, so Enter in the library's search would submit
+  // the plugin's half-edited words and close the drawer. The search filters as it is typed,
+  // so Enter has nothing of its own to do there.
+  const library = readFileSync(new URL('../../src/components/admin/MediaLibrary.tsx', import.meta.url), 'utf8');
+  assert.match(library, /onKeyDown=\{\(event\) => \{ if \(event\.key === 'Enter'\) event\.preventDefault\(\); \}\} placeholder=\{copy\.media\.searchFiles\}/,
+    'Enter in the picker\'s search submits nothing');
 });
 
 test('a choice setting offers its options and only those', () => {
