@@ -112,3 +112,17 @@ test('the panel of fields is the one the admin already has', () => {
   // still believing it is open, and closing plays the exit before the screen is told.
   assert.match(SOURCE, /onCancel=\{\(event\) => \{\n\s+event\.preventDefault\(\);\n\s+close\(\);/);
 });
+
+test('a picture setting is chosen from the library and sent as its id', () => {
+  // The picker the rest of the admin uses, and a plain field the form sends like any other.
+  assert.match(SOURCE, /<MediaPicker kind="image"/);
+  assert.match(SOURCE, /<input name=\{name\} type="hidden" value=\{mediaId\} \/>/);
+});
+
+test('a choice setting offers its options and only those', () => {
+  assert.match(SOURCE, /options=\{\(setting\.options \?\? \[\]\)\.map\(\(option\) => \(\{ label: option\.label\[locale\], value: option\.value \}\)\)\}/);
+});
+
+test('a plugin that can be previewed says how, and only while it is on', () => {
+  assert.match(SOURCE, /manifest\.previewHref && \(state\?\.enabled/);
+});
