@@ -33,7 +33,7 @@ The REST API returns published content only, and describes itself in an OpenAPI 
 
 ### Look
 
-Two themes ship with TomeCMS, `paper` and a sparer one called `plain`. You choose between them under "Appearance", in a preview that draws your own posts. Each language has its own home page slides, with a picture, a few words and a button, which the theme shows as a still banner or as a slider.
+Two themes ship with TomeCMS, `paper` and a sparer one called `plain`. You choose between them under "Appearance" then "Themes", in a preview that draws your own posts. Each language has its own home page slides, with a picture, a few words and a button, which the theme shows as a still banner or as a slider.
 
 The admin and the public site both have a light and a dark theme. Readers can pick their own unless you turn that off. The site has its own logo (SVG works), an optional second logo for the dark theme, and an icon.
 
@@ -54,9 +54,9 @@ Docker Compose runs PostgreSQL and a bundled SeaweedFS for the files, or you poi
 <Image src={architectureLight} class="dark:sl-hidden" alt="A diagram of TomeCMS. A visitor reads the public pages, which the chosen theme draws and the Astro server renders on each request. The owner writes in the React admin, which calls the same server. The server keeps content in PostgreSQL and files in S3-compatible storage, and signs the owner in with a passkey through Better Auth. Plugins can check a sign-in with Cloudflare Turnstile and make suggestions while the owner writes through Jev (TypeSafe AI)." />
 <Image src={architectureDark} class="light:sl-hidden" alt="A diagram of TomeCMS. A visitor reads the public pages, which the chosen theme draws and the Astro server renders on each request. The owner writes in the React admin, which calls the same server. The server keeps content in PostgreSQL and files in S3-compatible storage, and signs the owner in with a passkey through Better Auth. Plugins can check a sign-in with Cloudflare Turnstile and make suggestions while the owner writes through Jev (TypeSafe AI)." />
 
-One Node.js process answers every request: the public pages, the admin, the admin's own API and the public content API. Passkey sign-in runs inside that process too. What lasts is kept outside it. PostgreSQL holds the content and the settings, and S3-compatible storage holds the files. On a single server that storage is the bundled SeaweedFS; it can also be a service elsewhere.
+One Node.js process answers the public pages, the admin, the admin's own API and the public content API. Passkey sign-in runs inside that process too. What lasts is kept outside it. PostgreSQL holds the content and the settings, and S3-compatible storage holds the files. On a single server that storage is the bundled SeaweedFS; it can also be a service elsewhere.
 
-A plugin reaches out of the server only once you switch it on. Turnstile checks a sign-in with Cloudflare. Jev sends what you have written to TypeSafe AI, which suggests categories, a line for the excerpt and a summary for search engines.
+A plugin reaches out of the server only once you switch it on. Turnstile checks a sign-in with Cloudflare. Jev sends an article's text to TypeSafe AI only when you press one of its buttons. It suggests categories, and picks a line for the excerpt and a passage for the search description from your own text.
 
 The same diagram is in the repository as a page you can explore, with a guided view of each path through it: [docs/tome-cms-overview.en.html](https://github.com/Dhanabhon/tome-cms/blob/main/docs/tome-cms-overview.en.html). Download it and open it in a browser.
 

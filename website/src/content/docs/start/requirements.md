@@ -23,7 +23,7 @@ The deploy helper needs Linux, Node.js and Docker, and a user that can run `dock
 
 These figures come from measuring the 0.7.0 code on an empty site, not a site under real load. After a few hundred requests the application held about 180 MB, PostgreSQL about 75 MB and SeaweedFS about 90 MB.
 
-Running the site is not the peak. Building it is. Today's deploy helper builds the application image on the server, and on an upgrade it builds while the site keeps running. `npm run build` alone reached about 700 MB with a warm cache, after `npm ci` had already run, and a first build on a fresh server can take more. That is where a server with 1 GB runs out, and why the minimum is 2 GB with swap.
+The peak is the build. Today's deploy helper builds the application image on the server, and on an upgrade it builds while the site keeps running. `npm run build` alone reached about 700 MB with a warm cache, after `npm ci` had already run, and a first build on a fresh server can take more. That is where a server with 1 GB runs out, and why the minimum is 2 GB with swap.
 
 Uploading an image also takes extra memory for a moment while the server inspects it. That was not measured. Leave room for the operating system and the TLS proxy as well.
 
