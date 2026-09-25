@@ -11,7 +11,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 
 - คอนเทนเนอร์ของแอปอ่าน `.env.local` จากนั้น Compose กำหนดค่าสองตัวทับเองไม่ว่าในไฟล์จะเขียนไว้อย่างไร คือ `DATABASE_URL` ชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` เป็น `production`
 - สคริปต์ที่สั่งด้วย `npm run` เช่น `db:migrate`, `backup` และ `admin:reset-installation` โหลด `.env.local` ถ้ามีไฟล์นี้อยู่
-- `npm run admin:recover` อ่านไฟล์ที่ `TOME_CMS_ENV_FILE` ระบุ ถ้าไม่ได้ระบุจะอ่าน `.env.local` และถ้าไม่มีจึงอ่าน `/etc/tome-cms/tome-cms.env`
+- `npm run admin:recover` ซึ่งเป็นคำสั่งในหน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/) อ่านไฟล์ที่ `TOME_CMS_ENV_FILE` ระบุ ถ้าไม่ได้ระบุจะอ่าน `.env.local` และถ้าไม่มีจึงอ่าน `/etc/tome-cms/tome-cms.env`
 
 ใน `.env.local` ทุกค่าอยู่ในเครื่องหมายคำพูดเดี่ยว เช่น `S3_REGION='us-east-1'` เวลาแก้ไฟล์ให้เขียนแบบเดียวกัน
 
