@@ -21,7 +21,7 @@ The page shows a heading and a message, which you write for each language. Left 
 
 | Template | What the page shows |
 | --- | --- |
-| "Minimal" | The heading, the message and the site's name, and nothing else. |
+| "Minimal" | The heading, the message and the site's name. |
 | "Logo" | The site's logo above the words, or the site's name when there is no logo. |
 | "Picture" | A picture from the File Manager behind the words. This template needs a picture. |
 | "Countdown" | A clock counting down the days, hours, minutes and seconds to the return time. This template needs a return time. |

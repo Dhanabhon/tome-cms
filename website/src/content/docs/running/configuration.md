@@ -40,7 +40,7 @@ TomeCMS takes its settings from environment variables. On today's install they l
 | `TOME_CMS_UPDATE_MODE` | Optional | `check-only` | `check-only` or `managed`. The deploy helper always writes `check-only`. Only the managed installer from 1.0.0, not released yet, writes `managed`. |
 | `TOME_CMS_UPDATER_SOCKET` | Optional | `/run/tome-cms/updater.sock` | The updater service's socket on a managed install. It must be a `.sock` file directly under `/run/tome-cms/`. |
 | `TOME_CMS_COUNTRY_HEADER` | Optional | `cf-ipcountry` | The request header a CDN puts the reader's country in, for Stats. It takes letters, digits and hyphens, and any other name falls back to `cf-ipcountry`. |
-| `TOME_CMS_GEOIP_PATH` | Optional | `data/geoip/dbip-country-lite.mmdb` | The DB-IP Lite country database, used when no country header came. TomeCMS opens the file once, so restart TomeCMS after you add it. |
+| `TOME_CMS_GEOIP_PATH` | Optional | `data/geoip/dbip-country-lite.mmdb` | The DB-IP Lite country database, used when the header names no country. The path is inside the application's container: put the file in `data/geoip/` in the checkout and run `./scripts/deploy-vps.sh` again, which builds it into the image. |
 
 A missing required value, or a value outside the limits above, stops TomeCMS from serving the site, and `/health/ready` does not report it ready. The two Stats settings are the exception. Without the country database, countries show as unknown and the rest of the site works.
 
