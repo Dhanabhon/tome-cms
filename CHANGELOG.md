@@ -4,6 +4,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+### Changed
+
+- Stats no longer writes anything to a reader's browser, so counting needs no consent banner. A reload or a step Back is told apart by the browser's own record of how the page was opened, not by a mark in `sessionStorage`. Following a link back to a page already open in the tab now counts as a second view, and reading an article again after reloading it counts as a second read.
+
 ## 0.11.0 - 2026-09-24
 
 The feature freeze before 1.0.0: only fixes from here until then.
