@@ -35,7 +35,8 @@
     "astro": "astro",
     "fonts:sync": "node scripts/sync-fonts.mjs",
     "docs:check-search": "node website/scripts/check-search.mjs",
-    "docs:openapi": "node --import tsx website/scripts/openapi.ts"
+    "docs:openapi": "node --import tsx website/scripts/openapi.ts",
+    "docs:screenshots": "node --import tsx website/scripts/screenshots.ts"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
