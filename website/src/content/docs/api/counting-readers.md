@@ -22,8 +22,6 @@ fetch('https://cms.example.com/api/v1/stats/hit', {
 });
 ```
 
-The rest of this page is what each part of it means.
-
 ## The body
 
 | Field | Required | What it must be |
@@ -43,13 +41,13 @@ The whole body may be at most 1 KB (1,024 bytes). The server keeps only the refe
 
 ## The headers
 
-Send `Content-Type: application/json`. A body without it is dropped. On a headless site that header makes the browser send a preflight first, and in headless mode the route answers it with `Access-Control-Allow-Origin: *` and allows `POST` and the `Content-Type` header.
+Send `Content-Type: application/json`. Without it the hit does not count. On a headless site that header makes the browser send a preflight first, and in headless mode the route answers it with `Access-Control-Allow-Origin: *` and allows `POST` and the `Content-Type` header.
 
-`keepalive: true` lets the request finish after the reader has left the page, as a beacon would. Use it with `fetch` rather than `navigator.sendBeacon`: a beacon sends a string as `text/plain`, which the route drops.
+`keepalive: true` lets the request finish after the reader has left the page, as a beacon would. Use it with `fetch` rather than `navigator.sendBeacon`: a beacon sends a string as `text/plain`, and Astro refuses a `text/plain` post from another origin before it reaches the route.
 
 ## The answer is always 204
 
-The route answers `204 No Content` whether it counted the hit or not. Someone trying to inflate the numbers cannot tell which of their requests counted, and neither can your code. Do not wait on the answer or retry.
+Once TomeCMS is installed, the route answers `204 No Content` whether it counted the hit or not. Someone trying to inflate the numbers cannot tell which of their requests counted, and neither can your code. Do not wait on the answer or retry.
 
 When a hit is dropped, the server's log gets a `stats_hit_dropped` line with a `reason`. That log is the place to look when a headless site's numbers stay at zero.
 
@@ -59,18 +57,27 @@ When a hit is dropped, the server's log gets a `stats_hit_dropped` line with a `
 | `not-json` | The `Content-Type` is not `application/json`, or the body is not JSON |
 | `too-large` | The body is over 1 KB |
 | `invalid` | A field breaks the rules above |
-| `not-installed` | TomeCMS is not installed yet |
 | `not-live` | `id` does not name a live post or page in that language |
 | `bot` | The `User-Agent` is empty or says the sender is a bot or crawler |
 | `rate-limited` | Too many hits from one address |
 
 ## When to send a view, and when a read
 
-Send a `view` once per page per browser tab. A reload in the same tab is not a new view. Send a `read` once per post or page, when the reader has reached the end of the article and the tab has been visible for 15 seconds in all. For the home page, send `kind: 'home'` with no `id`, and only a `view`.
+Send a `view` once per page per browser tab. A reload in the same tab is not a new view. Send a `read` once per page per tab too, and only for a post or page: when the reader has reached the end of the article and the tab has been visible for 15 seconds in all. For the home page, send `kind: 'home'` with no `id`, and only a `view`.
 
 This is how the bundled theme does it, cut down to the parts you need. `page` is `{ kind, id, locale }` for the page on screen.
 
 ```js
+// Do Not Track, Global Privacy Control, or your own browser: send nothing.
+function silent() {
+  if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true) return true;
+  try {
+    return localStorage.getItem('stats:owner') !== null;
+  } catch {
+    return false; // No storage: a reader like any other.
+  }
+}
+
 function send(event, page) {
   fetch('https://cms.example.com/api/v1/stats/hit', {
     body: JSON.stringify({
@@ -96,40 +103,42 @@ function firstTime(event) {
   return true;
 }
 
-if (firstTime('view')) send('view', page);
+if (!silent()) {
+  if (firstTime('view')) send('view', page);
 
-const article = document.querySelector('article');
-if (page.kind !== 'home' && article) {
-  const end = document.createElement('span');
-  end.style.cssText = 'display: block; block-size: 1px;';
-  article.append(end);
+  const article = document.querySelector('article');
+  if (page.kind !== 'home' && article) {
+    const end = document.createElement('span');
+    end.style.cssText = 'display: block; block-size: 1px;';
+    article.append(end);
 
-  let reachedEnd = false;
-  let visibleSeconds = 0;
-  const clock = setInterval(() => {
-    if (document.visibilityState === 'visible') visibleSeconds += 1;
-    check();
-  }, 1000);
-  const observer = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) reachedEnd = true;
-    check();
-  });
-  observer.observe(end);
+    let reachedEnd = false;
+    let visibleSeconds = 0;
+    const clock = setInterval(() => {
+      if (document.visibilityState === 'visible') visibleSeconds += 1;
+      check();
+    }, 1000);
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) reachedEnd = true;
+      check();
+    });
+    observer.observe(end);
 
-  function check() {
-    if (!reachedEnd || visibleSeconds < 15) return;
-    clearInterval(clock);
-    observer.disconnect();
-    if (firstTime('read')) send('read', page);
+    function check() {
+      if (!reachedEnd || visibleSeconds < 15) return;
+      clearInterval(clock);
+      observer.disconnect();
+      if (firstTime('read')) send('read', page);
+    }
   }
 }
 ```
 
 ## Who to leave out
 
-Send nothing for a reader whose browser has Do Not Track (`navigator.doNotTrack === '1'`) or Global Privacy Control (`navigator.globalPrivacyControl === true`) turned on. The server does not check for either, so your page has to.
+Send nothing for a reader whose browser has Do Not Track (`navigator.doNotTrack === '1'`) or Global Privacy Control (`navigator.globalPrivacyControl === true`) turned on. The server does not check for either, so your page has to, as `silent()` does in the example above.
 
-Leave out your own browser too. The bundled theme recognises the owner by a mark the admin leaves in `localStorage` under `tomecms:stats-owner`. That mark belongs to the CMS's origin, and a headless site on another origin cannot read it. Give yourself a switch of your own, such as a `localStorage` flag on your site that your script checks before it sends anything.
+Leave out your own browser too. The bundled theme recognises the owner by a flag the admin sets in `localStorage` under `tomecms:stats-owner`. That flag belongs to the CMS's origin, and a headless site on another origin cannot read it. The example checks a flag of your own site instead, `stats:owner`. Set it once in your own browser's console on your site: `localStorage.setItem('stats:owner', '1')`.
 
 ## The limit per address
 
@@ -143,7 +152,7 @@ In bundled mode, the default, the route takes hits only from the site itself: a 
 
 ## What the server keeps
 
-A hit adds one to a daily total. No cookie is set, and nothing that identifies the reader is stored. From each hit the server keeps the page, its language, whether it was a view or a read, the device and the referrer's host. A `width` under 768 counts as mobile and anything wider as desktop. The host is kept in lower case without `www.`, and a referrer on your headless site's own host, which the server reads from the request's `Origin`, counts as internal. The country comes from a CDN's `CF-IPCountry` header or from the reader's address, which is used for that lookup and for the limit and then dropped.
+A hit adds one to a daily total. No cookie is set, and nothing that identifies the reader is stored. From each hit the server keeps the page, its language, whether it was a view or a read, the device and the referrer's host. A `width` under 768 counts as mobile and anything wider as desktop. The host is kept in lower case without `www.`, and a referrer on your headless site's own host, which the server reads from the request's `Origin`, counts as internal. The country comes from the CDN's country header when there is one (`CF-IPCountry`, or the header `TOME_CMS_COUNTRY_HEADER` names), and otherwise from the reader's address. The address is used for that lookup and for the limit, then dropped.
 
 The numbers are estimates. Someone determined can add to them, up to the limit per address.
 

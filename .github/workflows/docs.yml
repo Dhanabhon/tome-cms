@@ -9,13 +9,23 @@ on:
     paths:
       - 'website/**'
       - 'src/server/http/**'
+      - 'src/server/stats/rules.ts'
+      - 'src/lib/slug.ts'
+      - 'src/lib/editor-content.ts'
+      - 'src/server/content/mutations.ts'
       - 'src/styles/installer-tokens.css'
+      - 'package.json'
       - '.github/workflows/docs.yml'
   pull_request:
     paths:
       - 'website/**'
       - 'src/server/http/**'
+      - 'src/server/stats/rules.ts'
+      - 'src/lib/slug.ts'
+      - 'src/lib/editor-content.ts'
+      - 'src/server/content/mutations.ts'
       - 'src/styles/installer-tokens.css'
+      - 'package.json'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 

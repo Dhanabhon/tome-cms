@@ -113,6 +113,8 @@ An error comes back as `application/problem+json`, with `type`, `title`, `status
 
 Every answer has an `X-Request-ID` header, and the server's log records the same ID. Quote it when you report a problem.
 
+All of this applies once TomeCMS is installed. Before that, every route answers `503` with a plain JSON body whose `setupUrl` is `/install`, and with no `X-Request-ID` or CORS header.
+
 ## When the site is closed for maintenance
 
 While the owner has closed the site for maintenance, the content routes answer `503`, and the error carries one more field, `maintenance`, with what the owner wrote for visitors:
@@ -142,7 +144,7 @@ The words are in the language the request's `locale` asks for, or the site's def
 
 The public routes never return a draft. For the owner to see a draft on the headless site before publishing it, TomeCMS issues preview tokens.
 
-`POST /api/admin/previews` with a JSON body such as `{"contentType": "post", "contentId": "<the post's id>"}` issues one. The request needs the owner's session and has to come from the CMS's own origin. The admin has no button that calls it yet. The answer is `201` with `{"url": "/api/v1/content/preview/<token>"}`. A `GET` on that address returns the draft under `data.content`, shaped like a published post or page, with `data.contentType` beside it.
+`POST /api/admin/previews` with a JSON body such as `{"contentType": "post", "contentId": "<the post's id>"}` issues one. The request needs the owner's session and has to come from the CMS's own origin. The admin has no button that calls it. The answer is `201` with `{"url": "/api/v1/content/preview/<token>"}`. A `GET` on that address returns the draft under `data.content`, shaped like a published post or page, with `data.contentType` beside it.
 
 A token lasts 30 minutes. Issuing a new one for the same post or page revokes the one before it. An unknown, expired or revoked token is a `404`.
 
