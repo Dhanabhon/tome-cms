@@ -22,8 +22,6 @@ fetch('https://cms.example.com/api/v1/stats/hit', {
 });
 ```
 
-ส่วนที่เหลือของหน้านี้อธิบายว่าแต่ละส่วนของคำขอหมายถึงอะไร
-
 ## Body
 
 | ฟิลด์ | จำเป็นไหม | ต้องเป็นอะไร |
@@ -43,13 +41,13 @@ body ทั้งก้อนต้องไม่เกิน 1 KB (1,024 ไ�
 
 ## Header
 
-ส่ง `Content-Type: application/json` ถ้าไม่มี header นี้ คำขอจะถูกทิ้ง บนเว็บ headless header นี้ทำให้เบราว์เซอร์ส่ง preflight ก่อน และในโหมด headless route จะตอบ preflight ด้วย `Access-Control-Allow-Origin: *` โดยอนุญาต `POST` และ header `Content-Type`
+ส่ง `Content-Type: application/json` ถ้าไม่มี header นี้ hit จะไม่ถูกนับ บนเว็บ headless header นี้ทำให้เบราว์เซอร์ส่ง preflight ก่อน และในโหมด headless route จะตอบ preflight ด้วย `Access-Control-Allow-Origin: *` โดยอนุญาต `POST` และ header `Content-Type`
 
-`keepalive: true` ทำให้คำขอส่งจนเสร็จได้แม้ผู้อ่านออกจากหน้าไปแล้ว เหมือนที่ beacon ทำ ให้ใช้ `fetch` คู่กับ `keepalive` แทน `navigator.sendBeacon` เพราะ `sendBeacon` ส่ง string เป็น `text/plain` และ route จะทิ้งคำขอแบบนั้น
+`keepalive: true` ทำให้คำขอส่งจนเสร็จได้แม้ผู้อ่านออกจากหน้าไปแล้ว เหมือนที่ beacon ทำ ให้ใช้ `fetch` คู่กับ `keepalive` แทน `navigator.sendBeacon` เพราะ `sendBeacon` ส่ง string เป็น `text/plain` และ Astro จะปฏิเสธ POST แบบ `text/plain` ที่มาจาก origin อื่นตั้งแต่ก่อนถึง route
 
 ## คำตอบเป็น 204 เสมอ
 
-route ตอบ `204 No Content` ไม่ว่าจะนับ hit นั้นหรือไม่ คนที่พยายามปั่นตัวเลขจึงบอกไม่ได้ว่าคำขอไหนถูกนับ โค้ดของคุณก็บอกไม่ได้เช่นกัน ไม่ต้องรอคำตอบหรือส่งซ้ำ
+เมื่อติดตั้ง TomeCMS แล้ว route จะตอบ `204 No Content` ไม่ว่าจะนับ hit นั้นหรือไม่ คนที่พยายามปั่นตัวเลขจึงบอกไม่ได้ว่าคำขอไหนถูกนับ โค้ดของคุณก็บอกไม่ได้เช่นกัน ไม่ต้องรอคำตอบหรือส่งซ้ำ
 
 เมื่อ hit ถูกทิ้ง log ของเซิร์ฟเวอร์จะมีบรรทัด `stats_hit_dropped` พร้อม `reason` ถ้ายอดของเว็บ headless ค้างอยู่ที่ศูนย์ ให้ดูที่ log นี้ก่อน
 
@@ -59,18 +57,27 @@ route ตอบ `204 No Content` ไม่ว่าจะนับ hit นั้
 | `not-json` | `Content-Type` ไม่ใช่ `application/json` หรือ body ไม่ใช่ JSON |
 | `too-large` | body เกิน 1 KB |
 | `invalid` | มีฟิลด์ที่ผิดกฎข้างบน |
-| `not-installed` | ยังไม่ได้ติดตั้ง TomeCMS |
 | `not-live` | `id` ไม่ใช่บทความหรือเพจที่เผยแพร่อยู่ในภาษานั้น |
 | `bot` | `User-Agent` ว่าง หรือบอกว่าผู้ส่งเป็น bot หรือ crawler |
 | `rate-limited` | มี hit จาก address เดียวมากเกินไป |
 
 ## ส่ง view เมื่อไร และส่ง read เมื่อไร
 
-ส่ง `view` หนึ่งครั้งต่อหน้าต่อแท็บของเบราว์เซอร์ การรีโหลดในแท็บเดิมไม่นับเป็น view ใหม่ ส่ง `read` หนึ่งครั้งต่อบทความหรือเพจ เมื่อผู้อ่านเลื่อนถึงท้ายบทความ และแท็บนั้นแสดงอยู่บนจอรวมกันครบ 15 วินาที สำหรับหน้าแรกให้ส่ง `kind: 'home'` โดยไม่มี `id` และส่งแค่ `view`
+ส่ง `view` หนึ่งครั้งต่อหน้าต่อแท็บของเบราว์เซอร์ การรีโหลดในแท็บเดิมไม่นับเป็น view ใหม่ ส่วน `read` ก็ส่งหนึ่งครั้งต่อหน้าต่อแท็บเช่นกัน และส่งเฉพาะบทความหรือเพจ เมื่อผู้อ่านเลื่อนถึงท้ายบทความ และแท็บนั้นแสดงอยู่บนจอรวมกันครบ 15 วินาที สำหรับหน้าแรกให้ส่ง `kind: 'home'` โดยไม่มี `id` และส่งแค่ `view`
 
 โค้ดข้างล่างคือวิธีที่ธีมในตัวทำ ตัดเหลือเฉพาะส่วนที่ต้องใช้ `page` คือ `{ kind, id, locale }` ของหน้าที่แสดงอยู่
 
 ```js
+// Do Not Track, Global Privacy Control, or your own browser: send nothing.
+function silent() {
+  if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true) return true;
+  try {
+    return localStorage.getItem('stats:owner') !== null;
+  } catch {
+    return false; // No storage: a reader like any other.
+  }
+}
+
 function send(event, page) {
   fetch('https://cms.example.com/api/v1/stats/hit', {
     body: JSON.stringify({
@@ -96,40 +103,42 @@ function firstTime(event) {
   return true;
 }
 
-if (firstTime('view')) send('view', page);
+if (!silent()) {
+  if (firstTime('view')) send('view', page);
 
-const article = document.querySelector('article');
-if (page.kind !== 'home' && article) {
-  const end = document.createElement('span');
-  end.style.cssText = 'display: block; block-size: 1px;';
-  article.append(end);
+  const article = document.querySelector('article');
+  if (page.kind !== 'home' && article) {
+    const end = document.createElement('span');
+    end.style.cssText = 'display: block; block-size: 1px;';
+    article.append(end);
 
-  let reachedEnd = false;
-  let visibleSeconds = 0;
-  const clock = setInterval(() => {
-    if (document.visibilityState === 'visible') visibleSeconds += 1;
-    check();
-  }, 1000);
-  const observer = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) reachedEnd = true;
-    check();
-  });
-  observer.observe(end);
+    let reachedEnd = false;
+    let visibleSeconds = 0;
+    const clock = setInterval(() => {
+      if (document.visibilityState === 'visible') visibleSeconds += 1;
+      check();
+    }, 1000);
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) reachedEnd = true;
+      check();
+    });
+    observer.observe(end);
 
-  function check() {
-    if (!reachedEnd || visibleSeconds < 15) return;
-    clearInterval(clock);
-    observer.disconnect();
-    if (firstTime('read')) send('read', page);
+    function check() {
+      if (!reachedEnd || visibleSeconds < 15) return;
+      clearInterval(clock);
+      observer.disconnect();
+      if (firstTime('read')) send('read', page);
+    }
   }
 }
 ```
 
 ## ใครที่ไม่ควรนับ
 
-อย่าส่งอะไรเลยสำหรับผู้อ่านที่เปิด Do Not Track (`navigator.doNotTrack === '1'`) หรือ Global Privacy Control (`navigator.globalPrivacyControl === true`) ไว้ในเบราว์เซอร์ เซิร์ฟเวอร์ไม่ได้ตรวจสองค่านี้ หน้าเว็บของคุณจึงต้องตรวจเอง
+อย่าส่งอะไรเลยสำหรับผู้อ่านที่เปิด Do Not Track (`navigator.doNotTrack === '1'`) หรือ Global Privacy Control (`navigator.globalPrivacyControl === true`) ไว้ในเบราว์เซอร์ เซิร์ฟเวอร์ไม่ได้ตรวจสองค่านี้ หน้าเว็บของคุณจึงต้องตรวจเอง แบบที่ `silent()` ในตัวอย่างข้างบนทำ
 
-อย่านับเบราว์เซอร์ของคุณเองด้วย ธีมในตัวรู้ว่าเบราว์เซอร์ไหนเป็นของเจ้าของเว็บจากเครื่องหมายที่แอดมินทิ้งไว้ใน `localStorage` ชื่อ `tomecms:stats-owner` แต่เครื่องหมายนี้อยู่ใน origin ของ CMS และเว็บ headless ที่อยู่อีก origin อ่านไม่ได้ ให้ทำสวิตช์ของคุณเอง เช่น flag ใน `localStorage` ของเว็บคุณที่สคริปต์ตรวจก่อนส่งทุกครั้ง
+อย่านับเบราว์เซอร์ของคุณเองด้วย ธีมในตัวรู้ว่าเบราว์เซอร์ไหนเป็นของเจ้าของเว็บจาก flag ที่แอดมินตั้งไว้ใน `localStorage` ชื่อ `tomecms:stats-owner` แต่ flag นี้อยู่ใน origin ของ CMS เว็บ headless ที่อยู่คนละ origin จึงอ่านไม่ได้ ตัวอย่างข้างบนเลยตรวจ flag ของเว็บคุณเองชื่อ `stats:owner` แทน เปิด console ของเบราว์เซอร์บนเว็บของคุณแล้วรัน `localStorage.setItem('stats:owner', '1')` ครั้งเดียว
 
 ## ขีดจำกัดต่อ address
 
@@ -143,7 +152,7 @@ if (page.kind !== 'home' && article) {
 
 ## เซิร์ฟเวอร์เก็บอะไรไว้
 
-hit หนึ่งครั้งเพิ่มยอดรวมของวันนั้นขึ้นหนึ่ง ไม่มีการตั้ง cookie และไม่มีการเก็บสิ่งที่ระบุตัวผู้อ่านได้ จาก hit แต่ละครั้งเซิร์ฟเวอร์เก็บหน้า ภาษา ว่าเป็น view หรือ read อุปกรณ์ และ host ของ referrer ถ้า `width` น้อยกว่า 768 นับเป็นมือถือ ที่กว้างกว่านั้นนับเป็นเดสก์ท็อป host เก็บเป็นตัวพิมพ์เล็กโดยตัด `www.` ออก และ referrer ที่มาจาก host ของเว็บ headless เอง ซึ่งเซิร์ฟเวอร์อ่านจาก `Origin` ของคำขอ จะนับเป็นภายใน ประเทศได้มาจาก header `CF-IPCountry` ของ CDN หรือจาก address ของผู้อ่าน ซึ่งใช้หาประเทศและนับขีดจำกัดแล้วก็ทิ้งไป
+hit หนึ่งครั้งเพิ่มยอดรวมของวันนั้นขึ้นหนึ่ง ไม่มีการตั้ง cookie และไม่มีการเก็บสิ่งที่ระบุตัวผู้อ่านได้ จาก hit แต่ละครั้งเซิร์ฟเวอร์เก็บหน้า ภาษา ว่าเป็น view หรือ read อุปกรณ์ และ host ของ referrer ถ้า `width` น้อยกว่า 768 นับเป็นมือถือ ที่กว้างกว่านั้นนับเป็นเดสก์ท็อป host เก็บเป็นตัวพิมพ์เล็กโดยตัด `www.` ออก และ referrer ที่มาจาก host ของเว็บ headless เอง ซึ่งเซิร์ฟเวอร์อ่านจาก `Origin` ของคำขอ จะนับเป็นภายใน ประเทศได้มาจาก header บอกประเทศของ CDN ถ้ามี (`CF-IPCountry` หรือ header ที่ตั้งไว้ใน `TOME_CMS_COUNTRY_HEADER`) ถ้าไม่มีจึงหาจาก address ของผู้อ่าน address นี้ใช้แค่หาประเทศและนับขีดจำกัด แล้วก็ทิ้งไป
 
 ตัวเลขเหล่านี้เป็นค่าประมาณ คนที่ตั้งใจจริงเพิ่มยอดได้ แต่ไม่เกินขีดจำกัดต่อ address
 

@@ -5,6 +5,9 @@
  * Thai has no spaces between words, so it is the language a search index is most likely to get
  * wrong, and nothing else in the build would notice. Run it after `npm run build --prefix
  * website`: `npm run docs:check-search`.
+ *
+ * It starts its own preview server and stops it before it exits. A server already on the port
+ * could be serving an older build, so the check refuses to run beside one.
  */
 import { spawn } from 'node:child_process';
 
@@ -17,12 +20,37 @@ const CASES = [
   { path: '/tome-cms/', word: 'documentation' },
 ];
 
-const preview = spawn('npx', ['astro', 'preview', '--port', String(PORT)], {
+async function answers(url) {
+  try {
+    await fetch(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Stops the server and waits until it has gone, so the port is free when this exits. */
+async function stop(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise((resolve) => child.once('exit', resolve));
+  child.kill('SIGTERM');
+  await exited;
+}
+
+if (await answers(ORIGIN)) {
+  console.error(`Something already answers on port ${PORT}. Stop it first (from website/: npx astro preview stop).`);
+  process.exit(1);
+}
+
+// Astro itself, not npx, so the child killed below is the server. --ignore-lock keeps it in the
+// foreground: without it, astro preview moves itself to the background when it detects an agent.
+const preview = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'preview', '--port', String(PORT), '--ignore-lock'], {
   cwd: new URL('..', import.meta.url),
   stdio: 'ignore',
 });
 try {
   for (let attempt = 0; ; attempt += 1) {
+    if (preview.exitCode !== null) throw new Error('The preview server exited before it answered.');
     try {
       if ((await fetch(`${ORIGIN}/tome-cms/`)).ok) break;
     } catch {
@@ -49,5 +77,5 @@ try {
     await browser.close();
   }
 } finally {
-  preview.kill('SIGTERM');
+  await stop(preview);
 }
