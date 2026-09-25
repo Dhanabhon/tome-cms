@@ -83,6 +83,6 @@ Then run the deploy helper again:
 
 The application container takes its settings from `.env.local` when Compose creates it, so a new value applies only once the container is created again. The helper does that on every run, and keeps every other value in the file as it is. It reads `TOME_CMS_FRONTEND_MODE` from the file only, so exporting it in your shell changes nothing. [Configuration](/tome-cms/running/configuration/) has the rest of the settings and how the helper treats them.
 
-To go back, set the value to `bundled`, or delete the line, and run the helper again.
+To go back, set the value to `bundled` and run the helper again.
 
 Switching changes only what the origin answers. Posts, pages, media and settings stay as they are. The admin's "View site" link still opens `/`, which answers `404` in headless mode.

@@ -28,6 +28,8 @@ The admin cannot install an update yet. Under "System" it shows your version nex
 
 The helper keeps `.env.local` as it is. It builds the new application image, runs the waiting migrations in a one-shot container, and then starts the new application container. The site is down from the moment you stop the application until the new container is ready.
 
+An install from 0.2.0 lacks settings the newer helper writes, so it stops with `Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.` Run `./scripts/deploy-vps.sh --force` then: it adds the missing settings and keeps your secrets.
+
 ## Database migrations
 
 A new version can change the database's tables. Each change is a migration, and this command applies every one the database does not have yet:

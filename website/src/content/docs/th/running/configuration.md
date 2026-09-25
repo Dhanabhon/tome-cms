@@ -9,7 +9,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 
 ## แอปและสคริปต์อ่านค่าจากที่ไหน
 
-- คอนเทนเนอร์ของแอปอ่าน `.env.local` จากนั้น Compose กำหนดค่าสองตัวทับเองไม่ว่าในไฟล์จะเขียนไว้อย่างไร คือ `DATABASE_URL` ชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` เป็น `production`
+- คอนเทนเนอร์ของแอปอ่าน `.env.local` แต่ Compose จะกำหนดค่าสองตัวทับเองเสมอ ไม่ว่าในไฟล์จะเขียนไว้อย่างไร ได้แก่ `DATABASE_URL` ซึ่งชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` ซึ่งเป็น `production`
 - สคริปต์ที่สั่งด้วย `npm run` เช่น `db:migrate`, `backup` และ `admin:reset-installation` โหลด `.env.local` ถ้ามีไฟล์นี้อยู่
 - `npm run admin:recover` ซึ่งเป็นคำสั่งในหน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/) อ่านไฟล์ที่ `TOME_CMS_ENV_FILE` ระบุ ถ้าไม่ได้ระบุจะอ่าน `.env.local` และถ้าไม่มีจึงอ่าน `/etc/tome-cms/tome-cms.env`
 
@@ -35,12 +35,12 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 | `S3_SECRET_ACCESS_KEY` | ต้องมี | ไม่มี | secret key ของ object storage ยาวอย่างน้อย 8 ตัวอักษร |
 | `S3_BUCKET` | ต้องมี | ไม่มี | ชื่อ bucket ยาว 3 ถึง 63 ตัว ใช้ได้เฉพาะตัวพิมพ์เล็ก ตัวเลข จุด และขีดกลาง และต้องขึ้นต้นกับลงท้ายด้วยตัวอักษรหรือตัวเลข สคริปต์ deploy ใช้ชื่อ `tomecms-media` |
 | `S3_FORCE_PATH_STYLE` | ไม่บังคับ | `true` | `true` ใส่ชื่อ bucket ไว้ใน path ของที่อยู่ ส่วน `false` ใส่ไว้ในชื่อโฮสต์ ถ้าใช้ SeaweedFS ที่มากับชุดติดตั้งให้คงไว้เป็น `true` |
-| `MEDIA_PUBLIC_URL` | ต้องมี | ไม่มี | ที่ที่ผู้อ่านโหลดไฟล์ ห้ามมี query หรือ fragment ถ้าไม่กำหนด สคริปต์ deploy จะประกอบให้จาก `S3_ENDPOINT` กับชื่อ bucket |
+| `MEDIA_PUBLIC_URL` | ต้องมี | ไม่มี | ที่อยู่ที่ผู้อ่านใช้โหลดไฟล์ ห้ามมี query หรือ fragment ถ้าไม่กำหนด สคริปต์ deploy จะประกอบให้จาก `S3_ENDPOINT` กับชื่อ bucket |
 | `TOME_CMS_FRONTEND_MODE` | ไม่บังคับ | `bundled` | `bundled` ให้บริการหน้าเว็บสาธารณะด้วย ส่วน `headless` ตอบ `404` ให้หน้าเว็บเหล่านั้น แต่หน้าแอดมินและ API ยังใช้ได้ |
 | `TOME_CMS_UPDATE_MODE` | ไม่บังคับ | `check-only` | `check-only` หรือ `managed` สคริปต์ deploy เขียน `check-only` ทุกครั้ง ค่า `managed` เขียนได้โดยตัวติดตั้งแบบ managed ตั้งแต่ 1.0.0 เท่านั้น ซึ่งยังไม่เปิดให้ใช้ |
 | `TOME_CMS_UPDATER_SOCKET` | ไม่บังคับ | `/run/tome-cms/updater.sock` | socket ของ service ตัว updater ในการติดตั้งแบบ managed ต้องเป็นไฟล์ `.sock` ที่อยู่ใน `/run/tome-cms/` โดยตรง |
 | `TOME_CMS_COUNTRY_HEADER` | ไม่บังคับ | `cf-ipcountry` | ชื่อ header ที่ CDN ใส่ประเทศของผู้อ่านมาให้ ใช้ในหน้าสถิติ ชื่อต้องมีแต่ตัวอักษร ตัวเลข และขีดกลาง ถ้ามีอย่างอื่นปน ระบบจะกลับไปใช้ `cf-ipcountry` |
-| `TOME_CMS_GEOIP_PATH` | ไม่บังคับ | `data/geoip/dbip-country-lite.mmdb` | ไฟล์ฐานข้อมูลประเทศ DB-IP Lite ใช้เมื่อคำขอไม่มี header บอกประเทศมา TomeCMS เปิดไฟล์นี้ครั้งเดียว วางไฟล์แล้วจึงต้องรีสตาร์ต TomeCMS |
+| `TOME_CMS_GEOIP_PATH` | ไม่บังคับ | `data/geoip/dbip-country-lite.mmdb` | ไฟล์ฐานข้อมูลประเทศ DB-IP Lite ใช้เมื่อ header ไม่ได้บอกประเทศมา path นี้เป็น path ภายในคอนเทนเนอร์ของแอป ให้วางไฟล์ไว้ใน `data/geoip/` ในโฟลเดอร์โค้ด แล้วรัน `./scripts/deploy-vps.sh` อีกครั้ง สคริปต์จะ build ไฟล์นี้เข้าไปใน image |
 
 ถ้าขาดค่าที่ต้องมี หรือมีค่าที่อยู่นอกขอบเขตข้างต้น TomeCMS จะไม่ให้บริการเว็บ และ `/health/ready` จะไม่รายงานว่าพร้อม ค่าสองตัวของสถิติเป็นข้อยกเว้น ถ้าไม่มีฐานข้อมูลประเทศ หน้าสถิติจะแสดงประเทศเป็นไม่ทราบ แต่ส่วนอื่นของเว็บยังทำงานตามปกติ
 
@@ -58,7 +58,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 
 ## เมื่อเป็น production ต้องใช้ HTTPS
 
-เมื่อ `NODE_ENV` เป็น `production` ค่า `TOME_CMS_PUBLIC_URL`, `S3_ENDPOINT` และ `MEDIA_PUBLIC_URL` ต้องขึ้นต้นด้วย `https://` และอยู่บนโฮสต์สาธารณะที่เบราว์เซอร์เข้าถึงได้ TomeCMS ไม่รับที่อยู่ IP แบบ private หรือแบบสงวนไว้, `localhost` และชื่อที่ลงท้ายด้วย `.local`, `.internal`, `.lan`, `.test`, `.example` รวมถึงชื่อสำหรับใช้งานพิเศษอื่น ๆ สำหรับ `TOME_CMS_PUBLIC_URL` ให้ใช้ชื่อโฮสต์แทน IP เพราะ Passkey ไม่รับที่อยู่ IP แม้จะเป็น IP สาธารณะก็ตาม สคริปต์ deploy ตรวจกติกาชุดเดียวกันนี้ก่อนเขียนไฟล์ใด ๆ
+เมื่อ `NODE_ENV` เป็น `production` ค่า `TOME_CMS_PUBLIC_URL`, `S3_ENDPOINT` และ `MEDIA_PUBLIC_URL` ต้องขึ้นต้นด้วย `https://` และอยู่บนโฮสต์สาธารณะที่เบราว์เซอร์เข้าถึงได้ TomeCMS ไม่รับที่อยู่ IP แบบ private หรือแบบสงวนไว้ `localhost` และชื่อที่ลงท้ายด้วย `.local`, `.internal`, `.lan`, `.test`, `.example` รวมถึงชื่อสำหรับใช้งานพิเศษอื่น ๆ สำหรับ `TOME_CMS_PUBLIC_URL` ให้ใช้ชื่อโฮสต์แทน IP เพราะ Passkey ไม่รับที่อยู่ IP แม้จะเป็น IP สาธารณะก็ตาม สคริปต์ deploy ตรวจกติกาชุดเดียวกันนี้ก่อนเขียนไฟล์ใด ๆ
 
 ถ้าไม่ได้อยู่ใน production ที่อยู่ HTTP ธรรมดาที่เข้าสู่ระบบได้มีแค่ `http://localhost` เท่านั้น
 
@@ -66,7 +66,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 
 SeaweedFS ที่มากับชุดติดตั้งทำงานเป็นโหนดเดียว ซึ่งเหมาะกับ VPS เครื่องเดียว ถ้าต้องการ high availability หรือต้องการมากกว่าหนึ่งโหนด ให้ชี้ค่า `S3_*` ชุดเดิมและ `MEDIA_PUBLIC_URL` ไปที่ object storage ภายนอก
 
-เบราว์เซอร์อัปโหลดไฟล์เข้า bucket โดยตรง storage ภายนอกจึงต้องมีกฎ CORS สำหรับ origin ของเว็บ ซึ่งก็คือค่าของ `TOME_CMS_PUBLIC_URL` กฎนี้ต้องอนุญาต `PUT` พร้อม header `content-type`, `x-amz-checksum-sha256` และ `content-disposition` ตัวสุดท้ายบอกชื่อไฟล์เอกสารและวิธีเปิดไฟล์ และถูกเซ็นรวมไว้ในการอัปโหลด ถ้าเขียนในรูปแบบที่ AWS S3 ใช้ กฎจะหน้าตาแบบนี้
+เบราว์เซอร์อัปโหลดไฟล์เข้า bucket โดยตรง storage ภายนอกจึงต้องมีกฎ CORS สำหรับ origin ของเว็บ ซึ่งก็คือค่าของ `TOME_CMS_PUBLIC_URL` กฎนี้ต้องอนุญาต `PUT` พร้อม header `content-type`, `x-amz-checksum-sha256` และ `content-disposition` ตัวสุดท้ายบอกชื่อไฟล์เอกสารและวิธีเปิดไฟล์ และรวมอยู่ในลายเซ็นของการอัปโหลดด้วย ถ้าเขียนในรูปแบบที่ AWS S3 ใช้ กฎจะหน้าตาแบบนี้
 
 ```json
 [
@@ -78,7 +78,7 @@ SeaweedFS ที่มากับชุดติดตั้งทำงาน�
 ]
 ```
 
-SeaweedFS ที่มากับชุดติดตั้งอนุญาตสิ่งที่ origin ของเว็บขอไว้แล้ว และไม่อนุญาตอะไรเลยให้ origin อื่น
+SeaweedFS ที่มากับชุดติดตั้งตั้งค่า CORS ให้ origin ของเว็บไว้แล้ว และไม่เปิดให้ origin อื่นเลย
 
 ## การเปลี่ยนค่า
 
