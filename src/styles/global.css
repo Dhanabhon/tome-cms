@@ -2301,8 +2301,8 @@ p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-o
 /* Slides the home page will not show yet: said once, calmly, with the way to change it. It is
  * advice, not a failure, so it wears a card's surface rather than the error's red, and it
  * keeps its distance from the page head, whose button sits on the head's bottom edge. */
-.home-slides-notice, .admin-maintenance-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
-.home-slides-notice p, .admin-maintenance-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+.home-slides-notice, .admin-maintenance-notice, .stats-empty-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+.home-slides-notice p, .admin-maintenance-notice p, .stats-empty-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 /* Maintenance: the notice sits above the screen's head, not below it, inset from the shell's
  * edges as the migrations alert in the same place is. */
 .admin-maintenance-notice { margin: var(--space-lg) var(--space-lg) 0; }

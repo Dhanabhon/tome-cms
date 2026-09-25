@@ -40,6 +40,10 @@ function ratioChange(): string {
   return `${value > 0 ? '↑' : '↓'} ${fill(size === 1 ? copy.stats.point : copy.stats.points, { value: number.format(size) })}`;
 }
 
+// Nothing counted for this period at all: the ratio has no meaning yet, and the numbers table
+// would otherwise list every date at zero.
+const nothingYet = report.totals.views === 0 && report.totals.reads === 0;
+
 const describe = (point: SeriesPoint) => fill(copy.stats.barTitle, {
   date: dateOf(point.key), reads: number.format(point.reads), views: number.format(point.views),
 });
@@ -60,7 +64,14 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
   </div>
   <div>
     <dt>{copy.stats.readRatio}</dt>
-    <dd class="stats-summary__value">{percent.format(readRatio(report.totals))}</dd>
+    <dd class="stats-summary__value">
+      {report.totals.views > 0 ? percent.format(readRatio(report.totals)) : (
+        <>
+          <span aria-hidden="true">—</span>
+          <span class="sr-only">{copy.stats.noReadsYet}</span>
+        </>
+      )}
+    </dd>
     <dd class="stats-summary__change">{ratioChange()}</dd>
   </div>
 </dl>
@@ -75,34 +86,38 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
   <StatsChart describe={describe} label={chartTitle} points={report.series} tick={dateOf} />
   <details class="stats-numbers">
     <summary>{copy.stats.chartTable}</summary>
-    <div class="stats-table-wrap">
-      <table class="stats-table">
-        <thead>
-          <tr>
-            <th scope="col">{copy.stats.date}</th>
-            <th class="stats-table__number" scope="col">{copy.stats.views}</th>
-            <th class="stats-table__number" scope="col">{copy.stats.reads}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.series.map((point) => (
+    {nothingYet ? (
+      <p>{copy.stats.noViews}</p>
+    ) : (
+      <div class="stats-table-wrap">
+        <table class="stats-table">
+          <thead>
             <tr>
-              <th scope="row">{dateOf(point.key)}</th>
-              <td class="stats-table__number">{number.format(point.views)}</td>
-              <td class="stats-table__number">{number.format(point.reads)}</td>
+              <th scope="col">{copy.stats.date}</th>
+              <th class="stats-table__number" scope="col">{copy.stats.views}</th>
+              <th class="stats-table__number" scope="col">{copy.stats.reads}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {report.series.map((point) => (
+              <tr>
+                <th scope="row">{dateOf(point.key)}</th>
+                <td class="stats-table__number">{number.format(point.views)}</td>
+                <td class="stats-table__number">{number.format(point.reads)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </details>
 </section>
 
 <div class="stats-shares">
-  <StatsShares format={number} heading={copy.stats.referrers} rows={report.referrers.map(({ key, views }) => ({ label: referrerName(key), views }))} />
-  <StatsShares format={number} heading={copy.stats.devices} rows={report.devices.map(({ key, views }) => ({ label: key === 'mobile' ? copy.stats.mobile : copy.stats.desktop, views }))} />
-  <StatsShares format={number} heading={copy.stats.countries} rows={report.countries.map(({ key, views }) => ({ label: countryName(key), views }))}>
+  <StatsShares copy={copy} format={number} heading={copy.stats.referrers} rows={report.referrers.map(({ key, views }) => ({ label: referrerName(key), views }))} />
+  <StatsShares copy={copy} format={number} heading={copy.stats.devices} rows={report.devices.map(({ key, views }) => ({ label: key === 'mobile' ? copy.stats.mobile : copy.stats.desktop, views }))} />
+  <StatsShares copy={copy} format={number} heading={copy.stats.countries} rows={report.countries.map(({ key, views }) => ({ label: countryName(key), views }))}>
     <p class="stats-attribution"><a href="https://db-ip.com">{copy.stats.attribution}</a></p>
   </StatsShares>
-  <StatsShares format={number} heading={copy.stats.locales} rows={report.locales.map(({ key, views }) => ({ label: key === 'th' ? copy.stats.languages.th : copy.stats.languages.en, views }))} />
+  <StatsShares copy={copy} format={number} heading={copy.stats.locales} rows={report.locales.map(({ key, views }) => ({ label: key === 'th' ? copy.stats.languages.th : copy.stats.languages.en, views }))} />
 </div>

@@ -168,6 +168,12 @@
 
 .stats-empty h2 { margin: 0 0 var(--space-xs); }
 .stats-empty p { margin: 0; color: var(--color-muted); }
+
+/* The site still shows its real report at zero, so this sits above the filters as an
+ * explanation, not a wall in place of the screen -- the maintenance and slides notices'
+ * own look, without their inline margin, since this one lives inside the page's own padding. */
+.stats-empty-notice { margin-block-start: 0; margin-block-end: var(--space-lg); }
+.stats-empty-notice h2 { margin: 0 0 var(--space-3xs); color: var(--color-ink); font-size: var(--text-md); font-weight: 600; }
 .stats-pages { display: flex; justify-content: space-between; margin-block-start: var(--space-sm); }
 .stats-links { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
 .stats-back { margin: 0 0 var(--space-sm); }

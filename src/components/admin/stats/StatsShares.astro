@@ -1,18 +1,21 @@
 ---
+import type { AdminCopy } from '../../../lib/admin-i18n';
+
 interface Props {
+  copy: AdminCopy;
   format: Intl.NumberFormat;
   heading: string;
   rows: Array<{ label: string; views: number }>;
 }
 
-const { format, heading, rows } = Astro.props;
+const { copy, format, heading, rows } = Astro.props;
 const most = Math.max(1, ...rows.map(({ views }) => views));
 ---
 
 <section class="stats-panel stats-share">
   <h2>{heading}</h2>
   {rows.length === 0 ? (
-    <p class="stats-share__none">—</p>
+    <p class="stats-share__none">{copy.stats.noViews}</p>
   ) : (
     <ol>
       {rows.map(({ label, views }) => (
