@@ -16,8 +16,11 @@ features are still welcome as issues, and they will be looked at after 1.0.0.
 
 ## Setting up
 
-Follow [Developing TomeCMS](README.md#developing-tomecms) in the README. It covers local setup
-on macOS and on Windows, the project layout, writing a theme and writing a plugin.
+Follow [Setting up for development](https://dhanabhon.github.io/tome-cms/contributing/setup/)
+on the documentation site. It covers local setup on macOS and on Windows. The same site has
+the [project layout](https://dhanabhon.github.io/tome-cms/contributing/project-layout/), and
+[Extending](https://dhanabhon.github.io/tome-cms/extending/themes/) covers writing a theme and
+writing a plugin.
 
 ## How the code is kept
 
@@ -28,7 +31,8 @@ on macOS and on Windows, the project layout, writing a theme and writing a plugi
   `src/styles/installer-tokens.css` only. `DESIGN.md` describes them, and `npm run check`
   fails when the two drift apart.
 - **Plugins describe; the core draws.** A plugin returns data, and nothing a plugin returns
-  is written into a page as markup. See [Writing a plugin](README.md#writing-a-plugin).
+  is written into a page as markup. See
+  [Writing a plugin](https://dhanabhon.github.io/tome-cms/extending/plugins/).
 - **Migrations are append-only.** A schema change is a new numbered file in
   `src/server/db/migrations`, registered in `src/server/db/migrator.ts` and in
   `src/server/db/reset-tables.ts`. A migration that has shipped is never edited.
@@ -49,8 +53,8 @@ npm run test:e2e -- tests/e2e/<file>.spec.ts
 
 Integration and end-to-end tests stand up their own disposable PostgreSQL and SeaweedFS under
 Docker Compose, and remove them afterwards. Browser tests run on both Playwright projects,
-desktop and phone. [Tests and checks](README.md#tests-and-checks) in the README has the
-details.
+desktop and phone. [Tests](https://dhanabhon.github.io/tome-cms/contributing/tests/) on the
+documentation site has the details.
 
 ## Commits and pull requests
 
