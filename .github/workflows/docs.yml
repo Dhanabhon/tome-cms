@@ -1,0 +1,54 @@
+name: Docs
+
+# Builds and checks the documentation site. Task 8 adds the deploy job; until then a push only
+# proves the site still builds.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+      - 'src/server/http/**'
+      - 'src/styles/installer-tokens.css'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'src/server/http/**'
+      - 'src/styles/installer-tokens.css'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 (node24)
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+
+      - name: Install the app's dependencies
+        run: npm ci
+
+      - name: Install the site's dependencies
+        run: npm ci --prefix website
+
+      - name: Check
+        run: npm run check --prefix website
+
+      - name: Build
+        run: npm run build --prefix website
