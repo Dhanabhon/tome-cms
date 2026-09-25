@@ -1,4 +1,4 @@
-import { getSchema } from '@tiptap/core';
+import { getSchema, type Attributes } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { DOMSerializer, Node } from '@tiptap/pm/model';
@@ -31,6 +31,16 @@ const mediaImage = Image.extend({
   },
 });
 
+// A link's class comes only from this extension's own config below, never from a writer's
+// contentJson: without this, Link's own `class` attribute would let a link mark stamp any
+// class -- including a video's `tome-video__play` -- onto an ordinary link.
+const editorLink = Link.extend({
+  addAttributes() {
+    const { class: _class, ...attributes } = (this.parent?.() ?? {}) as Attributes;
+    return attributes;
+  },
+});
+
 const MAX_DOCUMENT_DEPTH = 100;
 const rawEditorContentInputSchema = z.object({ contentJson: z.unknown() }).strict();
 
@@ -48,7 +58,7 @@ const extensions = [
     trailingNode: false,
     underline: false,
   }),
-  Link.configure({
+  editorLink.configure({
     autolink: true,
     openOnClick: false,
     HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },

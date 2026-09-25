@@ -112,6 +112,24 @@ test('a link opens a new tab only when its writer asked it to', () => {
   assert.match(contentHtml, /<a rel="noopener noreferrer" href="https:\/\/example\.com"> Here<\/a>/, 'no target, so the same tab');
 });
 
+test('a link cannot dress itself as a video', () => {
+  const { contentHtml } = prepareEditorContent({
+    contentJson: {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'Elsewhere',
+          marks: [{ type: 'link', attrs: { href: 'https://anywhere.example', target: null, class: 'tome-video__play' } }],
+        }],
+      }],
+    },
+  });
+  assert.doesNotMatch(contentHtml, /tome-video__play/);
+  assert.match(contentHtml, /<a rel="noopener noreferrer" href="https:\/\/anywhere\.example">Elsewhere<\/a>/);
+});
+
 test('a line keeps its alignment, and no other style', () => {
   const line = (type: string, text: string, textAlign: string, level?: number): EditorNode => ({
     type, attrs: { textAlign, ...(level ? { level } : {}) }, content: [{ type: 'text', text }],
