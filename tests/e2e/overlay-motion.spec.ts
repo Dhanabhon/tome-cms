@@ -84,16 +84,25 @@ interface Snapshot {
   at: number;
   closing: boolean;
   durations: number[];
+  /** What is animating on the overlay itself or its ::backdrop, not on something inside it. */
+  own: string[];
+  /** Its pointer-events: a dialog that is leaving takes no more clicks. */
+  pointer: string | null;
   properties: string[];
   shown: boolean;
   transform: string | null;
 }
+
+/** Where the overlay's two sides were at one moment of its entry, and the window's width. */
+interface Edges { left: number; right: number; width: number }
 
 interface Probe {
   arm: (selector: string, hold: boolean) => void;
   log: () => Snapshot[];
   release: (finish: boolean) => void;
   seek: (fraction: number) => void;
+  /** Steps the held entry from its start to its end, and says where the overlay's sides were at each step. */
+  sweep: (steps: number) => Edges[];
   /** What shifted from that moment on, by the elements that moved. */
   shifts: (from: number) => string[][];
 }
@@ -144,15 +153,18 @@ function overlayProbe() {
         held.push(animation);
       }
     }
+    const name = (animation: Animation) => {
+      const effect = animation.effect as KeyframeEffect | null;
+      const property = (animation as CSSTransition).transitionProperty ?? (animation as CSSAnimation).animationName ?? 'script';
+      return `${effect?.pseudoElement ?? ''}${property}`;
+    };
     watched.log.push({
       at: performance.now(),
       closing,
       durations: animations.map((animation) => Number(animation.effect?.getTiming().duration)),
-      properties: animations.map((animation) => {
-        const effect = animation.effect as KeyframeEffect | null;
-        const name = (animation as CSSTransition).transitionProperty ?? (animation as CSSAnimation).animationName ?? 'script';
-        return `${effect?.pseudoElement ?? ''}${name}`;
-      }),
+      own: animations.filter((animation) => (animation.effect as KeyframeEffect | null)?.target === element).map(name),
+      pointer: element ? getComputedStyle(element).pointerEvents : null,
+      properties: animations.map(name),
       shown,
       transform: element ? getComputedStyle(element).transform : null,
     });
@@ -190,6 +202,16 @@ function overlayProbe() {
     seek: (fraction) => {
       for (const animation of held) animation.currentTime = Number(animation.effect?.getTiming().duration) * fraction;
     },
+    sweep: (steps) => {
+      const element = watched && document.querySelector(watched.selector);
+      if (!element) return [];
+      const longest = Math.max(...held.map((animation) => Number(animation.effect?.getTiming().duration)));
+      return Array.from({ length: steps + 1 }, (_, step) => {
+        for (const animation of held) animation.currentTime = (longest * step) / steps;
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right, width: document.documentElement.clientWidth };
+      });
+    },
     shifts: (from) => shifts.filter(({ at }) => at >= from).map(({ moved }) => moved),
   };
 }
@@ -208,6 +230,9 @@ const mainBox = (page: Page) => page.locator('main').first().evaluate(async (mai
   return [box.x + window.scrollX, box.y + window.scrollY, box.width, box.height].map(Math.round);
 });
 
+/** A transition of the overlay's own movement or fade, the two things its motion is made of. */
+const moves = (property: string) => property === 'opacity' || property === 'transform';
+
 const settle = (overlay: Locator) => overlay.evaluate((element) => Promise.allSettled(
   element.getAnimations({ subtree: true }).map((animation) => animation.finished),
 ));
@@ -215,8 +240,12 @@ const settle = (overlay: Locator) => overlay.evaluate((element) => Promise.allSe
 interface Surface {
   /** How it is put away; none for a menu that React unmounts at once, which only arrives. */
   close?: () => Promise<unknown>;
+  /** The side of the window a drawer is fixed to: nothing may show between the two as it comes in. */
+  edge?: 'left' | 'right';
   /** Whose exit to expect: the helper's, played while still open, or the one CSS plays alone. */
   exit?: 'css' | 'helper';
+  /** Its way out saves something the page then reports, so the page may change once it has gone. */
+  reports?: boolean;
   name: string;
   /** The control that opens it, or what opens it when that is not one click. */
   open: Locator | (() => Promise<unknown>);
@@ -226,7 +255,7 @@ interface Surface {
 }
 
 /** Opens one overlay and closes it again, asking at each step what the reader would see. */
-async function exercise(page: Page, { close, exit = 'helper', name, open, selector, shots }: Surface) {
+async function exercise(page: Page, { close, edge, exit = 'helper', name, open, reports = false, selector, shots }: Surface) {
   const overlay = page.locator(selector);
   const shoot = (frame: string) => page.screenshot({ path: test.info().outputPath(`${shots}-${frame}.png`) });
   if (typeof open !== 'function') await open.scrollIntoViewIfNeeded();
@@ -237,9 +266,17 @@ async function exercise(page: Page, { close, exit = 'helper', name, open, select
 
   await expect.poll(async () => (await log(page)).some((snapshot) => snapshot.shown), `${name} opens`).toBe(true);
   const entry = (await log(page)).find((snapshot) => snapshot.shown)!;
-  expect(entry.properties, `${name}: the entry animates`).not.toEqual([]);
+  // On the overlay itself: a button inside it fading its hover is not the overlay arriving.
+  expect(entry.own.filter(moves), `${name}: the entry animates\n${JSON.stringify(entry)}`).not.toEqual([]);
   if (shots) {
     await shoot('1-entry-start');
+    if (edge) {
+      // Frame by frame through the whole entry, overshoot and all: the side it is fixed to
+      // never leaves the window's edge, or the page shows through the gap.
+      const frames = await page.evaluate((steps) => window.overlayProbe.sweep(steps), 52);
+      const gaps = frames.map(({ left, right, width }) => (edge === 'left' ? left : width - right));
+      expect(Math.max(...gaps), `${name}: its ${edge} side stays on the window's edge all the way in`).toBeLessThanOrEqual(0.5);
+    }
     await page.evaluate(() => window.overlayProbe.seek(0.5));
     await shoot('2-entry-middle');
     expect(await mainBox(page), `${name}: nothing behind it moves as it arrives`).toEqual(before);
@@ -259,12 +296,13 @@ async function exercise(page: Page, { close, exit = 'helper', name, open, select
     await expect.poll(async () => (await log(page)).some((snapshot) => snapshot.closing), `${name} is marked as leaving`).toBe(true);
     const leaving = (await log(page)).find((snapshot) => snapshot.closing)!;
     expect(leaving.shown, `${name}: still open while its exit plays`).toBe(true);
-    expect(leaving.properties, `${name}: the exit animates`).not.toEqual([]);
+    expect(leaving.own.filter(moves), `${name}: the exit animates, on the overlay itself\n${JSON.stringify(leaving)}`).not.toEqual([]);
+    expect(leaving.pointer, `${name}: and takes no more clicks while it does`).toBe('none');
   } else {
     await expect.poll(async () => (await log(page)).some((snapshot) => snapshot.at > entry.at && !snapshot.shown), `${name} closes`).toBe(true);
     const snapshots = await log(page);
     const leaving = snapshots.find((snapshot) => snapshot.at > entry.at && !snapshot.shown)!;
-    expect(leaving.properties, `${name}: the exit animates after the browser has closed it\n${JSON.stringify(snapshots)}`).not.toEqual([]);
+    expect(leaving.own.filter(moves), `${name}: the exit animates, on the overlay itself, after the browser has closed it\n${JSON.stringify(snapshots)}`).not.toEqual([]);
   }
   if (shots) {
     await page.evaluate(() => window.overlayProbe.seek(0.5));
@@ -273,6 +311,7 @@ async function exercise(page: Page, { close, exit = 'helper', name, open, select
   }
   await expect(overlay, `${name} is gone once its exit is over`).toBeHidden();
   await expect(page.locator(`${selector}[data-closing]`), `${name}: no leaving mark is left behind`).toHaveCount(0);
+  if (reports) return entry;
   expect(await mainBox(page), `${name}: nothing behind it moved`).toEqual(before);
   expect(await page.evaluate((from) => window.overlayProbe.shifts(from), entry.at), `${name}: no layout shift`).toEqual([]);
   return entry;
@@ -392,7 +431,7 @@ test('the phone navigation slides in from its edge, and the confirm dialog rises
   for (const scheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await exercise(page, {
-      close: () => nav.locator('[data-nav-close]').click(), name: 'the phone navigation, by its button',
+      close: () => nav.locator('[data-nav-close]').click(), edge: 'left', name: 'the phone navigation, by its button',
       open: page.locator('[data-nav-open]'), selector: '.admin-mobile-nav', shots: `phone-navigation-${scheme}`,
     });
   }
@@ -456,7 +495,7 @@ test('a settings drawer comes in from the right, leaves every way, and a select 
   for (const scheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await exercise(page, {
-      close: () => drawer.getByRole('button', { name: 'Close', exact: true }).click(), name: 'the drawer, by its close button',
+      close: () => drawer.getByRole('button', { name: 'Close', exact: true }).click(), edge: 'right', name: 'the drawer, by its close button',
       open: add, selector: 'dialog.admin-editor-settings', shots: `drawer-${scheme}`,
     });
   }
@@ -505,6 +544,19 @@ test('a settings drawer comes in from the right, leaves every way, and a select 
     open: drawer.getByRole('button', { name: 'Choose picture' }), selector: 'dialog.media-picker',
   });
   await expect(drawer, 'the drawer under it stays open').toBeVisible();
+
+  // Saving is the usual way out of a plugin's set-up, and it leaves the way the others do.
+  await page.goto(`${origin}/admin/plugins`);
+  const banner = page.locator('.plugin-card', { hasText: 'Sticky Banner' });
+  await exercise(page, {
+    close: async () => {
+      await drawer.getByLabel('Message (English)').fill('Saved from its drawer.');
+      await drawer.getByRole('button', { exact: true, name: 'Save' }).click();
+    },
+    name: 'a plugin set-up, by Save', open: banner.getByRole('button', { name: 'Set up' }), reports: true,
+    selector: 'dialog.admin-editor-settings',
+  });
+  await expect(banner.getByRole('status'), 'and what it saved was saved').toBeVisible();
 });
 
 test('the block menu and the slash menu drop in', async ({ context, page }) => {
