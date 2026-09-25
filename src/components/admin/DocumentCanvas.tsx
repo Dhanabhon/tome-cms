@@ -6,18 +6,21 @@ import { CellSelection } from '@tiptap/pm/tables';
 import { EditorContent, EditorContext, useCurrentEditor, useEditor, useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { textAlign } from '../../lib/editor-align';
 import { attachment, attachmentMeta } from '../../lib/editor-attachment';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
+import { video, type VideoAttrs } from '../../lib/editor-video';
+import { VIDEO_PROVIDER_NAMES } from '../../lib/video-link';
 import Icon from '../Icon';
 import AlignButtons from './AlignButtons';
 import BlockInsertMenu from './BlockInsertMenu';
 import { handleImageDrop, handleImagePaste, imageUploadPlugin } from './editor/editor-image-upload';
 import { createSlashCommand } from './editor/slash-command';
+import { handleVideoPaste } from './editor/video-insert';
 import { createUploadFn } from './ImageUploader';
 import TableBubble from './TableBubble';
 import type { PostLocale } from '../../types/cms';
@@ -71,6 +74,41 @@ const editorAttachment = attachment.extend({
   },
 });
 
+/**
+ * The editor draws a video as its poster and caption, with no link in it: a click selects the
+ * block, as a click on a card does. Until the server answers, the caption shows the clip's id.
+ */
+const editorVideo = video.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('figure');
+      dom.className = 'tome-video tome-video--editor';
+      const draw = (attrs: VideoAttrs) => {
+        const box = document.createElement('span');
+        box.className = 'tome-video__play';
+        if (attrs.mediaId) {
+          const poster = document.createElement('img');
+          poster.alt = '';
+          poster.src = `/media/${attrs.mediaId}`;
+          box.append(poster);
+        }
+        const caption = document.createElement('figcaption');
+        caption.textContent = `${attrs.title || attrs.videoId} · ${VIDEO_PROVIDER_NAMES[attrs.provider]}`;
+        dom.replaceChildren(box, caption);
+      };
+      draw(node.attrs as VideoAttrs);
+      return {
+        dom,
+        update: (next) => {
+          if (next.type.name !== 'video') return false;
+          draw(next.attrs as VideoAttrs);
+          return true;
+        },
+      };
+    };
+  },
+});
+
 const buildExtensions = (copy: AdminCopy) => [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
@@ -95,6 +133,7 @@ const buildExtensions = (copy: AdminCopy) => [
   ...tableExtensions,
   textAlign,
   editorAttachment,
+  editorVideo,
   createSlashCommand(copy),
 ];
 
@@ -189,6 +228,9 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
   // Rebuilding the extension list would reset the editor, so it is tied to the copy only.
   const extensions = useMemo(() => buildExtensions(copy), [copy]);
   const uploadFn = useMemo(() => createUploadFn(copy), [copy]);
+  // The paste handler is built before useEditor returns the instance it needs, so it reads the
+  // editor from a ref that is set right after.
+  const editorRef = useRef<Editor | null>(null);
   // The island is client:only, so there is no server render to hold the editor back.
   const editor = useEditor({
     content: initialContent,
@@ -197,11 +239,12 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
         class: 'prose max-w-none prose-headings:font-sans prose-a:text-link prose-img:rounded-lg',
       },
       handleDrop: (view, event, _slice, moved) => handleImageDrop(view, event, moved, uploadFn),
-      handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
+      handlePaste: (view, event) => handleImagePaste(view, event, uploadFn) || handleVideoPaste(view, event, editorRef.current, copy),
     },
     extensions,
     onUpdate: ({ editor: instance }) => onChange(instance.getJSON()),
   }, [extensions, uploadFn]);
+  editorRef.current = editor;
 
   if (!editor) return null;
 

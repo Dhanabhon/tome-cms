@@ -1,3 +1,4 @@
+import { isNodeSelection } from '@tiptap/core';
 import { useCurrentEditor, useEditorState } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
@@ -7,6 +8,7 @@ import { NEW_TABLE } from '../../lib/editor-table';
 import { isImageAsset, type MediaKind } from '../../lib/media';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
+import { askForVideo } from './editor/video-insert';
 import MediaPicker from './MediaPicker';
 
 const MENU_ID = 'block-insert-menu';
@@ -36,7 +38,10 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
   const update = useCallback(() => {
     if (!editor || editor.isDestroyed) return;
     const ownsFocus = editor.isFocused || Boolean(root.current?.contains(document.activeElement));
-    const shouldShow = editor.isEditable && editor.state.selection.empty && ownsFocus;
+    // A block just inserted between two others (a video with nowhere for a text cursor to land,
+    // say) leaves a node selection, not an empty one: the button stays reachable there too.
+    const { selection } = editor.state;
+    const shouldShow = editor.isEditable && (selection.empty || isNodeSelection(selection)) && ownsFocus;
     setVisible(shouldShow);
     if (!shouldShow && picker === null) setMenuOpen(false);
     if (!shouldShow) return;
@@ -160,6 +165,16 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
     ...blockActions,
     { icon: 'media', label: copy.blocks.image, run: () => openPicker('image') },
     { icon: 'file', label: copy.blocks.file, run: () => openPicker('document') },
+    // Not inside a table: a table cell is too small a place for a video.
+    ...(inTable ? [] : [{
+      icon: 'play',
+      label: copy.blocks.video,
+      run: () => {
+        const position = editor.state.selection.from;
+        setMenuOpen(false);
+        void askForVideo(editor, position, copy);
+      },
+    }] as const),
   ] as const;
 
   const runAction = (index: number) => {
