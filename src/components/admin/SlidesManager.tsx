@@ -115,7 +115,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   const addButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const pictureButton = useRef<HTMLButtonElement>(null);
-  const { close, dialog } = useDrawer({ focus: closeButton, onClose: () => setDraft(null), open: draft !== null });
+  const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose: () => setDraft(null), open: draft !== null });
   const items = slides[locale];
   const localePages = pages.filter((page) => page.locale === locale);
 
@@ -347,7 +347,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     </section>
     {draft && (
       <dialog aria-label={draft.index === null ? text.newTitle : fill(text.editTitle, { index: draft.index + 1 })} className="admin-editor-settings"
-        onCancel={(event) => { if (event.target !== event.currentTarget) return; event.preventDefault(); close(); }} ref={dialog}>
+        onCancel={cancel} ref={dialog}>
         <form className="home-slides-form" noValidate onSubmit={apply}>
           <div className="admin-editor-settings__head">
             <div><h2>{draft.index === null ? text.newTitle : fill(text.editTitle, { index: draft.index + 1 })}</h2></div>

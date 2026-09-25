@@ -108,9 +108,11 @@ test('the panel of fields is the one the admin already has', () => {
   // Opened, focused and dismissed by the hook all four drawers share, rather than by a
   // copy of the same effect that can drift from the other three.
   assert.match(SOURCE, /useDrawer\(\{ focus: closeButton, onClose \}\)/);
-  // Escape closes it through onCancel rather than leaving the dialog closed and the screen
-  // still believing it is open, and closing plays the exit before the screen is told.
-  assert.match(SOURCE, /onCancel=\{\(event\) => \{\n\s+event\.preventDefault\(\);\n\s+close\(\);/);
+  // Escape closes it through the hook's cancel rather than leaving the dialog closed and the
+  // screen still believing it is open, and closing plays the exit before the screen is told --
+  // Save as well as the ways out.
+  assert.match(SOURCE, /onCancel=\{cancel\}/);
+  assert.match(SOURCE, /if \(await onSave\(values\)\) close\(\);/);
 });
 
 test('a picture setting is chosen from the library and sent as its id', () => {

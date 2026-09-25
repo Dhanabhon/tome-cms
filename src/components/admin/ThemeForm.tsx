@@ -231,7 +231,7 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const { close, dialog } = useDrawer({ focus: closeButton, onClose });
+  const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose });
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -267,10 +267,7 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
     <dialog
       aria-label={fill(copy.theme.customizeTitle, { name: manifest.name })}
       className="admin-editor-settings"
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
+      onCancel={cancel}
       ref={dialog}
     >
       <header className="admin-editor-settings__head">
