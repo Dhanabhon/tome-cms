@@ -8,11 +8,13 @@ interface Props {
 }
 
 /*
- * Counts this page for the owner's Stats screen: a view once per tab, and for an article, a read
- * once the end has come into view and the tab has been visible for fifteen seconds in all.
+ * Counts this page for the owner's Stats screen: a view when the reader arrives (not when they
+ * reload or come Back to it), and for an article, a read once the end has come into view and the
+ * tab has been visible for fifteen seconds in all.
  *
  * Nothing is sent from the owner's own browser, or for a reader who set Do Not Track or Global
- * Privacy Control. What is sent names the page, never the reader: no cookie, no identifier.
+ * Privacy Control. What is sent names the page, never the reader: no cookie, no identifier, and
+ * nothing written to the reader's browser.
  */
 const { locale, stats } = Astro.props;
 ---
@@ -34,16 +36,18 @@ const { locale, stats } = Astro.props;
     }
   }
 
-  /** True the first time this tab asks about this page and event; a reload asks again and is told no. */
-  function firstTime(event: StatsEvent): boolean {
-    const key = `tomecms:stats:${event}:${location.pathname}`;
-    try {
-      if (sessionStorage.getItem(key)) return false;
-      sessionStorage.setItem(key, '1');
-    } catch {
-      // Nowhere to remember it: this load counts, and so will the next.
-    }
-    return true;
+  /**
+   * True when this load is the page opened again rather than arrived at: a reload, or Back and
+   * Forward. The browser knows that already, so counting writes nothing to the reader's browser
+   * and needs no consent to ask for.
+   *
+   * ponytail: a reader who reads, reloads and reads to the end again is two reads, and one who
+   * follows a link back to a page already open in the tab is a second view. Both are rare, and
+   * remembering them would mean storing something on every reader's device.
+   */
+  function openedAgain(): boolean {
+    const [navigation] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    return navigation?.type === 'reload' || navigation?.type === 'back_forward';
   }
 
   function send(event: StatsEvent, page: DOMStringMap): void {
@@ -69,7 +73,7 @@ const { locale, stats } = Astro.props;
   const article = document.querySelector('article');
   if (mount && !silent()) {
     const page = mount.dataset;
-    if (firstTime('view')) send('view', page);
+    if (!openedAgain()) send('view', page);
 
     if (page.kind !== 'home' && article) {
       const end = document.createElement('span');
@@ -79,6 +83,7 @@ const { locale, stats } = Astro.props;
       article.append(end);
 
       let reachedEnd = false;
+      let read = false;
       let visibleSeconds = 0;
       const clock = window.setInterval(() => {
         if (document.visibilityState === 'visible') visibleSeconds += 1;
@@ -91,10 +96,11 @@ const { locale, stats } = Astro.props;
       observer.observe(end);
 
       function check(): void {
-        if (!reachedEnd || visibleSeconds < READ_AFTER_SECONDS) return;
+        if (!reachedEnd || visibleSeconds < READ_AFTER_SECONDS || read) return;
+        read = true;
         window.clearInterval(clock);
         observer.disconnect();
-        if (firstTime('read')) send('read', page);
+        send('read', page);
       }
     }
   }

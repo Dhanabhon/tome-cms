@@ -250,7 +250,7 @@ fetch('https://cms.example.com/api/v1/stats/hit', {
 });
 ```
 
-Send it once per page per tab, `event: 'read'` once the reader reaches the end after 15 visible seconds, and `kind: 'home'` without an `id` for the home page. Leave out a browser that set Do Not Track or Global Privacy Control, and your own. The server keeps only the referrer's host, so send just its origin -- the body is capped at 1 KB, and a same-site path can be long enough on its own to go past that.
+Send it when a reader arrives at a page, not when they reload it or come Back to it (`performance.getEntriesByType('navigation')[0].type` says which), `event: 'read'` once the reader reaches the end after 15 visible seconds, and `kind: 'home'` without an `id` for the home page. Leave out a browser that set Do Not Track or Global Privacy Control, and your own. The server keeps only the referrer's host, so send just its origin -- the body is capped at 1 KB, and a same-site path can be long enough on its own to go past that.
 
 In bundled mode the site also serves:
 

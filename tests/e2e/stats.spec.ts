@@ -161,20 +161,25 @@ test.afterAll(async () => {
   docker(['down', '--volumes', '--remove-orphans'], 90_000);
 });
 
-test('a view counts once a tab, and a read takes the end and fifteen visible seconds', async ({ context, page }) => {
+test('a read takes the end and fifteen visible seconds, and counting keeps nothing in the browser', async ({ context, page }) => {
   test.setTimeout(90_000);
   await context.clock.install();
   const first = watchHits(page);
   await page.goto(`${origin}/en/blog/worth-reading`);
   await expect.poll(() => counts(ARTICLE)).toEqual({ reads: 0, views: 1 });
 
-  await page.reload();
   await context.clock.runFor(20_000);
-  expect(first, 'a reload sends nothing, and twenty seconds above the end are not a read').toEqual(['view']);
+  expect(first, 'twenty seconds above the end are not a read').toEqual(['view']);
 
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect.poll(() => first).toEqual(['view', 'read']);
   await expect.poll(() => counts(ARTICLE)).toEqual({ reads: 1, views: 1 });
+  const kept = await page.evaluate(() => ({
+    cookies: document.cookie,
+    local: Object.keys(localStorage),
+    session: Object.keys(sessionStorage),
+  }));
+  expect(kept, 'a view and a read are counted without writing anything to the browser').toEqual({ cookies: '', local: [], session: [] });
 
   // A new tab is a new reader as far as a tab can tell: a view, and a read of its own once earned.
   const second = await context.newPage();
@@ -320,4 +325,34 @@ test('Stats shows what was counted, by range, language and sort, and one article
   await expect(page.getByRole('heading', { name: 'Deleted', level: 1 })).toBeVisible();
   const missing = await page.goto(`${origin}/admin/stats/00000000-0000-4000-8000-000000000000`);
   expect(missing?.status()).toBe(404);
+});
+
+// No fake clock here: it stands in for all of `performance`, navigation entries included, which
+// is how the beacon tells a reload or a step Back from arriving.
+test('a reload or a step Back is the page opened again, not a new view', async ({ page }) => {
+  test.setTimeout(60_000);
+  const views: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/stats/hit') {
+      const body = JSON.parse(request.postData() ?? '{}');
+      if (body.event === 'view') views.push(String(body.id ?? body.kind));
+    }
+  });
+  const before = counts(ARTICLE);
+  const article = `${origin}/en/blog/worth-reading`;
+  await page.goto(article);
+  await expect.poll(() => views).toEqual([ARTICLE]);
+
+  // The home page's own view comes after anything the reload sent, so it marks the reload done.
+  await page.reload();
+  await expect(page.locator('[data-stats-end]')).toBeAttached();
+  await page.goto(`${origin}/en`);
+  await expect.poll(() => views, 'a reload sends nothing').toEqual([ARTICLE, 'home']);
+
+  await page.goBack();
+  await expect(page).toHaveURL(article);
+  await expect(page.locator('[data-stats-end]')).toBeAttached();
+  await page.goto(`${origin}/en`);
+  await expect.poll(() => views, 'nor does coming Back').toEqual([ARTICLE, 'home', 'home']);
+  await expect.poll(() => counts(ARTICLE)).toEqual({ reads: before.reads, views: before.views + 1 });
 });
