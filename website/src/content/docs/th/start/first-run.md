@@ -77,4 +77,4 @@ grep '^TOME_CMS_INSTALL_TOKEN=' .env.local
 
 ติ๊ก "ฉันเก็บ Recovery codes ไว้ในที่ปลอดภัยแล้ว" แล้วกด "ไปที่ Admin" คุณจะเข้าหน้าแอดมินตาม path ที่เลือกไว้ และเข้าสู่ระบบอยู่แล้ว
 
-วันไหนที่ไม่มี Passkey อยู่ใกล้มือ ใช้ recovery code ที่ `/recovery` เพื่อลงทะเบียน Passkey ใหม่และกลับเข้าระบบได้
+วันไหนที่ไม่มี Passkey อยู่ใกล้มือ ใช้ recovery code ที่ `/recovery` เพื่อลงทะเบียน Passkey ใหม่และ[กลับเข้าระบบ](/tome-cms/th/running/recovery/)ได้

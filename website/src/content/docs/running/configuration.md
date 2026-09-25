@@ -11,7 +11,7 @@ TomeCMS takes its settings from environment variables. On today's install they l
 
 - The application container reads `.env.local`. Compose then sets two values itself, whatever the file says: `DATABASE_URL` points at the bundled PostgreSQL inside Compose's network, and `NODE_ENV` is `production`.
 - The `npm run` scripts, such as `db:migrate`, `backup` and `admin:reset-installation`, load `.env.local` when it exists.
-- `npm run admin:recover` reads the file `TOME_CMS_ENV_FILE` names, or else `.env.local`, or else `/etc/tome-cms/tome-cms.env`.
+- `npm run admin:recover`, the command in [Getting back in](/tome-cms/running/recovery/), reads the file `TOME_CMS_ENV_FILE` names, or else `.env.local`, or else `/etc/tome-cms/tome-cms.env`.
 
 `.env.local` puts every value between single quotes, as in `S3_REGION='us-east-1'`. Keep that form when you edit it.
 

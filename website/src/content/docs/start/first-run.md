@@ -77,4 +77,4 @@ The wizard shows ten recovery codes. Each one works once, and this is the only t
 
 Tick "I saved the recovery codes somewhere safe." and press "Continue to Admin". You arrive in the admin at the path you chose, already signed in.
 
-If you ever have no passkey at hand, a recovery code at `/recovery` lets you register a new passkey and get back in.
+If you ever have no passkey at hand, a recovery code at `/recovery` lets you register a new passkey and [get back in](/tome-cms/running/recovery/).

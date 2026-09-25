@@ -28,7 +28,7 @@ What you set under "Redirects" in the admin works in bundled mode only, because 
 Everything else answers the same way in either mode:
 
 - The admin, at the path you chose in the first-run wizard, and sign-in.
-- `/install` and `/recovery`.
+- `/install` and [`/recovery`](/tome-cms/running/recovery/).
 - `/health/live` and `/health/ready`.
 - `/media/<id>`, which sends the browser on to the file in the bucket.
 - The headless API under `/api/v1/content/`, draft previews included.

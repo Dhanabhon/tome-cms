@@ -28,7 +28,7 @@ sidebar:
 ที่อยู่อื่นทั้งหมดตอบแบบเดียวกันไม่ว่าจะอยู่ในโหมดไหน
 
 - หน้าแอดมินที่ path ที่คุณเลือกไว้ในตัวช่วยตั้งค่าครั้งแรก และการเข้าสู่ระบบ
-- `/install` และ `/recovery`
+- `/install` และ [`/recovery`](/tome-cms/th/running/recovery/)
 - `/health/live` และ `/health/ready`
 - `/media/<id>` ซึ่งส่งเบราว์เซอร์ต่อไปที่ไฟล์ใน bucket
 - Headless API ใต้ `/api/v1/content/` รวมถึงการพรีวิวฉบับร่าง
