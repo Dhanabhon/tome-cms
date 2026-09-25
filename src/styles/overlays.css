@@ -1,0 +1,201 @@
+/*
+ * How every overlay arrives and leaves -- drawers, modals, menus, popovers and the backdrops
+ * behind them -- in one place, so there is one way to do it.
+ *
+ * Arriving is a transition from `@starting-style`. Leaving is the transition back to the closed
+ * values, which a dialog takes on as soon as it is marked `data-closing` by closeOverlay
+ * (src/lib/overlay-motion.ts): while it is still open, so its exit plays in every browser, not
+ * only in the one that can hold a closing element in the top layer. `display` and `overlay` are
+ * in the list anyway, so a close the helper never saw -- a popover dismissed by a click
+ * outside, an Escape the page was not allowed to hold back -- still animates where it can.
+ *
+ * Only transform and opacity move, and every open state ends at `transform: none`. A transform
+ * that stays makes its element the containing block of every fixed descendant, and the select
+ * menus inside these panels are fixed so that a scrolling panel cannot clip them.
+ *
+ * Where a kind comes from and goes to is a custom property, so a reader who asked for less
+ * motion is answered by setting those to none: what is left is a short fade.
+ */
+
+:root {
+  --overlay-in: var(--dur-long);
+  --overlay-out: var(--dur-short);
+  --menu-in: var(--dur-short);
+}
+
+/* Modals: every dialog unless it says otherwise. They rise a little into place, and leave
+ * quicker, with a small drop. */
+dialog {
+  --overlay-from: translateY(var(--space-xs)) scale(0.98);
+  --overlay-to: translateY(var(--space-2xs));
+}
+
+/* Drawers slide from the edge they live on, and go back to it. */
+.admin-editor-settings {
+  --overlay-from: translateX(100%);
+  --overlay-to: translateX(100%);
+}
+
+.admin-mobile-nav {
+  --overlay-from: translateX(-100%);
+  --overlay-to: translateX(-100%);
+}
+
+dialog {
+  opacity: 0;
+  transform: var(--overlay-to);
+  transition-property: transform, opacity, display, overlay;
+  transition-duration: var(--overlay-out);
+  transition-timing-function: var(--ease-out);
+  transition-behavior: allow-discrete;
+}
+
+dialog[open] {
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--overlay-in);
+  /* The movement springs; the fade eases. */
+  transition-timing-function: var(--ease-spring), var(--ease-out);
+}
+
+@starting-style {
+  dialog[open] {
+    opacity: 0;
+    transform: var(--overlay-from);
+  }
+}
+
+/* Leaving, while still open. Without `display` and `overlay`: once the exit is over the dialog
+ * is closed, and should leave the top layer then rather than after a second, invisible exit. */
+dialog[data-closing] {
+  opacity: 0;
+  transform: var(--overlay-to);
+  transition-property: transform, opacity;
+  transition-duration: var(--overlay-out);
+  transition-timing-function: var(--ease-out);
+}
+
+/* Backdrops fade from nothing to the scrim, and back. */
+dialog::backdrop {
+  background-color: transparent;
+  transition-property: background-color, display, overlay;
+  transition-duration: var(--overlay-out);
+  transition-timing-function: var(--ease-out);
+  transition-behavior: allow-discrete;
+}
+
+dialog[open]::backdrop {
+  background-color: var(--color-scrim);
+  transition-duration: var(--overlay-in);
+}
+
+@starting-style {
+  dialog[open]::backdrop { background-color: transparent; }
+}
+
+dialog[data-closing]::backdrop {
+  background-color: transparent;
+  transition-property: background-color;
+  transition-duration: var(--overlay-out);
+}
+
+/* Menus drop in from just above. The ones React draws go as they came, at once: a menu that
+ * lingers after its choice is made is in the way of the next thing. */
+.ui-select__menu,
+.block-insert-menu,
+.editor-menu[role='listbox'],
+.language-switcher__menu {
+  --overlay-from: translateY(calc(-1 * var(--space-2xs)));
+}
+
+.ui-select__menu,
+.block-insert-menu,
+.editor-menu[role='listbox'] {
+  transition-property: transform, opacity;
+  transition-duration: var(--menu-in);
+  transition-timing-function: var(--ease-spring), var(--ease-out);
+}
+
+@starting-style {
+  .ui-select__menu,
+  .block-insert-menu,
+  .editor-menu[role='listbox'] {
+    opacity: 0;
+    transform: var(--overlay-from);
+  }
+}
+
+/* Popovers, which the browser closes itself -- Escape, a click outside -- so their exit is CSS
+ * alone. A browser without popovers never hides one, so there none of this may apply. */
+@supports selector(:popover-open) {
+  .language-switcher__menu {
+    opacity: 0;
+    transform: var(--overlay-from);
+    transition-property: transform, opacity, display, overlay;
+    transition-duration: var(--overlay-out);
+    transition-timing-function: var(--ease-out);
+    transition-behavior: allow-discrete;
+  }
+
+  .language-switcher__menu:popover-open {
+    opacity: 1;
+    transform: none;
+    transition-duration: var(--menu-in);
+    transition-timing-function: var(--ease-spring), var(--ease-out);
+  }
+
+  @starting-style {
+    .language-switcher__menu:popover-open {
+      opacity: 0;
+      transform: var(--overlay-from);
+    }
+  }
+
+  /* The theme panel grows from the button's corner as it opens, and shrinks back, quicker, as
+   * it closes. */
+  .ui-theme__panel {
+    --overlay-from: translateY(calc(-1 * var(--space-2xs))) scale(0.96);
+    opacity: 0;
+    transform: var(--overlay-from);
+    transform-origin: top right;
+    transition-property: opacity, transform, display, overlay;
+    transition-duration: var(--dur-micro);
+    transition-timing-function: var(--ease-in);
+    transition-behavior: allow-discrete;
+  }
+
+  .ui-theme__panel:popover-open {
+    opacity: 1;
+    transform: none;
+    transition-duration: var(--menu-in);
+    transition-timing-function: var(--ease-out);
+  }
+
+  @starting-style {
+    .ui-theme__panel:popover-open {
+      opacity: 0;
+      transform: var(--overlay-from);
+    }
+  }
+}
+
+/* A reader who asked for less motion: nothing moves, and what is left is a short fade. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --overlay-in: var(--dur-micro);
+    --overlay-out: var(--dur-micro);
+    --menu-in: var(--dur-micro);
+  }
+
+  dialog,
+  .admin-editor-settings,
+  .admin-mobile-nav,
+  .ui-select__menu,
+  .block-insert-menu,
+  .editor-menu[role='listbox'],
+  .language-switcher__menu,
+  .ui-theme__panel {
+    --overlay-from: none;
+    --overlay-to: none;
+  }
+}
