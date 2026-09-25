@@ -39,13 +39,10 @@ export default function PageSettingsDrawer({
   /* Built by the same function that builds the real link, so the two cannot drift. */
   const slugPrefix = pagePath({ locale, slug: '' });
 
-  const { close, dialog } = useDrawer({ focus: closeButton, onClose, open });
+  const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose, open });
 
   return (
-    <dialog aria-label={copy.drawer.pageSettings} className="admin-editor-settings" onCancel={(event) => {
-      event.preventDefault();
-      close();
-    }} ref={dialog}>
+    <dialog aria-label={copy.drawer.pageSettings} className="admin-editor-settings" onCancel={cancel} ref={dialog}>
       <div className="admin-editor-settings__head">
         <div><h2>{copy.drawer.pageSettings}</h2><p>{copy.drawer.pageSettingsHint}</p></div>
         <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--ghost admin-button--icon" onClick={() => close()} ref={closeButton} title={copy.drawer.closeSettings} type="button"><Icon name="close" /></button>

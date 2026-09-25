@@ -146,13 +146,11 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
           manifest={setUpManifest}
           onClose={() => setSetUpId('')}
           configured={plugins.find((plugin) => plugin.id === setUpManifest.id)?.configured ?? false}
-          onSave={async (values) => {
+          onSave={(values) => {
             const state = plugins.find((plugin) => plugin.id === setUpManifest.id);
             // Switching stays with the switch: a save carries fields and leaves the plugin
             // on whichever side of on or off it already was.
-            if (await write(setUpManifest.id, { enabled: state?.enabled ?? false, values }, copy.plugins.saved)) {
-              setSetUpId('');
-            }
+            return write(setUpManifest.id, { enabled: state?.enabled ?? false, values }, copy.plugins.saved);
           }}
           state={plugins.find((plugin) => plugin.id === setUpManifest.id)}
         />
@@ -215,7 +213,8 @@ interface PluginSetUpProps {
   locale: 'en' | 'th';
   manifest: PluginManifest;
   onClose: () => void;
-  onSave: (values: Record<string, string>) => void;
+  /** Whether it was saved: the panel leaves only then, and plays its exit as it does. */
+  onSave: (values: Record<string, string>) => Promise<boolean>;
   state: PluginState | undefined;
 }
 
@@ -228,9 +227,9 @@ interface PluginSetUpProps {
 function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave, state }: PluginSetUpProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
 
-  const { close, dialog } = useDrawer({ focus: closeButton, onClose });
+  const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose });
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const values = Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)]));
@@ -239,17 +238,14 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
     for (const setting of manifest.settings) {
       if (setting.kind === 'switch') values[setting.key] = form.get(setting.key) === 'on' ? 'on' : 'off';
     }
-    onSave(values);
+    if (await onSave(values)) close();
   }
 
   return (
     <dialog
       aria-label={fill(copy.plugins.setUpTitle, { name: manifest.name })}
       className="admin-editor-settings"
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
+      onCancel={cancel}
       ref={dialog}
     >
       <header className="admin-editor-settings__head">

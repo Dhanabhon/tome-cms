@@ -10,6 +10,10 @@
  * What is waited for is the animations actually running, not a duration written here: a
  * reader who asked for less motion has a shorter exit, and a page with no stylesheet has none
  * and closes at once.
+ *
+ * One limit: a dialog opened again while its exit is still playing opens with the mark on, so
+ * unseen, and the exit then closes it. Nothing a reader does can reach that -- the page behind
+ * a leaving modal is inert -- so only a script that calls showModal() mid-exit would.
  */
 
 /** Longer than any exit, so an animation that never reports its end cannot hold a dialog open. */
@@ -29,9 +33,10 @@ export function closeOverlay(element: HTMLElement, options: { returnValue?: stri
 async function playExit(element: HTMLElement, returnValue: string | undefined) {
   element.dataset.closing = '';
   // Asking for the animations brings style up to date first, so the exit the mark has just
-  // started is among them. One that never ends -- a busy button's spinner -- is not an exit.
+  // started is among them. Only the element's own count, its ::backdrop's among them: what runs
+  // inside it -- a hover fading, a spinner -- is not its exit, and must not hold it open.
   const exits = element.getAnimations({ subtree: true })
-    .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+    .filter((animation) => (animation.effect as KeyframeEffect | null)?.target === element);
   if (exits.length) {
     let failsafe = 0;
     await Promise.race([

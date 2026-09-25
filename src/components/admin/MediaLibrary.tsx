@@ -385,8 +385,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     }
   }
 
-  /** The file stays in the dialog while it leaves: emptied first, the exit would be an empty box. */
-  function closeDetails() {
+  /**
+   * The file stays in the dialog while it leaves: emptied first, the exit would be an empty box.
+   * `played` is false when the browser is closing it itself, as an Escape the page may not hold
+   * back does, and the mark would only cut its exit short.
+   */
+  function closeDetails(played = true) {
     const dialog = detailsDialog.current;
     const open = Boolean(dialog?.open);
     const forget = () => {
@@ -396,7 +400,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       if (detailsOpener.current?.isConnected) detailsOpener.current.focus();
       else mediaHeading.current?.focus();
     };
-    if (dialog && open) void closeOverlay(dialog).then(forget);
+    if (dialog && open && played) void closeOverlay(dialog).then(forget);
     else forget();
   }
 
@@ -499,7 +503,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         </div>
       </div>
 
-      {props.mode === 'manage' && <dialog aria-label={copy.media.fileDetails} className="media-details" onCancel={(event) => { event.preventDefault(); closeDetails(); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={closeDetails} ref={detailsClose} type="button"><Icon name="close" /></button>{isImageAsset(selected)
+      {props.mode === 'manage' && <dialog aria-label={copy.media.fileDetails} className="media-details" onCancel={(event) => { if (event.cancelable) event.preventDefault(); closeDetails(event.cancelable); }} ref={detailsDialog}>{selected && <div><button aria-label={copy.media.closeDetails} className="admin-button admin-button--ghost admin-button--icon media-details-close" onClick={() => closeDetails()} ref={detailsClose} type="button"><Icon name="close" /></button>{isImageAsset(selected)
           ? <img alt="" height={selected.height} src={selected.publicUrl} width={selected.width} />
           : <span aria-hidden="true" className="media-card__file media-details__file">{formatLabel(selected.mime_type)}</span>}
         <p className="break-all font-medium">{selected.original_name}</p>

@@ -31,15 +31,19 @@ export default function MediaPicker({ kind, onCancel, onSelect, ownerLocale, ret
     };
   }, []);
 
-  /** Plays the exit, and only then hands the focus back and tells the caller, who unmounts it. */
-  const leave = (then: () => void) => {
+  /**
+   * Plays the exit, and only then hands the focus back and tells the caller, who unmounts it.
+   * `played` is false when the browser has already closed it itself, as an Escape the page may
+   * not hold back does: there is no exit left to play.
+   */
+  const leave = (then: () => void, played = true) => {
     if (completed.current) return;
     completed.current = true;
     const done = () => {
       focusTarget.current?.focus();
       then();
     };
-    if (dialog.current) void closeOverlay(dialog.current).then(done);
+    if (played && dialog.current) void closeOverlay(dialog.current).then(done);
     else done();
   };
   const cancel = () => leave(onCancel);
@@ -50,8 +54,9 @@ export default function MediaPicker({ kind, onCancel, onSelect, ownerLocale, ret
       aria-label={copy.media.heading}
       className="media-picker"
       onCancel={(event) => {
-        event.preventDefault();
-        cancel();
+        // Chromium lets a page hold Escape back only once the reader has done something on it.
+        if (event.cancelable) event.preventDefault();
+        leave(onCancel, event.cancelable);
       }}
       ref={dialog}
     >

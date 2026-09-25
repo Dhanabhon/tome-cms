@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, type RefObject, type SyntheticEvent } from 'react';
 
 import { closeOverlay } from '../../lib/overlay-motion';
 
 interface Drawer {
+  /** The panel's `onCancel`: Escape, played out like any other way of closing it. */
+  cancel: (event: SyntheticEvent<HTMLDialogElement>) => void;
   /** Asks the panel to leave: it plays its exit, and only then is the caller told. */
   close: (after?: () => void) => void;
   dialog: RefObject<HTMLDialogElement>;
@@ -47,10 +49,23 @@ export function useDrawer({ focus, onClose, open = true }: {
       done();
       return;
     }
-    // Already leaving: whoever asked first is told once it has gone, and only they are.
-    if ('closing' in element.dataset) return;
+    // The exit plays once however often it is asked for, and everyone who asked is told.
     void closeOverlay(element).then(done);
   }, [onClose]);
+
+  const cancel = useCallback((event: SyntheticEvent<HTMLDialogElement>) => {
+    // A dialog opened over this one sends its own Escape.
+    if (event.target !== event.currentTarget) return;
+    // Chromium lets a page hold Escape back only once the reader has done something on it.
+    // Past that the dialog closes itself, unmarked, and plays its exit from CSS; the caller
+    // is told at once.
+    if (!event.cancelable) {
+      onClose();
+      return;
+    }
+    event.preventDefault();
+    close();
+  }, [close, onClose]);
 
   useEffect(() => {
     const element = dialog.current;
@@ -67,5 +82,5 @@ export function useDrawer({ focus, onClose, open = true }: {
     return () => element.removeEventListener('click', dismiss);
   }, [close, open]);
 
-  return { close, dialog };
+  return { cancel, close, dialog };
 }
