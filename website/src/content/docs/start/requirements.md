@@ -15,7 +15,7 @@ One VPS runs the whole site. Docker Compose runs three containers on it: the Tom
 | Memory | 2 GB, with 2 GB of swap | 4 GB |
 | Disk | 25 GB SSD | 50 GB SSD, more for a large media library |
 | Architecture | `amd64` or `arm64` | `amd64` or `arm64` |
-| System | 64-bit Linux with systemd, Docker Engine with its Compose plugin, Node.js 22 or later, and Git | Ubuntu 24.04 LTS, which CI runs on |
+| System | 64-bit Linux with systemd, Docker Engine with its Compose plugin, Node.js 22.12 or newer, and Git | Ubuntu 24.04 LTS, which CI runs on |
 
 The deploy helper needs Linux, Node.js and Docker, and a user that can run `docker`. The managed install planned for 1.0.0 also needs systemd 235 or later.
 

@@ -1266,7 +1266,7 @@ const th: typeof en = {
     activated: 'ตอนนี้เว็บของคุณวาดด้วย {name} แล้ว',
     active: 'กำลังใช้',
     previewLabel: '{name} ที่วาดด้วยบทความของคุณเอง',
-    sourceBody: 'ธีมมาพร้อมกับ TomeCMS ธีมใหม่คือโฟลเดอร์ใน src/themes ที่ export เทมเพลตตามที่สัญญากำหนดไว้ ดูรูปแบบได้ที่เว็บไซต์เอกสาร https://dhanabhon.github.io/tome-cms/extending/themes/',
+    sourceBody: 'ธีมมาพร้อมกับ TomeCMS ธีมใหม่คือโฟลเดอร์ใน src/themes ที่ export เทมเพลตตามที่สัญญากำหนดไว้ ดูรูปแบบได้ที่เว็บไซต์เอกสาร https://dhanabhon.github.io/tome-cms/th/extending/themes/',
     sourceTitle: 'ธีมมาจากไหน',
     siteLabel: 'การแสดงผลของเว็บไซต์',
     siteHint: 'สว่างหรือมืด สำหรับผู้เข้าชมทุกคน เลือก "ตามระบบ" แล้วแต่ละคนจะได้ตามการตั้งค่าเครื่องตัวเอง',

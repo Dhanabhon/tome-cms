@@ -5,9 +5,51 @@ import starlightOpenAPI, { createOpenAPISidebarGroup } from 'starlight-openapi';
 
 const apiReference = createOpenAPISidebarGroup();
 
+// starlight-openapi generates the reference in English only, but Starlight's own language
+// picker and hreflang links still point at a /th/ copy of every reference page, because it
+// does not know the reference has no Thai edition. These send that address to the English
+// page instead of a 404. The list is the reference's routes as of this openapi.json; add a
+// line here if `npm run docs:openapi && npm --prefix website run build` ever adds one.
+// ponytail: hand-maintained list, regenerate from `find website/dist/api/reference -name
+// index.html` after an API change instead of teaching this file starlight-openapi's slugger.
+const referenceOperations = [
+  'getcontentapicontract',
+  'getpublicnavigation',
+  'getpublicpage',
+  'getpublicpost',
+  'getpublicsite',
+  'getpublicslides',
+  'listpubliccategories',
+  'listpublicpages',
+  'listpublicposts',
+  'optionscontentapicontract',
+  'optionspubliccategories',
+  'optionspublicnavigation',
+  'optionspublicpage',
+  'optionspublicpages',
+  'optionspublicpost',
+  'optionspublicposts',
+  'optionspublicsite',
+  'optionspublicslides',
+  'optionsstatshit',
+  'poststatshit',
+];
+const referenceTags = ['content', 'contract', 'stats'];
+const base = '/tome-cms';
+// The redirects map's destination is written into the redirect page as-is, without the base
+// Astro adds to a normal page's own links, so it needs `base` spelled out here.
+const referenceRedirects = Object.fromEntries(
+  [
+    '',
+    ...referenceOperations.map((operation) => `operations/${operation}/`),
+    ...referenceTags.map((tag) => `operations/tags/${tag}/`),
+  ].map((path) => [`/th/api/reference/${path}`, `${base}/api/reference/${path}`]),
+);
+
 export default defineConfig({
   site: 'https://dhanabhon.github.io',
-  base: '/tome-cms',
+  base,
+  redirects: referenceRedirects,
   integrations: [
     starlight({
       title: 'TomeCMS',
@@ -37,7 +79,6 @@ export default defineConfig({
         // The reference's routes are injected by starlight-openapi, which the validator cannot see.
         starlightLinksValidator({ exclude: ['/tome-cms/api/reference/**'] }),
       ],
-      // Each section's task adds its group here, so the site builds at every step.
       sidebar: [
         // Starlight 0.39 dropped `autogenerate` on the group itself; it now sits in `items`.
         { label: 'Start here', translations: { th: 'เริ่มต้นที่นี่' }, items: [{ autogenerate: { directory: 'start' } }] },

@@ -7,9 +7,9 @@
  * this endpoint exists for a headless frontend, which has no session to scope to and is
  * promised draft previews by the headless mode the documentation site describes. It is
  * deliberately absent from /api/v1/content/openapi.json: that document describes the public
- * content contract, and
- * both halves of the preview flow are private (tests/unit/public-http.test.ts pins that
- * previews stay private and that their token paths are redacted).
+ * content contract, and both halves of the preview flow are private
+ * (tests/unit/public-http.test.ts pins that previews stay private and that their token
+ * paths are redacted).
  *
  * So: no caller is expected. Do not delete it for being unused.
  */

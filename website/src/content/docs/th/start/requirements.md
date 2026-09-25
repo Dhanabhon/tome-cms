@@ -15,7 +15,7 @@ VPS เครื่องเดียวรันได้ทั้งเว็�
 | หน่วยความจำ | 2 GB พร้อม swap 2 GB | 4 GB |
 | ดิสก์ | SSD 25 GB | SSD 50 GB และมากกว่านี้ถ้าคลังไฟล์ใหญ่ |
 | สถาปัตยกรรม | `amd64` หรือ `arm64` | `amd64` หรือ `arm64` |
-| ระบบ | Linux 64 บิตที่มี systemd, Docker Engine พร้อมปลั๊กอิน Compose, Node.js 22 ขึ้นไป และ Git | Ubuntu 24.04 LTS ซึ่งเป็นระบบที่ CI ใช้ |
+| ระบบ | Linux 64 บิตที่มี systemd, Docker Engine พร้อมปลั๊กอิน Compose, Node.js 22.12 ขึ้นไป และ Git | Ubuntu 24.04 LTS ซึ่งเป็นระบบที่ CI ใช้ |
 
 สคริปต์ deploy ต้องการ Linux, Node.js และ Docker และต้องรันด้วยผู้ใช้ที่สั่ง `docker` ได้ ส่วนการติดตั้งแบบ managed ที่วางแผนไว้ใน 1.0.0 ต้องมี systemd 235 ขึ้นไปด้วย
 

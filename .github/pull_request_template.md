@@ -22,3 +22,4 @@
 - [ ] Colours, spacing and radii come from the design tokens
 - [ ] A schema change is a new migration, not an edit to a shipped one
 - [ ] No credentials, `.env` files, dumps or backups are committed
+- [ ] An admin screen changed: ran `npm run docs:screenshots` and committed the pictures that changed for a real reason
