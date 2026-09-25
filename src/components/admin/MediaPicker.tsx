@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { adminCopy } from '../../lib/admin-i18n';
 import type { MediaKind } from '../../lib/media';
+import { closeOverlay } from '../../lib/overlay-motion';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 import MediaLibrary from './MediaLibrary';
 
@@ -30,21 +31,19 @@ export default function MediaPicker({ kind, onCancel, onSelect, ownerLocale, ret
     };
   }, []);
 
-  const cancel = () => {
+  /** Plays the exit, and only then hands the focus back and tells the caller, who unmounts it. */
+  const leave = (then: () => void) => {
     if (completed.current) return;
     completed.current = true;
-    dialog.current?.close();
-    focusTarget.current?.focus();
-    onCancel();
+    const done = () => {
+      focusTarget.current?.focus();
+      then();
+    };
+    if (dialog.current) void closeOverlay(dialog.current).then(done);
+    else done();
   };
-
-  const select = (asset: MediaAsset) => {
-    if (completed.current) return;
-    completed.current = true;
-    dialog.current?.close();
-    focusTarget.current?.focus();
-    onSelect(asset);
-  };
+  const cancel = () => leave(onCancel);
+  const select = (asset: MediaAsset) => leave(() => onSelect(asset));
 
   return (
     <dialog

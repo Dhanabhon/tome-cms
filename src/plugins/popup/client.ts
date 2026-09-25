@@ -1,11 +1,14 @@
+import { animateDismissals, closeOverlay } from '../../lib/overlay-motion';
+
 /**
  * When the popup opens, and remembering that it closed.
  *
  * The core drew the <dialog>; this only decides the moment. However it closes -- the ✕, the
  * decline, Escape, a click outside, or the button itself -- its `close` event writes the key,
- * so one listener covers every way out. Storage can throw, in a private window or with site
- * data blocked, and a popup that cannot remember comes back on the next visit, never twice
- * on one page.
+ * so one listener covers every way out; each of them plays the exit first, and the event
+ * comes once the popup has gone. Storage can throw, in a private window or with site data
+ * blocked, and a popup that cannot remember comes back on the next visit, never twice on
+ * one page.
  */
 export default function wirePopup(mount: HTMLElement): void {
   mount.remove();
@@ -37,8 +40,11 @@ export default function wirePopup(mount: HTMLElement): void {
     pressedOutside = event.target === dialog;
   });
   dialog.addEventListener('click', (event) => {
-    if (pressedOutside && event.target === dialog) dialog.close();
+    if (pressedOutside && event.target === dialog) void closeOverlay(dialog);
   });
+  animateDismissals(dialog);
+  // The button leads away from the page, which may be gone before an exit could finish, and
+  // the key has to be written before then.
   dialog.querySelector('.site-popup__action')?.addEventListener('click', () => dialog.close());
 
   let opened = false;

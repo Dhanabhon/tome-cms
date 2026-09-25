@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
 
+import { closeOverlay } from '../../lib/overlay-motion';
+
 interface Drawer {
   /** Asks the panel to leave: it plays its exit, and only then is the caller told. */
   close: (after?: () => void) => void;
@@ -14,13 +16,10 @@ interface Drawer {
  * focus on its close button, hand the focus back on the way out.
  *
  * The two things none of them had are here too. Closing is asked for rather than done: a
- * caller that unmounts the panel gives CSS nothing to animate, so `close` marks the panel
- * as leaving, waits for the exit to finish, and tells the caller afterwards. And the page
- * behind a panel is a place to click to be done with it, which a modal dialog does not
- * give you for free.
- *
- * A reader who asked for less motion has no exit to wait for, and is not made to wait for
- * one: what is counted is the animations actually running, not a duration written here.
+ * caller that unmounts the panel gives CSS nothing to animate, so `close` plays the exit
+ * through closeOverlay, the way every dialog leaves, and tells the caller afterwards. And
+ * the page behind a panel is a place to click to be done with it, which a modal dialog does
+ * not give you for free.
  */
 export function useDrawer({ focus, onClose, open = true }: {
   focus?: RefObject<HTMLElement | null>;
@@ -33,9 +32,6 @@ export function useDrawer({ focus, onClose, open = true }: {
     const element = dialog.current;
     if (!open || !element) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    // Two of these panels are never unmounted, only closed, so the mark left by the last
-    // exit is still on them: opening again without clearing it opens them off-screen.
-    delete element.dataset.closing;
     element.showModal();
     focus?.current?.focus();
     return () => {
@@ -51,17 +47,9 @@ export function useDrawer({ focus, onClose, open = true }: {
       done();
       return;
     }
-    element.dataset.closing = '';
-    // A frame first, so the attribute has been through style before its animations are
-    // counted -- asking in the same tick counts the ones that were already there.
-    requestAnimationFrame(() => {
-      const leaving = element.getAnimations();
-      if (!leaving.length) {
-        done();
-        return;
-      }
-      void Promise.all(leaving.map((animation) => animation.finished.catch(() => undefined))).then(done);
-    });
+    // Already leaving: whoever asked first is told once it has gone, and only they are.
+    if ('closing' in element.dataset) return;
+    void closeOverlay(element).then(done);
   }, [onClose]);
 
   useEffect(() => {
