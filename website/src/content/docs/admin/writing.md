@@ -15,7 +15,7 @@ The list opens on "Drafts". "Published" and "All" sit beside it, each with a cou
 
 Each card is one post. It shows every edition you have written, with its status, and a "missing" line for a language you have not. Press a title to open that edition in the editor, or "missing" to start the other language. The "..." beside an edition has "Edit", "Preview", "Duplicate", "Publish" or "Unpublish", and "Delete".
 
-"Duplicate" makes a new draft from that edition, in the same language, with "(copy)" after its title and the same categories. It is a separate post, not the other language of this one. "Delete" removes that language edition only, and cannot be undone.
+"Duplicate" makes a new draft from that edition, in the same language, with "(copy)" after its title ("(สำเนา)" for a Thai edition) and the same categories. It is a post of its own, and does not become this post's other language. "Delete" removes that language edition only, and cannot be undone.
 
 ## Starting a post
 
@@ -61,13 +61,13 @@ The file goes into the article as a card with its name, its type and its size. A
 
 | Field | What it does |
 | --- | --- |
-| "Slug" | The post's address, after `/en/blog/` or `/th/blog/`. It follows the title until you change it by hand. A Thai title gets a Thai address, with a hyphen between words. |
+| "Slug" | The post's address, after `/en/blog/` or `/th/blog/`. While a new post is open for the first time, it follows the title until you change it by hand. Once the post is opened again, changing the title leaves the slug as it is. A Thai title gets a Thai address, with a hyphen between words. |
 | "Publish at" | When the post goes out. [Publishing](/tome-cms/admin/publishing/) explains it. |
 | "Categories" | Tick the ones the post belongs under. With none ticked, it goes under the default one. Both language editions share the same categories. "Manage categories" saves the post and opens the list of categories. |
 | "Cover image" | The picture on the post's card and at the top of the post. "Choose image" opens the File Manager. 1600 × 900 pixels and under 2 MB is best, and 8 MB is the most it takes. |
 | "Excerpt" | Under "Homepage card": the line on the post's card, up to 120 characters. Left blank, the card uses the meta description, then the opening of the post. |
 | "Meta title" | The title in search results, up to 70 characters. Left blank, the post's own title is used. |
-| "Meta description" | Shown below the article's title, and used in search results and when the post is shared. Up to 320 characters. |
+| "Meta description" | Shown below the article's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
 
 ## Writing the other language
 

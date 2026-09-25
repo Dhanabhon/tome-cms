@@ -5,7 +5,7 @@ sidebar:
   order: 8
 ---
 
-"Themes", under "Appearance" in "Configuration", chooses which theme draws the public site, and whether a reader meets it light or dark. Two themes come with TomeCMS: Paper, which a new site starts with, and Plain, a sparer one. Every control on this screen applies the moment you use it, so there is no save bar at the bottom.
+"Themes", under "Appearance" in "Configuration", chooses which theme draws the public site, and whether a reader meets it light or dark. Two themes come with TomeCMS: Paper, which a new site starts with, and Plain, a sparer one. Every control on this screen applies the moment you use it, so there is no save bar at the bottom. Only the "Customize" drawer has a "Save" of its own.
 
 ![The Themes screen, with a count of 2. The Paper card shows a small preview of the site's home page with the headline "Ideas, carefully published.", the description "Paper surfaces and hairline rules: the look TomeCMS ships with.", and "In use", "Customize" and "View site" under it. The Plain card shows a one-column preview and a "Use this theme" button. Below are the card "Where themes come from" and the "Appearance" card, where "Site appearance" is "System" and "Let visitors choose light or dark" is ticked.](../../../assets/screenshots/en/themes.png)
 

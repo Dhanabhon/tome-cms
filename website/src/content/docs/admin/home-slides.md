@@ -30,7 +30,7 @@ Each row shows the slide's picture, its heading or "Picture only", and where it 
 
 | The row says | Because |
 | --- | --- |
-| "On the home page" | The slide shows now. |
+| "On the home page" | The slide is live now. It shows on the site while Paper's "Hero" is "Your slides". |
 | "Starts" and a date | Its start is still ahead. |
 | "Ended" | Its end has passed. |
 | "Hidden" | "Show this slide" is off. |

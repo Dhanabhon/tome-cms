@@ -23,6 +23,8 @@ Open "Settings" in the editor, set "Publish at" to a date and time, and press "P
 
 Set the date and press "Publish" in the same sitting. A draft keeps no date, so a date left in a draft is gone the next time you open it. Left blank, "Publish at" means now. A date that has already passed publishes the article at once, dated then.
 
+On an article that is already published, a new "Publish at" takes effect with the next autosave, and a later date takes it off the site until then.
+
 The same "Publish at" is in a page's settings, and works the same way.
 
 ## Addresses

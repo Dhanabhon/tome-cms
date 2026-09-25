@@ -57,4 +57,4 @@ Change an item's label in its field. "Move up" and "Move down" move it, and so d
 
 Nothing reaches the site until you press "Save menu", and each menu is saved on its own. A tab with changes not saved yet is marked "Unsaved", and the line beside the button says "Unsaved changes in this menu". Once saved, the admin says "Menu saved." If the save fails, your edits stay on the screen, and "Retry save" tries again.
 
-An item for a page points at the page itself, not at its address, so it follows the page when the address changes. While the page is not published, the admin marks the item as hidden, and readers do not see it. Deleting the page removes its items.
+An item for a page stores the page itself, so it follows the page when its address changes. While the page is not published, the admin marks the item as hidden, and readers do not see it. Deleting the page removes its items.
