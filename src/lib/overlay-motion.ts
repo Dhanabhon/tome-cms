@@ -45,13 +45,17 @@ async function playExit(element: HTMLElement, returnValue: string | undefined) {
     ]);
     window.clearTimeout(failsafe);
   }
-  if (element instanceof HTMLDialogElement) element.close(returnValue);
-  else if (element.matches(':popover-open')) element.hidePopover();
-  // Style is brought up to date while the mark is still on, and the mark keeps `display` and
-  // `overlay` out of the transition: the element leaves the top layer now. Taken off first, the
-  // closed state's transition would hold an invisible element over the page for one more exit.
-  void getComputedStyle(element).display;
-  delete element.dataset.closing;
+  try {
+    if (element instanceof HTMLDialogElement) element.close(returnValue);
+    else if (element.matches(':popover-open')) element.hidePopover();
+  } finally {
+    // Style is brought up to date while the mark is still on, and the mark keeps `display` and
+    // `overlay` out of the transition: the element leaves the top layer now. Taken off first, the
+    // closed state's transition would hold an invisible element over the page for one more exit.
+    // It comes off even if closing threw, or the element would stay unclickable for good.
+    void getComputedStyle(element).display;
+    delete element.dataset.closing;
+  }
 }
 
 /**
