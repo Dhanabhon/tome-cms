@@ -63,9 +63,9 @@ When a hit is dropped, the server's log gets a `stats_hit_dropped` line with a `
 
 ## When to send a view, and when a read
 
-Send a `view` once per page per browser tab. A reload in the same tab is not a new view. Send a `read` once per page per tab too, and only for a post or page: when the reader has reached the end of the article and the tab has been visible for 15 seconds in all. For the home page, send `kind: 'home'` with no `id`, and only a `view`.
+Send a `view` when the reader arrives at a page, and not when they reload it or come Back to it. Send a `read` at most once per page load, and only for a post or page: when the reader has reached the end of the article and the tab has been visible for 15 seconds in all. For the home page, send `kind: 'home'` with no `id`, and only a `view`.
 
-This is how the bundled theme does it, cut down to the parts you need. `page` is `{ kind, id, locale }` for the page on screen.
+This is how the bundled theme does it, cut down to the parts you need. `page` is `{ kind, id, locale }` for the page on screen. It writes nothing to the reader's browser: `openedAgain()` asks the browser how the page was opened.
 
 ```js
 // Do Not Track, Global Privacy Control, or your own browser: send nothing.
@@ -91,20 +91,15 @@ function send(event, page) {
   }).catch(() => {});
 }
 
-// True the first time this tab asks about this page and event.
-function firstTime(event) {
-  const key = `stats:${event}:${location.pathname}`;
-  try {
-    if (sessionStorage.getItem(key)) return false;
-    sessionStorage.setItem(key, '1');
-  } catch {
-    // No storage: this load counts.
-  }
-  return true;
+// True when this load is a reload, or a step Back or Forward, rather than an arrival.
+// The browser already records how the page was opened, so nothing is stored.
+function openedAgain() {
+  const [navigation] = performance.getEntriesByType('navigation');
+  return navigation?.type === 'reload' || navigation?.type === 'back_forward';
 }
 
 if (!silent()) {
-  if (firstTime('view')) send('view', page);
+  if (!openedAgain()) send('view', page);
 
   const article = document.querySelector('article');
   if (page.kind !== 'home' && article) {
@@ -113,6 +108,7 @@ if (!silent()) {
     article.append(end);
 
     let reachedEnd = false;
+    let read = false;
     let visibleSeconds = 0;
     const clock = setInterval(() => {
       if (document.visibilityState === 'visible') visibleSeconds += 1;
@@ -125,10 +121,11 @@ if (!silent()) {
     observer.observe(end);
 
     function check() {
-      if (!reachedEnd || visibleSeconds < 15) return;
+      if (!reachedEnd || visibleSeconds < 15 || read) return;
+      read = true;
       clearInterval(clock);
       observer.disconnect();
-      if (firstTime('read')) send('read', page);
+      send('read', page);
     }
   }
 }
@@ -155,5 +152,7 @@ In bundled mode, the default, the route takes hits only from the site itself: a 
 A hit adds one to a daily total. No cookie is set, and nothing that identifies the reader is stored. From each hit the server keeps the page, its language, whether it was a view or a read, the device and the referrer's host. A `width` under 768 counts as mobile and anything wider as desktop. The host is kept in lower case without `www.`, and a referrer on your headless site's own host, which the server reads from the request's `Origin`, counts as internal. The country comes from the CDN's country header when there is one (`CF-IPCountry`, or the header `TOME_CMS_COUNTRY_HEADER` names), and otherwise from the reader's address. The address is used for that lookup and for the limit, then dropped.
 
 The numbers are estimates. Someone determined can add to them, up to the limit per address.
+
+[What a reader's browser keeps](/tome-cms/running/privacy/) lists everything TomeCMS keeps, in the reader's browser and on the server.
 
 For the full shape of the request, see `postStatsHit` in the [API reference](/tome-cms/api/reference/). The read routes are on [Using the headless API](/tome-cms/api/overview/).
