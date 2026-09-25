@@ -5,9 +5,9 @@ sidebar:
   order: 3
 ---
 
-การติดตั้งในตอนนี้เป็นรุ่นพรีวิวก่อน 1.0 สคริปต์ deploy คือ `scripts/deploy-vps.sh` จะรัน PostgreSQL, SeaweedFS และแอปด้วย Docker Compose และ build image ของแอปบนเซิร์ฟเวอร์จากโค้ดที่คุณ clone มา
+การติดตั้งในตอนนี้เป็นรุ่นพรีวิวก่อน 1.0 สคริปต์ deploy (`scripts/deploy-vps.sh`) จะรัน PostgreSQL, SeaweedFS และแอปด้วย Docker Compose แล้ว build image ของแอปบนเซิร์ฟเวอร์จากโค้ดที่คุณ clone มา
 
-ก่อนเริ่ม ให้เตรียมเซิร์ฟเวอร์ DNS ของทั้งสอง origin และ reverse proxy ให้พร้อมตามหน้า[สิ่งที่เซิร์ฟเวอร์ต้องมี](/tome-cms/th/start/requirements/) สคริปต์ทำงานบน Linux และต้องมี Node.js 22 ขึ้นไป, Docker Engine พร้อมปลั๊กอิน Compose และ Git ให้รันด้วยผู้ใช้ที่สั่ง `docker` ได้
+ก่อนเริ่ม ให้เตรียมเซิร์ฟเวอร์ให้พร้อม ชี้ DNS ของทั้งสอง origin มาที่เครื่อง และตั้ง reverse proxy ไว้ตามหน้า[สิ่งที่เซิร์ฟเวอร์ต้องมี](/tome-cms/th/start/requirements/) สคริปต์ทำงานบน Linux และต้องมี Node.js 22 ขึ้นไป, Docker Engine พร้อมปลั๊กอิน Compose และ Git ให้รันด้วยผู้ใช้ที่สั่ง `docker` ได้
 
 ## 1. ดึงโค้ดลงเครื่อง
 
@@ -26,7 +26,7 @@ export S3_ENDPOINT=https://media.example.com
 export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ```
 
-`TOME_CMS_PUBLIC_URL` คือ origin ของ CMS ห้ามมี path ต่อท้าย `S3_ENDPOINT` คือ origin ของมีเดีย ส่วน `MEDIA_PUBLIC_URL` คือที่ที่ผู้อ่านโหลดไฟล์ ซึ่งก็คือ origin ของมีเดียตามด้วยชื่อ bucket `tomecms-media` ถ้าไม่กำหนดค่านี้ สคริปต์จะประกอบที่อยู่แบบเดียวกันให้จากสองค่าแรก
+`TOME_CMS_PUBLIC_URL` คือ origin ของ CMS ห้ามมี path ต่อท้าย `S3_ENDPOINT` คือ origin ของมีเดีย ส่วน `MEDIA_PUBLIC_URL` คือที่ที่ผู้อ่านโหลดไฟล์ ซึ่งก็คือ origin ของมีเดียตามด้วยชื่อ bucket `tomecms-media` ถ้าไม่กำหนดค่านี้ สคริปต์จะประกอบที่อยู่แบบเดียวกันให้จาก `S3_ENDPOINT` กับชื่อ bucket
 
 ## 3. รันสคริปต์ deploy
 
@@ -36,8 +36,8 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 
 สคริปต์ทำงานตามลำดับนี้ และหยุดทันทีที่ขั้นไหนไม่ผ่าน
 
-1. ตรวจว่าเครื่องเป็น Linux มี `node` กับ `docker` Docker ตอบสนอง และ Node.js เป็นเวอร์ชัน 22 ขึ้นไป
-2. สร้างค่าลับ ได้แก่ รหัสผ่านฐานข้อมูล secret key ของ S3 installation token และค่าลับอีกสามค่าที่แอปใช้เซ็นและ hash ข้อมูล แล้วตรวจว่าที่อยู่ทั้งสามเป็น HTTPS บนชื่อโฮสต์สาธารณะ
+1. ตรวจว่าเครื่องเป็น Linux มีคำสั่ง `node` และ `docker`, Docker ทำงานอยู่ และ Node.js เป็นเวอร์ชัน 22 ขึ้นไป
+2. สร้างค่าลับ ได้แก่ รหัสผ่านฐานข้อมูล, secret key ของ S3, installation token และค่าลับอีกสามค่าที่แอปใช้เซ็นและ hash ข้อมูล แล้วตรวจว่าที่อยู่ทั้งสามเป็น HTTPS บนชื่อโฮสต์สาธารณะ
 3. ตรวจว่าพอร์ต `5432`, `9000` และ `4321` บน `127.0.0.1` ยังว่างอยู่
 4. เขียนไฟล์ `.env.local` ไว้ในโฟลเดอร์โค้ด โดยให้เจ้าของไฟล์อ่านได้คนเดียว
 5. ดึง image ที่ปักเวอร์ชันไว้ คือ `postgres:17-alpine` กับ `chrislusf/seaweedfs:4.46` แล้วเปิดใช้งานและรอจนทั้งสองพร้อม
@@ -78,7 +78,7 @@ curl -s https://cms.example.com/health/ready
 {"status":"ready","checks":{"database":"ready","migrations":"ready","storage":"ready"}}
 ```
 
-ถ้าคำสั่งแรกตอบแต่คำสั่งที่สองไม่ตอบ ให้ตรวจ DNS และ proxy เมื่อตอบทั้งคู่แล้ว เปิด `https://cms.example.com/install` แล้วไปต่อที่[ตัวช่วยตั้งค่าครั้งแรก](/tome-cms/th/start/first-run/)
+ถ้าคำสั่งแรกตอบแต่คำสั่งที่สองไม่ตอบ ให้ตรวจ DNS และ proxy ถ้าคำสั่งแรกแสดง `"storage":"unavailable"` แปลว่า DNS หรือ proxy ของ origin มีเดียยังไม่ตอบ เพราะแอปเข้าถึง bucket ผ่าน `S3_ENDPOINT` เมื่อตอบทั้งคู่แล้ว เปิด `https://cms.example.com/install` แล้วไปต่อที่[ตัวช่วยตั้งค่าครั้งแรก](/tome-cms/th/start/first-run/)
 
 ## ถ้าสคริปต์หยุดกลางทาง
 
@@ -88,16 +88,16 @@ curl -s https://cms.example.com/health/ready
 | --- | --- |
 | `Error: VPS deployment requires Linux. Use npm run dev:macos for local macOS development.` | รันบนเซิร์ฟเวอร์ Linux |
 | `Error: Docker is not running or the current user cannot access it.` | เปิด Docker หรือเพิ่มผู้ใช้ของคุณเข้ากลุ่ม `docker` แล้วล็อกอินใหม่ |
-| `Port 4321 is unavailable.` (หรือ `5432`, `9000`) | มีโปรแกรมอื่นใช้พอร์ตนั้นบน `127.0.0.1` อยู่ ให้หยุดโปรแกรมนั้น หรือ export `APP_PORT`, `POSTGRES_PORT` หรือ `S3_PORT` เป็นพอร์ตที่ว่าง แล้วชี้ proxy ไปที่พอร์ตใหม่ |
+| `Port 4321 is unavailable.` (หรือ `5432`, `9000`) | มีโปรแกรมอื่นใช้พอร์ตนั้นบน `127.0.0.1` อยู่ ให้หยุดโปรแกรมนั้น หรือ export `APP_PORT`, `POSTGRES_PORT` หรือ `S3_PORT` เป็นพอร์ตที่ว่าง ถ้าเปลี่ยน `APP_PORT` หรือ `S3_PORT` ให้ชี้ proxy ไปที่พอร์ตใหม่ด้วย และถ้าเปลี่ยนพอร์ตหลังรันครั้งแรกไปแล้ว ต้องใช้ `--force` |
 | `TOME_CMS_PUBLIC_URL requires HTTPS without credentials; configure TLS separately.` | ใช้ที่อยู่ `https://` ที่ไม่มีชื่อผู้ใช้หรือรหัสผ่านอยู่ข้างใน กติกาเดียวกันนี้ใช้กับ `S3_ENDPOINT` และ `MEDIA_PUBLIC_URL` ด้วย |
 | `TOME_CMS_PUBLIC_URL requires a browser-reachable public host; local or special-use address forms are not allowed.` | ใช้ชื่อโฮสต์สาธารณะที่ DNS ชี้มาที่เซิร์ฟเวอร์ ไม่ใช่ IP หรือชื่อในเครื่อง |
 | `Set .env.local permissions to 0600 before continuing.` | รัน `chmod 600 .env.local` |
-| `Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.` | คุณเปลี่ยนที่อยู่หลังจากรันครั้งแรกไปแล้ว ให้รัน `./scripts/deploy-vps.sh --force` เพื่อเขียนค่าใหม่โดยเก็บค่าลับเดิมไว้ |
+| `Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.` | มีค่าที่ไม่ตรงกับใน `.env.local` ส่วนใหญ่คือที่อยู่หรือพอร์ตที่คุณเปลี่ยน ให้รัน `./scripts/deploy-vps.sh --force` เพื่อเขียนค่าใหม่โดยเก็บค่าลับเดิมไว้ |
 | `docker compose failed; inspect the service privately.` | ขั้นตอนหนึ่งของ Compose ล้มเหลว ผลลัพธ์ของขั้นนั้นอาจมีค่าลับปนอยู่ สคริปต์จึงไม่พิมพ์ออกมา ให้อ่าน log เองด้วย `docker compose -f compose.yaml --env-file .env.local --profile production logs --tail 100` |
 
 ## รันซ้ำเพื่ออัปเกรด
 
-ในตอนนี้ การอัปเกรดการติดตั้ง 0.x คือการรันสคริปต์อีกครั้งจากโค้ดที่ใหม่กว่า ก่อนรันให้สำรอง PostgreSQL และ bucket ของมีเดียไว้พร้อมกัน แล้วจึงสั่ง
+ตอนนี้ ถ้าจะอัปเกรดเว็บที่ติดตั้งเป็น 0.x ให้รันสคริปต์อีกครั้งจากโค้ดที่ใหม่กว่า ก่อนรันให้สำรอง PostgreSQL และ bucket ของมีเดียไว้พร้อมกัน แล้วจึงสั่ง
 
 ```sh
 git pull

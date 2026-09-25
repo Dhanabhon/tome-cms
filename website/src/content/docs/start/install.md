@@ -26,7 +26,7 @@ export S3_ENDPOINT=https://media.example.com
 export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ```
 
-`TOME_CMS_PUBLIC_URL` is the CMS origin, with no path after it. `S3_ENDPOINT` is the media origin. `MEDIA_PUBLIC_URL` is where readers load files from: the media origin followed by the bucket, which is `tomecms-media`. Leave it out and the helper builds that same address from the other two.
+`TOME_CMS_PUBLIC_URL` is the CMS origin, with no path after it. `S3_ENDPOINT` is the media origin. `MEDIA_PUBLIC_URL` is where readers load files from: the media origin followed by the bucket, which is `tomecms-media`. Leave it out and the helper builds that same address from `S3_ENDPOINT` and the bucket name.
 
 ## 3. Run the deploy helper
 
@@ -78,7 +78,7 @@ Both should print:
 {"status":"ready","checks":{"database":"ready","migrations":"ready","storage":"ready"}}
 ```
 
-If the first answers and the second does not, look at the DNS and the proxy. When both answer, open `https://cms.example.com/install` and go on with [the first-run wizard](/tome-cms/start/first-run/).
+If the first answers and the second does not, look at the DNS and the proxy. If the first shows `"storage":"unavailable"`, the media origin's DNS or proxy is not answering yet, because the application reaches the bucket through `S3_ENDPOINT`. When both answer, open `https://cms.example.com/install` and go on with [the first-run wizard](/tome-cms/start/first-run/).
 
 ## If the helper stops
 
@@ -88,11 +88,11 @@ It prints one line that says what is wrong. The common ones:
 | --- | --- |
 | `Error: VPS deployment requires Linux. Use npm run dev:macos for local macOS development.` | Run it on the Linux server. |
 | `Error: Docker is not running or the current user cannot access it.` | Start Docker, or add your user to the `docker` group and log in again. |
-| `Port 4321 is unavailable.` (or `5432`, `9000`) | Something else listens on that port on `127.0.0.1`. Stop it, or export `APP_PORT`, `POSTGRES_PORT` or `S3_PORT` with a free port and point the proxy at it. |
+| `Port 4321 is unavailable.` (or `5432`, `9000`) | Something else listens on that port on `127.0.0.1`. Stop it, or export `APP_PORT`, `POSTGRES_PORT` or `S3_PORT` with a free port and, for `APP_PORT` or `S3_PORT`, point the proxy at the new port. Changing a port after the first run also needs `--force`. |
 | `TOME_CMS_PUBLIC_URL requires HTTPS without credentials; configure TLS separately.` | Use an `https://` address with no user name or password in it. The same goes for `S3_ENDPOINT` and `MEDIA_PUBLIC_URL`. |
 | `TOME_CMS_PUBLIC_URL requires a browser-reachable public host; local or special-use address forms are not allowed.` | Use the public host name that DNS points at the server, not an IP address or a local name. |
 | `Set .env.local permissions to 0600 before continuing.` | Run `chmod 600 .env.local`. |
-| `Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.` | You changed an address since the first run. Run `./scripts/deploy-vps.sh --force` to write the new values and keep the secrets. |
+| `Existing .env.local needs updates; rerun with --force to merge values while preserving secrets.` | A value differs from the one in `.env.local`, usually an address or a port you changed. Run `./scripts/deploy-vps.sh --force` to write the new values and keep the secrets. |
 | `docker compose failed; inspect the service privately.` | A Compose step failed. Its output can hold secrets, so the helper does not print it. Read the logs yourself with `docker compose -f compose.yaml --env-file .env.local --profile production logs --tail 100`. |
 
 ## Running it again

@@ -34,7 +34,7 @@ When all four pass, "Name your site" takes you to the next step.
 | "Tagline" | A short line under the name, up to 120 characters. |
 | "Site description" | A description for the home page and search engines, up to 160 characters. |
 | "Default language" | ไทย or English. It starts as the language the wizard is in, and the admin speaks it too. |
-| "Timezone" | `Asia/Bangkok` or `UTC`. Scheduled posts are published by this clock. |
+| "Timezone" | `Asia/Bangkok` or `UTC`. Dates on the public site and in the admin are shown in this time zone. |
 | "Admin path" | The address of the admin. Required. |
 
 All of these except the admin path can be changed later, under "Settings" and then "General".
