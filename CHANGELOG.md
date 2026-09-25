@@ -4,6 +4,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ## Unreleased
 
+### Added
+
+- **Documentation** at [dhanabhon.github.io/tome-cms](https://dhanabhon.github.io/tome-cms/), in English and Thai: installing and running a site, every screen of the admin with its picture, each plugin, the headless API with a reference generated from the app's OpenAPI document, extending TomeCMS, and contributing. The README is now an introduction that links there.
+
 ### Changed
 
 - Stats no longer writes anything to a reader's browser, so counting needs no consent banner. A reload or a step Back is told apart by the browser's own record of how the page was opened, not by a mark in `sessionStorage`. Following a link back to a page already open in the tab now counts as a second view, and reading an article again after reloading it counts as a second read.

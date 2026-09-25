@@ -7,7 +7,7 @@ sidebar:
 
 "Stats", the first entry under "Content", shows how often each article and page was opened and how often it was read to its end. It also shows where readers came from, and their devices, countries and languages. TomeCMS counts all of this itself, into daily totals, with no cookie and no outside service. The numbers are estimates, as the screen says under its heading.
 
-Until the first reader is counted, the screen says "No readers counted yet". Counting began with 0.11.0, the version that brought it, and cannot reach back to visits before it.
+Until the first reader is counted, the screen shows the report at zero under a notice headed "Nobody counted yet". The notice explains that numbers appear once someone opens a published post or page, and that the browser you use for the admin is not counted. To see a number, open your site on your phone or in another browser. In the meantime the read ratio shows a dash, and each list and table below says "Nothing was viewed in this period."
 
 ![The Stats screen for "Last 30 days" and "All languages": 606 views, up 35%, 193 reads, up 38%, and a read ratio of 32%, up 1 point. Below are a bar chart of views and reads per day, then "Where readers came from" with "Direct" and news.example, "Devices" with "Computer" and "Phone", "Countries" with Thailand and United States above the DB-IP credit, "Languages" with English, and a table of "Articles and pages" with one article.](../../../assets/screenshots/en/stats.png)
 

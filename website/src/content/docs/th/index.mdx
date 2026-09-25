@@ -13,4 +13,16 @@ hero:
       icon: external
 ---
 
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
 เอกสารชุดนี้อธิบายการติดตั้งเว็บไซต์ การดูแลเว็บไซต์ในแต่ละวัน การเขียนและเผยแพร่เนื้อหา หน้าแอดมิน ปลั๊กอิน และ REST API ครบทั้งสองภาษาที่ผลิตภัณฑ์รองรับ
+
+<CardGrid>
+  <LinkCard title="เริ่มต้นที่นี่" description="TomeCMS คืออะไร และติดตั้งบนเซิร์ฟเวอร์ของคุณเองอย่างไร" href="/tome-cms/th/start/what-is-tomecms/" />
+  <LinkCard title="ดูแลเว็บไซต์" description="การตั้งค่า การอัปเดต การสำรองข้อมูล และการกลับเข้าระบบเมื่อเข้าไม่ได้" href="/tome-cms/th/running/configuration/" />
+  <LinkCard title="ใช้งานหน้าผู้ดูแล" description="ทุกหน้าจอของแอดมินพร้อมภาพประกอบ ตั้งแต่การเขียนบทความจนถึงการดูสถิติ" href="/tome-cms/th/admin/writing/" />
+  <LinkCard title="ปลั๊กอิน" description="ปลั๊กอินที่มากับ TomeCMS แต่ละตัวทำอะไร และเปิดใช้งานอย่างไร" href="/tome-cms/th/plugins/turnstile/" />
+  <LinkCard title="Headless API" description="อ่านเนื้อหาที่เผยแพร่แล้วผ่าน HTTP พร้อมเอกสารอ้างอิงที่สร้างจากเอกสาร OpenAPI ของแอป" href="/tome-cms/th/api/overview/" />
+  <LinkCard title="ต่อยอด" description="เขียนธีมหรือปลั๊กอินให้ TomeCMS" href="/tome-cms/th/extending/themes/" />
+  <LinkCard title="ร่วมพัฒนา" description="เตรียมโค้ดบนเครื่องของคุณเอง แล้วส่งการเปลี่ยนแปลงกลับเข้ามา" href="/tome-cms/th/contributing/setup/" />
+</CardGrid>

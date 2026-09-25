@@ -13,4 +13,16 @@ hero:
       icon: external
 ---
 
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
 This is the documentation for TomeCMS. It covers installing a site, running it day to day, writing and publishing content, the admin, plugins, and the REST API, in both languages the product ships in.
+
+<CardGrid>
+  <LinkCard title="Start here" description="What TomeCMS is, and how to install it on a server of your own." href="/tome-cms/start/what-is-tomecms/" />
+  <LinkCard title="Running a site" description="Configuration, updates, backups, and getting back in when you are locked out." href="/tome-cms/running/configuration/" />
+  <LinkCard title="Using the admin" description="Each screen of the admin with a picture of it, from writing a post to reading the stats." href="/tome-cms/admin/writing/" />
+  <LinkCard title="Plugins" description="What each plugin that ships with TomeCMS does, and how to switch it on." href="/tome-cms/plugins/turnstile/" />
+  <LinkCard title="Headless API" description="Read published content over HTTP, with a reference generated from the app's OpenAPI document." href="/tome-cms/api/overview/" />
+  <LinkCard title="Extending" description="Write a theme or a plugin for TomeCMS." href="/tome-cms/extending/themes/" />
+  <LinkCard title="Contributing" description="Set up the code on your own computer, and send a change back." href="/tome-cms/contributing/setup/" />
+</CardGrid>
