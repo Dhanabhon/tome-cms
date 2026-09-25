@@ -6,6 +6,7 @@ import type { AdminCopy } from '../../../lib/admin-i18n';
 import { PICK_FILE_EVENT } from '../../../lib/editor-attachment';
 import { NEW_TABLE } from '../../../lib/editor-table';
 import { tableActions } from '../TableBubble';
+import { askForVideo } from './video-insert';
 
 export interface SlashItem {
   command: (props: { editor: Editor; range: Range }) => void;
@@ -78,4 +79,15 @@ export const commandItems = (copy: AdminCopy, inTable: boolean): SlashItem[] => 
       editor.view.dom.dispatchEvent(new CustomEvent(PICK_FILE_EVENT));
     },
   },
+  // Not inside a table: a table cell is too small a place for a video.
+  ...(inTable ? [] : [{
+    title: copy.blocks.video,
+    description: copy.blocks.videoHint,
+    icon: <Icon name="play" />,
+    searchTerms: ['video', 'youtube', 'vimeo', 'clip', 'วิดีโอ'],
+    command: ({ editor, range }: { editor: Editor; range: Range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      void askForVideo(editor, editor.state.selection.from, copy);
+    },
+  }]),
 ];

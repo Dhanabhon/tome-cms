@@ -940,6 +940,83 @@ test('a file goes into an article from + or /, and a reader downloads it', async
   await expect(details.getByRole('link', { name: 'With files' })).toBeVisible();
 });
 
+test('a pasted YouTube link on an empty line becomes a video, and a menu adds one too', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  const asked: string[] = [];
+  await page.route('**/api/admin/videos', async (route: Route) => {
+    const { link } = route.request().postDataJSON() as { link: string };
+    asked.push(link);
+    const vimeo = link.includes('vimeo');
+    await route.fulfill({ json: vimeo
+      ? { mediaId: null, provider: 'vimeo', reason: 'unavailable', start: null, title: '', videoId: '76979871' }
+      : { mediaId: null, provider: 'youtube', reason: null, start: 30, title: 'A clip worth watching', videoId: 'dQw4w9WgXcQ' } });
+  });
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('With a video');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.keyboard.type('Before the video.');
+  await page.keyboard.press('Enter');
+
+  // Alone on an empty line: a video.
+  await page.evaluate(() => navigator.clipboard.writeText('https://youtu.be/dQw4w9WgXcQ?t=30'));
+  await page.keyboard.press('ControlOrMeta+v');
+  const videos = canvas.locator('figure.tome-video');
+  await expect(videos).toHaveCount(1);
+  await expect(videos.first().locator('figcaption')).toHaveText('A clip worth watching · YouTube');
+
+  // Inside a sentence: still a link.
+  await canvas.getByText('Before the video.').click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' See ');
+  await page.keyboard.press('ControlOrMeta+v');
+  await expect(videos).toHaveCount(1);
+  await expect(canvas.locator('p a[href^="https://youtu.be/"]')).toHaveCount(1);
+
+  // From /, with a clip whose lookup falls short: it goes in, and the editor says why.
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/');
+  await page.getByRole('option', { name: /^Video/ }).click();
+  const prompt = page.getByRole('dialog', { name: 'Add a video' });
+  await prompt.getByLabel('Link').fill('https://example.com/not-a-clip');
+  await prompt.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(prompt.getByText('Use a YouTube or Vimeo link to one clip.')).toBeVisible();
+  await prompt.getByLabel('Link').fill('https://vimeo.com/76979871');
+  await prompt.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(videos).toHaveCount(2);
+  // alertUi opens with role="alertdialog", not "dialog".
+  await expect(page.getByRole('alertdialog', { name: 'The video is in, without its poster' })).toBeVisible();
+  await page.getByRole('alertdialog', { name: 'The video is in, without its poster' }).getByRole('button').first().click();
+  // The cursor sat in the empty paragraph the slash command left between the first video and the
+  // sentence before it, so the new clip lands there too: first in the document, not appended last.
+  await expect(videos.nth(0).locator('figcaption')).toHaveText('76979871 · Vimeo');
+
+  // From +.
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await expect(page.getByRole('menuitem', { name: 'Video', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  expect(asked).toEqual(['https://youtu.be/dQw4w9WgXcQ?t=30', 'https://vimeo.com/76979871']);
+
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+  const { db } = await import('../../src/server/db/client');
+  const { content_json: stored } = await db.selectFrom('posts').select('content_json').where('title', '=', 'With a video')
+    .orderBy('created_at', 'desc').executeTakeFirstOrThrow();
+  const kinds = (stored as { content?: Array<{ type: string; attrs?: Record<string, unknown> }> }).content?.filter(({ type }) => type === 'video');
+  // Stored in document order: the vimeo clip, added from the paragraph before the youtube one,
+  // landed ahead of it.
+  expect(kinds?.map(({ attrs }) => attrs)).toEqual([
+    { mediaId: null, provider: 'vimeo', start: null, title: '', videoId: '76979871' },
+    { mediaId: null, provider: 'youtube', start: 30, title: 'A clip worth watching', videoId: 'dQw4w9WgXcQ' },
+  ]);
+});
+
 /** Signs the owner in through a recovery enrollment, as a new device would. */
 async function signIn(context: BrowserContext, page: Page) {
   const cdp = await context.newCDPSession(page);
