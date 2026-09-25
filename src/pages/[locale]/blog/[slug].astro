@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { documentHasVideo } from '../../../lib/editor-video';
 import { isPostLocale, localePath, postPath } from '../../../lib/i18n';
 import { postDescription } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
@@ -82,6 +83,7 @@ const xDefaultHref = settings
   stats={post ? { id: post.id, kind: 'post' } : undefined}
   title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
   type={post ? 'article' : 'website'}
+  video={post ? documentHasVideo(post.content_json) : false}
   xDefaultHref={xDefaultHref}
 >
   {post ? (

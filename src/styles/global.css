@@ -553,6 +553,14 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   font-size: var(--text-xs);
 }
 
+.tome-video__player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--radius-card);
+}
+
 :focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: var(--space-3xs);

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { documentHasVideo } from '../../lib/editor-video';
 import { isPostLocale, localePath, pagePath } from '../../lib/i18n';
 import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
 import { getPublishedPage, type PublishedPage } from '../../server/content/published';
@@ -53,6 +54,7 @@ const xDefaultHref = availableLocales.find((alternate) => alternate.locale === s
   stats={page ? { id: page.id, kind: 'page' } : undefined}
   title={page?.meta_title ?? page?.title ?? (loadError ? 'Unavailable' : 'Page not found')}
   type={page ? 'page' : 'website'}
+  video={page ? documentHasVideo(page.content_json) : false}
   xDefaultHref={xDefaultHref}
 >
   {page ? (

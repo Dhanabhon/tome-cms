@@ -1,0 +1,47 @@
+---
+/**
+ * On a page whose content holds a video: labels each poster in the page's language, and on a
+ * click puts the player where the poster was. Until then nothing loads from YouTube or Vimeo.
+ */
+import { publicCopy } from '../lib/i18n';
+
+interface Props {
+  locale: Parameters<typeof publicCopy>[0];
+}
+
+const { locale } = Astro.props;
+---
+<template data-video-copy data-play={publicCopy(locale).playVideo}></template>
+
+<script>
+  import { parseVideoLink, videoPlayerUrl } from '../lib/video-link';
+
+  const play = document.querySelector<HTMLElement>('[data-video-copy]')?.dataset.play ?? 'Play video';
+  const titleOf = (link: Element) => link.querySelector('.tome-video__title')?.textContent?.trim() ?? '';
+
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('a.tome-video__play')) {
+    link.setAttribute('aria-label', `${play}: ${titleOf(link)}`);
+  }
+
+  document.addEventListener('click', (event) => {
+    // A click with a modifier opens the clip's own page, as any link does.
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = (event.target as Element | null)?.closest<HTMLAnchorElement>('a.tome-video__play');
+    if (!link) return;
+    // The address is read back through the same parser the server uses, so only a player built
+    // from a provider and an id is ever put on the page.
+    const clip = parseVideoLink(link.href);
+    if (!clip) return;
+    event.preventDefault();
+    const player = document.createElement('iframe');
+    player.className = 'tome-video__player';
+    player.src = videoPlayerUrl(clip);
+    player.title = titleOf(link) || play;
+    player.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+    player.allowFullscreen = true;
+    // YouTube refuses to play for a player that sends no referrer.
+    player.referrerPolicy = 'strict-origin-when-cross-origin';
+    link.replaceWith(player);
+    player.focus();
+  });
+</script>
