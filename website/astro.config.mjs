@@ -49,6 +49,8 @@ export default defineConfig({
           translations: { th: 'Headless API' },
           items: ['api/overview', 'api/counting-readers', apiReference],
         },
+        { label: 'Extending', translations: { th: 'ต่อยอด' }, items: [{ autogenerate: { directory: 'extending' } }] },
+        { label: 'Contributing', translations: { th: 'ร่วมพัฒนา' }, items: [{ autogenerate: { directory: 'contributing' } }] },
       ],
     }),
   ],
