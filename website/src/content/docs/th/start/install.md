@@ -7,7 +7,7 @@ sidebar:
 
 การติดตั้งในตอนนี้เป็นรุ่นพรีวิวก่อน 1.0 สคริปต์ deploy (`scripts/deploy-vps.sh`) จะรัน PostgreSQL, SeaweedFS และแอปด้วย Docker Compose แล้ว build image ของแอปบนเซิร์ฟเวอร์จากโค้ดที่คุณ clone มา
 
-ก่อนเริ่ม ให้เตรียมเซิร์ฟเวอร์ให้พร้อม ชี้ DNS ของทั้งสอง origin มาที่เครื่อง และตั้ง reverse proxy ไว้ตามหน้า[สิ่งที่เซิร์ฟเวอร์ต้องมี](/tome-cms/th/start/requirements/) สคริปต์ทำงานบน Linux และต้องมี Node.js 22 ขึ้นไป, Docker Engine พร้อมปลั๊กอิน Compose และ Git ให้รันด้วยผู้ใช้ที่สั่ง `docker` ได้
+ก่อนเริ่ม ให้เตรียมเซิร์ฟเวอร์ให้พร้อม ชี้ DNS ของทั้งสอง origin มาที่เครื่อง และตั้ง reverse proxy ไว้ตามหน้า[สิ่งที่เซิร์ฟเวอร์ต้องมี](/tome-cms/th/start/requirements/) สคริปต์ทำงานบน Linux และต้องมี Node.js 22.12 ขึ้นไป, Docker Engine พร้อมปลั๊กอิน Compose และ Git ให้รันด้วยผู้ใช้ที่สั่ง `docker` ได้
 
 ## 1. ดึงโค้ดลงเครื่อง
 

@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-The bundled theme counts its own readers for **Content → Stats** in the admin. A headless site has to send those counts itself. It posts them to `/api/v1/stats/hit`, the one route in the API that writes anything.
+The bundled theme counts its own readers for "Stats", under "Content", in the admin. A headless site has to send those counts itself. It posts them to `/api/v1/stats/hit`, the one route in the API that writes anything.
 
 This is the whole request, sent from the reader's browser when a post opens:
 

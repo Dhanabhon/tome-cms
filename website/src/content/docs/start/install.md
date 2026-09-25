@@ -7,7 +7,7 @@ sidebar:
 
 Today's install is a pre-1.0 preview. The deploy helper, `scripts/deploy-vps.sh`, runs PostgreSQL, SeaweedFS and the application with Docker Compose, and builds the application image on the server from your checkout of the code.
 
-Before you start, have the server, the DNS for both origins and the reverse proxy ready, as [What the server needs](/tome-cms/start/requirements/) describes. The helper runs on Linux, and needs Node.js 22 or later, Docker Engine with the Compose plugin, and Git. Run it as a user who can use `docker`.
+Before you start, have the server, the DNS for both origins and the reverse proxy ready, as [What the server needs](/tome-cms/start/requirements/) describes. The helper runs on Linux, and needs Node.js 22.12 or newer, Docker Engine with the Compose plugin, and Git. Run it as a user who can use `docker`.
 
 ## 1. Get the code
 

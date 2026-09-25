@@ -1,6 +1,7 @@
 /**
  * Writes the app's OpenAPI document where the documentation's reference pages are built from.
- * The reference is generated rather than written, so it cannot say anything the API does not do.
+ * The reference is generated from the app's own schemas, not hand-written, though a parameter
+ * can still drift from what a route actually does.
  * Run from the repository root, where the app's dependencies are: `npm run docs:openapi`.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
