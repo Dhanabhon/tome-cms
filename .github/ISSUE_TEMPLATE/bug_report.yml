@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in TomeCMS does not work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting it. A vulnerability goes through the security policy instead, never an issue.
+        Before pasting logs or configuration, remove passwords, tokens, secrets and personal data.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The TomeCMS version (package.json, or the admin's System screen), or the commit.
+      placeholder: 0.11.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How it runs
+      options:
+        - The managed VPS install
+        - Local development (npm run dev)
+        - Something else (say below)
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Frontend mode
+      options:
+        - bundled
+        - headless
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: For something in the admin or on the public site.
+      placeholder: Chrome 140 on macOS, Safari on iPhone
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The server log around the time it happened, if you have it. Remove anything secret first.
+      render: shell
