@@ -42,8 +42,10 @@ const { locale, stats } = Astro.props;
    * and needs no consent to ask for.
    *
    * ponytail: a reader who reads, reloads and reads to the end again is two reads, and one who
-   * follows a link back to a page already open in the tab is a second view. Both are rare, and
-   * remembering them would mean storing something on every reader's device.
+   * follows a link back to a page already open in the tab, or duplicates the tab, is a second view.
+   * A page the browser prerenders (type `prerender`) counts a view even if it is never shown, as it
+   * did before; wait for `prerenderingchange` if that ever matters. All are rare, and remembering
+   * them would mean storing something on every reader's device.
    */
   function openedAgain(): boolean {
     const [navigation] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
