@@ -63,9 +63,9 @@ body ทั้งก้อนต้องไม่เกิน 1 KB (1,024 ไ�
 
 ## ส่ง view เมื่อไร และส่ง read เมื่อไร
 
-ส่ง `view` หนึ่งครั้งต่อหน้าต่อแท็บของเบราว์เซอร์ การรีโหลดในแท็บเดิมไม่นับเป็น view ใหม่ ส่วน `read` ก็ส่งหนึ่งครั้งต่อหน้าต่อแท็บเช่นกัน และส่งเฉพาะบทความหรือเพจ เมื่อผู้อ่านเลื่อนถึงท้ายบทความ และแท็บนั้นแสดงอยู่บนจอรวมกันครบ 15 วินาที สำหรับหน้าแรกให้ส่ง `kind: 'home'` โดยไม่มี `id` และส่งแค่ `view`
+ส่ง `view` เมื่อผู้อ่านเข้ามาที่หน้า แต่ไม่ต้องส่งเมื่อผู้อ่านรีโหลดหรือกดย้อนกลับ (Back) มาที่หน้านั้น ส่วน `read` ส่งได้ไม่เกินหนึ่งครั้งต่อการโหลดหน้าหนึ่งครั้ง และส่งเฉพาะบทความหรือเพจ เมื่อผู้อ่านเลื่อนถึงท้ายบทความ และแท็บนั้นแสดงอยู่บนจอรวมกันครบ 15 วินาที สำหรับหน้าแรกให้ส่ง `kind: 'home'` โดยไม่มี `id` และส่งแค่ `view`
 
-โค้ดข้างล่างคือวิธีที่ธีมในตัวทำ ตัดเหลือเฉพาะส่วนที่ต้องใช้ `page` คือ `{ kind, id, locale }` ของหน้าที่แสดงอยู่
+โค้ดข้างล่างคือวิธีที่ธีมในตัวทำ ตัดเหลือเฉพาะส่วนที่ต้องใช้ `page` คือ `{ kind, id, locale }` ของหน้าที่แสดงอยู่ โค้ดนี้ไม่เขียนอะไรลงในเบราว์เซอร์ของผู้อ่าน เพราะ `openedAgain()` ถามเบราว์เซอร์เองว่าหน้านี้เปิดขึ้นมาด้วยวิธีไหน
 
 ```js
 // Do Not Track, Global Privacy Control, or your own browser: send nothing.
@@ -91,20 +91,15 @@ function send(event, page) {
   }).catch(() => {});
 }
 
-// True the first time this tab asks about this page and event.
-function firstTime(event) {
-  const key = `stats:${event}:${location.pathname}`;
-  try {
-    if (sessionStorage.getItem(key)) return false;
-    sessionStorage.setItem(key, '1');
-  } catch {
-    // No storage: this load counts.
-  }
-  return true;
+// True when this load is a reload, or a step Back or Forward, rather than an arrival.
+// The browser already records how the page was opened, so nothing is stored.
+function openedAgain() {
+  const [navigation] = performance.getEntriesByType('navigation');
+  return navigation?.type === 'reload' || navigation?.type === 'back_forward';
 }
 
 if (!silent()) {
-  if (firstTime('view')) send('view', page);
+  if (!openedAgain()) send('view', page);
 
   const article = document.querySelector('article');
   if (page.kind !== 'home' && article) {
@@ -113,6 +108,7 @@ if (!silent()) {
     article.append(end);
 
     let reachedEnd = false;
+    let read = false;
     let visibleSeconds = 0;
     const clock = setInterval(() => {
       if (document.visibilityState === 'visible') visibleSeconds += 1;
@@ -125,10 +121,11 @@ if (!silent()) {
     observer.observe(end);
 
     function check() {
-      if (!reachedEnd || visibleSeconds < 15) return;
+      if (!reachedEnd || visibleSeconds < 15 || read) return;
+      read = true;
       clearInterval(clock);
       observer.disconnect();
-      if (firstTime('read')) send('read', page);
+      send('read', page);
     }
   }
 }
@@ -155,5 +152,7 @@ if (!silent()) {
 hit หนึ่งครั้งเพิ่มยอดรวมของวันนั้นขึ้นหนึ่ง ไม่มีการตั้ง cookie และไม่มีการเก็บสิ่งที่ระบุตัวผู้อ่านได้ จาก hit แต่ละครั้งเซิร์ฟเวอร์เก็บหน้า ภาษา ว่าเป็น view หรือ read อุปกรณ์ และ host ของ referrer ถ้า `width` น้อยกว่า 768 นับเป็นมือถือ ที่กว้างกว่านั้นนับเป็นเดสก์ท็อป host เก็บเป็นตัวพิมพ์เล็กโดยตัด `www.` ออก และ referrer ที่มาจาก host ของเว็บ headless เอง ซึ่งเซิร์ฟเวอร์อ่านจาก `Origin` ของคำขอ จะนับเป็นภายใน ประเทศได้มาจาก header บอกประเทศของ CDN ถ้ามี (`CF-IPCountry` หรือ header ที่ตั้งไว้ใน `TOME_CMS_COUNTRY_HEADER`) ถ้าไม่มีจึงหาจาก address ของผู้อ่าน address นี้ใช้แค่หาประเทศและนับขีดจำกัด แล้วก็ทิ้งไป
 
 ตัวเลขเหล่านี้เป็นค่าประมาณ คนที่ตั้งใจจริงเพิ่มยอดได้ แต่ไม่เกินขีดจำกัดต่อ address
+
+หน้า[สิ่งที่เบราว์เซอร์ของผู้อ่านเก็บไว้](/tome-cms/th/running/privacy/) รวบรวมทุกอย่างที่ TomeCMS เก็บไว้ ทั้งในเบราว์เซอร์ของผู้อ่านและบนเซิร์ฟเวอร์
 
 รูปแบบคำขอฉบับเต็มดูได้ที่ `postStatsHit` ใน[เอกสารอ้างอิง API](/tome-cms/api/reference/) ส่วน route สำหรับอ่านเนื้อหาอยู่ในหน้า[ใช้งาน Headless API](/tome-cms/th/api/overview/)
