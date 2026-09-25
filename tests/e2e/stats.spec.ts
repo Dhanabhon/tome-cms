@@ -161,6 +161,55 @@ test.afterAll(async () => {
   docker(['down', '--volumes', '--remove-orphans'], 90_000);
 });
 
+// First in the file, before any other test counts a hit: `hasStats` is true for good once a
+// row exists for the owner, so the never-counted screen can only be seen before that happens.
+test('a site that has never counted a reader shows the report at zero, with an explanation', async ({ browser, context, page }) => {
+  test.setTimeout(90_000);
+  query('delete from content_stats_daily');
+  await signIn(context, page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`${origin}/admin/stats`);
+
+  await expect(page.getByRole('heading', { name: 'Stats', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nobody counted yet' })).toBeVisible();
+  await expect(page.getByText(/Numbers appear once someone opens a published post or page\./)).toBeVisible();
+  expect(await page.locator('.stats-empty').count(), 'the old dashed box is gone').toBe(0);
+
+  const summary = page.locator('.stats-summary > div');
+  await expect(summary.nth(0).locator('.stats-summary__value')).toHaveText('0');
+  await expect(summary.nth(1).locator('.stats-summary__value')).toHaveText('0');
+  await expect(summary.nth(2).locator('.stats-summary__value')).toContainText('—');
+  await expect(summary.nth(2).locator('.stats-summary__value .sr-only')).toHaveText('No reads yet');
+  for (let index = 0; index < 3; index += 1) {
+    await expect(summary.nth(index).locator('.stats-summary__change'), 'no change arrow at zero').toHaveText('Nothing to compare with yet');
+  }
+
+  await expect(page.getByRole('heading', { name: 'Views and reads per day' })).toBeVisible();
+  await expect(page.locator('.stats-chart__axis')).toBeVisible();
+  await page.screenshot({ fullPage: true, path: test.info().outputPath('stats-zero-1280.png') });
+
+  await page.locator('.stats-numbers summary').click();
+  await expect(page.locator('.stats-numbers')).toContainText('Nothing was viewed in this period.');
+  for (const heading of ['Where readers came from', 'Devices', 'Countries', 'Languages']) {
+    await expect(page.locator('.stats-share').filter({ hasText: heading }), heading).toContainText('Nothing was viewed in this period.');
+  }
+
+  // A reader, in a browser of its own: the admin's browser is excluded for good once it has
+  // signed in (see the "owner's own browser" test below), so this one counts the view.
+  const reader = await browser.newContext();
+  const readerPage = await reader.newPage();
+  await readerPage.goto(`${origin}/en/blog/worth-reading`);
+  await expect.poll(() => counts(ARTICLE)).toEqual({ reads: 0, views: 1 });
+  await reader.close();
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Nobody counted yet' })).toHaveCount(0);
+  await expect(summary.nth(0).locator('.stats-summary__value')).toHaveText('1');
+
+  // Back to nothing counted: later tests count their own views from here, not one plus this test's.
+  query('delete from content_stats_daily');
+});
+
 test('a read takes the end and fifteen visible seconds, and counting keeps nothing in the browser', async ({ context, page }) => {
   test.setTimeout(90_000);
   await context.clock.install();
@@ -259,8 +308,8 @@ test('Stats shows what was counted, by range, language and sort, and one article
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${origin}/admin/stats`);
   await expect(page.getByRole('heading', { name: 'Stats', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No readers counted yet' })).toBeVisible();
-  await expect(page.getByText('Your own visits are not counted.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nobody counted yet' })).toBeVisible();
+  await expect(page.getByText(/Numbers appear once someone opens a published post or page\./)).toBeVisible();
   await expect(page.locator('a[href="/admin/stats"]').first()).toBeAttached();
   await shoot('empty-1280-light');
 

@@ -29,7 +29,7 @@ try {
   userEmail = current.user.email;
   settings = await getOwnerSettings(current.user.id);
   counted = settings ? await hasStats(current.user.id) : false;
-  if (settings && counted) {
+  if (settings) {
     const periods = statsPeriods(query.range, statsDay(new Date(), settings.timezone));
     const filter = { lang: query.lang, ownerId: current.user.id };
     unit = periods.unit;
@@ -74,14 +74,17 @@ const COLUMNS: Array<[StatsSort, string]> = [['views', copy.stats.views], ['read
             <p>{copy.stats.subheading}</p>
           </div>
         </header>
-        {!counted || !report ? (
-          <div class="stats-empty">
-            <h2>{copy.stats.emptyHeading}</h2>
-            <p>{copy.stats.emptyBody}</p>
+        {!counted && (
+          <div class="stats-empty-notice" role="status">
+            <div>
+              <h2>{copy.stats.emptyHeading}</h2>
+              <p>{copy.stats.emptyBody}</p>
+            </div>
           </div>
-        ) : (
+        )}
+        <StatsFilters base={base} copy={copy} query={query} />
+        {report && (
           <>
-            <StatsFilters base={base} copy={copy} query={query} />
             <StatsReport copy={copy} locale={settings.default_locale} report={report} unit={unit} />
             <section aria-labelledby="stats-articles-heading" class="stats-panel stats-articles">
               <h2 id="stats-articles-heading">{copy.stats.articles}</h2>
