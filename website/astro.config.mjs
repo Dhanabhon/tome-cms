@@ -1,6 +1,9 @@
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 import starlightLinksValidator from 'starlight-links-validator';
+import starlightOpenAPI, { createOpenAPISidebarGroup } from 'starlight-openapi';
+
+const apiReference = createOpenAPISidebarGroup();
 
 export default defineConfig({
   site: 'https://dhanabhon.github.io',
@@ -27,9 +30,21 @@ export default defineConfig({
         '@fontsource/ibm-plex-sans-thai/600.css',
         './src/styles/tome.css',
       ],
-      plugins: [starlightLinksValidator()],
+      plugins: [
+        starlightOpenAPI([
+          { base: 'api/reference', schema: './src/generated/openapi.json', sidebar: { group: apiReference, label: 'Reference' } },
+        ]),
+        // The reference's routes are injected by starlight-openapi, which the validator cannot see.
+        starlightLinksValidator({ exclude: ['/tome-cms/api/reference/**'] }),
+      ],
       // Each section's task adds its group here, so the site builds at every step.
-      sidebar: [],
+      sidebar: [
+        {
+          label: 'Headless API',
+          translations: { th: 'Headless API' },
+          items: ['api/overview', 'api/counting-readers', apiReference],
+        },
+      ],
     }),
   ],
 });

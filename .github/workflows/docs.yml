@@ -47,6 +47,9 @@ jobs:
       - name: Install the site's dependencies
         run: npm ci --prefix website
 
+      - name: Generate the API reference's source
+        run: npm run docs:openapi
+
       - name: Check
         run: npm run check --prefix website
 
