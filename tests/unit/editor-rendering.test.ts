@@ -269,3 +269,35 @@ test('an article that opens with a picture fetches that picture first, and only 
     'two pictures in a row: only the first is raised',
   );
 });
+
+const POSTER = '66666666-6666-4666-8666-666666666666';
+const clip = (attrs: Record<string, unknown>): EditorDocument => ({
+  type: 'doc',
+  content: [{ type: 'video', attrs: { mediaId: POSTER, provider: 'youtube', start: 30, title: 'A clip', videoId: 'dQw4w9WgXcQ', ...attrs } }],
+});
+
+test('a video is stored as a poster that links to the clip', () => {
+  const { contentHtml, contentJson } = prepareEditorContent({ contentJson: clip({}) });
+  assert.equal(contentHtml, `<figure class="tome-video"><a class="tome-video__play" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=30" rel="noopener noreferrer"><img alt="" src="/media/${POSTER}" decoding="async" loading="lazy" /><span class="tome-video__title">A clip</span></a><figcaption>A clip · YouTube</figcaption></figure>`);
+  assert.deepEqual(editorMediaIds(contentJson), [POSTER]);
+  assert.equal(hasMeaningfulContent(contentJson), true);
+});
+
+test('a video that is not one clip of the right shape is refused', () => {
+  for (const attrs of [{ provider: 'tiktok' }, { videoId: 'nope' }, { start: -1 }, { title: 'x'.repeat(201) }, { mediaId: 'poster' }]) {
+    assert.throws(() => prepareEditorContent({ contentJson: clip(attrs) }), ValidationError, JSON.stringify(attrs));
+  }
+});
+
+test('a video carrying anything beyond its own attributes is refused', () => {
+  assert.throws(() => prepareEditorContent({ contentJson: clip({ href: 'https://evil.example/x' }) }), ValidationError);
+  assert.throws(() => prepareEditorContent({ contentJson: clip({ onclick: 'x' }) }), ValidationError);
+});
+
+test('a player never reaches stored HTML, however it is written', () => {
+  const { contentHtml } = prepareEditorContent({ contentJson: {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>' }] }],
+  } });
+  assert.doesNotMatch(contentHtml, /<iframe/);
+});

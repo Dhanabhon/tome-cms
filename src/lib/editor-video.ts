@@ -1,6 +1,6 @@
 import { Node } from '@tiptap/core';
 
-import { isVideoId, MAX_VIDEO_TITLE, parseVideoLink, VIDEO_PROVIDER_NAMES, videoWatchUrl, type VideoLink } from './video-link';
+import { isVideoId, MAX_START, MAX_VIDEO_TITLE, parseVideoLink, VIDEO_PROVIDER_NAMES, videoWatchUrl, type VideoLink } from './video-link';
 
 /** A stored video. `mediaId` is the poster, named as a picture's is so the library sees it in use. */
 export interface VideoAttrs extends VideoLink {
@@ -10,7 +10,6 @@ export interface VideoAttrs extends VideoLink {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MEDIA_PATH = /^\/media\/([0-9a-f-]{36})$/i;
-const MAX_START = 24 * 60 * 60;
 
 /** The attributes a stored video may have, or null. Anything else on the node is dropped. */
 export function videoAttrs(value: unknown): VideoAttrs | null {

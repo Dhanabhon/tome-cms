@@ -14,6 +14,7 @@ import {
 import { textAlign } from '../../lib/editor-align';
 import { attachment, type AttachmentFile } from '../../lib/editor-attachment';
 import { tableExtensions } from '../../lib/editor-table';
+import { video, videoAttrs } from '../../lib/editor-video';
 import type { EditorDocument, EditorNode } from '../../types/cms';
 import { isUuid } from '../media/keys';
 
@@ -59,6 +60,7 @@ const extensions = [
   ...tableExtensions,
   textAlign,
   attachment,
+  video,
 ];
 
 const schema = getSchema(extensions);
@@ -125,6 +127,12 @@ function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string
       // The library's word, not the editor's: the card is stored, and says what its file is.
       node.attrs = { href: `/media/${mediaId}`, mediaId, mimeType: file.mimeType, name: file.name, size: file.size };
     }
+    if (node.type === 'video') {
+      const attrs = videoAttrs(node.attrs);
+      if (!attrs) throw new ValidationError('Videos require one YouTube or Vimeo clip.');
+      // Only what a video is: a writer's extra attributes never reach the page.
+      node.attrs = { ...attrs };
+    }
     pending.push(...(node.content ?? []));
   }
 }
@@ -135,7 +143,7 @@ export function editorMediaIds(document: EditorDocument): string[] {
   while (pending.length) {
     const node = pending.pop();
     if (!node) break;
-    if (node.type === 'image' && typeof node.attrs?.mediaId === 'string') ids.add(node.attrs.mediaId);
+    if ((node.type === 'image' || node.type === 'video') && typeof node.attrs?.mediaId === 'string') ids.add(node.attrs.mediaId);
     pending.push(...(node.content ?? []));
   }
   return [...ids];
