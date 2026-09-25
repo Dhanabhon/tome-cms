@@ -41,6 +41,7 @@ export default defineConfig({
       sidebar: [
         // Starlight 0.39 dropped `autogenerate` on the group itself; it now sits in `items`.
         { label: 'Start here', translations: { th: 'เริ่มต้นที่นี่' }, items: [{ autogenerate: { directory: 'start' } }] },
+        { label: 'Running a site', translations: { th: 'ดูแลเว็บไซต์' }, items: [{ autogenerate: { directory: 'running' } }] },
         {
           label: 'Headless API',
           translations: { th: 'Headless API' },
