@@ -18,7 +18,7 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 const VIMEO_ID = /^\d{1,12}$/;
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com']);
 const VIMEO_HOSTS = new Set(['vimeo.com', 'www.vimeo.com', 'player.vimeo.com']);
-const MAX_START = 24 * 60 * 60;
+export const MAX_START = 24 * 60 * 60;
 
 export function isVideoId(provider: VideoProvider, id: string): boolean {
   return provider === 'youtube' ? YOUTUBE_ID.test(id) : VIMEO_ID.test(id);
