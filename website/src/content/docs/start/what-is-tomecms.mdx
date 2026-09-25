@@ -1,0 +1,69 @@
+---
+title: What TomeCMS is
+description: A CMS for one owner who publishes a site in Thai, in English or in both, and what it does.
+sidebar:
+  order: 1
+---
+
+import { Image } from 'astro:assets';
+import architectureDark from '../../../assets/architecture-dark.png';
+import architectureLight from '../../../assets/architecture-light.png';
+
+TomeCMS is a content management system for a site in Thai and English, built with Astro. It draws the public site on the server and gives the owner a React admin to write in. Sites and apps built with something else can read the same published content over a REST API.
+
+It is made for one person. A site has a single owner, who signs in with a passkey and runs the admin alone. That owner can publish in Thai, in English or in both, because a post or a page can have a Thai edition and an English one.
+
+## What it does
+
+### Writing
+
+The editor covers what an article needs: headings, lists, quotes, code, tables, images, links and alignment. You decide whether each link opens in a new tab. A file from the library goes into an article as a card the reader downloads, and a PDF opens in the browser instead.
+
+Posts have drafts, previews, scheduled publishing and fields for search engines. The Thai and English editions of a post share its categories. Pages sit beside posts, and you set up the header and footer menus yourself.
+
+The file library keeps images and documents together (PDF, Word, Excel, PowerPoint, CSV, plain text and ZIP), in folders you make, with search and a filter by type. The files live in S3-compatible object storage.
+
+### Publishing
+
+Public pages are drawn on the server for every request. A reader's browser downloads JavaScript only for a feature the owner has switched on.
+
+A post's address is in the language of its title, so a Thai title gives a Thai address. When an address changes, the old one redirects to the new one permanently. The site also has a sitemap and an RSS feed.
+
+The REST API returns published content only, and describes itself in an OpenAPI 3.1 document. In headless mode TomeCMS hides its own blog and keeps the admin and the APIs, so another site can draw your content. [Using the headless API](/tome-cms/api/overview/) has the details.
+
+### Look
+
+Two themes ship with TomeCMS, `paper` and a sparer one called `plain`. You choose between them under "Appearance", in a preview that draws your own posts. Each language has its own home page slides, with a picture, a few words and a button, which the theme shows as a still banner or as a slider.
+
+The admin and the public site both have a light and a dark theme. Readers can pick their own unless you turn that off. The site has its own logo (SVG works), an optional second logo for the dark theme, and an icon.
+
+### Sign-in and plugins
+
+There is no password. The owner signs in with a passkey and keeps a set of one-time recovery codes for the day a device goes missing. A wizard of six steps sets the site up on the first run, and in it you choose the address of the admin.
+
+The admin is in Thai or in English, following the site's default language.
+
+Plugins fill hooks that the core declares, and each one stays off until you switch it on. Five come with TomeCMS: Cloudflare Turnstile on the sign-in form, Sticky Banner, Popup, Image lightbox, and suggestions while writing from Jev (TypeSafe AI).
+
+### Running a site
+
+Docker Compose runs PostgreSQL and a bundled SeaweedFS for the files, or you point the S3 settings at storage somewhere else. A backup keeps the database and the media together, and a check restores one into throwaway containers to compare it with the original. A deploy helper installs the whole site on one VPS.
+
+## How it fits together
+
+<Image src={architectureLight} class="dark:sl-hidden" alt="A diagram of TomeCMS. A visitor reads the public pages, which the chosen theme draws and the Astro server renders on each request. The owner writes in the React admin, which calls the same server. The server keeps content in PostgreSQL and files in S3-compatible storage, and signs the owner in with a passkey through Better Auth. Plugins can check a sign-in with Cloudflare Turnstile and make suggestions while the owner writes through Jev (TypeSafe AI)." />
+<Image src={architectureDark} class="light:sl-hidden" alt="A diagram of TomeCMS. A visitor reads the public pages, which the chosen theme draws and the Astro server renders on each request. The owner writes in the React admin, which calls the same server. The server keeps content in PostgreSQL and files in S3-compatible storage, and signs the owner in with a passkey through Better Auth. Plugins can check a sign-in with Cloudflare Turnstile and make suggestions while the owner writes through Jev (TypeSafe AI)." />
+
+One Node.js process answers every request: the public pages, the admin, the admin's own API and the public content API. Passkey sign-in runs inside that process too. What lasts is kept outside it. PostgreSQL holds the content and the settings, and S3-compatible storage holds the files. On a single server that storage is the bundled SeaweedFS; it can also be a service elsewhere.
+
+A plugin reaches out of the server only once you switch it on. Turnstile checks a sign-in with Cloudflare. Jev sends what you have written to TypeSafe AI, which suggests categories, a line for the excerpt and a summary for search engines.
+
+The same diagram is in the repository as a page you can explore, with a guided view of each path through it: [docs/tome-cms-overview.en.html](https://github.com/Dhanabhon/tome-cms/blob/main/docs/tome-cms-overview.en.html). Download it and open it in a browser.
+
+## Where things stand
+
+TomeCMS is at version 0.11.0, and there is no 1.0.0 release yet. What you can install today is a preview. The deploy helper builds the application on your own server from a checkout of the code, and you upgrade by running it again from a newer checkout.
+
+The 1.0.0 release is planned around a managed install on a fresh VPS, whose admin can install a verified update. The code for it is written and tested on a local harness. Two gates are still open, and both need things the repository cannot provide for itself: a public, immutable release whose attestations verify, and a real HTTPS server accepted on both `amd64` and `arm64`.
+
+A 0.x install will not turn into a managed one in place. Moving to 1.0.0 means a fresh server and a manual move of the content. [Installing on a VPS](/tome-cms/start/install/) says what changes.
