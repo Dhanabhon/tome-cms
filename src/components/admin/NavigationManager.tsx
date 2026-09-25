@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
+import { animateDismissals, closeOverlay } from '../../lib/overlay-motion';
 import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
@@ -77,6 +78,11 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => (dialog.current ? animateDismissals(dialog.current) : undefined), []);
+
+  function closeDialog() {
+    if (dialog.current) void closeOverlay(dialog.current);
+  }
 
   function edit(next: LocalItem[]) {
     if (savingRef.current) return;
@@ -149,7 +155,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     setDirty(nextDirty);
     setSaveError('');
     setStatus(fill(copy.navigation.added, { label: item.label }));
-    dialog.current?.close();
+    closeDialog();
   }
 
   function move(from: number, to: number, button?: HTMLButtonElement) {
@@ -278,7 +284,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
           <label className="admin-field">{copy.navigation.label}<input className="admin-control" maxLength={80} onChange={(event) => setLabel(event.target.value)} required value={label} /></label>
           <div className="admin-field"><label htmlFor="navigation-placement">{copy.navigation.placement}</label><UiSelect ariaLabel={copy.navigation.placement} className="admin-control" id="navigation-placement" onValueChange={(next) => setPlacement(next as NavigationLocation | 'both')} options={[...locations, { value: 'both', label: copy.navigation.both }]} value={placement} /><small>{fill(copy.navigation.placementHelp, { language: locale === 'th' ? copy.filters.thai : copy.filters.english })}</small></div>
           {addError && <p className="admin-alert" role="alert">{addError}</p>}
-          <div className="navigation-dialog__actions"><button className="admin-button" onClick={() => dialog.current?.close()} type="button">{copy.navigation.cancel}</button><button className="admin-button admin-button--primary" disabled={kind === 'page' && !availablePages.length} type="submit">{copy.navigation.addToMenu}</button></div>
+          <div className="navigation-dialog__actions"><button className="admin-button" onClick={closeDialog} type="button">{copy.navigation.cancel}</button><button className="admin-button admin-button--primary" disabled={kind === 'page' && !availablePages.length} type="submit">{copy.navigation.addToMenu}</button></div>
         </form>
       </dialog>
     </section>

@@ -1,3 +1,5 @@
+import { animateDismissals, closeOverlay } from './overlay-motion';
+
 type DialogTone = 'default' | 'danger';
 
 interface DialogOptions {
@@ -109,17 +111,27 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
   document.body.append(dialog);
 
   return new Promise<DialogAnswer | null>((resolve) => {
+    let answer: DialogAnswer | null = null;
     let settled = false;
+    // The answer is fixed by the first way out -- a click on a leaving dialog changes nothing --
+    // and the caller hears it once the exit has played and the focus is back where it was, so
+    // nothing the caller does next is undone by that.
     const finish = (result: DialogAnswer | null) => {
-      if (settled) return;
+      if (settled || !dialog.open || 'closing' in dialog.dataset) return;
       settled = true;
-      dismissActive = null;
-      if (dialog.open) dialog.close();
+      answer = result;
+      void closeOverlay(dialog);
+    };
+    const dismiss = () => finish(null);
+    dismissActive = dismiss;
+    // Every way it closes ends here, Escape included, whether or not the page could hold it back.
+    dialog.addEventListener('close', () => {
+      if (dismissActive === dismiss) dismissActive = null;
       dialog.remove();
       if (opener?.isConnected) opener.focus();
-      resolve(result);
-    };
-    dismissActive = () => finish(null);
+      resolve(answer);
+    }, { once: true });
+    animateDismissals(dialog);
     cancel?.addEventListener('click', () => finish(null));
     confirm.addEventListener('click', () => {
       if (kind === 'prompt' && input) {
@@ -140,10 +152,6 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
         event.preventDefault();
         confirm.click();
       }
-    });
-    dialog.addEventListener('cancel', (event) => {
-      event.preventDefault();
-      finish(null);
     });
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) finish(null);

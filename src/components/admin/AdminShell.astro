@@ -266,6 +266,7 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
 
 <script>
   import { authClient } from '../../lib/auth-client';
+  import { animateDismissals, closeOverlay } from '../../lib/overlay-motion';
   import { confirmUi } from '../../lib/ui-dialog';
 
   const shell = document.querySelector<HTMLElement>('.admin-shell');
@@ -276,11 +277,8 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
     dialog?.showModal();
     opener.setAttribute('aria-expanded', 'true');
   });
-  dialog?.querySelector('[data-nav-close]')?.addEventListener('click', () => dialog.close());
-  dialog?.addEventListener('cancel', (event) => {
-    event.preventDefault();
-    dialog.close();
-  });
+  if (dialog) animateDismissals(dialog);
+  dialog?.querySelector('[data-nav-close]')?.addEventListener('click', () => void closeOverlay(dialog));
   dialog?.addEventListener('close', () => {
     opener?.setAttribute('aria-expanded', 'false');
     opener?.focus();

@@ -24,6 +24,7 @@ import {
   type MediaKind,
   type MediaTypeFilter,
 } from '../../lib/media';
+import { closeOverlay } from '../../lib/overlay-motion';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder, MediaReferences, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
@@ -189,15 +190,9 @@ export default function MediaLibrary(props: MediaLibraryProps) {
 
   useEffect(() => {
     const dialog = detailsDialog.current;
-    if (!dialog) return;
-    if (selected) {
-      if (!dialog.open) dialog.showModal();
-      detailsClose.current?.focus();
-    } else if (dialog.open) {
-      dialog.close();
-      if (detailsOpener.current?.isConnected) detailsOpener.current.focus();
-      else mediaHeading.current?.focus();
-    }
+    if (!dialog || !selected) return;
+    if (!dialog.open) dialog.showModal();
+    detailsClose.current?.focus();
   }, [selected]);
 
   function selectCategory(nextSelection: CategorySelection) {
@@ -390,9 +385,19 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     }
   }
 
+  /** The file stays in the dialog while it leaves: emptied first, the exit would be an empty box. */
   function closeDetails() {
-    selectedId.current = null;
-    setSelected(null);
+    const dialog = detailsDialog.current;
+    const open = Boolean(dialog?.open);
+    const forget = () => {
+      selectedId.current = null;
+      setSelected(null);
+      if (!open) return;
+      if (detailsOpener.current?.isConnected) detailsOpener.current.focus();
+      else mediaHeading.current?.focus();
+    };
+    if (dialog && open) void closeOverlay(dialog).then(forget);
+    else forget();
   }
 
   function categoryActions(folder: MediaFolder) {

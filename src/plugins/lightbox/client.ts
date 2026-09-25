@@ -1,3 +1,5 @@
+import { animateDismissals, closeOverlay } from '../../lib/overlay-motion';
+
 /**
  * An article's images, full size, in the element the platform already has for this.
  *
@@ -33,11 +35,12 @@ export default function wireLightbox(mount: HTMLElement): void {
   dialog.append(shown, close);
   mount.replaceWith(dialog);
 
-  close.addEventListener('click', () => dialog.close());
+  close.addEventListener('click', () => void closeOverlay(dialog));
   // Clicking the backdrop means clicking the dialog itself: its children are inside it.
   dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) dialog.close();
+    if (event.target === dialog) void closeOverlay(dialog);
   });
+  animateDismissals(dialog);
 
   const open = (image: HTMLImageElement) => {
     shown.src = image.currentSrc || image.src;
