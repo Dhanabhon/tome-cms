@@ -35,7 +35,7 @@ come from one definition.
 | `videoId` | YouTube: 11 characters of `[A-Za-z0-9_-]`. Vimeo: digits. |
 | `start` | Seconds to start at, from the link's `t=` or `#t=`, or `null` |
 | `title` | The clip's title, from the provider, at most 200 characters, or empty |
-| `posterId` | The poster, a picture in this site's library, or `null` |
+| `mediaId` | The poster, a picture in this site's library, or `null`. Named as a picture's is, because the library finds a picture in use by `attrs.mediaId`. |
 
 The node keeps no URL. Every address the site writes, the link to the provider and the player's, is
 built from `provider` and `videoId`, so nothing a writer pastes reaches the page as an address.
@@ -56,14 +56,16 @@ server.
 ### In the editor
 
 The card shows the poster, the title and the provider's name, and moves and deletes like any block.
-Adding one calls the admin API below. While it waits the card says so, and if the lookup fails the
-card stays, with no poster, and says why in the admin's language. The writer can still publish it.
+Adding one puts the card in at once and calls the admin API below. Until the answer comes the card
+shows the clip's id and its provider; then the title and poster fill in. If the lookup falls short the
+card stays, with no poster, and the editor says why in the admin's language, the way it does when a
+picture fails to upload. The writer can still publish it.
 
 ### When the article is saved
 
 `src/server/content/editor.ts` checks a `video` node the way it checks `attachment`: the provider is
 one of the two, the id has its provider's shape, `start` is a whole number of seconds or `null`, the
-title is text within its limit, and `posterId`, when set, is a ready picture in this site's library.
+title is text within its limit, and `mediaId`, when set, is a ready picture in this site's library.
 `editorMediaIds()` counts the poster, so the public API lists it with the article's media, the
 article's last-modified time follows it, and the library treats it as in use, as it does a picture in
 the text.
@@ -73,9 +75,10 @@ the text.
 `POST /api/admin/videos` with `{ "link": "…" }`, owner only, behind `requireInstalledOwner` and
 `assertSameOrigin` like the other admin routes, and limited to 30 lookups a minute per owner with the
 in-memory limiter the Stats counter uses (`createRateLimit` in `src/server/stats/rules.ts`). It answers
-`{ provider, videoId, start, title, posterId }`, with `reason` added when the lookup fell short.
+`{ provider, videoId, start, title, mediaId, reason }`, where `reason` is `null` unless the lookup fell
+short.
 
-1. Parse the link with `parseVideoLink`. A link it does not understand is a `422`.
+1. Parse the link with `parseVideoLink`. A link it does not understand is a `400`.
 2. Ask the provider's oEmbed endpoint: `https://www.youtube.com/oembed?url=…&format=json` or
    `https://vimeo.com/api/oembed.json?url=…`. It gives the title and the thumbnail's address.
 3. Fetch the thumbnail, only from `i.ytimg.com` or `i.vimeocdn.com`.
@@ -85,7 +88,7 @@ in-memory limiter the Stats counter uses (`createRateLimit` in `src/server/stats
 
 Every outside request is `https:` only, to those four hosts only, follows no redirect to another host,
 times out after 5 seconds, and reads at most 2 MB. A private or deleted clip, a slow provider or a
-server with no way out gives an answer with `title: ''`, `posterId: null` and `reason` set to
+server with no way out gives an answer with `title: ''`, `mediaId: null` and `reason` set to
 `unavailable` (the provider said no) or `unreachable` (no answer in time). The editor shows the reason in
 the admin's language. None of these is an error the writer has to clear. With no title, the caption
 names only the provider and the button reads "Play video".
@@ -95,30 +98,34 @@ names only the provider and the button reads "Play video".
 The node's HTML:
 
 ```html
-<figure class="tome-video" data-provider="youtube" data-video-id="…" data-start="30">
+<figure class="tome-video">
   <a class="tome-video__play" href="https://www.youtube.com/watch?v=…&amp;t=30">
-    <img src="/media/…" alt="" width="480" height="360" loading="lazy" decoding="async">
-    <span class="tome-video__label">Play video: …</span>
+    <img src="/media/…" alt="" loading="lazy" decoding="async">
+    <span class="tome-video__title">…</span>
   </a>
   <figcaption>… · YouTube</figcaption>
 </figure>
 ```
 
-- With no poster, the link holds the title on a plain panel instead of the picture.
-- The words come from `src/lib/i18n.ts` in the page's language.
+- The stored HTML holds no words of the site's own, only the clip's title and the provider's name,
+  because a document is rendered before its language is settled. The title span is read by screen
+  readers and hidden from sight; with no title it holds the provider's name.
+- With no poster, the link is a plain panel with the play mark.
 - Without JavaScript, the link opens the clip on the provider's site.
-- With JavaScript, a small script, included only on a page whose content has a video, listens for a
-  click on `.tome-video__play` and puts the player in its place:
+- With JavaScript, a small script, included only on a page whose content has a video, labels each
+  link "Play video: <title>" from `src/lib/i18n.ts` in the page's language, and on a click reads the
+  clip back from the link's own address with `parseVideoLink` and puts the player in its place:
   - YouTube: `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&start=<s>`
   - Vimeo: `https://player.vimeo.com/video/<id>?dnt=1&autoplay=1#t=<s>s`
   - with `title` set to the clip's title, `allow="autoplay; encrypted-media; fullscreen;
     picture-in-picture"`, `allowfullscreen`, and `referrerpolicy="strict-origin-when-cross-origin"`,
     since YouTube refuses to play without a referrer. Focus moves to the player.
-- The content filter in `src/lib/editor-content.ts` lets `figure` and `figcaption` through, with
-  `class` and the three `data-` attributes only for `tome-video`. It still drops `iframe` and `script`:
+- The content filter in `src/lib/editor-content.ts` lets `figure` and `figcaption` through, with the
+  classes `tome-video`, `tome-video__play` and `tome-video__title` only. It still drops `iframe` and `script`:
   a player exists only in a reader's browser, after a click, and never in stored HTML.
-- `paper` and `plain` each give `.tome-video` a 16:9 box with the play mark centred on the poster and a
-  focus ring from their own tokens. A Short plays inside the 16:9 box.
+- `.tome-video` is styled once in `src/styles/global.css`, which every theme and the editor share, as
+  the file card is: a 16:9 box with the play mark centred on the poster and the shared focus ring. A
+  Short plays inside the 16:9 box.
 - The Image lightbox plugin (`src/plugins/lightbox/client.ts`) skips a picture inside `.tome-video`, so
   the poster plays the clip rather than opening the lightbox.
 
