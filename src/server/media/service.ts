@@ -350,7 +350,7 @@ export async function importImage(ownerId: string, body: Buffer, name: string): 
       owner_id: ownerId,
       folder_id: null,
       object_key: objectKey,
-      original_name: name.trim().slice(0, 255) || 'Video poster',
+      original_name: name.trim().slice(0, 255).trim() || 'Video poster',
       mime_type: type,
       size_bytes: body.length,
       checksum_sha256: createHash('sha256').update(body).digest('base64'),

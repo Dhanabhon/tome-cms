@@ -33,11 +33,52 @@ test('a public clip gives its title and its poster, from the two hosts and no ot
 });
 
 test('a poster on any other host is never fetched', async () => {
-  const { calls, fetcher } = fake({
-    'https://www.youtube.com/oembed': () => Response.json({ thumbnail_url: 'https://evil.example/x.jpg', title: 'A clip' }),
+  const badPosters = [
+    'https://evil.example/x.jpg',
+    // A non-standard port is a different origin from the allowed host, not the host itself.
+    'https://i.ytimg.com:8443/x.jpg',
+    // Userinfo does not change which host is contacted, but it is still refused up front.
+    'https://evil@i.ytimg.com/x.jpg',
+    // Plain http, even to an allowed hostname, is refused.
+    'http://i.ytimg.com/x.jpg',
+  ];
+  for (const poster of badPosters) {
+    const { calls, fetcher } = fake({
+      'https://www.youtube.com/oembed': () => Response.json({ thumbnail_url: poster, title: 'A clip' }),
+    });
+    assert.deepEqual(await lookUpVideo(clip, fetcher), { poster: null, reason: 'unavailable', title: 'A clip' }, poster);
+    assert.equal(calls.length, 1, poster);
+  }
+});
+
+test('a declared content-length over the cap is refused before the body is read', async () => {
+  const { fetcher } = fake({
+    'https://www.youtube.com/oembed': () => Response.json({ thumbnail_url: POSTER, title: 'A clip' }),
+    [POSTER]: () => new Response('tiny', { headers: { 'content-length': '3000000' } }),
   });
   assert.deepEqual(await lookUpVideo(clip, fetcher), { poster: null, reason: 'unavailable', title: 'A clip' });
-  assert.equal(calls.length, 1);
+});
+
+test('the deadline is shared across both requests, and a title already found is kept', async () => {
+  const delay = (ms: number) => new Promise((resolve) => { setTimeout(resolve, ms); });
+  const { fetcher } = fake({
+    'https://www.youtube.com/oembed': async () => { await delay(40); return Response.json({ thumbnail_url: POSTER, title: 'A clip' }); },
+    [POSTER]: async () => { await delay(40); return new Response(JPEG); },
+  });
+  const guarded = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    const attempt = fetcher(input, init);
+    return Promise.race([attempt, new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('timed out', 'TimeoutError'))))]);
+  }) as typeof fetch;
+  assert.deepEqual(await lookUpVideo(clip, guarded, 60), { poster: null, reason: 'unreachable', title: 'A clip' });
+});
+
+test('control characters, including a NUL and a tab, are stripped from the title', async () => {
+  const { fetcher } = fake({
+    'https://www.youtube.com/oembed': () => Response.json({ thumbnail_url: POSTER, title: '\u0000A clip\tworth watching\u0000  ' }),
+    [POSTER]: () => new Response(JPEG),
+  });
+  const found = await lookUpVideo(clip, fetcher);
+  assert.equal(found.title, 'A clipworth watching');
 });
 
 test('a private clip is unavailable, and a provider that does not answer is unreachable', async () => {
