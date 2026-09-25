@@ -68,7 +68,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-header *, .site-footer * { transition: none !important; animation: none !important; }
+  /* Not a popover: overlays.css leaves the language menu and the theme panel a short fade. */
+  .site-header :not([popover]), .site-footer :not([popover]) { transition: none !important; animation: none !important; }
 }
 
 .author-block__avatar {

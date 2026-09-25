@@ -106,10 +106,6 @@
   color: var(--color-ink);
 }
 
-.ui-dialog::backdrop {
-  background: var(--color-scrim);
-}
-
 .ui-dialog__surface { padding: var(--space-lg); }
 .ui-dialog h2 { margin: 0; font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.25px; }
 .ui-dialog__message { margin: var(--space-sm) 0 0; color: var(--color-muted); line-height: 1.55; }
@@ -300,8 +296,8 @@
   :root[data-theme='light'] .ui-theme__glyph--light,
   :root[data-theme='dark'] .ui-theme__glyph--dark { opacity: 1; transform: none; }
 
-  /* The panel floats over the page, which makes it the one kind of surface with a shadow. It
-   * grows from the button's corner as it opens, and shrinks back, quicker, as it closes. */
+  /* The panel floats over the page, which makes it the one kind of surface with a shadow. How
+   * it grows from the button and shrinks back is in overlays.css, with every other overlay. */
   .ui-theme__panel {
     position: fixed;
     inset: auto;
@@ -313,27 +309,9 @@
     background: var(--color-paper);
     box-shadow: var(--shadow-float);
     color: var(--color-ink);
-    opacity: 0;
-    transform: translateY(calc(-1 * var(--space-2xs))) scale(0.96);
-    transform-origin: top right;
-    transition:
-      opacity var(--dur-micro) var(--ease-in),
-      transform var(--dur-micro) var(--ease-in),
-      display var(--dur-micro) allow-discrete,
-      overlay var(--dur-micro) allow-discrete;
   }
 
-  .ui-theme__panel:popover-open {
-    display: grid;
-    opacity: 1;
-    transform: none;
-    transition-duration: var(--dur-short);
-    transition-timing-function: var(--ease-out);
-  }
-
-  @starting-style {
-    .ui-theme__panel:popover-open { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))) scale(0.96); }
-  }
+  .ui-theme__panel:popover-open { display: grid; }
 
   /* Tethered to its button where the browser can do it; the inline script places it otherwise.
    * Under the button and lined up with its end; over it, or reaching the other way, when that
@@ -379,12 +357,7 @@
   .ui-dialog__button { transition: none; }
   .ui-dialog__button:active { transform: none; }
 
-  /* The theme panel and the button's icons fade, and nothing moves. */
+  /* The button's icons fade, and nothing moves. */
   .ui-theme__trigger:active,
-  .ui-theme__glyph,
-  .ui-theme__panel { transform: none; }
-
-  @starting-style {
-    .ui-theme__panel:popover-open { transform: none; }
-  }
+  .ui-theme__glyph { transform: none; }
 }

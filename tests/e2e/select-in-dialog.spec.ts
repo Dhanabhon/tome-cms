@@ -232,25 +232,32 @@ test('a drawer slides in, and leaves nothing behind for a menu to be measured ag
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
 
   await page.goto(`${origin}/admin/themes`);
-  // Armed before the click, so this measures the drawer opening rather than how fast the
-  // question was asked afterwards.
-  await page.evaluate(() => {
-    (window as unknown as { slid: Promise<string> }).slid = new Promise((resolve) => {
-      document.addEventListener('animationstart', (event) => {
-        resolve((event as AnimationEvent).animationName);
-      }, { once: true });
+  // Armed before each click, so this measures the drawer moving rather than how fast the
+  // question was asked afterwards: which way it was going, and where from.
+  const slide = () => page.evaluate(() => {
+    (window as unknown as { slid: Promise<{ leaving: boolean; x: number }> }).slid = new Promise((resolve) => {
+      const heard = (event: TransitionEvent) => {
+        const panel = event.target as Element;
+        if (!panel.matches('dialog.admin-editor-settings') || event.propertyName !== 'transform' || event.pseudoElement) return;
+        document.removeEventListener('transitionrun', heard);
+        resolve({ leaving: panel.hasAttribute('data-closing'), x: new DOMMatrix(getComputedStyle(panel).transform).m41 });
+      };
+      document.addEventListener('transitionrun', heard);
     });
   });
+  const slid = () => page.evaluate(() => (window as unknown as { slid: Promise<{ leaving: boolean; x: number }> }).slid);
+  await slide();
   await page.getByRole('button', { name: /^Customize$/ }).first().click();
   const drawer = page.locator('dialog.admin-editor-settings');
   await drawer.waitFor({ state: 'visible' });
 
-  expect(await page.evaluate(() => (window as unknown as { slid: Promise<string> }).slid),
-    'the drawer arrives from the edge it lives on').toBe('drawer-in');
+  const arrived = await slid();
+  expect(arrived.leaving, 'the drawer arrives').toBe(false);
+  expect(arrived.x, 'from the edge it lives on').toBeGreaterThan(0);
 
-  // The reason it is a keyframe with no fill. A transform that stays is a containing block
-  // that stays, and the menus in these drawers are placed against the window so that a
-  // panel which scrolls cannot clip them -- which is how they were broken once already.
+  // A transform that stays is a containing block that stays, and the menus in these drawers
+  // are placed against the window so that a panel which scrolls cannot clip them -- which is
+  // how they were broken once already.
   const settled = await page.evaluate(async () => {
     const panel = document.querySelector('dialog.admin-editor-settings')!;
     await Promise.all(panel.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
@@ -260,16 +267,9 @@ test('a drawer slides in, and leaves nothing behind for a menu to be measured ag
 
   // Leaving is a thing a reader watches too, and a panel unmounted the instant it is asked
   // to go gives CSS nothing to play -- which is why closing waits for the exit.
-  await page.evaluate(() => {
-    (window as unknown as { left: Promise<string> }).left = new Promise((resolve) => {
-      document.addEventListener('animationstart', (event) => {
-        resolve((event as AnimationEvent).animationName);
-      }, { once: true });
-    });
-  });
+  await slide();
   await page.getByRole('button', { name: /Close|ปิด/i }).first().click();
-  expect(await page.evaluate(() => (window as unknown as { left: Promise<string> }).left),
-    'the drawer leaves the way it arrived').toBe('drawer-out');
+  expect((await slid()).leaving, 'the drawer leaves the way it arrived').toBe(true);
   await expect(drawer).toBeHidden();
 
   // The page behind a panel is a place to click to be done with it.
