@@ -68,7 +68,7 @@ TomeCMS เป็นแอป Astro ตัวเดียว หน้าเว�
 
 | ไฟล์หรือโฟลเดอร์ | คืออะไร |
 | --- | --- |
-| `compose.yaml` | PostgreSQL กับ SeaweedFS สำหรับพัฒนา และตัวแอปด้วยเมื่อใช้ profile `production` สำหรับการติดตั้งแบบวันนี้ |
+| `compose.yaml` | PostgreSQL กับ SeaweedFS สำหรับพัฒนา และตัวแอปด้วยเมื่อใช้ profile `production` ซึ่งการติดตั้งในตอนนี้ใช้อยู่ |
 | `compose.managed.yaml` | การติดตั้งแบบ managed ตั้งแต่ 1.0.0 ซึ่งรันแอปจาก image ทางการ |
 | `compose.test.yaml` | PostgreSQL กับ SeaweedFS แบบใช้แล้วทิ้ง ที่เทสต์ integration และเทสต์ในเบราว์เซอร์เปิดขึ้นมาใช้ |
 | `Dockerfile` | image ของแอป |
