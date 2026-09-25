@@ -35,7 +35,7 @@ export async function lookUpVideo(clip: VideoLink, fetcher: typeof fetch = fetch
       throw error instanceof SyntaxError ? new Unavailable('The oEmbed answer is not JSON.') : error;
     }
     const { thumbnail_url: thumbnail, title: found } = (answer ?? {}) as Record<string, unknown>;
-    title = typeof found === 'string' ? found.trim().slice(0, MAX_VIDEO_TITLE) : '';
+    title = typeof found === 'string' ? found.replace(/\p{Cc}/gu, '').trim().slice(0, MAX_VIDEO_TITLE).trim() : '';
     if (typeof thumbnail !== 'string') return { poster: null, reason: 'unavailable', title };
     const poster = await get(thumbnail, fetcher, signal);
     const type = detectImageType(poster);
@@ -53,20 +53,28 @@ async function get(address: string, fetcher: typeof fetch, signal: AbortSignal):
   } catch {
     throw new Unavailable('Not an address.');
   }
-  if (url.protocol !== 'https:' || !HOSTS.has(url.hostname)) throw new Unavailable(`Refused host ${url.hostname}.`);
+  if (url.protocol !== 'https:' || !HOSTS.has(url.hostname) || url.port !== '' || url.username !== '' || url.password !== '') {
+    throw new Unavailable(`Refused host ${url.hostname}.`);
+  }
   let response: Response;
   try {
     response = await fetcher(url, { redirect: 'error', signal });
   } catch {
     throw new Unreachable(`No answer from ${url.hostname}.`);
   }
-  if (!response.ok) throw new Unavailable(`${url.hostname} answered ${response.status}.`);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Unavailable(`${url.hostname} answered ${response.status}.`);
+  }
   return boundedBytes(response);
 }
 
 async function boundedBytes(response: Response): Promise<Buffer> {
   const length = response.headers.get('content-length');
-  if (length !== null && (!/^\d+$/.test(length) || Number(length) > MAX_BYTES)) throw new Unavailable('Too large.');
+  if (length !== null && (!/^\d+$/.test(length) || Number(length) > MAX_BYTES)) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Unavailable('Too large.');
+  }
   if (!response.body) throw new Unavailable('No body.');
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -81,7 +89,10 @@ async function boundedBytes(response: Response): Promise<Buffer> {
       }
       if (part.done) break;
       size += part.value.byteLength;
-      if (size > MAX_BYTES) throw new Unavailable('Too large.');
+      if (size > MAX_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Unavailable('Too large.');
+      }
       chunks.push(part.value);
     }
   } finally {
