@@ -787,6 +787,9 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await expect(details.getByLabel('File URL')).toHaveValue(/^\/media\/[0-9a-f-]{36}$/);
   await expect(details.getByLabel('Alt text')).toHaveCount(0);
   await details.getByRole('button', { name: 'Close details' }).click();
+  // Gone once its exit has played; until then it is still the modal dialog, and the page
+  // behind it takes no typing.
+  await expect(details).toBeHidden();
 
   // The folder is in the address too, and a folder the address names that is gone opens All
   // rather than an empty view under the folder's name.

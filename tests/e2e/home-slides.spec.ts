@@ -168,6 +168,9 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   await page.getByRole('button', { name: 'Add slide' }).click();
   await drawer.getByRole('button', { name: 'Choose picture' }).click();
   await picker.getByRole('button', { name: /^Select Lake\.jpg,/ }).click();
+  // The picker is still the modal dialog while its exit plays, and the drawer under it takes
+  // no typing until it has gone.
+  await expect(picker).toBeHidden();
   await drawer.getByLabel('Heading', { exact: true }).fill('Second');
   await drawer.getByRole('button', { name: 'Done' }).click();
 
