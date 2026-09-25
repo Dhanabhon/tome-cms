@@ -1,0 +1,27 @@
+name: Feature idea
+description: Something TomeCMS could do that it does not do yet.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        TomeCMS is in a feature freeze until 1.0.0: only fixes are merged before then. Ideas are still welcome and will be looked at after 1.0.0.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+      description: How it could work, from the point of view of the person using it.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: Workarounds, other tools, or plugins you have tried.

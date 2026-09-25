@@ -9,7 +9,7 @@ TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It
 
 > **Status:** the package is `0.11.0`, and there is no production `v1.0.0` release yet. The managed `1.0.0` updater and its disposable operation harness are implemented. The production dependency audit reports no advisory at all. The integration, browser and operations gates run green against Astro 7. Two gates stay open because they need infrastructure this repository cannot stand up for itself: verifying a public, immutable release and its attestations, and accepting a real HTTPS VPS on `amd64` and `arm64`. Release notes: [0.11.0](docs/releases/0.11.0.md), [0.10.0](docs/releases/0.10.0.md), [0.9.0](docs/releases/0.9.0.md), [0.8.0](docs/releases/0.8.0.md), [0.7.0](docs/releases/0.7.0.md), [0.6.0](docs/releases/0.6.0.md), [0.5.0](docs/releases/0.5.0.md), [0.4.0](docs/releases/0.4.0.md), [0.3.0](docs/releases/0.3.0.md), [0.2.0](docs/releases/0.2.0.md), and the [planned 1.0.0 boundary](docs/releases/1.0.0.md). The [changelog](CHANGELOG.md) sums up every version in one place.
 
-This README has two parts. [Running TomeCMS](#running-tomecms) is for installing it and looking after a site. [Developing TomeCMS](#developing-tomecms) is for working on the code.
+This README has two parts. [Running TomeCMS](#running-tomecms) is for installing it and looking after a site. [Developing TomeCMS](#developing-tomecms) is for working on the code. To send a change, read [CONTRIBUTING.md](CONTRIBUTING.md); to report a vulnerability, read [SECURITY.md](SECURITY.md), and never open an issue for it.
 
 ## Key features
 
@@ -409,7 +409,7 @@ Neither installation nor update stores a GitHub token. The credential-free path 
 | Layer | Technology |
 | --- | --- |
 | Application | Astro SSR on Node.js 22 |
-| Admin UI | React islands, Tiptap and Novel |
+| Admin UI | React islands and Tiptap 3 |
 | Database | PostgreSQL 17 through Kysely |
 | Authentication | Better Auth with Passkeys |
 | Media | S3-compatible storage; local and self-hosted Compose use SeaweedFS 4.46 |
