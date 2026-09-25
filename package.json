@@ -34,7 +34,8 @@
     "test:operations:update": "node --import tsx --test tests/operations/managed-update.test.ts",
     "astro": "astro",
     "fonts:sync": "node scripts/sync-fonts.mjs",
-    "docs:check-search": "node website/scripts/check-search.mjs"
+    "docs:check-search": "node website/scripts/check-search.mjs",
+    "docs:openapi": "node --import tsx website/scripts/openapi.ts"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.6",
