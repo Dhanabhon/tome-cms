@@ -13,6 +13,12 @@
  * that stays makes its element the containing block of every fixed descendant, and the select
  * menus inside these panels are fixed so that a scrolling panel cannot clip them.
  *
+ * A centred dialog or a menu springs into place; its overshoot has no edge to show past. A
+ * drawer eases, since a spring would carry it past the edge it is fixed to and show the page
+ * through the gap. Everything leaves on --ease-in-out over --overlay-out: it stays visible for
+ * the time it takes, rather than being gone in the first third while the page behind is still
+ * waiting for the rest.
+ *
  * Where a kind comes from and goes to is a custom property, so a reader who asked for less
  * motion is answered by setting those to none: what is left is a short fade.
  */
@@ -23,22 +29,25 @@
   --menu-in: var(--dur-short);
 }
 
-/* Modals: every dialog unless it says otherwise. They rise a little into place, and leave
+/* Modals: every dialog unless it says otherwise. They spring up a little into place, and leave
  * quicker, with a small drop. */
 dialog {
   --overlay-from: translateY(var(--space-xs)) scale(0.98);
   --overlay-to: translateY(var(--space-2xs));
+  --overlay-move: var(--ease-spring);
 }
 
 /* Drawers slide from the edge they live on, and go back to it. */
 .admin-editor-settings {
   --overlay-from: translateX(100%);
   --overlay-to: translateX(100%);
+  --overlay-move: var(--ease-out);
 }
 
 .admin-mobile-nav {
   --overlay-from: translateX(-100%);
   --overlay-to: translateX(-100%);
+  --overlay-move: var(--ease-out);
 }
 
 dialog {
@@ -46,7 +55,7 @@ dialog {
   transform: var(--overlay-to);
   transition-property: transform, opacity, display, overlay;
   transition-duration: var(--overlay-out);
-  transition-timing-function: var(--ease-out);
+  transition-timing-function: var(--ease-in-out);
   transition-behavior: allow-discrete;
 }
 
@@ -54,8 +63,8 @@ dialog[open] {
   opacity: 1;
   transform: none;
   transition-duration: var(--overlay-in);
-  /* The movement springs; the fade eases. */
-  transition-timing-function: var(--ease-spring), var(--ease-out);
+  /* The movement as its kind says; the fade eases. */
+  transition-timing-function: var(--overlay-move), var(--ease-out);
 }
 
 @starting-style {
@@ -66,13 +75,19 @@ dialog[open] {
 }
 
 /* Leaving, while still open. Without `display` and `overlay`: once the exit is over the dialog
- * is closed, and should leave the top layer then rather than after a second, invisible exit. */
+ * is closed, and should leave the top layer then rather than after a second, invisible exit.
+ * And it takes no more clicks: a second press of the button that closed it would do its work
+ * twice. The page behind is still inert, so those clicks do nothing at all. */
+:is(dialog, [popover])[data-closing] {
+  pointer-events: none;
+}
+
 dialog[data-closing] {
   opacity: 0;
   transform: var(--overlay-to);
   transition-property: transform, opacity;
   transition-duration: var(--overlay-out);
-  transition-timing-function: var(--ease-out);
+  transition-timing-function: var(--ease-in-out);
 }
 
 /* Backdrops fade from nothing to the scrim, and back. */
@@ -80,13 +95,14 @@ dialog::backdrop {
   background-color: transparent;
   transition-property: background-color, display, overlay;
   transition-duration: var(--overlay-out);
-  transition-timing-function: var(--ease-out);
+  transition-timing-function: var(--ease-in-out);
   transition-behavior: allow-discrete;
 }
 
 dialog[open]::backdrop {
   background-color: var(--color-scrim);
   transition-duration: var(--overlay-in);
+  transition-timing-function: var(--ease-out);
 }
 
 @starting-style {
@@ -97,6 +113,7 @@ dialog[data-closing]::backdrop {
   background-color: transparent;
   transition-property: background-color;
   transition-duration: var(--overlay-out);
+  transition-timing-function: var(--ease-in-out);
 }
 
 /* Menus drop in from just above. The ones React draws go as they came, at once: a menu that
@@ -133,7 +150,7 @@ dialog[data-closing]::backdrop {
     transform: var(--overlay-from);
     transition-property: transform, opacity, display, overlay;
     transition-duration: var(--overlay-out);
-    transition-timing-function: var(--ease-out);
+    transition-timing-function: var(--ease-in-out);
     transition-behavior: allow-discrete;
   }
 
@@ -151,16 +168,15 @@ dialog[data-closing]::backdrop {
     }
   }
 
-  /* The theme panel grows from the button's corner as it opens, and shrinks back, quicker, as
-   * it closes. */
+  /* The theme panel grows from the button's corner as it opens, and shrinks back as it closes. */
   .ui-theme__panel {
     --overlay-from: translateY(calc(-1 * var(--space-2xs))) scale(0.96);
     opacity: 0;
     transform: var(--overlay-from);
     transform-origin: top right;
     transition-property: opacity, transform, display, overlay;
-    transition-duration: var(--dur-micro);
-    transition-timing-function: var(--ease-in);
+    transition-duration: var(--overlay-out);
+    transition-timing-function: var(--ease-in-out);
     transition-behavior: allow-discrete;
   }
 
