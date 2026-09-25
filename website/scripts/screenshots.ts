@@ -215,6 +215,36 @@ async function seed(): Promise<string> {
     });
   const day = (offset: number) => new Date(Date.now() + offset * 86_400_000);
   const first = await post('en', 'Notes from a quiet workshop', 'What a small studio learned about writing in two languages.', pictures[0], 'published', day(-6));
+
+  // A fuller body for the post the editor screenshot opens, so the screen shows a real
+  // article instead of one short paragraph over a lot of empty space.
+  const paragraph = (text: string) => ({ content: [{ text, type: 'text' }], type: 'paragraph' });
+  const heading = (level: number, text: string) => ({ attrs: { level }, content: [{ text, type: 'text' }], type: 'heading' });
+  const bulletList = (items: string[]) => ({ content: items.map((text) => ({ content: [paragraph(text)], type: 'listItem' })), type: 'bulletList' });
+  const image = (mediaId: string, alt: string) => ({ attrs: { alt, mediaId, src: `/media/${mediaId}` }, type: 'image' });
+  const paragraphs = [
+    'What a small studio learned about writing in two languages.',
+    'Most weeks start in English and move to Thai by Thursday. Nothing is translated word for word; each edition is written on its own, from the same short notes.',
+    'The workshop is small on purpose. Six posts in, and the desk still fits in one corner of the room.',
+  ];
+  const items = [
+    'Write the shorter language first. English drafts fast, and Thai follows once the shape is settled.',
+    'Read every paragraph aloud before it is marked published.',
+    'Keep one photograph a post, and let it say what the words do not need to.',
+  ];
+  await db.updateTable('posts').set({
+    content_html: [
+      `<p>${paragraphs[0]}</p>`, '<h2>Two languages, one desk</h2>', `<p>${paragraphs[1]}</p>`,
+      `<ul>${items.map((text) => `<li><p>${text}</p></li>`).join('')}</ul>`,
+      `<img src="/media/${pictures[1]}" alt="Paper and ink" class="rounded-lg">`, `<p>${paragraphs[2]}</p>`,
+    ].join(''),
+    content_json: {
+      content: [paragraph(paragraphs[0]), heading(2, 'Two languages, one desk'), paragraph(paragraphs[1]),
+        bulletList(items), image(pictures[1], 'Paper and ink'), paragraph(paragraphs[2])],
+      type: 'doc',
+    },
+  } as never).where('id', '=', first).execute();
+
   await post('en', 'Keeping a site small', 'Fewer pages, read more often.', pictures[1], 'published', day(-3));
   await post('en', 'Draft: the next chapter', 'Still being written.', pictures[2], 'draft', null);
   await post('th', 'บันทึกจากโต๊ะทำงาน', 'สิ่งที่ได้เรียนรู้จากการเขียนสองภาษา', pictures[0], 'published', day(-5));
@@ -238,12 +268,15 @@ async function seed(): Promise<string> {
     } as never).execute();
   }
 
-  // Thirty days of counts, so the Stats screen has a shape.
-  for (let back = 0; back < 30; back += 1) {
-    const views = 12 + ((back * 7) % 19);
+  // Sixty days of counts: the last thirty give the Stats screen its shape, and the thirty
+  // before that give it something real to compare against, a little lower, so the change
+  // reads as tens of percent instead of a comparison against an empty prior period.
+  for (let back = 0; back < 60; back += 1) {
+    const views = 12 + (((back % 30) * 7) % 19);
+    const scaled = back < 30 ? views : Math.max(1, Math.round(views * 0.7));
     await sql`insert into content_stats_daily (owner_id, day, kind, content_id, locale, referrer, device, country, views, reads)
       values (${OWNER}, current_date - ${back}::int, 'post', ${first}, 'en', ${back % 3 ? '' : 'news.example'},
-        ${back % 2 ? 'mobile' : 'desktop'}, ${back % 4 ? 'TH' : 'US'}, ${views}, ${Math.floor(views / 3)})`.execute(db);
+        ${back % 2 ? 'mobile' : 'desktop'}, ${back % 4 ? 'TH' : 'US'}, ${scaled}, ${Math.floor(scaled / 3)})`.execute(db);
   }
   return first;
 }
