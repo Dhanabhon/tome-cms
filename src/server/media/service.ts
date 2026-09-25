@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import {
   DeleteObjectCommand,
@@ -38,7 +38,7 @@ import type { Database, MediaFolderTable, MediaItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { contentDisposition } from './disposition';
 import { documentRefusal, isTextDocument, readDocument, type DocumentRefusal } from './document';
-import { inspectImage } from './image';
+import { detectImageType, inspectImage } from './image';
 import { createObjectKey } from './keys';
 import { s3, s3Bucket } from './storage';
 import { stableMediaPath } from './url';
@@ -325,6 +325,45 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
       await expireInvalidReservation(ownerId, reservationId, error.objectKey);
       throw new HttpError(error.status, error.message, error.code ? { code: error.code } : undefined);
     }
+    throw error;
+  }
+}
+
+/**
+ * Keeps a picture the server fetched itself, a video's poster, as a ready picture in the library:
+ * checked the way a finished upload is, and named for what it shows.
+ */
+export async function importImage(ownerId: string, body: Buffer, name: string): Promise<ReadyMedia> {
+  const type = detectImageType(body);
+  if (!type || body.length < 1 || body.length > MAX_IMAGE_BYTES) throw new HttpError(415, 'The picture is not a supported image.');
+  let dimensions: { height: number; width: number };
+  try {
+    dimensions = await inspectImage(body, type);
+  } catch {
+    throw new HttpError(415, 'The picture is not a supported image.');
+  }
+  const objectKey = createObjectKey(ownerId, type);
+  await s3.send(new PutObjectCommand({ Body: body, Bucket: s3Bucket, ContentType: type, Key: objectKey }));
+  try {
+    const item = await db.insertInto('media_items').values({
+      id: randomUUID(),
+      owner_id: ownerId,
+      folder_id: null,
+      object_key: objectKey,
+      original_name: name.trim().slice(0, 255) || 'Video poster',
+      mime_type: type,
+      size_bytes: body.length,
+      checksum_sha256: createHash('sha256').update(body).digest('base64'),
+      width: dimensions.width,
+      height: dimensions.height,
+      alt_text: null,
+      state: 'ready',
+      delete_error_code: null,
+    }).returningAll().executeTakeFirstOrThrow();
+    return readyMedia(item);
+  } catch (error) {
+    // Best effort: an object nothing points at is harmless, as brand.ts says of its own.
+    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: objectKey })).catch(() => undefined);
     throw error;
   }
 }
