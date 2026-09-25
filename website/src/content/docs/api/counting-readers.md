@@ -63,7 +63,7 @@ When a hit is dropped, the server's log gets a `stats_hit_dropped` line with a `
 
 ## When to send a view, and when a read
 
-Send a `view` when the reader arrives at a page, and not when they reload it or come Back to it. Send a `read` at most once per page load, and only for a post or page: when the reader has reached the end of the article and the tab has been visible for 15 seconds in all. For the home page, send `kind: 'home'` with no `id`, and only a `view`.
+Send a `view` when the reader arrives at a page, and not when they reload it or come Back or Forward to it. Send a `read` at most once per page load, and only for a post or page: when the reader has reached the end of the article and the tab has been visible for 15 seconds in all. For the home page, send `kind: 'home'` with no `id`, and only a `view`.
 
 This is how the bundled theme does it, cut down to the parts you need. `page` is `{ kind, id, locale }` for the page on screen. It writes nothing to the reader's browser: `openedAgain()` asks the browser how the page was opened.
 
