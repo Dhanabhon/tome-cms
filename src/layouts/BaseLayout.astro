@@ -3,6 +3,7 @@ import Icon from '../components/Icon.astro';
 import NoticeScript from '../components/NoticeScript.astro';
 import PluginClients from '../components/PluginClients.astro';
 import StatsBeacon from '../components/StatsBeacon.astro';
+import VideoScript from '../components/VideoScript.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
@@ -48,6 +49,8 @@ interface Props {
    */
   themeId?: string | null;
   xDefaultHref?: string;
+  /** Whether this page's content holds a video: only then does it load the script that plays one. */
+  video?: boolean;
 }
 
 const settings = await getSiteSettings();
@@ -280,4 +283,5 @@ const structuredData = robots.includes('noindex')
   {plugins.clients.length + (plugins.notice ? 1 : 0) > 0 && <PluginClients />}
   {/* A theme preview is the admin's own picture of a theme, not a reader. */}
   {stats && !Astro.props.themeId && <StatsBeacon locale={locale} stats={stats} />}
+  {Astro.props.video && <VideoScript locale={locale} />}
 </html>

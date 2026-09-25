@@ -5,8 +5,10 @@ import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../../themes/regis
 import { readThemeSettings } from '../../../server/themes/store';
 import { themeStylesheet } from '../../../themes/styles';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import VideoScript from '../../../components/VideoScript.astro';
 import { adminCopy } from '../../../lib/admin-i18n';
 import { adminHref } from '../../../lib/admin';
+import { documentHasVideo } from '../../../lib/editor-video';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import { requireInstalledOwner } from '../../../server/auth/session';
 import { getPost } from '../../../server/content/posts';
@@ -81,6 +83,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
         </div>
         <activeTheme.Post categories={[]} locale={post.locale} post={post} preview profile={profile}
           settings={settings} themeSettings={themeSettings} />
+        {documentHasVideo(post.content_json) && <VideoScript locale={post.locale} />}
       </>
     ) : null}
   </main>

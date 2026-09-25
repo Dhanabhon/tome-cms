@@ -18,7 +18,7 @@ export default function wireLightbox(mount: HTMLElement): void {
   // part of it, which is where both themes keep the author's face. Nobody wants that at
   // full size.
   const images = [...document.querySelectorAll<HTMLImageElement>('article img')]
-    .filter((image) => !image.closest('aside, footer'));
+    .filter((image) => !image.closest('aside, footer, .tome-video'));
   if (!images.length) {
     mount.remove();
     return;

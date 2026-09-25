@@ -4,8 +4,10 @@ import { z } from 'zod';
 import { resolveTheme } from '../../../../themes/registry';
 import { themeStylesheet } from '../../../../themes/styles';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import VideoScript from '../../../../components/VideoScript.astro';
 import { adminCopy } from '../../../../lib/admin-i18n';
 import { adminHref } from '../../../../lib/admin';
+import { documentHasVideo } from '../../../../lib/editor-video';
 import { requireInstalledOwner } from '../../../../server/auth/session';
 import { getPage } from '../../../../server/content/pages';
 import { getSiteSettings } from '../../../../server/content/settings';
@@ -65,6 +67,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
           <a class="admin-button admin-button--secondary" href={adminHref({ admin_path: adminPath }, `/pages/edit/${page.id}`)}>{copy.preview.editPage}</a>
         </div>
         <activeTheme.Page locale={page.locale} page={page} preview />
+        {documentHasVideo(page.content_json) && <VideoScript locale={page.locale} />}
       </>
     ) : null}
   </main>
