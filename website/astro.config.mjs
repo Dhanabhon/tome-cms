@@ -39,6 +39,8 @@ export default defineConfig({
       ],
       // Each section's task adds its group here, so the site builds at every step.
       sidebar: [
+        // Starlight 0.39 dropped `autogenerate` on the group itself; it now sits in `items`.
+        { label: 'Start here', translations: { th: 'เริ่มต้นที่นี่' }, items: [{ autogenerate: { directory: 'start' } }] },
         {
           label: 'Headless API',
           translations: { th: 'Headless API' },
