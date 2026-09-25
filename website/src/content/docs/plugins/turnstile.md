@@ -11,7 +11,7 @@ Cloudflare Turnstile puts a Cloudflare challenge on the admin's sign-in form. Th
 
 "Plugins", under "Appearance" in "Configuration", has a card for each plugin that comes with TomeCMS. Every plugin is off until you switch it on.
 
-![The Plugins screen with five cards: "Cloudflare Turnstile", "Sticky Banner", "Popup", "Image lightbox" and "Jev (TypeSafe AI)". Each card has the plugin's name and what it does, then a band saying where it acts, such as "Admin sign-in" or "Every public page", then a switch and a "Set up" button. Turnstile, Popup and Jev say "Not set up yet", and Sticky Banner and Image lightbox say "Off". Below are the cards "Where plugins come from" and "A plugin cannot lock you out".](../../../assets/screenshots/en/plugins.png)
+![The Plugins screen with five cards: "Cloudflare Turnstile", "Sticky Banner", "Popup", "Image lightbox" and "Jev (TypeSafe AI)". Each card has the plugin's name and what it does, then a band saying where it acts, such as "Admin sign-in" or "Every public page", then a switch and a "Set up" button. Turnstile, Popup and Jev say "Not set up yet", and Sticky Banner and Image lightbox say "Off". Beside the Jev card is "Where plugins come from", and below is "A plugin cannot lock you out".](../../../assets/screenshots/en/plugins.png)
 
 The band on each card says where the plugin acts: "Admin sign-in", "Every public page" or "Suggestions while writing". The switch at the foot of the card applies as soon as you press it, and the word beside it says where it stands: "On", "Off", or "Not set up yet" while a setting the plugin needs is still empty. A plugin that is not set up cannot be switched on.
 

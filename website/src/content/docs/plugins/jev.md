@@ -25,7 +25,7 @@ With the plugin on, a post's settings drawer has three more buttons, and a page'
 - "Suggest a line from the text" offers a sentence from the article for the excerpt, short enough for a card, with "Use this line".
 - "Suggest a description from the text" offers a passage for the meta description, short enough for a search result, with "Use as the description".
 
-While it works, the drawer says "Reading the article…". When nothing fits, it says so, as in "Nothing here matches a category you have." or "No line in the article works on its own under the title." When the service does not answer, the drawer says "The suggestion service did not answer. Try again in a moment." Your server waits up to eight seconds, and asks again twice in that time when the service says it is busy.
+While it works, the drawer says "Reading the article…". When nothing fits, it says so, as in "Nothing here matches a category you have." or "No line in the article works on its own under the title." When the service does not answer, the drawer says "The suggestion service did not answer. Try again in a moment." Your server waits up to eight seconds, and asks again up to twice in that time when the service says it is busy.
 
 The words it offers are always yours. TomeCMS picks passages from your article first and asks the service to choose one of them, or none, and keeps an answer only when it is one of those passages. Likewise, the service only says how likely each category is, and TomeCMS decides which to offer.
 

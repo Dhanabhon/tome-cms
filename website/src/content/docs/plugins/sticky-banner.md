@@ -27,7 +27,7 @@ There is one link, and its address and words are the same on pages in both langu
 
 The band sits at the very top of the home page, every post and every page, and scrolls away with the page. The theme previews on the "Themes" screen show it too.
 
-With "Readers can close it" on, the band has a close button marked with a cross, named "Close announcement" for screen readers. A reader who presses it sees the band slide away, or go at once if they asked their device for less motion. It stays closed for them on every page in that language. When you change the message, the band comes back for everyone, because what a reader closed was that message.
+With "Readers can close it" on, the band has a close button marked with a cross, named "Close announcement" for screen readers. A reader who presses it sees the band slide away, or go at once if they asked their device for less motion. It stays closed for them on every page that shows that message. When you change the message, the band comes back for everyone, because what a reader closed was that message.
 
 ## What it keeps and sends
 

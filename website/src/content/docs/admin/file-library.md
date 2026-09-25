@@ -48,7 +48,7 @@ Press "Save" to keep a change to the folder or the alt text, and the admin says 
 
 "Delete" asks "Delete file?" first, and a deleted file cannot be brought back.
 
-The library refuses to delete a file that is still in use. It says how many places use it, and lists them, with a link to each:
+The library refuses to delete a file that is still in use. It says how many places use it, and lists them, with a link to each except your avatar:
 
 - a post that has it as its cover, or has it in its text, drafts included
 - a page that has it in its text
