@@ -46,3 +46,9 @@ docs/brand/
 # OS and logs
 .DS_Store
 *.log
+
+# The documentation site's installs, builds and generated API document.
+/website/node_modules/
+/website/dist/
+/website/.astro/
+/website/src/generated/

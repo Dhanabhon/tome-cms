@@ -1,0 +1,12 @@
+/* The app's own tokens, so the documentation looks like the product it documents. The token
+ * file flips its values under the same data-theme attribute Starlight sets on <html>, so one
+ * rule serves both themes. It is imported rather than copied, so the two cannot drift. */
+@import '../../../src/styles/installer-tokens.css';
+
+:root,
+:root[data-theme='light'] {
+  --sl-font: var(--font-body);
+  --sl-color-accent: var(--color-accent);
+  --sl-color-accent-high: var(--color-link);
+  --sl-color-accent-low: color-mix(in oklch, var(--color-accent) 22%, var(--color-paper));
+}
