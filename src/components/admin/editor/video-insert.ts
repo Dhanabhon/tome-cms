@@ -45,6 +45,9 @@ export async function insertVideo(editor: Editor, at: number | Range, link: stri
   const { attrs, reason } = await resolve(clip, link);
   if (editor.isDestroyed) return;
   editor.commands.command(({ tr }) => {
+    // The fill-in is not something a writer typed: one Undo after it should not pop this instead
+    // of their own last edit.
+    tr.setMeta('addToHistory', false);
     let filled = false;
     tr.doc.descendants((current, position) => {
       if (filled) return false;
@@ -75,12 +78,17 @@ export async function askForVideo(editor: Editor, position: number, copy: AdminC
   if (link) await insertVideo(editor, position, link, copy);
 }
 
-/** A YouTube or Vimeo link pasted alone on an empty line becomes a video; anywhere else it stays a link. */
+/**
+ * A YouTube or Vimeo link pasted alone on an empty line becomes a video; anywhere else it stays
+ * a link. "Alone on an empty line" means the top level of the document only -- depth 1, the
+ * paragraph's own parent is the doc -- not an empty paragraph inside a table cell, list item or
+ * blockquote, the same place the + and / menus keep video out of.
+ */
 export function handleVideoPaste(view: EditorView, event: ClipboardEvent, editor: Editor | null, copy: AdminCopy): boolean {
   const text = event.clipboardData?.getData('text/plain')?.trim() ?? '';
   if (!editor || !parseVideoLink(text)) return false;
   const { $from, empty } = view.state.selection;
-  if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0) return false;
+  if (!empty || $from.depth !== 1 || $from.parent.type.name !== 'paragraph' || $from.parent.content.size !== 0) return false;
   event.preventDefault();
   void insertVideo(editor, { from: $from.before(), to: $from.after() }, text, copy);
   return true;

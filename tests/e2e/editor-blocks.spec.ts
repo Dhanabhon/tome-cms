@@ -1017,6 +1017,33 @@ test('a pasted YouTube link on an empty line becomes a video, and a menu adds on
   ]);
 });
 
+test('a pasted YouTube link inside an empty table cell stays a link', async ({ context, page }) => {
+  test.setTimeout(60_000);
+  await signIn(context, page);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  await page.route('**/api/admin/videos', async (route: Route) => {
+    await route.fulfill({ json: { mediaId: null, provider: 'youtube', reason: null, start: null, title: '', videoId: 'dQw4w9WgXcQ' } });
+  });
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('Table paste');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'Table', exact: true }).click();
+  await expect(canvas).toBeFocused();
+  // Tab out of the three header cells and into the first empty body cell below.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+
+  await page.evaluate(() => navigator.clipboard.writeText('https://youtu.be/dQw4w9WgXcQ'));
+  await page.keyboard.press('ControlOrMeta+v');
+
+  await expect(canvas.locator('td a[href^="https://youtu.be/"]')).toHaveCount(1);
+  await expect(canvas.locator('figure.tome-video')).toHaveCount(0);
+});
+
 /** Signs the owner in through a recovery enrollment, as a new device would. */
 async function signIn(context: BrowserContext, page: Page) {
   const cdp = await context.newCDPSession(page);
