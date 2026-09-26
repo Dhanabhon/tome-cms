@@ -32,6 +32,22 @@ export class ReleaseNotModifiedError extends Error {
   }
 }
 
+/** GitHub answers 404 for releases/latest until a first release exists: there is nothing to check yet. */
+export class NoOfficialReleaseError extends Error {
+  constructor() {
+    super('No official release has been published');
+    this.name = 'NoOfficialReleaseError';
+  }
+}
+
+/** No answer worth reading: no network, the deadline, or GitHub answering with an error. */
+export class ReleaseUnreachableError extends Error {
+  constructor(detail: string) {
+    super(`Official release request failed (${detail})`);
+    this.name = 'ReleaseUnreachableError';
+  }
+}
+
 export async function fetchLatestRelease(
   options: FetchLatestReleaseOptions = {},
 ): Promise<LatestRelease> {
@@ -74,12 +90,18 @@ async function fetchBytes(fetcher: typeof fetch, url: string, etag?: string, all
     'X-GitHub-Api-Version': GITHUB_API_VERSION,
   };
   if (etag) headers['If-None-Match'] = etag;
-  const response = await fetcher(url, {
-    headers,
-    signal: AbortSignal.timeout(5_000),
-  });
+  let response: Response;
+  try {
+    response = await fetcher(url, {
+      headers,
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch (error) {
+    throw new ReleaseUnreachableError(error instanceof Error ? error.name : 'network');
+  }
   if (allowNotModified && response.status === 304) throw new ReleaseNotModifiedError();
-  if (!response.ok) throw new Error(`Official release request failed (${response.status})`);
+  if (url === LATEST_RELEASE_URL && response.status === 404) throw new NoOfficialReleaseError();
+  if (!response.ok) throw new ReleaseUnreachableError(String(response.status));
   return { bytes: await boundedBytes(response), etag: response.headers.get('etag') };
 }
 

@@ -120,6 +120,37 @@ test('caches a successful check, sends its ETag on refresh, and retains it on fa
   assert.equal(cache.value?.availability, 'manual-transition');
 });
 
+test('a check that finds nothing says why: no release yet, GitHub out of reach, or an answer it could not use', async () => {
+  const check = (fetcher: typeof fetch) => refreshUpdateStatus({
+    cache: { value: null, etag: null, expiresAt: 0 },
+    fetcher,
+    now: () => new Date('2026-09-20T10:00:00.000Z'),
+  });
+
+  const none = await check(async () => Response.json({ message: 'Not Found' }, { status: 404 }));
+  assert.equal(none.availability, 'unavailable');
+  assert.equal(none.reason, 'no-release', 'a 404 from releases/latest is a repository with no release yet');
+
+  const offline = await check(async () => { throw new TypeError('fetch failed'); });
+  assert.equal(offline.reason, 'unreachable', 'no network');
+  const late = await check(async () => { throw new DOMException('The operation timed out.', 'TimeoutError'); });
+  assert.equal(late.reason, 'unreachable', 'the deadline passed');
+  const refused = await check(async () => new Response(null, { status: 503 }));
+  assert.equal(refused.reason, 'unreachable', 'GitHub answering with an error is GitHub not answering');
+
+  const forged = await check(releaseFetch({
+    ...validRelease,
+    assets: [{ ...validRelease.assets[0], digest: `sha256:${'f'.repeat(64)}` }],
+  }));
+  assert.equal(forged.reason, 'unusable', 'a digest that does not match');
+  const mismatched = await check(releaseFetch(validRelease, { ...validManifest, version: '1.0.2' }));
+  assert.equal(mismatched.reason, 'unusable', 'a manifest that is not the tag’s');
+
+  const found = await check(releaseFetch(validRelease));
+  assert.equal(found.reason, undefined, 'an answer needs no reason');
+  assert.equal(none.message, 'Update check unavailable.', 'the API’s own text is unchanged for any other caller');
+});
+
 test('does not cache an invalid manifest', async () => {
   const cache: UpdateCache = { value: null, etag: null, expiresAt: 0 };
   const result = await getUpdateStatus({
