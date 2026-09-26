@@ -17,6 +17,7 @@ import {
   duplicateTitle,
   isUniqueViolation,
   normalizedContentSlug,
+  plannedAtWrite,
 } from './mutations';
 
 const categoryIdsSchema = z.array(z.uuid()).max(20).superRefine((ids, context) => {
@@ -70,6 +71,7 @@ export function postFromRow(row: Selectable<PostTable>): Post {
     meta_description: row.meta_description,
     status: row.status,
     published_at: row.published_at?.toISOString() ?? null,
+    planned_at: row.planned_at?.toISOString() ?? null,
     author_id: row.owner_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -148,6 +150,7 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         // A first save can already carry a date: an owner who schedules before the autosave
         // has run is scheduling the post that save creates.
         published_at: input.publishedAt ? new Date(input.publishedAt) : null,
+        ...plannedAtWrite(input),
         owner_id: ownerId,
       }).returningAll().executeTakeFirstOrThrow();
       await replacePostGroupCategories(trx, ownerId, translationGroupId, input.categoryIds);
@@ -246,6 +249,7 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         status: input.status,
         // Absent leaves it to the trigger: stamped on a first publish, carried forward after.
         ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
+        ...plannedAtWrite(input),
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
       await replacePostGroupCategories(trx, ownerId, current.translation_group_id, input.categoryIds);
       return updated;
@@ -273,6 +277,7 @@ export async function updatePostStatus(
       // Absent leaves it to the trigger, which stamps the moment for a first publish and
       // carries the existing date forward otherwise.
       ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
+      ...plannedAtWrite(input),
       ...(content ? { content_json: content.contentJson, content_html: content.contentHtml } : {}),
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();

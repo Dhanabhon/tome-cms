@@ -201,6 +201,8 @@ export interface ContentEditionColumns {
   meta_description: string | null;
   status: 'draft' | 'published';
   published_at: Timestamp | null;
+  /** A draft's planned date (026). Null on every published row, which a constraint holds. */
+  planned_at: Timestamp | null;
   owner_id: string;
   created_at: Timestamp;
   updated_at: Timestamp;

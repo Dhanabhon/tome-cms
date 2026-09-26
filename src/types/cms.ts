@@ -82,6 +82,8 @@ export interface Post {
   meta_description: string | null;
   status: PostStatus;
   published_at: string | null;
+  /** The date a draft is planned to go out on. Null once published, or when none was chosen. */
+  planned_at: string | null;
   author_id: string | null;
   created_at: string;
   updated_at: string;
@@ -124,6 +126,8 @@ export interface Page {
   meta_description: string | null;
   status: PageStatus;
   published_at: string | null;
+  /** The date a draft is planned to go out on. Null once published, or when none was chosen. */
+  planned_at: string | null;
   author_id: string;
   created_at: string;
   updated_at: string;

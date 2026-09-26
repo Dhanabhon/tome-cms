@@ -66,9 +66,10 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
   const actionPending = useRef<boolean | 'navigation'>(false);
   const postStatusRef = useRef<PostStatus>(initialPost?.status ?? 'draft');
   // The owner's answer to "when", carried in a ref for the same reason the status is:
-  // an autosave fires from a callback that must not be rebuilt every keystroke.
-  const publishedAtRef = useRef<string | null>(initialPost?.published_at ?? null);
-  const [publishedAt, setPublishedAt] = useState<string | null>(initialPost?.published_at ?? null);
+  // an autosave fires from a callback that must not be rebuilt every keystroke. A draft's
+  // answer is kept as planned_at, since a draft has no published_at.
+  const publishedAtRef = useRef<string | null>(initialPost?.published_at ?? initialPost?.planned_at ?? null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(initialPost?.published_at ?? initialPost?.planned_at ?? null);
   const autosaveTimer = useRef<number>();
 
   const [title, setTitle] = useState(initialPost?.title ?? '');
@@ -117,7 +118,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
         ...(!id && sourcePost ? { locale, sourcePostId: sourcePost.id } : {}),
         ...draft,
         status: status ?? postStatusRef.current,
-        ...(publishedAtRef.current ? { publishedAt: publishedAtRef.current } : {}),
+        // Always sent, empty included: an emptied field is how a draft's date is dropped.
+        publishedAt: publishedAtRef.current,
       }),
     });
     const payload: unknown = await response.json();
@@ -130,9 +132,9 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     updatedAt.current = savedPost.updated_at;
     // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
-    // Only when there is one. A draft has no date at all -- the database drops it -- and a
-    // date the owner picked before publishing must survive the autosave that files the
-    // draft, or pressing Publish sends nothing and the article goes out now.
+    // Only when there is one. A draft comes back with its date as planned_at, which is the
+    // value the ref already holds; taking the draft's empty published_at instead would make
+    // pressing Publish send nothing, and the article would go out now.
     if (savedPost.published_at) publishedAtRef.current = savedPost.published_at;
     setErrorMessage(null);
     if (draftRef.current.slug === draft.slug) {

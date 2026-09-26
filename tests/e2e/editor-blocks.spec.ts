@@ -521,7 +521,17 @@ test('a post can be published for later, and is nobody else\'s until then', asyn
   await page.getByRole('button', { name: /^Settings$/ }).first().click();
   const when = page.locator('dialog.admin-editor-settings input[type="datetime-local"]');
   await when.waitFor({ state: 'visible' });
+  // The draft is filed with the date on it, and keeps it: a reload is the owner's next visit.
+  const filed = page.waitForResponse((response) => response.url().endsWith('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok()
+    && Boolean(response.request().postDataJSON()?.publishedAt));
   await when.fill(friday);
+  await page.getByRole('button', { name: /Close settings/i }).click();
+  await filed;
+  await page.reload();
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  await when.waitFor({ state: 'visible' });
+  await expect(when, 'a draft keeps the date it was given').toHaveValue(friday);
   await page.getByRole('button', { name: /Close settings/i }).click();
 
   const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')

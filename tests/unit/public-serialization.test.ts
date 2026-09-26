@@ -47,6 +47,7 @@ const post = {
   meta_title: 'Hello SEO',
   owner_id: 'private-owner',
   published_at: '2026-09-08T03:00:00.000Z',
+  planned_at: null,
   slug: 'hello-world',
   status: 'published' as const,
   title: 'Hello world',
