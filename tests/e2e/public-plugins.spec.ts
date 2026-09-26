@@ -157,7 +157,7 @@ test('a public page carries only the plugins that asked to be on it', async ({ p
     return {
       asked,
       lightbox: asked.some((url) => url.includes('lightbox')),
-      notice: asked.some((url) => url.includes('notice')),
+      notice: asked.some((url) => url.includes('/plugins/notice/')),
     };
   };
 
@@ -180,7 +180,8 @@ test('a public page carries only the plugins that asked to be on it', async ({ p
   await expect(band).toHaveText(/Expect the occasional glitch/);
   await expect(band.locator('a'), 'a javascript: link is dropped, the message is not')
     .toHaveCount(0);
-  expect(refused.notice, 'a band a reader can close brings its code').toBe(true);
+  expect(refused.notice, 'the core closes the band, so the plugin ships no code for it').toBe(false);
+  await expect(band.locator('[data-notice-close]'), 'and it can still be closed').toHaveCount(1);
   expect(refused.lightbox, 'the other plugin is still off').toBe(false);
 
   await visit('/th');
@@ -249,7 +250,7 @@ test('the banner is the owner\'s colours, and stays or goes as they said', async
   const kept = await scripts('/en');
   await expect(band).toHaveText(/Maintenance on Sunday/);
   await expect(band.locator('[data-notice-close]'), 'nothing to close it with').toHaveCount(0);
-  expect(kept.some((url) => url.includes('notice')), 'and no script for a band that stays').toBe(false);
+  expect(kept.some((url) => url.includes('/plugins/notice/')), 'and no plugin code for a band that stays').toBe(false);
   expect(await band.evaluate((element) => {
     const style = getComputedStyle(element);
     return [style.backgroundColor, style.color];
@@ -264,10 +265,10 @@ test('the banner is the owner\'s colours, and stays or goes as they said', async
   await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
   expect(await band.getAttribute('style'), 'a colour that is not only a colour is not written').toBe(null);
 
-  // Closable: the default, and the one that ships a script.
+  // Closable, the default. Closing is the core's, so no plugin code comes with it.
   setPlugin('notice', true, { textEn: 'We are adding features.', background: '#000000', text: '#ffffff' });
   const closable = await scripts('/en');
-  expect(closable.some((url) => url.includes('notice')), 'a band that can be closed brings its script').toBe(true);
+  expect(closable.some((url) => url.includes('/plugins/notice/')), 'closing is the core’s: the plugin ships no code').toBe(false);
   await page.evaluate(() => {
     (window as unknown as { left: Promise<string> }).left = new Promise((resolve) => {
       document.addEventListener('animationstart', (event) => resolve((event as AnimationEvent).animationName), { once: true });

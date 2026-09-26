@@ -36,10 +36,5 @@ export function siteNotice(settings: PluginSettings, page: PublicPage): SiteNoti
   };
 }
 
-/** Only where there is something to close: a band that stays needs no script at all. */
-export function publicClient(settings: PluginSettings, page: PublicPage) {
-  return siteNotice(settings, page)?.dismissKey ? {} : null;
-}
-
-const plugin: Plugin = { publicClient, signInWidget, siteNotice, verifySignIn };
+const plugin: Plugin = { signInWidget, siteNotice, verifySignIn };
 export default plugin;
