@@ -9,7 +9,7 @@ GitHub's private vulnerability reporting: open the repository's **Security** tab
 A useful report says:
 
 - which version or commit you tested
-- how TomeCMS was installed (the managed VPS install, a local development setup, or something
+- how TomeCMS was installed (the deploy helper on a VPS, a local development setup, or something
   else), and whether it runs in bundled or headless mode
 - what an attacker can do, and what they need first (an account, a network position, a
   crafted file)
@@ -27,7 +27,7 @@ be, you will be credited in the release notes.
 | Version | Fixes |
 |---|---|
 | The latest `0.x` release and `main` | Yes, until 1.0.0 is released |
-| Earlier `0.x` releases | No. The `0.x` line is clean-install only, so upgrade by installing the latest |
+| Earlier `0.x` releases | No. Upgrade to the latest by running the deploy helper again from a newer checkout |
 
 After 1.0.0, the latest `1.x` release is supported, and the managed updater carries the fix.
 
