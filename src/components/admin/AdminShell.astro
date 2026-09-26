@@ -6,6 +6,7 @@ import { adminCopy, fill } from '../../lib/admin-i18n';
 import { STATS_OWNER_KEY } from '../../lib/stats';
 import { countAdminStories, type AdminStoryCounts } from '../../server/content/admin-counts';
 import { getSiteSettings } from '../../server/content/settings';
+import { getBuildInfo } from '../../server/update/current';
 import type { PostLocale } from '../../types/cms';
 
 interface Props {
@@ -23,6 +24,12 @@ const adminPath = normalizeAdminPath(requestedAdminPath);
 const adminSettings = { admin_path: adminPath };
 const ownerInitial = userEmail?.trim().charAt(0).toUpperCase() ?? '';
 const copy = adminCopy(locale);
+// The footer's two lines: thanks, with TomeCMS as a way into its documentation, and who makes it
+// with the version this server runs. Each placeholder is split out so a link can stand in it.
+const [thanksBefore, thanksAfter] = copy.shell.thanks.split('{product}');
+const [poweredBefore, poweredAfter] = copy.shell.poweredBy.split('{company}');
+const docsHref = locale === 'th' ? 'https://dhanabhon.github.io/tome-cms/th/' : 'https://dhanabhon.github.io/tome-cms/';
+const { version } = getBuildInfo();
 
 // Counted only for a signed-in owner -- the Security screen renders this shell around its sign-in
 // form too. A count that fails leaves the badges out; it never takes the shell down with it.
@@ -252,6 +259,10 @@ const search = postSearchState(Astro.url, adminHref(adminSettings));
       )}
       <slot />
     </main>
+    <footer class="admin-footer" aria-label={copy.shell.footerLabel}>
+      <p>{thanksBefore}<a href={docsHref} target="_blank" rel="noopener noreferrer">TomeCMS</a>{thanksAfter}</p>
+      <p>{poweredBefore}TOMERA Co., Ltd.{poweredAfter} · {version}</p>
+    </footer>
   </div>
 </div>
 
