@@ -65,6 +65,11 @@ export default defineConfig({
         light: './src/assets/brand/tomecms-logo-color.png',
         replacesTitle: true,
       },
+      // The site's own menus in place of the system's dropdowns for language and theme.
+      components: {
+        LanguageSelect: './src/components/LanguageSelect.astro',
+        ThemeSelect: './src/components/ThemeSelect.astro',
+      },
       social: [{ href: 'https://github.com/Dhanabhon/tome-cms', icon: 'github', label: 'GitHub' }],
       editLink: { baseUrl: 'https://github.com/Dhanabhon/tome-cms/edit/main/website/' },
       customCss: [
