@@ -5,6 +5,8 @@ import { adminCopy, fill } from '../../lib/admin-i18n';
 import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
+import { LINK_SITES, linkNameChoice, type LinkNameChoice } from '../../lib/author-link-names';
+import UiSelect from './UiSelect';
 
 interface ProfileFormProps {
   ownerLocale?: PostLocale | null;
@@ -36,6 +38,21 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
   const [authorBioEn, setAuthorBioEn] = useState(initialSettings.author_bio_en);
   const [authorBioTh, setAuthorBioTh] = useState(initialSettings.author_bio_th);
   const [authorLinks, setAuthorLinks] = useState<AuthorLink[]>(initialSettings.author_links);
+  // What each link's list shows. Kept beside the links rather than read from their names, so
+  // choosing "Other" for a link named GitHub leaves an empty name to write, not GitHub again.
+  const [linkChoices, setLinkChoices] = useState<LinkNameChoice[]>(
+    () => initialSettings.author_links.map((link) => linkNameChoice(link.label, copy.profile.linkWebsite)),
+  );
+  const linkNameOptions = [
+    ...LINK_SITES.map((site) => ({ label: site, value: site })),
+    { label: copy.profile.linkWebsite, value: 'website' },
+    { label: copy.profile.linkOther, value: 'other' },
+  ];
+  const chooseLinkName = (index: number, choice: LinkNameChoice) => {
+    const label = choice === 'website' ? copy.profile.linkWebsite : choice === 'other' ? '' : choice;
+    setLinkChoices(linkChoices.map((current, i) => i === index ? choice : current));
+    setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, label } : item));
+  };
   const [updatedAt, setUpdatedAt] = useState(initialSettings.updated_at);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -174,21 +191,36 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
                 <p className="admin-field-error" id="authorLinks-error" aria-live="polite">{fieldErrors.authorLinks}</p>
                 {!authorLinks.length && <p className="admin-empty-inline">{copy.profile.linksEmpty}</p>}
                 {authorLinks.map((link, index) => (
-                  <div className="profile-link" key={index}>
+                  <div className={`profile-link${linkChoices[index] === 'other' ? ' profile-link--named' : ''}`} key={index}>
                     <div className="admin-field">
-                      <label htmlFor={`authorLinks.${index}.label`}>{fill(copy.profile.linkLabel, { index: index + 1 })}</label>
-                      <input className="admin-control" id={`authorLinks.${index}.label`} name={`authorLinks.${index}.label`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.label`])} aria-describedby={`authorLinks.${index}.label-error`} maxLength={80} required value={link.label} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} />
-                      <p className="admin-field-error" id={`authorLinks.${index}.label-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.label`]}</p>
+                      <label htmlFor={`authorLinks.${index}.choice`}>{fill(copy.profile.linkLabel, { index: index + 1 })}</label>
+                      <UiSelect
+                        ariaDescribedBy={`authorLinks.${index}.label-error`}
+                        className="admin-control"
+                        id={`authorLinks.${index}.choice`}
+                        invalid={Boolean(fieldErrors[`authorLinks.${index}.label`])}
+                        onValueChange={(value) => chooseLinkName(index, value as LinkNameChoice)}
+                        options={linkNameOptions}
+                        value={linkChoices[index]}
+                      />
+                      {linkChoices[index] !== 'other' && <p className="admin-field-error" id={`authorLinks.${index}.label-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.label`]}</p>}
                     </div>
+                    {linkChoices[index] === 'other' && (
+                      <div className="admin-field">
+                        <label htmlFor={`authorLinks.${index}.label`}>{fill(copy.profile.linkName, { index: index + 1 })}</label>
+                        <input className="admin-control" id={`authorLinks.${index}.label`} name={`authorLinks.${index}.label`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.label`])} aria-describedby={`authorLinks.${index}.label-error`} maxLength={80} required value={link.label} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} />
+                        <p className="admin-field-error" id={`authorLinks.${index}.label-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.label`]}</p>
+                      </div>
+                    )}
                     <div className="admin-field">
                       <label htmlFor={`authorLinks.${index}.url`}>{fill(copy.profile.linkUrl, { index: index + 1 })}</label>
                       <input className="admin-control" id={`authorLinks.${index}.url`} name={`authorLinks.${index}.url`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.url`])} aria-describedby={`authorLinks.${index}.url-error`} type="url" pattern="https?://.*" required value={link.url} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, url: event.target.value } : item))} />
                       <p className="admin-field-error" id={`authorLinks.${index}.url-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.url`]}</p>
                     </div>
-                    <button className="admin-button admin-button--danger" type="button" aria-label={fill(copy.profile.removeLink, { index: index + 1 })} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setFieldErrors({}); setStatus(''); }}>{copy.profile.remove}</button>
+                    <button className="admin-button admin-button--danger" type="button" aria-label={fill(copy.profile.removeLink, { index: index + 1 })} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setLinkChoices(linkChoices.filter((_, i) => i !== index)); setFieldErrors({}); setStatus(''); }}>{copy.profile.remove}</button>
                   </div>
                 ))}
-                <button className="admin-button" type="button" disabled={authorLinks.length >= 5} onClick={() => { setAuthorLinks([...authorLinks, { label: '', url: '' }]); setStatus(''); }}>{copy.profile.addLink}</button>
+                <button className="admin-button" type="button" disabled={authorLinks.length >= 5} onClick={() => { setAuthorLinks([...authorLinks, { label: copy.profile.linkWebsite, url: '' }]); setLinkChoices([...linkChoices, 'website']); setStatus(''); }}>{copy.profile.addLink}</button>
               </div>
             </section>
 

@@ -6,6 +6,7 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ### Changed
 
+- A profile link's name is chosen from a list: GitHub, X, LinkedIn, Facebook, Instagram, YouTube, "Website", or "Other…" with a name of your own. A link saved under any other name opens as "Other…" with that name, and what is stored is unchanged.
 - Work happens on `develop`, and a merge into `main` that carries a new version releases itself. Once CI passes on the merge, `tag-release.yml` tags the commit and starts `release.yml` on the tag, so the attestations still come from `refs/tags/vX.Y.Z` as the installer and the updater require. CI and the documentation build also run on pushes to `develop`.
 
 ## 0.12.1 - 2026-09-26
