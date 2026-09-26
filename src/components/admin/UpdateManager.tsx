@@ -6,6 +6,7 @@ import type { PostLocale } from '../../types/cms';
 import { authClient } from '../../lib/auth-client';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
+import type { UpdateUnavailableReason } from '../../server/update/service';
 import type { PublicUpdateJob } from '../../updater/state';
 import { atLeast, MIN_BUSY_MS } from '../../lib/busy';
 
@@ -15,6 +16,7 @@ type UpdateCheck = {
   availability: 'current' | 'available' | 'manual-transition' | 'unavailable';
   latest: { publishedAt: string; manifest: { version: string; releaseNotesUrl: string } } | null;
   message: string;
+  reason?: UpdateUnavailableReason;
   updateMode: 'check-only' | 'managed';
   installability: { mode: 'check-only' | 'managed'; installable: boolean; reason: string };
   updater: UpdaterStatus;
@@ -41,6 +43,25 @@ const availabilityLabels = (copy: AdminCopy) => ({
   'manual-transition': copy.updates.manualTransition,
   unavailable: copy.updates.checkUnavailable,
 });
+
+/** What the check found, in the owner's language. The server names the case; the words are the admin's. */
+export function updateCheckMessage(copy: AdminCopy, check: Pick<UpdateCheck, 'availability' | 'latest' | 'reason'>): string {
+  if (check.availability === 'current') return copy.updates.upToDate;
+  if (check.availability === 'available') return fill(copy.updates.versionAvailable, { version: check.latest?.manifest.version ?? '' });
+  if (check.availability === 'manual-transition') return copy.updates.manualTransitionRequired;
+  if (check.reason === 'no-release') return copy.updates.noRelease;
+  if (check.reason === 'unreachable') return copy.updates.releaseUnreachable;
+  if (check.reason === 'unusable') return copy.updates.releaseUnusable;
+  return copy.updates.updateCheckUnavailable;
+}
+
+/**
+ * Why nothing installs here. Check-only is this installation's own setting, so it is said in
+ * the owner's words; a managed installation's reasons are the updater's own.
+ */
+export function installabilityReason(copy: AdminCopy, check: Pick<UpdateCheck, 'installability' | 'updateMode'> | null): string {
+  return check?.updateMode === 'managed' ? check.installability.reason : copy.updates.checkOnly;
+}
 
 export function formatPublishedAt(value: string, copy: AdminCopy, locale?: PostLocale | null): string {
   const date = new Date(value);
@@ -200,8 +221,12 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   }
 
   const availability = busy ? 'checking' : error ? 'unavailable' : check?.availability ?? 'unavailable';
-  const message = busy ? copy.updates.checkingForUpdates : error || check?.message || copy.updates.updateCheckUnavailable;
-  const availabilityLabel = busy ? copy.updates.checkingForUpdates : availabilityLabels(copy)[availability === 'checking' ? 'unavailable' : availability];
+  const message = busy ? copy.updates.checkingForUpdates
+    : error || (check ? updateCheckMessage(copy, check) : copy.updates.updateCheckUnavailable);
+  // No release yet is not a failed check, and the label says so.
+  const availabilityLabel = busy ? copy.updates.checkingForUpdates
+    : !error && check?.reason === 'no-release' ? copy.updates.noReleaseLabel
+    : availabilityLabels(copy)[availability === 'checking' ? 'unavailable' : availability];
   const progress = installing ? copy.updates.verifying : message;
   const installability = check?.installability ?? {
     mode: 'check-only' as const,
@@ -243,7 +268,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
       <section className="admin-card" aria-labelledby="update-mode-heading">
         <header className="admin-card__head">
           <h2 id="update-mode-heading">{installability.mode === 'managed' ? copy.updates.managed : copy.updates.managedUnavailable}</h2>
-          <p>{installability.reason}</p>
+          <p>{installabilityReason(copy, check)}</p>
         </header>
         <dl className="admin-facts">
           <div><dt>{copy.updates.updateMode}</dt><dd>{check?.updateMode ?? installability.mode}</dd></div>

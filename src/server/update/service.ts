@@ -1,17 +1,29 @@
 import { compareStableVersions, parseStableVersion } from '../../update/contracts.js';
 import { getBuildInfo } from './current.js';
-import { fetchLatestRelease, ReleaseNotModifiedError, type LatestRelease } from './releases.js';
+import {
+  fetchLatestRelease,
+  NoOfficialReleaseError,
+  ReleaseNotModifiedError,
+  ReleaseUnreachableError,
+  type LatestRelease,
+} from './releases.js';
 
 const CACHE_SECONDS = 6 * 60 * 60;
 
 export type UpdateAvailability = 'current' | 'available' | 'manual-transition' | 'unavailable';
+
+/** Why a check has no answer. A code, so the admin says it in the owner's language. */
+export type UpdateUnavailableReason = 'no-release' | 'unreachable' | 'unusable';
 
 export interface UpdateCheck {
   checkedAt: string;
   currentVersion: string;
   availability: UpdateAvailability;
   latest: LatestRelease | null;
+  /** English, for API callers. The admin words the check from `availability` and `reason`. */
   message: string;
+  /** Only on an unavailable check that had nothing cached to fall back on. */
+  reason?: UpdateUnavailableReason;
 }
 
 export interface UpdateCache {
@@ -60,8 +72,16 @@ export async function refreshUpdateStatus(options: UpdateServiceOptions = {}): P
       availability: 'unavailable',
       latest: null,
       message: 'Update check unavailable.',
+      reason: unavailableReason(error),
     };
   }
+}
+
+function unavailableReason(error: unknown): UpdateUnavailableReason {
+  if (error instanceof NoOfficialReleaseError) return 'no-release';
+  if (error instanceof ReleaseUnreachableError) return 'unreachable';
+  // GitHub answered, and the answer failed a check: the release, its digest or its manifest.
+  return 'unusable';
 }
 
 function successfulCheck(currentVersion: string, latest: LatestRelease, checkedAt: string): UpdateCheck {
