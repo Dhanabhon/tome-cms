@@ -17,11 +17,11 @@ Once it is published, the button says "Update". A published post or page has no 
 
 ## Publishing later
 
-Open "Settings" in the editor, set "Publish at" to a date and time, and press "Publish". Until that time the article stays off the site. Its address answers `404`, and it is not on the home page, in the feed or the sitemap, in its category, in a menu, or in the content API. The list shows it under "Published", marked "Scheduled". When the time comes it appears on its own, with nothing to press.
+Open "Settings" in the editor, set "Publish at" to a date and time, and press "Publish". Until that time the article stays off the site. Its address answers `404`, and it is not on the home page, in the feed or the sitemap, in its category, in a menu, or in the content API. The list shows it under "Published", marked "Scheduled", and so does its language chip in the editor. When the time comes it appears on its own, with nothing to press.
 
 "Publish at" is read in your device's time zone. The list shows dates in the site's time zone, which it names in brackets beside each date.
 
-Set the date and press "Publish" in the same sitting. A draft keeps no date, so a date left in a draft is gone the next time you open it. Left blank, "Publish at" means now. A date that has already passed publishes the article at once, dated then.
+A draft keeps the date you set, so you can choose it now and press "Publish" another day. Left blank, "Publish at" means now. A date that has already passed publishes the article at once, dated then.
 
 On an article that is already published, a new "Publish at" takes effect with the next autosave, and a later date takes it off the site until then.
 

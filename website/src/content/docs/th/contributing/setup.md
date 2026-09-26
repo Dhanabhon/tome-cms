@@ -76,7 +76,7 @@ Windows เป็นทางรองสำหรับพัฒนา ใช�
 npm run dev:windows
 ```
 
-สคริปต์ช่วยตรวจเครื่องมือชุดเดียวกัน แล้วรัน `scripts/bootstrap-core.mjs` ตัวเดียวกับบน macOS แต่ทางนี้ยังไม่เคยผ่านการตรวจบน Windows และจากโค้ดมีสองจุดที่น่าจะหยุดกลางทาง จุดแรก สคริปต์เรียก `npm` เพื่อปรับฐานข้อมูลตาม migration โดยไม่ผ่าน shell ซึ่ง Windows ต้องใช้จึงจะหา `npm.cmd` เจอ การรันจึงอาจจบด้วย `npm run failed; inspect the service privately.` หลังจาก container ขึ้นแล้ว จุดที่สอง Node บน Windows รายงานว่าไฟล์ที่เขียนได้ทุกไฟล์คนอื่นอ่านได้ด้วย การรันครั้งต่อ ๆ ไปจึงอาจหยุดที่ `Set .env.local permissions to 0600 before continuing.` ซึ่งใช้ `chmod` ไม่ได้ ให้เติม `-- --force` ทุกครั้งแทน ถ้าสคริปต์ช่วยหยุดที่ขั้น migration ให้รัน `npm run db:migrate` แล้วตามด้วย `npm run dev` เอง โทเค็นอยู่ใน `.env.local`
+สคริปต์ช่วยตรวจเครื่องมือชุดเดียวกัน แล้วรัน `scripts/bootstrap-core.mjs` ตัวเดียวกับบน macOS บน Windows สคริปต์จะเรียก npm ผ่าน `npm.cmd` และข้ามการตรวจว่า `.env.local` อ่านได้เฉพาะคุณ เพราะ Node บน Windows รายงานว่าไฟล์ที่เขียนได้ทุกไฟล์คนอื่นอ่านได้ด้วย ทางนี้ยังไม่เคยลองบนเครื่อง Windows จริง ถ้าสคริปต์ช่วยหยุดที่ขั้น migration ให้รัน `npm run db:migrate` แล้วตามด้วย `npm run dev` เอง โทเค็นอยู่ใน `.env.local`
 
 ## แยกฐานข้อมูลกับที่เก็บไฟล์ออกจาก Astro
 

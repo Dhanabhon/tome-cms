@@ -76,7 +76,7 @@ Windows is a secondary workflow. Use Windows 11 with Docker Desktop, Node.js 22.
 npm run dev:windows
 ```
 
-The helper checks the same tools and then runs the same `scripts/bootstrap-core.mjs` as on macOS. That path has not been validated on Windows, and the code has two places where it is likely to stop. It starts `npm` for the migrations without a shell, which Windows needs to find `npm.cmd`, so a run can end with `npm run failed; inspect the service privately.` after the containers are up. And because Node reports every writable file on Windows as readable by others, a later run can stop with `Set .env.local permissions to 0600 before continuing.`, where `chmod` does not exist: add `-- --force` to each run instead. If the helper stops at the migrations, run `npm run db:migrate` and then `npm run dev` yourself. The token is in `.env.local`.
+The helper checks the same tools and then runs the same `scripts/bootstrap-core.mjs` as on macOS. On Windows it starts npm through `npm.cmd`, and it skips the check that only you can read `.env.local`, because Node reports every writable file on Windows as readable by others. This path has not yet been tried on a Windows machine. If the helper stops at the migrations, run `npm run db:migrate` and then `npm run dev` yourself. The token is in `.env.local`.
 
 ## Infrastructure and Astro in separate terminals
 
