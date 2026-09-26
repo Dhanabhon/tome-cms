@@ -100,7 +100,8 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   const [dirty, setDirty] = useState<Record<PageLocale, boolean>>({ en: false, th: false });
   const [media, setMedia] = useState<Record<string, HomeSlideMedia>>({});
   const [pages, setPages] = useState<SlidePage[]>([]);
-  const [locale, setLocale] = useState<PageLocale>('th');
+  // The site's own language first; English when it is not known, as the admin's words are.
+  const [locale, setLocale] = useState<PageLocale>(ownerLocale ?? 'en');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);

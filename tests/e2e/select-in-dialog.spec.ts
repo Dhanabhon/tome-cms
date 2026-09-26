@@ -299,6 +299,24 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
 
   await page.goto(`${origin}/admin/navigation`);
   const dialog = page.locator('dialog.navigation-dialog');
+  const label = dialog.getByRole('textbox', { name: 'Label' });
+
+  // The menu opens on the site's own language, and a new item is named in the menu's.
+  await expect(page.getByRole('tab', { name: 'English' }), 'the site is English, so its menu comes first')
+    .toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: /Add item/i }).first().click();
+  await expect(label).toHaveValue('Home');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  // The rest of this test reads the Thai home page, so it builds the Thai menu.
+  await page.getByRole('tab', { name: 'ไทย' }).click();
+  await page.getByRole('button', { name: /Add item/i }).first().click();
+  await expect(label, 'a Thai menu names its home in Thai').toHaveValue('หน้าแรก');
+  await dialog.getByRole('radio', { name: 'Page' }).check();
+  await dialog.getByRole('radio', { name: 'Home' }).check();
+  await expect(label, 'and again after Home is chosen back').toHaveValue('หน้าแรก');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await dialog.waitFor({ state: 'hidden' });
   const add = async (url: string, label: string, newTab: boolean, both = false) => {
     await page.getByRole('button', { name: /Add item/i }).first().click();
     await dialog.waitFor({ state: 'visible' });
@@ -324,6 +342,8 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
 
   // What was chosen comes back from the server, and each link can still change its mind.
   await page.reload();
+  // The reload opens back on the site's own language; this menu was built in Thai.
+  await page.getByRole('tab', { name: 'ไทย' }).click();
   const rows = page.locator('.navigation-item');
   await expect(rows.filter({ hasText: 'https://example.com/elsewhere' }).getByRole('checkbox', { name: 'Open in a new tab' })).toBeChecked();
   await expect(rows.filter({ hasText: '/contact' }).getByRole('checkbox', { name: 'Open in a new tab' })).not.toBeChecked();

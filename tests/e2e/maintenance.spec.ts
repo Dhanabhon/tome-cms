@@ -245,7 +245,10 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await expect(section.locator('a[aria-current="page"]')).toHaveText('Maintenance');
   await expect(section.getByRole('link', { name: 'General', exact: true })).toBeVisible();
 
+  await expect(page.getByRole('tab', { name: 'English' }), 'the words open on the site’s own language')
+    .toHaveAttribute('aria-selected', 'true');
   await page.getByRole('radio', { name: /^Countdown/ }).check();
+  await page.getByRole('tab', { name: 'ไทย' }).click();
   await page.getByLabel('Heading', { exact: true }).fill('ปิดปรับปรุงระบบ');
   await page.getByLabel('Message', { exact: true }).fill('ขอบคุณที่รอ');
   await page.getByRole('tab', { name: 'English' }).click();

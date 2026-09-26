@@ -146,6 +146,8 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   await page.goto(`${origin}/admin/slides`);
   await expect(page.getByRole('heading', { name: 'Home slides', level: 1 })).toBeVisible();
   await expect(page.getByText('once the theme’s hero is set to Your slides'), 'the hero shows slides, so nothing warns').toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'English' }), 'the slides open on the site’s own language')
+    .toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: 'ไทย' }).click();
 
   // The first: a picture uploaded from the drawer, a heading, and a button that leaves the site.
@@ -208,6 +210,7 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
 
   // Reordered by keyboard alone, and the home page follows once it is saved.
   await page.goto(`${origin}/admin/slides`);
+  await page.getByRole('tab', { name: 'ไทย' }).click();
   await page.getByRole('group', { name: 'Actions for slide 1' }).getByRole('button', { name: 'Move down' }).focus();
   await page.keyboard.press('Enter');
   await expect(status).toHaveText('Moved slide 1 to position 2.');

@@ -49,7 +49,8 @@ export default function MaintenanceForm({ ownerLocale, previewHref }: Maintenanc
   const [saved, setSaved] = useState<Draft | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [media, setMedia] = useState<HomeSlideMedia | null>(null);
-  const [locale, setLocale] = useState<PageLocale>('th');
+  // The site's own language first; English when it is not known, as the admin's words are.
+  const [locale, setLocale] = useState<PageLocale>(ownerLocale ?? 'en');
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState<'save' | 'state' | null>(null);
   const [status, setStatus] = useState('');
