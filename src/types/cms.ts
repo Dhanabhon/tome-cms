@@ -13,6 +13,8 @@ export interface PostTranslationSummary {
   id: string;
   locale: PostLocale;
   status: PostStatus;
+  /** For the chip: a published edition whose date is still to come is Scheduled. */
+  published_at: string | null;
   title: string;
 }
 
@@ -137,6 +139,8 @@ export interface PageTranslationSummary {
   id: string;
   locale: PageLocale;
   status: PageStatus;
+  /** For the chip: a published edition whose date is still to come is Scheduled. */
+  published_at: string | null;
   title: string;
 }
 

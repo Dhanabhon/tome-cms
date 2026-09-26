@@ -4,6 +4,14 @@ import test from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
 
+test('the language chips say Scheduled for a date still to come, as the lists do', () => {
+  for (const [name, status] of [['Editor', 'postStatus'], ['PageEditor', 'pageStatus']] as const) {
+    const source = readFileSync(new URL(`../../src/components/admin/${name}.tsx`, import.meta.url), 'utf8');
+    assert.match(source, new RegExp(`statusLabel\\(copy, ${status}, publishedAt\\)`), `${name}: the chip of the edition open`);
+    assert.match(source, /statusLabel\(copy, translation\.status, translation\.published_at\)/, `${name}: the other language's chip`);
+  }
+});
+
 import {
   editorContentInputSchema,
   editorText,

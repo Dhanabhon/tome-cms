@@ -150,7 +150,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     if (savedPost.published_at) setPublishedAt(savedPost.published_at);
     setLanguageEditions((current) => [
       ...current.filter((edition) => edition.locale !== savedPost.locale),
-      { id: savedPost.id, locale: savedPost.locale, status: savedPost.status, title: savedPost.title },
+      { id: savedPost.id, locale: savedPost.locale, published_at: savedPost.published_at, status: savedPost.status, title: savedPost.title },
     ].sort((left, right) => left.locale.localeCompare(right.locale)));
 
     if (wasNew) window.history.replaceState({}, '', adminHref({ admin_path: adminPath }, `/edit/${savedPost.id}`));
@@ -360,9 +360,9 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
                 const translation = languageEditions.find(({ locale: translationLocale }) => translationLocale === language);
                 const current = language === locale;
                 const label = current
-                  ? `${language.toUpperCase()} ${statusLabel(copy, postStatus)}`
+                  ? `${language.toUpperCase()} ${statusLabel(copy, postStatus, publishedAt)}`
                   : translation
-                    ? `${language.toUpperCase()} ${statusLabel(copy, translation.status)}`
+                    ? `${language.toUpperCase()} ${statusLabel(copy, translation.status, translation.published_at)}`
                     : `${language.toUpperCase()} ${copy.row.missing}`;
                 return current
                   ? <span className="admin-nav__link" aria-current="page" key={language}>{label}</span>

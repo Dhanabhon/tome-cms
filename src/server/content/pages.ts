@@ -86,9 +86,10 @@ export async function getPage(ownerId: string, id: string): Promise<Page | null>
 }
 
 export async function listPageTranslations(ownerId: string, translationGroupId: string): Promise<PageTranslationSummary[]> {
-  return db.selectFrom('pages').select(['id', 'locale', 'status', 'title'])
+  const rows = await db.selectFrom('pages').select(['id', 'locale', 'published_at', 'status', 'title'])
     .where('owner_id', '=', ownerId).where('translation_group_id', '=', translationGroupId)
     .orderBy('locale').execute();
+  return rows.map((row) => ({ ...row, published_at: row.published_at?.toISOString() ?? null }));
 }
 
 export async function createPage(ownerId: string, input: CreatePageInput): Promise<Page> {

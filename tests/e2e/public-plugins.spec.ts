@@ -498,7 +498,8 @@ test('a popup where it was asked for, and none where it is off', async ({ page }
   page.on('request', (request) => { if (request.resourceType() === 'script') asked.push(request.url()); });
   const popupCode = () => asked.some((url) => url.includes('popup'));
 
-  setPlugin('popup', true, { ...POPUP, pages: 'home' });
+  // No decline words of its own, so the core's are drawn: in the popup's language.
+  setPlugin('popup', true, { ...POPUP, declineEn: '', pages: 'home' });
   await page.goto(`${origin}/en/blog/an-article`);
   await expect(page.locator('dialog.site-popup'), 'home only is not an article').toHaveCount(0);
   await page.goto(`${origin}/en`);
@@ -509,6 +510,9 @@ test('a popup where it was asked for, and none where it is off', async ({ page }
   await wired(page);
   await expect(page.locator('dialog.site-popup'), 'English words on a Thai page are read as English')
     .toHaveAttribute('lang', 'en');
+  await expect(page.locator('.site-popup__decline'), 'and its buttons are English with them, not the page’s Thai')
+    .toHaveText('No thanks');
+  await expect(page.locator('.site-popup__close button')).toHaveAttribute('aria-label', 'Close this window');
 
   setPlugin('popup', false, POPUP);
   asked.splice(0);

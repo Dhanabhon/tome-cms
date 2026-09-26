@@ -101,6 +101,8 @@ const additions = settings
 const plugins = Astro.props.themeId && additions.popup
   ? { ...additions, clients: additions.clients.filter(({ id }) => id !== additions.popup?.pluginId), popup: null }
   : additions;
+// The popup's buttons are read with its words, and its words may be the other language's.
+const popupText = plugins.popup ? publicCopy(plugins.popup.locale) : publicText;
 // The head is the product's promise to a search engine and stays here. Everything a
 // reader sees below it belongs to the theme, arrangement included.
 const activeTheme = await resolveTheme(themeId);
@@ -244,7 +246,7 @@ const structuredData = robots.includes('noindex')
           lang={plugins.popup.locale}
         >
           <form class="site-popup__close" method="dialog">
-            <button aria-label={publicText.closePopup} type="submit" value="close"><Icon name="close" /></button>
+            <button aria-label={popupText.closePopup} type="submit" value="close"><Icon name="close" /></button>
           </form>
           {plugins.popup.image && (
             <img
@@ -262,7 +264,7 @@ const structuredData = robots.includes('noindex')
             {plugins.popup.text && <p class="site-popup__text">{plugins.popup.text}</p>}
             <a class="site-popup__action" href={plugins.popup.action.href}>{plugins.popup.action.label}</a>
             <form method="dialog">
-              <button class="site-popup__decline" type="submit" value="decline">{plugins.popup.decline ?? publicText.popupDecline}</button>
+              <button class="site-popup__decline" type="submit" value="decline">{plugins.popup.decline ?? popupText.popupDecline}</button>
             </form>
             {plugins.popup.finePrint && <p class="site-popup__fine">{plugins.popup.finePrint}</p>}
           </div>

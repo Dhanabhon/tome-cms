@@ -538,6 +538,8 @@ test('a post can be published for later, and is nobody else\'s until then', asyn
     && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
   await page.getByRole('button', { name: /^Publish$/ }).click();
   await written;
+  await expect(page.getByRole('navigation', { name: 'Post languages' }).locator('[aria-current="page"]'),
+    'the editor says Scheduled, as the list does').toHaveText('EN Scheduled');
 
   // Only the button that was pressed says it is working. It used to follow the whole
   // editor's saving, so every autosave put a spinner on Update while the owner typed -- which
