@@ -36,6 +36,28 @@ const url = `https://cms.example.com/api/v1/content/posts/${encodeURIComponent(s
 const { data: post } = await (await fetch(url)).json();
 ```
 
+## วิดีโอในบทความหรือเพจ
+
+เอกสาร OpenAPI ไม่ได้อธิบาย node ต่าง ๆ ใน `contentJson` จึงอธิบาย node ของวิดีโอไว้ที่นี่ วิดีโอคือ node ชนิด `video` ที่มี attribute ห้าตัว
+
+| Attribute | เก็บอะไร |
+| --- | --- |
+| `provider` | `youtube` หรือ `vimeo` |
+| `videoId` | รหัสของคลิป ถ้าเป็น YouTube คือตัวอักษร ตัวเลข `-` หรือ `_` 11 ตัว ถ้าเป็น Vimeo คือตัวเลข |
+| `start` | วินาทีที่ให้คลิปเริ่มเล่น หรือ `null` |
+| `title` | ชื่อคลิปที่ได้จาก YouTube หรือ Vimeo ยาวไม่เกิน 200 ตัวอักษร หรือเป็นสตริงว่าง |
+| `mediaId` | id ของภาพปกในคลังไฟล์ของเว็บ หรือ `null` ถ้าไม่มีภาพปก |
+
+node นี้ไม่เก็บที่อยู่ URL ไว้ ถ้าต้องใช้ ให้สร้างจาก `provider` กับ `videoId`
+
+ใน `contentHtml` วิดีโอคือ `figure.tome-video` ลิงก์ข้างใน คือ `a.tome-video__play` เปิดคลิปบน YouTube หรือ Vimeo ในลิงก์มีภาพปก และมี `span.tome-video__title` ไว้ให้โปรแกรมอ่านหน้าจออ่าน เว็บแบบ bundled ซ่อนส่วนนี้ไม่ให้เห็นบนจอ เว็บของคุณก็ควรซ่อนด้วยสไตล์ของตัวเองเช่นกัน ส่วน `figcaption` บอกชื่อคลิปและผู้ให้บริการ
+
+```html
+<figure class="tome-video"><a class="tome-video__play" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=30" rel="noopener noreferrer"><img alt="" src="/media/66666666-6666-4666-8666-666666666666" decoding="async" loading="lazy" /><span class="tome-video__title">A clip</span></a><figcaption>A clip · YouTube</figcaption></figure>
+```
+
+ภาพปกอยู่ใน `media` ของบทความหรือเพจนั้น พร้อมที่อยู่และขนาด เหมือนภาพในเนื้อหา ถ้าแสดง `contentHtml` ตามที่ได้มา วิดีโอจะเป็นภาพที่ลิงก์ไปที่คลิป ถ้าอยากให้เล่นในหน้าเลย ให้เขียนตัวจัดการการคลิกเอง หรือสร้างตัวเล่นจาก `contentJson` เว็บแบบ bundled โหลดตัวเล่นเฉพาะตอนที่ผู้อ่านกดเล่น จาก `https://www.youtube-nocookie.com/embed/<videoId>?autoplay=1` หรือ `https://player.vimeo.com/video/<videoId>?dnt=1&autoplay=1` หน้า[สิ่งที่เบราว์เซอร์ของผู้อ่านเก็บไว้](/tome-cms/th/running/privacy/) อธิบายเหตุผลไว้
+
 ## พารามิเตอร์ locale
 
 `locale` มีค่าเป็น `th` หรือ `en` ทุก route ที่เนื้อหาแยกตามภาษาต้องส่งค่านี้ ได้แก่ posts, pages, categories, navigation และ slides ถ้าไม่ส่งจะได้ `400`

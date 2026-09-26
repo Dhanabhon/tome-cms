@@ -2,15 +2,31 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is tagged for production. A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
-## Unreleased
+## 0.12.0 - 2026-09-26
+
+The one exception to the freeze before 1.0.0, and where the freeze starts again: only fixes from here until then.
 
 ### Added
 
+- **A video in an article or page.** Paste a YouTube or Vimeo link alone on an empty line, or choose Video in the `+` or `/` menu. TomeCMS fetches the clip's title and poster once and keeps the poster in the file library. A reader sees the poster, and the player loads from YouTube's no-cookie host or Vimeo's do-not-track mode only when they press play, so the public site still needs no consent banner. Without JavaScript the poster is a link to the clip.
 - **Documentation** at [dhanabhon.github.io/tome-cms](https://dhanabhon.github.io/tome-cms/), in English and Thai: installing and running a site, every screen of the admin with its picture, each plugin, the headless API with a reference generated from the app's OpenAPI document, extending TomeCMS, and contributing. The README is now an introduction that links there.
 
 ### Changed
 
 - Stats no longer writes anything to a reader's browser, so counting needs no consent banner. A reload or a step Back is told apart by the browser's own record of how the page was opened, not by a mark in `sessionStorage`. Following a link back to a page already open in the tab now counts as a second view, and reading an article again after reloading it counts as a second read.
+- A site that has counted nobody yet shows the Stats report at zero, under a notice headed "Nobody counted yet" that says why and how to see a first number: open the site on your phone or in another browser. The read ratio shows a dash until there is a view, and the lists say "Nothing was viewed in this period." instead of rows of zeros. It used to show one empty box in place of the report.
+- Drawers, dialogs, menus and popovers, in the admin and on the site, arrive and leave with the same motion: drawers slide to and from their edge, dialogs rise, menus drop in. Each plays its exit before it closes, and anyone who asked for less motion gets a short fade with nothing moving.
+
+### Upgrading
+
+- No migration. To fetch a clip's title and poster, the server must reach `www.youtube.com`, `vimeo.com`, `i.ytimg.com` and `i.vimeocdn.com` over https; without that a video still goes in, with no poster.
+- A Content Security Policy set at your proxy must allow `frame-src https://www.youtube-nocookie.com https://player.vimeo.com`.
+
+### For theme, plugin and headless authors
+
+- A document can hold a `video` node: `{ provider: 'youtube' | 'vimeo', videoId, start, title, mediaId }`. `contentHtml` renders it as `figure.tome-video` with a link to the clip, and the poster is in the item's `media`. Every theme gets the `.tome-video` styles from `global.css`.
+
+Full notes: [docs/releases/0.12.0.md](docs/releases/0.12.0.md)
 
 ## 0.11.0 - 2026-09-24
 

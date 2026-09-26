@@ -36,6 +36,28 @@ const url = `https://cms.example.com/api/v1/content/posts/${encodeURIComponent(s
 const { data: post } = await (await fetch(url)).json();
 ```
 
+## A video in a post or page
+
+The OpenAPI document does not describe the nodes inside `contentJson`, so here is the one for a video. It is a `video` node with five attributes:
+
+| Attribute | What it holds |
+| --- | --- |
+| `provider` | `youtube` or `vimeo` |
+| `videoId` | The clip's id: 11 letters, digits, `-` or `_` on YouTube, digits on Vimeo |
+| `start` | The second of the clip to start at, or `null` |
+| `title` | The clip's title from YouTube or Vimeo, up to 200 characters, or an empty string |
+| `mediaId` | The id of the poster in the site's library, or `null` when there is none |
+
+The node holds no address. Build any you need from `provider` and `videoId`.
+
+In `contentHtml` a video is a `figure.tome-video`. Its link, `a.tome-video__play`, opens the clip on YouTube or Vimeo. The link holds the poster and a `span.tome-video__title` meant for screen readers, which the bundled site hides from sight, so hide it in your own styles too. The `figcaption` names the clip and its provider:
+
+```html
+<figure class="tome-video"><a class="tome-video__play" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=30" rel="noopener noreferrer"><img alt="" src="/media/66666666-6666-4666-8666-666666666666" decoding="async" loading="lazy" /><span class="tome-video__title">A clip</span></a><figcaption>A clip · YouTube</figcaption></figure>
+```
+
+The poster is in the item's `media`, with its address and size, as a picture in the text is. Shown as it is, a video is a picture that links to the clip. To play it in the page, add your own click handler, or build a player from `contentJson`. The bundled site loads its player only when the reader presses play, from `https://www.youtube-nocookie.com/embed/<videoId>?autoplay=1` or `https://player.vimeo.com/video/<videoId>?dnt=1&autoplay=1`. [What a reader's browser keeps](/tome-cms/running/privacy/) explains why.
+
 ## The locale parameter
 
 `locale` is `th` or `en`. Every route whose content is in one language needs it: posts, pages, categories, navigation and slides. Without it the answer is `400`.
