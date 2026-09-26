@@ -320,6 +320,19 @@ test('a video carrying anything beyond its own attributes is refused', () => {
   assert.throws(() => prepareEditorContent({ contentJson: clip({ onclick: 'x' }) }), ValidationError);
 });
 
+test('an article that opens with a video fetches its poster first', () => {
+  const { contentHtml } = prepareEditorContent({ contentJson: clip({}) });
+  assert.equal(
+    withLeadImage(`${contentHtml}<p>Words</p>`),
+    `<figure class="tome-video"><a class="tome-video__play" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=30" rel="noopener noreferrer"><img fetchpriority="high" alt="" src="/media/${POSTER}" decoding="async" /><span class="tome-video__title">A clip</span></a><figcaption>A clip · YouTube</figcaption></figure><p>Words</p>`,
+    'the poster is what the screen waits on, so it is fetched first and not lazily',
+  );
+  const bare = prepareEditorContent({ contentJson: clip({ mediaId: null }) }).contentHtml;
+  assert.equal(withLeadImage(bare), bare, 'a video with no poster has no picture to raise');
+  const later = `<p>Words</p>${contentHtml}`;
+  assert.equal(withLeadImage(later), later, 'a video after the words is not what the screen waits on');
+});
+
 test('a player never reaches stored HTML, however it is written', () => {
   const { contentHtml } = prepareEditorContent({ contentJson: {
     type: 'doc',

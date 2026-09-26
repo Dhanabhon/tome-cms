@@ -131,10 +131,22 @@ export async function writeEnvironment(path, content, force = false) {
   return true;
 }
 
-function run(command, args, env = process.env) {
-  const result = spawnSync(command, args, { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+/** npm is a .cmd shim on Windows, which Node starts only through a shell. The command is fixed, so nothing is interpolated into it. */
+export function migrateCommand(platform = process.platform) {
+  return platform === 'win32'
+    ? { args: [], command: 'npm.cmd run db:migrate', shell: true }
+    : { args: ['run', 'db:migrate'], command: 'npm', shell: false };
+}
+
+/** Whether a file's mode keeps it to its owner. Windows has no such bits and reports 0o666 for any writable file, so there the mode says nothing. */
+export function isPrivateMode(mode, platform = process.platform) {
+  return platform === 'win32' || (mode & 0o077) === 0;
+}
+
+function run(command, args, env = process.env, shell = false) {
+  const result = spawnSync(command, args, { cwd: root, env, encoding: 'utf8', shell, stdio: ['ignore', 'pipe', 'pipe'] });
   // Child errors can include resolved Compose secrets or database URLs.
-  if (result.error || result.status !== 0) throw new Error(`${command} ${args[0]} failed; inspect the service privately.`);
+  if (result.error || result.status !== 0) throw new Error(`${[command, ...args.slice(0, 1)].join(' ')} failed; inspect the service privately.`);
   return result.stdout;
 }
 
@@ -163,7 +175,7 @@ async function main() {
     const details = await lstat(path);
     existingFile = true;
     if (!details.isFile() || details.isSymbolicLink()) throw new Error('Environment must be a regular file, not a symlink.');
-    if ((details.mode & 0o077) !== 0 && !options.force) throw new Error('Set .env.local permissions to 0600 before continuing.');
+    if (!isPrivateMode(details.mode) && !options.force) throw new Error('Set .env.local permissions to 0600 before continuing.');
     existing = parseEnv(await readFile(path, 'utf8'));
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const overrides = Object.fromEntries(Object.entries(process.env).filter(([key]) => required.includes(key) || optional.includes(key) || /^(POSTGRES_PORT|S3_PORT|APP_PORT)$/.test(key)));
@@ -192,7 +204,8 @@ async function main() {
     run('docker', [...compose, '--profile', 'production', 'run', '--rm', '--no-deps', 'app', 'npm', 'run', 'db:migrate'], env);
     run('docker', [...compose, '--profile', 'production', 'up', '-d', '--wait', '--no-deps', 'app'], env);
   } else {
-    run('npm', ['run', 'db:migrate'], env);
+    const migrate = migrateCommand();
+    run(migrate.command, migrate.args, env, migrate.shell);
   }
   console.log(`Installer: ${values.TOME_CMS_PUBLIC_URL.replace(/\/$/, '')}/install`);
   console.log(`Installation token: ${values.TOME_CMS_INSTALL_TOKEN}`);
