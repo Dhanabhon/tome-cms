@@ -33,7 +33,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   const [dirty, setDirty] = useState(cleanMenus);
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [location, setLocation] = useState<NavigationLocation>('header');
-  const [locale, setLocale] = useState<PageLocale>('th');
+  // The site's own language first; English when it is not known, as the admin's words are.
+  const [locale, setLocale] = useState<PageLocale>(ownerLocale ?? 'en');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -55,6 +56,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   const list = useRef<HTMLOListElement>(null);
   const key: MenuKey = `${location}:${locale}`;
   const items = menus[key];
+  // An item's label is read by that menu's readers, so it starts in the menu's language.
+  const homeLabel = adminCopy(locale).navigation.home;
   const availablePages = pages.filter((page) => page.locale === locale);
   const missingPages = pages.filter((page) => page.locale !== locale && !availablePages.some((edition) => edition.translation_group_id === page.translation_group_id));
 
@@ -104,7 +107,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
 
   function openAdd() {
     setKind('home');
-    setLabel('Home');
+    setLabel(homeLabel);
     setPageId(availablePages[0]?.id ?? '');
     setUrl('');
     setNewTab(false);
@@ -116,7 +119,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   function selectKind(next: NavigationKind) {
     setKind(next);
     setAddError('');
-    setLabel(next === 'home' ? 'Home' : next === 'page' ? availablePages.find((page) => page.id === pageId)?.title ?? '' : '');
+    setLabel(next === 'home' ? homeLabel : next === 'page' ? availablePages.find((page) => page.id === pageId)?.title ?? '' : '');
   }
 
   function add(event: FormEvent<HTMLFormElement>) {
