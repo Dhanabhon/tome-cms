@@ -2,6 +2,30 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is tagged for production. A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
+## Unreleased
+
+### Fixed
+
+- The language tabs on Maintenance, Home slides and Navigation open on the site owner's language instead of English, and a new menu item's default label is Home in that language.
+- The System screen tells three things apart when it checks for an update: no official release has been published yet, GitHub could not be reached, or GitHub's answer could not be used. Every message there, and the line for a site that can only check, is in the admin's language.
+- A spare Passkey's suggested name, a refused recovery code and the library's refusal to delete a file still in use are in the admin's language. The refusal also says how many places use the file.
+- Every dialog button is in the admin's language. The link prompt, the upload alert and five delete or install confirmations used to say Cancel and OK in English.
+- A draft keeps the "Publish at" date you gave it. The date used to be dropped by the save that filed the draft, and the field was empty the next time you opened it.
+- The language chips in the editor say Scheduled for an edition published with a date still to come, as the lists do.
+- A popup whose words are the other language's shows its default decline button and its close label in that language too, not the page's.
+- A closable notice band from any plugin can be closed. The code that closed it came only with the Notice plugin.
+- The first-run bootstrap works on Windows: it starts npm through `npm.cmd`, and it no longer refuses to run again because Windows reports every file as readable by all.
+- An article that opens with a video fetches the video's poster first, as one that opens with a picture already did.
+
+### Upgrading
+
+- Migration `026_planned_dates` adds a `planned_at` column to posts and pages. It runs with the others when the deploy helper runs.
+
+### For theme, plugin and headless authors
+
+- The core now closes a notice band that has a `dismissKey` and remembers that it was closed, so a plugin's `siteNotice` needs no browser code. The Notice plugin no longer has a `publicClient`.
+- In the admin API, a post and a page carry `planned_at`, the date a draft is planned for, which is null once published. The public API is unchanged.
+
 ## 0.12.0 - 2026-09-26
 
 The one exception to the freeze before 1.0.0, and where the freeze starts again: only fixes from here until then.

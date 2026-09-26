@@ -7,7 +7,7 @@ sidebar:
 
 TomeCMS is still a pre-1.0 preview. You upgrade a 0.x install in place, from a newer checkout of the code, with the same deploy helper that installed it.
 
-The admin cannot install an update yet. Under "System" it shows your version next to "Installed version:" and can check the official repository on GitHub for a newer stable release. On today's install that screen says "Managed updates unavailable", and "Update mode:" reads `check-only`.
+The admin cannot install an update yet. Under "System" it shows your version next to "Installed version:" and can check the official repository on GitHub for a newer stable release. On today's install that screen says "Managed updates unavailable", and "Update mode:" reads `check-only`. Until TomeCMS publishes its first official release, the check says "No release yet".
 
 ![The System screen. "System updates" shows an "Update status" card with "Release availability: Check unavailable", "Installed version: 0.11.0" and "Update check unavailable." next to a "Check again" button. Below it, a "Managed updates unavailable" card says "This installation is configured for update checks only.", with "Update mode:" reading "check-only".](../../../assets/screenshots/en/system.png)
 
