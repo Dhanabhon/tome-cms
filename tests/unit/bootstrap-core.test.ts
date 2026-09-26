@@ -5,7 +5,19 @@ import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { parseOptions, renderEnvironment, writeEnvironment, makeEnvironment } from '../../scripts/bootstrap-core.mjs';
+import { isPrivateMode, makeEnvironment, migrateCommand, parseOptions, renderEnvironment, writeEnvironment } from '../../scripts/bootstrap-core.mjs';
+
+test('on Windows npm starts through its .cmd shim, and a file mode is not read as a privacy promise', () => {
+  assert.deepEqual(migrateCommand('win32'), { args: [], command: 'npm.cmd run db:migrate', shell: true });
+  for (const platform of ['darwin', 'linux'] as const) {
+    assert.deepEqual(migrateCommand(platform), { args: ['run', 'db:migrate'], command: 'npm', shell: false }, platform);
+  }
+  // Windows reports 0o666 for any file it can write, whatever its ACL says.
+  assert.equal(isPrivateMode(0o100666, 'win32'), true);
+  assert.equal(isPrivateMode(0o100666, 'linux'), false);
+  assert.equal(isPrivateMode(0o100640, 'darwin'), false);
+  assert.equal(isPrivateMode(0o100600, 'linux'), true);
+});
 
 test('bootstrap options default to local, select production and reject unknown flags', () => {
   assert.deepEqual(parseOptions([]), { production: false, force: false });
