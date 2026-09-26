@@ -1,8 +1,10 @@
 # Changelog
 
-Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is tagged for production. A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
+Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is meant for production. From 0.12.1 on, each is also tagged and published as a GitHub release, so an install can check for it under "System". A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
-## Unreleased
+## 0.12.1 - 2026-09-26
+
+Fixes only, as the freeze asks, and the first version published as a GitHub release, so an install's "System" screen can check for a newer one.
 
 ### Fixed
 
@@ -17,6 +19,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 - The first-run bootstrap should now run on Windows: it starts npm through `npm.cmd`, because Windows cannot run npm by name without it and a shell, and it skips the check that only you can read `.env.local`, because Windows reports every writable file as readable by everyone.
 - An article that opens with a video fetches the video's poster first, as one that opens with a picture already did.
 
+### Changed
+
+- The release workflow reads the update manifest's target migration from the migrations themselves instead of a fixed name, and a GitHub release carries the version's notes from `docs/releases/`.
+
 ### Upgrading
 
 - Migration `026_planned_dates` adds a `planned_at` column to posts and pages. It runs with the others when the deploy helper runs.
@@ -25,6 +31,8 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 - The core now closes a notice band that has a `dismissKey` and remembers that it was closed, so a plugin's `siteNotice` needs no browser code. The Notice plugin no longer has a `publicClient`.
 - In the admin API, a post and a page carry `planned_at`, the date a draft is planned for, which is null once published. The public API is unchanged.
+
+Full notes: [docs/releases/0.12.1.md](docs/releases/0.12.1.md)
 
 ## 0.12.0 - 2026-09-26
 
