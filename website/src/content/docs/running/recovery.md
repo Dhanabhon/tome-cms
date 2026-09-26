@@ -24,7 +24,7 @@ The admin's sign-in page links to `/recovery` with "Recover access". You can als
 
 A code is spent as soon as the server accepts it, and every session the owner had is signed out at that moment. The code opens a one-time recovery link that lasts ten minutes. If the passkey is not created, the page keeps the link, and "Create recovery Passkey" tries again while it lasts. After ten minutes, start over with another code.
 
-A code that is wrong or already used gets "Check the recovery code and try again." The page allows five attempts in 30 minutes from one IP address, then asks you to wait.
+A code that is wrong or already used gets "Recovery could not be started. Check the code and try again." The page allows five attempts in 30 minutes from one IP address, then asks you to wait.
 
 The new passkey is saved as "Recovery passkey", and saving it removes every older passkey, the spare included. Once you are back in, add a spare again under "Security", and create a new set of codes if few are left.
 
