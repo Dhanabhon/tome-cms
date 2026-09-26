@@ -282,7 +282,7 @@ const structuredData = robots.includes('noindex')
     </Fragment>
     <slot />
   </activeTheme.Shell>
-  {plugins.clients.length + (plugins.notice ? 1 : 0) > 0 && <PluginClients />}
+  {plugins.clients.length > 0 && <PluginClients />}
   {/* A theme preview is the admin's own picture of a theme, not a reader. */}
   {stats && !Astro.props.themeId && <StatsBeacon locale={locale} stats={stats} />}
   {Astro.props.video && <VideoScript locale={locale} />}

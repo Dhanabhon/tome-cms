@@ -7,7 +7,7 @@ interface Props {
 const { dismissKey } = Astro.props;
 
 /**
- * Keeps a banner the reader already closed from being drawn at all.
+ * Keeps a banner the reader already closed from being drawn at all, and closes it.
  *
  * The check used to live in the banner's own script, which is a module: deferred, and
  * fetched on top of that. So every load painted the band and then took it away, and a
@@ -19,6 +19,10 @@ const { dismissKey } = Astro.props;
  * blocked storage throws, and a band that cannot remember being closed is a band that is
  * shown, which is the safe way round.
  *
+ * The second script closes the band and remembers it. It is the core's, as the plugin
+ * contract says the band's dismissal is: any plugin's band with a key closes the same way,
+ * and no plugin ships code for it.
+ *
  * Only rendered for a band that can be closed. One the owner keeps up has nothing to
  * remember, and the page carries no script for it.
  */
@@ -28,5 +32,42 @@ const { dismissKey } = Astro.props;
     if (localStorage.getItem(key)) document.documentElement.dataset.noticeClosed = '';
   } catch (error) {
     // Nothing remembered means nothing closed.
+  }
+</script>
+<script>
+  const band = document.querySelector<HTMLElement>('[data-site-notice]');
+  const close = band?.querySelector<HTMLButtonElement>('[data-notice-close]');
+  const key = band?.dataset.dismissKey;
+  if (band && close && key) {
+    let closedBefore = false;
+    try {
+      closedBefore = Boolean(window.localStorage.getItem(key));
+    } catch {
+      // Nothing remembered means nothing closed.
+    }
+    if (closedBefore) band.remove();
+    else {
+      close.addEventListener('click', () => {
+        try {
+          window.localStorage.setItem(key, '1');
+        } catch {
+          // It closes either way; it just comes back next time.
+        }
+        // The height the page has to close up by, measured now rather than guessed in CSS.
+        band.style.setProperty('--notice-height', `${band.getBoundingClientRect().height}px`);
+        band.dataset.closing = '';
+        // A frame, so the attribute has reached style before the running animations are
+        // counted. None running -- a reader who asked for less motion -- means gone at once.
+        requestAnimationFrame(() => {
+          const leaving = band.getAnimations();
+          if (!leaving.length) {
+            band.remove();
+            return;
+          }
+          void Promise.all(leaving.map((animation) => animation.finished.catch(() => undefined)))
+            .then(() => band.remove());
+        });
+      }, { once: true });
+    }
   }
 </script>
