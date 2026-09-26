@@ -21,6 +21,12 @@ sidebar:
 
 `docs/releases/1.0.0.md` อธิบายขอบเขตที่วางแผนไว้สำหรับ 1.0.0 ซึ่งเป็นรุ่นที่ยังไม่ออก ได้แก่เส้นทางการอัปเดตที่ 1.0.0 จะรองรับ และสิ่งที่ต้องเป็นจริงก่อนจะติด tag ให้รุ่นนี้ วันที่ในไฟล์เขียนว่า "not scheduled"
 
+## ออกเวอร์ชันใหม่อย่างไร
+
+งานทั้งหมดทำบน branch `develop` ส่วน `main` เก็บโค้ดที่ออกเป็นเวอร์ชันแล้ว และจะเปลี่ยนก็ต่อเมื่อ merge `develop` เข้าไปเท่านั้น
+
+จะออกเวอร์ชันใหม่ ให้เปลี่ยนเวอร์ชันใน `package.json` บน `develop` เปลี่ยนหัวข้อ "Unreleased" ใน changelog เป็นเวอร์ชันนั้น และเขียนบันทึกประจำรุ่นไว้ที่ `docs/releases/<version>.md` แล้ว merge เข้า `main` เมื่อ CI ของ commit นั้นผ่าน workflow จะติด tag `vX.Y.Z` ให้ commit นั้น แล้ว build ตัว release จาก tag ได้แก่ image, attestation, update manifest และ GitHub release ซึ่งใช้ไฟล์บันทึกของเวอร์ชันนั้นเป็นคำอธิบาย ถ้า merge โดยไม่ได้เปลี่ยนเวอร์ชันจะไม่มีอะไรออก และถ้าเวอร์ชันใหม่ยังไม่มีไฟล์บันทึก workflow จะหยุดก่อนติด tag
+
 ## เวอร์ชัน 0.x หมายความว่าอะไร
 
 ส่วนหัวของ changelog บอกว่าเวอร์ชัน `0.x` ทุกเวอร์ชันเป็นรุ่นทดลองก่อน 1.0 และไม่มีรุ่นไหนมีไว้ใช้งานจริง บันทึกประจำรุ่นจนถึง 0.12.0 เขียนสถานะว่า "Release candidate; not tagged for production" ตั้งแต่ 0.12.1 เป็นต้นไป แต่ละเวอร์ชันจะติด tag และออกเป็น [GitHub release](https://github.com/Dhanabhon/tome-cms/releases) ด้วย หน้า "ระบบ" ของเว็บที่ติดตั้งไว้จึงตรวจหาเวอร์ชันใหม่ได้ และบันทึกประจำรุ่นจะเขียนสถานะว่า "Release candidate; tagged and published as a GitHub release, not for production"

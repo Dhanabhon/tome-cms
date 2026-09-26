@@ -1,11 +1,12 @@
 name: Docs
 
 # Builds and checks the documentation site. A push to main builds, checks and deploys it to
-# GitHub Pages; a pull request only builds and checks.
+# GitHub Pages; a push to develop or a pull request only builds and checks.
 on:
   push:
     branches:
       - main
+      - develop
     paths:
       - 'website/**'
       - 'src/lib/**'

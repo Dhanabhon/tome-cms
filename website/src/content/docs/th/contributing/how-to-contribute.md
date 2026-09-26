@@ -61,6 +61,7 @@ npm run test:e2e -- tests/e2e/<file>.spec.ts
 ## การ commit และ pull request
 
 - ข้อความ commit ใช้รูปแบบ [Conventional Commits](https://www.conventionalcommits.org/) คือ `type(scope): what changed` โดย type เป็นหนึ่งใน `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf` หรือ `ci` ส่วนเนื้อความบอกว่าแก้เพราะอะไร
+- เปิด pull request ไปที่ branch `develop` ซึ่งเป็นที่ทำงานหลัก ส่วน `main` จะเปลี่ยนก็ต่อเมื่อออกเวอร์ชันใหม่เท่านั้น
 - pull request หนึ่งอันแก้เรื่องเดียว และกรอกแบบฟอร์มให้ครบ แบบฟอร์มถามว่าคุณเปลี่ยนอะไร เพราะอะไร และรันอะไรไปแล้วบ้าง
 - ถ้าการแก้นั้นมองเห็นได้ ให้แนบภาพหน้าจอทั้งธีมสว่างและธีมมืด และที่ความกว้างของโทรศัพท์
 - อย่า commit ข้อมูลลับสำหรับเข้าระบบ ไฟล์ `.env` ไฟล์ dump ของฐานข้อมูล หรือไฟล์สำรองข้อมูล

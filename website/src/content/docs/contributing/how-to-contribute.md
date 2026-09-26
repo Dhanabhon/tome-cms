@@ -61,6 +61,7 @@ npm run test:e2e -- tests/e2e/<file>.spec.ts
 ## Commits and pull requests
 
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): what changed`, with `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf` or `ci`. The body says why.
+- Open a pull request against `develop`, where work happens. `main` changes only when a version is released.
 - Keep one concern per pull request, and fill in the template. It asks what you changed, why, and what you ran.
 - For a change people can see, add screenshots in the light and dark themes, and at a phone width.
 - Never commit credentials, `.env` files, database dumps or backups.

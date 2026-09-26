@@ -1,9 +1,13 @@
 name: Release
 
+# Runs on a version's tag, which the installer and the updater require of every attestation.
+# tag-release.yml starts it by dispatch once a new version reaches main and passes CI; pushing
+# a tag by hand starts it too.
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
 
 jobs:
   release:

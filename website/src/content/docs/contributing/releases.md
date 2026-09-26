@@ -21,6 +21,12 @@ Before you upgrade an install, read the notes of every version after yours. [Upd
 
 `docs/releases/1.0.0.md` describes the planned 1.0.0 boundary, for a release that has not happened yet: the update path 1.0.0 will support, and what must be true before it is tagged. Its date reads "not scheduled".
 
+## How a version is released
+
+Work happens on the `develop` branch. `main` holds released code, and changes only when `develop` is merged into it.
+
+To release, bump the version in `package.json` on `develop`, turn the changelog's "Unreleased" section into that version, and write its notes in `docs/releases/<version>.md`. Merging that into `main` releases it. Once CI passes on the merge, a workflow tags the commit `vX.Y.Z` and builds the release from the tag: the image, its attestations, the update manifest and the GitHub release, whose notes are the version's file. A merge that keeps the version releases nothing, and a new version with no notes file stops before it is tagged.
+
 ## What 0.x means
 
 The changelog's header says that every `0.x` version is a pre-1.0 release candidate, and none is meant for production. Up to 0.12.0, each set of release notes carries the status "Release candidate; not tagged for production". From 0.12.1 on, each version is also tagged and published as a [GitHub release](https://github.com/Dhanabhon/tome-cms/releases), so an install's "System" screen can check for it, and its notes say "Release candidate; tagged and published as a GitHub release, not for production".

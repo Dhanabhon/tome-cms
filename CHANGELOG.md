@@ -2,6 +2,12 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is meant for production. From 0.12.1 on, each is also tagged and published as a GitHub release, so an install can check for it under "System". A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
+## Unreleased
+
+### Changed
+
+- Work happens on `develop`, and a merge into `main` that carries a new version releases itself. Once CI passes on the merge, `tag-release.yml` tags the commit and starts `release.yml` on the tag, so the attestations still come from `refs/tags/vX.Y.Z` as the installer and the updater require. CI and the documentation build also run on pushes to `develop`.
+
 ## 0.12.1 - 2026-09-26
 
 Fixes only, as the freeze asks, and the first version published as a GitHub release, so an install's "System" screen can check for a newer one.

@@ -1,0 +1,58 @@
+name: Tag a new version
+
+# Work happens on develop. A merge into main that carries a version not tagged yet releases
+# itself: once CI has passed on that commit, this tags it vX.Y.Z and starts release.yml on the
+# tag. A merge that keeps the version releases nothing.
+#
+# The release has to run on the tag, not on main: the installer and the updater accept only
+# attestations made from refs/tags/vX.Y.Z. A tag pushed with this workflow's token starts no
+# workflow by itself, so release.yml is started by a dispatch on the tag, the one event that
+# token may start.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# One at a time, and none cut off: two merges in a row each get their answer.
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    # Only a CI that passed on a push to main; a pull request from a branch named main is not one.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - name: Checkout the commit CI passed
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Tag it and release it when its version is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -eu
+          VERSION="$(node -p "require('./package.json').version")"
+          if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "The package version must be MAJOR.MINOR.PATCH, not $VERSION." >&2
+            exit 1
+          fi
+          TAG="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is already tagged, so this merge releases nothing."
+            exit 0
+          fi
+          if ! test -f "docs/releases/$VERSION.md"; then
+            echo "docs/releases/$VERSION.md is missing: the release carries it as its notes." >&2
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA" >/dev/null
+          gh workflow run release.yml --ref "$TAG"
+          echo "Tagged $SHA as $TAG and started the release."
