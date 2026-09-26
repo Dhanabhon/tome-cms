@@ -1,0 +1,254 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+
+interface Props {
+  /** The menu's accessible name, which the button also carries ahead of the current choice. */
+  label: string;
+}
+
+// The header and the mobile menu both draw each menu, so every copy needs its own id for
+// popovertarget. Counting on this request's locals keeps the ids unique on the page and the
+// same from one build to the next.
+const locals = Astro.locals as typeof Astro.locals & { tomeMenuCount?: number };
+locals.tomeMenuCount = (locals.tomeMenuCount ?? 0) + 1;
+const id = `tome-menu-${locals.tomeMenuCount}`;
+---
+
+<tome-menu>
+  <button type="button" class="trigger" popovertarget={id} aria-haspopup="menu" aria-expanded="false">
+    <span class="sr-only">{Astro.props.label}</span>
+    <slot name="current" />
+    <Icon name="down-caret" class="caret" />
+  </button>
+  <div id={id} class="menu" role="menu" aria-label={Astro.props.label} popover>
+    <slot />
+  </div>
+</tome-menu>
+
+<script>
+  /** Space between the button and the menu, in pixels. */
+  const GAP = 6;
+  /** The closest the menu may come to the viewport's edge, in pixels. */
+  const EDGE = 8;
+
+  class TomeMenu extends HTMLElement {
+    connectedCallback() {
+      const button = this.querySelector<HTMLButtonElement>('.trigger');
+      const menu = this.querySelector<HTMLElement>('[popover]');
+      if (!button || !menu) return;
+      const items = () => [...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
+
+      // Under the button, its end edges lined up; above it when the button sits in the lower
+      // half of the screen, as it can in the mobile menu, so the menu never runs off the bottom.
+      const place = () => {
+        const box = button.getBoundingClientRect();
+        const { clientWidth, clientHeight } = document.documentElement;
+        const below = box.bottom < clientHeight / 2;
+        menu.style.right = `${Math.max(EDGE, clientWidth - box.right)}px`;
+        menu.style.top = below ? `${box.bottom + GAP}px` : 'auto';
+        menu.style.bottom = below ? 'auto' : `${clientHeight - box.top + GAP}px`;
+        // Once it is open and has a size, keep its start edge on screen too.
+        if (!menu.matches(':popover-open')) return;
+        const left = menu.getBoundingClientRect().left;
+        if (left < EDGE) menu.style.right = `${parseFloat(menu.style.right) - (EDGE - left)}px`;
+      };
+      // Closing should hand focus back to the button, and does, except inside Starlight's mobile
+      // menu (itself a popover), where Chrome leaves it on the hidden item and it falls to the page.
+      menu.addEventListener('beforetoggle', (event) => {
+        if (event.newState === 'open') place();
+        else if (menu.contains(document.activeElement)) button.focus();
+      });
+
+      menu.addEventListener('toggle', (event) => {
+        const open = event.newState === 'open';
+        button.setAttribute('aria-expanded', String(open));
+        if (!open) return;
+        place();
+        if (!menu.contains(document.activeElement)) {
+          (menu.querySelector<HTMLElement>('[aria-checked="true"], [aria-current]') ?? items()[0])?.focus();
+        }
+      });
+
+      // The menu button pattern: an arrow on the closed button opens the menu at that end.
+      button.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        event.preventDefault();
+        if (!menu.matches(':popover-open')) menu.showPopover();
+        items().at(event.key === 'ArrowDown' ? 0 : -1)?.focus();
+      });
+
+      menu.addEventListener('keydown', (event) => {
+        // Tab leaves the menu, and the menu closes behind it. Escape is the popover's own.
+        if (event.key === 'Tab') return menu.hidePopover();
+        const all = items();
+        const at = all.indexOf(document.activeElement as HTMLElement);
+        const moves: Record<string, number> = {
+          ArrowDown: at + 1,
+          ArrowUp: (at < 0 ? all.length : at) - 1,
+          Home: 0,
+          End: all.length - 1,
+        };
+        const next = moves[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        all.at(next % all.length)?.focus();
+      });
+
+      // The pointer and the keyboard share one highlight, as in a native menu.
+      menu.addEventListener('pointerover', (event) => {
+        (event.target as Element).closest<HTMLElement>('[role^="menuitem"]')?.focus();
+      });
+
+      // The menu lives in the top layer, so it follows the button by hand when anything scrolls
+      // (the mobile menu does) or the window changes size.
+      const follow = () => menu.matches(':popover-open') && place();
+      addEventListener('resize', follow);
+      addEventListener('scroll', follow, { capture: true, passive: true });
+    }
+  }
+  customElements.define('tome-menu', TomeMenu);
+</script>
+
+<style>
+  tome-menu {
+    display: flex;
+  }
+
+  .trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-inline: -0.5rem;
+    padding: 0.5rem 0.25rem 0.5rem 0.5rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color var(--dur-micro) var(--ease-out);
+  }
+
+  .trigger:hover,
+  .trigger[aria-expanded='true'] {
+    color: var(--sl-color-white);
+  }
+
+  .trigger :global(svg) {
+    flex: none;
+    font-size: 0.875rem;
+  }
+
+  .trigger :global(.caret) {
+    font-size: 1.25rem;
+    transition: transform var(--dur-short) var(--ease-out);
+  }
+
+  .trigger[aria-expanded='true'] :global(.caret) {
+    transform: rotate(180deg);
+  }
+
+  /* No ring after a click; a keyboard user still gets one, in the site's green. */
+  .trigger:focus:not(:focus-visible),
+  .menu :global([role^='menuitem']:focus:not(:focus-visible)) {
+    outline: none;
+  }
+
+  .trigger:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .menu {
+    inset: auto;
+    margin: 0;
+    min-width: 10rem;
+    padding: 0.3125rem;
+    border: var(--rule-hair) solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-float);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    opacity: 0;
+    transform: translateY(-0.25rem);
+    transition:
+      opacity var(--dur-short) var(--ease-out),
+      transform var(--dur-short) var(--ease-out);
+  }
+
+  .menu:popover-open {
+    opacity: 1;
+    transform: none;
+  }
+
+  @starting-style {
+    .menu:popover-open {
+      opacity: 0;
+      transform: translateY(-0.25rem);
+    }
+  }
+
+  .menu :global([role^='menuitem']) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.875rem 0.5rem 0.5rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: 1.4;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .menu :global([role^='menuitem']:focus) {
+    /* Mixed in oklab: the light paper is written with hue 0, and an oklch mix would bend the
+     * green toward pink on the way there. */
+    background: color-mix(in oklab, var(--color-accent) 14%, var(--color-paper));
+  }
+
+  .menu :global([role^='menuitem']:focus-visible) {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
+  .menu :global(:is([aria-checked='true'], [aria-current])) {
+    font-weight: 600;
+  }
+
+  /* Every item keeps the check's room, so the labels line up; only the current one fills it. */
+  .menu :global([role^='menuitem']::before) {
+    content: '';
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  .menu :global(:is([aria-checked='true'], [aria-current])::before) {
+    background: var(--color-accent);
+  }
+
+  @media (min-width: 50rem) {
+    .trigger {
+      font-size: var(--sl-text-sm);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trigger,
+    .trigger :global(.caret),
+    .menu {
+      transition: none;
+    }
+  }
+</style>

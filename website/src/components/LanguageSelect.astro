@@ -1,0 +1,39 @@
+---
+// Starlight's language picker, as the site's own menu instead of the system's dropdown.
+// The links are worked out exactly as Starlight's LanguageSelect does, with its own helper;
+// the package does not export it, hence the path into its build.
+import { Icon } from '@astrojs/starlight/components';
+import context from 'virtual:starlight/project-context';
+import config from 'virtual:starlight/user-config';
+import { localizedUrl } from '../../node_modules/@astrojs/starlight/dist/utils/localizedUrl.js';
+import HeaderMenu from './HeaderMenu.astro';
+
+const current = Astro.locals.starlightRoute.locale;
+const locales = Object.entries(config.locales ?? {}).flatMap(([code, locale]) =>
+  locale ? [{ code, ...locale, href: localizedUrl(Astro.url, code, context.trailingSlash).pathname }] : [],
+);
+const currentLabel = locales.find(({ code }) => code === (current ?? 'root'))?.label;
+---
+
+{
+  config.isMultilingual && (
+    <HeaderMenu label={Astro.locals.t('languageSelect.accessibleLabel')}>
+      <Fragment slot="current">
+        <Icon name="translate" />
+        <span>{currentLabel}</span>
+      </Fragment>
+      {locales.map(({ code, label, lang, href }) => (
+        <a
+          role="menuitem"
+          tabindex="-1"
+          href={href}
+          hreflang={lang}
+          lang={lang}
+          aria-current={code === (current ?? 'root') ? 'true' : undefined}
+        >
+          {label}
+        </a>
+      ))}
+    </HeaderMenu>
+  )
+}
