@@ -58,3 +58,13 @@ jobs:
 
       - name: Run browser tests
         run: npm run test:e2e
+
+      # A browser test that fails only here leaves its trace, so it can be read instead of
+      # guessed at: open it with `npx playwright show-trace`.
+      - name: Keep the failed browser tests' traces
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-test-results
+          path: test-results/
+          retention-days: 14
