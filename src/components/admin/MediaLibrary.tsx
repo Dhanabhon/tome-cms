@@ -8,6 +8,7 @@ import {
   listMediaFolders,
   renameMediaFolder,
   saveMediaDraft,
+  stillUsedText,
   uploadFailureText,
   uploadFile,
   MediaRequestError,
@@ -370,7 +371,9 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       if (selectedId.current === item.id) closeDetails();
     } catch (deleteFailure) {
       if (selectedId.current === item.id) {
-        setDeleteError(errorMessage(deleteFailure, copy));
+        setDeleteError(deleteFailure instanceof MediaRequestError && deleteFailure.references
+          ? stillUsedText(deleteFailure.references, copy)
+          : errorMessage(deleteFailure, copy));
         if (deleteFailure instanceof MediaRequestError && deleteFailure.references) {
           setReferencingPosts(deleteFailure.references.posts);
           setReferencingPages(deleteFailure.references.pages);
