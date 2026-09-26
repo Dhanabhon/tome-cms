@@ -23,7 +23,7 @@ Before you upgrade an install, read the notes of every version after yours. [Upd
 
 ## What 0.x means
 
-The changelog's header says that every `0.x` version is a pre-1.0 release candidate, and none is tagged for production. Each set of release notes carries the same status, "Release candidate; not tagged for production".
+The changelog's header says that every `0.x` version is a pre-1.0 release candidate, and none is meant for production. Up to 0.12.0, each set of release notes carries the status "Release candidate; not tagged for production". From 0.12.1 on, each version is also tagged and published as a [GitHub release](https://github.com/Dhanabhon/tome-cms/releases), so an install's "System" screen can check for it, and its notes say "Release candidate; tagged and published as a GitHub release, not for production".
 
 For a site you run today, the install is a pre-1.0 preview. A 0.x install is upgraded in place, by running the deploy helper again on a newer checkout, as [Updating](/tome-cms/running/updating/) describes.
 

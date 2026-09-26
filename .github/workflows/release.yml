@@ -136,6 +136,9 @@ jobs:
           COMMIT: ${{ github.sha }}
           DIGEST: ${{ steps.image-digest.outputs.value }}
         run: |
+          # The newest migration this release's schema ends at, read from the migrations themselves.
+          TARGET_MIGRATION="$(ls src/server/db/migrations | sed -n 's/^\([0-9]\{3\}_[a-z0-9_]*\)\.ts$/\1/p' | sort | tail -n 1)"
+          test -n "$TARGET_MIGRATION"
           npm run release:manifest -- \
             --package-version "$VERSION" \
             --tag "v$VERSION" \
@@ -144,7 +147,7 @@ jobs:
             --released-at "$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')" \
             --minimum-direct-upgrade-from 1.0.0 \
             --minimum-updater-version 1.0.0 \
-            --target-migration 008_update_rate_limit_actions \
+            --target-migration "$TARGET_MIGRATION" \
             --rollback-safe-from 1.0.0 \
             --output update-manifest.json
 
@@ -167,4 +170,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" update-manifest.json tomecms-image.attestation.json update-manifest.attestation.json --generate-notes --title "TomeCMS ${TAG#v}"
+        # The version's own notes, not a list of every commit since the first.
+        run: gh release create "$TAG" update-manifest.json tomecms-image.attestation.json update-manifest.attestation.json --notes-file "docs/releases/${TAG#v}.md" --title "TomeCMS ${TAG#v}"
