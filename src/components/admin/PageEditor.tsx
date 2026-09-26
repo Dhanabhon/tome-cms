@@ -73,9 +73,10 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
   const actionPending = useRef<boolean | 'navigation'>(false);
   const pageStatusRef = useRef<PageStatus>(initialPage?.status ?? 'draft');
   // The owner's answer to "when", carried in a ref for the same reason the status is:
-  // an autosave fires from a callback that must not be rebuilt every keystroke.
-  const publishedAtRef = useRef<string | null>(initialPage?.published_at ?? null);
-  const [publishedAt, setPublishedAt] = useState<string | null>(initialPage?.published_at ?? null);
+  // an autosave fires from a callback that must not be rebuilt every keystroke. A draft's
+  // answer is kept as planned_at, since a draft has no published_at.
+  const publishedAtRef = useRef<string | null>(initialPage?.published_at ?? initialPage?.planned_at ?? null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(initialPage?.published_at ?? initialPage?.planned_at ?? null);
   const autosaveTimer = useRef<number>();
 
   const [title, setTitle] = useState(initialPage?.title ?? '');
@@ -121,7 +122,8 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
         ...(!id && sourcePage ? { locale, sourcePageId: sourcePage.id } : {}),
         ...draft,
         status: status ?? pageStatusRef.current,
-        ...(publishedAtRef.current ? { publishedAt: publishedAtRef.current } : {}),
+        // Always sent, empty included: an emptied field is how a draft's date is dropped.
+        publishedAt: publishedAtRef.current,
       }),
     });
     const payload: unknown = await response.json();
@@ -136,9 +138,9 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
     pageId.current = savedPage.id;
     updatedAt.current = savedPage.updated_at;
     pageStatusRef.current = savedPage.status;
-    // Only when there is one. A draft has no date at all -- the database drops it -- and a
-    // date the owner picked before publishing must survive the autosave that files the
-    // draft, or pressing Publish sends nothing and the article goes out now.
+    // Only when there is one. A draft comes back with its date as planned_at, which is the
+    // value the ref already holds; taking the draft's empty published_at instead would make
+    // pressing Publish send nothing, and the article would go out now.
     if (savedPage.published_at) publishedAtRef.current = savedPage.published_at;
     if (draftRef.current.slug === draft.slug) {
       draftRef.current = { ...draftRef.current, slug: savedPage.slug };

@@ -108,3 +108,14 @@ export function assertCurrentVersion(current: Date, requested: string, noun: 'pa
 export function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }
+
+/**
+ * What a write does to a draft's planned date. Publishing spends it: the date is then the
+ * publication date. A draft save that names a date keeps it, one that sends null empties it,
+ * and one that says nothing leaves it as it is.
+ */
+export function plannedAtWrite(input: { publishedAt?: string | null; status: 'draft' | 'published' }): { planned_at?: Date | null } {
+  if (input.status === 'published') return { planned_at: null };
+  if (input.publishedAt === undefined) return {};
+  return { planned_at: input.publishedAt ? new Date(input.publishedAt) : null };
+}
