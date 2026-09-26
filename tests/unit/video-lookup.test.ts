@@ -93,6 +93,10 @@ test('a lookup that runs past its deadline is unreachable', async () => {
     'https://www.youtube.com/oembed': () => new Promise<Response>(() => undefined),
   });
   const slow = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    // AbortSignal.timeout does not hold the process open, and nothing else here does, so without
+    // this the test runner can see an empty event loop and cancel the file before the deadline.
+    const keepAlive = setInterval(() => undefined, 1_000);
+    init?.signal?.addEventListener('abort', () => clearInterval(keepAlive));
     const hanging = fetcher(input, init);
     return Promise.race([hanging, new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('timed out', 'TimeoutError'))))]);
   }) as typeof fetch;
