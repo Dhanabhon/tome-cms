@@ -100,9 +100,10 @@ export async function getPost(ownerId: string, id: string): Promise<Post | null>
 }
 
 export async function listPostTranslations(ownerId: string, translationGroupId: string): Promise<PostTranslationSummary[]> {
-  return db.selectFrom('posts').select(['id', 'locale', 'status', 'title'])
+  const rows = await db.selectFrom('posts').select(['id', 'locale', 'published_at', 'status', 'title'])
     .where('owner_id', '=', ownerId).where('translation_group_id', '=', translationGroupId)
     .orderBy('locale').execute();
+  return rows.map((row) => ({ ...row, published_at: row.published_at?.toISOString() ?? null }));
 }
 
 export async function createPost(ownerId: string, input: CreatePostInput): Promise<Post> {
