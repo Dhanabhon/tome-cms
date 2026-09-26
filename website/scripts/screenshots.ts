@@ -4,8 +4,8 @@
  * It builds a small, believable site on a disposable stack: posts and pages in both languages,
  * pictures, a menu, a slide and some counts. It signs in with a virtual passkey and saves one
  * picture per screen. Run it from the repository root when a screen changes:
- * `npm run docs:screenshots`. It uses ports 55432 and 59000, like the e2e specs, so never run
- * the two at once.
+ * `npm run docs:screenshots`, or `npm run docs:screenshots -- system` for only the screens named.
+ * It uses ports 55432 and 59000, like the e2e specs, so never run the two at once.
  */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -48,6 +48,12 @@ const SCREENS: Array<{ name: string; path: string }> = [
   { name: 'plugins', path: '/admin/plugins' },
   { name: 'system', path: '/admin/system' },
 ];
+
+/** The screens named on the command line, or every one when none is. */
+const wanted = process.argv.slice(2);
+const unknown = wanted.filter((name) => !SCREENS.some((screen) => screen.name === name));
+if (unknown.length) throw new Error(`No such screen: ${unknown.join(', ')}`);
+const shots = wanted.length ? SCREENS.filter(({ name }) => wanted.includes(name)) : SCREENS;
 
 function docker(args: string[], timeout = 180_000) {
   const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
@@ -124,7 +130,7 @@ try {
       // The admin speaks the site's default language.
       await sql`update site_settings set default_locale = ${locale}`.execute(db);
       mkdirSync(new URL(`${locale}/`, OUT), { recursive: true });
-      for (const { name, path } of SCREENS) {
+      for (const { name, path } of shots) {
         await page.goto(`${origin}${path.replace(':post', postId)}`);
         await page.waitForLoadState('networkidle');
         await page.evaluate(() => document.fonts.ready);
