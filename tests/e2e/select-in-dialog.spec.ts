@@ -159,6 +159,20 @@ test('a select opens clear of the dialog it lives in', async ({ context, page })
         withinWindow: box.top >= 0 && box.bottom <= window.innerHeight,
       };
     });
+    if (!shown.lastOptionOnTop || !shown.withinWindow) console.log('DUMP125', height, JSON.stringify(await page.evaluate(() => {
+      const list = document.querySelector('.ui-select__menu') as HTMLElement;
+      const trigger = document.querySelector('#navigation-placement') as HTMLElement;
+      const dialog = document.querySelector('dialog.navigation-dialog') as HTMLElement;
+      const r = (el: Element) => { const b = el.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.bottom)]; };
+      const last = list.lastElementChild as HTMLElement;
+      const lb = last.getBoundingClientRect();
+      const onTop = document.elementFromPoint(lb.left + 8, lb.top + lb.height / 2);
+      return {
+        inner: window.innerHeight, list: r(list), last: r(last), trigger: r(trigger), dialog: r(dialog), style: list.getAttribute('style'),
+        listT: getComputedStyle(list).transform, listO: getComputedStyle(list).opacity, dialogT: getComputedStyle(dialog).transform,
+        onTop: onTop ? onTop.tagName + '.' + String(onTop.className).slice(0, 40) : null, scrollH: list.scrollHeight,
+      };
+    })));
     expect(shown, `the whole list is reachable at ${height}px tall`).toEqual({
       lastOptionOnTop: true, whole: true, withinWindow: true,
     });

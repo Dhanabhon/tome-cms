@@ -267,7 +267,12 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
     const middle = box.top + box.height / 2;
     return [box.left + 1, box.right - 1].some((x) => !button.contains(document.elementFromPoint(x, middle)));
   }));
-  await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
+  try {
+    await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
+  } catch (error) {
+    console.log('DUMP247', JSON.stringify(await dumpBar(page)));
+    throw error;
+  }
 });
 
 test('a link opens a new tab only when its writer asked it to', async ({ context, page }) => {
@@ -319,7 +324,12 @@ test('a line and a table cell can be aligned, from either bar', async ({ context
   await page.keyboard.type('A centred line');
   for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowLeft');
   const center = page.getByRole('button', { name: 'Align center' });
-  await expect(page.getByRole('button', { name: 'Align left' }), 'left is what a line has to begin with').toHaveAttribute('aria-pressed', 'true');
+  try {
+    await expect(page.getByRole('button', { name: 'Align left' }), 'left is what a line has to begin with').toHaveAttribute('aria-pressed', 'true');
+  } catch (error) {
+    console.log('DUMP312', JSON.stringify(await dumpBar(page)));
+    throw error;
+  }
   await center.click();
   await expect(canvas.locator('p').first()).toHaveCSS('text-align', 'center');
   await expect(center, 'and the bar says so').toHaveAttribute('aria-pressed', 'true');
@@ -1072,3 +1082,20 @@ async function signIn(context: BrowserContext, page: Page) {
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
 }
 
+
+
+async function dumpBar(page: Page) {
+  return page.evaluate(() => {
+    const bold = document.querySelector('button[aria-label="Bold"]');
+    const menu = bold?.parentElement?.closest('div') as HTMLElement | null;
+    const editor = (document.querySelector('.ProseMirror') as HTMLElement & { editor?: { state: { selection: { from: number; to: number; empty: boolean } }; isFocused: boolean } }).editor;
+    return {
+      bold: Boolean(bold), connected: bold?.isConnected, menuStyle: menu?.getAttribute('style'),
+      pmSelection: editor ? [editor.state.selection.from, editor.state.selection.to] : null, focused: editor?.isFocused,
+      domSelection: window.getSelection()?.toString(), active: document.activeElement?.className?.toString().slice(0, 30),
+      text: document.querySelector('.ProseMirror')?.textContent, url: location.pathname, now: Math.round(performance.now()),
+      nav: (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type, menus: document.querySelectorAll('.editor-menu').length,
+      menuDivs: [...document.querySelectorAll('.editor-menu')].map((el) => (el.parentElement?.getAttribute('style') ?? '') + ' | ' + (el as HTMLElement).getAttribute('style')),
+    };
+  });
+}
