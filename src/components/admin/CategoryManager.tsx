@@ -109,6 +109,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
       message: fill(category.postCount === 1 ? copy.categories.deleteOne : copy.categories.deleteMany,
         { count: category.postCount, name: category.name }),
       confirmLabel: copy.categories.delete,
+      cancelLabel: copy.shell.cancel,
       tone: 'danger',
     });
     if (!confirmed) return;

@@ -282,6 +282,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       title: copy.media.deleteFolderTitle,
       message: fill(copy.media.deleteFolderMessage, { name: folder.name }),
       confirmLabel: copy.media.deleteFolder,
+      cancelLabel: copy.shell.cancel,
       tone: 'danger',
     });
     if (!confirmed) return;
@@ -351,6 +352,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         title: copy.media.deleteFileTitle,
         message: fill(copy.media.deleteFileMessage, { name: selected.original_name }),
         confirmLabel: copy.media.deleteFile,
+        cancelLabel: copy.shell.cancel,
         tone: 'danger',
       });
       if (!confirmed) return;

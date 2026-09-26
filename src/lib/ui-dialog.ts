@@ -161,19 +161,22 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
   });
 }
 
-export async function alertUi(options: DialogOptions) {
+/** Every button is named by its caller, in the admin's language: there is no English to fall back on. */
+type Labelled<T> = T & { cancelLabel: string; confirmLabel: string };
+
+export async function alertUi(options: DialogOptions & { confirmLabel: string }) {
   await openDialog('alert', options);
 }
 
-export async function confirmUi(options: DialogOptions) {
+export async function confirmUi(options: Labelled<DialogOptions>) {
   return (await openDialog('confirm', options)) !== null;
 }
 
-export async function promptUi(options: PromptOptions) {
+export async function promptUi(options: Labelled<PromptOptions>) {
   return (await openDialog('prompt', options))?.value ?? null;
 }
 
 /** A prompt with one checkbox under its field: what was typed, and whether the box was ticked. */
-export function promptWithToggleUi(options: ToggledPromptOptions) {
+export function promptWithToggleUi(options: Labelled<ToggledPromptOptions>) {
   return openDialog('prompt', options);
 }
