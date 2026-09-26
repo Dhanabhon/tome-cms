@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatPublishedAt, installabilityReason, updateCheckMessage } from '../../src/components/admin/UpdateManager.tsx';
+import { formatPublishedAt, installabilityReason, updateCheckFailureMessage, updateCheckMessage } from '../../src/components/admin/UpdateManager.tsx';
 import { adminCopy, fill } from '../../src/lib/admin-i18n.js';
 import { getUpdateInstallability, updateActionSchema } from '../../src/server/update/admin.js';
 
@@ -33,6 +33,16 @@ test('uses a safe publication-date fallback for malformed release metadata', () 
 test('formats a valid publication date in the owner language', () => {
   const moment = '2026-09-14T00:00:00.000Z';
   assert.notEqual(formatPublishedAt(moment, adminCopy('th'), 'th'), formatPublishedAt(moment, adminCopy('en'), 'en'));
+});
+
+test('a failed check never shows the server’s, fetch’s or an abort’s own English', () => {
+  const copy = adminCopy('en');
+  assert.equal(updateCheckFailureMessage(copy, { status: 429 } as Response), copy.auth.tooManyAttempts,
+    'the 7th check in 10 minutes gets a 429, said as too many attempts');
+  assert.equal(updateCheckFailureMessage(copy, { status: 500 } as Response), copy.updates.updateCheckUnavailable,
+    'any other status is the generic unavailable sentence');
+  assert.equal(updateCheckFailureMessage(copy, null), copy.updates.updateCheckUnavailable,
+    'a thrown error with no response, such as a client abort, is the same generic sentence');
 });
 
 test('every outcome of a check is said in the owner’s language, from the code the server sends', () => {

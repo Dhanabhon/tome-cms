@@ -56,6 +56,14 @@ export function updateCheckMessage(copy: AdminCopy, check: Pick<UpdateCheck, 'av
 }
 
 /**
+ * What a failed check says. Never the server's own English detail, a thrown fetch error, or
+ * an abort's message -- only what the response's status means, in the admin's language.
+ */
+export function updateCheckFailureMessage(copy: AdminCopy, response: Response | null): string {
+  return response?.status === 429 ? copy.auth.tooManyAttempts : copy.updates.updateCheckUnavailable;
+}
+
+/**
  * Why nothing installs here. Check-only is this installation's own setting, so it is said in
  * the owner's words; a managed installation's reasons are the updater's own.
  */
@@ -95,21 +103,24 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     setBusy(true);
     setChecking(refresh);
     setError('');
+    // Read in the catch below, so a 429 there still gets its own sentence and nothing else
+    // ever shows the server's, fetch's or an abort's own English.
+    let response: Response | null = null;
     try {
       // Only a pressed check waits out the minimum; the page's own first look does not.
-      const response = await atLeast(fetch('/api/admin/system/updates', refresh ? {
+      response = await atLeast(fetch('/api/admin/system/updates', refresh ? {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'check' }), signal: AbortSignal.timeout(10_000),
       } : { cache: 'no-store', signal: AbortSignal.timeout(10_000) }), refresh ? MIN_BUSY_MS : 0);
       const result = await response.json().catch(() => ({})) as UpdateCheck & { error?: string };
-      if (!response.ok || !result.availability) throw new Error(result.error ?? copy.updates.updateCheckUnavailable);
+      if (!response.ok || !result.availability) throw new Error('update check failed');
       if (!mounted.current) return;
       setCheck(result);
       setReconnecting(false);
       if (result.updater?.managed && result.updater.job && !terminalPhases.includes(result.updater.job.phase)) {
         setWatch({ targetVersion: result.updater.job.targetVersion });
       }
-    } catch (failure) {
-      if (mounted.current) setError(failure instanceof Error ? failure.message : copy.updates.updateCheckUnavailable);
+    } catch {
+      if (mounted.current) setError(updateCheckFailureMessage(copy, response));
     } finally {
       if (mounted.current) {
         setBusy(false);
@@ -224,9 +235,12 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   const message = busy ? copy.updates.checkingForUpdates
     : error || (check ? updateCheckMessage(copy, check) : copy.updates.updateCheckUnavailable);
   // No release yet is not a failed check, and the label says so.
+  const noReleaseYet = !busy && !error && check?.reason === 'no-release';
   const availabilityLabel = busy ? copy.updates.checkingForUpdates
-    : !error && check?.reason === 'no-release' ? copy.updates.noReleaseLabel
+    : noReleaseYet ? copy.updates.noReleaseLabel
     : availabilityLabels(copy)[availability === 'checking' ? 'unavailable' : availability];
+  // Nor is it the error colour: 'none' matches no status rule, so it stays the base ink.
+  const statusAttr = noReleaseYet ? 'none' : availability;
   const progress = installing ? copy.updates.verifying : message;
   const installability = check?.installability ?? {
     mode: 'check-only' as const,
@@ -247,7 +261,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
           <h2 id="update-status-heading">{copy.updates.status}</h2>
         </header>
         <div className="update-summary">
-          <p className="update-status" data-status={availability} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
+          <p className="update-status" data-status={statusAttr} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
           <dl className="admin-facts">
             <div><dt>{copy.updates.installedVersion}</dt><dd>{check?.currentVersion ?? copy.updates.checking}</dd></div>
             {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
