@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 
 import { expect, test } from './own-worker';
@@ -379,7 +380,9 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
   await expect(page.locator('.plain-head a', { hasText: 'Contact' })).not.toHaveAttribute('target');
 });
 
-test('a link is named after its site from a list, or with a name of the owner\'s own', async ({ context, page }) => {
+// One sign-in serves the profile and the footer: recovery allows five in half an hour from one
+// address, and the tests above use the rest.
+test('the footer thanks the writer, and a link is named after its site or with a name of the owner\'s own', async ({ context, page }) => {
   test.setTimeout(120_000);
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
@@ -394,6 +397,19 @@ test('a link is named after its site from a list, or with a name of the owner\'s
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
   await page.setViewportSize({ width: 1280, height: 900 });
+  const { version } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string };
+
+  for (const path of ['/admin', '/admin/profile']) {
+    await page.goto(`${origin}${path}`);
+    const footer = page.getByRole('contentinfo', { name: 'About TomeCMS' });
+    await expect(footer, `${path} ends with the footer`).toContainText('Thanks for writing with TomeCMS.');
+    await expect(footer).toContainText(`Powered by TOMERA Co., Ltd. · ${version}`);
+    const docs = footer.getByRole('link', { name: 'TomeCMS' });
+    await expect(docs, 'TomeCMS is a link to its documentation').toHaveAttribute('href', 'https://dhanabhon.github.io/tome-cms/');
+    await expect(docs).toHaveAttribute('target', '_blank');
+  }
+  const box = await page.getByRole('contentinfo', { name: 'About TomeCMS' }).boundingBox();
+  expect(box && box.y + box.height, 'on a short page it sits at the bottom of the window').toBeGreaterThan((page.viewportSize()?.height ?? 0) - 80);
   await page.goto(`${origin}/admin/profile`);
 
   const choose = async (index: number, name: string) => {
@@ -425,3 +441,4 @@ test('a link is named after its site from a list, or with a name of the owner\'s
   await expect(page.getByLabel('Link 2 label'), 'a name of the owner\'s own comes back as their own').toContainText('Other…');
   await expect(page.getByLabel('Name for link 2')).toHaveValue('My notes');
 });
+

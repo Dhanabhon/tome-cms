@@ -115,6 +115,7 @@ const en = {
   shell: {
     close: 'Close',
     closeNavigation: 'Close navigation',
+    footerLabel: 'About TomeCMS',
     maintenanceManage: 'Maintenance settings',
     maintenanceOn: 'The site is closed for maintenance',
     maintenanceOnBody: 'Visitors see the maintenance page until you turn it off.',
@@ -123,6 +124,8 @@ const en = {
     migrationsPendingBody: 'Waiting: {names}. Saving content will fail until npm run db:migrate has run.',
     navigationLabel: 'Admin navigation',
     openNavigation: 'Open navigation',
+    poweredBy: 'Powered by {company}',
+    thanks: 'Thanks for writing with {product}.',
     searchLabel: 'Search posts',
     searchPlaceholder: 'Search posts…',
     signOut: 'Sign out',
@@ -1046,6 +1049,7 @@ const th: typeof en = {
   shell: {
     close: 'ปิด',
     closeNavigation: 'ปิดเมนูนำทาง',
+    footerLabel: 'เกี่ยวกับ TomeCMS',
     maintenanceManage: 'ตั้งค่าปิดปรับปรุง',
     maintenanceOn: 'เว็บปิดปรับปรุงอยู่',
     maintenanceOnBody: 'ผู้เยี่ยมชมจะเห็นหน้าปิดปรับปรุงจนกว่าคุณจะปิดโหมดนี้',
@@ -1054,6 +1058,8 @@ const th: typeof en = {
     migrationsPendingBody: 'ที่ยังค้างอยู่: {names} — การบันทึกเนื้อหาจะล้มเหลวจนกว่าจะรัน npm run db:migrate',
     navigationLabel: 'เมนูผู้ดูแล',
     openNavigation: 'เปิดเมนูนำทาง',
+    poweredBy: 'พัฒนาโดย {company}',
+    thanks: 'ขอบคุณที่เขียนด้วย {product}',
     searchLabel: 'ค้นหาบทความ',
     searchPlaceholder: 'ค้นหาบทความ…',
     signOut: 'ออกจากระบบ',
