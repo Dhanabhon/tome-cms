@@ -42,7 +42,7 @@ jobs:
             exit 1
           fi
           VERSION="${TAG#v}"
-          PACKAGE_VERSION="$(node -p 'require(\"./package.json\").version')"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           test "$VERSION" = "$PACKAGE_VERSION"
           printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
 
