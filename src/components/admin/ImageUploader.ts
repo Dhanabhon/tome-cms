@@ -12,6 +12,7 @@ export async function uploadImage(file: File): Promise<string> {
 /** An image dropped or pasted into the editor, and why it was not kept, in its owner's language. */
 export function createUploadFn(copy: AdminCopy) {
   const failed = (error: unknown) => void alertUi({
+    confirmLabel: copy.shell.close,
     title: copy.media.imageUploadFailed,
     message: uploadFailureText(error, copy) ?? (error instanceof Error ? error.message : copy.media.imageUploadFailed),
   });

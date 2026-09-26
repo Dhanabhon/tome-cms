@@ -168,7 +168,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     setError('');
     try {
       const confirmed = await confirmUi({
-        title: `Install TomeCMS ${version}?`, confirmLabel: `Install ${version}`,
+        title: `Install TomeCMS ${version}?`, confirmLabel: `Install ${version}`, cancelLabel: copy.shell.cancel,
         message: 'TomeCMS will create a complete recovery backup, apply the update, and briefly restart. Keep this page open to follow progress.',
       });
       if (!confirmed || !mounted.current) return;

@@ -184,6 +184,7 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
           message: copy.blocks.linkHint,
           label: copy.blocks.linkUrl,
           confirmLabel: copy.blocks.applyLink,
+          cancelLabel: copy.shell.cancel,
           // Every link opened a new tab before there was a choice, so that is where it starts.
           toggle: { checked: true, label: copy.blocks.linkNewTab },
           validate: (value) => normalizedLink(value) ? null : copy.blocks.invalidLink,
