@@ -378,3 +378,50 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
   }
   await expect(page.locator('.plain-head a', { hasText: 'Contact' })).not.toHaveAttribute('target');
 });
+
+test('a link is named after its site from a list, or with a name of the owner\'s own', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${origin}/admin/profile`);
+
+  const choose = async (index: number, name: string) => {
+    await page.getByLabel(`Link ${index} label`).click();
+    await page.getByRole('option', { name }).click();
+  };
+  await page.getByRole('button', { name: 'Add link' }).click();
+  await expect(page.getByLabel('Link 1 label'), 'a new link is a website until it is told otherwise').toContainText('Website');
+  await choose(1, 'GitHub');
+  await page.getByLabel('Link 1 URL').fill('https://github.com/tome');
+
+  await page.getByRole('button', { name: 'Add link' }).click();
+  await expect(page.getByLabel('Name for link 2'), 'no name field while a site from the list names the link').toHaveCount(0);
+  await choose(2, 'Other…');
+  await page.getByLabel('Name for link 2').fill('My notes');
+  await page.getByLabel('Link 2 URL').fill('https://notes.example');
+
+  const saved = page.waitForResponse((response) => response.url().endsWith('/api/admin/profile') && response.request().method() !== 'GET');
+  await page.getByRole('button', { name: /^Save$/ }).click();
+  expect((await saved).ok(), 'the profile was saved').toBe(true);
+  const { getSiteSettings: reread } = await import('../../src/server/content/site-settings');
+  expect((await reread())?.author_links, 'what is stored is still a name and an address').toEqual([
+    { label: 'GitHub', url: 'https://github.com/tome' },
+    { label: 'My notes', url: 'https://notes.example' },
+  ]);
+
+  await page.reload();
+  await expect(page.getByLabel('Link 1 label'), 'the site comes back chosen').toContainText('GitHub');
+  await expect(page.getByLabel('Link 2 label'), 'a name of the owner\'s own comes back as their own').toContainText('Other…');
+  await expect(page.getByLabel('Name for link 2')).toHaveValue('My notes');
+});

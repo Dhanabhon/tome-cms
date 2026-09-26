@@ -49,7 +49,7 @@ Press "Save". When you change the site name, the language or the time zone, the 
 
 1. Under "Identity", type the "Author name", up to 120 characters. "Choose avatar" picks a picture from the File Manager, and the bin beside it, "Remove profile picture", takes it off. While the picture is your avatar, the File Manager will not delete it.
 2. Under "Bio", write a short biography in English and in Thai, up to 1,000 characters each. Each post shows the one in the language the reader is reading.
-3. Under "Links", press "Add link" for each link you want under your bio, up to five. Each has a label, up to 80 characters, and an address that starts with `http://` or `https://`. "Remove" takes a link out.
+3. Under "Links", press "Add link" for each link you want under your bio, up to five. Each has a name, chosen from a list, and an address that starts with `http://` or `https://`. The list offers GitHub, X, LinkedIn, Facebook, Instagram, YouTube and "Website", which a new link starts on. "Other…" opens a field for a name of your own, up to 80 characters. The name is only the words beside the link: a theme picks its mark from the address. "Remove" takes a link out.
 4. Press "Save". The admin says "Saved."
 
 ## Passkeys and recovery codes
