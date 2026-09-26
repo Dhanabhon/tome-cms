@@ -42,7 +42,7 @@ built from `provider` and `videoId`, so nothing a writer pastes reaches the page
 
 ### Links it understands
 
-One parser, `parseVideoLink(text)` in `src/lib/editor-video.ts`, used by paste, by the menus, and by the
+One parser, `parseVideoLink(text)` in `src/lib/video-link.ts`, used by paste, by the menus, and by the
 server.
 
 - YouTube: `youtube.com/watch?v=`, `m.youtube.com/watch?v=`, `youtu.be/`, `youtube.com/shorts/`,
@@ -91,7 +91,7 @@ times out after 5 seconds, and reads at most 2 MB. A private or deleted clip, a 
 server with no way out gives an answer with `title: ''`, `mediaId: null` and `reason` set to
 `unavailable` (the provider said no) or `unreachable` (no answer in time). The editor shows the reason in
 the admin's language. None of these is an error the writer has to clear. With no title, the caption
-names only the provider and the button reads "Play video".
+names only the provider and the button reads "Play video: " followed by the provider's name.
 
 ## What a reader gets
 

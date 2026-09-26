@@ -982,10 +982,10 @@ test('a pasted YouTube link on an empty line becomes a video, and a menu adds on
   await page.getByRole('option', { name: /^Video/ }).click();
   const prompt = page.getByRole('dialog', { name: 'Add a video' });
   await prompt.getByLabel('Link').fill('https://example.com/not-a-clip');
-  await prompt.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await prompt.getByRole('button', { name: 'Add a video', exact: true }).click();
   await expect(prompt.getByText('Use a YouTube or Vimeo link to one clip.')).toBeVisible();
   await prompt.getByLabel('Link').fill('https://vimeo.com/76979871');
-  await prompt.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await prompt.getByRole('button', { name: 'Add a video', exact: true }).click();
   await expect(videos).toHaveCount(2);
   // alertUi opens with role="alertdialog", not "dialog".
   await expect(page.getByRole('alertdialog', { name: 'The video is in, without its poster' })).toBeVisible();

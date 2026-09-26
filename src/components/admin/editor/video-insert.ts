@@ -61,6 +61,7 @@ export async function insertVideo(editor: Editor, at: number | Range, link: stri
   });
   if (reason) {
     void alertUi({
+      confirmLabel: copy.shell.close,
       message: reason === 'unavailable' ? copy.blocks.videoUnavailable : copy.blocks.videoUnreachable,
       title: copy.blocks.videoLookupFailed,
     });
@@ -70,6 +71,8 @@ export async function insertVideo(editor: Editor, at: number | Range, link: stri
 /** The + and / menus: ask for a link, then put the clip where the menu was opened. */
 export async function askForVideo(editor: Editor, position: number, copy: AdminCopy): Promise<void> {
   const link = await promptUi({
+    cancelLabel: copy.shell.cancel,
+    confirmLabel: copy.blocks.videoTitle,
     label: copy.blocks.videoLink,
     message: copy.blocks.videoHint,
     title: copy.blocks.videoTitle,

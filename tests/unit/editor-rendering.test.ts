@@ -319,3 +319,12 @@ test('a player never reaches stored HTML, however it is written', () => {
   } });
   assert.doesNotMatch(contentHtml, /<iframe/);
 });
+
+test('the sanitizer drops a raw iframe and script inside a video figure', () => {
+  const dirty = '<figure class="tome-video x"><a class="tome-video__play" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"><iframe src="https://www.youtube.com/embed/x"></iframe><script>1</script></a></figure>';
+  const clean = sanitizedContentHtmlSchema.parse(dirty);
+  assert.match(clean, /figure class="tome-video"/);
+  assert.match(clean, /a class="tome-video__play"/);
+  assert.doesNotMatch(clean, /iframe/);
+  assert.doesNotMatch(clean, /script/);
+});
