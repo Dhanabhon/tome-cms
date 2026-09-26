@@ -62,12 +62,16 @@ By default the public pages load nothing from anyone else. The fonts are served 
 - Cloudflare Turnstile, when you switch it on, loads Cloudflare's script on the admin's sign-in form and nowhere else. Readers never meet it.
 - "Jev (TypeSafe AI)" sends an article's text to TypeSafe AI only when you press one of its buttons in the editor, such as "Suggest from the text". Nothing a reader does reaches it.
 
-An article's HTML keeps no `iframe` and no `script`, so an article on the bundled site cannot bring in another service's player or post. A picture can still come from elsewhere. An image pasted in from another website can keep its address there, and then each reader's browser fetches it from that site, which sees the reader's address and can set cookies of its own. Upload the picture to the File Manager instead.
+On the bundled site, a post or page can hold a YouTube or Vimeo video, and the page loads nothing from either until the reader presses play. Before that, the video is a poster and a link to the clip. The poster is the site's own file: the server fetched it once, when the video was added, and keeps it in the File Manager. Pressing play puts the player in the poster's place, from YouTube's no-cookie host, `www.youtube-nocookie.com`, or from Vimeo in its do-not-track mode, `player.vimeo.com` with `dnt=1`. From then on the reader is dealing with YouTube or Vimeo, which sees the reader's address and runs its own player. TomeCMS itself sets no cookie and writes nothing to the browser for a video.
+
+TomeCMS sets no Content Security Policy. If you set one at your reverse proxy, allow `frame-src https://www.youtube-nocookie.com https://player.vimeo.com`, or the player cannot load.
+
+An article's HTML still keeps no `iframe` and no `script`, so a player or post from any other service cannot be put in an article on the bundled site. A picture can still come from elsewhere. An image pasted in from another website can keep its address there, and then each reader's browser fetches it from that site, which sees the reader's address and can set cookies of its own. Upload the picture to the File Manager instead.
 
 On a headless site, your own frontend decides what it loads. A video or a post embedded from another service brings that service's cookies with it. Where the service offers a privacy-enhanced embed, use it: for YouTube, that is `youtube-nocookie.com`.
 
 ## Whether the site needs a consent banner
 
-With the defaults, the public site needs no consent banner for what TomeCMS itself does. Counting stores nothing on the reader's device, and the only things written there are choices the reader made. A plugin you switch on can change that, and so can content that comes from another service.
+With the defaults, the public site needs no consent banner for what TomeCMS itself does. Counting stores nothing on the reader's device, and the only things written there are choices the reader made. A video loads nothing from YouTube or Vimeo until the reader presses play. A plugin you switch on can change that, and so can content that comes from another service.
 
 This page describes what the software does. It is not legal advice. The rules differ from place to place, so check the ones that apply where you and your readers are.

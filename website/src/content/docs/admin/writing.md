@@ -1,6 +1,6 @@
 ---
 title: Writing
-description: Write a post in the editor, add pictures, files and tables to it, and fill in its settings before it goes out.
+description: Write a post in the editor, add pictures, files, tables and videos to it, and fill in its settings before it goes out.
 sidebar:
   order: 1
 ---
@@ -29,7 +29,7 @@ The editor saves on its own a moment after you stop typing, once the post has a 
 
 ## Adding blocks
 
-Type `/` at the start of a line, or after a space, and a menu opens: "Heading 2", "Heading 3", "Bullet list", "Code block", "Quote", "Table" and "File". Keep typing to narrow it, and press Enter to choose.
+Type `/` at the start of a line, or after a space, and a menu opens: "Heading 2", "Heading 3", "Bullet list", "Code block", "Quote", "Table", "File" and "Video". Keep typing to narrow it, and press Enter to choose.
 
 The "+" button beside the line you are on ("Add block") opens the longer list. It has "Text" and "Heading 1" as well, and "Image". Use the arrow keys and Enter, or click.
 
@@ -54,6 +54,16 @@ A picture copied from another website together with its text can keep its addres
 Choose "File" from the "+" menu or from `/`. The picker shows files only: PDF, Word, Excel, PowerPoint, CSV, text and ZIP, up to 25 MB each. Press one, or "Upload file" to add a new one.
 
 The file goes into the article as a card with its name, its type and its size. A reader who clicks it downloads the file, except a PDF, which opens in a new tab.
+
+## Videos
+
+Paste a YouTube or Vimeo link alone on an empty line and it becomes a video. Pasted into a sentence, or on an empty line inside a table, a list or a quote, it stays a link. You can also choose "Video" from the "+" menu or from `/`, outside a table. It opens "Add a video": paste the link into "Link" and press Enter. A link that is not to one YouTube or Vimeo clip gets "Use a YouTube or Vimeo link to one clip."
+
+The video goes into the article at once as a card with the clip's id and "YouTube" or "Vimeo". A moment later the card shows the clip's title and its poster, which the server fetched from YouTube or Vimeo and keeps in the File Manager. The card moves and deletes like any other block.
+
+When YouTube or Vimeo gives no title and poster, the editor tells you why under "The video is in, without its poster": the clip may be private, or the server could not reach YouTube or Vimeo in time. The clip stays in the article, without a poster, and you can still publish it. Readers who can see the clip can play it.
+
+On the site, a reader sees the poster with a play mark, and nothing loads from YouTube or Vimeo until they press play. [What a reader's browser keeps](/tome-cms/running/privacy/) explains what happens then.
 
 ## The post's settings
 
