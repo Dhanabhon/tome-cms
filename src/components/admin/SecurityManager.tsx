@@ -53,7 +53,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   const copy = adminCopy(ownerLocale);
   const [passkeys, setPasskeys] = useState<PasskeyView[]>([]);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
-  const [newName, setNewName] = useState('Spare Passkey');
+  const [newName, setNewName] = useState(copy.security.spareName);
   // Which action is running, so only its own button says so; the others are only disabled.
   const [busy, setBusy] = useState<string | null>(null);
   const pressed = (action: string) => busy === action;

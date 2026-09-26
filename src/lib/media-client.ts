@@ -1,4 +1,4 @@
-import type { AdminCopy } from './admin-i18n';
+import { fill, type AdminCopy } from './admin-i18n';
 import { declaredMediaType, isImageType, MediaFileError, uploadTimeoutMs, type MediaKind, type MediaTypeFilter, type SupportedMediaType } from './media';
 import type {
   MediaAsset,
@@ -54,6 +54,12 @@ export function uploadFailureText(error: unknown, copy: AdminCopy): string | und
     case 'storage_unreachable': return copy.media.storageUnreachable;
     default: return undefined;
   }
+}
+
+/** Why the library kept a file, in the owner's language, counted from the places the server named. */
+export function stillUsedText(references: MediaReferences, copy: AdminCopy): string {
+  const count = Object.values(references.counts).reduce((total, places) => total + places, 0);
+  return count === 1 ? copy.media.stillUsedOne : fill(copy.media.stillUsedMany, { count });
 }
 
 function errorMessage(payload: unknown): string | null {

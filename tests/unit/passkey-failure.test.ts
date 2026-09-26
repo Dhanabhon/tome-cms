@@ -101,3 +101,22 @@ test('an authenticator that already holds a Passkey is not a fault to retry past
   assert.equal(describePasskeyFailure(aborted, copy, FALLBACK, REFUSED), FALLBACK);
   for (const junk of [null, 'code', 42, { error: { code: 42 } }]) assert.equal(readPasskeyCode(junk), undefined);
 });
+
+test('a spare Passkey is named in the owner’s language until the owner names it', () => {
+  const security = readFileSync(new URL('../../src/components/admin/SecurityManager.tsx', import.meta.url), 'utf8');
+  assert.match(security, /useState\(copy\.security\.spareName\)/);
+  assert.doesNotMatch(security, /'Spare Passkey'/);
+  assert.equal(adminCopy('en').security.spareName, 'Spare Passkey');
+  assert.equal(adminCopy('th').security.spareName, 'Passkey สำรอง');
+});
+
+test('a recovery code that starts nothing is refused in the owner’s words, not the server’s', () => {
+  const recovery = readFileSync(new URL('../../src/components/admin/RecoveryPasskey.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(recovery, /payload\.detail/, 'the server’s English detail is not shown');
+  assert.match(recovery, /describePasskeyFailure\(\{ status: response\.status \}, copy, copy\.security\.recoveryNotStarted, copy\.security\.recoveryNotStarted\)/);
+  const th = adminCopy('th');
+  const refused = (status: number) => describePasskeyFailure({ status }, th, th.security.recoveryNotStarted, th.security.recoveryNotStarted);
+  assert.equal(refused(400), th.security.recoveryNotStarted, 'a wrong code');
+  assert.equal(refused(429), th.auth.tooManyAttempts, 'too many tries');
+  assert.equal(refused(500), th.auth.serverError, 'the server');
+});

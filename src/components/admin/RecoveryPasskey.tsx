@@ -84,7 +84,8 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       const payload = await responsePayload(response);
       const nextContext = typeof payload.context === 'string' ? payload.context : '';
       if (!response.ok || !nextContext) {
-        setError(typeof payload.detail === 'string' ? payload.detail : copy.security.recoveryNotStarted);
+        // The status says which failure it was; the server's detail is English for API callers.
+        setError(describePasskeyFailure({ status: response.status }, copy, copy.security.recoveryNotStarted, copy.security.recoveryNotStarted));
         return;
       }
       setContext(nextContext);
