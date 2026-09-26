@@ -6,15 +6,15 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ### Fixed
 
-- The language tabs on Maintenance, Home slides and Navigation open on the site owner's language instead of English, and a new menu item's default label is Home in that language.
+- The language tabs on Maintenance, Home slides and Navigation open on the site owner's language instead of Thai. A new menu item's default label is Home in the language of the menu you are editing.
 - The System screen tells three things apart when it checks for an update: no official release has been published yet, GitHub could not be reached, or GitHub's answer could not be used. Every message there, and the line for a site that can only check, is in the admin's language.
-- A spare Passkey's suggested name, a refused recovery code and the library's refusal to delete a file still in use are in the admin's language. The refusal also says how many places use the file.
-- Every dialog button is in the admin's language. The link prompt, the upload alert and five delete or install confirmations used to say Cancel and OK in English.
+- A spare Passkey's suggested name and a refused recovery code are in the admin's language. The library's refusal to delete a file still in use, with its count of the places using it, is now in the admin's language too.
+- The link prompt and six confirmations, for category delete, media folder delete, media file delete, posts list delete, pages list delete and update install, are in the admin's language. They used to fall back to an English "Cancel", and the upload alert to an English "OK". The install confirmation's own button, title and message stay English on purpose, since managed updates start at 1.0.0.
 - A draft keeps the "Publish at" date you gave it. The date used to be dropped by the save that filed the draft, and the field was empty the next time you opened it.
 - The language chips in the editor say Scheduled for an edition published with a date still to come, as the lists do.
 - A popup whose words are the other language's shows its default decline button and its close label in that language too, not the page's.
 - A closable notice band from any plugin can be closed. The code that closed it came only with the Notice plugin.
-- The first-run bootstrap works on Windows: it starts npm through `npm.cmd`, and it no longer refuses to run again because Windows reports every file as readable by all.
+- The first-run bootstrap should now run on Windows: it starts npm through `npm.cmd`, because Windows cannot run npm by name without it and a shell, and it skips the check that only you can read `.env.local`, because Windows reports every writable file as readable by everyone.
 - An article that opens with a video fetches the video's poster first, as one that opens with a picture already did.
 
 ### Upgrading

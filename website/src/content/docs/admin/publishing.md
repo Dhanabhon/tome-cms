@@ -21,7 +21,7 @@ Open "Settings" in the editor, set "Publish at" to a date and time, and press "P
 
 "Publish at" is read in your device's time zone. The list shows dates in the site's time zone, which it names in brackets beside each date.
 
-A draft keeps the date you set, so you can choose it now and press "Publish" another day. Left blank, "Publish at" means now. A date that has already passed publishes the article at once, dated then.
+A draft keeps the date you set, so you can choose it now and press "Publish" another day. To publish on the planned date, press "Publish" in the editor; "Publish" in the list publishes at once and drops the planned date. Left blank, "Publish at" means now. A date that has already passed publishes the article at once, dated then.
 
 On an article that is already published, a new "Publish at" takes effect with the next autosave, and a later date takes it off the site until then.
 
