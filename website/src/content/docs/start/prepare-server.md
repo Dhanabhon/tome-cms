@@ -38,7 +38,7 @@ The script works through these steps:
 
 1. It checks the server before it changes anything: root, Ubuntu 24.04, `amd64` or `arm64`, systemd 235 or later, the account that will run TomeCMS, both addresses, and that nothing but Caddy holds ports 80 and 443. It lists every problem it finds, then stops.
 2. It installs `ca-certificates`, `curl`, `git` and `gnupg`.
-3. With `--create-user`, it creates the account, with no password, and gives it the SSH keys root has.
+3. With `--create-user`, it creates the account, with no password, and gives it the SSH keys root has. Each key keeps its options, such as `from=`, except the "log in as ubuntu" command a cloud image puts in front of root's keys, which is dropped.
 4. It installs Docker Engine and its Compose plugin from Docker's own apt repository, starts Docker, and adds the account to the `docker` group. A Docker that already has Compose is kept.
 5. It installs Node.js 22 from NodeSource's apt repository at `/usr/bin/node`, unless that is already 22.12 or later.
 6. It installs the GitHub CLI from GitHub's apt repository. The managed install from 1.0.0 uses it to check what it downloads.
@@ -48,7 +48,7 @@ The script works through these steps:
 10. It looks up both host names and prints the addresses they point at, for you to compare with the server's.
 11. It prints the commands that install TomeCMS.
 
-Each step says whether it changed something or found it done, so running the script again is safe. If Docker's, NodeSource's, GitHub's or Caddy's apt repository is already set up some other way, the script keeps that source rather than add a second one.
+Each step says whether it changed something or found it done, so running the script again is safe. If Docker's, NodeSource's, GitHub's or Caddy's apt repository is already set up some other way, the script keeps that source rather than add a second one. Before it adds one, it checks the vendor's signing key against the fingerprint the vendor publishes, and stops if the key it downloaded is a different one.
 
 ### Options
 

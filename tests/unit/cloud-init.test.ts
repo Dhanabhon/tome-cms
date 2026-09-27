@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { parse } from 'yaml';
+import { OFFICIAL_REPOSITORY } from '../../src/update/contracts';
 
 interface WrittenFile {
   path: string;
@@ -74,4 +75,10 @@ test('the first-boot script prepares the server, then installs', () => {
 test('a non-0.x release installs dependencies before handing over to the managed installer', () => {
   const script = written('/usr/local/sbin/tomecms-first-boot').content;
   assert.match(script, /\(cd "\$src" && npm ci && \.\/scripts\/deploy-vps\.sh\)/);
+});
+
+test('the server tools clone the official repository', async () => {
+  const clone = `https://github.com/${OFFICIAL_REPOSITORY}.git`;
+  assert.match(written('/usr/local/sbin/tomecms-first-boot').content, new RegExp(`^repo=${clone.replaceAll('.', '\\.')}$`, 'm'));
+  assert.ok((await readFile('scripts/prepare-vps.sh', 'utf8')).includes(`git clone ${clone} `), 'prepare-vps.sh prints the same address');
 });

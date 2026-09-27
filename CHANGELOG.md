@@ -6,6 +6,8 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ### Changed
 
+- "TOMERA Co., Ltd." in the admin footer links to [tomera.ai](https://tomera.ai).
+- `prepare-vps.sh` checks each vendor's apt signing key against the fingerprint the vendor publishes, and stops if the downloaded key differs. The account `--create-user` makes keeps the options on root's SSH keys, such as `from=` and `restrict`, and drops only the "log in as ubuntu" command a cloud image adds. A failing step reports its error once, and no temporary file is left behind.
 - CI runs on `develop` and on pull requests, and no longer on `main`. A merge into `main` is a fast-forward of a commit CI already ran on, so `tag-release.yml` now starts from the push to `main` and waits for CI to pass on that same commit before it tags it, instead of testing the same tree twice. A commit CI never ran on, such as a merge commit or a fix pushed straight to `main`, is not released.
 
 ## 0.14.0 - 2026-09-27

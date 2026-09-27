@@ -132,7 +132,8 @@ apt_fresh=false
 arch=""
 codename=""
 
-trap 'if [[ -n "$current_step" ]]; then echo "Error: the step \"${current_step}\" failed. Fix what the lines above say, then run this script again: it skips what is already done." >&2; fi' ERR
+# BASH_SUBSHELL keeps a failing command substitution from printing this a second time.
+trap 'if [[ -n "$current_step" && $BASH_SUBSHELL -eq 0 ]]; then echo "Error: the step \"${current_step}\" failed. Fix what the lines above say, then run this script again: it skips what is already done." >&2; fi' ERR
 
 step() {
   current_step="$1"
@@ -169,7 +170,7 @@ write_file() {
   fi
   tmp="$(mktemp)"
   cat >"$tmp"
-  install -m "$mode" "$tmp" "$path"
+  install -m "$mode" "$tmp" "$path" || { rm -f "$tmp"; return 1; }
   rm -f "$tmp"
 }
 
@@ -266,10 +267,33 @@ apt_install_latest() {
   run env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y -q "$1"
 }
 
-# add_apt_repo <name> <key url> <armored|binary> <source>: adds a vendor's apt
+# Fetches a vendor's signing key into keyring, but only when its fingerprints are the
+# ones the vendor publishes: a key swapped on the download server is refused.
+fetch_key() {
+  local url="$1" format="$2" expected="$3" keyring="$4" tmp found
+  tmp="$(mktemp)"
+  if ! curl -fsSL "$url" -o "$tmp"; then
+    rm -f "$tmp"
+    fail "Could not download the signing key from ${url}."
+  fi
+  found="$(gpg --show-keys --with-colons "$tmp" 2>/dev/null \
+    | awk -F: '$1 == "pub" { want = 1 } $1 == "fpr" && want { print $10; want = 0 }' | sort | paste -sd ' ' - || true)"
+  if [[ "$found" != "$(tr ' ' '\n' <<<"$expected" | sort | paste -sd ' ' -)" ]]; then
+    rm -f "$tmp"
+    fail "The signing key from ${url} has the fingerprint ${found:-none}, not ${expected}. Nothing was added."
+  fi
+  if [[ "$format" == armored ]]; then
+    gpg --dearmor --yes -o "$keyring" "$tmp"
+  else
+    install -m 0644 "$tmp" "$keyring"
+  fi
+  rm -f "$tmp"
+}
+
+# add_apt_repo <name> <key url> <armored|binary> <fingerprints> <source>: adds a vendor's apt
 # repository, with its signing key in a keyring of its own.
 add_apt_repo() {
-  local name="$1" key_url="$2" key_format="$3" source="$4"
+  local name="$1" key_url="$2" key_format="$3" fingerprints="$4" source="$5"
   local keyring="/etc/apt/keyrings/${name}.gpg" list="/etc/apt/sources.list.d/${name}.list"
   local uri="${source%% *}" line other file
   line="$(printf 'deb [arch=%s signed-by=%s] %s' "$arch" "$keyring" "$source")"
@@ -290,11 +314,9 @@ add_apt_repo() {
   fi
   run install -d -m 0755 /etc/apt/keyrings
   if $dry_run; then
-    note "would fetch ${key_url} into ${keyring}"
-  elif [[ "$key_format" == armored ]]; then
-    curl -fsSL "$key_url" | gpg --dearmor --yes -o "$keyring"
+    note "would fetch ${key_url} into ${keyring}, if its fingerprint is ${fingerprints}"
   else
-    curl -fsSL "$key_url" -o "$keyring"
+    fetch_key "$key_url" "$key_format" "$fingerprints" "$keyring"
   fi
   run chmod 0644 "$keyring"
   printf '%s\n' "$line" | write_file "$list" 0644
@@ -309,9 +331,10 @@ ensure_user() {
     return 0
   fi
   run useradd --create-home --shell /bin/bash "$target_user"
-  # A cloud image puts a "log in as ubuntu" command in front of root's keys, so only
-  # the keys themselves are copied.
-  keys="$(grep -oE '(sk-)?(ssh|ecdsa)-[A-Za-z0-9@.-]+ [A-Za-z0-9+/=]+' /root/.ssh/authorized_keys 2>/dev/null || true)"
+  # A cloud image puts a "log in as ubuntu" command in front of root's keys, and that is
+  # dropped. Every other key keeps its options, such as from= or restrict.
+  keys="$(perl -ne 'next if /^\s*(#|$)/; s/^.*?(?=(?:sk-)?(?:ssh|ecdsa)-\S+\s)// if /Please login as the user/; print' \
+    /root/.ssh/authorized_keys 2>/dev/null || true)"
   if [[ -n "$keys" ]]; then
     run install -d -m 0700 -o "$target_user" -g "$target_user" "${home}/.ssh"
     printf '%s\n' "$keys" | write_file "${home}/.ssh/authorized_keys" 0600
@@ -326,7 +349,8 @@ install_docker() {
   if ! installed docker-ce && docker compose version >/dev/null 2>&1; then
     note "Docker with its Compose plugin is already installed, and is kept"
   else
-    add_apt_repo docker https://download.docker.com/linux/ubuntu/gpg armored "https://download.docker.com/linux/ubuntu ${codename} stable"
+    add_apt_repo docker https://download.docker.com/linux/ubuntu/gpg armored \
+      9DC858229FC7DD38854AE2D88D81803C0EBFCD88 "https://download.docker.com/linux/ubuntu ${codename} stable"
     apt_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   fi
   run systemctl enable --now docker
@@ -350,7 +374,8 @@ install_node() {
     note "/usr/bin/node is already $(/usr/bin/node --version)"
     return 0
   fi
-  add_apt_repo nodesource https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key armored "https://deb.nodesource.com/node_22.x nodistro main"
+  add_apt_repo nodesource https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key armored \
+    6F71F525282841EEDAF851B42F59B5F99B1BE0B4 "https://deb.nodesource.com/node_22.x nodistro main"
   apt_install_latest nodejs
   if ! $dry_run && ! node_is_current; then
     local found
@@ -374,7 +399,8 @@ install_gh() {
     note "gh is already installed and can verify attestations"
     return 0
   fi
-  add_apt_repo githubcli https://cli.github.com/packages/githubcli-archive-keyring.gpg binary "https://cli.github.com/packages stable main"
+  add_apt_repo githubcli https://cli.github.com/packages/githubcli-archive-keyring.gpg binary \
+    "2C6106201985B60E6C7AC87323F3D4EA75716059 7F38BBB59D064DBCB3D84D725612B36462313325" "https://cli.github.com/packages stable main"
   apt_install_latest gh
   if ! $dry_run && ! gh_can_verify_attestations; then
     fail "gh cannot verify attestations even after installing, so it is still older than 2.49. Another gh apt source may be pinned ahead of the official one."
@@ -456,7 +482,8 @@ setup_proxy() {
     note "no proxy installed (--no-proxy)"
     return 0
   fi
-  add_apt_repo caddy https://dl.cloudsmith.io/public/caddy/stable/gpg.key armored "https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+  add_apt_repo caddy https://dl.cloudsmith.io/public/caddy/stable/gpg.key armored \
+    65760C51EDEA2017CEA2CA15155B6D79CA56EA34 "https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
   apt_install caddy
   wanted="$(render_caddyfile "$cms_host" "$media_host")"
   if [[ -f "$CADDYFILE" && "$(cat "$CADDYFILE")" == "$wanted" ]]; then
