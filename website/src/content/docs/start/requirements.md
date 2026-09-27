@@ -44,7 +44,7 @@ The media has an origin of its own because the browser sends uploads straight to
 
 ## The reverse proxy
 
-The proxy is yours to provide, with its certificates. Point each origin at its port on the server:
+The proxy is yours to provide, with its certificates, unless [`prepare-vps.sh`](/tome-cms/start/prepare-server/) sets up Caddy for you. Point each origin at its port on the server:
 
 | Origin | Forward to |
 | --- | --- |
@@ -57,4 +57,4 @@ Two settings on the proxy matter for uploads. The media origin has to pass the `
 
 Compose binds PostgreSQL (`5432`), SeaweedFS (`9000`) and the application (`4321`) to `127.0.0.1` only. Nothing reaches them from outside except through the proxy, so the firewall needs only SSH, HTTP and HTTPS open.
 
-The install scripts leave the firewall alone and do not obtain certificates. Both are yours to set up.
+The install scripts leave the firewall alone and do not obtain certificates. [`prepare-vps.sh`](/tome-cms/start/prepare-server/) does both: it opens only SSH, 80 and 443 in `ufw`, and Caddy gets the certificates. Without it, both are yours to set up.
