@@ -621,7 +621,7 @@ test('an owner can forward an old address, and stop', async ({ context, page }) 
   // The field shows where the address will live once the article is chosen.
   await expect(page.locator('.redirect-add .admin-control--prefixed > span')).toHaveText('/en/blog/');
   await page.locator('.redirect-add input[type="text"]').fill('somewhere-old');
-  await page.getByRole('button', { name: /^Forward$/ }).click();
+  await page.getByRole('button', { name: /^Redirect$/ }).click();
 
   const row = page.locator('.redirect-row', { hasText: '/en/blog/somewhere-old' });
   await expect(row, 'listed once it is saved').toBeVisible();
@@ -630,7 +630,7 @@ test('an owner can forward an old address, and stop', async ({ context, page }) 
   const forwarded = await fetch(`${origin}/en/blog/somewhere-old`, { redirect: 'manual' });
   expect(forwarded.status, 'and a reader is sent on').toBe(301);
 
-  await row.getByRole('button', { name: /Stop forwarding/ }).click();
+  await row.getByRole('button', { name: /Stop redirecting/ }).click();
   await expect(row, 'gone from the list').toHaveCount(0);
   const stopped = await fetch(`${origin}/en/blog/somewhere-old`, { redirect: 'manual' });
   expect(stopped.status, 'and from the site').toBe(404);
@@ -732,14 +732,14 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
 
   await drawer.getByRole('button', { name: /Suggest a line from the text/ }).click();
   await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(1);
-  await expect(drawer.getByText('No line in the article works on its own'), 'not a claim about the article')
+  await expect(drawer.getByText('No line in the post works on its own'), 'not a claim about the post')
     .toHaveCount(0);
   await drawer.getByRole('button', { name: /Suggest from the text/ }).click();
   await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(2);
   await expect(drawer.getByText('Nothing here matches a category'), 'nor about the categories').toHaveCount(0);
   await search.getByRole('button', { name: 'Suggest a description from the text' }).click();
   await expect(drawer.getByText('The suggestion service did not answer')).toHaveCount(3);
-  await expect(drawer.getByText('Nothing in the article sums it up'), 'nor about the description').toHaveCount(0);
+  await expect(drawer.getByText('Nothing in the post sums it up'), 'nor about the description').toHaveCount(0);
 
   // A page's drawer offers the same, wired to its own field.
   await page.unroute('**/api/admin/suggest-excerpt');

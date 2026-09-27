@@ -287,7 +287,7 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   const own = await page.goto(`${origin}/th`);
   expect(own?.status(), 'the owner still sees the site').toBe(200);
   expect(own?.headers()['cache-control']).toBe('private, no-store');
-  await expect(page.getByText('เว็บปิดปรับปรุงอยู่ ผู้เยี่ยมชมจะเห็นหน้าปิดปรับปรุง')).toBeVisible();
+  await expect(page.getByText('เว็บปิดปรับปรุงอยู่ ผู้เข้าชมจะเห็นหน้าปิดปรับปรุง')).toBeVisible();
 
   const visitor = await fetch(`${origin}/th`);
   expect(visitor.status).toBe(503);

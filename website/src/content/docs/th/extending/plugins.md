@@ -25,7 +25,7 @@ sidebar:
 | --- | --- | --- |
 | `signIn` | "หน้าเข้าสู่ระบบผู้ดูแล" | `signInWidget` และ `verifySignIn` |
 | `publicPage` | "ทุกหน้าสาธารณะ" | อย่างน้อยหนึ่งตัวจาก `siteNotice`, `sitePopup` และ `publicClient` |
-| `editorSuggestions` | "การเสนอระหว่างเขียน" | อย่างน้อยหนึ่งตัวจาก `categoryLikelihoods`, `pickExcerpt` และ `pickDescription` |
+| `editorSuggestions` | "คำแนะนำระหว่างเขียน" | อย่างน้อยหนึ่งตัวจาก `categoryLikelihoods`, `pickExcerpt` และ `pickDescription` |
 
 type `Plugin` บังคับให้ทุกปลั๊กอินมี `signInWidget` และ `verifySignIn` ปลั๊กอินที่ไม่ได้ดูแลการเข้าสู่ระบบจะคืน `null` จากตัวแรก และคืน `{ outcome: 'passed' }` จากตัวที่สอง เหมือนที่ lightbox ทำ
 

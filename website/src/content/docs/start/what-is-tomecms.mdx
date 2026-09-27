@@ -17,7 +17,7 @@ It is made for one person. A site has a single owner, who signs in with a passke
 
 ### Writing
 
-The editor covers what an article needs: headings, lists, quotes, code, tables, images, links and alignment. You decide whether each link opens in a new tab. A file from the library goes into an article as a card the reader downloads, and a PDF opens in the browser instead.
+The editor covers what a post needs: headings, lists, quotes, code, tables, images, links and alignment. You decide whether each link opens in a new tab. A file from the library goes into a post as a card the reader downloads, and a PDF opens in the browser instead.
 
 Posts have drafts, previews, scheduled publishing and fields for search engines. The Thai and English editions of a post share its categories. Pages sit beside posts, and you set up the header and footer menus yourself.
 
@@ -56,7 +56,7 @@ Docker Compose runs PostgreSQL and a bundled SeaweedFS for the files, or you poi
 
 One Node.js process answers the public pages, the admin, the admin's own API and the public content API. Passkey sign-in runs inside that process too. What lasts is kept outside it. PostgreSQL holds the content and the settings, and S3-compatible storage holds the files. On a single server that storage is the bundled SeaweedFS; it can also be a service elsewhere.
 
-A plugin reaches out of the server only once you switch it on. Turnstile checks a sign-in with Cloudflare. Jev sends an article's text to TypeSafe AI only when you press one of its buttons. It suggests categories, and picks a line for the excerpt and a passage for the search description from your own text.
+A plugin reaches out of the server only once you switch it on. Turnstile checks a sign-in with Cloudflare. Jev sends a post's text to TypeSafe AI only when you press one of its buttons. It suggests categories, and picks a line for the excerpt and a passage for the search description from your own text.
 
 The same diagram is in the repository as a page you can explore, with a guided view of each path through it: [docs/tome-cms-overview.en.html](https://github.com/Dhanabhon/tome-cms/blob/main/docs/tome-cms-overview.en.html). Download it and open it in a browser.
 

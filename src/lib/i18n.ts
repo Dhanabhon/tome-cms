@@ -55,7 +55,7 @@ export function publicCopy(locale: PostLocale) {
       poweredBy: 'ขับเคลื่อนด้วย TomeCMS',
       lastSaved: 'บันทึกล่าสุด',
       maintenanceBack: 'กลับมาประมาณ {when}',
-      maintenanceBar: 'เว็บปิดปรับปรุงอยู่ ผู้เยี่ยมชมจะเห็นหน้าปิดปรับปรุง',
+      maintenanceBar: 'เว็บปิดปรับปรุงอยู่ ผู้เข้าชมจะเห็นหน้าปิดปรับปรุง',
       maintenanceDays: 'วัน',
       maintenanceHours: 'ชั่วโมง',
       maintenanceManage: 'ตั้งค่าปิดปรับปรุง',

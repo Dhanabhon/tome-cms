@@ -4,7 +4,7 @@ import type { PluginManifest } from '../contract';
 export const manifest: PluginManifest = {
   description: {
     en: 'A box over the page with a picture, a few words and a button, opened after a moment or as the reader leaves.',
-    th: 'กล่องที่ขึ้นเหนือหน้า มีรูป ข้อความสั้น ๆ และปุ่ม ขึ้นหลังรอสักครู่หรือตอนผู้อ่านกำลังจะออกจากหน้า',
+    th: 'กล่องที่ขึ้นเหนือหน้า มีภาพ ข้อความสั้น ๆ และปุ่ม ขึ้นหลังรอสักครู่หรือตอนผู้อ่านกำลังจะออกจากหน้า',
   },
   hooks: ['publicPage'],
   icon: 'popup',
@@ -15,7 +15,7 @@ export const manifest: PluginManifest = {
     {
       key: 'image',
       kind: 'image',
-      label: { en: 'Picture', th: 'รูปภาพ' },
+      label: { en: 'Picture', th: 'ภาพ' },
       hint: {
         en: 'Optional. Beside the words, or above them on a phone.',
         th: 'ไม่บังคับ แสดงข้างข้อความ หรือเหนือข้อความบนมือถือ',
