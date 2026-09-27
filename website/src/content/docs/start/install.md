@@ -9,6 +9,8 @@ Today's install is a pre-1.0 preview. The deploy helper, `scripts/deploy-vps.sh`
 
 Before you start, have the server, the DNS for both origins and the reverse proxy ready, as [What the server needs](/tome-cms/start/requirements/) describes. The helper runs on Linux, and needs Node.js 22.12 or newer, Docker Engine with the Compose plugin, and Git. Run it as a user who can use `docker`.
 
+On a new Ubuntu 24.04 server, [Preparing a new server](/tome-cms/start/prepare-server/) sets all of this up with one script, and can install TomeCMS for you as well.
+
 ## 1. Get the code
 
 On the server, clone the repository and go into it:
