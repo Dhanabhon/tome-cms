@@ -13,7 +13,7 @@ There are two ways to use it:
 - Paste `deploy/cloud-init.yaml` into the user data when you create the server. The server prepares itself and installs TomeCMS on its first boot, and you only open `/install`.
 
 :::caution
-Neither has been run on a real server yet. That test is part of the checks planned before 1.0.0. Until then, read what the script prints, and keep your provider's web console at hand in case SSH stops answering.
+`prepare-vps.sh` has been run end to end on a DigitalOcean server (`amd64`, Ubuntu 24.04) on 2026-09-28, followed by a 0.x install. The cloud-init file, and the managed install from 1.0.0 after it, have not been run on a real server yet. Read what the script prints, and keep your provider's web console at hand in case SSH stops answering.
 :::
 
 ## Before you start
@@ -36,21 +36,13 @@ Add `--dry-run` the first time to see what it would do. A dry run checks the ser
 
 ### Logged in as root
 
-Run through `sudo`, the script gives the account that ran it to TomeCMS. Logged in as root directly, there is no such account, and the deploy helper must not run as root, so the script stops until you name one. Many new servers let you in only as root. Have the script create an account called `tomecms`:
+Run through `sudo`, the script adds the account that ran it to the `docker` group. Logged in as root directly, there is no such account, so the script stops until you name one. Many new servers let you in only as root. Have the script create an account called `tomecms`:
 
 ```sh
 ./scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 ```
 
-The new account has root's SSH keys, so `ssh tomecms@your-server` works as well. It cannot read root's copy of the code, so switch to it and get the code again there. `sudo -i` starts a new login, which puts the account in the `docker` group the script just added it to.
-
-```sh
-sudo -iu tomecms
-git clone https://github.com/Dhanabhon/tome-cms.git
-cd tome-cms
-```
-
-Then [install TomeCMS](/tome-cms/start/install/) from that folder, as `tomecms`.
+The new account has root's SSH keys, so `ssh tomecms@your-server` works as well. The managed install runs as root, so stay root and go on with [Installing on a VPS](/tome-cms/start/install/). Only [a build from source](/tome-cms/start/install/#building-from-source) runs as `tomecms`. For that, switch to it with `sudo -iu tomecms`, which starts a new login so that the `docker` group applies, and clone the code again there, since the account cannot read root's copy.
 
 The script works through these steps:
 
@@ -98,14 +90,14 @@ If nginx or Apache already holds port 80 or 443, the script names it and stops. 
 2. Replace the two example addresses near the top with yours.
 3. Create the server with Ubuntu 24.04, and paste the file into its user data. DigitalOcean, Hetzner, Vultr and AWS each have a field for it among the advanced or additional options of a new server, called user data or cloud config.
 4. Point both host names at the new server's address.
-5. Wait. The first boot takes several minutes, because the deploy helper builds the application image on the server.
+5. Wait. The first boot takes several minutes.
 6. Log in over SSH. While it is still installing, the login message says so. Once it finishes, the message says where to finish the install and how to read the installation token.
 
 On its first boot, the server:
 
 - clones TomeCMS, at the release the file names, into `/opt/tome-cms-src`
 - runs `prepare-vps.sh` with `--create-user --user tomecms`
-- for a `0.x` release, clones TomeCMS again into `/home/tomecms/tome-cms` and runs the deploy helper there as `tomecms`. From 1.0.0 the deploy helper hands over to the managed install, which runs as root.
+- from 1.0.0, runs the managed installer as root from `/opt/tome-cms-src`. For an older `0.x` release it clones TomeCMS again into `/home/tomecms/tome-cms` and runs the deploy helper there as `tomecms`.
 - writes everything it does to `/var/log/tomecms-install.log`, which only root can read
 
 The file holds no secret. The server generates every secret itself. That matters because the provider keeps your user data, and anything running on the server can read it back.
@@ -128,9 +120,8 @@ To run one step by hand instead, use the commands it runs:
 
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
-sudo -iu tomecms
-cd tome-cms
-TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/deploy-vps.sh
+cd /opt/tome-cms-src && sudo npm ci
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.0
 ```
 
-For a `0.x` release the log also holds the installation token the deploy helper prints. That is why only root can read it.
+The installer refuses to run over an install it already started. If it stopped after writing its files, [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) says what to do instead.

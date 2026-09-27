@@ -92,7 +92,7 @@ Three things are stand-ins: the downloads and attestation checks against GitHub,
 
 The harness registers its cleanup before it builds anything. The cleanup removes only what carries this run's label, and the test fails if a matching container, network, volume, image or temporary directory is left. The harness refuses the production project name, `tomecms`, and the production paths.
 
-Passing it is a check on your own computer. Before 1.0.0 ships, the release still has to pass on disposable Ubuntu servers, on `linux/amd64` and `linux/arm64`, with the real GitHub and GHCR checks, systemd, the HTTPS wizard, passkeys, and content and media.
+CI runs it on every push to `develop`, on `linux/amd64`, and you can run it on your own computer. It does not replace a run on a real server, with the real GitHub and GHCR checks, systemd, the HTTPS wizard, passkeys, and content and media. Those runs, on `linux/amd64` and `linux/arm64`, are recorded in `docs/releases/1.0.0.md`.
 
 ## The documentation site
 

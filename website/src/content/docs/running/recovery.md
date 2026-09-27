@@ -106,9 +106,7 @@ If the content or the files change while it runs, it stops and keeps the databas
 
 ## Recovering a managed installation
 
-:::caution[Not released yet]
-The managed installation comes with 1.0.0, which is not released yet. None of this applies to today's install, and a 0.x install cannot become a managed one in place, as [Installing on a VPS](/tome-cms/start/install/) explains.
-:::
+This section is for a managed install, from 1.0.0 on. A build from source keeps its settings in `.env.local` and has no updater.
 
 If the managed installer fails after it has written its configuration, it keeps the configuration, the credentials, the images, the volumes and the logs. It also prints where it saved its diagnostics, `/var/log/tome-cms/install-<id>.json`. Only root can read that file, and passwords, tokens, secrets, keys and database addresses are removed from it. Read it with `sudo less`. A failure before that point removes only what the run itself had just created.
 

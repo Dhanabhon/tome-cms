@@ -1,17 +1,35 @@
 ---
 title: Updating
-description: Upgrade a 0.x install in place with the deploy helper, and see how many database migrations wait from each earlier version.
+description: Install an update from the admin on a managed install, upgrade a build from source with the deploy helper, and see how many database migrations wait from each earlier version.
 sidebar:
   order: 3
 ---
 
-TomeCMS is still a pre-1.0 preview. You upgrade a 0.x install in place, from a newer checkout of the code, with the same deploy helper that installed it.
+A managed install, from 1.0.0 on, installs an update from the admin. A build from source, and every 0.x install, is upgraded on the server with the deploy helper that installed it.
 
-The admin cannot install an update yet. Under "System" it shows your version next to "Installed version:" and can check the official repository on GitHub for a newer stable release. On today's install that screen says "Updating from the admin is off", and "Update mode:" reads "Notify only". The check compares your version with the latest version published as a GitHub release. 0.12.1 is the first, so an install from 0.12.0 reads "TomeCMS 0.12.1 is available." there.
+Under "System", the admin shows your version next to "Installed version:" and checks the official repository on GitHub for a newer stable release. On a build from source that screen says "Updating from the admin is off", and "Update mode:" reads "Notify only": it tells you about a new version but cannot install it.
 
 ![The System screen. "System updates" shows an "Update status" card with "Release availability: Up to date", "Installed version: 0.12.1", "Latest stable version: 0.12.1", "Published: Sep 26, 2026" and "TomeCMS is up to date.", a "Read release notes" link, and a "Check again" button. Below it, an "Updating from the admin is off" card says "This server can tell you about new versions but cannot install them. To update, follow the update guide on the server.", with "Update mode:" reading "Notify only".](../../../assets/screenshots/en/system.png)
 
-## Upgrading a 0.x install
+## Updating a managed install
+
+On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.0.1 is available.", with that release's version.
+
+1. Press "Read release notes" and read the notes of every version after yours.
+2. Press "Install 1.0.1". The admin asks "Install TomeCMS 1.0.1?". Press "Install 1.0.1" again, then confirm with your passkey.
+3. Keep the page open. "Installation progress" ticks off each step: "Check prerequisites", "Verify the official update", "Download update", "Prepare maintenance", "Create recovery backup", "Apply database migrations", "Restart TomeCMS" and "Check application health". The site is briefly down while TomeCMS restarts.
+4. When it is done, "System" says "TomeCMS 1.0.1 is installed."
+
+What the updater does, and does not do:
+
+- It installs only an official release that it has verified against the release's attestations, the same checks the installer makes.
+- Before each update it takes a full backup of PostgreSQL and the bucket into `/var/backups/tome-cms/`, then runs the migrations. It never deletes old backups, so leave room for them on the disk and copy them off the server yourself.
+- If an update fails after its migrations have started, it goes back to the previous application only when the new release declares the previous version compatible with the new database. The admin then says "Your previous application is running." Otherwise the update stops and waits for the server's operator, as [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) describes. Restoring the database and the files from the backup is always done by hand.
+- There are no automatic updates and no beta channel. The updater service itself, and the PostgreSQL and SeaweedFS images, are upgraded by hand.
+
+A 0.x install cannot become a managed one in place. The move to 1.0.0 needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
+
+## Upgrading a build from source
 
 1. Stop the application, then back up PostgreSQL and the media bucket together and check the backup, as [Backups and restore](/tome-cms/running/backups/) describes. Leave the application stopped, so nothing is written that the backup does not hold.
 2. Read the release notes of every version after yours. They are in `docs/releases/` in the repository, one file per version, and each says what its upgrade needs.
@@ -40,7 +58,7 @@ A new version can change the database's tables. Each change is a migration, and 
 npm run db:migrate
 ```
 
-The deploy helper runs it for you, inside a one-shot application container, so on today's install you do not need to. If you run it by hand in the checkout, run `npm ci` there once first. It reads the connection from `.env.local`.
+The updater and the deploy helper both run it for you, inside a one-shot application container, so you do not need to. If you run it by hand in the checkout, run `npm ci` there once first. It reads the connection from `.env.local`.
 
 It prints one `<name>: Success` line for each migration it applies, or `Up to date` when none was waiting. The waiting migrations run together in one PostgreSQL transaction. If one fails, the command prints `Migration failed`, none of them is applied, and the database stays as it was.
 
@@ -52,7 +70,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
+| 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
 | 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
 | 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
 | 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |
@@ -68,16 +86,3 @@ The counts follow each version's release notes. An install made from a checkout 
 When the code expects a migration the database does not have, every admin screen opens with the notice "The database needs updating". It first warns that saving will fail until someone runs `npm run db:migrate` on the server, then lists the migrations after "Waiting:". The admin asks the database on each screen, so once the migrations have run, the notice is gone from the next screen you open.
 
 Until then `/health/ready` reports `"migrations":"pending"` and `"status":"not-ready"`.
-
-## What changes at 1.0.0
-
-:::caution[Not released yet]
-The managed updater comes with the managed install at 1.0.0, which is not released yet. None of this works on today's install.
-:::
-
-- A managed install runs a separate systemd service, `tomecms-updater`. With it, the owner can install a verified update from "System" in the admin, starting with 1.0.0 to 1.0.1.
-- Before each update the updater takes a full backup of PostgreSQL and the bucket into `/var/backups/tome-cms/`, then runs the migrations. It never deletes old ones, so leave room for them on the disk and copy them off the server yourself.
-- If an update fails after its migrations have started, the updater goes back to the previous application only when the new release declares the previous version compatible with the new database. Otherwise the update stops and waits for the server's operator. Restoring the database and the files from the backup is always done by hand.
-- There are no automatic updates and no beta channel. The updater service itself, and the PostgreSQL and SeaweedFS images, are upgraded by hand.
-
-A 0.x install cannot become a managed one in place. The move to 1.0.0 needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/) explains.

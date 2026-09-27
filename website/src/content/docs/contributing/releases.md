@@ -1,6 +1,6 @@
 ---
 title: Releases and changes
-description: Where each version's changes and release notes are kept, and what a 0.x version means before 1.0.0.
+description: Where each version's changes and release notes are kept, how a version is released, and what 1.x and the earlier 0.x versions mean.
 sidebar:
   order: 6
 ---
@@ -19,7 +19,7 @@ From 0.8.0 on, an entry is split into what was added, changed and fixed, how to 
 
 Before you upgrade an install, read the notes of every version after yours. [Updating](/tome-cms/running/updating/) goes through the upgrade itself.
 
-`docs/releases/1.0.0.md` describes the planned 1.0.0 boundary, for a release that has not happened yet: the update path 1.0.0 will support, and what must be true before it is tagged. Its date reads "not scheduled".
+`docs/releases/1.0.0.md` also sets out the update path 1.0.0 supports, and records the acceptance runs of the managed install on real servers.
 
 ## How a version is released
 
@@ -27,12 +27,16 @@ Work happens on the `develop` branch. `main` holds released code, and changes on
 
 To release, bump the version in `package.json` on `develop`, turn the changelog's "Unreleased" section into that version, write its notes in `docs/releases/<version>.md`, and set `TOMECMS_VERSION` in `deploy/cloud-init.yaml` to the new tag. CI fails until that line matches. Merging that into `main` releases it. CI runs on `develop` and on pull requests, not on `main`: the merge is a fast-forward, so the commit on `main` is one CI has already run on. A workflow waits until CI has passed on that commit, then tags it `vX.Y.Z` and builds the release from the tag: the image, its attestations, the update manifest and the GitHub release, whose notes are the version's file. A merge that keeps the version releases nothing, a new version with no notes file stops before it is tagged, and a commit CI never ran on, such as a merge commit or a fix pushed straight to `main`, is not released.
 
-## What 0.x means
+## What 1.x means
+
+From 1.0.0, versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A patch release, such as 1.0.1, only fixes. A minor release, such as 1.1.0, adds features and keeps everything that worked working, including [the content API](/tome-cms/api/overview/) under `/api/v1`. A breaking change waits for 2.0.0. A managed install takes each of them from the admin, as [Updating](/tome-cms/running/updating/) describes.
+
+## What 0.x meant
 
 The changelog's header says that every `0.x` version is a pre-1.0 release candidate, and none is meant for production. Up to 0.12.0, each set of release notes carries the status "Release candidate; not tagged for production". From 0.12.1 on, each version is also tagged and published as a [GitHub release](https://github.com/Dhanabhon/tome-cms/releases), so an install's "System" screen can check for it, and its notes say "Release candidate; tagged and published as a GitHub release, not for production".
 
-For a site you run today, the install is a pre-1.0 preview. A 0.x install is upgraded in place, by running the deploy helper again on a newer checkout, as [Updating](/tome-cms/running/updating/) describes.
+A 0.x install is upgraded in place, by running the deploy helper again on a newer checkout, as [Updating](/tome-cms/running/updating/) describes.
 
-The line does not carry over into 1.0.0. A 0.x install cannot become a managed 1.0.0 install in place: that move needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/) explains. 1.0.0 is not released yet. It brings the managed install, whose updater can install a verified update from the admin, starting with 1.0.0 to 1.0.1.
+The line does not carry over into 1.0.0. A 0.x install cannot become a managed 1.0.0 install in place: that move needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
 
-Since 0.11.0, TomeCMS is in a feature freeze: only fixes are merged until 1.0.0. [How to contribute](/tome-cms/contributing/how-to-contribute/) says what that means for a pull request.
+From 0.11.0 to 1.0.0, TomeCMS was in a feature freeze and only fixes were merged. From 1.0.0, features are welcome again. [How to contribute](/tome-cms/contributing/how-to-contribute/) says what a pull request needs.

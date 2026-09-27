@@ -68,13 +68,13 @@ TomeCMS เป็นแอป Astro ตัวเดียว หน้าเว�
 
 | ไฟล์หรือโฟลเดอร์ | คืออะไร |
 | --- | --- |
-| `compose.yaml` | PostgreSQL กับ SeaweedFS สำหรับพัฒนา และตัวแอปด้วยเมื่อใช้ profile `production` ซึ่งการติดตั้งในตอนนี้ใช้อยู่ |
+| `compose.yaml` | PostgreSQL กับ SeaweedFS สำหรับพัฒนา และตัวแอปด้วยเมื่อใช้ profile `production` ซึ่งการติดตั้งแบบ build จากซอร์สโค้ดใช้อยู่ |
 | `compose.managed.yaml` | การติดตั้งแบบ managed ตั้งแต่ 1.0.0 ซึ่งรันแอปจาก image ทางการ |
 | `compose.test.yaml` | PostgreSQL กับ SeaweedFS แบบใช้แล้วทิ้ง ที่เทสต์ integration และเทสต์ในเบราว์เซอร์เปิดขึ้นมาใช้ |
 | `Dockerfile` | image ของแอป |
 | `config/` | การตั้งค่า S3 ของ SeaweedFS และ unit ของ systemd สำหรับตัวอัปเดต |
 | `playwright.config.ts` | สอง project ของเทสต์ในเบราว์เซอร์ คือเดสก์ท็อปกับโทรศัพท์ |
 
-ตัวอัปเดตใน `src/update/` กับ `src/updater/` คอมไพล์แยกด้วย `npm run build:updater` และรันคู่กับแอปบนเซิร์ฟเวอร์แบบ managed หน้า[การอัปเดต](/tome-cms/th/running/updating/) บอกว่าตัวอัปเดตทำอะไร และบอกด้วยว่ามันมากับ 1.0.0 ซึ่งยังไม่ออก
+ตัวอัปเดตใน `src/update/` กับ `src/updater/` คอมไพล์แยกด้วย `npm run build:updater` และรันคู่กับแอปบนเซิร์ฟเวอร์แบบ managed หน้า[การอัปเดต](/tome-cms/th/running/updating/) บอกว่าตัวอัปเดตทำอะไร ตัวอัปเดตมากับการติดตั้งแบบ managed ตั้งแต่ 1.0.0 เป็นต้นไป
 
 หน้า[การทดสอบ](/tome-cms/th/contributing/tests/) บอกว่าแต่ละโฟลเดอร์ใต้ `tests/` ตรวจอะไร และต้องมีอะไรก่อนจึงจะรันได้

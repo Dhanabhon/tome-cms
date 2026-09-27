@@ -17,13 +17,13 @@ One VPS runs the whole site. Docker Compose runs three containers on it: the Tom
 | Architecture | `amd64` or `arm64` | `amd64` or `arm64` |
 | System | 64-bit Linux with systemd, Docker Engine with its Compose plugin, Node.js 22.12 or newer, and Git | Ubuntu 24.04 LTS, which CI runs on |
 
-The deploy helper needs Linux, Node.js and Docker, and a user that can run `docker`. The managed install planned for 1.0.0 also needs systemd 235 or later.
+The managed installer runs as root and also needs systemd 235 or later. A build from source with the deploy helper needs Linux, Node.js and Docker, and a user that can run `docker`.
 
 ### Why memory
 
 These figures come from measuring the 0.7.0 code on an empty site, not a site under real load. After a few hundred requests the application held about 180 MB, PostgreSQL about 75 MB and SeaweedFS about 90 MB.
 
-The peak is the build. Today's deploy helper builds the application image on the server, and on an upgrade it builds while the site keeps running. `npm run build` alone reached about 700 MB with a warm cache, after `npm ci` had already run, and a first build on a fresh server can take more. That is where a server with 1 GB runs out, and why the minimum is 2 GB with swap.
+The peak is the build. A managed install pulls a built image and builds only the small updater, but a build from source builds the application image on the server, and on an upgrade it builds while the site keeps running. `npm run build` alone reached about 700 MB with a warm cache, after `npm ci` had already run, and a first build on a fresh server can take more. That is where a server with 1 GB runs out, and why the minimum is 2 GB with swap.
 
 Uploading an image also takes extra memory for a moment while the server inspects it. That was not measured. Leave room for the operating system and the TLS proxy as well.
 

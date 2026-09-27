@@ -22,7 +22,7 @@ The wizard checks four things, and all four have to show "Ready" before it lets 
 | "S3-compatible storage" | The bucket answers at `S3_ENDPOINT`. |
 | "HTTPS / passkey identity" | `TOME_CMS_PUBLIC_URL` is HTTPS on a host name, not an IP address, and matches the address you opened. |
 
-A check that fails shows "Needs attention" with a hint. Fix what it names and press "Check again". On today's VPS install, a waiting migration or a stopped container is fixed by running `./scripts/deploy-vps.sh` again. If you opened the wizard at another address, the hint gives the one it expects.
+A check that fails shows "Needs attention" with a hint. Fix what it names and press "Check again". On a build from source, a waiting migration or a stopped container is fixed by running `./scripts/deploy-vps.sh` again. A managed install finishes only once the application is ready, so a check that fails there means something stopped since. [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) shows how to read its logs. If you opened the wizard at another address, the hint gives the one it expects.
 
 When all four pass, "Name your site" takes you to the next step.
 
@@ -51,7 +51,13 @@ Bookmark the address as soon as the wizard is done. The public site has no link 
 
 ## Step 4: Installation token
 
-The token proves that you control the server being installed. The deploy helper printed it at the end of its run, and it is in `.env.local` in the checkout:
+The token proves that you control the server being installed. On a managed install, read it on the server:
+
+```sh
+sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
+```
+
+On a build from source, the deploy helper printed it at the end of its run, and it is in `.env.local` in the checkout:
 
 ```sh
 grep '^TOME_CMS_INSTALL_TOKEN=' .env.local
@@ -59,7 +65,7 @@ grep '^TOME_CMS_INSTALL_TOKEN=' .env.local
 
 The value sits between single quotes. Paste it without them into "Installation token" and press "Verify token". The server checks it, and the wizard does not keep it.
 
-The wizard's "Where is the installation token?" box shows two commands. On today's install, the "Local" one is the right one on a VPS too, because the helper writes `.env.local`. The "VPS" one reads `/etc/tome-cms/tome-cms.env`, which only the managed install from 1.0.0 writes.
+The wizard's "Where is the installation token?" box shows both commands. "VPS" is the managed install's. "Local" is the one for a build from source, on a server as well as on your own computer, because the helper writes `.env.local`.
 
 A wrong token gets "The installation token is not valid." The wizard allows eight attempts in 15 minutes from one IP address, then asks you to wait. After the token passes, you have 10 minutes to finish the next step. Past that, verify the token again.
 

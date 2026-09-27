@@ -9,7 +9,7 @@ TomeCMS answers anonymous HTTP requests for what it has published. A site built 
 
 The API works in both frontend modes. In headless mode (`TOME_CMS_FRONTEND_MODE=headless`) TomeCMS stops drawing its own public pages, and the API becomes the way your content reaches readers.
 
-TomeCMS has not reached 1.0.0 yet. The routes carry a version in their path, but no 0.x release promises to leave them unchanged, so check the contract your installation serves after each upgrade.
+The routes carry a version in their path. From 1.0.0, `/api/v1` changes only in ways that keep existing clients working, such as a new route or a new field. A change that would break a client gets a new path, such as `/api/v2`. The 0.x releases before it made no such promise.
 
 ## The routes
 

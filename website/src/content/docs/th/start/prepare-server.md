@@ -13,7 +13,7 @@ VPS ที่เพิ่งสร้างยังไม่มีสิ่ง�
 - วาง `deploy/cloud-init.yaml` ลงในช่อง user data ตอนสร้างเซิร์ฟเวอร์ เซิร์ฟเวอร์จะเตรียมตัวเองและติดตั้ง TomeCMS ตอนบูตครั้งแรก คุณแค่เปิด `/install`
 
 :::caution
-ทั้งสองแบบยังไม่เคยรันบนเซิร์ฟเวอร์จริง การทดสอบนั้นอยู่ในรายการที่ต้องทำก่อน 1.0.0 ระหว่างนี้ให้อ่านสิ่งที่สคริปต์พิมพ์ออกมา และเปิดคอนโซลบนเว็บของผู้ให้บริการไว้ใกล้มือ เผื่อ SSH เข้าไม่ได้
+`prepare-vps.sh` ผ่านการรันครบทุกขั้นบนเซิร์ฟเวอร์ DigitalOcean (`amd64`, Ubuntu 24.04) เมื่อ 2026-09-28 แล้วตามด้วยการติดตั้ง 0.x ส่วนไฟล์ cloud-init และการติดตั้งแบบ managed ตั้งแต่ 1.0.0 ที่ตามมาหลังจากนั้น ยังไม่เคยรันบนเซิร์ฟเวอร์จริง ให้อ่านสิ่งที่สคริปต์พิมพ์ออกมา และเปิดคอนโซลบนเว็บของผู้ให้บริการไว้ใกล้มือ เผื่อ SSH เข้าไม่ได้
 :::
 
 ## ก่อนเริ่ม
@@ -36,21 +36,13 @@ sudo ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url http
 
 ### ถ้าล็อกอินเป็น root
 
-ถ้ารันผ่าน `sudo` สคริปต์จะใช้บัญชีที่สั่ง `sudo` เป็นบัญชีที่รัน TomeCMS แต่ถ้าล็อกอินเป็น root โดยตรงจะไม่มีบัญชีนั้น และสคริปต์ deploy ต้องไม่รันเป็น root สคริปต์จึงหยุดจนกว่าคุณจะระบุบัญชี เซิร์ฟเวอร์ใหม่หลายเจ้าให้เข้าได้แค่ root ในกรณีนี้ให้สคริปต์สร้างบัญชีชื่อ `tomecms` ให้
+ถ้ารันผ่าน `sudo` สคริปต์จะเพิ่มบัญชีที่สั่ง `sudo` เข้ากลุ่ม `docker` แต่ถ้าล็อกอินเป็น root โดยตรงจะไม่มีบัญชีนั้น สคริปต์จึงหยุดจนกว่าคุณจะระบุบัญชี เซิร์ฟเวอร์ใหม่หลายเจ้าให้เข้าได้แค่ root ในกรณีนี้ให้สคริปต์สร้างบัญชีชื่อ `tomecms` ให้
 
 ```sh
 ./scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 ```
 
-บัญชีใหม่ได้ SSH key ชุดเดียวกับ root จึง `ssh tomecms@เซิร์ฟเวอร์ของคุณ` ได้ด้วย แต่บัญชีนี้อ่านโค้ดชุดที่อยู่กับ root ไม่ได้ ให้สลับไปเป็นบัญชีนี้แล้วดึงโค้ดลงมาอีกชุด `sudo -i` จะเริ่ม login ใหม่ บัญชีจึงได้สิทธิ์กลุ่ม `docker` ที่สคริปต์เพิ่งเพิ่มให้
-
-```sh
-sudo -iu tomecms
-git clone https://github.com/Dhanabhon/tome-cms.git
-cd tome-cms
-```
-
-จากนั้น[ติดตั้ง TomeCMS](/tome-cms/th/start/install/) จากโฟลเดอร์นั้นในนามของ `tomecms`
+บัญชีใหม่ได้ SSH key ชุดเดียวกับ root จึง `ssh tomecms@เซิร์ฟเวอร์ของคุณ` ได้ด้วย การติดตั้งแบบ managed รันด้วยสิทธิ์ root จึงให้อยู่เป็น root ต่อไป แล้วทำตามหน้า[ติดตั้งบน VPS](/tome-cms/th/start/install/) มีแค่[การติดตั้งแบบ build จากซอร์สโค้ด](/tome-cms/th/start/install/#ติดตั้งแบบ-build-จากซอร์สโค้ด)ที่รันในนามของ `tomecms` ถ้าจะติดตั้งแบบนั้น ให้สลับไปเป็นบัญชีนี้ด้วย `sudo -iu tomecms` ซึ่งเริ่ม login ใหม่ บัญชีจึงได้สิทธิ์กลุ่ม `docker` แล้ว clone โค้ดลงมาอีกชุดที่นั่น เพราะบัญชีนี้อ่านโค้ดชุดที่อยู่กับ root ไม่ได้
 
 สคริปต์ทำงานตามลำดับนี้
 
@@ -98,14 +90,14 @@ Caddy ส่ง origin ของ CMS ต่อไปที่ `127.0.0.1:4321` �
 2. แทนที่อยู่ตัวอย่างสองบรรทัดด้านบนด้วยที่อยู่ของคุณ
 3. สร้างเซิร์ฟเวอร์ด้วย Ubuntu 24.04 แล้ววางไฟล์ลงในช่อง user data ทั้ง DigitalOcean, Hetzner, Vultr และ AWS มีช่องนี้อยู่ในตัวเลือกขั้นสูงหรือตัวเลือกเพิ่มเติมตอนสร้างเซิร์ฟเวอร์ โดยเรียกว่า user data หรือ cloud config
 4. ชี้ชื่อโฮสต์ทั้งสองไปที่ที่อยู่ของเซิร์ฟเวอร์ใหม่
-5. รอ การบูตครั้งแรกใช้เวลาหลายนาที เพราะสคริปต์ deploy build image ของแอปบนเซิร์ฟเวอร์
+5. รอ การบูตครั้งแรกใช้เวลาหลายนาที
 6. เข้าเครื่องผ่าน SSH ถ้ายังติดตั้งไม่เสร็จ ข้อความตอนเข้าระบบจะบอกว่ากำลังติดตั้งอยู่ พอเสร็จแล้วข้อความจะบอกว่าไปติดตั้งต่อที่ไหน และอ่าน installation token ได้อย่างไร
 
 ตอนบูตครั้งแรก เซิร์ฟเวอร์จะ
 
 - clone TomeCMS ตามรุ่นที่ไฟล์ระบุ ไว้ที่ `/opt/tome-cms-src`
 - รัน `prepare-vps.sh` ด้วย `--create-user --user tomecms`
-- สำหรับรุ่น `0.x` จะ clone TomeCMS อีกชุดไว้ที่ `/home/tomecms/tome-cms` แล้วรันสคริปต์ deploy ที่นั่นในนามของ `tomecms` ตั้งแต่ 1.0.0 สคริปต์ deploy จะส่งต่อให้การติดตั้งแบบ managed ซึ่งรันด้วยสิทธิ์ root
+- ตั้งแต่ 1.0.0 จะรันตัวติดตั้งแบบ managed ด้วยสิทธิ์ root จาก `/opt/tome-cms-src` สำหรับรุ่น `0.x` ที่เก่ากว่านั้น จะ clone TomeCMS อีกชุดไว้ที่ `/home/tomecms/tome-cms` แล้วรันสคริปต์ deploy ที่นั่นในนามของ `tomecms`
 - บันทึกทุกอย่างที่ทำไว้ใน `/var/log/tomecms-install.log` ซึ่งมีแต่ root ที่อ่านได้
 
 ไฟล์นี้ไม่มีความลับอยู่เลย เซิร์ฟเวอร์สร้างความลับทุกตัวขึ้นเอง ข้อนี้สำคัญ เพราะผู้ให้บริการเก็บ user data ของคุณไว้ และโปรแกรมใดก็ตามบนเซิร์ฟเวอร์อ่านกลับมาได้
@@ -128,9 +120,8 @@ sudo /usr/local/sbin/tomecms-first-boot
 
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
-sudo -iu tomecms
-cd tome-cms
-TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/deploy-vps.sh
+cd /opt/tome-cms-src && sudo npm ci
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.0
 ```
 
-สำหรับรุ่น `0.x` ไฟล์ log ยังเก็บ installation token ที่สคริปต์ deploy พิมพ์ออกมาด้วย จึงให้แต่ root อ่านได้
+ตัวติดตั้งไม่ยอมรันทับการติดตั้งที่มันเริ่มไว้แล้ว ถ้ามันหยุดไปหลังจากเขียนไฟล์แล้ว หน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed) บอกว่าต้องทำอะไรแทน

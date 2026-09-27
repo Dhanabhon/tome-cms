@@ -62,8 +62,8 @@ The same diagram is in the repository as a page you can explore, with a guided v
 
 ## Where things stand
 
-TomeCMS is at version 0.14.1, and there is no 1.0.0 release yet. What you can install today is a preview. The deploy helper builds the application on your own server from a checkout of the code, and you upgrade by running it again from a newer checkout.
+TomeCMS is at version 1.0.0, its first stable release. A VPS gets a managed install: the installer runs an official image that it has verified against the release's attestations, and the owner installs later updates from "System" in the admin. The update path starts with 1.0.0 to 1.0.1.
 
-The 1.0.0 release is planned around a managed install on a fresh VPS, whose admin can install a verified update. The code for it is written and tested on a local harness. Two gates are still open, and both need things the repository cannot provide for itself: a public, immutable release whose attestations verify, and a real HTTPS server accepted on both `amd64` and `arm64`.
+The managed install is tested against real containers on every change, on `amd64` in CI and on `arm64`. Its first runs on real HTTPS servers, on both architectures, are recorded in [the 1.0.0 release notes](https://github.com/Dhanabhon/tome-cms/blob/main/docs/releases/1.0.0.md) as they are done.
 
-A 0.x install will not turn into a managed one in place. Moving to 1.0.0 means a fresh server and a manual move of the content. [Installing on a VPS](/tome-cms/start/install/) says what changes.
+A 0.x install will not turn into a managed one in place. Moving to 1.0.0 means a fresh server and a manual move of the content, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.

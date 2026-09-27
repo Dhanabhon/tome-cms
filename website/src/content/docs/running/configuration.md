@@ -5,15 +5,15 @@ sidebar:
   order: 1
 ---
 
-TomeCMS takes its settings from environment variables. On today's install they live in `.env.local` in the checkout, which the deploy helper writes the first time it runs and keeps readable by its owner only. [Installing on a VPS](/tome-cms/start/install/) walks through that run. The repository's `.env.example` lists the same names with placeholder values.
+TomeCMS takes its settings from environment variables. On a managed install they live in `/etc/tome-cms/tome-cms.env`, which the installer writes, readable by root and the updater's group only. On a build from source they live in `.env.local` in the checkout, which the deploy helper writes the first time it runs and keeps readable by its owner only. [Installing on a VPS](/tome-cms/start/install/) walks through both. The repository's `.env.example` lists the same names with placeholder values.
 
 ## Where the values are read
 
-- The application container reads `.env.local`. Compose then sets two values itself, whatever the file says: `DATABASE_URL` points at the bundled PostgreSQL inside Compose's network, and `NODE_ENV` is `production`.
+- The application container reads `/etc/tome-cms/tome-cms.env` on a managed install, and `.env.local` on a build from source. Compose then sets two values itself, whatever the file says: `DATABASE_URL` points at the bundled PostgreSQL inside Compose's network, and `NODE_ENV` is `production`.
 - The `npm run` scripts, such as `db:migrate`, `backup` and `admin:reset-installation`, load `.env.local` when it exists.
 - `npm run admin:recover`, the command in [Getting back in](/tome-cms/running/recovery/), reads the file `TOME_CMS_ENV_FILE` names, or else `.env.local`, or else `/etc/tome-cms/tome-cms.env`.
 
-`.env.local` puts every value between single quotes, as in `S3_REGION='us-east-1'`. Keep that form when you edit it.
+Both files put every value between single quotes, as in `S3_REGION='us-east-1'`. Keep that form when you edit it.
 
 ## What the application reads
 
@@ -37,7 +37,7 @@ TomeCMS takes its settings from environment variables. On today's install they l
 | `S3_FORCE_PATH_STYLE` | Optional | `true` | `true` puts the bucket in the path of each address, `false` in the host name. Keep `true` for the bundled SeaweedFS. |
 | `MEDIA_PUBLIC_URL` | Required | None | Where readers load files from, with no query or fragment. The deploy helper builds it from `S3_ENDPOINT` and the bucket when you leave it out. |
 | `TOME_CMS_FRONTEND_MODE` | Optional | `bundled` | `bundled` serves the public site. `headless` answers `404` for it and keeps the admin and the API. |
-| `TOME_CMS_UPDATE_MODE` | Optional | `check-only` | `check-only` or `managed`. The deploy helper always writes `check-only`. Only the managed installer from 1.0.0, not released yet, writes `managed`. |
+| `TOME_CMS_UPDATE_MODE` | Optional | `check-only` | `check-only` or `managed`. The deploy helper always writes `check-only`. Only the managed installer, from 1.0.0 on, writes `managed`. |
 | `TOME_CMS_UPDATER_SOCKET` | Optional | `/run/tome-cms/updater.sock` | The updater service's socket on a managed install. It must be a `.sock` file directly under `/run/tome-cms/`. |
 | `TOME_CMS_COUNTRY_HEADER` | Optional | `cf-ipcountry` | The request header a CDN puts the reader's country in, for Stats. It takes letters, digits and hyphens, and any other name falls back to `cf-ipcountry`. |
 | `TOME_CMS_GEOIP_PATH` | Optional | `data/geoip/dbip-country-lite.mmdb` | The DB-IP Lite country database, used when the header names no country. The path is inside the application's container: put the file in `data/geoip/` in the checkout and run `./scripts/deploy-vps.sh` again, which builds it into the image. |

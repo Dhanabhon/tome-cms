@@ -1,15 +1,13 @@
 ---
 title: How to contribute
-description: What TomeCMS accepts before 1.0.0, how its code is kept, and what a pull request needs.
+description: What TomeCMS accepts, how its code is kept, and what a pull request needs.
 sidebar:
   order: 4
 ---
 
 TomeCMS is maintained by one person, so a small, focused change with its tests is the easiest kind to accept. This page follows [`CONTRIBUTING.md`](https://github.com/Dhanabhon/tome-cms/blob/main/CONTRIBUTING.md) in the repository.
 
-:::caution[Feature freeze]
-Until 1.0.0 is released, TomeCMS is in a feature freeze: only fixes are merged. Ideas for features are still welcome as issues, and they will be looked at after 1.0.0.
-:::
+Fixes and features are both welcome. A feature lands in the next minor release, and must keep what already works working, including [the content API](/tome-cms/api/overview/) under `/api/v1`.
 
 ## Before you start
 

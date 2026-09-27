@@ -26,10 +26,9 @@ TomeCMS is maintained by one person. Expect a first answer within seven days and
 
 | Version | Fixes |
 | --- | --- |
-| The latest `0.x` release and `main` | Yes, until 1.0.0 is released |
-| Earlier `0.x` releases | No. Upgrade to the latest, as [Updating](/tome-cms/running/updating/) describes. |
-
-After 1.0.0, the latest `1.x` release is supported, and the managed updater carries the fix. 1.0.0 is not released yet.
+| The latest `1.x` release and `main` | Yes. A managed install takes the fix from the admin |
+| Earlier `1.x` releases | No. Update to the latest |
+| `0.x` releases | No. Move to 1.x on a fresh server |
 
 ## Scope
 

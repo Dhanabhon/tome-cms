@@ -61,4 +61,4 @@ Someone determined can still add to the numbers, up to 120 hits in ten minutes f
 
 When your CDN sends the reader's country in a header, TomeCMS uses it: `CF-IPCountry`, or the header `TOME_CMS_COUNTRY_HEADER` names. Otherwise it looks the reader's address up in the DB-IP Lite country database, and without that file the country is "Unknown". The address is used for that lookup in memory and never stored.
 
-The release images carry the database. Today's install builds its image on your server, and that image has none until you add the file, as [Configuration](/tome-cms/running/configuration/) explains under `TOME_CMS_GEOIP_PATH`. DB-IP Lite is licensed CC BY 4.0, and the "IP Geolocation by DB-IP" link under "Countries" is its credit.
+The release images carry the database, so a managed install has it. A build from source builds its image on your server, and that image has none until you add the file, as [Configuration](/tome-cms/running/configuration/) explains under `TOME_CMS_GEOIP_PATH`. DB-IP Lite is licensed CC BY 4.0, and the "IP Geolocation by DB-IP" link under "Countries" is its credit.

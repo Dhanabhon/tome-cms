@@ -68,13 +68,13 @@ A change to the database is a new numbered file in `src/server/db/migrations/`. 
 
 | File or directory | What it is |
 | --- | --- |
-| `compose.yaml` | PostgreSQL and SeaweedFS for development, and the application too under the `production` profile, for today's install |
+| `compose.yaml` | PostgreSQL and SeaweedFS for development, and the application too under the `production` profile, for a build from source |
 | `compose.managed.yaml` | The managed install from 1.0.0, which runs the application from an official image |
 | `compose.test.yaml` | The disposable PostgreSQL and SeaweedFS that the integration and browser tests start |
 | `Dockerfile` | The application image |
 | `config/` | SeaweedFS's S3 settings, and the updater's systemd unit |
 | `playwright.config.ts` | The browser tests' two projects, desktop and phone |
 
-The updater in `src/update/` and `src/updater/` is compiled on its own, with `npm run build:updater`, and runs beside the application on a managed server. [Updating](/tome-cms/running/updating/) says what it does, and that it comes with 1.0.0, which is not released yet.
+The updater in `src/update/` and `src/updater/` is compiled on its own, with `npm run build:updater`, and runs beside the application on a managed server. [Updating](/tome-cms/running/updating/) says what it does. It comes with the managed install, from 1.0.0 on.
 
 [Tests](/tome-cms/contributing/tests/) says what each directory under `tests/` checks and what it needs to run.

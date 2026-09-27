@@ -5,15 +5,15 @@ sidebar:
   order: 1
 ---
 
-TomeCMS อ่านการตั้งค่าจากตัวแปรสภาพแวดล้อม (environment variable) ในการติดตั้งตอนนี้ ค่าทั้งหมดอยู่ในไฟล์ `.env.local` ในโฟลเดอร์โค้ด สคริปต์ deploy เขียนไฟล์นี้ตอนรันครั้งแรก และตั้งสิทธิ์ให้เจ้าของไฟล์อ่านได้คนเดียว ขั้นตอนการรันอยู่ในหน้า[ติดตั้งบน VPS](/tome-cms/th/start/install/) ส่วนไฟล์ `.env.example` ใน repository มีชื่อตัวแปรชุดเดียวกันพร้อมค่าตัวอย่าง
+TomeCMS อ่านการตั้งค่าจากตัวแปรสภาพแวดล้อม (environment variable) ในการติดตั้งแบบ managed ค่าทั้งหมดอยู่ในไฟล์ `/etc/tome-cms/tome-cms.env` ซึ่งตัวติดตั้งเขียนไว้ และอ่านได้เฉพาะ root กับกลุ่มของตัวอัปเดต ในการติดตั้งแบบ build จากซอร์สโค้ด ค่าทั้งหมดอยู่ในไฟล์ `.env.local` ในโฟลเดอร์โค้ด สคริปต์ deploy เขียนไฟล์นี้ตอนรันครั้งแรก และตั้งสิทธิ์ให้เจ้าของไฟล์อ่านได้คนเดียว หน้า[ติดตั้งบน VPS](/tome-cms/th/start/install/) อธิบายขั้นตอนไว้ทั้งสองแบบ ส่วนไฟล์ `.env.example` ใน repository มีชื่อตัวแปรชุดเดียวกันพร้อมค่าตัวอย่าง
 
 ## แอปและสคริปต์อ่านค่าจากที่ไหน
 
-- คอนเทนเนอร์ของแอปอ่าน `.env.local` แต่ Compose จะกำหนดค่าสองตัวทับเองเสมอ ไม่ว่าในไฟล์จะเขียนไว้อย่างไร ได้แก่ `DATABASE_URL` ซึ่งชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` ซึ่งเป็น `production`
+- คอนเทนเนอร์ของแอปอ่าน `/etc/tome-cms/tome-cms.env` ในการติดตั้งแบบ managed และอ่าน `.env.local` ในการติดตั้งแบบ build จากซอร์สโค้ด แต่ Compose จะกำหนดค่าสองตัวทับเองเสมอ ไม่ว่าในไฟล์จะเขียนไว้อย่างไร ได้แก่ `DATABASE_URL` ซึ่งชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` ซึ่งเป็น `production`
 - สคริปต์ที่สั่งด้วย `npm run` เช่น `db:migrate`, `backup` และ `admin:reset-installation` โหลด `.env.local` ถ้ามีไฟล์นี้อยู่
 - `npm run admin:recover` ซึ่งเป็นคำสั่งในหน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/) อ่านไฟล์ที่ `TOME_CMS_ENV_FILE` ระบุ ถ้าไม่ได้ระบุจะอ่าน `.env.local` และถ้าไม่มีจึงอ่าน `/etc/tome-cms/tome-cms.env`
 
-ใน `.env.local` ทุกค่าอยู่ในเครื่องหมายคำพูดเดี่ยว เช่น `S3_REGION='us-east-1'` เวลาแก้ไฟล์ให้เขียนแบบเดียวกัน
+ทั้งสองไฟล์เขียนทุกค่าไว้ในเครื่องหมายคำพูดเดี่ยว เช่น `S3_REGION='us-east-1'` เวลาแก้ไฟล์ให้เขียนแบบเดียวกัน
 
 ## ตัวแปรที่แอปอ่าน
 
@@ -37,7 +37,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 | `S3_FORCE_PATH_STYLE` | ไม่บังคับ | `true` | `true` ใส่ชื่อ bucket ไว้ใน path ของที่อยู่ ส่วน `false` ใส่ไว้ในชื่อโฮสต์ ถ้าใช้ SeaweedFS ที่มากับชุดติดตั้งให้คงไว้เป็น `true` |
 | `MEDIA_PUBLIC_URL` | ต้องมี | ไม่มี | ที่อยู่ที่ผู้อ่านใช้โหลดไฟล์ ห้ามมี query หรือ fragment ถ้าไม่กำหนด สคริปต์ deploy จะประกอบให้จาก `S3_ENDPOINT` กับชื่อ bucket |
 | `TOME_CMS_FRONTEND_MODE` | ไม่บังคับ | `bundled` | `bundled` ให้บริการหน้าเว็บสาธารณะด้วย ส่วน `headless` ตอบ `404` ให้หน้าเว็บเหล่านั้น แต่หน้าแอดมินและ API ยังใช้ได้ |
-| `TOME_CMS_UPDATE_MODE` | ไม่บังคับ | `check-only` | `check-only` หรือ `managed` สคริปต์ deploy เขียน `check-only` ทุกครั้ง ค่า `managed` เขียนได้โดยตัวติดตั้งแบบ managed ตั้งแต่ 1.0.0 เท่านั้น ซึ่งยังไม่เปิดให้ใช้ |
+| `TOME_CMS_UPDATE_MODE` | ไม่บังคับ | `check-only` | `check-only` หรือ `managed` สคริปต์ deploy เขียน `check-only` ทุกครั้ง ค่า `managed` เขียนได้โดยตัวติดตั้งแบบ managed เท่านั้น ตั้งแต่ 1.0.0 ขึ้นไป |
 | `TOME_CMS_UPDATER_SOCKET` | ไม่บังคับ | `/run/tome-cms/updater.sock` | socket ของ service ตัว updater ในการติดตั้งแบบ managed ต้องเป็นไฟล์ `.sock` ที่อยู่ใน `/run/tome-cms/` โดยตรง |
 | `TOME_CMS_COUNTRY_HEADER` | ไม่บังคับ | `cf-ipcountry` | ชื่อ header ที่ CDN ใส่ประเทศของผู้อ่านมาให้ ใช้ในหน้าสถิติ ชื่อต้องมีแต่ตัวอักษร ตัวเลข และขีดกลาง ถ้ามีอย่างอื่นปน ระบบจะกลับไปใช้ `cf-ipcountry` |
 | `TOME_CMS_GEOIP_PATH` | ไม่บังคับ | `data/geoip/dbip-country-lite.mmdb` | ไฟล์ฐานข้อมูลประเทศ DB-IP Lite ใช้เมื่อ header ไม่ได้บอกประเทศมา path นี้เป็น path ภายในคอนเทนเนอร์ของแอป ให้วางไฟล์ไว้ใน `data/geoip/` ในโฟลเดอร์โค้ด แล้วรัน `./scripts/deploy-vps.sh` อีกครั้ง สคริปต์จะ build ไฟล์นี้เข้าไปใน image |
