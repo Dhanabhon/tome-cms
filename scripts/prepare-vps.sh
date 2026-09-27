@@ -240,7 +240,7 @@ preflight() {
 
 apt_update_once() {
   if ! $apt_fresh; then
-    run apt-get update -q
+    run apt-get -o DPkg::Lock::Timeout=300 update -q
     apt_fresh=true
   fi
 }
@@ -257,13 +257,13 @@ apt_install() {
   fi
   apt_update_once
   # shellcheck disable=SC2086 # a list of package names
-  run env DEBIAN_FRONTEND=noninteractive apt-get install -y -q $missing
+  run env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y -q $missing
 }
 
 # Installs a package, or upgrades it when a newer version is on offer.
 apt_install_latest() {
   apt_update_once
-  run env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$1"
+  run env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y -q "$1"
 }
 
 # add_apt_repo <name> <key url> <armored|binary> <source>: adds a vendor's apt
@@ -271,8 +271,15 @@ apt_install_latest() {
 add_apt_repo() {
   local name="$1" key_url="$2" key_format="$3" source="$4"
   local keyring="/etc/apt/keyrings/${name}.gpg" list="/etc/apt/sources.list.d/${name}.list"
-  if [[ -s "$keyring" && -f "$list" ]]; then
+  local uri="${source%% *}" line other
+  line="$(printf 'deb [arch=%s signed-by=%s] %s' "$arch" "$keyring" "$source")"
+  if [[ -s "$keyring" && "$(cat "$list" 2>/dev/null || true)" == "$line" ]]; then
     note "the ${name} apt repository is already set up"
+    return 0
+  fi
+  other="$(grep -rlsF -- "$uri" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | grep -vxF "$list" || true)"
+  if [[ -n "$other" ]]; then
+    note "${uri} already has a source in ${other}, and is left alone"
     return 0
   fi
   run install -d -m 0755 /etc/apt/keyrings
@@ -284,7 +291,7 @@ add_apt_repo() {
     curl -fsSL "$key_url" -o "$keyring"
   fi
   run chmod 0644 "$keyring"
-  printf 'deb [arch=%s signed-by=%s] %s\n' "$arch" "$keyring" "$source" | write_file "$list" 0644
+  printf '%s\n' "$line" | write_file "$list" 0644
   apt_fresh=false
 }
 
@@ -325,14 +332,25 @@ install_docker() {
   fi
 }
 
+# True when /usr/bin/node is the version this script needs, 22.12 or later.
+node_is_current() {
+  [[ -x /usr/bin/node ]] \
+    && /usr/bin/node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 12) ? 0 : 1)'
+}
+
 install_node() {
   step "Node.js 22"
-  if [[ -x /usr/bin/node ]] && /usr/bin/node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 12) ? 0 : 1)'; then
+  if node_is_current; then
     note "/usr/bin/node is already $(/usr/bin/node --version)"
     return 0
   fi
   add_apt_repo nodesource https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key armored "https://deb.nodesource.com/node_22.x nodistro main"
   apt_install_latest nodejs
+  if ! $dry_run && ! node_is_current; then
+    local found
+    found="$(/usr/bin/node --version 2>/dev/null || true)"
+    fail "/usr/bin/node is ${found:-missing} after installing, not 22.12 or later. Another Node apt source may be pinned ahead of NodeSource's."
+  fi
 }
 
 install_gh() {
@@ -345,6 +363,9 @@ install_gh() {
   fi
   add_apt_repo githubcli https://cli.github.com/packages/githubcli-archive-keyring.gpg binary "https://cli.github.com/packages stable main"
   apt_install_latest gh
+  if ! $dry_run && ! gh attestation verify --help >/dev/null 2>&1; then
+    fail "gh cannot verify attestations even after installing, so it is still older than 2.49. Another gh apt source may be pinned ahead of the official one."
+  fi
 }
 
 setup_swap() {
@@ -360,11 +381,14 @@ setup_swap() {
     note "the server has 4 GB of memory or more, and needs no swap"
     return 0
   fi
-  if [[ ! -e /swapfile ]]; then
-    run fallocate -l "$swap_size" /swapfile
-    run chmod 0600 /swapfile
-    run mkswap /swapfile
+  # Swap is off at this point, so a /swapfile here is left over from a run that
+  # failed partway through. Recreate it rather than trust its contents.
+  if [[ -e /swapfile ]]; then
+    run rm -f /swapfile
   fi
+  run fallocate -l "$swap_size" /swapfile
+  run chmod 0600 /swapfile
+  run mkswap /swapfile
   run swapon /swapfile
   if ! grep -q '^/swapfile ' /etc/fstab; then
     if $dry_run; then
@@ -410,9 +434,9 @@ setup_proxy() {
   wanted="$(render_caddyfile "$cms_host" "$media_host")"
   if [[ -f "$CADDYFILE" && "$(cat "$CADDYFILE")" == "$wanted" ]]; then
     note "${CADDYFILE} already serves ${cms_host} and ${media_host}"
-    return 0
+  else
+    printf '%s\n' "$wanted" | write_file "$CADDYFILE" 0644
   fi
-  printf '%s\n' "$wanted" | write_file "$CADDYFILE" 0644
   run systemctl enable caddy
   run systemctl reload-or-restart caddy
 }
@@ -448,7 +472,7 @@ summary() {
   note "Log in as ${target_user} and install TomeCMS:"
   note "  sudo -iu ${target_user}"
   note "  git clone https://github.com/Dhanabhon/tome-cms.git && cd tome-cms"
-  note "  export TOME_CMS_PUBLIC_URL=${cms_host:+https://$cms_host} S3_ENDPOINT=${media_host:+https://$media_host}"
+  note "  export TOME_CMS_PUBLIC_URL=https://${cms_host:-cms.example.com} S3_ENDPOINT=https://${media_host:-media.example.com}"
   note "  ./scripts/deploy-vps.sh"
 }
 
