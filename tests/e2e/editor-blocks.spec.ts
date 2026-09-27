@@ -256,8 +256,7 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
   await page.goto(`${origin}/admin/new`);
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Hi');
-  await page.keyboard.press('Shift+ArrowLeft');
-  await page.keyboard.press('Shift+ArrowLeft');
+  await selectBack(page, 2, 'Hi');
 
   /** The buttons a pointer cannot press at both ends: a clipped end is not there to hit. */
   const cut = () => page.evaluate(() => ['Bold', 'Italic', 'Link', 'Inline code'].filter((label) => {
@@ -280,7 +279,6 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
   const canvas = page.locator('.ProseMirror');
   await canvas.click();
   const linkWord = async (address: string, newTab: boolean) => {
-    for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowLeft');
     // Exact: "Unlink" or "Copy link" beside it would be counted too.
     const button = page.getByRole('button', { name: 'Link', exact: true });
     await expect(button.locator('svg'), 'a drawn icon, not a typed arrow').toHaveCount(1);
@@ -299,9 +297,10 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
   // were overwritten by the selection it drew on reading it, and "at" was linked for "that".
   await expect.poll(() => canvas.evaluate((node) => (node as HTMLElement & { editor?: { state: { doc: { textContent: string } } } }).editor?.state.doc.textContent))
     .toBe('Read this or that');
+  await selectBack(page, 4, 'that');
   await linkWord('example.com/here', false);
-  // From the start of "that", back over " or " to the end of "this".
-  for (let step = 0; step < 5; step += 1) await page.keyboard.press('ArrowLeft');
+  // Back over "that" and " or " to the end of "this".
+  await selectBack(page, 4, 'this', 8);
   await linkWord('example.com/away', true);
 
   const links = await page.evaluate(() => [...document.querySelectorAll('.ProseMirror a')]
@@ -317,7 +316,7 @@ test('a line and a table cell can be aligned, from either bar', async ({ context
   const canvas = page.locator('.ProseMirror');
   await canvas.click();
   await page.keyboard.type('A centred line');
-  for (let step = 0; step < 4; step += 1) await page.keyboard.press('Shift+ArrowLeft');
+  await selectBack(page, 4, 'line');
   const center = page.getByRole('button', { name: 'Align center' });
   await expect(page.getByRole('button', { name: 'Align left' }), 'left is what a line has to begin with').toHaveAttribute('aria-pressed', 'true');
   await center.click();
@@ -1057,6 +1056,23 @@ test('a pasted YouTube link inside an empty table cell stays a link', async ({ c
 });
 
 /** Signs the owner in through a recovery enrollment, as a new device would. */
+/**
+ * Selects the `count` characters before the last `skip` of the line, until the selection holds. Typing marks the
+ * post unsaved, and the re-render that follows can land between the Shift+Arrow keys and the
+ * moment the editor reads the new selection, putting the caret back where it was. A person never
+ * selects within those milliseconds; a test does, and in CI it lost the selection (the trace of
+ * run 36323303108 shows the caret after the text and nothing selected). So this selects again
+ * until the browser says the words are selected.
+ */
+async function selectBack(page: Page, count: number, expected: string, skip = 0) {
+  await expect.poll(async () => {
+    await page.keyboard.press('End');
+    for (let step = 0; step < skip; step += 1) await page.keyboard.press('ArrowLeft');
+    for (let step = 0; step < count; step += 1) await page.keyboard.press('Shift+ArrowLeft');
+    return page.evaluate(() => window.getSelection()?.toString());
+  }, { message: `"${expected}" is selected` }).toBe(expected);
+}
+
 async function signIn(context: BrowserContext, page: Page) {
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
