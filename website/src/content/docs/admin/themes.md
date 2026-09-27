@@ -1,11 +1,11 @@
 ---
 title: Themes
-description: Choose the theme that draws your public site, adjust what it offers, and decide whether readers meet it light or dark.
+description: Choose how your public site looks, adjust what its theme offers, and decide whether readers see it light or dark.
 sidebar:
   order: 8
 ---
 
-"Themes", under "Appearance" in "Configuration", chooses which theme draws the public site, and whether a reader meets it light or dark. Two themes come with TomeCMS: Paper, which a new site starts with, and Plain, a sparer one. Every control on this screen applies the moment you use it, so there is no save bar at the bottom. Only the "Customize" drawer has a "Save" of its own.
+"Themes", under "Appearance" in "Configuration", chooses which theme your public site uses, and whether readers see it light or dark. Two themes come with TomeCMS: Paper, which a new site starts with, and Plain, a sparer one. Every control on this screen applies the moment you use it, so there is no save bar at the bottom. Only the "Customize" drawer has a "Save" of its own.
 
 ![The Themes screen, with a count of 2. The Paper card shows a small preview of the site's home page with the headline "Ideas, carefully published.", the description "Paper surfaces and hairline rules: the look TomeCMS ships with.", and "In use", "Customize" and "View site" under it. The Plain card shows a one-column preview and a "Use this theme" button. Below are the card "Where themes come from" and the "Appearance" card, where "Site appearance" is "System" and "Let visitors choose light or dark" is ticked.](../../../assets/screenshots/en/themes.png)
 
@@ -15,7 +15,7 @@ Each theme has a card, and the top of the card is a preview: the theme drawing y
 
 The card of the theme in use says "In use". "View site" opens the public site in a new tab. On any other card, "Use this theme" switches the site to it straight away, and the screen names the theme now in use, as in "Your site now uses Plain."
 
-Paper draws a band at the top of the home page, a grid of cards for the posts, and an author block at the end of each post. Plain draws the tagline, the categories and a single column of titles with their dates and excerpts, in the reader's system font. It has no hero, so "Home slides" do not show with it, and it has nothing to customize.
+Paper shows a band at the top of the home page, a grid of cards for the posts, and an author block at the end of each post. Plain shows the tagline, the categories and a single column of titles with their dates and excerpts, in the reader's system font. It has no hero, so "Home slides" do not show with it, and it has nothing to customize.
 
 Themes come with TomeCMS, as the card "Where themes come from" says. Nothing on this screen installs one.
 
