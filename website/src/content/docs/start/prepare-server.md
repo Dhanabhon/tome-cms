@@ -81,7 +81,7 @@ If nginx or Apache already holds port 80 or 443, the script names it and stops. 
 3. Create the server with Ubuntu 24.04, and paste the file into its user data. DigitalOcean, Hetzner, Vultr and AWS each have a field for it among the advanced or additional options of a new server, called user data or cloud config.
 4. Point both host names at the new server's address.
 5. Wait. The first boot takes several minutes, because the deploy helper builds the application image on the server.
-6. Log in over SSH. The login message says where to finish the install and how to read the installation token.
+6. Log in over SSH. While it is still installing, the login message says so. Once it finishes, the message says where to finish the install and how to read the installation token.
 
 On its first boot, the server:
 
@@ -100,7 +100,13 @@ The login message says so. Read the end of the log:
 sudo tail -n 50 /var/log/tomecms-install.log
 ```
 
-Fix what it says, then run the step that failed again by hand. Both scripts skip what is already done:
+Fix what it says, then run the install again. It skips what is already done and keeps the log:
+
+```sh
+sudo /usr/local/sbin/tomecms-first-boot
+```
+
+To run one step by hand instead, use the commands it runs:
 
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com

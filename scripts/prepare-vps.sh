@@ -271,13 +271,19 @@ apt_install_latest() {
 add_apt_repo() {
   local name="$1" key_url="$2" key_format="$3" source="$4"
   local keyring="/etc/apt/keyrings/${name}.gpg" list="/etc/apt/sources.list.d/${name}.list"
-  local uri="${source%% *}" line other
+  local uri="${source%% *}" line other file
   line="$(printf 'deb [arch=%s signed-by=%s] %s' "$arch" "$keyring" "$source")"
   if [[ -s "$keyring" && "$(cat "$list" 2>/dev/null || true)" == "$line" ]]; then
     note "the ${name} apt repository is already set up"
     return 0
   fi
-  other="$(grep -rlsF -- "$uri" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | grep -vxF "$list" || true)"
+  other=""
+  for file in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+    [[ -f "$file" && "$file" != "$list" ]] || continue
+    if [[ -n "$(grep -vE '^[[:space:]]*#' "$file" 2>/dev/null | grep -F -- "$uri" || true)" ]]; then
+      other="${other}${other:+ }${file}"
+    fi
+  done
   if [[ -n "$other" ]]; then
     note "${uri} already has a source in ${other}, and is left alone"
     return 0
@@ -353,17 +359,24 @@ install_node() {
   fi
 }
 
+# True when the installed gh can verify attestations the way the managed installer
+# does, with --source-ref, --source-digest, --signer-workflow and
+# --deny-self-hosted-runners. Those arrived after Ubuntu 24.04's own gh, 2.45.
+gh_can_verify_attestations() {
+  local help
+  help="$(gh attestation verify --help 2>/dev/null || true)"
+  [[ "$help" == *--source-digest* ]]
+}
+
 install_gh() {
   step "GitHub CLI"
-  # The managed installer runs gh attestation verify, which arrived in gh 2.49.
-  # Ubuntu 24.04's own gh is 2.45.
-  if command -v gh >/dev/null 2>&1 && gh attestation verify --help >/dev/null 2>&1; then
+  if command -v gh >/dev/null 2>&1 && gh_can_verify_attestations; then
     note "gh is already installed and can verify attestations"
     return 0
   fi
   add_apt_repo githubcli https://cli.github.com/packages/githubcli-archive-keyring.gpg binary "https://cli.github.com/packages stable main"
   apt_install_latest gh
-  if ! $dry_run && ! gh attestation verify --help >/dev/null 2>&1; then
+  if ! $dry_run && ! gh_can_verify_attestations; then
     fail "gh cannot verify attestations even after installing, so it is still older than 2.49. Another gh apt source may be pinned ahead of the official one."
   fi
 }
@@ -403,20 +416,34 @@ setup_swap() {
 
 setup_firewall() {
   step "Firewall"
-  local ssh_port
+  local ssh_config ports port
   if ! $firewall; then
     note "left alone (--no-firewall)"
     return 0
   fi
-  ssh_port="$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }' || true)"
-  if [[ ! "$ssh_port" =~ ^[0-9]+$ ]]; then
-    ssh_port=22
+  # sshd -T lists every "port" line, and every "listenaddress" line, which can name
+  # its own port (IPv4 host:port, or IPv6 [host]:port) that differs from all of them.
+  ssh_config="$(sshd -T 2>/dev/null || true)"
+  ports="$(printf '%s\n' "$ssh_config" | awk '
+    $1 == "port" { print $2 }
+    $1 == "listenaddress" {
+      addr = $2
+      if (sub(/^\[[^]]*\]:/, "", addr)) { print addr; next }
+      n = split(addr, parts, ":")
+      if (n >= 2) print parts[n]
+    }
+  ' | grep -E '^[0-9]+$' | sort -un || true)"
+  if [[ -z "$ports" ]]; then
+    ports=22
     note "could not read the SSH port from sshd -T, so port 22 stays open. If SSH listens on another port, allow it with ufw before you log out."
   fi
   apt_install ufw
   # SSH first, so turning the firewall on cannot cut off the session this runs in.
   # Compose publishes its ports on 127.0.0.1 only, so Docker's own rules open nothing.
-  run ufw allow "${ssh_port}/tcp"
+  while IFS= read -r port; do
+    [[ -n "$port" ]] || continue
+    run ufw allow "${port}/tcp"
+  done <<<"$ports"
   run ufw allow 80/tcp
   run ufw allow 443/tcp
   run ufw --force enable
