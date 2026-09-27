@@ -1,6 +1,6 @@
 ---
 title: Writing
-description: Write a post in the editor, add pictures, files, tables and videos to it, and fill in its settings before it goes out.
+description: Write a post in the editor, add images, files, tables and videos to it, and fill in its settings before it goes out.
 sidebar:
   order: 1
 ---
@@ -41,13 +41,13 @@ Select some words and a bar appears over them: "Bold", "Italic", "Link" and "Inl
 
 "Link" opens "Add a link". Paste an `http` or `https` URL into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To take a link off, select the linked words and press "Link" again.
 
-## Pictures
+## Images
 
-Choose "Image" from the "+" menu. The "File Manager" opens as a picker: press a picture to put it where the cursor was, or "Upload image" to add a new one and put it there. A picture chosen this way carries the "Alt text" it has in the File Manager, or its file name when it has none.
+Choose "Image" from the "+" menu. The "File Manager" opens as a picker: press an image to put it where the cursor was, or "Upload image" to add a new one and put it there. An image chosen this way carries the "Alt text" it has in the File Manager, or its file name when it has none.
 
-You can also drop a picture file onto the post, or paste one. It shows faintly while it uploads to the File Manager, then takes its place. The File Manager takes JPEG, PNG, WebP, GIF and AVIF, up to 8 MB. Anything else gets "Image upload failed" and the reason.
+You can also drop an image file onto the post, or paste one. It shows faintly while it uploads to the File Manager, then takes its place. The File Manager takes JPEG, PNG, WebP, GIF and AVIF, up to 8 MB. Anything else gets "Image upload failed" and the reason.
 
-A picture copied from another website together with its text can keep its address on that site, and every reader's browser then fetches it from there. [What a reader's browser keeps](/tome-cms/running/privacy/) explains what that site gets to see. Upload the picture instead.
+An image copied from another website together with its text can keep its address on that site, and every reader's browser then fetches it from there. [What a reader's browser keeps](/tome-cms/running/privacy/) explains what that site gets to see. Upload the image instead.
 
 ## Files
 
@@ -74,14 +74,14 @@ On the site, a reader sees the poster with a play mark, and nothing loads from Y
 | "Slug" | The post's address, after `/en/blog/` or `/th/blog/`. While a new post is open for the first time, it follows the title until you change it by hand. Once the post is opened again, changing the title leaves the slug as it is. A Thai title gets a Thai address, with a hyphen between words. |
 | "Publish at" | When the post goes out. [Publishing](/tome-cms/admin/publishing/) explains it. |
 | "Categories" | Tick the ones the post belongs under. With none ticked, it goes under the default one. Both language editions share the same categories. "Manage categories" saves the post and opens the list of categories. |
-| "Cover image" | The picture on the post's card and at the top of the post. "Choose image" opens the File Manager. 1600 × 900 pixels and under 2 MB is best, and 8 MB is the most it takes. |
+| "Cover image" | The image on the post's card and at the top of the post. "Choose image" opens the File Manager. 1600 × 900 pixels and under 2 MB is best, and 8 MB is the most it takes. |
 | "Excerpt" | Under "Homepage card": the line on the post's card, up to 120 characters. Left blank, the card uses the meta description, then the opening of the post. |
 | "Meta title" | The title in search results, up to 70 characters. Left blank, the post's own title is used. |
 | "Meta description" | Shown below the post's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
 
 ## Writing the other language
 
-The chips in the bar show each language and how it stands, such as "EN Published" and "TH missing". Press the other language's chip and the admin saves this edition, then opens that one. A new edition starts empty, with this one's cover picture and categories. It has its own title, address and settings, and you publish it on its own.
+The chips in the bar show each language and how it stands, such as "EN Published" and "TH missing". Press the other language's chip and the admin saves this edition, then opens that one. A new edition starts empty, with this one's cover image and categories. It has its own title, address and settings, and you publish it on its own.
 
 "missing" on the post's card in the list does the same.
 

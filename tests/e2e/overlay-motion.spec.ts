@@ -537,11 +537,11 @@ test('a settings drawer comes in from the right, leaves every way, and a select 
   const picker = page.locator('dialog.media-picker');
   await exercise(page, {
     close: () => picker.getByRole('button', { exact: true, name: 'Cancel' }).click(), name: 'the picture picker, by Cancel',
-    open: drawer.getByRole('button', { name: 'Choose picture' }), selector: 'dialog.media-picker', shots: 'picture-picker',
+    open: drawer.getByRole('button', { name: 'Choose image' }), selector: 'dialog.media-picker', shots: 'picture-picker',
   });
   await exercise(page, {
     close: () => page.keyboard.press('Escape'), name: 'the picture picker, by Escape',
-    open: drawer.getByRole('button', { name: 'Choose picture' }), selector: 'dialog.media-picker',
+    open: drawer.getByRole('button', { name: 'Choose image' }), selector: 'dialog.media-picker',
   });
   await expect(drawer, 'the drawer under it stays open').toBeVisible();
 

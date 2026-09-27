@@ -35,7 +35,7 @@ When it is saved, a slug is tidied into lower-case letters, digits, Thai and sin
 
 ## When an address changes
 
-Change the slug of a post that is published or scheduled, and its old address keeps working. It answers with a permanent redirect (`301`) to wherever the post is now, however many times it has moved since, so links others shared and search engines both follow it.
+Change the slug of a post or page that is published or scheduled, and its old address keeps working. It answers with a permanent redirect (`301`) to wherever the post is now, however many times it has moved since, so links others shared and search engines both follow it.
 
 A redirect only takes a reader somewhere while the post is on the site. While it is a draft or waiting for its date, the old address answers `404` like the new one. When the post is deleted, its old addresses go with it.
 

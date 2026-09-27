@@ -40,7 +40,7 @@ A site needs two origins, both on HTTPS, with DNS pointing at the server before 
 - one for the CMS, such as `https://cms.example.com`, where readers and the admin go
 - one for the media, such as `https://media.example.com`, the S3 endpoint that serves the files
 
-The media has an origin of its own because the browser sends uploads straight to the bucket, and readers load pictures from it. The deploy helper refuses anything but HTTPS on a public host name for both. A local name such as `localhost`, a private IP address or a name under a test domain is rejected.
+The media has an origin of its own because the browser sends uploads straight to the bucket, and readers load images from it. The deploy helper refuses anything but HTTPS on a public host name for both. A local name such as `localhost`, a private IP address or a name under a test domain is rejected.
 
 ## The reverse proxy
 
@@ -51,7 +51,7 @@ The proxy is yours to provide, with its certificates. Point each origin at its p
 | The CMS, `https://cms.example.com` | `127.0.0.1:4321` |
 | The media, `https://media.example.com` | `127.0.0.1:9000` |
 
-Two settings on the proxy matter for uploads. The media origin has to pass the `Host` header through unchanged, because each upload address is signed for that host name. It also has to accept a request body of 25 MB, the largest document the library takes (an image may be up to 8 MB). Some proxies send their own host name upstream or cap a body at 1 MB unless told otherwise; nginx does both.
+Two settings on the proxy matter for uploads. The media origin has to pass the `Host` header through unchanged, because each upload address is signed for that host name. It also has to accept a request body of 25 MB, the largest document the File Manager takes (an image may be up to 8 MB). Some proxies send their own host name upstream or cap a body at 1 MB unless told otherwise; nginx does both.
 
 ## Ports and the firewall
 

@@ -153,7 +153,7 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   // The first: a picture uploaded from the drawer, a heading, and a button that leaves the site.
   await page.getByRole('button', { name: 'Add slide' }).click();
   const drawer = page.getByRole('dialog', { name: 'New slide' });
-  await drawer.getByRole('button', { name: 'Choose picture' }).click();
+  await drawer.getByRole('button', { name: 'Choose image' }).click();
   const picker = page.locator('dialog.media-picker');
   await picker.locator('input[type="file"]').setInputFiles({ name: 'Lake.jpg', mimeType: 'image/jpeg', buffer: lake });
   await expect(drawer.getByText('1800 × 800'), 'the picture is chosen and its size said').toBeVisible();
@@ -168,7 +168,7 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
 
   // The second: the same picture, chosen from the library this time, other words, no button.
   await page.getByRole('button', { name: 'Add slide' }).click();
-  await drawer.getByRole('button', { name: 'Choose picture' }).click();
+  await drawer.getByRole('button', { name: 'Choose image' }).click();
   await picker.getByRole('button', { name: /^Select Lake\.jpg,/ }).click();
   // The picker is still the modal dialog while its exit plays, and the drawer under it takes
   // no typing until it has gone.

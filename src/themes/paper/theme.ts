@@ -116,7 +116,7 @@ export const manifest: ThemeManifest = {
     {
       fallback: 'off',
       hint: {
-        en: 'A hairline across the top of an article, filling as the reader goes down it. The browser draws it from the scroll position, so the page carries nothing to keep it moving.',
+        en: 'A hairline across the top of a post, filling as the reader goes down it. The browser draws it from the scroll position, so the page carries nothing to keep it moving.',
         th: 'เส้นบางพาดบนสุดของบทความ เติมขึ้นตามที่อ่านลงไป เบราว์เซอร์วาดจากตำแหน่ง scroll เอง หน้าจึงไม่ต้องแบกโค้ดไว้ขยับมัน',
       },
       key: 'readingProgress',
@@ -126,7 +126,7 @@ export const manifest: ThemeManifest = {
     {
       fallback: 'text',
       hint: {
-        en: 'How the links under the author at the end of an article appear. A link to GitHub, X, LinkedIn, Facebook, Instagram or YouTube shows that site by its mark; any other shows a plain link.',
+        en: 'How the links under the author at the end of a post appear. A link to GitHub, X, LinkedIn, Facebook, Instagram or YouTube shows that site by its mark; any other shows a plain link.',
         th: 'ลักษณะของลิงก์ใต้ชื่อผู้เขียนท้ายบทความ ลิงก์ไปยัง GitHub, X, LinkedIn, Facebook, Instagram หรือ YouTube จะแสดงโลโก้ของเว็บนั้น ลิงก์อื่นแสดงไอคอนลิงก์ทั่วไป',
       },
       key: 'authorLinks',

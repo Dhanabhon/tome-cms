@@ -23,10 +23,10 @@ The page shows a heading and a message, which you write for each language. Left 
 | --- | --- |
 | "Minimal" | The heading, the message and the site's name. |
 | "Logo" | The site's logo above the words, or the site's name when there is no logo. |
-| "Picture" | A picture from the File Manager behind the words. This template needs a picture. |
+| "Image" | An image from the File Manager behind the words. This template needs an image. |
 | "Countdown" | A clock counting down the days, hours, minutes and seconds to the return time. This template needs a return time. |
 
-For "Picture", the admin warns about a picture over 800 KB, which keeps visitors waiting, and one under 1,600 pixels wide, which looks soft on a wide screen. While the page uses a picture, the File Manager refuses to delete it and names "The maintenance page" as what uses it.
+For "Image", the admin warns about an image over 800 KB, which keeps visitors waiting, and one under 1,600 pixels wide, which looks soft on a wide screen. While the page uses an image, the File Manager refuses to delete it and names "The maintenance page" as what uses it.
 
 ## The return time
 
@@ -39,7 +39,7 @@ The site never reopens by itself. The return time is only what visitors are told
 ## Closing the site
 
 1. Open "Settings", then "Maintenance".
-2. Choose a template, write the words in each language tab, and set the picture and the return time if you want them. Press "Save". The page is saved apart from the switch, so saving does not close the site.
+2. Choose a template, write the words in each language tab, and set the image and the return time if you want them. Press "Save". The page is saved apart from the switch, so saving does not close the site.
 3. "Preview" opens the saved page in a new tab. It shows the last saved version, not unsaved changes.
 4. Under "Status", turn on "Close the site for maintenance". The admin asks "Close the site to visitors?". Press "Close the site", and visitors see the maintenance page at once.
 
@@ -53,7 +53,7 @@ Only readers' pages, the feeds and the content API close. Everything else answer
 
 - The admin, at the path you chose, and sign-in, including [`/recovery`](/tome-cms/running/recovery/).
 - `/health/live` and `/health/ready`.
-- `/media/<id>` and the files in the bucket, so a picture on the maintenance page still loads.
+- `/media/<id>` and the files in the bucket, so an image on the maintenance page still loads.
 - `/robots.txt`.
 - `/api/v1/stats/hit`.
 - `/api/v1/content/openapi.json` and draft previews.

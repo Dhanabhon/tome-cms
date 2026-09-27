@@ -56,7 +56,7 @@ In `contentHtml` a video is a `figure.tome-video`. Its link, `a.tome-video__play
 <figure class="tome-video"><a class="tome-video__play" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ&amp;t=30" rel="noopener noreferrer"><img alt="" src="/media/66666666-6666-4666-8666-666666666666" decoding="async" loading="lazy" /><span class="tome-video__title">A clip</span></a><figcaption>A clip · YouTube</figcaption></figure>
 ```
 
-The poster is in the item's `media`, with its address and size, as a picture in the text is. Shown as it is, a video is a picture that links to the clip. To play it in the page, add your own click handler, or build a player from `contentJson`. The bundled site loads its player only when the reader presses play, from `https://www.youtube-nocookie.com/embed/<videoId>?autoplay=1` or `https://player.vimeo.com/video/<videoId>?dnt=1&autoplay=1`. [What a reader's browser keeps](/tome-cms/running/privacy/) explains why.
+The poster is in the item's `media`, with its address and size, as an image in the text is. Shown as it is, a video is an image that links to the clip. To play it in the page, add your own click handler, or build a player from `contentJson`. The bundled site loads its player only when the reader presses play, from `https://www.youtube-nocookie.com/embed/<videoId>?autoplay=1` or `https://player.vimeo.com/video/<videoId>?dnt=1&autoplay=1`. [What a reader's browser keeps](/tome-cms/running/privacy/) explains why.
 
 ## The locale parameter
 
