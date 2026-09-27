@@ -46,7 +46,7 @@ The OpenAPI document does not describe the nodes inside `contentJson`, so here i
 | `videoId` | The clip's id: 11 letters, digits, `-` or `_` on YouTube, digits on Vimeo |
 | `start` | The second of the clip to start at, or `null` |
 | `title` | The clip's title from YouTube or Vimeo, up to 200 characters, or an empty string |
-| `mediaId` | The id of the poster in the site's library, or `null` when there is none |
+| `mediaId` | The id of the poster in the site's File Manager, or `null` when there is none |
 
 The node holds no address. Build any you need from `provider` and `videoId`.
 
