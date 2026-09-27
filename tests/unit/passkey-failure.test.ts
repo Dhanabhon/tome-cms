@@ -106,7 +106,7 @@ test('a spare Passkey is named in the owner’s language until the owner names i
   const security = readFileSync(new URL('../../src/components/admin/SecurityManager.tsx', import.meta.url), 'utf8');
   assert.match(security, /useState\(copy\.security\.spareName\)/);
   assert.doesNotMatch(security, /'Spare Passkey'/);
-  assert.equal(adminCopy('en').security.spareName, 'Spare Passkey');
+  assert.equal(adminCopy('en').security.spareName, 'Spare passkey');
   assert.equal(adminCopy('th').security.spareName, 'Passkey สำรอง');
 });
 

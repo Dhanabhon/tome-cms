@@ -55,13 +55,13 @@ const fieldControlIds: Record<FieldName, string> = {
 
 const copies = {
   en: {
-    steps: ['System readiness', 'Site details', 'Owner identity', 'Installation token', 'Primary Passkey', 'Recovery codes'],
+    steps: ['System readiness', 'Site details', 'Owner identity', 'Installation token', 'Primary passkey', 'Recovery codes'],
     contexts: [
-      ['Let’s check the essentials', 'TomeCMS checks PostgreSQL, migrations, storage planning, and the Passkey identity before you begin.'],
+      ['Let’s check the essentials', 'TomeCMS checks PostgreSQL, migrations, storage planning, and the passkey identity before you begin.'],
       ['Tell readers about your site', 'Choose the public name, Tagline, language, timezone, and a private Admin address.'],
-      ['Who will own this site?', 'This email identifies the first owner. Signing in uses a Passkey, not a password.'],
+      ['Who will own this site?', 'This email identifies the first owner. Signing in uses a passkey, not a password.'],
       ['Confirm this installation', 'Use the one-time token created by the local or VPS bootstrap script.'],
-      ['Create your primary Passkey', 'Your device will ask for Touch ID, Windows Hello, a security key, or another Passkey provider.'],
+      ['Create your primary passkey', 'Your device will ask for Touch ID, Windows Hello, a security key, or another passkey provider.'],
       ['Save your recovery codes', 'These codes are shown once. Copy or download them before continuing.'],
     ],
     current: (step: number) => `Step ${step} of 6`,
@@ -76,11 +76,11 @@ const copies = {
   th: {
     steps: ['ตรวจสอบระบบ', 'ข้อมูลเว็บไซต์', 'ข้อมูลเจ้าของ', 'Installation token', 'Passkey หลัก', 'Recovery codes'],
     contexts: [
-      ['มาเช็กส่วนสำคัญกันก่อน', 'TomeCMS จะตรวจ PostgreSQL, migrations, แผนการเชื่อม Storage และตัวตน Passkey ก่อนเริ่มตั้งค่า'],
+      ['มาเช็กส่วนสำคัญกันก่อน', 'TomeCMS จะตรวจ PostgreSQL, migrations, แผนการเชื่อม Storage และตัวตน passkey ก่อนเริ่มตั้งค่า'],
       ['เล่าให้ผู้อ่านรู้จักเว็บไซต์', 'กำหนดชื่อ Tagline ภาษา เขตเวลา และ URL ส่วนตัวสำหรับเข้า Admin'],
-      ['ใครเป็นเจ้าของเว็บไซต์นี้?', 'อีเมลนี้ใช้ระบุเจ้าของคนแรก ส่วนการเข้าสู่ระบบใช้ Passkey แทนรหัสผ่าน'],
+      ['ใครเป็นเจ้าของเว็บไซต์นี้?', 'อีเมลนี้ใช้ระบุเจ้าของคนแรก ส่วนการเข้าสู่ระบบใช้ passkey แทนรหัสผ่าน'],
       ['ยืนยันการติดตั้งเครื่องนี้', 'ใช้ token แบบครั้งเดียวที่สร้างจากสคริปต์เตรียมระบบบน Local หรือ VPS'],
-      ['สร้าง Passkey หลัก', 'อุปกรณ์จะให้ยืนยันด้วย Touch ID, Windows Hello, security key หรือผู้ให้บริการ Passkey'],
+      ['สร้าง passkey หลัก', 'อุปกรณ์จะให้ยืนยันด้วย Touch ID, Windows Hello, security key หรือผู้ให้บริการ passkey'],
       ['เก็บ Recovery codes ให้ปลอดภัย', 'รหัสชุดนี้แสดงเพียงครั้งเดียว กรุณาคัดลอกหรือดาวน์โหลดก่อนดำเนินการต่อ'],
     ],
     current: (step: number) => `ขั้นที่ ${step} จาก 6`,
@@ -122,7 +122,7 @@ function apiError(response: Response, value: unknown, language: Language, fallba
   if (language === 'en') return responseError(value, fallback);
   const messages: Partial<Record<number, string>> = {
     400: 'ข้อมูลหรือสิทธิ์ชั่วคราวไม่ถูกต้อง กรุณาตรวจข้อมูลแล้วลองใหม่',
-    401: 'Token หรือ Passkey session ไม่ถูกต้อง กรุณายืนยันใหม่',
+    401: 'Token หรือ passkey session ไม่ถูกต้อง กรุณายืนยันใหม่',
     403: 'คำขอนี้ไม่ได้มาจาก URL ที่ตั้งค่าไว้ กรุณาเปิด Installer จาก URL หลัก',
     409: 'มีการติดตั้งหรือเริ่มขั้นตอนนี้ไปแล้ว กรุณาตรวจสถานะอีกครั้ง',
     429: 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่',
@@ -273,7 +273,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     setAlert('');
     setForm((current) => ({ ...current, installationToken: '' }));
     setRp(readiness?.rp ? { id: readiness.rp.id, name: readiness.rp.name } : null);
-    setActivity({ label: language === 'th' ? 'กรอก token ใหม่เพื่อเริ่ม Passkey อีกครั้ง' : 'Enter the token again to restart Passkey setup.', value: 0 });
+    setActivity({ label: language === 'th' ? 'กรอก token ใหม่เพื่อเริ่ม passkey อีกครั้ง' : 'Enter the token again to restart passkey setup.', value: 0 });
     setStep(4);
   }
 
@@ -284,7 +284,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     }
     setBusy(true);
     setAlert('');
-    setActivity({ label: language === 'th' ? 'กำลังตรวจ token และเตรียม Passkey…' : 'Verifying the token and preparing Passkey registration…', value: 45 });
+    setActivity({ label: language === 'th' ? 'กำลังตรวจ token และเตรียม passkey…' : 'Verifying the token and preparing passkey registration…', value: 45 });
     try {
       const response = await fetch('/api/install/enroll', {
         method: 'POST',
@@ -299,7 +299,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
       setContext(enrollment.context);
       setRp(enrollment.rp);
       setForm((current) => ({ ...current, installationToken: '' }));
-      setActivity({ label: language === 'th' ? 'Token ถูกต้อง พร้อมสร้าง Passkey' : 'Token verified. Ready to create the Passkey.', value: 100 });
+      setActivity({ label: language === 'th' ? 'Token ถูกต้อง พร้อมสร้าง passkey' : 'Token verified. Ready to create the passkey.', value: 100 });
       setStep(5);
     } catch (error) {
       setForm((current) => ({ ...current, installationToken: '' }));
@@ -318,15 +318,15 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     let registered = passkeyRegistered;
     try {
       if (!registered) {
-        if (!window.PublicKeyCredential) throw new Error(language === 'th' ? 'เบราว์เซอร์นี้ไม่รองรับ Passkey กรุณาใช้เบราว์เซอร์รุ่นล่าสุด' : 'This browser does not support Passkeys. Use a current browser.');
-        setActivity({ label: language === 'th' ? 'รอการยืนยัน Passkey จากอุปกรณ์…' : 'Waiting for your device to verify the Passkey…', value: 35 });
+        if (!window.PublicKeyCredential) throw new Error(language === 'th' ? 'เบราว์เซอร์นี้ไม่รองรับ passkey กรุณาใช้เบราว์เซอร์รุ่นล่าสุด' : 'This browser does not support passkeys. Use a current browser.');
+        setActivity({ label: language === 'th' ? 'รอการยืนยัน passkey จากอุปกรณ์…' : 'Waiting for your device to verify the passkey…', value: 35 });
         const registration = await authClient.passkey.addPasskey({
           context,
           name: 'Primary passkey',
           createSession: true,
         });
         if (registration.error || !registration.data) {
-          throw new Error(language === 'th' ? 'ยังสร้าง Passkey ไม่สำเร็จ ยืนยันกับอุปกรณ์แล้วลองอีกครั้ง' : 'The Passkey was not created. Confirm the device prompt and try again.');
+          throw new Error(language === 'th' ? 'ยังสร้าง passkey ไม่สำเร็จ ยืนยันกับอุปกรณ์แล้วลองอีกครั้ง' : 'The passkey was not created. Confirm the device prompt and try again.');
         }
         registered = true;
         setPasskeyRegistered(true);
@@ -380,7 +380,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     ['database', language === 'th' ? 'PostgreSQL database' : 'PostgreSQL database'],
     ['migrations', 'Database migrations'],
     ['storage', language === 'th' ? 'S3-compatible storage' : 'S3-compatible storage'],
-    ['relyingParty', language === 'th' ? 'HTTPS / Passkey identity' : 'HTTPS / Passkey identity'],
+    ['relyingParty', language === 'th' ? 'HTTPS / passkey identity' : 'HTTPS / passkey identity'],
   ] as const;
 
   function checkHelp(key: typeof checkRows[number][0], state: CheckState): string | null {
@@ -439,7 +439,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
             {step === 1 && <>
               <div className="installer-step-head">
                 <h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'ระบบพร้อมแค่ไหน?' : 'Is the system ready?'}</h2>
-                <p>{language === 'th' ? 'ทั้งสี่อย่างต้องผ่านก่อนจึงจะตั้งค่าต่อได้ ได้แก่ ฐานข้อมูล การย้ายโครงสร้าง ที่เก็บไฟล์ และที่อยู่ที่ Passkey จะผูกไว้' : 'All four must pass before setup can go on: the database, its migrations, object storage, and the address Passkeys will be bound to.'}</p>
+                <p>{language === 'th' ? 'ทั้งสี่อย่างต้องผ่านก่อนจึงจะตั้งค่าต่อได้ ได้แก่ ฐานข้อมูล การย้ายโครงสร้าง ที่เก็บไฟล์ และที่อยู่ที่ passkey จะผูกไว้' : 'All four must pass before setup can go on: the database, its migrations, object storage, and the address passkeys will be bound to.'}</p>
               </div>
               <ul className="installer-checks">
                 {checkRows.map(([key, label]) => {
@@ -488,7 +488,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
             </>}
 
             {step === 3 && <>
-              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'ข้อมูลเจ้าของเว็บไซต์' : 'Owner identity'}</h2><p>{language === 'th' ? 'ไม่มีรหัสผ่าน อุปกรณ์ของคุณจะเก็บ Passkey ให้' : 'There is no password. Your device stores the Passkey.'}</p></div>
+              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'ข้อมูลเจ้าของเว็บไซต์' : 'Owner identity'}</h2><p>{language === 'th' ? 'ไม่มีรหัสผ่าน อุปกรณ์ของคุณจะเก็บ passkey ให้' : 'There is no password. Your device stores the passkey.'}</p></div>
               <div className="installer-fields">
                 <InstallerField error={fieldErrors.email} help={language === 'th' ? 'ใช้ระบุบัญชีและกู้คืนสิทธิ์ในอนาคต' : 'Used to identify the account and support future recovery.'} id="owner-email" label={language === 'th' ? 'อีเมลเจ้าของ' : 'Owner email'} required>
                   <input aria-describedby="owner-email-help" aria-invalid={Boolean(fieldErrors.email)} autoCapitalize="none" autoComplete="email" className="installer-control" id="owner-email" inputMode="email" maxLength={254} onChange={(event) => updateField('email', event.target.value)} placeholder="you@example.com" required spellCheck={false} type="email" value={form.email} />
@@ -515,7 +515,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
             </>}
 
             {step === 5 && <>
-              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'สร้าง Passkey หลัก' : 'Create the primary Passkey'}</h2><p>{language === 'th' ? 'เบราว์เซอร์จะแสดงหน้าต่างยืนยันจากอุปกรณ์ของคุณ' : 'Your browser will open the secure confirmation provided by your device.'}</p></div>
+              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'สร้าง passkey หลัก' : 'Create the primary passkey'}</h2><p>{language === 'th' ? 'เบราว์เซอร์จะแสดงหน้าต่างยืนยันจากอุปกรณ์ของคุณ' : 'Your browser will open the secure confirmation provided by your device.'}</p></div>
               <dl className="installer-review">
                 <div className="installer-review-row"><dt>{language === 'th' ? 'เว็บไซต์' : 'Website'}</dt><dd>{form.siteName}</dd></div>
                 <div className="installer-review-row"><dt>{language === 'th' ? 'เจ้าของ' : 'Owner'}</dt><dd>{form.email}</dd></div>
@@ -525,7 +525,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
               <div className="installer-actions">
                 {!registrationStarted && <button className="installer-button" disabled={busy} onClick={back} type="button">{copy.back}</button>}
                 {registrationStarted && alert && <button className="installer-button" disabled={busy} onClick={restartEnrollment} type="button">{language === 'th' ? 'ยืนยัน token ใหม่' : 'Verify a new token'}</button>}
-                <button className="installer-button installer-button--primary" aria-busy={busy} disabled={busy} onClick={() => void registerAndFinalize()} type="button">{passkeyRegistered ? (language === 'th' ? 'ลองบันทึกการติดตั้งอีกครั้ง' : 'Retry finalization') : (language === 'th' ? 'สร้าง Passkey และติดตั้ง' : 'Create Passkey and install')}</button>
+                <button className="installer-button installer-button--primary" aria-busy={busy} disabled={busy} onClick={() => void registerAndFinalize()} type="button">{passkeyRegistered ? (language === 'th' ? 'ลองบันทึกการติดตั้งอีกครั้ง' : 'Retry finalization') : (language === 'th' ? 'สร้าง passkey และติดตั้ง' : 'Create passkey and install')}</button>
               </div>
             </>}
 

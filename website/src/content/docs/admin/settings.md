@@ -60,9 +60,9 @@ Press "Save". When you change the site name, the language or the time zone, the 
 
 ### Your passkeys
 
-Each passkey is listed with its name, when it was created and when it was last used, or "Never". Keep at least two, on different devices.
+Each passkey is listed with its name, when it was created and when it was last used, or "never". Keep at least two, on different devices.
 
-To add one, type a "New Passkey name", up to 80 characters, and press "Add spare Passkey". Your browser then asks your device to create the passkey. When it is saved, the admin says "Spare Passkey added." The sign-in page takes any of your passkeys.
+To add one, type a "New passkey name", up to 80 characters, and press "Add a spare passkey". Your browser then asks your device to create the passkey. When it is saved, the admin says "Spare passkey added." The sign-in page takes any of your passkeys.
 
 The pencil renames a passkey: change the "Passkey name" and press "Save name", or "Cancel rename" to leave it. The bin deletes a passkey at once, without asking first. It stays off while only one passkey is left, so the last one cannot be deleted.
 
@@ -72,7 +72,7 @@ The ten codes from the first-run wizard each let you back in once, from any brow
 
 [Getting back in](/tome-cms/running/recovery/) explains how to use a spare passkey or a code when you have lost a device, and what to do with neither.
 
-If your session has ended while the screen is open, it asks you to "Verify the TomeCMS owner". Press "Verify with Passkey", or "Recover access" to go to the recovery page.
+If your session has ended while the screen is open, it asks you to "Verify the TomeCMS owner". Press "Verify with passkey", or "Recover access" to go to the recovery page.
 
 ## Maintenance
 

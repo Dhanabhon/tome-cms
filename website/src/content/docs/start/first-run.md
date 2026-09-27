@@ -20,7 +20,7 @@ The wizard checks four things, and all four have to show "Ready" before it lets 
 | "PostgreSQL database" | The database answers. |
 | "Database migrations" | No migration is waiting. |
 | "S3-compatible storage" | The bucket answers at `S3_ENDPOINT`. |
-| "HTTPS / Passkey identity" | `TOME_CMS_PUBLIC_URL` is HTTPS on a host name, not an IP address, and matches the address you opened. |
+| "HTTPS / passkey identity" | `TOME_CMS_PUBLIC_URL` is HTTPS on a host name, not an IP address, and matches the address you opened. |
 
 A check that fails shows "Needs attention" with a hint. Fix what it names and press "Check again". On today's VPS install, a waiting migration or a stopped container is fixed by running `./scripts/deploy-vps.sh` again. If you opened the wizard at another address, the hint gives the one it expects.
 
@@ -63,13 +63,13 @@ The wizard's "Where is the installation token?" box shows two commands. On today
 
 A wrong token gets "The installation token is not valid." The wizard allows eight attempts in 15 minutes from one IP address, then asks you to wait. After the token passes, you have 10 minutes to finish the next step. Past that, verify the token again.
 
-## Step 5: Primary Passkey
+## Step 5: Primary passkey
 
-The wizard shows what it is about to set up: "Website", "Owner", "Passkey RP" (TomeCMS and your host name) and "Admin URL". Press "Create Passkey and install".
+The wizard shows what it is about to set up: "Website", "Owner", "Passkey RP" (TomeCMS and your host name) and "Admin URL". Press "Create passkey and install".
 
 Your browser then asks your device to create the passkey, with Touch ID, Windows Hello, a security key or another passkey provider. The passkey is saved as "Primary passkey" and works only on the CMS host name. Create it in an ordinary browser window. A passkey made in a private window may not outlive the window, and the site would then hold a passkey no browser can offer.
 
-When the passkey is created, the wizard saves the site and you are signed in. If you cancel the device's prompt, the wizard says so. Press "Create Passkey and install" to try again, or "Verify a new token" to go back to step 4. If the passkey was created but saving the site failed, the button becomes "Retry finalization".
+When the passkey is created, the wizard saves the site and you are signed in. If you cancel the device's prompt, the wizard says so. Press "Create passkey and install" to try again, or "Verify a new token" to go back to step 4. If the passkey was created but saving the site failed, the button becomes "Retry finalization".
 
 ## Step 6: Recovery codes
 

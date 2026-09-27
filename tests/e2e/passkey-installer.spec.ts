@@ -188,7 +188,7 @@ test('six-step installer preserves safe values and registers a primary Passkey',
 
     await expect(progress.first()).toHaveAttribute('aria-valuenow', '5');
     await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
-    await page.getByRole('button', { name: /Create Passkey and install/ }).click();
+    await page.getByRole('button', { name: /Create passkey and install/ }).click();
     await expect(progress.first()).toHaveAttribute('aria-valuenow', '6');
     await expect(page.getByLabel('One-time recovery codes')).toContainText('code-9');
     expect(finalizeBody).toMatchObject({ adminPath: '/studio', context: 'signed-context', email: 'owner@example.com', tagline: 'Ideas worth keeping' });

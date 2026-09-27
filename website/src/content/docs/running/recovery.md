@@ -11,7 +11,7 @@ TomeCMS has no password to reset. The owner signs in with a passkey, so the way 
 
 Both ways back are set up under "Security" in the admin.
 
-- "Add spare Passkey" registers a second passkey, on another device. The sign-in page takes either one.
+- "Add a spare passkey" registers a second passkey, on another device. The sign-in page takes either one.
 - The ten recovery codes from [the first-run wizard](/tome-cms/start/first-run/) each work once. To replace the set, press "Verify and create new codes" under "Recovery codes". The admin asks for a passkey first, then shows ten new codes, once. Every unused code of the old set stops working at that moment.
 
 ## With a recovery code
@@ -22,7 +22,7 @@ The admin's sign-in page links to `/recovery` with "Recover access". You can als
 2. Your browser asks your device to create a new passkey. Create it in an ordinary browser window, as in the wizard.
 3. When the passkey is saved, the admin opens, and you are signed in.
 
-A code is spent as soon as the server accepts it, and every session the owner had is signed out at that moment. The code opens a one-time recovery link that lasts ten minutes. If the passkey is not created, the page keeps the link, and "Create recovery Passkey" tries again while it lasts. After ten minutes, start over with another code.
+A code is spent as soon as the server accepts it, and every session the owner had is signed out at that moment. The code opens a one-time recovery link that lasts ten minutes. If the passkey is not created, the page keeps the link, and "Create recovery passkey" tries again while it lasts. After ten minutes, start over with another code.
 
 A code that is wrong or already used gets "Recovery could not be started. Check the code and try again." The page allows five attempts in 30 minutes from one IP address, then asks you to wait.
 
@@ -49,7 +49,7 @@ One-time recovery link (expires 2026-09-25T09:10:00.000Z):
 https://cms.example.com/recovery?context=...
 ```
 
-The time is in UTC. Open the link on the device that is to hold the new passkey, and press "Create recovery Passkey" under "Create a replacement Passkey". From there it goes as with a code: the new passkey replaces every older one. The link leaves your saved recovery codes as they were.
+The time is in UTC. Open the link on the device that is to hold the new passkey, and press "Create recovery passkey" under "Create a replacement passkey". From there it goes as with a code: the new passkey replaces every older one. The link leaves your saved recovery codes as they were.
 
 The command reads its settings from the file `TOME_CMS_ENV_FILE` names, or else from `.env.local` in the checkout, or else from `/etc/tome-cms/tome-cms.env`. When it can read none of them, it stops with `No readable TomeCMS environment file found. Set TOME_CMS_ENV_FILE or create .env.local.`
 
