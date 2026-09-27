@@ -212,9 +212,9 @@ preflight() {
   fi
 
   if [[ -z "$target_user" ]]; then
-    problem "Name the account that will run TomeCMS with --user, because this script was not started through sudo."
+    problem "This script was not started through sudo, so name the account that will run TomeCMS. Add --create-user --user tomecms to create one, or --user <name> for an account that exists."
   elif [[ "$target_user" == root ]]; then
-    problem "The deploy helper should not run as root. Name another account with --user."
+    problem "The deploy helper should not run as root. Add --create-user --user tomecms to create an account for it, or --user <name> for another account that exists."
   elif ! id "$target_user" >/dev/null 2>&1; then
     if ! $create_user; then
       problem "The account '${target_user}' does not exist. Create it first, or add --create-user."

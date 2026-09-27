@@ -82,6 +82,13 @@ test('options are checked before anything else', () => {
   refused(['--swap-size', 'lots', '--print-caddyfile', '--cms-url', cms, '--media-url', media], /--swap-size takes a size such as 2G/);
 });
 
+test('without sudo or --user, the problem names the command that creates an account', () => {
+  // Logged in as root directly, SUDO_USER is empty. The server checks fail on a Mac as
+  // well, but every problem is listed, so this one shows either way.
+  refused(['--dry-run', '--cms-url', cms, '--media-url', media], /--create-user --user tomecms/);
+  refused(['--dry-run', '--cms-url', cms, '--media-url', media], /--create-user --user tomecms/, { SUDO_USER: 'root' });
+});
+
 test('without the proxy, no address is needed', () => {
   // --no-proxy skips the address checks, so this fails later, at the server checks, and
   // never with a message about an address. On a Mac those checks refuse the system.

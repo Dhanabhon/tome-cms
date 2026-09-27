@@ -34,6 +34,24 @@ sudo ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url http
 
 Add `--dry-run` the first time to see what it would do. A dry run checks the server and prints each step, and changes nothing.
 
+### Logged in as root
+
+Run through `sudo`, the script gives the account that ran it to TomeCMS. Logged in as root directly, there is no such account, and the deploy helper must not run as root, so the script stops until you name one. Many new servers let you in only as root. Have the script create an account called `tomecms`:
+
+```sh
+./scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
+```
+
+The new account has root's SSH keys, so `ssh tomecms@your-server` works as well. It cannot read root's copy of the code, so switch to it and get the code again there. `sudo -i` starts a new login, which puts the account in the `docker` group the script just added it to.
+
+```sh
+sudo -iu tomecms
+git clone https://github.com/Dhanabhon/tome-cms.git
+cd tome-cms
+```
+
+Then [install TomeCMS](/tome-cms/start/install/) from that folder, as `tomecms`.
+
 The script works through these steps:
 
 1. It checks the server before it changes anything: root, Ubuntu 24.04, `amd64` or `arm64`, systemd 235 or later, the account that will run TomeCMS, both addresses, and that nothing but Caddy holds ports 80 and 443. It lists every problem it finds, then stops.
