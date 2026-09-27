@@ -74,14 +74,14 @@ const copies = {
     errorFallback: 'Something did not finish. Follow the note below and try again.',
   },
   th: {
-    steps: ['ตรวจสอบระบบ', 'ข้อมูลเว็บไซต์', 'ข้อมูลเจ้าของ', 'Installation token', 'Passkey หลัก', 'Recovery codes'],
+    steps: ['ตรวจสอบระบบ', 'ข้อมูลเว็บไซต์', 'ข้อมูลเจ้าของ', 'โทเค็นติดตั้ง', 'Passkey หลัก', 'รหัสกู้คืน'],
     contexts: [
-      ['มาเช็กส่วนสำคัญกันก่อน', 'TomeCMS จะตรวจ PostgreSQL, migrations, แผนการเชื่อม Storage และตัวตน passkey ก่อนเริ่มตั้งค่า'],
+      ['มาเช็กส่วนสำคัญกันก่อน', 'TomeCMS จะตรวจ PostgreSQL, การอัปเดตฐานข้อมูล, แผนการเชื่อม Storage และตัวตน passkey ก่อนเริ่มตั้งค่า'],
       ['เล่าให้ผู้อ่านรู้จักเว็บไซต์', 'กำหนดชื่อ Tagline ภาษา เขตเวลา และ URL ส่วนตัวสำหรับเข้า Admin'],
       ['ใครเป็นเจ้าของเว็บไซต์นี้?', 'อีเมลนี้ใช้ระบุเจ้าของคนแรก ส่วนการเข้าสู่ระบบใช้ passkey แทนรหัสผ่าน'],
-      ['ยืนยันการติดตั้งเครื่องนี้', 'ใช้ token แบบครั้งเดียวที่สร้างจากสคริปต์เตรียมระบบบน Local หรือ VPS'],
+      ['ยืนยันการติดตั้งเครื่องนี้', 'ใช้โทเค็นแบบครั้งเดียวที่สร้างจากสคริปต์เตรียมระบบบน Local หรือ VPS'],
       ['สร้าง passkey หลัก', 'อุปกรณ์จะให้ยืนยันด้วย Touch ID, Windows Hello, security key หรือผู้ให้บริการ passkey'],
-      ['เก็บ Recovery codes ให้ปลอดภัย', 'รหัสชุดนี้แสดงเพียงครั้งเดียว กรุณาคัดลอกหรือดาวน์โหลดก่อนดำเนินการต่อ'],
+      ['เก็บรหัสกู้คืนให้ปลอดภัย', 'รหัสชุดนี้แสดงเพียงครั้งเดียว คัดลอกหรือดาวน์โหลดก่อนดำเนินการต่อ'],
     ],
     current: (step: number) => `ขั้นที่ ${step} จาก 6`,
     remaining: (step: number) => step === 6 ? 'ขั้นสุดท้าย' : `เหลืออีก ${6 - step} ขั้น`,
@@ -90,7 +90,7 @@ const copies = {
     retry: 'ตรวจอีกครั้ง',
     back: 'ย้อนกลับ',
     continue: 'ดำเนินการต่อ',
-    errorFallback: 'ขั้นตอนยังไม่สำเร็จ กรุณาทำตามคำแนะนำด้านล่างแล้วลองอีกครั้ง',
+    errorFallback: 'ขั้นตอนยังไม่สำเร็จ ทำตามคำแนะนำด้านล่างแล้วลองอีกครั้ง',
   },
 } as const;
 
@@ -121,12 +121,12 @@ function responseError(value: unknown, fallback: string): string {
 function apiError(response: Response, value: unknown, language: Language, fallback: string): string {
   if (language === 'en') return responseError(value, fallback);
   const messages: Partial<Record<number, string>> = {
-    400: 'ข้อมูลหรือสิทธิ์ชั่วคราวไม่ถูกต้อง กรุณาตรวจข้อมูลแล้วลองใหม่',
-    401: 'Token หรือ passkey session ไม่ถูกต้อง กรุณายืนยันใหม่',
-    403: 'คำขอนี้ไม่ได้มาจาก URL ที่ตั้งค่าไว้ กรุณาเปิด Installer จาก URL หลัก',
-    409: 'มีการติดตั้งหรือเริ่มขั้นตอนนี้ไปแล้ว กรุณาตรวจสถานะอีกครั้ง',
-    429: 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่',
-    503: 'Database หรือ migrations ยังไม่พร้อม กรุณาแก้รายการที่แจ้งแล้วตรวจอีกครั้ง',
+    400: 'ข้อมูลหรือสิทธิ์ชั่วคราวไม่ถูกต้อง ตรวจข้อมูลแล้วลองใหม่',
+    401: 'โทเค็นหรือ passkey session ไม่ถูกต้อง ยืนยันใหม่',
+    403: 'คำขอนี้ไม่ได้มาจาก URL ที่ตั้งค่าไว้ เปิด Installer จาก URL หลัก',
+    409: 'มีการติดตั้งหรือเริ่มขั้นตอนนี้ไปแล้ว ตรวจสถานะอีกครั้ง',
+    429: 'ลองหลายครั้งเกินไป รอสักครู่แล้วลองใหม่',
+    503: 'ฐานข้อมูลหรือการอัปเดตฐานข้อมูลยังไม่พร้อม แก้รายการที่แจ้งแล้วตรวจอีกครั้ง',
   };
   return messages[response.status] ?? fallback;
 }
@@ -273,18 +273,18 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     setAlert('');
     setForm((current) => ({ ...current, installationToken: '' }));
     setRp(readiness?.rp ? { id: readiness.rp.id, name: readiness.rp.name } : null);
-    setActivity({ label: language === 'th' ? 'กรอก token ใหม่เพื่อเริ่ม passkey อีกครั้ง' : 'Enter the token again to restart passkey setup.', value: 0 });
+    setActivity({ label: language === 'th' ? 'กรอกโทเค็นใหม่เพื่อเริ่ม passkey อีกครั้ง' : 'Enter the token again to restart passkey setup.', value: 0 });
     setStep(4);
   }
 
   async function enroll() {
     if (!form.installationToken) {
-      setAlert(language === 'th' ? 'วาง Installation token ก่อนดำเนินการต่อ' : 'Paste the installation token before continuing.');
+      setAlert(language === 'th' ? 'วางโทเค็นติดตั้งก่อนดำเนินการต่อ' : 'Paste the installation token before continuing.');
       return;
     }
     setBusy(true);
     setAlert('');
-    setActivity({ label: language === 'th' ? 'กำลังตรวจ token และเตรียม passkey…' : 'Verifying the token and preparing passkey registration…', value: 45 });
+    setActivity({ label: language === 'th' ? 'กำลังตรวจโทเค็นและเตรียม passkey…' : 'Verifying the token and preparing passkey registration…', value: 45 });
     try {
       const response = await fetch('/api/install/enroll', {
         method: 'POST',
@@ -299,7 +299,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
       setContext(enrollment.context);
       setRp(enrollment.rp);
       setForm((current) => ({ ...current, installationToken: '' }));
-      setActivity({ label: language === 'th' ? 'Token ถูกต้อง พร้อมสร้าง passkey' : 'Token verified. Ready to create the passkey.', value: 100 });
+      setActivity({ label: language === 'th' ? 'โทเค็นถูกต้อง พร้อมสร้าง passkey' : 'Token verified. Ready to create the passkey.', value: 100 });
       setStep(5);
     } catch (error) {
       setForm((current) => ({ ...current, installationToken: '' }));
@@ -318,7 +318,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
     let registered = passkeyRegistered;
     try {
       if (!registered) {
-        if (!window.PublicKeyCredential) throw new Error(language === 'th' ? 'เบราว์เซอร์นี้ไม่รองรับ passkey กรุณาใช้เบราว์เซอร์รุ่นล่าสุด' : 'This browser does not support passkeys. Use a current browser.');
+        if (!window.PublicKeyCredential) throw new Error(language === 'th' ? 'เบราว์เซอร์นี้ไม่รองรับ passkey ใช้เบราว์เซอร์รุ่นล่าสุด' : 'This browser does not support passkeys. Use a current browser.');
         setActivity({ label: language === 'th' ? 'รอการยืนยัน passkey จากอุปกรณ์…' : 'Waiting for your device to verify the passkey…', value: 35 });
         const registration = await authClient.passkey.addPasskey({
           context,
@@ -345,7 +345,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
       }
       setRecoveryCodes(body.recoveryCodes);
       setRedirectTo(body.redirectTo);
-      setActivity({ label: language === 'th' ? 'ติดตั้งเสร็จแล้ว เหลือเพียงเก็บ Recovery codes' : 'Installation complete. Save the recovery codes.', value: 100 });
+      setActivity({ label: language === 'th' ? 'ติดตั้งเสร็จแล้ว เหลือเพียงเก็บรหัสกู้คืน' : 'Installation complete. Save the recovery codes.', value: 100 });
       setStep(6);
     } catch (error) {
       setActivity({ label: copy.errorFallback, value: 100 });
@@ -494,24 +494,24 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
                   <input aria-describedby="owner-email-help" aria-invalid={Boolean(fieldErrors.email)} autoCapitalize="none" autoComplete="email" className="installer-control" id="owner-email" inputMode="email" maxLength={254} onChange={(event) => updateField('email', event.target.value)} placeholder="you@example.com" required spellCheck={false} type="email" value={form.email} />
                 </InstallerField>
               </div>
-              <WizardActions back={copy.back} busy={busy} next={language === 'th' ? 'ยืนยัน Installation token' : 'Verify installation token'} onBack={back} onNext={nextFormStep} />
+              <WizardActions back={copy.back} busy={busy} next={language === 'th' ? 'ยืนยันโทเค็นติดตั้ง' : 'Verify installation token'} onBack={back} onNext={nextFormStep} />
             </>}
 
             {step === 4 && <>
-              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>Installation token</h2><p>{language === 'th' ? 'Token นี้ยืนยันว่าคุณควบคุมเครื่องที่กำลังติดตั้ง' : 'This token proves you control the machine being installed.'}</p></div>
+              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>Installation token</h2><p>{language === 'th' ? 'โทเค็นนี้ยืนยันว่าคุณควบคุมเครื่องที่กำลังติดตั้ง' : 'This token proves you control the machine being installed.'}</p></div>
               <div className="installer-fields">
-                <InstallerField help={language === 'th' ? 'ระบบใช้เพื่อตรวจสอบครั้งเดียวและไม่บันทึก token' : 'Used once for verification and never stored.'} id="installation-token" label="Installation token" required>
-                  <input aria-describedby="installation-token-help" autoComplete="off" className="installer-control" id="installation-token" maxLength={512} onChange={(event) => updateField('installationToken', event.target.value)} placeholder={language === 'th' ? 'วาง token ที่นี่' : 'Paste the token here'} required type="password" value={form.installationToken} />
+                <InstallerField help={language === 'th' ? 'ระบบใช้เพื่อตรวจสอบครั้งเดียวและไม่บันทึกโทเค็น' : 'Used once for verification and never stored.'} id="installation-token" label="Installation token" required>
+                  <input aria-describedby="installation-token-help" autoComplete="off" className="installer-control" id="installation-token" maxLength={512} onChange={(event) => updateField('installationToken', event.target.value)} placeholder={language === 'th' ? 'วางโทเค็นที่นี่' : 'Paste the token here'} required type="password" value={form.installationToken} />
                 </InstallerField>
                 <details className="installer-help">
-                  <summary>{language === 'th' ? 'Installation token อยู่ที่ไหน?' : 'Where is the installation token?'}</summary>
+                  <summary>{language === 'th' ? 'โทเค็นติดตั้งอยู่ที่ไหน?' : 'Where is the installation token?'}</summary>
                   <div className="installer-help-options">
                     <div className="installer-help-option"><p><strong>Local</strong> {language === 'th' ? 'รันจากโฟลเดอร์โปรเจกต์:' : 'Run from the project folder:'}</p><code>grep '^TOME_CMS_INSTALL_TOKEN=' .env.local</code></div>
                     <div className="installer-help-option"><p><strong>VPS</strong> {language === 'th' ? 'รันบนเซิร์ฟเวอร์:' : 'Run on the server:'}</p><code>sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env</code></div>
                   </div>
                 </details>
               </div>
-              <WizardActions back={copy.back} busy={busy} next={language === 'th' ? 'ตรวจ token' : 'Verify token'} onBack={back} onNext={() => void enroll()} />
+              <WizardActions back={copy.back} busy={busy} next={language === 'th' ? 'ตรวจโทเค็น' : 'Verify token'} onBack={back} onNext={() => void enroll()} />
             </>}
 
             {step === 5 && <>
@@ -524,19 +524,19 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
               </dl>
               <div className="installer-actions">
                 {!registrationStarted && <button className="installer-button" disabled={busy} onClick={back} type="button">{copy.back}</button>}
-                {registrationStarted && alert && <button className="installer-button" disabled={busy} onClick={restartEnrollment} type="button">{language === 'th' ? 'ยืนยัน token ใหม่' : 'Verify a new token'}</button>}
+                {registrationStarted && alert && <button className="installer-button" disabled={busy} onClick={restartEnrollment} type="button">{language === 'th' ? 'ยืนยันโทเค็นใหม่' : 'Verify a new token'}</button>}
                 <button className="installer-button installer-button--primary" aria-busy={busy} disabled={busy} onClick={() => void registerAndFinalize()} type="button">{passkeyRegistered ? (language === 'th' ? 'ลองบันทึกการติดตั้งอีกครั้ง' : 'Retry finalization') : (language === 'th' ? 'สร้าง passkey และติดตั้ง' : 'Create passkey and install')}</button>
               </div>
             </>}
 
             {step === 6 && <>
-              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'เก็บ Recovery codes' : 'Save the recovery codes'}</h2><p>{language === 'th' ? 'แต่ละรหัสใช้ได้ครั้งเดียว และจะไม่แสดงอีกหลังออกจากหน้านี้' : 'Each code works once and will not be shown again after you leave this page.'}</p></div>
-              <textarea aria-label={language === 'th' ? 'Recovery codes แบบแสดงครั้งเดียว' : 'One-time recovery codes'} className="installer-recovery-codes" readOnly ref={recoveryField} rows={10} value={recoveryCodes.join('\n')} />
+              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'เก็บรหัสกู้คืน' : 'Save the recovery codes'}</h2><p>{language === 'th' ? 'แต่ละรหัสใช้ได้ครั้งเดียว และจะไม่แสดงอีกหลังออกจากหน้านี้' : 'Each code works once and will not be shown again after you leave this page.'}</p></div>
+              <textarea aria-label={language === 'th' ? 'รหัสกู้คืนแบบแสดงครั้งเดียว' : 'One-time recovery codes'} className="installer-recovery-codes" readOnly ref={recoveryField} rows={10} value={recoveryCodes.join('\n')} />
               <div className="installer-recovery-actions">
                 <button className="installer-button" onClick={() => void copyRecoveryCodes()} type="button">{copyStatus === 'copied' ? (language === 'th' ? 'คัดลอกแล้ว' : 'Copied') : copyStatus === 'selected' ? (language === 'th' ? 'เลือกข้อความแล้ว' : 'Codes selected') : (language === 'th' ? 'คัดลอก' : 'Copy')}</button>
                 <button className="installer-button" onClick={downloadRecoveryCodes} type="button">{language === 'th' ? 'ดาวน์โหลด .txt' : 'Download .txt'}</button>
               </div>
-              <label className="installer-acknowledgement"><input checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} type="checkbox" /><span>{language === 'th' ? 'ฉันเก็บ Recovery codes ไว้ในที่ปลอดภัยแล้ว' : 'I saved the recovery codes somewhere safe.'}</span></label>
+              <label className="installer-acknowledgement"><input checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} type="checkbox" /><span>{language === 'th' ? 'ฉันเก็บรหัสกู้คืนไว้ในที่ปลอดภัยแล้ว' : 'I saved the recovery codes somewhere safe.'}</span></label>
               <div className="installer-actions"><button className="installer-button installer-button--primary" disabled={!acknowledged} onClick={() => window.location.assign(redirectTo)} type="button">{language === 'th' ? 'ไปที่ Admin' : 'Continue to Admin'} <span aria-hidden="true">→</span></button></div>
             </>}
           </section>
