@@ -39,6 +39,13 @@ jobs:
       - name: Check
         run: npm run check
 
+      # The runner is a real Ubuntu 24.04 with systemd, which a container is not, so
+      # the dry run passes every check here and prints what it would install.
+      - name: Check the server preparation script
+        run: |
+          shellcheck scripts/prepare-vps.sh
+          sudo scripts/prepare-vps.sh --dry-run --cms-url https://cms.example.com --media-url https://media.example.com
+
       - name: Run unit tests
         run: npm run test:unit
 
