@@ -44,6 +44,30 @@ The media has an origin of its own because the browser sends uploads straight to
 
 Set up DNS first, because a new record can take a while to reach everyone. The scripts do not wait for it: they check only the form of each address, and Caddy from `prepare-vps.sh` keeps asking for certificates until the names point at the server. The first-run wizard at `/install` opens once they do.
 
+### Pointing DNS at the server
+
+At the company that runs DNS for your domain, usually the registrar where you bought it, add a record for each name. The value is the public IPv4 address from your VPS provider.
+
+| Type | Name | Value |
+| --- | --- | --- |
+| `A` | `cms` | `203.0.113.10`, your server's address |
+| `A` | `media` | the same address |
+
+- **Name.** Most providers want only the part before your domain, `cms`. Some want the whole name, `cms.example.com`. The CMS may also sit on the domain itself, with the name `@`, but the media always needs a name of its own.
+- **IPv6.** Add an `AAAA` record only when the server has a working IPv6 address with ports 80 and 443 open on it. Let's Encrypt tries IPv6 first, so an `AAAA` record that leads nowhere can stop the certificate.
+- **Old records.** Delete any other `A`, `AAAA` or `CNAME` record for the same names, such as a registrar's parking page. A name that answers with two servers gets its certificate only some of the time.
+- **Cloudflare and other proxying DNS.** Set both records to DNS only (the grey cloud on Cloudflare), so that Caddy talks to Let's Encrypt directly. These docs cover only that setup.
+- **TTL.** The provider's default is fine. A new name answers within minutes. A name that already pointed somewhere else can keep the old answer for as long as its old TTL.
+
+To check, run this on your own computer, `nslookup` on Windows:
+
+```sh
+dig +short cms.example.com
+dig +short media.example.com
+```
+
+Each should print only your server's address. `prepare-vps.sh` also prints what both names point at in its DNS step, but it cannot tell whether that is the right server: on some providers, such as AWS, the public address is not on any of the server's interfaces.
+
 ### Without a domain yet
 
 The CMS origin has to be a host name, not an IP address. The owner signs in with a passkey, the passkey belongs to the CMS host name, and browsers refuse to create one for an IP address. A public IP gets past the deploy helper's check, and the first-run wizard then cannot save the owner's passkey.
