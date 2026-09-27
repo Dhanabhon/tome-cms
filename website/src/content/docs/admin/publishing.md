@@ -43,7 +43,7 @@ A redirect only takes a reader somewhere while the post is on the site. While it
 
 "Redirects", under "Content", lists every old address, the post or page it leads to and where that is now, and the date it was recorded. A post or page that is not on the site at the moment shows "Not published yet, so this address shows a Not Found page for now." The bin button beside a row stops that address redirecting.
 
-![The Redirects screen, with the "Forward an old address" form: an "Article" menu showing "Choose an article", an "Old address" field and a "Forward" button. Below it, the line that says there are no old addresses yet.](../../../assets/screenshots/en/redirects.png)
+![The Redirects screen, with the "Redirect an old address" form: a "Post or page" menu showing "Choose a post or page", an "Old address" field and a "Redirect" button. Below it, the line that says there are no old addresses yet.](../../../assets/screenshots/en/redirects.png)
 
 "Redirect an old address" adds one by hand, for an address that changed before TomeCMS started recording redirects, or one you want to send somewhere new:
 

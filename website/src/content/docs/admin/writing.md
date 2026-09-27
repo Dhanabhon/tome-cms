@@ -7,7 +7,7 @@ sidebar:
 
 "Posts", under "Content" in the admin, lists every post you have written, and the editor is where you write one. A post can have a Thai edition and an English edition. Each is written on its own, and the list keeps them together on one card.
 
-![The Posts screen with six posts as cards. Each card has a cover picture, a category, a Thai or English edition with its status, and a "missing" line for the language not written yet.](../../../assets/screenshots/en/posts.png)
+![The Posts screen with six posts as cards. Each card has a cover picture, a category, a Thai or English edition with its status, and a "Not written" line for the language not written yet.](../../../assets/screenshots/en/posts.png)
 
 ## Finding a post
 
@@ -21,7 +21,7 @@ Each card is one post. It shows every edition you have written, with its status,
 
 Press "New post". The editor opens in the site's default language. Type the title where "Untitled post" is in grey, and the post below it, where the editor says "Type '/' for commands". A title takes up to 200 characters.
 
-![The editor with an English post open. The bar at the top has "Back to Posts", the chips "TH missing" and "EN Published", the word "Saved", and the buttons "Preview", "Settings" and "Update". Below it are the title, a heading, a list and a picture.](../../../assets/screenshots/en/editor.png)
+![The editor with an English post open. The bar at the top has "Back to Posts", the chips "TH Not written" and "EN Published", the word "Saved", and the buttons "Preview", "Settings" and "Update". Below it are the title, a heading, a list and a picture.](../../../assets/screenshots/en/editor.png)
 
 The editor saves on its own a moment after you stop typing, once the post has a title. The bar says "Saving…" and then "Saved". If a save fails, it says "Save failed" and offers "Retry save", and what you wrote stays on the screen. "Back to Posts" saves before it leaves. When it cannot save, the admin asks first, with "Leave without saving?".
 
