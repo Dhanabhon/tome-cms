@@ -41,7 +41,7 @@ Runs as root, on Ubuntu 24.04 LTS only, on `amd64` or `arm64`. Running it again 
 | `--cms-url <url>` | The CMS origin, such as `https://cms.example.com`. Falls back to `TOME_CMS_PUBLIC_URL`. |
 | `--media-url <url>` | The media origin, such as `https://media.example.com`. Falls back to `S3_ENDPOINT`. |
 | `--user <name>` | The account that will run the deploy helper and join the `docker` group. Defaults to `SUDO_USER`. Required when the script runs as root without `sudo`. It cannot be `root`. |
-| `--create-user` | Create `--user` as a normal login account if it does not exist, with no password (SSH keys only, copied from root's `authorized_keys` when there are any). |
+| `--create-user` | Create `--user` as a normal login account if it does not exist, with no password. Its SSH keys are the keys in root's `authorized_keys`, without the options in front of them: a cloud image puts a "log in as ubuntu" command there. |
 | `--no-firewall` | Leave the firewall alone. |
 | `--no-proxy` | Install no proxy. The owner provides one, as the requirements page describes. |
 | `--swap-size <size>` | Swap to create when the server needs it. Default `2G`. |
@@ -52,7 +52,7 @@ The two URLs are required unless `--no-proxy` is given. Without the proxy, the s
 
 ### Steps
 
-1. **Checks, before anything changes.** If one fails, the script exits with a sentence saying what to do, and nothing on the server has changed.
+1. **Checks, before anything changes.** The script runs every check and lists each problem with a sentence saying what to do, then stops if there was any. Nothing on the server has changed at that point.
    - It runs as root.
    - `/etc/os-release` is Ubuntu 24.04.
    - The architecture is `amd64` or `arm64`.
@@ -66,8 +66,8 @@ The two URLs are required unless `--no-proxy` is given. Without the proxy, the s
    - The user is added to the `docker` group. The summary says to log in again for that to apply.
    - Never `curl | sh`.
 4. **Node.js 22** from NodeSource's apt repository. It installs to `/usr/bin/node`, where the managed installer requires it. When `/usr/bin/node` is already 22 or newer, it is kept. A Node installed somewhere else, such as through nvm, does not count.
-5. **GitHub CLI (`gh`)** from GitHub's apt repository. The managed installer uses it to verify attestations.
-6. **Swap**, when there is less than 4 GB of memory and no swap:
+5. **GitHub CLI (`gh`)** from GitHub's apt repository. The managed installer uses it to verify attestations, which `gh attestation` does from 2.49. Ubuntu 24.04's own `gh` is 2.45, so a `gh` without `gh attestation` is upgraded from GitHub's repository.
+6. **Swap**, when there is less than 4 GB of memory and no swap. A server sold as 4 GB reports a little less than 4 GiB, so the line is drawn at 3.5 GiB:
    - creates `/swapfile` of `--swap-size` with mode `0600`
    - adds it to `/etc/fstab`
    - sets `vm.swappiness=10` in `/etc/sysctl.d/99-tomecms.conf`
@@ -105,7 +105,7 @@ The two URLs are required unless `--no-proxy` is given. Without the proxy, the s
 
 - **Arguments and URL checks:** small functions at the top. The Caddyfile is produced by one function, `render_caddyfile <cms-host> <media-host>`, so it can be tested.
 - **The logic:**
-  - `--dry-run` goes through the same steps and prints "would install …" instead of running them. In a dry run, a failed check is reported and the run goes on, so one run shows every problem; the exit status is still non-zero.
+  - `--dry-run` goes through the same steps and prints "would install …" instead of running them.
   - Every command that changes the system goes through one `run` function, which honours `--dry-run`.
 - **Errors:** `set -Eeuo pipefail`. Each step reports its own failure in a sentence. Nothing prints a secret; there are none, because the deploy helper generates them later.
 
