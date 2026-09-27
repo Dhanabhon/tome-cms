@@ -523,11 +523,13 @@ summary() {
   if $relogin; then
     note "${target_user} joined the docker group. It applies from that account's next login."
   fi
-  note "Log in as ${target_user} and install TomeCMS:"
-  note "  sudo -iu ${target_user}"
-  note "  git clone https://github.com/Dhanabhon/tome-cms.git && cd tome-cms"
+  local version
+  version="$(sed -n 's/^  "version": "\([^"]*\)".*/\1/p' "${BASH_SOURCE[0]%/*}/../package.json")"
+  note "As root (sudo -i), install TomeCMS ${version} from its release:"
+  note "  git clone --depth 1 --branch v${version} https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src"
+  note "  cd /opt/tome-cms-src && npm ci"
   note "  export TOME_CMS_PUBLIC_URL=https://${cms_host:-cms.example.com} S3_ENDPOINT=https://${media_host:-media.example.com}"
-  note "  ./scripts/deploy-vps.sh"
+  note "  ./scripts/install-managed-vps.sh --version ${version}"
 }
 
 preflight

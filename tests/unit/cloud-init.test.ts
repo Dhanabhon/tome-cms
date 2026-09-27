@@ -80,5 +80,5 @@ test('a non-0.x release installs dependencies before handing over to the managed
 test('the server tools clone the official repository', async () => {
   const clone = `https://github.com/${OFFICIAL_REPOSITORY}.git`;
   assert.match(written('/usr/local/sbin/tomecms-first-boot').content, new RegExp(`^repo=${clone.replaceAll('.', '\\.')}$`, 'm'));
-  assert.ok((await readFile('scripts/prepare-vps.sh', 'utf8')).includes(`git clone ${clone} `), 'prepare-vps.sh prints the same address');
+  assert.match(await readFile('scripts/prepare-vps.sh', 'utf8'), new RegExp(`git clone --depth 1 --branch v\\$\\{version\\} ${clone.replaceAll('.', '\\.')} `), 'prepare-vps.sh prints the same address');
 });
