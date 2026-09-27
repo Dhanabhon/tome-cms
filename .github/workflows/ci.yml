@@ -59,6 +59,11 @@ jobs:
       - name: Run integration tests
         run: npm run test:integration
 
+      # The managed updater against real containers, with Go and Docker from the runner
+      # image. It ran only by hand before 1.0.0, and only on arm64.
+      - name: Run the managed update harness
+        run: npm run test:operations:update
+
       # The browser gate ran nowhere until 2026-09-20, which is how a sign-in that could
       # never succeed passed check, test:unit, build and the integration suite on its way
       # out. passkey-sign-in brings up its own disposable Postgres and SeaweedFS the same
