@@ -2,12 +2,16 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is meant for production. From 0.12.1 on, each is also tagged and published as a GitHub release, so an install can check for it under "System". A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
-## Unreleased
+## 0.14.0 - 2026-09-27
+
+A script that prepares a new Ubuntu 24.04 server for TomeCMS, and a cloud-init file that prepares one and installs TomeCMS on its first boot.
 
 ### Added
 
 - `scripts/prepare-vps.sh` prepares a new Ubuntu 24.04 server for TomeCMS: Docker Engine with Compose, Node.js 22, the GitHub CLI, swap on a small server, `ufw` with only SSH, 80 and 443 open, and Caddy as the reverse proxy with certificates for both origins. `--no-firewall` and `--no-proxy` leave those two alone, and `--dry-run` shows what would change. Running it again is safe.
 - `deploy/cloud-init.yaml` prepares a server and installs TomeCMS on its first boot, from the user data a provider takes when you create the server. It holds no secret. Neither it nor the script has been run on a real server yet.
+
+Full notes: [docs/releases/0.14.0.md](docs/releases/0.14.0.md)
 
 ## 0.13.0 - 2026-09-27
 
