@@ -1,11 +1,11 @@
 ---
 title: Stats
-description: See how often each article and page was opened and read to the end, where readers came from, and how that compares with the period before.
+description: See how often each post and page was opened and read to the end, where readers came from, and how that compares with the period before.
 sidebar:
   order: 6
 ---
 
-"Stats", the first entry under "Content", shows how often each article and page was opened and how often it was read to its end. It also shows where readers came from, and their devices, countries and languages. TomeCMS counts all of this itself, into daily totals, with no cookie and no outside service. The numbers are estimates, as the screen says under its heading.
+"Stats", the first entry under "Content", shows how often each post and page was opened and how often it was read to its end. It also shows where readers came from, and their devices, countries and languages. TomeCMS counts all of this itself, into daily totals, with no cookie and no outside service. The numbers are estimates, as the screen says under its heading.
 
 Until the first reader is counted, the screen shows the report at zero under a notice headed "Nobody counted yet". The notice explains that numbers appear once someone opens a published post or page, and that the browser you use for the admin is not counted. To see a number, open your site on your phone or in another browser. In the meantime the read ratio shows a dash, and each list and table below says "Nothing was viewed in this period."
 
@@ -22,7 +22,7 @@ Three numbers head the screen:
 | Number | What it counts |
 | --- | --- |
 | "Views" | How often a page was opened. |
-| "Reads" | How often an article or page was read to its end. |
+| "Reads" | How often a post or page was read to its end. |
 | "Read ratio" | Reads as a share of views. |
 
 Under each is its change against the period of the same length just before, such as "↑ 35%". The read ratio changes in points, so 32% after 31% is "↑ 1 point". With nothing counted in the period before, the line says "Nothing to compare with yet".
@@ -38,15 +38,15 @@ Four lists follow, each by views:
 - "Countries" shows the ten countries with the most views, and "Unknown" for views whose country could not be found.
 - "Languages" splits views by the language of the page.
 
-## Articles and pages
+## Posts and pages
 
-The table at the bottom lists every article and page counted in the period, with its "Type", "Language", "Views", "Reads" and "Read ratio". The home page counts in the totals but has no row here. Press "Views", "Reads" or "Read ratio" at the head of the table to sort by it, most first. The table shows 50 rows at a time, with "Next 50" and "Previous 50" to move between them.
+The table at the bottom lists every post and page counted in the period, with its "Type", "Language", "Views", "Reads" and "Read ratio". The home page counts in the totals but has no row here. Press "Views", "Reads" or "Read ratio" at the head of the table to sort by it, most first. The table shows 50 rows at a time, with "Next 50" and "Previous 50" to move between them.
 
-Press a title to see that article or page on its own, with the same totals, chart and lists for it alone and the same periods to choose from. "Edit" opens it in the editor, and "View on site" opens it on the site, shown only while it is published there. "All stats" goes back. An article that has since been deleted keeps its numbers, and is listed as "Deleted".
+Press a title to see that post or page on its own, with the same totals, chart and lists for it alone and the same periods to choose from. "Edit" opens it in the editor, and "View on site" opens it on the site, shown only while it is published there. "All stats" goes back. A post or page that has since been deleted keeps its numbers, and is listed as "Deleted".
 
 ## What is counted
 
-A view counts when a reader arrives at a page. Reloading the page, or coming back to it with Back or Forward, is not another view. A read counts once the end of the article has come into view and the tab has been visible for 15 seconds in all.
+A view counts when a reader arrives at a page. Reloading the page, or coming back to it with Back or Forward, is not another view. A read counts once the end of the post or page has come into view and the tab has been visible for 15 seconds in all.
 
 Some visits are not counted at all:
 

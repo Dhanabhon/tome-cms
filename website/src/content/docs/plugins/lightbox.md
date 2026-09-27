@@ -13,11 +13,11 @@ Image lightbox has no settings. Its card says "Off" from the start, and the swit
 
 ## What readers see
 
-On a post or a page, every picture in the article can be opened, the cover included. The pointer turns into a magnifying glass over one. A reader clicks it, or reaches it with Tab and presses Enter or Space.
+On a post or a page, every picture in it can be opened, the cover included. The pointer turns into a magnifying glass over one. A reader clicks it, or reaches it with Tab and presses Enter or Space.
 
 The picture opens large, up to nearly the whole window, over the darkened page, with a "Close image" button. Escape closes it too, and so does a click outside the picture. A picture with alt text keeps it in the lightbox. For one without, a screen reader says "Open the image full size" on the page.
 
-Pictures beside the article are left alone, such as your author picture at the end of a post. So is a video's poster, which plays the video when pressed. The home page is not touched, and loads none of the lightbox's code.
+Pictures beside the post or page are left alone, such as your author picture at the end of a post. So is a video's poster, which plays the video when pressed. The home page is not touched, and loads none of the lightbox's code.
 
 ## What it keeps and sends
 

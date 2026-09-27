@@ -39,7 +39,7 @@ A file sits in one folder, or in "Unsorted" when it has none. To move it, open i
 Press a file to open its details. They show the picture or the document's type, its name, its size in pixels for a picture, its format and its weight.
 
 - "Folder" moves the file to another folder.
-- "Alt text", for pictures only, says what the picture shows, up to 300 characters. A picture put into an article through the editor's "Image" takes this text with it, and a slide without a heading needs it.
+- "Alt text", for pictures only, says what the picture shows, up to 300 characters. A picture put into a post or page through the editor's "Image" takes this text with it, and a slide without a heading needs it.
 - "File URL" is the file's address on your site, `/media/` followed by the file's id. It keeps working for as long as the file is in the library.
 
 Press "Save" to keep a change to the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
@@ -48,11 +48,11 @@ Press "Save" to keep a change to the folder or the alt text, and the admin says 
 
 "Delete" asks "Delete file?" first, and a deleted file cannot be brought back.
 
-The library refuses to delete a file that is still in use. It says how many places use it, and lists them, with a link to each except your avatar:
+The library refuses to delete a file that is still in use. It says how many places use it, and lists them, with a link to each except your profile picture:
 
 - a post that has it as its cover, or has it in its text, drafts included
 - a page that has it in its text
-- your avatar under "Profile"
+- your profile picture under "Profile"
 - a home slide, named by its heading, or by its place and language when it has none
 - the maintenance page, while its "Picture" template uses it
 - a plugin that keeps it as a setting, such as the "Popup" picture, even while the plugin is off

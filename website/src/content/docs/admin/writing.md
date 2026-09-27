@@ -19,7 +19,7 @@ Each card is one post. It shows every edition you have written, with its status,
 
 ## Starting a post
 
-Press "New post". The editor opens in the site's default language. Type the title where "Untitled post" is in grey, and the article below it, where the editor says "Type '/' for commands". A title takes up to 200 characters.
+Press "New post". The editor opens in the site's default language. Type the title where "Untitled post" is in grey, and the post below it, where the editor says "Type '/' for commands". A title takes up to 200 characters.
 
 ![The editor with an English post open. The bar at the top has "Back to Posts", the chips "TH missing" and "EN Published", the word "Saved", and the buttons "Preview", "Settings" and "Update". Below it are the title, a heading, a list and a picture.](../../../assets/screenshots/en/editor.png)
 
@@ -39,13 +39,13 @@ A new table has three rows and three columns, the first row a header. While the 
 
 Select some words and a bar appears over them: "Bold", "Italic", "Link" and "Inline code", then "Align left", "Align center" and "Align right". Alignment applies to whole lines, or to the table cells the cursor is in.
 
-"Link" opens "Add a link". Paste an `http` or `https` address into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To take a link off, select the linked words and press "Link" again.
+"Link" opens "Add a link". Paste an `http` or `https` URL into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To take a link off, select the linked words and press "Link" again.
 
 ## Pictures
 
 Choose "Image" from the "+" menu. The "File Manager" opens as a picker: press a picture to put it where the cursor was, or "Upload image" to add a new one and put it there. A picture chosen this way carries the "Alt text" it has in the File Manager, or its file name when it has none.
 
-You can also drop a picture file onto the article, or paste one. It shows faintly while it uploads to the File Manager, then takes its place. The File Manager takes JPEG, PNG, WebP, GIF and AVIF, up to 8 MB. Anything else gets "Image upload failed" and the reason.
+You can also drop a picture file onto the post, or paste one. It shows faintly while it uploads to the File Manager, then takes its place. The File Manager takes JPEG, PNG, WebP, GIF and AVIF, up to 8 MB. Anything else gets "Image upload failed" and the reason.
 
 A picture copied from another website together with its text can keep its address on that site, and every reader's browser then fetches it from there. [What a reader's browser keeps](/tome-cms/running/privacy/) explains what that site gets to see. Upload the picture instead.
 
@@ -53,15 +53,15 @@ A picture copied from another website together with its text can keep its addres
 
 Choose "File" from the "+" menu or from `/`. The picker shows files only: PDF, Word, Excel, PowerPoint, CSV, text and ZIP, up to 25 MB each. Press one, or "Upload file" to add a new one.
 
-The file goes into the article as a card with its name, its type and its size. A reader who clicks it downloads the file, except a PDF, which opens in a new tab.
+The file goes into the post as a card with its name, its type and its size. A reader who clicks it downloads the file, except a PDF, which opens in a new tab.
 
 ## Videos
 
 Paste a YouTube or Vimeo link alone on an empty line and it becomes a video. Pasted into a sentence, or on an empty line inside a table, a list or a quote, it stays a link. You can also choose "Video" from the "+" menu or from `/`, outside a table. It opens "Add a video": paste the link into "Link" and press Enter. A link that is not to one YouTube or Vimeo clip gets "Use a YouTube or Vimeo link to one clip."
 
-The video goes into the article at once as a card with the clip's id and "YouTube" or "Vimeo". A moment later the card shows the clip's title and its poster, which the server fetched from YouTube or Vimeo and keeps in the File Manager. The card moves and deletes like any other block.
+The video goes into the post at once as a card with the clip's id and "YouTube" or "Vimeo". A moment later the card shows the clip's title and its poster, which the server fetched from YouTube or Vimeo and keeps in the File Manager. The card moves and deletes like any other block.
 
-When YouTube or Vimeo gives no title and poster, the editor tells you why under "The video is in, without its poster": the clip may be private, or the server could not reach YouTube or Vimeo in time. The clip stays in the article, without a poster, and you can still publish it. Readers who can see the clip can play it.
+When YouTube or Vimeo gives no title and poster, the editor tells you why under "The video is in, without its poster": the clip may be private, or the server could not reach YouTube or Vimeo in time. The clip stays in the post, without a poster, and you can still publish it. Readers who can see the clip can play it.
 
 On the site, a reader sees the poster with a play mark, and nothing loads from YouTube or Vimeo until they press play. [What a reader's browser keeps](/tome-cms/running/privacy/) explains what happens then.
 
@@ -77,7 +77,7 @@ On the site, a reader sees the poster with a play mark, and nothing loads from Y
 | "Cover image" | The picture on the post's card and at the top of the post. "Choose image" opens the File Manager. 1600 × 900 pixels and under 2 MB is best, and 8 MB is the most it takes. |
 | "Excerpt" | Under "Homepage card": the line on the post's card, up to 120 characters. Left blank, the card uses the meta description, then the opening of the post. |
 | "Meta title" | The title in search results, up to 70 characters. Left blank, the post's own title is used. |
-| "Meta description" | Shown below the article's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
+| "Meta description" | Shown below the post's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
 
 ## Writing the other language
 
@@ -87,8 +87,8 @@ The chips in the bar show each language and how it stands, such as "EN Published
 
 ## Suggestions while writing
 
-With the "Jev (TypeSafe AI)" plugin switched on, under "Appearance" and then "Plugins", the settings drawer has three more buttons. "Suggest from the text" offers categories you already have. "Suggest a line from the text" offers a sentence from the article for the excerpt, and "Suggest a description from the text" one for the meta description.
+With the "Jev (TypeSafe AI)" plugin switched on, under "Appearance" and then "Plugins", the settings drawer has three more buttons. "Suggest from the text" offers categories you already have. "Suggest a line from the text" offers a sentence from the post for the excerpt, and "Suggest a description from the text" one for the meta description.
 
-Nothing is filled in for you. A suggested category is a chip you press to add it, and a sentence has its own "Use this line" or "Use as the description" button. The article's text goes to TypeSafe AI when you press one of the three buttons, and at no other time. Without the plugin, the buttons are not there.
+Nothing is filled in for you. A suggested category is a chip you press to add it, and a sentence has its own "Use this line" or "Use as the description" button. The post's text goes to TypeSafe AI when you press one of the three buttons, and at no other time. Without the plugin, the buttons are not there.
 
 The page editor works the same way. [Pages and menus](/tome-cms/admin/pages-and-menus/) covers what is different about pages.

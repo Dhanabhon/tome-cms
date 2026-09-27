@@ -128,7 +128,7 @@ class InvalidUploadError extends Error {
 
 /** What a person is told when a document is not what it claims. The admin says it in the owner's language. */
 const REFUSALS: Record<DocumentRefusal, string> = {
-  media_macros: 'The file carries macros, which the library does not keep. Save it without them and upload it again.',
+  media_macros: 'The file carries macros, which the File Manager does not keep. Save it without them and upload it again.',
   media_text_encoding: 'Save the file as UTF-8 (in Excel, "CSV UTF-8") and upload it again.',
   media_type_mismatch: 'The file is not what its name says it is.',
 };

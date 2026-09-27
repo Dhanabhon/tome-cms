@@ -15,7 +15,7 @@ Once it is on, the drawer has "Preview on the site", which opens the home page w
 
 | Setting | In Thai | What it does |
 | --- | --- | --- |
-| "Picture" | "รูปภาพ" | Optional. "Choose picture" picks one from the File Manager, and "Remove picture" takes it off. It sits beside the words, or above them on a phone. |
+| "Picture" | "ภาพ" | Optional. "Choose picture" picks one from the File Manager, and "Remove picture" takes it off. It sits beside the words, or above them on a phone. |
 | "Heading (Thai)", "Heading (English)" | "หัวข้อ (ไทย)", "หัวข้อ (อังกฤษ)" | The popup's heading in each language. A language with no heading shows the other language's popup instead, all of it, so a Thai heading never sits over an English button. |
 | "Message (Thai)", "Message (English)" | "ข้อความ (ไทย)", "ข้อความ (อังกฤษ)" | Optional words under the heading. |
 | "Button text (Thai)", "Button text (English)" | "ข้อความบนปุ่ม (ไทย)", "ข้อความบนปุ่ม (อังกฤษ)" | The words on the button. A language needs a heading and button text for its popup to show. |
