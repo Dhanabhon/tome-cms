@@ -71,6 +71,11 @@ export function installabilityReason(copy: AdminCopy, check: Pick<UpdateCheck, '
   return check?.updateMode === 'managed' ? check.installability.reason : copy.updates.checkOnly;
 }
 
+/** The update mode in the owner's words, never the raw `check-only` / `managed` config value. */
+export function updateModeLabel(copy: AdminCopy, mode: UpdateCheck['updateMode'] | undefined): string {
+  return mode === 'managed' ? copy.updates.modeManaged : copy.updates.modeCheckOnly;
+}
+
 export function formatPublishedAt(value: string, copy: AdminCopy, locale?: PostLocale | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return copy.updates.publishedUnavailable;
@@ -179,8 +184,8 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     setError('');
     try {
       const confirmed = await confirmUi({
-        title: `Install TomeCMS ${version}?`, confirmLabel: `Install ${version}`, cancelLabel: copy.shell.cancel,
-        message: 'TomeCMS will create a complete recovery backup, apply the update, and briefly restart. Keep this page open to follow progress.',
+        title: fill(copy.updates.installTitle, { version }), confirmLabel: fill(copy.updates.install, { version }), cancelLabel: copy.shell.cancel,
+        message: copy.updates.installBody,
       });
       if (!confirmed || !mounted.current) return;
       const assertion = await authClient.signIn.passkey();
@@ -285,7 +290,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
           <p>{installabilityReason(copy, check)}</p>
         </header>
         <dl className="admin-facts">
-          <div><dt>{copy.updates.updateMode}</dt><dd>{check?.updateMode ?? installability.mode}</dd></div>
+          <div><dt>{copy.updates.updateMode}</dt><dd>{updateModeLabel(copy, check?.updateMode ?? installability.mode)}</dd></div>
         </dl>
       </section>
 

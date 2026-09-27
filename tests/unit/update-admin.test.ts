@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatPublishedAt, installabilityReason, updateCheckFailureMessage, updateCheckMessage } from '../../src/components/admin/UpdateManager.tsx';
+import { formatPublishedAt, installabilityReason, updateCheckFailureMessage, updateCheckMessage, updateModeLabel } from '../../src/components/admin/UpdateManager.tsx';
 import { adminCopy, fill } from '../../src/lib/admin-i18n.js';
 import { getUpdateInstallability, updateActionSchema } from '../../src/server/update/admin.js';
 
@@ -64,4 +64,14 @@ test('every outcome of a check is said in the owner’s language, from the code 
   }
   const th = adminCopy('th').updates;
   assert.equal(new Set([th.noRelease, th.releaseUnreachable, th.releaseUnusable]).size, 3, 'three causes, three sentences');
+});
+
+test('the update mode shows as words, never the raw check-only / managed value the server sends', () => {
+  for (const locale of ['en', 'th'] as const) {
+    const copy = adminCopy(locale);
+    assert.equal(updateModeLabel(copy, 'check-only'), copy.updates.modeCheckOnly);
+    assert.equal(updateModeLabel(copy, 'managed'), copy.updates.modeManaged);
+    assert.notEqual(updateModeLabel(copy, 'check-only'), 'check-only', 'never the raw config enum');
+    assert.notEqual(updateModeLabel(copy, 'managed'), 'managed', 'never the raw config enum');
+  }
 });
