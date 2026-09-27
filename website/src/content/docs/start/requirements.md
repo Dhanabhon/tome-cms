@@ -42,6 +42,24 @@ A site needs two origins, both on HTTPS, with DNS pointing at the server before 
 
 The media has an origin of its own because the browser sends uploads straight to the bucket, and readers load images from it. The deploy helper refuses anything but HTTPS on a public host name for both. A local name such as `localhost`, a private IP address or a name under a test domain is rejected.
 
+Set up DNS first, because a new record can take a while to reach everyone. The scripts do not wait for it: they check only the form of each address, and Caddy from `prepare-vps.sh` keeps asking for certificates until the names point at the server. The first-run wizard at `/install` opens once they do.
+
+### Without a domain yet
+
+The CMS origin has to be a host name, not an IP address. The owner signs in with a passkey, the passkey belongs to the CMS host name, and browsers refuse to create one for an IP address. A public IP gets past the deploy helper's check, and the first-run wizard then cannot save the owner's passkey.
+
+- **Register a domain.** One domain covers both origins, as two names under it such as `cms.` and `media.`. This is the setup to keep.
+- **For a trial, use a name that carries the server's address.** A service such as [sslip.io](https://sslip.io) answers a name with the address written into it, so it needs no DNS setup, and Caddy gets certificates for it like any other name. For a server at `203.0.113.10`:
+
+  ```sh
+  export TOME_CMS_PUBLIC_URL=https://cms.203-0-113-10.sslip.io
+  export S3_ENDPOINT=https://media.203-0-113-10.sslip.io
+  ```
+
+- **To look around first,** run TomeCMS on your own computer with `npm run dev:macos`, which needs neither a domain nor HTTPS.
+
+Moving a trial site to your own domain later works, with one catch: the owner's passkey stays with the old name and does not sign in on the new one. Point the new names at the server, run `prepare-vps.sh` and then `./scripts/deploy-vps.sh --force` with the new addresses, and sign in with [a recovery code](/tome-cms/running/recovery/#with-a-recovery-code), which creates a passkey for the new name. Keep a code at hand before you switch. Media addresses are worked out each time a page is served, so images follow the new media origin by themselves.
+
 ## The reverse proxy
 
 The proxy is yours to provide, with its certificates, unless [`prepare-vps.sh`](/tome-cms/start/prepare-server/) sets up Caddy for you. Point each origin at its port on the server:
