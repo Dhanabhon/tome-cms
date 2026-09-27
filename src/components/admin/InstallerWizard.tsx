@@ -122,7 +122,7 @@ function apiError(response: Response, value: unknown, language: Language, fallba
   if (language === 'en') return responseError(value, fallback);
   const messages: Partial<Record<number, string>> = {
     400: 'ข้อมูลหรือสิทธิ์ชั่วคราวไม่ถูกต้อง ตรวจข้อมูลแล้วลองใหม่',
-    401: 'โทเค็นหรือเซสชันยืนยันตัวตนไม่ถูกต้อง ยืนยันใหม่อีกครั้ง',
+    401: 'โทเค็นหรือเซสชันยืนยันตัวตนไม่ถูกต้อง ยืนยันอีกครั้ง',
     403: 'คำขอนี้ไม่ได้มาจาก URL ที่ตั้งค่าไว้ เปิด Installer จาก URL หลัก',
     409: 'มีการติดตั้งหรือเริ่มขั้นตอนนี้ไปแล้ว ตรวจสถานะอีกครั้ง',
     429: 'ลองหลายครั้งเกินไป รอสักครู่แล้วลองใหม่',
@@ -439,7 +439,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
             {step === 1 && <>
               <div className="installer-step-head">
                 <h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'ระบบพร้อมแค่ไหน?' : 'Is the system ready?'}</h2>
-                <p>{language === 'th' ? 'ทั้งสี่อย่างต้องผ่านก่อนจึงจะตั้งค่าต่อได้ ได้แก่ ฐานข้อมูล การย้ายโครงสร้าง ที่เก็บไฟล์ และที่อยู่ที่ passkey จะผูกไว้' : 'All four must pass before setup can go on: the database, its migrations, object storage, and the address passkeys will be bound to.'}</p>
+                <p>{language === 'th' ? 'ทั้งสี่อย่างต้องผ่านก่อนจึงจะตั้งค่าต่อได้ ได้แก่ ฐานข้อมูล การอัปเดตฐานข้อมูล ที่เก็บไฟล์ และที่อยู่ที่ passkey จะผูกไว้' : 'All four must pass before setup can go on: the database, its migrations, object storage, and the address passkeys will be bound to.'}</p>
               </div>
               <ul className="installer-checks">
                 {checkRows.map(([key, label]) => {
