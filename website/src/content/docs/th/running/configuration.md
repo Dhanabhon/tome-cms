@@ -58,7 +58,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 
 ## เมื่อเป็น production ต้องใช้ HTTPS
 
-เมื่อ `NODE_ENV` เป็น `production` ค่า `TOME_CMS_PUBLIC_URL`, `S3_ENDPOINT` และ `MEDIA_PUBLIC_URL` ต้องขึ้นต้นด้วย `https://` และอยู่บนโฮสต์สาธารณะที่เบราว์เซอร์เข้าถึงได้ TomeCMS ไม่รับที่อยู่ IP แบบ private หรือแบบสงวนไว้ `localhost` และชื่อที่ลงท้ายด้วย `.local`, `.internal`, `.lan`, `.test`, `.example` รวมถึงชื่อสำหรับใช้งานพิเศษอื่น ๆ สำหรับ `TOME_CMS_PUBLIC_URL` ให้ใช้ชื่อโฮสต์แทน IP เพราะ Passkey ไม่รับที่อยู่ IP แม้จะเป็น IP สาธารณะก็ตาม สคริปต์ deploy ตรวจกติกาชุดเดียวกันนี้ก่อนเขียนไฟล์ใด ๆ
+เมื่อ `NODE_ENV` เป็น `production` ค่า `TOME_CMS_PUBLIC_URL`, `S3_ENDPOINT` และ `MEDIA_PUBLIC_URL` ต้องขึ้นต้นด้วย `https://` และอยู่บนโฮสต์สาธารณะที่เบราว์เซอร์เข้าถึงได้ TomeCMS ไม่รับที่อยู่ IP แบบ private หรือแบบสงวนไว้ `localhost` และชื่อที่ลงท้ายด้วย `.local`, `.internal`, `.lan`, `.test`, `.example` รวมถึงชื่อสำหรับใช้งานพิเศษอื่น ๆ สำหรับ `TOME_CMS_PUBLIC_URL` ให้ใช้ชื่อโฮสต์แทน IP เพราะ passkey ไม่รับที่อยู่ IP แม้จะเป็น IP สาธารณะก็ตาม สคริปต์ deploy ตรวจกติกาชุดเดียวกันนี้ก่อนเขียนไฟล์ใด ๆ
 
 ถ้าไม่ได้อยู่ใน production ที่อยู่ HTTP ธรรมดาที่เข้าสู่ระบบได้มีแค่ `http://localhost` เท่านั้น
 

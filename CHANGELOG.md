@@ -6,10 +6,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 ### Changed
 
-- Every admin page ends with a quiet line: "Thanks for writing with TomeCMS.", with TomeCMS linking to its documentation, and "Powered by TOMERA Co., Ltd." with the version the server runs. It follows the admin's language.
+- Every admin page ends with a quiet line: "Thanks for writing with TomeCMS.", with TomeCMS linking to its documentation, and "Made by TOMERA Co., Ltd." with the version the server runs. It follows the admin's language.
 - A profile link's name is chosen from a list: GitHub, X, LinkedIn, Facebook, Instagram, YouTube, "Website", or "Other…" with a name of your own. A link saved under any other name opens as "Other…" with that name, and what is stored is unchanged.
 - Work happens on `develop`, and a merge into `main` that carries a new version releases itself. Once CI passes on the merge, `tag-release.yml` tags the commit and starts `release.yml` on the tag, so the attestations still come from `refs/tags/vX.Y.Z` as the installer and the updater require. CI and the documentation build also run on pushes to `develop`.
-- The admin's words are plainer and consistent in both languages: passkey in lower case, File Manager and คลังไฟล์, post and เพจ, URL name, search title and search description in place of slug and meta, header menu, errors that say what to do next, empty screens that say how to start, no dashes anywhere, and the footer's "Made by TOMERA Co., Ltd."
+- The admin's words are plainer and consistent in both languages: passkey in lower case, File Manager and คลังไฟล์, post and เพจ, URL name, search title and search description in place of slug and meta, header menu, errors that say what to do next, empty screens that say how to start, no dashes in any sentence.
 
 ## 0.12.1 - 2026-09-26
 

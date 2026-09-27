@@ -48,7 +48,7 @@ A redirect only takes a reader somewhere while the post is on the site. While it
 "Redirect an old address" adds one by hand, for an address that changed before TomeCMS started recording redirects, or one you want to send somewhere new:
 
 1. Under "Post or page", choose the post or page. Each is listed with its language, such as `EN · About`.
-2. Under "Old address", type the old slug after the path the field shows, such as `/en/blog/`. The old address is matched in the language of the post you choose.
+2. Under "Old address", type the old slug after the path the field shows, such as `/en/blog/`. The old address is matched in the language of the post or page you choose.
 3. Press "Redirect".
 
 The admin refuses an old address that a post of yours already has in that language (for a page, one of your pages), and one with anything other than lower-case letters, Thai, digits and single hyphens. An old address that already redirects somewhere is pointed at the post or page you chose instead.

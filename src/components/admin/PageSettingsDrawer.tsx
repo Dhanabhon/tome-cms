@@ -54,7 +54,7 @@ export default function PageSettingsDrawer({
           <span>{copy.drawer.slug}</span>
           <div className="admin-control admin-control--prefixed">
             <span>{slugPrefix}</span>
-            <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="page-slug" type="text" value={slug} />
+            <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="about" type="text" value={slug} />
           </div>
           <small>{copy.drawer.slugHintPage}</small>
         </label>
