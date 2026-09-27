@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034 # the server steps below read these
 # Prepares a new Ubuntu 24.04 server for TomeCMS: Docker Engine, Node.js 22, the
 # GitHub CLI, swap, the firewall and Caddy. Running it again is safe: each step says
 # whether it changed something or found the work already done.
@@ -8,19 +9,19 @@
 # ships, because the unit tests run it there.
 set -Eeuo pipefail
 
-export MARKER='# Managed by TomeCMS prepare-vps.sh'
-export CADDYFILE=/etc/caddy/Caddyfile
+MARKER='# Managed by TomeCMS prepare-vps.sh'
+CADDYFILE=/etc/caddy/Caddyfile
 
-export cms_url="${TOME_CMS_PUBLIC_URL:-}"
-export media_url="${S3_ENDPOINT:-}"
-export cms_host=""
-export media_host=""
-export target_user="${SUDO_USER:-}"
-export create_user=false
-export firewall=true
-export proxy=true
-export swap_size=2G
-export dry_run=false
+cms_url="${TOME_CMS_PUBLIC_URL:-}"
+media_url="${S3_ENDPOINT:-}"
+cms_host=""
+media_host=""
+target_user="${SUDO_USER:-}"
+create_user=false
+firewall=true
+proxy=true
+swap_size=2G
+dry_run=false
 print_caddyfile=false
 
 fail() {
