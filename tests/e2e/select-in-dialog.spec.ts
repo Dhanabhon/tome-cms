@@ -403,7 +403,7 @@ test('the footer thanks the writer, and a link is named after its site or with a
     await page.goto(`${origin}${path}`);
     const footer = page.getByRole('contentinfo', { name: 'About TomeCMS' });
     await expect(footer, `${path} ends with the footer`).toContainText('Thanks for writing with TomeCMS.');
-    await expect(footer).toContainText(`Powered by TOMERA Co., Ltd. · ${version}`);
+    await expect(footer).toContainText(`Made by TOMERA Co., Ltd. · ${version}`);
     const docs = footer.getByRole('link', { name: 'TomeCMS' });
     await expect(docs, 'TomeCMS is a link to its documentation').toHaveAttribute('href', 'https://dhanabhon.github.io/tome-cms/');
     await expect(docs).toHaveAttribute('target', '_blank');

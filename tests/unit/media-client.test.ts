@@ -82,10 +82,10 @@ test('a file the library keeps is explained in the owner’s language, from the 
     maintenance: false, pages: [], plugins: [], posts: [], profile: false, slides: [],
   };
   const once = { ...references, counts: { ...references.counts, pageContent: 0 } };
-  assert.equal(stillUsedText(references, adminCopy('en')), 'This file is still used in 2 locations.');
-  assert.equal(stillUsedText(once, adminCopy('en')), 'This file is still used in 1 location.');
-  assert.equal(stillUsedText(references, adminCopy('th')), 'ไฟล์นี้ยังถูกใช้อยู่ 2 แห่ง');
-  assert.equal(stillUsedText(once, adminCopy('th')), 'ไฟล์นี้ยังถูกใช้อยู่ 1 แห่ง');
+  assert.equal(stillUsedText(references, adminCopy('en')), 'This file is still used in 2 places. Remove it from each place below, then delete it.');
+  assert.equal(stillUsedText(once, adminCopy('en')), 'This file is still used in 1 place. Remove it there, then delete it.');
+  assert.equal(stillUsedText(references, adminCopy('th')), 'ไฟล์นี้ยังถูกใช้อยู่ 2 แห่ง เอาออกจากทุกที่ด้านล่างก่อน แล้วค่อยลบ');
+  assert.equal(stillUsedText(once, adminCopy('th')), 'ไฟล์นี้ยังถูกใช้อยู่ 1 แห่ง เอาออกจากที่นั้นก่อน แล้วค่อยลบ');
   const library = readFileSync(new URL('../../src/components/admin/MediaLibrary.tsx', import.meta.url), 'utf8');
   assert.match(library, /stillUsedText\(deleteFailure\.references, copy\)/, 'the library shows it, not the server’s sentence');
 });
