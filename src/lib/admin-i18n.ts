@@ -948,6 +948,14 @@ const en = {
     pagesHidden: 'This screen is only for the site owner.',
     pagesUnavailable: 'Pages could not be loaded. Reload the page. If it keeps happening, check the server logs.',
     dashboardUnavailable: 'Posts could not be loaded. Reload the page. If it keeps happening, check the server logs.',
+    settingsHidden: 'This screen is only for the site owner.',
+    settingsUnavailable: 'Settings could not be loaded. Reload the page. If it keeps happening, check the server logs.',
+    pluginsHidden: 'This screen is only for the site owner.',
+    pluginsUnavailable: 'Plugins could not be loaded. Reload the page. If it keeps happening, check the server logs.',
+    profileHidden: 'This screen is only for the site owner.',
+    profileUnavailable: 'Profile could not be loaded. Reload the page. If it keeps happening, check the server logs.',
+    themesHidden: 'This screen is only for the site owner.',
+    themesUnavailable: 'Themes could not be loaded. Reload the page. If it keeps happening, check the server logs.',
   },
 };
 
@@ -1885,6 +1893,14 @@ const th: typeof en = {
     pagesHidden: 'หน้านี้สำหรับเจ้าของเว็บไซต์เท่านั้น',
     pagesUnavailable: 'โหลดเพจไม่สำเร็จ ลองโหลดหน้านี้ใหม่ ถ้ายังไม่ได้ ให้ตรวจสอบ log ของเซิร์ฟเวอร์',
     dashboardUnavailable: 'โหลดบทความไม่สำเร็จ ลองโหลดหน้านี้ใหม่ ถ้ายังไม่ได้ ให้ตรวจสอบ log ของเซิร์ฟเวอร์',
+    settingsHidden: 'หน้านี้สำหรับเจ้าของเว็บไซต์เท่านั้น',
+    settingsUnavailable: 'โหลดการตั้งค่าไม่สำเร็จ ลองโหลดหน้านี้ใหม่ ถ้ายังไม่ได้ ให้ตรวจสอบ log ของเซิร์ฟเวอร์',
+    pluginsHidden: 'หน้านี้สำหรับเจ้าของเว็บไซต์เท่านั้น',
+    pluginsUnavailable: 'โหลดปลั๊กอินไม่สำเร็จ ลองโหลดหน้านี้ใหม่ ถ้ายังไม่ได้ ให้ตรวจสอบ log ของเซิร์ฟเวอร์',
+    profileHidden: 'หน้านี้สำหรับเจ้าของเว็บไซต์เท่านั้น',
+    profileUnavailable: 'โหลดโปรไฟล์ไม่สำเร็จ ลองโหลดหน้านี้ใหม่ ถ้ายังไม่ได้ ให้ตรวจสอบ log ของเซิร์ฟเวอร์',
+    themesHidden: 'หน้านี้สำหรับเจ้าของเว็บไซต์เท่านั้น',
+    themesUnavailable: 'โหลดธีมไม่สำเร็จ ลองโหลดหน้านี้ใหม่ ถ้ายังไม่ได้ ให้ตรวจสอบ log ของเซิร์ฟเวอร์',
   },
 };
 

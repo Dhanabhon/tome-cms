@@ -11,13 +11,13 @@ import { stableMediaPath } from '../../server/media/url';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
-let errorMessage = '';
+let errorKey: 'profileHidden' | 'profileUnavailable' | null = null;
 try {
   const current = await requireOwner(Astro.request.headers);
   settings = await getOwnerSettings(current.user.id);
   if (!settings) {
     Astro.response.status = 404;
-    errorMessage = 'Profile not found.';
+    errorKey = 'profileHidden';
   } else {
     userEmail = current.user.email;
   }
@@ -27,16 +27,17 @@ try {
     Astro.response.headers.set('Location', adminLoginPath(Astro.url.pathname + Astro.url.search));
   } else if (error instanceof HttpError && error.status === 403) {
     Astro.response.status = 404;
-    errorMessage = 'Profile not found.';
+    errorKey = 'profileHidden';
   } else {
     console.error('Profile page query failed.');
     Astro.response.status = 500;
-    errorMessage = 'The profile is temporarily unavailable.';
+    errorKey = 'profileUnavailable';
   }
 }
 
 const ownerLocale = settings?.default_locale ?? null;
 const copy = adminCopy(ownerLocale);
+const errorMessage = errorKey ? copy.errors[errorKey] : null;
 ---
 
 <AdminLayout lang={ownerLocale ?? 'en'} title={copy.profile.heading}>
