@@ -52,7 +52,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 0.12.1 | 0 | None |
+| 0.13.0 or 0.12.1 | 0 | None |
 | 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
 | 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
 | 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |
