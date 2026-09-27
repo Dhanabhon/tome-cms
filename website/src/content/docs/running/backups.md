@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-A TomeCMS site keeps its content in two places. Posts, pages, settings and sign-in data are in PostgreSQL. The files in the library, logos included, are objects in the media bucket. A backup of the database alone is incomplete, so `npm run backup` copies both in one run, taken while the application is stopped so the two match.
+A TomeCMS site keeps its content in two places. Posts, pages, settings and sign-in data are in PostgreSQL. The files in the File Manager, logos included, are objects in the media bucket. A backup of the database alone is incomplete, so `npm run backup` copies both in one run, taken while the application is stopped so the two match.
 
 ## Before the first backup
 

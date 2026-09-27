@@ -1,11 +1,11 @@
 ---
 title: Image lightbox
-description: Let readers open the pictures in a post or a page at full size, over the page, without leaving it.
+description: Let readers open the images in a post or a page at full size, over the page, without leaving it.
 sidebar:
   order: 5
 ---
 
-Image lightbox lets a reader open a picture in a post or a page at full size. The picture opens over the page, and closing it puts the reader back where they were.
+Image lightbox lets a reader open an image in a post or a page at full size. The image opens over the page, and closing it puts the reader back where they were.
 
 ## Switching it on
 
@@ -13,12 +13,12 @@ Image lightbox has no settings. Its card says "Off" from the start, and the swit
 
 ## What readers see
 
-On a post or a page, every picture in it can be opened, the cover included. The pointer turns into a magnifying glass over one. A reader clicks it, or reaches it with Tab and presses Enter or Space.
+On a post or a page, every image in it can be opened, the cover included. The pointer turns into a magnifying glass over one. A reader clicks it, or reaches it with Tab and presses Enter or Space.
 
-The picture opens large, up to nearly the whole window, over the darkened page, with a "Close image" button. Escape closes it too, and so does a click outside the picture. A picture with alt text keeps it in the lightbox. For one without, a screen reader says "Open the image full size" on the page.
+The image opens large, up to nearly the whole window, over the darkened page, with a "Close image" button. Escape closes it too, and so does a click outside the image. An image with alt text keeps it in the lightbox. For one without, a screen reader says "Open the image full size" on the page.
 
-Pictures beside the post or page are left alone, such as your author picture at the end of a post. So is a video's poster, which plays the video when pressed. The home page is not touched, and loads none of the lightbox's code.
+Images beside the post or page are left alone, such as your author picture at the end of a post. So is a video's poster, which plays the video when pressed. The home page is not touched, and loads none of the lightbox's code.
 
 ## What it keeps and sends
 
-Image lightbox talks to no service outside your site, and writes nothing to the reader's browser. The lightbox shows the same picture the page already loaded, so it fetches nothing new.
+Image lightbox talks to no service outside your site, and writes nothing to the reader's browser. The lightbox shows the same image the page already loaded, so it fetches nothing new.

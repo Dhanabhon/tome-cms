@@ -57,7 +57,7 @@ Signing in to the admin uses cookies: one that holds your session, and a short-l
 
 ## Other services
 
-By default the public pages load nothing from anyone else. The fonts are served by the site itself, and the pictures you upload come from your own object storage.
+By default the public pages load nothing from anyone else. The fonts are served by the site itself, and the images you upload come from your own object storage.
 
 - Cloudflare Turnstile, when you switch it on, loads Cloudflare's script on the admin's sign-in form and nowhere else. Readers never meet it.
 - "Jev (TypeSafe AI)" sends a post's text to TypeSafe AI only when you press one of its buttons in the editor, such as "Suggest from the text". Nothing a reader does reaches it.
@@ -66,7 +66,7 @@ On the bundled site, a post or page can hold a YouTube or Vimeo video, and the p
 
 TomeCMS sets no Content Security Policy. If you set one at your reverse proxy, allow `frame-src https://www.youtube-nocookie.com https://player.vimeo.com`, or the player cannot load.
 
-A post's HTML still keeps no `iframe` and no `script`, so a player or post from any other service cannot be put in a post on the bundled site. A picture can still come from elsewhere. An image pasted in from another website can keep its address there, and then each reader's browser fetches it from that site, which sees the reader's address and can set cookies of its own. Upload the picture to the File Manager instead.
+A post's HTML still keeps no `iframe` and no `script`, so a player or post from any other service cannot be put in a post on the bundled site. An image can still come from elsewhere. An image pasted in from another website can keep its address there, and then each reader's browser fetches it from that site, which sees the reader's address and can set cookies of its own. Upload the image to the File Manager instead.
 
 On a headless site, your own frontend decides what it loads. A video or a post embedded from another service brings that service's cookies with it. Where the service offers a privacy-enhanced embed, use it: for YouTube, that is `youtube-nocookie.com`.
 

@@ -16,7 +16,7 @@ TomeCMS is one Astro application. The public site, the admin, the admin's own AP
 | Styles | Tailwind CSS 3, on the design tokens in `src/styles/installer-tokens.css` |
 | Database | PostgreSQL 17, through Kysely |
 | Sign-in | Better Auth, with passkeys |
-| Files | S3-compatible storage through the AWS SDK. Local development and a self-hosted server use SeaweedFS 4.46, and `sharp` resizes pictures. |
+| Files | S3-compatible storage through the AWS SDK. Local development and a self-hosted server use SeaweedFS 4.46, and `sharp` resizes images. |
 | Deployment | Docker Compose |
 | Tests | Node's own test runner, and Playwright for the browser |
 

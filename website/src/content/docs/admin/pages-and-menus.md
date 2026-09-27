@@ -17,9 +17,9 @@ The "..." beside an edition has "Edit", "Preview", "Duplicate", "Publish" or "Un
 
 ## Writing a page
 
-"New page" opens the editor in the site's default language. It is the post editor, with the same blocks, pictures, files and formatting, and [Writing](/tome-cms/admin/writing/) describes them. Its bar has "Back to Pages", and a page publishes the way a post does, as [Publishing](/tome-cms/admin/publishing/) describes.
+"New page" opens the editor in the site's default language. It is the post editor, with the same blocks, images, files and formatting, and [Writing](/tome-cms/admin/writing/) describes them. Its bar has "Back to Pages", and a page publishes the way a post does, as [Publishing](/tome-cms/admin/publishing/) describes.
 
-A page has no categories and no cover picture. "Settings" opens "Page settings":
+A page has no categories and no cover image. "Settings" opens "Page settings":
 
 | Field | What it does |
 | --- | --- |

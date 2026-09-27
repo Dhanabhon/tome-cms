@@ -37,7 +37,7 @@ A plugin returns data, and the core decides how it looks and what follows from i
 
 - `signInWidget` returns the class name and data attributes of a container, a script to load, and the name of the form field the widget writes its answer into. The sign-in form renders it.
 - `siteNotice` returns words and at most one link, with the band's colours as `#rrggbb` and a key that closing it is remembered under, both optional. The core draws the band, with a close button when there is a key, and drops a link that is neither on the site nor `https`.
-- `sitePopup` returns a heading, words, one link and a picture from the library by its id, with when it opens (`trigger`, after `delaySeconds` or as the reader leaves), the language of its words, and a key that closing it is remembered under. The core drops the whole popup when its heading or its link's label is empty, when the link is neither on the site nor `https`, or when the key is not 1 to 80 letters, digits and hyphens. It draws the picture only while it is still a ready image in the owner's library.
+- `sitePopup` returns a heading, words, one link and an image from the File Manager by its id, with when it opens (`trigger`, after `delaySeconds` or as the reader leaves), the language of its words, and a key that closing it is remembered under. The core drops the whole popup when its heading or its link's label is empty, when the link is neither on the site nor `https`, or when the key is not 1 to 80 letters, digits and hyphens. It draws the image only while it is still a ready image in the owner's File Manager.
 - `verifySignIn` says what it found: `passed`, `refused` or `unavailable`, with a `detail` for the log. The core decides what follows. A refused attempt is refused. An unavailable one, where the third party could not be asked, is logged and goes on to the passkey, and a plugin that throws counts as unavailable. So a plugin that breaks, or a service that is down, does not lock the owner out.
 - `categoryLikelihoods` returns how likely the article belongs under each category, by category id. `pickExcerpt` and `pickDescription` choose one of the passages the core offered. The core decides which likelihoods become suggestions, keeps a passage only if it is one it offered, and treats `null` as "did not answer".
 
@@ -60,7 +60,7 @@ A plugin lists its settings in its manifest. The core draws a field for each one
 | `switch` | `on` or `off` |
 | `color` | A colour as `#rrggbb`, the only form that is safe in a style attribute on every public page |
 | `choice` | One of the setting's `options` |
-| `image` | The id of a ready picture in the owner's library, which the library then refuses to delete |
+| `image` | The id of a ready image in the owner's File Manager, which the File Manager then refuses to delete |
 
 Each setting also has a `key`, a `label` and an optional `hint`, the last two as `{ en, th }`. `required: true` means the plugin says "Not set up yet" and cannot be switched on while the setting is empty. `fallback` is what a setting nobody has answered reads as. Give every switch and colour one. A choice's `fallback` has to be one of its `options`, and only a choice lists options.
 
