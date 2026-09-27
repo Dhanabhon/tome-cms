@@ -1112,7 +1112,7 @@ const th: typeof en = {
     manualTransition: 'ต้องอัปเดตเอง',
     manualTransitionRequired: 'ติดตั้ง TomeCMS 1.0.0 จากหน้านี้ไม่ได้ ทำตามขั้นตอนอัปเกรดเป็น 1.0.0 ในเอกสาร',
     modeCheckOnly: 'แจ้งเตือนอย่างเดียว',
-    modeManaged: 'อัปเดตจากหน้าผู้ดูแล',
+    modeManaged: 'จากหน้าผู้ดูแล',
     noPasskey: 'ไม่มี Passkey ที่ผ่านการตรวจสอบ กรุณายืนยันด้วย Passkey แล้วลองอีกครั้ง',
     noRelease: 'ยังไม่มีการเผยแพร่เวอร์ชันทางการ จึงยังไม่มีเวอร์ชันให้เทียบ',
     noReleaseLabel: 'ยังไม่มีเวอร์ชันทางการ',
