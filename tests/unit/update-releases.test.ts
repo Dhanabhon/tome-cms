@@ -6,6 +6,10 @@ import { fetchLatestRelease } from '../../src/server/update/releases.js';
 import { getUpdateStatus, refreshUpdateStatus, type UpdateCache } from '../../src/server/update/service.js';
 import { OFFICIAL_IMAGE_REPOSITORY, OFFICIAL_REPOSITORY } from '../../src/update/contracts.js';
 
+// The installed version comes from package.json unless this is set. Pin it to a 0.x version,
+// so these checks read the same whatever version the checkout is at.
+process.env.TOME_CMS_VERSION = '0.14.1';
+
 const validManifest = {
   format: 'tomecms-update', manifestVersion: 1, product: 'tomecms', channel: 'stable',
   version: '1.0.1', releasedAt: '2026-09-20T10:00:00.000Z',
@@ -149,6 +153,21 @@ test('a check that finds nothing says why: no release yet, GitHub out of reach, 
   const found = await check(releaseFetch(validRelease));
   assert.equal(found.reason, undefined, 'an answer needs no reason');
   assert.equal(none.message, 'Update check unavailable.', 'the API’s own text is unchanged for any other caller');
+});
+
+test('a 1.x install is offered the next 1.x release', async () => {
+  process.env.TOME_CMS_VERSION = '1.0.0';
+  try {
+    const result = await getUpdateStatus({
+      cache: { value: null, etag: null, expiresAt: 0 },
+      now: () => new Date('2026-09-20T10:00:00.000Z'),
+      fetcher: releaseFetch(validRelease, validManifest),
+    });
+    assert.equal(result.availability, 'available');
+    assert.equal(result.latest?.manifest.version, '1.0.1');
+  } finally {
+    process.env.TOME_CMS_VERSION = '0.14.1';
+  }
 });
 
 test('does not cache an invalid manifest', async () => {

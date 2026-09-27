@@ -1,13 +1,20 @@
 # Changelog
 
-Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is meant for production. From 0.12.1 on, each is also tagged and published as a GitHub release, so an install can check for it under "System". A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
+Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
-## Unreleased
+## 1.0.0 - 2026-09-28
+
+The first stable release. A fresh VPS gets a managed install, whose owner installs later releases from the admin, starting with 1.0.0 to 1.0.1.
 
 ### Changed
 
+- The managed installer, `scripts/install-managed-vps.sh`, is the way to install on a VPS. It runs the release's official image, verified against its attestations, and sets up `tomecms-updater`, which installs a verified update from "System". `scripts/prepare-vps.sh` ends by printing its commands, and `deploy/cloud-init.yaml` now installs 1.0.0 through it.
+- Versions follow Semantic Versioning from here: `/api/v1` changes only in ways that keep existing clients working, and the feature freeze that began at 0.11.0 ends.
+- CI runs the managed update harness, `npm run test:operations:update`, on every push to `develop`.
 - Run by root directly rather than through `sudo`, or with `--user root`, `prepare-vps.sh` now says which options fix it: `--create-user --user tomecms` for a new account, or `--user <name>` for one that exists.
-- The docs cover preparing a server while logged in as root, pointing DNS at the server, and what to do without a domain yet.
+- The docs cover preparing a server while logged in as root, pointing DNS at the server, and what to do without a domain yet. Installing, updating, configuration and recovery describe the managed install first, and a build from source second.
+
+Full notes: [docs/releases/1.0.0.md](docs/releases/1.0.0.md)
 
 ## 0.14.1 - 2026-09-28
 
