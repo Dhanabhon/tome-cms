@@ -407,6 +407,9 @@ test('the footer thanks the writer, and a link is named after its site or with a
     const docs = footer.getByRole('link', { name: 'TomeCMS' });
     await expect(docs, 'TomeCMS is a link to its documentation').toHaveAttribute('href', 'https://dhanabhon.github.io/tome-cms/');
     await expect(docs).toHaveAttribute('target', '_blank');
+    const company = footer.getByRole('link', { name: 'TOMERA Co., Ltd.' });
+    await expect(company, 'TOMERA is a link to its website').toHaveAttribute('href', 'https://tomera.ai');
+    await expect(company).toHaveAttribute('target', '_blank');
   }
   const box = await page.getByRole('contentinfo', { name: 'About TomeCMS' }).boundingBox();
   expect(box && box.y + box.height, 'on a short page it sits at the bottom of the window').toBeGreaterThan((page.viewportSize()?.height ?? 0) - 80);
