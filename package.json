@@ -82,7 +82,8 @@
     "@types/sanitize-html": "^2.16.1",
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.28",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "yaml": "2.9.0"
   },
   "engines": {
     "node": ">=22.12.0"

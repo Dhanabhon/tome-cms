@@ -1,0 +1,94 @@
+#cloud-config
+# Prepares a new Ubuntu 24.04 server and installs TomeCMS on its first boot.
+#
+# Before you create the server:
+#   1. Replace the two example addresses below with your own.
+#   2. Point both host names at the server in DNS. Caddy gets their certificates
+#      once they do, and keeps trying until then.
+#
+# This file holds no secret: the server generates every secret itself.
+# Guide: https://dhanabhon.github.io/tome-cms/start/prepare-server/
+
+write_files:
+  - path: /etc/tomecms-install.env
+    permissions: "0600"
+    content: |
+      # The CMS origin, where readers and the admin go.
+      TOME_CMS_PUBLIC_URL=https://cms.example.com
+      # The media origin, which serves uploads and images.
+      S3_ENDPOINT=https://media.example.com
+      # The TomeCMS release to install. Each release updates this line.
+      TOMECMS_VERSION=v0.13.0
+
+  - path: /usr/local/sbin/tomecms-first-boot
+    permissions: "0700"
+    content: |
+      #!/usr/bin/env bash
+      # Runs once, from cloud-init, on the server's first boot.
+      set -Eeuo pipefail
+      export HOME=/root
+
+      # For a 0.x release the deploy helper prints the installation token, so only
+      # root can read this log, and cloud-init's own log gets none of it.
+      log=/var/log/tomecms-install.log
+      install -m 0600 /dev/null "$log"
+      exec >>"$log" 2>&1
+
+      finish() {
+        local status=$?
+        if [[ $status -ne 0 ]]; then
+          printf '%s\n' \
+            "TomeCMS: the install did not finish." \
+            "See what went wrong: sudo tail -n 50 ${log}" \
+            "Both scripts are safe to run again once it is fixed." >/etc/motd
+        fi
+      }
+      trap finish EXIT
+
+      set -a
+      # shellcheck source=/dev/null
+      . /etc/tomecms-install.env
+      set +a
+
+      case "${TOME_CMS_PUBLIC_URL} ${S3_ENDPOINT}" in
+        *example.com*)
+          echo "The user data still has the example addresses. Put your own in, and create the server again."
+          exit 1
+          ;;
+      esac
+
+      repo=https://github.com/Dhanabhon/tome-cms.git
+      src=/opt/tome-cms-src
+      [[ -d "$src/.git" ]] || git clone --depth 1 --branch "$TOMECMS_VERSION" "$repo" "$src"
+      if [[ ! -x "$src/scripts/prepare-vps.sh" ]]; then
+        echo "TomeCMS ${TOMECMS_VERSION} came before scripts/prepare-vps.sh. Set TOMECMS_VERSION to a newer release."
+        exit 1
+      fi
+
+      "$src/scripts/prepare-vps.sh" --create-user --user tomecms --cms-url "$TOME_CMS_PUBLIC_URL" --media-url "$S3_ENDPOINT"
+
+      case "$TOMECMS_VERSION" in
+        v0.*)
+          app=/home/tomecms/tome-cms
+          [[ -d "$app/.git" ]] || runuser -u tomecms -- git clone --depth 1 --branch "$TOMECMS_VERSION" "$repo" "$app"
+          # runuser starts a new session, so the docker group prepare-vps.sh added applies.
+          runuser -u tomecms -- env -C "$app" TOME_CMS_PUBLIC_URL="$TOME_CMS_PUBLIC_URL" S3_ENDPOINT="$S3_ENDPOINT" ./scripts/deploy-vps.sh
+          token_file="$app/.env.local"
+          ;;
+        *)
+          # From 1.0.0 the deploy helper hands over to the managed installer, which needs root.
+          (cd "$src" && ./scripts/deploy-vps.sh)
+          token_file=/etc/tome-cms/tome-cms.env
+          ;;
+      esac
+
+      printf '%s\n' \
+        "TomeCMS is installed. Finish in the browser: ${TOME_CMS_PUBLIC_URL%/}/install" \
+        "The installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' ${token_file}" \
+        "The install log: ${log}" >/etc/motd
+
+packages:
+  - git
+
+runcmd:
+  - [/usr/local/sbin/tomecms-first-boot]
