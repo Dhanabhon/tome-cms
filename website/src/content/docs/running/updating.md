@@ -7,7 +7,7 @@ sidebar:
 
 TomeCMS is still a pre-1.0 preview. You upgrade a 0.x install in place, from a newer checkout of the code, with the same deploy helper that installed it.
 
-The admin cannot install an update yet. Under "System" it shows your version next to "Installed version:" and can check the official repository on GitHub for a newer stable release. On today's install that screen says "Managed updates unavailable", and "Update mode:" reads `check-only`. The check compares your version with the latest version published as a GitHub release. 0.12.1 is the first, so an install from 0.12.0 reads "TomeCMS 0.12.1 is available." there.
+The admin cannot install an update yet. Under "System" it shows your version next to "Installed version:" and can check the official repository on GitHub for a newer stable release. On today's install that screen says "Updating from the admin is off", and "Update mode:" reads "Notify only". The check compares your version with the latest version published as a GitHub release. 0.12.1 is the first, so an install from 0.12.0 reads "TomeCMS 0.12.1 is available." there.
 
 ![The System screen. "System updates" shows an "Update status" card with "Release availability: Up to date", "Installed version: 0.12.1", "Latest stable version: 0.12.1", "Published: Sep 26, 2026" and "TomeCMS is up to date.", a "Read release notes" link, and a "Check again" button. Below it, a "Managed updates unavailable" card says "This installation is configured for update checks only.", with "Update mode:" reading "check-only".](../../../assets/screenshots/en/system.png)
 
@@ -65,7 +65,7 @@ The counts follow each version's release notes. An install made from a checkout 
 
 ## The admin's notice
 
-When the code expects a migration the database does not have, every admin screen opens with the notice "The database is behind this build". After it, "Waiting:" is followed by the names of the migrations, and the notice warns that saving content fails until `npm run db:migrate` has run. The admin asks the database on each screen, so once the migrations have run, the notice is gone from the next screen you open.
+When the code expects a migration the database does not have, every admin screen opens with the notice "The database needs updating". It first warns that saving will fail until someone runs `npm run db:migrate` on the server, then lists the migrations after "Waiting:". The admin asks the database on each screen, so once the migrations have run, the notice is gone from the next screen you open.
 
 Until then `/health/ready` reports `"migrations":"pending"` and `"status":"not-ready"`.
 
