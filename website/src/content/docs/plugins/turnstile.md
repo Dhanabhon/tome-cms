@@ -19,7 +19,7 @@ The band on each card says where the plugin acts: "Admin sign-in", "Every public
 
 Some settings are secret, such as a key for another service. A secret is stored encrypted with `TOME_CMS_CONTEXT_SECRET` and is never sent back to the browser, so its field stays empty, and once a key is stored it says "Stored. Leave blank to keep it." Leave it blank and the stored key stays. Type a new one to replace it. [Configuration](/tome-cms/running/configuration/) explains why that secret must not change once the site is installed.
 
-Plugins come with TomeCMS, as the card "Where plugins come from" says, and nothing on this screen installs one. The card "A plugin cannot lock you out" says why: a plugin is asked about a sign-in attempt, never about recovery, and an answer it cannot get is not a refusal. Any plugin can also be switched off from the server with `npm run plugin:disable` and its id: `turnstile`, `typesafe` for Jev, `notice` for Sticky Banner, `popup` or `lightbox`.
+Plugins come with TomeCMS, as the card "Where plugins come from" says, and nothing on this screen installs one. The card "A plugin cannot lock you out" says why: a plugin only takes part in sign-in, never in account recovery, and a plugin that fails to answer never blocks you. Any plugin can also be switched off from the server with `npm run plugin:disable` and its id: `turnstile`, `typesafe` for Jev, `notice` for Sticky Banner, `popup` or `lightbox`.
 
 ## Setting it up
 

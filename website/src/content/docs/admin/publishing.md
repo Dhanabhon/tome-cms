@@ -29,7 +29,7 @@ The same "Publish at" is in a page's settings, and works the same way.
 
 ## Addresses
 
-A post lives at `/en/blog/` or `/th/blog/` followed by its slug, and a page at `/en/` or `/th/` followed by its slug. The slug comes from the title, in the title's own language. A Thai title gets a Thai address, with a hyphen between each pair of words, and browsers show it in Thai. Type a Latin one into "Slug" in the settings if you prefer.
+A post lives at `/en/blog/` or `/th/blog/` followed by its slug, and a page at `/en/` or `/th/` followed by its slug. The slug comes from the title, in the title's own language. A Thai title gets a Thai address, with a hyphen between each pair of words, and browsers show it in Thai. Type a Latin one into "URL name" in the settings if you prefer.
 
 When it is saved, a slug is tidied into lower-case letters, digits, Thai and single hyphens. A blank one is made from the title again. Two posts in the same language cannot share an address, and neither can two pages, so a save that would do that fails until you change one of them.
 
@@ -41,14 +41,14 @@ A redirect only takes a reader somewhere while the post is on the site. While it
 
 ## The Redirects screen
 
-"Redirects", under "Content", lists every old address, the post or page it leads to and where that is now, and the date it was recorded. A post or page that is not on the site at the moment shows "Not published, so this answers 404 until it is." The bin button beside a row stops that address redirecting.
+"Redirects", under "Content", lists every old address, the post or page it leads to and where that is now, and the date it was recorded. A post or page that is not on the site at the moment shows "Not published yet, so this address shows a Not Found page for now." The bin button beside a row stops that address redirecting.
 
 ![The Redirects screen, with the "Forward an old address" form: an "Article" menu showing "Choose an article", an "Old address" field and a "Forward" button. Below it, the line that says there are no old addresses yet.](../../../assets/screenshots/en/redirects.png)
 
-"Redirect an old address" adds one by hand, for an address that changed before these were recorded, or one you want sent somewhere new:
+"Redirect an old address" adds one by hand, for an address that changed before TomeCMS started recording redirects, or one you want to send somewhere new:
 
 1. Under "Post or page", choose the post or page. Each is listed with its language, such as `EN · About`.
-2. Under "Old address", type the old slug after the path the field shows, such as `/en/blog/`. The address is taken in the post's own language.
+2. Under "Old address", type the old slug after the path the field shows, such as `/en/blog/`. The old address is matched in the language of the post you choose.
 3. Press "Redirect".
 
 The admin refuses an old address that a post of yours already has in that language (for a page, one of your pages), and one with anything other than lower-case letters, Thai, digits and single hyphens. An old address that already redirects somewhere is pointed at the post or page you chose instead.

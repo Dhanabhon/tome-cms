@@ -67,7 +67,7 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
     <dd class="stats-summary__value">
       {report.totals.views > 0 ? percent.format(readRatio(report.totals)) : (
         <>
-          <span aria-hidden="true">—</span>
+          <span aria-hidden="true">-</span>
           <span class="sr-only">{copy.stats.noReadsYet}</span>
         </>
       )}

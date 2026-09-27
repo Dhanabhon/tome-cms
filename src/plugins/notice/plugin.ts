@@ -61,7 +61,7 @@ export const manifest: PluginManifest = {
       fallback: '#ffffff',
       hint: {
         en: 'Pick something that reads against the background: pale on dark, or dark on pale.',
-        th: 'เลือกสีที่อ่านออกบนพื้นหลัง — สีอ่อนบนพื้นเข้ม หรือสีเข้มบนพื้นอ่อน',
+        th: 'เลือกสีที่อ่านออกบนพื้นหลัง คือสีอ่อนบนพื้นเข้ม หรือสีเข้มบนพื้นอ่อน',
       },
       key: 'text',
       kind: 'color',

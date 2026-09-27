@@ -199,7 +199,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
       if (!form.siteName.trim() || form.siteName.trim().length > 120) errors.siteName = language === 'th' ? 'กรอกชื่อเว็บไซต์ไม่เกิน 120 ตัวอักษร' : 'Enter a site name up to 120 characters.';
       if (form.tagline.trim().length > 120) errors.tagline = language === 'th' ? 'Tagline ต้องไม่เกิน 120 ตัวอักษร' : 'Keep the Tagline under 120 characters.';
       if (form.siteDescription.trim().length > 160) errors.siteDescription = language === 'th' ? 'คำอธิบายต้องไม่เกิน 160 ตัวอักษร' : 'Keep the description under 160 characters.';
-      if (!adminPathPattern.test(form.adminPath) || RESERVED_ADMIN_PATHS.has(form.adminPath)) errors.adminPath = language === 'th' ? 'ใช้ / ตามด้วยตัวพิมพ์เล็ก ตัวเลข หรือขีดกลาง รวม 2–40 ตัว และห้ามใช้ path ของระบบ' : 'Use / plus 2–40 lowercase letters, numbers, or hyphens, and avoid system paths.';
+      if (!adminPathPattern.test(form.adminPath) || RESERVED_ADMIN_PATHS.has(form.adminPath)) errors.adminPath = language === 'th' ? 'ใช้ / ตามด้วยตัวพิมพ์เล็ก ตัวเลข หรือขีดกลาง รวม 2 ถึง 40 ตัว และห้ามใช้ path ของระบบ' : 'Use / plus 2 to 40 lowercase letters, numbers, or hyphens, and avoid system paths.';
     }
     if (targetStep === 3 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       errors.email = language === 'th' ? 'กรอกอีเมลให้ครบ เช่น name@example.com' : 'Enter a complete address, such as name@example.com.';
@@ -448,7 +448,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
                   const deferred = state === 'deferred';
                   const help = checkHelp(key, state);
                   return <li className="installer-check" data-state={ready ? 'ready' : deferred ? 'deferred' : state === 'pending' ? 'checking' : 'error'} key={key}>
-                    <span className="installer-check-mark" aria-hidden="true">{ready ? '✓' : deferred ? '–' : state === 'pending' ? '·' : '×'}</span>
+                    <span className="installer-check-mark" aria-hidden="true">{ready ? '✓' : deferred ? '…' : state === 'pending' ? '·' : '×'}</span>
                     <span><strong>{label}</strong>{key === 'relyingParty' && readiness?.rp?.origin && <small>{readiness.rp.origin}</small>}{help && <small>{help}</small>}</span>
                     <span className="installer-check-value">{ready ? (language === 'th' ? 'พร้อม' : 'Ready') : deferred ? (language === 'th' ? 'ภายหลัง' : 'Deferred') : state === 'pending' ? (language === 'th' ? 'กำลังตรวจ' : 'Checking') : (language === 'th' ? 'ต้องแก้ไข' : 'Needs attention')}</span>
                   </li>;
@@ -480,7 +480,7 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
                     <UiSelect ariaDescribedBy="timezone-help" className="installer-control" id="timezone" onValueChange={(value) => updateField('timezone', value === 'UTC' ? 'UTC' : 'Asia/Bangkok')} options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={form.timezone} />
                   </InstallerField>
                 </div>
-                <InstallerField error={fieldErrors.adminPath} help={language === 'th' ? 'เช่น /studio — บันทึก URL นี้ไว้หลังติดตั้ง' : 'For example /studio — bookmark this URL after setup.'} id="admin-path" label={language === 'th' ? 'URL สำหรับ Admin' : 'Admin path'} required>
+                <InstallerField error={fieldErrors.adminPath} help={language === 'th' ? 'เช่น /studio บันทึก URL นี้ไว้หลังติดตั้ง' : 'For example /studio, bookmark this URL after setup.'} id="admin-path" label={language === 'th' ? 'URL สำหรับ Admin' : 'Admin path'} required>
                   <input aria-describedby="admin-path-help" aria-invalid={Boolean(fieldErrors.adminPath)} autoCapitalize="none" className="installer-control" id="admin-path" maxLength={41} onChange={(event) => updateField('adminPath', event.target.value)} pattern="/[a-z0-9][a-z0-9-]{1,39}" required spellCheck={false} value={form.adminPath} />
                 </InstallerField>
               </div>
@@ -506,8 +506,8 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
                 <details className="installer-help">
                   <summary>{language === 'th' ? 'Installation token อยู่ที่ไหน?' : 'Where is the installation token?'}</summary>
                   <div className="installer-help-options">
-                    <div className="installer-help-option"><p><strong>Local</strong> — {language === 'th' ? 'รันจากโฟลเดอร์โปรเจกต์:' : 'run from the project folder:'}</p><code>grep '^TOME_CMS_INSTALL_TOKEN=' .env.local</code></div>
-                    <div className="installer-help-option"><p><strong>VPS</strong> — {language === 'th' ? 'รันบนเซิร์ฟเวอร์:' : 'run on the server:'}</p><code>sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env</code></div>
+                    <div className="installer-help-option"><p><strong>Local</strong> {language === 'th' ? 'รันจากโฟลเดอร์โปรเจกต์:' : 'Run from the project folder:'}</p><code>grep '^TOME_CMS_INSTALL_TOKEN=' .env.local</code></div>
+                    <div className="installer-help-option"><p><strong>VPS</strong> {language === 'th' ? 'รันบนเซิร์ฟเวอร์:' : 'Run on the server:'}</p><code>sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env</code></div>
                   </div>
                 </details>
               </div>

@@ -13,7 +13,7 @@ sidebar:
 
 Each theme has a card, and the top of the card is a preview: the theme drawing your own home page, in the site's default language, with your three newest posts and the theme's saved settings. The preview is only an image, so clicking it does nothing. Under the preview are the theme's name and one line about it. That line is written in English on both languages' screens.
 
-The card of the theme in use says "In use". "View site" opens the public site in a new tab. On any other card, "Use this theme" switches the site to it straight away, and the screen names the theme that draws it now, as in "Plain draws your site now."
+The card of the theme in use says "In use". "View site" opens the public site in a new tab. On any other card, "Use this theme" switches the site to it straight away, and the screen names the theme now in use, as in "Your site now uses Plain."
 
 Paper draws a band at the top of the home page, a grid of cards for the posts, and an author block at the end of each post. Plain draws the tagline, the categories and a single column of titles with their dates and excerpts, in the reader's system font. It has no hero, so "Home slides" do not show with it, and it has nothing to customize.
 
