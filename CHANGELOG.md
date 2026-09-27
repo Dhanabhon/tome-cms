@@ -2,13 +2,17 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Every `0.x` version is a pre-1.0 release candidate, and none is meant for production. From 0.12.1 on, each is also tagged and published as a GitHub release, so an install can check for it under "System". A `0.x` site upgrades in place when the deploy helper is run again from a newer checkout; moving to `1.0.0` will need a fresh managed install. What stands between them and `1.0.0` is in the [planned 1.0.0 boundary](docs/releases/1.0.0.md).
 
-## Unreleased
+## 0.14.1 - 2026-09-28
+
+Fixes to the server preparation script, a link in the admin footer, and CI that tests each commit once.
 
 ### Changed
 
 - "TOMERA Co., Ltd." in the admin footer links to [tomera.ai](https://tomera.ai).
 - `prepare-vps.sh` checks each vendor's apt signing key against the fingerprint the vendor publishes, and stops if the downloaded key differs. The account `--create-user` makes keeps the options on root's SSH keys, such as `from=` and `restrict`, and drops only the "log in as ubuntu" command a cloud image adds. A failing step reports its error once, and no temporary file is left behind.
 - CI runs on `develop` and on pull requests, and no longer on `main`. A merge into `main` is a fast-forward of a commit CI already ran on, so `tag-release.yml` now starts from the push to `main` and waits for CI to pass on that same commit before it tags it, instead of testing the same tree twice. A commit CI never ran on, such as a merge commit or a fix pushed straight to `main`, is not released.
+
+Full notes: [docs/releases/0.14.1.md](docs/releases/0.14.1.md)
 
 ## 0.14.0 - 2026-09-27
 
