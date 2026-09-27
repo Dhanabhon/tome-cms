@@ -18,7 +18,7 @@ Choose the folder the file belongs in first, then press "Upload file" and pick i
 | Images | JPEG, PNG, WebP, GIF, AVIF | 8 MB |
 | Documents | PDF, Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`), CSV, text (`.txt`), ZIP | 25 MB |
 
-The older Office formats, such as `.doc` and `.xls`, are not taken. The server reads each file before it keeps it, and refuses one that is empty or that is not what its name says it is. It refuses an Office file that carries macros, and asks you to save it without them. A CSV or text file has to be UTF-8, and the admin says how to save one that way from Excel. An image can have at most 40 million pixels.
+The older Office formats, such as `.doc` and `.xls`, are not taken. The server reads each file before it keeps it, and refuses one that is empty or whose contents don't match its file type. It refuses an Office file that carries macros, and asks you to save it without them. A CSV or text file has to be UTF-8, and the admin says how to save one that way from Excel. An image can have at most 40 million pixels.
 
 The file goes from your browser straight to the site's object storage. If storage turns it away or does not answer in time, the admin says why and asks you to try again.
 
