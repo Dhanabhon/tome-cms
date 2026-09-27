@@ -31,8 +31,11 @@ write_files:
       # For a 0.x release the deploy helper prints the installation token, so only
       # root can read this log, and cloud-init's own log gets none of it.
       log=/var/log/tomecms-install.log
-      install -m 0600 /dev/null "$log"
+      [[ -e "$log" ]] || install -m 0600 /dev/null "$log"
       exec >>"$log" 2>&1
+
+      printf '%s\n' \
+        "TomeCMS is still installing. Follow it with: sudo tail -f ${log}" >/etc/motd
 
       finish() {
         local status=$?
@@ -40,7 +43,7 @@ write_files:
           printf '%s\n' \
             "TomeCMS: the install did not finish." \
             "See what went wrong: sudo tail -n 50 ${log}" \
-            "Both scripts are safe to run again once it is fixed." >/etc/motd
+            "Once it is fixed, run the install again with: sudo /usr/local/sbin/tomecms-first-boot" >/etc/motd
         fi
       }
       trap finish EXIT
@@ -76,8 +79,9 @@ write_files:
           token_file="$app/.env.local"
           ;;
         *)
-          # From 1.0.0 the deploy helper hands over to the managed installer, which needs root.
-          (cd "$src" && ./scripts/deploy-vps.sh)
+          # From 1.0.0 the deploy helper hands over to the managed installer, which needs root,
+          # and needs the checkout's dependencies installed first.
+          (cd "$src" && npm ci && ./scripts/deploy-vps.sh)
           token_file=/etc/tome-cms/tome-cms.env
           ;;
       esac

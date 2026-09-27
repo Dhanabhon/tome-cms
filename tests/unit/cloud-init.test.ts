@@ -67,6 +67,11 @@ test('the first-boot script prepares the server, then installs', () => {
   const script = written('/usr/local/sbin/tomecms-first-boot').content;
   assert.match(script, /prepare-vps\.sh" --create-user --user tomecms --cms-url "\$TOME_CMS_PUBLIC_URL" --media-url "\$S3_ENDPOINT"/);
   assert.match(script, /runuser -u tomecms -- env -C "\$app"/);
-  assert.match(script, /install -m 0600 \/dev\/null "\$log"/);
+  assert.match(script, /\[\[ -e "\$log" \]\] \|\| install -m 0600 \/dev\/null "\$log"/);
   assert.match(script, /\*example\.com\*\)/);
+});
+
+test('a non-0.x release installs dependencies before handing over to the managed installer', () => {
+  const script = written('/usr/local/sbin/tomecms-first-boot').content;
+  assert.match(script, /\(cd "\$src" && npm ci && \.\/scripts\/deploy-vps\.sh\)/);
 });

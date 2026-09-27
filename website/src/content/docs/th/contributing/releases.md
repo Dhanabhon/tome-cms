@@ -25,7 +25,7 @@ sidebar:
 
 งานทั้งหมดทำบน branch `develop` ส่วน `main` เก็บโค้ดที่ออกเป็นเวอร์ชันแล้ว และจะเปลี่ยนก็ต่อเมื่อ merge `develop` เข้าไปเท่านั้น
 
-จะออกเวอร์ชันใหม่ ให้เปลี่ยนเวอร์ชันใน `package.json` บน `develop` เปลี่ยนหัวข้อ "Unreleased" ใน changelog เป็นเวอร์ชันนั้น และเขียนบันทึกประจำรุ่นไว้ที่ `docs/releases/<version>.md` แล้ว merge เข้า `main` เมื่อ CI ของ commit นั้นผ่าน workflow จะติด tag `vX.Y.Z` ให้ commit นั้น แล้ว build ตัว release จาก tag ได้แก่ image, attestation, update manifest และ GitHub release ซึ่งใช้ไฟล์บันทึกของเวอร์ชันนั้นเป็นคำอธิบาย ถ้า merge โดยไม่ได้เปลี่ยนเวอร์ชันจะไม่มีอะไรออก และถ้าเวอร์ชันใหม่ยังไม่มีไฟล์บันทึก workflow จะหยุดก่อนติด tag
+จะออกเวอร์ชันใหม่ ให้เปลี่ยนเวอร์ชันใน `package.json` บน `develop` เปลี่ยนหัวข้อ "Unreleased" ใน changelog เป็นเวอร์ชันนั้น เขียนบันทึกประจำรุ่นไว้ที่ `docs/releases/<version>.md` และตั้งค่า `TOMECMS_VERSION` ใน `deploy/cloud-init.yaml` ให้เป็น tag ใหม่ CI จะไม่ผ่านจนกว่าจะตั้งค่านั้น แล้ว merge เข้า `main` เมื่อ CI ของ commit นั้นผ่าน workflow จะติด tag `vX.Y.Z` ให้ commit นั้น แล้ว build ตัว release จาก tag ได้แก่ image, attestation, update manifest และ GitHub release ซึ่งใช้ไฟล์บันทึกของเวอร์ชันนั้นเป็นคำอธิบาย ถ้า merge โดยไม่ได้เปลี่ยนเวอร์ชันจะไม่มีอะไรออก และถ้าเวอร์ชันใหม่ยังไม่มีไฟล์บันทึก workflow จะหยุดก่อนติด tag
 
 ## เวอร์ชัน 0.x หมายความว่าอะไร
 
