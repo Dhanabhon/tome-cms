@@ -16,9 +16,9 @@ The slides show with the Paper theme, once its "Hero" setting under "Themes" is 
 Choose the language first, "ไทย" or "English". "Add slide" opens "New slide" for the language whose tab is open.
 
 1. Under "Image", press "Choose image" and pick one from the File Manager, or upload one there. The drawer shows the image's size in pixels and in bytes. It warns about an image over 800 KB, which makes the home page slow to appear, and one under 1,600 pixels wide, which looks soft on a wide screen.
-2. Under "Words", type a "Heading", up to 80 characters, and "Words under it", up to 200. Either can stay empty.
+2. Under "Words", type a "Heading", up to 80 characters, and "Text under the heading", up to 200. Either can stay empty.
 3. Under "Button", type the "Button text", up to 30 characters, or leave it empty for a slide without a button. Once it has text, choose where "The button leads to": "Home", "A page" written in this language, or "An address". An address starts with `/`, such as `/contact`, or is a full `http` or `https` address, and only an address can "Open in a new tab".
-4. Under "How it looks", choose where the "Words sit" and how much to "Darken the image", "No", "A little" or "A lot". "Keep in view on a phone" picks one of nine points, from "Top left" to "Bottom right". A phone crops a wide image, and that part of it stays on screen.
+4. Under "How it looks", choose the "Text position" and how much to "Darken the image", "No", "A little" or "A lot". "Keep in view on a phone" picks one of nine points, from "Top left" to "Bottom right". A phone crops a wide image, and that part of it stays on screen.
 5. Under "When it shows", "Show this slide" is on to begin with. "Starts" and "Ends" are optional: left empty, the slide starts now and never ends. You enter the times in your device's time.
 6. Press "Done". The slide joins the list, and the admin says "Added a slide. Save to publish it."
 

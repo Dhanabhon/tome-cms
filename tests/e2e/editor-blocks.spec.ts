@@ -713,7 +713,7 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
 
   // The description has its own button, under its own field, and the same manners.
   const search = drawer.locator('section', { has: page.getByRole('heading', { name: 'Search preview' }) });
-  const description = search.getByRole('textbox', { name: /Meta description/ });
+  const description = search.getByRole('textbox', { name: /Search description/ });
   await description.fill('What I had for search.');
   await search.getByRole('button', { name: 'Suggest a description from the text' }).click();
   await expect(search.locator('.drawer-suggestion blockquote')).toHaveText(summary);
@@ -750,7 +750,7 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   const pageSearch = page.locator('dialog.admin-editor-settings section', { has: page.getByRole('heading', { name: 'Search preview' }) });
   await pageSearch.getByRole('button', { name: 'Suggest a description from the text' }).click();
   await pageSearch.getByRole('button', { name: 'Use as the description' }).click();
-  await expect(pageSearch.getByRole('textbox', { name: /Meta description/ })).toHaveValue(summary);
+  await expect(pageSearch.getByRole('textbox', { name: /Search description/ })).toHaveValue(summary);
 });
 
 test('a file joins the library, is found by its type, and the filter holds through a reload', async ({ context, page }) => {

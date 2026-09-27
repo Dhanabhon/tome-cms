@@ -56,7 +56,7 @@ test('status labels follow the owner language, not the stored enum', () => {
   assert.equal(statusLabel(adminCopy('th'), 'published'), 'เผยแพร่แล้ว');
   assert.equal(statusLabel(adminCopy('th'), 'draft'), 'ฉบับร่าง');
   assert.equal(statusLabel(adminCopy('en'), 'published'), 'Published');
-  assert.equal(statusLabel(adminCopy('en'), 'draft'), 'draft');
+  assert.equal(statusLabel(adminCopy('en'), 'draft'), 'Draft');
 });
 
 test('dates are formatted in the owner language and the site timezone', () => {

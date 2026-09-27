@@ -1,11 +1,11 @@
 ---
 title: Jev (TypeSafe AI)
-description: Let TypeSafe AI read the post you are writing and suggest its categories, a line for its excerpt and a passage for its meta description.
+description: Let TypeSafe AI read the post you are writing and suggest its categories, a line for its excerpt and a passage for its search description.
 sidebar:
   order: 2
 ---
 
-Jev (TypeSafe AI) reads the post you are writing and suggests which of your own categories it belongs under. It also picks a line from the post for the excerpt, and a passage for the meta description. The judging is done by TypeSafe AI's service, which your server asks when you press a button in the editor. Nothing is filled in until you press it yourself.
+Jev (TypeSafe AI) reads the post you are writing and suggests which of your own categories it belongs under. It also picks a line from the post for the excerpt, and a passage for the search description. The judging is done by TypeSafe AI's service, which your server asks when you press a button in the editor. Nothing is filled in until you press it yourself.
 
 ## Setting it up
 
@@ -23,7 +23,7 @@ With the plugin on, a post's settings drawer has three more buttons, and a page'
 
 - "Suggest from the text" offers categories you already have and have not chosen yet, each a chip you press to add it. The ones it is less sure of come after "Perhaps:". It never makes up a category.
 - "Suggest a line from the text" offers a sentence from the post for the excerpt, short enough for a card, with "Use this line".
-- "Suggest a description from the text" offers a passage for the meta description, short enough for a search result, with "Use as the description".
+- "Suggest a description from the text" offers a passage for the search description, short enough for a search result, with "Use as the description".
 
 While it works, the drawer says "Reading the post…". When nothing fits, it says so, as in "Nothing here matches a category you have." or "No line in the post works on its own under the title." When the service does not answer, the drawer says "The suggestion service did not answer. Try again in a moment." Your server waits up to eight seconds, and asks again up to twice in that time when the service says it is busy.
 

@@ -369,7 +369,7 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
   // The second theme reads the same field, in its header and its footer.
   await page.goto(`${origin}/admin/themes`);
   await page.getByRole('button', { name: 'Use this theme' }).click();
-  await expect(page.getByText('Plain draws your site now.')).toBeVisible();
+  await expect(page.getByText('Your site now uses Plain.')).toBeVisible();
   await page.goto(`${origin}/th`);
   for (const place of ['.plain-head', '.plain-foot']) {
     const link = page.locator(`${place} a`, { hasText: 'Elsewhere' });

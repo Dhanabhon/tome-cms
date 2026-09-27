@@ -13,7 +13,7 @@ sidebar:
 
 The list opens on "Drafts". "Published" and "All" sit beside it, each with a count. "Language" narrows the list to "Thai" or "English" once you press "Apply filters", and "Search posts…" at the top of the admin finds a post by its title.
 
-Each card is one post. It shows every edition you have written, with its status, and a "missing" line for a language you have not. Press a title to open that edition in the editor, or "missing" to start the other language. The "..." beside an edition has "Edit", "Preview", "Duplicate", "Publish" or "Unpublish", and "Delete".
+Each card is one post. It shows every edition you have written, with its status, and a "Not written" line for a language you have not. Press a title to open that edition in the editor, or "Not written" to start the other language. The "..." beside an edition has "Edit", "Preview", "Duplicate", "Publish" or "Unpublish", and "Delete".
 
 "Duplicate" makes a new draft from that edition, in the same language, with "(copy)" after its title ("(สำเนา)" for a Thai edition) and the same categories. It is a post of its own, and does not become this post's other language. "Delete" removes that language edition only, and cannot be undone.
 
@@ -71,23 +71,23 @@ On the site, a reader sees the poster with a play mark, and nothing loads from Y
 
 | Field | What it does |
 | --- | --- |
-| "Slug" | The post's address, after `/en/blog/` or `/th/blog/`. While a new post is open for the first time, it follows the title until you change it by hand. Once the post is opened again, changing the title leaves the slug as it is. A Thai title gets a Thai address, with a hyphen between words. |
+| "URL name" | The post's address, after `/en/blog/` or `/th/blog/`. While a new post is open for the first time, it follows the title until you change it by hand. Once the post is opened again, changing the title leaves the slug as it is. A Thai title gets a Thai address, with a hyphen between words. |
 | "Publish at" | When the post goes out. [Publishing](/tome-cms/admin/publishing/) explains it. |
 | "Categories" | Tick the ones the post belongs under. With none ticked, it goes under the default one. Both language editions share the same categories. "Manage categories" saves the post and opens the list of categories. |
 | "Cover image" | The image on the post's card and at the top of the post. "Choose image" opens the File Manager. 1600 × 900 pixels and under 2 MB is best, and 8 MB is the most it takes. |
-| "Excerpt" | Under "Homepage card": the line on the post's card, up to 120 characters. Left blank, the card uses the meta description, then the opening of the post. |
-| "Meta title" | The title in search results, up to 70 characters. Left blank, the post's own title is used. |
-| "Meta description" | Shown below the post's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
+| "Excerpt" | Under "Homepage card": the line on the post's card, up to 120 characters. Left blank, the card uses the search description, then the opening of the post. |
+| "Search title" | The title in search results, up to 70 characters. Left blank, the post's own title is used. |
+| "Search description" | Shown below the post's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
 
 ## Writing the other language
 
-The chips in the bar show each language and how it stands, such as "EN Published" and "TH missing". Press the other language's chip and the admin saves this edition, then opens that one. A new edition starts empty, with this one's cover image and categories. It has its own title, address and settings, and you publish it on its own.
+The chips in the bar show each language and how it stands, such as "EN Published" and "TH Not written". Press the other language's chip and the admin saves this edition, then opens that one. A new edition starts empty, with this one's cover image and categories. It has its own title, address and settings, and you publish it on its own.
 
-"missing" on the post's card in the list does the same.
+"Not written" on the post's card in the list does the same.
 
 ## Suggestions while writing
 
-With the "Jev (TypeSafe AI)" plugin switched on, under "Appearance" and then "Plugins", the settings drawer has three more buttons. "Suggest from the text" offers categories you already have. "Suggest a line from the text" offers a sentence from the post for the excerpt, and "Suggest a description from the text" one for the meta description.
+With the "Jev (TypeSafe AI)" plugin switched on, under "Appearance" and then "Plugins", the settings drawer has three more buttons. "Suggest from the text" offers categories you already have. "Suggest a line from the text" offers a sentence from the post for the excerpt, and "Suggest a description from the text" one for the search description.
 
 Nothing is filled in for you. A suggested category is a chip you press to add it, and a sentence has its own "Use this line" or "Use as the description" button. The post's text goes to TypeSafe AI when you press one of the three buttons, and at no other time. Without the plugin, the buttons are not there.
 
