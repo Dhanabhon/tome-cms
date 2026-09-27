@@ -10,7 +10,7 @@ export const manifest: ThemeManifest = {
       fallback: 'text',
       hint: {
         en: 'The band above the grid. Moving reveals the headline once, on arrival. Covers shows the newest posts that have one, and Your slides the ones kept under Home slides; each falls back to text when it has nothing to show, and a reader who asked for less motion gets none.',
-        th: 'แถบเหนือ grid แบบเคลื่อนไหวจะเผยหัวข้อครั้งเดียวตอนเปิดหน้า แบบปกจะแสดงบทความล่าสุดที่มีปก และแบบสไลด์ที่จัดเองจะแสดงสไลด์จากเมนูสไลด์หน้าแรก ทุกแบบจะกลับไปเป็นข้อความเมื่อไม่มีอะไรให้แสดง และจะไม่เคลื่อนไหวเลยกับผู้อ่านที่ขอการเคลื่อนไหวน้อยลง',
+        th: 'แถบเหนือตารางการ์ดแบบเคลื่อนไหวจะเผยหัวข้อครั้งเดียวตอนเปิดหน้า แบบปกจะแสดงบทความล่าสุดที่มีปก และแบบสไลด์ที่จัดเองจะแสดงสไลด์จากเมนูสไลด์หน้าแรก ทุกแบบจะกลับไปเป็นข้อความเมื่อไม่มีอะไรให้แสดง และจะไม่เคลื่อนไหวเลยกับผู้อ่านที่ขอการเคลื่อนไหวน้อยลง',
       },
       key: 'hero',
       kind: 'choice',
@@ -77,7 +77,7 @@ export const manifest: ThemeManifest = {
       fallback: '6',
       hint: {
         en: 'Multiples of six only: a page of six ends on a full row at one, two or three cards across, which is every width this grid has.',
-        th: 'เลือกได้เฉพาะจำนวนที่หารด้วยหกลงตัว เพราะหกใบจบที่แถวเต็มพอดีทั้งตอน 1, 2 และ 3 คอลัมน์ ซึ่งเป็นทุกความกว้างที่ grid นี้มี',
+        th: 'เลือกได้เฉพาะจำนวนที่หารด้วยหกลงตัว เพราะหกใบจบที่แถวเต็มพอดีทั้งตอน 1, 2 และ 3 คอลัมน์ ซึ่งเป็นทุกความกว้างที่ตารางการ์ดนี้มี',
       },
       key: 'postsPerLoad',
       kind: 'choice',
@@ -117,7 +117,7 @@ export const manifest: ThemeManifest = {
       fallback: 'off',
       hint: {
         en: 'A hairline across the top of a post, filling as the reader goes down it. The browser draws it from the scroll position, so the page carries nothing to keep it moving.',
-        th: 'เส้นบางพาดบนสุดของบทความ เติมขึ้นตามที่อ่านลงไป เบราว์เซอร์วาดจากตำแหน่ง scroll เอง หน้าจึงไม่ต้องแบกโค้ดไว้ขยับมัน',
+        th: 'เส้นบางพาดบนสุดของบทความ เติมขึ้นตามที่อ่านลงไป เบราว์เซอร์คำนวณจากตำแหน่งที่เลื่อนหน้าอยู่เอง หน้าเว็บจึงไม่ต้องมีสคริปต์คอยขยับแถบนี้',
       },
       key: 'readingProgress',
       kind: 'switch',
@@ -142,7 +142,7 @@ export const manifest: ThemeManifest = {
       fallback: 'on',
       hint: {
         en: 'Rows appear as the end of the grid comes near. Off leaves the link to older posts that a reader without JavaScript already follows.',
-        th: 'แถวใหม่จะโผล่เมื่อใกล้ถึงท้าย grid ถ้าปิด จะเหลือลิงก์ไปบทความเก่ากว่า ซึ่งเป็นลิงก์เดียวกับที่คนปิด JavaScript ใช้อยู่แล้ว',
+        th: 'แถวใหม่จะโผล่เมื่อใกล้ถึงท้ายตารางการ์ด ถ้าปิด จะเหลือลิงก์ไปบทความเก่ากว่า ซึ่งเป็นลิงก์เดียวกับที่คนปิด JavaScript ใช้อยู่แล้ว',
       },
       key: 'infiniteScroll',
       kind: 'switch',

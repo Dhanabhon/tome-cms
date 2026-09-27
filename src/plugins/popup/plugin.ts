@@ -28,7 +28,7 @@ export const manifest: PluginManifest = {
       label: { en: 'Heading (Thai)', th: 'หัวข้อ (ไทย)' },
       hint: {
         en: 'A language with no heading shows the other language’s popup instead.',
-        th: 'ภาษาที่ไม่มีหัวข้อจะแสดง popup ของอีกภาษาแทน',
+        th: 'ภาษาที่ไม่มีหัวข้อจะแสดงป๊อปอัปของอีกภาษาแทน',
       },
       required: false,
     },
@@ -59,7 +59,7 @@ export const manifest: PluginManifest = {
       label: { en: 'Button link', th: 'ลิงก์ของปุ่ม' },
       hint: {
         en: 'A path on this site, or an https address. Anything else, and the popup is not shown.',
-        th: 'ใส่เป็นพาธในเว็บนี้ หรือที่อยู่ https เท่านั้น ถ้าเป็นอย่างอื่น popup จะไม่แสดง',
+        th: 'ใส่เป็นพาธในเว็บนี้ หรือที่อยู่ https เท่านั้น ถ้าเป็นอย่างอื่นป๊อปอัปจะไม่แสดง',
       },
       required: true,
     },

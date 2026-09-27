@@ -77,7 +77,7 @@ const copies = {
     steps: ['ตรวจสอบระบบ', 'ข้อมูลเว็บไซต์', 'ข้อมูลเจ้าของ', 'โทเค็นติดตั้ง', 'Passkey หลัก', 'รหัสกู้คืน'],
     contexts: [
       ['มาเช็กส่วนสำคัญกันก่อน', 'TomeCMS จะตรวจ PostgreSQL, การอัปเดตฐานข้อมูล, แผนการเชื่อม Storage และตัวตน passkey ก่อนเริ่มตั้งค่า'],
-      ['เล่าให้ผู้อ่านรู้จักเว็บไซต์', 'กำหนดชื่อ Tagline ภาษา เขตเวลา และ URL ส่วนตัวสำหรับเข้า Admin'],
+      ['เล่าให้ผู้อ่านรู้จักเว็บไซต์', 'กำหนดชื่อเว็บไซต์ ข้อความประจำเว็บไซต์ ภาษา เขตเวลา และ URL ส่วนตัวสำหรับเข้าหน้าผู้ดูแล'],
       ['ใครเป็นเจ้าของเว็บไซต์นี้?', 'อีเมลนี้ใช้ระบุเจ้าของคนแรก ส่วนการเข้าสู่ระบบใช้ passkey แทนรหัสผ่าน'],
       ['ยืนยันการติดตั้งเครื่องนี้', 'ใช้โทเค็นแบบครั้งเดียวที่สร้างจากสคริปต์เตรียมระบบบน Local หรือ VPS'],
       ['สร้าง passkey หลัก', 'อุปกรณ์จะให้ยืนยันด้วย Touch ID, Windows Hello, security key หรือผู้ให้บริการ passkey'],
@@ -498,9 +498,9 @@ export default function InstallerWizard({ language }: InstallerWizardProps) {
             </>}
 
             {step === 4 && <>
-              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>Installation token</h2><p>{language === 'th' ? 'โทเค็นนี้ยืนยันว่าคุณควบคุมเครื่องที่กำลังติดตั้ง' : 'This token proves you control the machine being installed.'}</p></div>
+              <div className="installer-step-head"><h2 ref={heading} tabIndex={-1}>{language === 'th' ? 'โทเค็นติดตั้ง' : 'Installation token'}</h2><p>{language === 'th' ? 'โทเค็นนี้ยืนยันว่าคุณควบคุมเครื่องที่กำลังติดตั้ง' : 'This token proves you control the machine being installed.'}</p></div>
               <div className="installer-fields">
-                <InstallerField help={language === 'th' ? 'ระบบใช้เพื่อตรวจสอบครั้งเดียวและไม่บันทึกโทเค็น' : 'Used once for verification and never stored.'} id="installation-token" label="Installation token" required>
+                <InstallerField help={language === 'th' ? 'ระบบใช้เพื่อตรวจสอบครั้งเดียวและไม่บันทึกโทเค็น' : 'Used once for verification and never stored.'} id="installation-token" label={language === 'th' ? 'โทเค็นติดตั้ง' : 'Installation token'} required>
                   <input aria-describedby="installation-token-help" autoComplete="off" className="installer-control" id="installation-token" maxLength={512} onChange={(event) => updateField('installationToken', event.target.value)} placeholder={language === 'th' ? 'วางโทเค็นที่นี่' : 'Paste the token here'} required type="password" value={form.installationToken} />
                 </InstallerField>
                 <details className="installer-help">

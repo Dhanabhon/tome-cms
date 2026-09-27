@@ -80,7 +80,7 @@ export default function PostSettingsDrawer({
           <span>{copy.drawer.slug}</span>
           <div className="admin-control admin-control--prefixed">
             <span>{slugPrefix}</span>
-            <input onChange={(event) => onChangeSlug(event.target.value)} placeholder="post-slug" type="text" value={slug} />
+            <input onChange={(event) => onChangeSlug(event.target.value)} placeholder="my-first-post" type="text" value={slug} />
           </div>
           <small>{copy.drawer.slugHintPost}</small>
         </label>
