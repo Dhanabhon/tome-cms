@@ -25,7 +25,7 @@ Before you upgrade an install, read the notes of every version after yours. [Upd
 
 Work happens on the `develop` branch. `main` holds released code, and changes only when `develop` is merged into it.
 
-To release, bump the version in `package.json` on `develop`, turn the changelog's "Unreleased" section into that version, write its notes in `docs/releases/<version>.md`, and set `TOMECMS_VERSION` in `deploy/cloud-init.yaml` to the new tag. CI fails until that line matches. Merging that into `main` releases it. Once CI passes on the merge, a workflow tags the commit `vX.Y.Z` and builds the release from the tag: the image, its attestations, the update manifest and the GitHub release, whose notes are the version's file. A merge that keeps the version releases nothing, and a new version with no notes file stops before it is tagged.
+To release, bump the version in `package.json` on `develop`, turn the changelog's "Unreleased" section into that version, write its notes in `docs/releases/<version>.md`, and set `TOMECMS_VERSION` in `deploy/cloud-init.yaml` to the new tag. CI fails until that line matches. Merging that into `main` releases it. CI runs on `develop` and on pull requests, not on `main`: the merge is a fast-forward, so the commit on `main` is one CI has already run on. A workflow waits until CI has passed on that commit, then tags it `vX.Y.Z` and builds the release from the tag: the image, its attestations, the update manifest and the GitHub release, whose notes are the version's file. A merge that keeps the version releases nothing, a new version with no notes file stops before it is tagged, and a commit CI never ran on, such as a merge commit or a fix pushed straight to `main`, is not released.
 
 ## What 0.x means
 

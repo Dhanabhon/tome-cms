@@ -3,11 +3,13 @@ name: CI
 # Until now the only workflow triggered on release tags, so check, test:unit and
 # build ran once per release and the integration suite ran nowhere. That is how it
 # came to fail 11 of 22 on a clean checkout without anyone noticing.
+#
+# Not on main: a merge into main is a fast-forward of a commit this already ran on from
+# develop, and tag-release.yml waits for that run rather than testing the same tree twice.
 on:
   pull_request:
   push:
     branches:
-      - main
       - develop
 
 concurrency:
