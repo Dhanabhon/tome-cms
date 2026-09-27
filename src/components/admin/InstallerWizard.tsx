@@ -122,7 +122,7 @@ function apiError(response: Response, value: unknown, language: Language, fallba
   if (language === 'en') return responseError(value, fallback);
   const messages: Partial<Record<number, string>> = {
     400: 'ข้อมูลหรือสิทธิ์ชั่วคราวไม่ถูกต้อง ตรวจข้อมูลแล้วลองใหม่',
-    401: 'โทเค็นหรือ passkey session ไม่ถูกต้อง ยืนยันใหม่',
+    401: 'โทเค็นหรือเซสชันยืนยันตัวตนไม่ถูกต้อง ยืนยันใหม่อีกครั้ง',
     403: 'คำขอนี้ไม่ได้มาจาก URL ที่ตั้งค่าไว้ เปิด Installer จาก URL หลัก',
     409: 'มีการติดตั้งหรือเริ่มขั้นตอนนี้ไปแล้ว ตรวจสถานะอีกครั้ง',
     429: 'ลองหลายครั้งเกินไป รอสักครู่แล้วลองใหม่',
