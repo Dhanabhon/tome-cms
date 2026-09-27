@@ -54,7 +54,7 @@ Each run makes one new directory under the output root, named after the time it 
 | --- | --- |
 | `database.dump` | The whole `tomecms` database, dumped by `pg_dump` in its custom format, without owners or privileges. |
 | `objects/` | Every object in the bucket, at the same path as its key. |
-| `manifest.json` | The version of TomeCMS that made the backup, the site's address, the database and bucket names, how many settings, posts, pages and library items the database held, a SHA-256 checksum for the dump, and a checksum, content type and size for each object. |
+| `manifest.json` | The version of TomeCMS that made the backup, the site's address, the database and bucket names, how many settings, posts, pages and File Manager items the database held, a SHA-256 checksum for the dump, and a checksum, content type and size for each object. |
 
 The manifest is written last. A directory without `manifest.json` is a backup that failed or was cut off, and must not be restored.
 
@@ -84,7 +84,7 @@ The check works through these steps:
 2. It starts a PostgreSQL and a SeaweedFS of its own on ports `55432` and `59000` of `127.0.0.1`, so keep those free while it runs.
 3. It restores the dump into that PostgreSQL.
 4. It puts every object back with its content type. Each document also gets back its `Content-Disposition` header, which sets the name it downloads under and whether a PDF opens in the browser. The header lives on the object in the bucket, and a backup does not carry it, so the check rebuilds it from the document's row in `media_items`.
-5. It compares the restored settings, posts, pages and library items with the manifest's counts, and the restored objects with its list.
+5. It compares the restored settings, posts, pages and File Manager items with the manifest's counts, and the restored objects with its list.
 6. It removes the disposable containers and their volumes, whether the check passed or not.
 
 A backup that passes ends with `Restore verified in disposable project tomecms-restore-check-20260913.` Anything else ends with a line starting `Error:`, such as `Database dump checksum does not match its manifest.` or `Restored object inventory does not match the backup.` Do not rely on a backup that fails the check.
