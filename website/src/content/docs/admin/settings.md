@@ -45,7 +45,7 @@ Press "Save". When you change the site name, the language or the time zone, the 
 
 "Profile" is the author the site shows with your writing. Nothing here is required.
 
-![The Profile screen with three cards. "Identity" has an empty "Author name", a "Choose avatar" button and "No avatar selected". "Bio" has two empty fields, one marked English and one marked Thai. "Links" says links you add appear under your author bio, above an "Add link" button. "Save" is at the bottom.](../../../assets/screenshots/en/profile.png)
+![The Profile screen with three cards. "Identity" has an empty "Author name", a "Choose profile picture" button and "No profile picture selected". "Bio" has two empty fields, one marked English and one marked Thai. "Links" says links you add appear under your author bio, above an "Add link" button. "Save" is at the bottom.](../../../assets/screenshots/en/profile.png)
 
 1. Under "Identity", type the "Author name", up to 120 characters. "Choose profile picture" picks an image from the File Manager, and the bin beside it, "Remove profile picture", takes it off. While the image is your profile picture, the File Manager will not delete it.
 2. Under "Bio", write a short biography in English and in Thai, up to 1,000 characters each. Each post shows the one in the language the reader is reading.
@@ -56,7 +56,7 @@ Press "Save". When you change the site name, the language or the time zone, the 
 
 "Security" opens "Passkeys and recovery". TomeCMS has no password: you sign in with a passkey your device keeps. This screen is where you add a second one and replace your recovery codes, so that losing a device does not lock you out.
 
-![The Passkeys and recovery screen. Under "Passkeys" is one passkey, "Recovery passkey", created on Sep 26, 2026 and never used, with a pencil and a bin beside it. Below it are the "New Passkey name" field and "Add spare Passkey". Under "Recovery codes" is the button "Verify and create new codes".](../../../assets/screenshots/en/security.png)
+![The Passkeys and recovery screen. Under "Passkeys" is one passkey, "Recovery passkey", created on Sep 27, 2026 and never used, with a pencil and a bin beside it. Below it are the "New passkey name" field and "Add a spare passkey". Under "Recovery codes" is the button "Verify and create new codes".](../../../assets/screenshots/en/security.png)
 
 ### Your passkeys
 
@@ -78,4 +78,4 @@ If your session has ended while the screen is open, it asks you to "Verify the T
 
 "Maintenance", under "Settings", closes the public site while you work on it and shows visitors a page of your choosing. [Maintenance mode](/tome-cms/running/maintenance/) walks through the screen.
 
-![The Maintenance screen. "Status" says the site is open to everyone, with the switch "Close the site for maintenance" off. "Template" offers "Minimal", which is chosen, "Logo", "Picture" and "Countdown". "Words" has the "ไทย" tab chosen, with a Thai heading and message shown in grey. "Back around" has an empty "Date and time". "Save" and "Preview" are at the bottom.](../../../assets/screenshots/en/maintenance.png)
+![The Maintenance screen. "Status" says the site is open to everyone, with the switch "Close the site for maintenance" off. "Template" offers "Minimal", which is chosen, "Logo", "Image" and "Countdown". "Words" has the "English" tab chosen, with "Down for maintenance" and "We'll be back soon." shown in grey. "Back around" has an empty "Date and time". "Save" and "Preview" are at the bottom.](../../../assets/screenshots/en/maintenance.png)

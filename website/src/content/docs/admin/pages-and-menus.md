@@ -9,7 +9,7 @@ sidebar:
 
 ## The list of pages
 
-![The Pages screen with two published pages, "เกี่ยวกับเรา" at /th/เกี่ยวกับเรา and "About" at /en/about, each with a "missing" line for its other language.](../../../assets/screenshots/en/pages.png)
+![The Pages screen with two published pages, "เกี่ยวกับเรา" at /th/เกี่ยวกับเรา and "About" at /en/about, each with a "Not written" line for its other language.](../../../assets/screenshots/en/pages.png)
 
 Each row is one page, with a line for every language edition you have written, its address, its status and its date in the site's time zone. The tabs "Drafts", "Published" and "All" work as they do for posts. "Search pages" finds a page by its title, and "Language" narrows the list once you press "Apply filters".
 
@@ -37,7 +37,7 @@ With the "Jev (TypeSafe AI)" plugin on, the drawer offers a line for the excerpt
 
 Choose "Header menu" or "Footer" first, then the language, "ไทย" or "English", to see that menu.
 
-![The Navigation screen with the "MenuBar" and "ไทย" tabs chosen. The Thai menu has two items, "หน้าแรก" pointing at Home · /th and "เกี่ยวกับเรา" pointing at that page, both "Visible", with a "Save menu" button below.](../../../assets/screenshots/en/navigation.png)
+![The Navigation screen with the "Header menu" and "English" tabs chosen. The English menu has two items, "Home" pointing at Home · /en and "About" pointing at that page, both "Visible", with a "Save menu" button below.](../../../assets/screenshots/en/navigation.png)
 
 ### Adding an item
 

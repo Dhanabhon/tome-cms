@@ -178,7 +178,7 @@ test('a site that has never counted a reader shows the report at zero, with an e
   const summary = page.locator('.stats-summary > div');
   await expect(summary.nth(0).locator('.stats-summary__value')).toHaveText('0');
   await expect(summary.nth(1).locator('.stats-summary__value')).toHaveText('0');
-  await expect(summary.nth(2).locator('.stats-summary__value')).toContainText('—');
+  await expect(summary.nth(2).locator('.stats-summary__value')).toContainText('-');
   await expect(summary.nth(2).locator('.stats-summary__value .sr-only')).toHaveText('No reads yet');
   for (let index = 0; index < 3; index += 1) {
     await expect(summary.nth(index).locator('.stats-summary__change'), 'no change arrow at zero').toHaveText('Nothing to compare with yet');
