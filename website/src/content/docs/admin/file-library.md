@@ -30,7 +30,7 @@ The page's address keeps the type and the folder you chose, so a reload or a boo
 
 ## Folders
 
-Type a name in "Folder name", up to 80 characters, and press "Create folder". Each folder has a "Rename" and a "Delete" button beside its name. "Rename" opens a field with the name in it, and "Save folder name" keeps the new one. Deleting a folder keeps its files: they move to "Unsorted", as the admin warns before it goes ahead.
+Type a name in "Folder name", up to 80 characters, and press "Create folder". Each folder has a "..." inside its chip, with "Rename" and "Delete". On a phone, where the folders are a list to choose from, the chosen folder's "..." sits beside that list. "Rename" opens a field with the name in it, and "Save folder name" keeps the new one. Deleting a folder keeps its files: they move to "Unsorted", as the admin warns before it goes ahead.
 
 A file sits in one folder, or in "Unsorted" when it has none. To move it, open it and change "Folder".
 

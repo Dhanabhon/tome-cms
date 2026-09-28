@@ -848,9 +848,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  /* Wider than the gap inside a folder's own row, or the chip and its two actions
-   * read as one run of words across the whole line. */
-  gap: var(--space-xs) var(--space-md);
+  gap: var(--space-xs) var(--space-sm);
 }
 
 /* The divider this form used to sit under was carrying its spacing as well as its
@@ -862,9 +860,32 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .media-category-form label { flex: 1 1 12rem; max-width: 18rem; min-width: 0; }
 
+/* A folder the owner manages is one pill: its name, and a "..." for rename and delete inside
+ * the same outline, so the actions read as the folder's own rather than words beside it. */
 .media-category-row {
-  @apply flex flex-wrap items-center gap-1;
+  display: inline-flex;
+  align-items: center;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  background: var(--color-paper);
 }
+.media-category-row:has(.media-category[aria-pressed='true']) { border-color: var(--color-accent); }
+.media-category-row .media-category {
+  border: 0;
+  background: transparent;
+  padding-inline-end: var(--space-2xs);
+}
+.media-category-row .media-category:hover { background: transparent; color: var(--color-link); }
+/* Two classes: .admin-story-menu's own summary rule comes later in this file and would win. */
+.media-category-menu.admin-story-menu summary {
+  width: 40px;
+  min-height: var(--control-height);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+}
+.media-category-menu.admin-story-menu summary:hover,
+.media-category-menu.admin-story-menu[open] summary { background: var(--color-paper-3); color: var(--color-ink); }
+.media-category-menu button[data-folder-action="delete"] { color: var(--color-error-ink); }
 
 /* A folder is a chip, the shape the public feed's category chips already have. */
 .media-category {
@@ -886,24 +907,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   font-weight: 500;
 }
 
-/* These were two unstyled buttons inheriting an underline from their container:
- * 16px tall, no gap, so "rename" and "delete" ran together as one word. */
-.media-category-action {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-.media-category-action button {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: var(--space-2xs);
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-  text-decoration: underline;
-}
-.media-category-action button:hover { color: var(--color-link); }
-
 .media-category-error {
   margin-block-start: var(--space-sm);
   color: var(--color-error-ink);
@@ -914,8 +917,19 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   @apply hidden;
 }
 
-.media-category-mobile-actions {
-  @apply hidden;
+/* On a phone the folders are a select, and the chosen folder's "..." sits beside it, where its
+ * menu opens back across the screen instead of off its left edge. */
+.media-category-select__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.media-category-select__row > :first-child { flex: 1; min-width: 0; }
+.media-category-select__row .media-category-menu.admin-story-menu summary {
+  width: 44px;
+  min-height: 44px;
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
 }
 
 /* The same surface the cards behind it use, said in tokens rather than borrowed from
@@ -980,10 +994,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
   .media-types__select {
     display: block;
-  }
-
-  .media-category-mobile-actions {
-    @apply mt-2 flex flex-wrap gap-2;
   }
 }
 

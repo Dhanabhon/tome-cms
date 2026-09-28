@@ -409,11 +409,26 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     else forget();
   }
 
-  function categoryActions(folder: MediaFolder) {
-    return <>
-      <button aria-label={fill(copy.media.renameFolderLabel, { name: folder.name })} className="media-category-action" onClick={() => { setRenaming(folder); setRenameName(folder.name); }} type="button">{copy.categories.rename} {folder.name}</button>
-      <button aria-label={fill(copy.media.deleteFolderLabel, { name: folder.name })} className="media-category-action" onClick={() => void handleDeleteCategory(folder)} type="button">{copy.media.delete} {folder.name}</button>
-    </>;
+  // The posts list's "..." menu. Each action used to be a visible button that repeated the
+  // folder's name, so two folders ran to a line of "Rename X Delete X Rename Y Delete Y".
+  function folderMenu(folder: MediaFolder) {
+    const close = (event: { currentTarget: Element }) => {
+      const menu = event.currentTarget.closest('details');
+      if (menu) menu.open = false;
+    };
+    return (
+      <details className="admin-story-menu media-category-menu" onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !event.currentTarget.open) return;
+        event.currentTarget.open = false;
+        event.currentTarget.querySelector('summary')?.focus();
+      }}>
+        <summary aria-label={fill(copy.media.folderActions, { name: folder.name })}><Icon name="more" /></summary>
+        <div>
+          <button onClick={(event) => { close(event); setRenaming(folder); setRenameName(folder.name); }} type="button">{copy.categories.rename}</button>
+          <button data-folder-action="delete" onClick={(event) => { close(event); void handleDeleteCategory(folder); }} type="button">{copy.media.delete}</button>
+        </div>
+      </details>
+    );
   }
 
   const selectedFolder = folders.find((folder) => folder.id === selection);
@@ -432,10 +447,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       <button aria-pressed={selection === 'all'} className="media-category" onClick={() => selectCategory('all')} type="button">{copy.media.allFiles}</button>
       <button aria-pressed={selection === 'unsorted'} className="media-category" onClick={() => selectCategory('unsorted')} type="button">{copy.media.unsorted}</button>
       {folders.map((folder) => (
-        <div className="media-category-row" key={folder.id}>
-          <button aria-pressed={selection === folder.id} className="media-category" onClick={() => selectCategory(folder.id)} type="button">{folder.name}</button>
-          {props.mode === 'manage' && categoryActions(folder)}
-        </div>
+        props.mode === 'manage'
+          ? <div className="media-category-row" key={folder.id}>
+            <button aria-pressed={selection === folder.id} className="media-category" onClick={() => selectCategory(folder.id)} type="button">{folder.name}</button>
+            {folderMenu(folder)}
+          </div>
+          : <button aria-pressed={selection === folder.id} className="media-category" key={folder.id} onClick={() => selectCategory(folder.id)} type="button">{folder.name}</button>
       ))}
     </>
   );
@@ -471,8 +488,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       <div className="media-library-layout">
         <aside className="media-categories">
           <nav aria-label={copy.media.folders}>{categoryButtons}</nav>
-          <div className="media-category-select"><span aria-hidden="true" className="media-select-label">{copy.media.folders}</span><UiSelect ariaLabel={copy.media.folders} className="admin-control" id="media-category" onValueChange={(next) => selectCategory(next)} options={categoryOptions} value={selection} /></div>
-          {props.mode === 'manage' && selectedFolder && <div className="media-category-mobile-actions">{categoryActions(selectedFolder)}</div>}
+          <div className="media-category-select"><span aria-hidden="true" className="media-select-label">{copy.media.folders}</span><div className="media-category-select__row"><UiSelect ariaLabel={copy.media.folders} className="admin-control" id="media-category" onValueChange={(next) => selectCategory(next)} options={categoryOptions} value={selection} />{props.mode === 'manage' && selectedFolder && folderMenu(selectedFolder)}</div></div>
           {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-label={copy.media.folderName} className="admin-control" maxLength={80} onChange={(event) => setCategoryName(event.target.value)} placeholder={copy.media.folderName} required value={categoryName} /></label><button aria-busy={pressed('create-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.createFolder}</button></form>}
           {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button aria-busy={pressed('rename-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
           {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="admin-button admin-button--ghost" onClick={() => void loadFolders()} type="button">{copy.media.retryFolders}</button></p>}
