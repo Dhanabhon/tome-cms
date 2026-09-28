@@ -2,6 +2,23 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.0.3 - 2026-09-28
+
+An update from the admin stops the application in time and goes back cleanly, a job that failed before its backup can be cleared, the System screen speaks the owner's language throughout, and a Code of Conduct.
+
+### Fixed
+
+- The managed application runs under an init, so it stops on `SIGTERM` in a second. The updater gives the stop its 30 s grace plus 30 s, and a rollback stops the application again before starting the previous version. The first update from the admin on a real server, 1.0.1 to 1.0.2, stopped at "Prepare maintenance" and left the site down. Servers installed with 1.0.1 or 1.0.2 add the init by hand before updating; the notes give the command.
+- The System screen words the update's progress from its step, in English or Thai, shows the backup time in the admin's language, and replaces the finished step-by-step card with a "Last update" summary.
+
+### Added
+
+- `sudo npm run updater:clear-failed` sets aside an update that failed before its backup, so another can start. It refuses any job that recorded a backup.
+- `CODE_OF_CONDUCT.md`, the Contributor Covenant 2.1.
+- Troubleshooting covers an update that stops at "Prepare maintenance".
+
+Full notes: [docs/releases/1.0.3.md](docs/releases/1.0.3.md)
+
 ## 1.0.2 - 2026-09-28
 
 Uploads work on a managed install, the System screen speaks the owner's language, and preparing a server and installing share one clone. The first release a managed install takes from the admin.
