@@ -82,10 +82,14 @@ test('options are checked before anything else', () => {
   refused(['--swap-size', 'lots', '--print-caddyfile', '--cms-url', cms, '--media-url', media], /--swap-size takes a size such as 2G/);
 });
 
-test('without sudo or --user, the problem names the command that creates an account', () => {
-  // Logged in as root directly, SUDO_USER is empty. The server checks fail on a Mac as
-  // well, but every problem is listed, so this one shows either way.
-  refused(['--dry-run', '--cms-url', cms, '--media-url', media], /--create-user --user tomecms/);
+test('run by root with no account named, nothing about an account stops it', () => {
+  // The managed install runs as root, so an account for the docker group is optional. The
+  // server checks fail on a Mac, but every problem is listed, so an account one would show.
+  const result = prepare(['--dry-run', '--cms-url', cms, '--media-url', media]);
+  assert.doesNotMatch(result.stderr, /account|--user/);
+});
+
+test('--user root is still refused, with the options that fix it', () => {
   refused(['--dry-run', '--cms-url', cms, '--media-url', media], /--create-user --user tomecms/, { SUDO_USER: 'root' });
 });
 

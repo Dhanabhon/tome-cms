@@ -36,8 +36,9 @@ Prepares a new Ubuntu 24.04 server for TomeCMS. Running it again is safe.
 
   --cms-url <url>      The CMS origin. Falls back to TOME_CMS_PUBLIC_URL.
   --media-url <url>    The media origin. Falls back to S3_ENDPOINT.
-  --user <name>        The account that runs the deploy helper and joins the docker
-                       group. Defaults to the account that ran sudo.
+  --user <name>        An account to add to the docker group, for a build from source
+                       with the deploy helper. Defaults to the account that ran sudo;
+                       run by root, no account is added. The managed install needs none.
   --create-user        Create that account if it does not exist.
   --no-firewall        Leave the firewall alone.
   --no-proxy           Install no proxy. The addresses are then not needed.
@@ -211,8 +212,9 @@ preflight() {
     problem "TomeCMS needs systemd 235 or later${systemd_version:+, and this server has ${systemd_version}}."
   fi
 
+  # No account is fine: the managed install runs as root. Only a build from source needs one.
   if [[ -z "$target_user" ]]; then
-    problem "This script was not started through sudo, so name the account that will run TomeCMS. Add --create-user --user tomecms to create one, or --user <name> for an account that exists."
+    :
   elif [[ "$target_user" == root ]]; then
     problem "The deploy helper should not run as root. Add --create-user --user tomecms to create an account for it, or --user <name> for another account that exists."
   elif ! id "$target_user" >/dev/null 2>&1; then
@@ -354,7 +356,9 @@ install_docker() {
     apt_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   fi
   run systemctl enable --now docker
-  if [[ " $(id -nG "$target_user" 2>/dev/null || true) " == *" docker "* ]]; then
+  if [[ -z "$target_user" ]]; then
+    note "no account added to the docker group, which only a build from source needs"
+  elif [[ " $(id -nG "$target_user" 2>/dev/null || true) " == *" docker "* ]]; then
     note "${target_user} is already in the docker group"
   else
     run usermod -aG docker "$target_user"
@@ -523,11 +527,17 @@ summary() {
   if $relogin; then
     note "${target_user} joined the docker group. It applies from that account's next login."
   fi
-  local version
-  version="$(sed -n 's/^  "version": "\([^"]*\)".*/\1/p' "${BASH_SOURCE[0]%/*}/../package.json")"
-  note "As root (sudo -i), install TomeCMS ${version} from its release:"
-  note "  git clone --depth 1 --branch v${version} https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src"
-  note "  cd /opt/tome-cms-src && npm ci"
+  local version source
+  source="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd)"
+  version="$(sed -n 's/^  "version": "\([^"]*\)".*/\1/p' "${source}/package.json")"
+  note "As root (sudo -i), install TomeCMS ${version}:"
+  # One clone serves both scripts. Only a checkout off the release tag needs a second.
+  if [[ "$(git -C "$source" describe --tags --exact-match 2>/dev/null || true)" == "v${version}" ]]; then
+    note "  cd ${source} && npm ci"
+  else
+    note "  git clone --depth 1 --branch v${version} https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src"
+    note "  cd /opt/tome-cms-src && npm ci"
+  fi
   note "  export TOME_CMS_PUBLIC_URL=https://${cms_host:-cms.example.com} S3_ENDPOINT=https://${media_host:-media.example.com}"
   note "  ./scripts/install-managed-vps.sh --version ${version}"
 }
