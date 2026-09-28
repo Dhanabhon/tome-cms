@@ -24,39 +24,36 @@ VPS ที่เพิ่งสร้างยังไม่มีสิ่ง�
 
 ## รันสคริปต์
 
-บนเซิร์ฟเวอร์ ให้ดึงโค้ดลงมาแล้วรันสคริปต์ด้วยสิทธิ์ root
+ทำงานในฐานะ root ถ้าเซิร์ฟเวอร์ให้ล็อกอินด้วยบัญชีอื่น ให้รัน `sudo -i` ก่อน ดึง release ลงมาครั้งเดียว ไว้ในโฟลเดอร์ที่การติดตั้งใช้ด้วย แล้วรันสคริปต์จากโฟลเดอร์นั้น
 
 ```sh
-git clone https://github.com/Dhanabhon/tome-cms.git
-cd tome-cms
-sudo ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
+git clone --depth 1 --branch v1.0.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+cd /opt/tome-cms-src
+./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
 ```
 
-ครั้งแรกให้เติม `--dry-run` เพื่อดูว่าสคริปต์จะทำอะไรบ้าง แบบ dry run จะตรวจเซิร์ฟเวอร์และพิมพ์ทุกขั้นตอนออกมา โดยไม่เปลี่ยนอะไรเลย
+ใช้เวอร์ชันล่าสุดจาก[หน้า Releases](https://github.com/Dhanabhon/tome-cms/releases) ครั้งแรกให้เติม `--dry-run` เพื่อดูว่าสคริปต์จะทำอะไรบ้าง แบบ dry run จะตรวจเซิร์ฟเวอร์และพิมพ์ทุกขั้นตอนออกมา โดยไม่เปลี่ยนอะไรเลย เมื่อเสร็จแล้ว ให้ทำตามหน้า[ติดตั้งบน VPS](/tome-cms/th/start/install/) ต่อในโฟลเดอร์เดียวกัน ไม่ต้อง clone ใหม่
 
-### ถ้าล็อกอินเป็น root
+### บัญชีสำหรับ SSH หรือการติดตั้งแบบ build จากซอร์สโค้ด
 
-ถ้ารันผ่าน `sudo` สคริปต์จะเพิ่มบัญชีที่สั่ง `sudo` เข้ากลุ่ม `docker` แต่ถ้าล็อกอินเป็น root โดยตรงจะไม่มีบัญชีนั้น สคริปต์จึงหยุดจนกว่าคุณจะระบุบัญชี เซิร์ฟเวอร์ใหม่หลายเจ้าให้เข้าได้แค่ root ในกรณีนี้ให้สคริปต์สร้างบัญชีชื่อ `tomecms` ให้
+การติดตั้งแบบ managed รันด้วยสิทธิ์ root และไม่ต้องใช้บัญชีอื่น มีสองกรณีที่ต้องมีบัญชีเพิ่ม
 
-```sh
-./scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
-```
-
-บัญชีใหม่ได้ SSH key ชุดเดียวกับ root จึง `ssh tomecms@เซิร์ฟเวอร์ของคุณ` ได้ด้วย การติดตั้งแบบ managed รันด้วยสิทธิ์ root จึงให้อยู่เป็น root ต่อไป แล้วทำตามหน้า[ติดตั้งบน VPS](/tome-cms/th/start/install/) มีแค่[การติดตั้งแบบ build จากซอร์สโค้ด](/tome-cms/th/start/install/#ติดตั้งแบบ-build-จากซอร์สโค้ด)ที่รันในนามของ `tomecms` ถ้าจะติดตั้งแบบนั้น ให้สลับไปเป็นบัญชีนี้ด้วย `sudo -iu tomecms` ซึ่งเริ่ม login ใหม่ บัญชีจึงได้สิทธิ์กลุ่ม `docker` แล้ว clone โค้ดลงมาอีกชุดที่นั่น เพราะบัญชีนี้อ่านโค้ดชุดที่อยู่กับ root ไม่ได้
+- **เมื่อไม่อยากล็อกอินเป็น root อีก** `--create-user --user tomecms` จะสร้างบัญชีที่ไม่มีรหัสผ่านและได้ SSH key ชุดเดียวกับ root จึง `ssh tomecms@เซิร์ฟเวอร์ของคุณ` ได้
+- **สำหรับ[การติดตั้งแบบ build จากซอร์สโค้ด](/tome-cms/th/start/install/#ติดตั้งแบบ-build-จากซอร์สโค้ด)** สคริปต์ deploy รันด้วยบัญชีที่อยู่ในกลุ่ม `docker` ใส่ `--user <name>` เพื่อเพิ่มบัญชีนั้นเข้ากลุ่ม หรือรันสคริปต์ผ่าน `sudo` ซึ่งจะเพิ่มบัญชีที่สั่ง `sudo` ให้เอง จากนั้นสลับไปเป็นบัญชีนั้นด้วย `sudo -iu <name>` ซึ่งเริ่ม login ใหม่ บัญชีจึงได้สิทธิ์ของกลุ่ม
 
 สคริปต์ทำงานตามลำดับนี้
 
-1. ตรวจเซิร์ฟเวอร์ก่อนเปลี่ยนอะไร ได้แก่ สิทธิ์ root, Ubuntu 24.04, `amd64` หรือ `arm64`, systemd 235 ขึ้นไป, บัญชีผู้ใช้ที่จะรัน TomeCMS, ที่อยู่ทั้งสอง และดูว่าพอร์ต 80 กับ 443 ไม่มีโปรแกรมอื่นนอกจาก Caddy ใช้อยู่ ถ้าเจอปัญหาจะแสดงทุกข้อแล้วหยุด
+1. ตรวจเซิร์ฟเวอร์ก่อนเปลี่ยนอะไร ได้แก่ สิทธิ์ root, Ubuntu 24.04, `amd64` หรือ `arm64`, systemd 235 ขึ้นไป, บัญชีผู้ใช้ถ้าคุณระบุไว้, ที่อยู่ทั้งสอง และดูว่าพอร์ต 80 กับ 443 ไม่มีโปรแกรมอื่นนอกจาก Caddy ใช้อยู่ ถ้าเจอปัญหาจะแสดงทุกข้อแล้วหยุด
 2. ติดตั้ง `ca-certificates`, `curl`, `git` และ `gnupg`
 3. ถ้าใส่ `--create-user` จะสร้างบัญชีผู้ใช้แบบไม่มีรหัสผ่าน แล้วให้ใช้ SSH key ชุดเดียวกับของ root โดย key แต่ละตัวยังมี option เดิม เช่น `from=` ยกเว้นคำสั่ง "log in as ubuntu" ที่ cloud image ใส่ไว้หน้า key ของ root ซึ่งจะถูกตัดออก
-4. ติดตั้ง Docker Engine และปลั๊กอิน Compose จาก apt repository ของ Docker เอง เปิด Docker และเพิ่มบัญชีผู้ใช้เข้ากลุ่ม `docker` ถ้าเครื่องมี Docker ที่ใช้ Compose ได้อยู่แล้ว สคริปต์จะใช้ตัวเดิม
+4. ติดตั้ง Docker Engine และปลั๊กอิน Compose จาก apt repository ของ Docker เอง เปิด Docker และเพิ่มบัญชีผู้ใช้เข้ากลุ่ม `docker` ถ้ามีบัญชีนั้น ถ้าเครื่องมี Docker ที่ใช้ Compose ได้อยู่แล้ว สคริปต์จะใช้ตัวเดิม
 5. ติดตั้ง Node.js 22 จาก apt repository ของ NodeSource ไว้ที่ `/usr/bin/node` เว้นแต่ตัวที่อยู่ตรงนั้นเป็น 22.12 ขึ้นไปแล้ว
 6. ติดตั้ง GitHub CLI จาก apt repository ของ GitHub การติดตั้งแบบ managed ตั้งแต่ 1.0.0 ใช้มันตรวจสิ่งที่ดาวน์โหลดมา
 7. ถ้าหน่วยความจำน้อยกว่า 4 GB และยังไม่มี swap จะสร้างไฟล์ swap ขนาด 2 GB หรือตามที่ระบุใน `--swap-size`
 8. อนุญาต SSH ก่อน ตามด้วยพอร์ต 80 และ 443 ใน `ufw` แล้วเปิด `ufw` สคริปต์อ่านพอร์ต SSH จากการตั้งค่าของ SSH server เอง และไม่แก้การตั้งค่านั้น
 9. ติดตั้ง Caddy และเขียน `/etc/caddy/Caddyfile` สำหรับทั้งสอง origin
 10. ค้นชื่อโฮสต์ทั้งสองแล้วพิมพ์ที่อยู่ที่ชี้ไป ให้คุณเทียบกับที่อยู่ของเซิร์ฟเวอร์
-11. พิมพ์คำสั่งสำหรับติดตั้ง TomeCMS
+11. พิมพ์คำสั่งสำหรับติดตั้ง TomeCMS โดยให้รันจากโฟลเดอร์เดียวกัน เมื่อสคริปต์รันจากโค้ดที่ clone มาจาก tag ของ release
 
 ทุกขั้นตอนจะบอกว่าเปลี่ยนอะไรไป หรือพบว่าทำไว้แล้ว จึงรันสคริปต์ซ้ำได้อย่างปลอดภัย ถ้า apt repository ของ Docker, NodeSource, GitHub หรือ Caddy ตั้งไว้ด้วยวิธีอื่นอยู่แล้ว สคริปต์จะใช้แหล่งเดิม ไม่เพิ่มซ้ำอีกแหล่ง ก่อนเพิ่มแหล่งใหม่ สคริปต์จะเทียบ key ที่ใช้เซ็นของแต่ละเจ้ากับ fingerprint ที่เจ้านั้นประกาศไว้ ถ้า key ที่ดาวน์โหลดมาไม่ตรงจะหยุดทันที
 
@@ -66,7 +63,7 @@ sudo ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url http
 | --- | --- |
 | `--cms-url <url>` | origin ของ CMS เช่น `https://cms.example.com` ถ้าไม่ใส่ สคริปต์จะอ่านจาก `TOME_CMS_PUBLIC_URL` |
 | `--media-url <url>` | origin ของมีเดีย เช่น `https://media.example.com` ถ้าไม่ใส่ สคริปต์จะอ่านจาก `S3_ENDPOINT` |
-| `--user <name>` | บัญชีผู้ใช้ที่จะรันสคริปต์ deploy และเข้ากลุ่ม `docker` ถ้าไม่ใส่ จะใช้บัญชีที่สั่ง `sudo` |
+| `--user <name>` | บัญชีผู้ใช้ที่จะเพิ่มเข้ากลุ่ม `docker` สำหรับการติดตั้งแบบ build จากซอร์สโค้ด ถ้าไม่ใส่ จะใช้บัญชีที่สั่ง `sudo` และถ้า root เป็นคนรัน จะไม่เพิ่มบัญชีไหนเลย |
 | `--create-user` | สร้างบัญชีผู้ใช้นั้นถ้ายังไม่มี |
 | `--no-firewall` | ไม่แตะไฟร์วอลล์ |
 | `--no-proxy` | ไม่ติดตั้ง proxy สำหรับเซิร์ฟเวอร์ที่มีอยู่แล้ว เมื่อใช้ตัวเลือกนี้ไม่ต้องใส่ที่อยู่ |
@@ -121,7 +118,7 @@ sudo /usr/local/sbin/tomecms-first-boot
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.1
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.2
 ```
 
 ตัวติดตั้งไม่ยอมรันทับการติดตั้งที่มันเริ่มไว้แล้ว ถ้ามันหยุดไปหลังจากเขียนไฟล์แล้ว หน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed) บอกว่าต้องทำอะไรแทน

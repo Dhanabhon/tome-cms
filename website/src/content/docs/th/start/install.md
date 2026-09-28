@@ -13,12 +13,17 @@ sidebar:
 
 ## 1. ดึง release ลงเครื่อง
 
-ในฐานะ root ให้ clone tag ของ release แล้วติดตั้ง package ของมัน
+ในฐานะ root ให้ติดตั้ง package ของ release ในโฟลเดอร์ที่หน้า[เตรียมเซิร์ฟเวอร์ใหม่](/tome-cms/th/start/prepare-server/) clone ไว้
 
 ```sh
-git clone --depth 1 --branch v1.0.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 npm ci
+```
+
+ถ้าเตรียมเซิร์ฟเวอร์ด้วยวิธีอื่น ให้ clone tag ของ release ไว้ที่นั่นก่อน
+
+```sh
+git clone --depth 1 --branch v1.0.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 ```
 
 ใช้เวอร์ชันล่าสุดจาก[หน้า Releases](https://github.com/Dhanabhon/tome-cms/releases) ทั้งที่นี่และในคำสั่งด้านล่าง ตัวติดตั้งทำงานได้เฉพาะจากโค้ดที่ checkout ไว้ตรง tag นั้นพอดีและไม่มีอะไรถูกแก้ และ build ตัวอัปเดตด้วย package ที่ `npm ci` ติดตั้งไว้ อย่าลบโฟลเดอร์นี้ทิ้ง เพราะการตรวจการกู้คืนในหน้า[สำรองและกู้คืนข้อมูล](/tome-cms/th/running/backups/) รันจากโค้ดที่ checkout ไว้ที่ release เดียวกัน
@@ -38,11 +43,11 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ลองด้วย `--dry-run` ก่อน แล้วจึงติดตั้งจริง
 
 ```sh
-./scripts/install-managed-vps.sh --dry-run --version 1.0.1
-./scripts/install-managed-vps.sh --version 1.0.1
+./scripts/install-managed-vps.sh --dry-run --version 1.0.2
+./scripts/install-managed-vps.sh --version 1.0.2
 ```
 
-ถ้ารันจากบัญชีธรรมดา ให้ส่งที่อยู่ทั้งสามผ่าน `sudo` ไปด้วยคำสั่ง `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.1`
+ถ้ารันจากบัญชีธรรมดา ให้ส่งที่อยู่ทั้งสามผ่าน `sudo` ไปด้วยคำสั่ง `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.2`
 
 ตัวติดตั้งทำงานตามลำดับนี้ และหยุดทันทีที่ขั้นไหนไม่ผ่าน
 
@@ -61,7 +66,7 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ```text
 Installer: https://cms.example.com/install
 Installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
-Current version: 1.0.1
+Current version: 1.0.2
 Backups: /var/backups/tome-cms
 ```
 
@@ -103,6 +108,8 @@ curl -s https://cms.example.com/health/ready
 | `TOME_CMS_PUBLIC_URL requires a browser-reachable public host; local or special-use address forms are not allowed.` | ใช้ชื่อโฮสต์สาธารณะที่ DNS ชี้มาที่เซิร์ฟเวอร์ ไม่ใช่ IP หรือชื่อในเครื่อง |
 
 ถ้าหยุดหลังจากเขียนไฟล์ไปแล้ว ตัวติดตั้งจะพิมพ์ `Managed installation failed; inspect the private diagnostics.` เก็บการตั้งค่า ข้อมูล และ log ไว้ แล้วพิมพ์คำสั่งสำหรับดู log ออกมา หน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed) บอกว่าต้องทำอะไรต่อ
+
+หน้า[แก้ปัญหา](/tome-cms/th/running/troubleshooting/)มีข้อความอื่น ๆ อีก ตั้งแต่ตอนติดตั้งไปจนถึงตอนอัปโหลดไฟล์ พร้อมความหมายของแต่ละข้อความ
 
 ## ย้ายมาจาก 0.x
 

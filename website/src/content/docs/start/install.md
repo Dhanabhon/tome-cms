@@ -13,12 +13,17 @@ On a new Ubuntu 24.04 server, [Preparing a new server](/tome-cms/start/prepare-s
 
 ## 1. Get the release
 
-As root, clone the release's tag and install its packages:
+As root, in the folder [Preparing a new server](/tome-cms/start/prepare-server/) cloned, install the release's packages:
 
 ```sh
-git clone --depth 1 --branch v1.0.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 npm ci
+```
+
+On a server you prepared another way, clone the release's tag there first:
+
+```sh
+git clone --depth 1 --branch v1.0.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 ```
 
 Use the latest version from the [Releases page](https://github.com/Dhanabhon/tome-cms/releases), here and in the commands below. The installer works only from a clean checkout of that exact tag, and builds the updater with the packages `npm ci` installs. Keep the folder: the restore check on the [backups](/tome-cms/running/backups/) page runs from a checkout of the same release.
@@ -38,11 +43,11 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 Try it first with `--dry-run`, then install:
 
 ```sh
-./scripts/install-managed-vps.sh --dry-run --version 1.0.1
-./scripts/install-managed-vps.sh --version 1.0.1
+./scripts/install-managed-vps.sh --dry-run --version 1.0.2
+./scripts/install-managed-vps.sh --version 1.0.2
 ```
 
-From an ordinary account, keep the addresses through `sudo` with `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.1`.
+From an ordinary account, keep the addresses through `sudo` with `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.2`.
 
 The installer works through these steps and stops at the first one that fails:
 
@@ -61,7 +66,7 @@ The end of its output looks like this:
 ```text
 Installer: https://cms.example.com/install
 Installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
-Current version: 1.0.1
+Current version: 1.0.2
 Backups: /var/backups/tome-cms
 ```
 
@@ -103,6 +108,8 @@ It prints one line that says what is wrong. Until it has written its files, it a
 | `TOME_CMS_PUBLIC_URL requires a browser-reachable public host; local or special-use address forms are not allowed.` | Use the public host name that DNS points at the server, not an IP address or a local name. |
 
 If it stops after writing its files, it says `Managed installation failed; inspect the private diagnostics.`, keeps the configuration, the data and the logs, and prints the command that shows the logs. [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) covers what to do next.
+
+[Troubleshooting](/tome-cms/running/troubleshooting/) has more messages, from installing to uploading a file, with what each one means.
 
 ## Moving from 0.x
 

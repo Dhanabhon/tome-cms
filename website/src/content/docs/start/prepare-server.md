@@ -24,39 +24,36 @@ There are two ways to use it:
 
 ## Run the script
 
-On the server, get the code and run the script as root:
+Work as root. On a server that logs you in as another account, run `sudo -i` first. Get the release once, into the folder the install uses as well, and run the script from it:
 
 ```sh
-git clone https://github.com/Dhanabhon/tome-cms.git
-cd tome-cms
-sudo ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
+git clone --depth 1 --branch v1.0.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+cd /opt/tome-cms-src
+./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
 ```
 
-Add `--dry-run` the first time to see what it would do. A dry run checks the server and prints each step, and changes nothing.
+Use the latest version from the [Releases page](https://github.com/Dhanabhon/tome-cms/releases). Add `--dry-run` the first time to see what the script would do. A dry run checks the server and prints each step, and changes nothing. When it is done, go on with [Installing on a VPS](/tome-cms/start/install/) in the same folder: there is nothing to clone again.
 
-### Logged in as root
+### An account for SSH or a build from source
 
-Run through `sudo`, the script adds the account that ran it to the `docker` group. Logged in as root directly, there is no such account, so the script stops until you name one. Many new servers let you in only as root. Have the script create an account called `tomecms`:
+The managed install runs as root and needs no other account. Two cases want one:
 
-```sh
-./scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
-```
-
-The new account has root's SSH keys, so `ssh tomecms@your-server` works as well. The managed install runs as root, so stay root and go on with [Installing on a VPS](/tome-cms/start/install/). Only [a build from source](/tome-cms/start/install/#building-from-source) runs as `tomecms`. For that, switch to it with `sudo -iu tomecms`, which starts a new login so that the `docker` group applies, and clone the code again there, since the account cannot read root's copy.
+- **To stop logging in as root.** `--create-user --user tomecms` creates an account with no password and root's SSH keys, so `ssh tomecms@your-server` works.
+- **For [a build from source](/tome-cms/start/install/#building-from-source).** The deploy helper runs as an account in the `docker` group. `--user <name>` adds one, and so does running the script through `sudo`, which adds the account that ran it. Switch to it with `sudo -iu <name>`, which starts a new login so that the group applies.
 
 The script works through these steps:
 
-1. It checks the server before it changes anything: root, Ubuntu 24.04, `amd64` or `arm64`, systemd 235 or later, the account that will run TomeCMS, both addresses, and that nothing but Caddy holds ports 80 and 443. It lists every problem it finds, then stops.
+1. It checks the server before it changes anything: root, Ubuntu 24.04, `amd64` or `arm64`, systemd 235 or later, the account if you named one, both addresses, and that nothing but Caddy holds ports 80 and 443. It lists every problem it finds, then stops.
 2. It installs `ca-certificates`, `curl`, `git` and `gnupg`.
 3. With `--create-user`, it creates the account, with no password, and gives it the SSH keys root has. Each key keeps its options, such as `from=`, except the "log in as ubuntu" command a cloud image puts in front of root's keys, which is dropped.
-4. It installs Docker Engine and its Compose plugin from Docker's own apt repository, starts Docker, and adds the account to the `docker` group. A Docker that already has Compose is kept.
+4. It installs Docker Engine and its Compose plugin from Docker's own apt repository, starts Docker, and adds the account, if there is one, to the `docker` group. A Docker that already has Compose is kept.
 5. It installs Node.js 22 from NodeSource's apt repository at `/usr/bin/node`, unless that is already 22.12 or later.
 6. It installs the GitHub CLI from GitHub's apt repository. The managed install from 1.0.0 uses it to check what it downloads.
 7. With less than 4 GB of memory and no swap, it creates a swap file of 2 GB, or of the size `--swap-size` gives.
 8. It allows SSH, then ports 80 and 443, in `ufw`, and turns `ufw` on. It reads the SSH port from the SSH server's settings, and never changes those settings.
 9. It installs Caddy and writes `/etc/caddy/Caddyfile` for the two origins.
 10. It looks up both host names and prints the addresses they point at, for you to compare with the server's.
-11. It prints the commands that install TomeCMS.
+11. It prints the commands that install TomeCMS, from the same folder when it runs from a clone of the release tag.
 
 Each step says whether it changed something or found it done, so running the script again is safe. If Docker's, NodeSource's, GitHub's or Caddy's apt repository is already set up some other way, the script keeps that source rather than add a second one. Before it adds one, it checks the vendor's signing key against the fingerprint the vendor publishes, and stops if the key it downloaded is a different one.
 
@@ -66,7 +63,7 @@ Each step says whether it changed something or found it done, so running the scr
 | --- | --- |
 | `--cms-url <url>` | The CMS origin, such as `https://cms.example.com`. Without it, the script reads `TOME_CMS_PUBLIC_URL`. |
 | `--media-url <url>` | The media origin, such as `https://media.example.com`. Without it, the script reads `S3_ENDPOINT`. |
-| `--user <name>` | The account that will run the deploy helper. It joins the `docker` group. Without it, the script uses the account that ran `sudo`. |
+| `--user <name>` | An account to add to the `docker` group, for a build from source. Without it, the script uses the account that ran `sudo`, and run by root it adds none. |
 | `--create-user` | Creates that account if it does not exist. |
 | `--no-firewall` | Leaves the firewall alone. |
 | `--no-proxy` | Installs no proxy, for a server that has one already. The addresses are then not needed. |
@@ -121,7 +118,7 @@ To run one step by hand instead, use the commands it runs:
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.1
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.2
 ```
 
 The installer refuses to run over an install it already started. If it stopped after writing its files, [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) says what to do instead.
