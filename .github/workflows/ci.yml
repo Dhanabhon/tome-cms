@@ -64,6 +64,13 @@ jobs:
       - name: Run the managed update harness
         run: npm run test:operations:update
 
+      # The installer and the updater list an image's migrations in a locked-down container.
+      # That step failed on every server in 1.0.0, because nothing ran it against a real image.
+      - name: Build the application image and list its migrations
+        run: |
+          docker build -t tomecms-ci .
+          npm run check:inventory -- tomecms-ci
+
       # The browser gate ran nowhere until 2026-09-20, which is how a sign-in that could
       # never succeed passed check, test:unit, build and the integration suite on its way
       # out. passkey-sign-in brings up its own disposable Postgres and SeaweedFS the same

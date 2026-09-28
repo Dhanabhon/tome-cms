@@ -31,6 +31,7 @@
     "test:integration:foundation": "node scripts/test-foundation.mjs",
     "test:integration": "node scripts/test-foundation.mjs --all",
     "test:operations": "node --import tsx --test tests/operations/fresh-install.test.ts",
+    "check:inventory": "node --import tsx scripts/check-migration-inventory.ts",
     "test:operations:update": "node --import tsx --test tests/operations/managed-update.test.ts",
     "astro": "astro",
     "fonts:sync": "node scripts/sync-fonts.mjs",
