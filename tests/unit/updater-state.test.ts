@@ -129,3 +129,32 @@ test('refreshes runtime mirror from durable state without changing installed or 
   const after = [await stat(installedPath), await stat(jobPath)];
   assert.deepEqual(after.map((value) => [value.ino, value.mtimeMs]), before.map((value) => [value.ino, value.mtimeMs]));
 });
+
+test('only a failure from before its backup can be cleared, and the job is kept aside', async () => {
+  const { stateDirectory, statusPath, store } = await fixture();
+  await store.writeInstalled(installed);
+  await assert.rejects(() => store.clearUnstartedFailure(), /no update job/i);
+
+  const running = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  await assert.rejects(() => store.clearUnstartedFailure(), /only a failed update/i);
+
+  // Stopped before the backup: the database and the image are as they were, so it may go.
+  await store.transitionJob(running.id, 'failed_manual_recovery');
+  const cleared = await store.clearUnstartedFailure();
+  assert.equal(cleared.id, running.id);
+  assert.equal(await store.readJob(), null);
+  assert.equal(JSON.parse(await readFile(join(stateDirectory, `job.json.cleared-${running.id}`), 'utf8')).id, running.id);
+  assert.equal(JSON.parse(await readFile(statusPath, 'utf8')).job, null);
+  await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+});
+
+test('a failure after its backup is never cleared', async () => {
+  const { store } = await fixture();
+  await store.writeInstalled(installed);
+  const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  for (const phase of ['verifying', 'downloading', 'quiescing', 'backing_up'] as UpdatePhase[]) await store.transitionJob(job.id, phase);
+  await store.recordBackup(job.id, { backupDirectory: '/var/backups/tome-cms/b', backupCreatedAt: '2026-09-28T08:00:00.000Z' });
+  await store.transitionJob(job.id, 'failed_manual_recovery');
+  await assert.rejects(() => store.clearUnstartedFailure(), /backup/i);
+  assert.equal((await store.readJob())?.phase, 'failed_manual_recovery');
+});

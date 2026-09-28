@@ -54,6 +54,11 @@ export interface UpdaterStateStore {
   transitionJob(id: string, phase: UpdatePhase, patch?: Partial<Pick<UpdateJob,
     'targetImageDigest' | 'finishedAt' | 'errorCode' | 'backupDirectory' | 'backupCreatedAt'
   >>): Promise<UpdateJob>;
+  /**
+   * Operator-only: sets aside a failed job that stopped before its backup, which is recorded before
+   * any migration or image switch, so the database and the running image are as they were.
+   */
+  clearUnstartedFailure(): Promise<UpdateJob>;
 }
 
 const phases: readonly UpdatePhase[] = [
@@ -175,6 +180,21 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         };
         await atomicJson(jobPath, job, 0o600);
         await writeStatus(installed, job);
+        return job;
+      });
+    },
+    clearUnstartedFailure() {
+      return exclusive(async () => {
+        const job = await readJob();
+        if (!job) throw new Error('There is no update job to clear.');
+        if (job.phase !== 'failed_manual_recovery') throw new Error('Only a failed update can be cleared.');
+        if (job.backupDirectory !== null || job.backupCreatedAt !== null) {
+          throw new Error('This update made a backup before it failed, so it may have changed the database. Follow the recovery steps instead.');
+        }
+        const installed = await readInstalled();
+        if (installed.imageDigest !== job.previousImageDigest) throw new Error('The installed image is not the one from before this update.');
+        await rename(jobPath, `${jobPath}.cleared-${job.id}`);
+        await writeStatus(installed, null);
         return job;
       });
     },
