@@ -149,7 +149,8 @@ export async function saveMediaDraft(id: string, draft: MediaDraft): Promise<Med
 }
 
 export async function deleteMedia(id: string): Promise<void> {
-  await readJson(await fetch(`/api/admin/media/${id}`, { method: 'DELETE' }));
+  // No body, but a content type: without one, Astro refuses it behind an HTTPS proxy.
+  await readJson(await fetch(`/api/admin/media/${id}`, { headers: { 'content-type': 'application/json' }, method: 'DELETE' }));
 }
 
 export async function listMedia(input: ListMediaInput = {}): Promise<MediaPage> {

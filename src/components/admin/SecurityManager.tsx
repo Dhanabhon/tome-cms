@@ -163,7 +163,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     try {
       const assertion = await authClient.signIn.passkey();
       if (assertion.error || !assertion.data) throw new Error(describePasskeyFailure(assertion, copy, copy.security.codesUnchangedNoPasskey, copy.auth.passkeyNotRegistered));
-      const response = await fetch('/api/admin/security/recovery-codes', { method: 'POST' });
+      const response = await fetch('/api/admin/security/recovery-codes', { headers: { 'content-type': 'application/json' }, method: 'POST' });
       const payload = await responsePayload(response);
       const codes = Array.isArray(payload.recoveryCodes)
         ? payload.recoveryCodes.filter((code): code is string => typeof code === 'string')

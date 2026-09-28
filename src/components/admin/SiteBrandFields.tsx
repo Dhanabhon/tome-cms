@@ -54,7 +54,7 @@ export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChang
     try {
       const response = await atLeast(fetch(`/api/admin/brand/${kind}`, action === 'upload'
         ? { body: file, headers: { 'content-type': file?.type || 'application/octet-stream' }, method: 'POST' }
-        : { method: 'DELETE' }));
+        : { headers: { 'content-type': 'application/json' }, method: 'DELETE' }));
       const result = await response.json().catch(() => ({})) as { brand?: SiteBrand; code?: string; updatedAt?: string };
       if (!response.ok || !result.brand || !result.updatedAt) {
         const refusal = result.code ? REFUSALS[result.code] : undefined;
