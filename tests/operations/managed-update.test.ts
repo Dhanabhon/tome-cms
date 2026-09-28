@@ -106,6 +106,7 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
       assert.deepEqual(getUpdateInstallability('check-only'), {
         mode: 'check-only', installable: false,
         reason: 'This installation is configured for update checks only.',
+        code: 'check-only',
       });
       await assert.rejects(lstat(socketPath), { code: 'ENOENT' });
     });
