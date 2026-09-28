@@ -50,6 +50,8 @@ The OpenAPI document does not describe the nodes inside `contentJson`, so here i
 
 The node holds no address. Build any you need from `provider` and `videoId`.
 
+In `contentHtml` a writer's text colour is a `span` with one of six classes: `tome-color-red`, `tome-color-orange`, `tome-color-green`, `tome-color-blue`, `tome-color-purple` and `tome-color-grey`. The class names the colour and carries no value, so give each a colour of your own, ideally one for a light background and one for a dark one. Without that CSS the words keep the colour of the text around them.
+
 In `contentHtml` a video is a `figure.tome-video`. Its link, `a.tome-video__play`, opens the clip on YouTube or Vimeo. The link holds the poster and a `span.tome-video__title` meant for screen readers, which the bundled site hides from sight, so hide it in your own styles too. The `figcaption` names the clip and its provider:
 
 ```html

@@ -29,7 +29,7 @@ The editor saves on its own a moment after you stop typing, once the post has a 
 
 ## Adding blocks
 
-Type `/` at the start of a line, or after a space, and a menu opens: "Heading 2", "Heading 3", "Bullet list", "Code block", "Quote", "Table", "File" and "Video". Keep typing to narrow it, and press Enter to choose.
+Type `/` at the start of a line, or after a space, and a menu opens: "Heading 2", "Heading 3", "Bullet list", "Numbered list", "Code block", "Quote", "Table", "File" and "Video". Keep typing to narrow it, and press Enter to choose.
 
 The "+" button beside the line you are on ("Add block") opens the longer list. It has "Text" and "Heading 1" as well, and "Image". Use the arrow keys and Enter, or click.
 
@@ -37,7 +37,9 @@ A new table has three rows and three columns, the first row a header. While the 
 
 ## Formatting words
 
-Select some words and a bar appears over them: "Bold", "Italic", "Link" and "Inline code", then "Align left", "Align center" and "Align right". Alignment applies to whole lines, or to the table cells the cursor is in.
+Select some words and a bar appears over them: "Bold", "Italic", "Underline", "Strikethrough", "Link", "Inline code" and "Text colour", then "Align left", "Align center" and "Align right". Alignment applies to whole lines, or to the table cells the cursor is in. Ctrl+U (⌘U on a Mac) underlines and Ctrl+Shift+S (⌘⇧S) strikes through as well.
+
+"Text colour" opens a row of swatches under the bar: "Default", "Red", "Orange", "Green", "Blue", "Purple" and "Grey". A colour is saved by its name, and the theme gives each one a shade for light mode and another for dark mode, so coloured words stay readable when a reader's screen is dark. "Default" takes the colour off.
 
 "Link" opens "Add a link". Paste an `http` or `https` URL into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To take a link off, select the linked words and press "Link" again.
 

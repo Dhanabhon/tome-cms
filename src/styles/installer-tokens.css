@@ -54,6 +54,16 @@
   --color-error-ink: oklch(44% 0.17 20);
   --color-error-soft: color-mix(in oklch, var(--color-error) 10%, var(--color-paper));
 
+  /* The writer's text colours, chosen in the editor by name (src/lib/text-colors.ts). Each is
+   * at least 4.5:1 against --color-paper and --color-paper-2; green sits at hue 135, clear of
+   * the link's 162, so coloured text does not read as a link. */
+  --color-text-red: oklch(52% 0.18 25);
+  --color-text-orange: oklch(55% 0.12 55);
+  --color-text-green: oklch(50% 0.13 135);
+  --color-text-blue: oklch(50% 0.16 255);
+  --color-text-purple: oklch(50% 0.17 305);
+  --color-text-grey: oklch(50% 0.012 240);
+
   /* Surfaces that are dark on purpose, and the text that sits on them. */
   --color-auth-ink: oklch(22.4% 0.0107 151.27);
   --color-code-bg: oklch(22.4% 0.0107 151.27);
@@ -157,6 +167,12 @@
 
     --color-error: oklch(70% 0.17 20);
     --color-error-ink: oklch(78% 0.13 20);
+    --color-text-red: oklch(76% 0.13 25);
+    --color-text-orange: oklch(79% 0.12 60);
+    --color-text-green: oklch(80% 0.13 135);
+    --color-text-blue: oklch(76% 0.11 250);
+    --color-text-purple: oklch(77% 0.12 305);
+    --color-text-grey: oklch(76% 0.012 240);
     --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
     --color-auth-ink: oklch(100% 0 0);
@@ -201,6 +217,12 @@
 
   --color-error: oklch(70% 0.17 20);
   --color-error-ink: oklch(78% 0.13 20);
+  --color-text-red: oklch(76% 0.13 25);
+  --color-text-orange: oklch(79% 0.12 60);
+  --color-text-green: oklch(80% 0.13 135);
+  --color-text-blue: oklch(76% 0.11 250);
+  --color-text-purple: oklch(77% 0.12 305);
+  --color-text-grey: oklch(76% 0.012 240);
   --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
   --color-auth-ink: oklch(100% 0 0);

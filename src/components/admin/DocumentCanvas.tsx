@@ -6,10 +6,11 @@ import { CellSelection } from '@tiptap/pm/tables';
 import { EditorContent, EditorContext, useCurrentEditor, useEditor, useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
-import { type ReactNode, useMemo, useRef } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 
 import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { textAlign } from '../../lib/editor-align';
+import { TEXT_COLORS, textColor, type TextColor } from '../../lib/editor-color';
 import { attachment, attachmentMeta } from '../../lib/editor-attachment';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
@@ -119,7 +120,6 @@ const buildExtensions = (copy: AdminCopy) => [
     // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
     // one. A post that ends in a quote or a table would store a paragraph it never had.
     trailingNode: false,
-    underline: false,
   }),
   // includeChildren is what puts the hint inside an empty heading or list item, not only in an
   // empty document. The removed editor package set it; now it is said here.
@@ -132,6 +132,7 @@ const buildExtensions = (copy: AdminCopy) => [
   editorImage,
   ...tableExtensions,
   textAlign,
+  textColor,
   editorAttachment,
   editorVideo,
   createSlashCommand(copy),
@@ -155,10 +156,15 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
     selector: ({ editor: instance }) => ({
       bold: instance?.isActive('bold') ?? false,
       code: instance?.isActive('code') ?? false,
+      color: (instance?.getAttributes('textColor').color as TextColor | undefined) ?? null,
       italic: instance?.isActive('italic') ?? false,
       link: instance?.isActive('link') ?? false,
+      strike: instance?.isActive('strike') ?? false,
+      underline: instance?.isActive('underline') ?? false,
     }),
   });
+  // The swatches open as a second row inside the bubble, which clips anything that pops out of it.
+  const [colorsOpen, setColorsOpen] = useState(false);
   if (!editor || !active) return null;
 
   const actions: Array<{
@@ -169,6 +175,8 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
   }> = [
     { active: active.bold, label: copy.blocks.bold, text: 'B', run: (instance) => void instance.chain().focus().toggleBold().run() },
     { active: active.italic, label: copy.blocks.italic, text: 'I', run: (instance) => void instance.chain().focus().toggleItalic().run() },
+    { active: active.underline, label: copy.blocks.underline, text: <span className="underline">U</span>, run: (instance) => void instance.chain().focus().toggleUnderline().run() },
+    { active: active.strike, label: copy.blocks.strike, text: <span className="line-through">S</span>, run: (instance) => void instance.chain().focus().toggleStrike().run() },
     {
       active: active.link,
       label: copy.blocks.link,
@@ -200,12 +208,17 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
 
   return (
     <BubbleMenu
-      className="editor-menu flex overflow-hidden rounded-md border border-line bg-surface p-1 font-sans"
+      className="editor-menu flex flex-col overflow-hidden rounded-md border border-line bg-surface p-1 font-sans"
       editor={editor}
       // Less cells chosen together: those bring the table's bar instead.
       shouldShow={({ editor: instance, state: { selection } }) => instance.isEditable && !instance.isActive('image')
         && !selection.empty && !isNodeSelection(selection) && !(selection instanceof CellSelection)}
+      // The editor keeps the cursor and the selection, as the slash menu does: a button that took
+      // focus left the next keys going nowhere, after B as much as after U.
+      onMouseDown={(event) => { if ((event.target as Element).closest('button')) event.preventDefault(); }}
+      options={{ onHide: () => setColorsOpen(false) }}
     >
+      <div className="flex">
       {actions.map((action) => (
         <button
           aria-label={action.label}
@@ -218,8 +231,43 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
           {action.text}
         </button>
       ))}
+      <button
+        aria-expanded={colorsOpen}
+        aria-label={copy.blocks.textColor}
+        className={`flex h-8 min-w-9 flex-col items-center justify-center rounded px-2 text-sm font-semibold hover:bg-soft ${colorsOpen ? 'bg-soft' : ''}`}
+        onClick={() => setColorsOpen((open) => !open)}
+        type="button"
+      >
+        <span className={active.color ? `tome-color-${active.color}` : 'text-ink'}>A</span>
+        <span aria-hidden="true" className="editor-color-bar" style={{ background: active.color ? `var(--color-text-${active.color})` : 'var(--color-ink)' }} />
+      </button>
       <span aria-hidden="true" className="mx-1 w-px self-stretch bg-line" />
       <AlignButtons copy={copy} />
+      </div>
+      {colorsOpen && (
+        <div aria-label={copy.blocks.textColor} className="flex gap-1 border-t border-line px-1 pt-1" role="group">
+          <button
+            aria-label={copy.blocks.textColorDefault}
+            aria-pressed={active.color === null}
+            className="editor-swatch editor-swatch--default"
+            onClick={() => { editor.chain().focus().unsetTextColor().run(); setColorsOpen(false); }}
+            title={copy.blocks.textColorDefault}
+            type="button"
+          />
+          {TEXT_COLORS.map((color) => (
+            <button
+              aria-label={copy.blocks.textColorNames[color]}
+              aria-pressed={active.color === color}
+              className="editor-swatch"
+              key={color}
+              onClick={() => { editor.chain().focus().setTextColor(color).run(); setColorsOpen(false); }}
+              style={{ background: `var(--color-text-${color})` }}
+              title={copy.blocks.textColorNames[color]}
+              type="button"
+            />
+          ))}
+        </div>
+      )}
     </BubbleMenu>
   );
 }

@@ -50,6 +50,8 @@ const { data: post } = await (await fetch(url)).json();
 
 node นี้ไม่เก็บที่อยู่ URL ไว้ ถ้าต้องใช้ ให้สร้างจาก `provider` กับ `videoId`
 
+ใน `contentHtml` สีตัวอักษรที่ผู้เขียนเลือกคือ `span` ที่มีคลาสใดคลาสหนึ่งในหกคลาสนี้ `tome-color-red` `tome-color-orange` `tome-color-green` `tome-color-blue` `tome-color-purple` และ `tome-color-grey` คลาสบอกแค่ชื่อสี ไม่มีค่าสีมาด้วย เว็บของคุณจึงต้องกำหนดสีให้แต่ละคลาสเอง ควรมีทั้งสีสำหรับพื้นหลังสว่างและพื้นหลังมืด ถ้าไม่มี CSS นี้ ข้อความจะเป็นสีเดียวกับข้อความรอบข้าง
+
 ใน `contentHtml` วิดีโอคือ `figure.tome-video` ลิงก์ข้างใน คือ `a.tome-video__play` เปิดคลิปบน YouTube หรือ Vimeo ในลิงก์มีภาพปก และมี `span.tome-video__title` ไว้ให้โปรแกรมอ่านหน้าจออ่าน เว็บแบบ bundled ซ่อนส่วนนี้ไม่ให้เห็นบนจอ เว็บของคุณก็ควรซ่อนด้วยสไตล์ของตัวเองเช่นกัน ส่วน `figcaption` บอกชื่อคลิปและผู้ให้บริการ
 
 ```html

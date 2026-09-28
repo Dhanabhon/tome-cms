@@ -147,6 +147,7 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
     { icon: 'heading2', label: copy.blocks.heading2, run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
     { icon: 'heading3', label: copy.blocks.heading3, run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
     { icon: 'list', label: copy.blocks.bulletList, run: () => editor.chain().focus().toggleBulletList().run() },
+    { icon: 'listOrdered', label: copy.blocks.numberedList, run: () => editor.chain().focus().toggleOrderedList().run() },
     { icon: 'quote', label: copy.blocks.quote, run: () => editor.chain().focus().toggleBlockquote().run() },
     { icon: 'code', label: copy.blocks.codeBlock, run: () => editor.chain().focus().toggleCodeBlock().run() },
     // Not inside a table: a table in a cell is one nobody meant to make.

@@ -135,6 +135,12 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   // rather than a dot beside ink, so it is held to the ratio text is held to.
   ['color-focus', 'color-status-ok', 4.5],
 
+  // A writer's text colours, read as text on the page and on a card, in either mode.
+  ...['red', 'orange', 'green', 'blue', 'purple', 'grey'].flatMap((name) => [
+    [`color-text-${name}`, 'color-paper', 4.5],
+    [`color-text-${name}`, 'color-paper-2', 4.5],
+  ] as const),
+
   ['color-error-ink', 'color-paper', 4.5],
   ['color-error-ink', 'color-surface', 4.5],
   ['color-error', 'color-paper', 3],

@@ -142,6 +142,23 @@ value below.
 | #B9D8C8 | `--color-focus-soft` | selection and soft focus washes |
 | #69B98E | dark-mode accent, link, focus and positive state | light green that remains readable on night |
 
+### Text colours a writer chooses
+
+The editor offers six colours by name, stored as `class="tome-color-<name>"`, never as a
+value. Each has a light and a dark shade, so a colour chosen on a light screen stays
+readable on a dark one, and a theme can restyle them. Every shade holds **4.5** against
+both page surfaces in its mode, which `tests/unit/theme-contrast.test.ts` pins. Green sits
+at hue 135, clear of the link's 162, so coloured text does not read as a link.
+
+| Light | Dark | Token | Name |
+|-------|------|-------|------|
+| #BA2B2E | #F98F87 | `--color-text-red` | red |
+| #A65C20 | #F3A768 | `--color-text-orange` | orange |
+| #40731A | #99D079 | `--color-text-green` | green |
+| #0961BB | #79B6F4 | `--color-text-blue` | blue |
+| #7A41AF | #C6A0F2 | `--color-text-purple` | purple |
+| #5D646A | #ABB2B8 | `--color-text-grey` | grey |
+
 Note the token names: `--color-paper` is the **panel**, not the page. The page is
 `--color-paper-2`. That is how the stylesheets already used them, and renaming across
 every component to fix the numbering would be a larger change than it is worth.

@@ -349,3 +349,39 @@ test('the sanitizer drops a raw iframe and script inside a video figure', () => 
   assert.doesNotMatch(clean, /iframe/);
   assert.doesNotMatch(clean, /script/);
 });
+
+test('underline, strikethrough and a numbered list reach the page', () => {
+  const { contentHtml } = prepareEditorContent({
+    contentJson: { type: 'doc', content: [
+      { type: 'paragraph', content: [
+        { type: 'text', text: 'Under', marks: [{ type: 'underline' }] },
+        { type: 'text', text: 'Struck', marks: [{ type: 'strike' }] },
+      ] },
+      { type: 'orderedList', attrs: { start: 1 }, content: [
+        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'First' }] }] },
+        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Second' }] }] },
+      ] },
+    ] },
+  });
+  assert.match(contentHtml, /<u>Under<\/u>/);
+  assert.match(contentHtml, /<s>Struck<\/s>/);
+  assert.match(contentHtml, /<ol><li><p>First<\/p><\/li><li><p>Second<\/p><\/li><\/ol>/);
+});
+
+test('a colour is one of six names, drawn by a class the theme owns, and nothing else rides in', () => {
+  const coloured = (color: string): EditorNode => ({ type: 'doc', content: [{ type: 'paragraph', content: [
+    { type: 'text', text: 'Hue', marks: [{ type: 'textColor', attrs: { color } }] },
+  ] }] });
+  for (const color of ['red', 'orange', 'green', 'blue', 'purple', 'grey']) {
+    assert.match(prepareEditorContent({ contentJson: coloured(color) }).contentHtml, new RegExp(`<span class="tome-color-${color}">Hue</span>`));
+  }
+  // A name outside the six is dropped on the way in, from the stored document as well as the page.
+  const stray = prepareEditorContent({ contentJson: coloured('hotpink') });
+  assert.equal(stray.contentHtml, '<p>Hue</p>');
+  assert.equal(JSON.stringify(stray.contentJson).includes('textColor'), false);
+
+  assert.equal(
+    sanitizedContentHtmlSchema.parse('<p><span class="tome-color-red evil">A</span><span style="color:#f00">B</span><span class="tome-color-pink">C</span><u onclick="x()">D</u></p>'),
+    '<p><span class="tome-color-red">A</span><span>B</span><span>C</span><u>D</u></p>',
+  );
+});

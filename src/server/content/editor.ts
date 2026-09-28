@@ -12,6 +12,7 @@ import {
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
 import { textAlign } from '../../lib/editor-align';
+import { isTextColor, textColor } from '../../lib/editor-color';
 import { attachment, type AttachmentFile } from '../../lib/editor-attachment';
 import { tableExtensions } from '../../lib/editor-table';
 import { video, videoAttrs } from '../../lib/editor-video';
@@ -50,13 +51,11 @@ const extensions = [
     // No class for a quote or a code block: the sanitizer keeps none on blockquote or pre, so
     // the theme draws both. The editor's own classes match paper's, which is why they differ.
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
-    // StarterKit 3 brings both. Link is configured here already, and an underline would be
-    // dropped by the sanitizer on its way to the page, so neither belongs in the schema.
+    // StarterKit 3 brings its own link; the one configured below is TomeCMS's.
     link: false,
     // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
     // one. A post that ends in a quote or a table would store a paragraph it never had.
     trailingNode: false,
-    underline: false,
   }),
   editorLink.configure({
     autolink: true,
@@ -69,6 +68,7 @@ const extensions = [
   }),
   ...tableExtensions,
   textAlign,
+  textColor,
   attachment,
   video,
 ];
@@ -107,6 +107,12 @@ function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string
   while (pending.length) {
     const node = pending.pop();
     if (!node) break;
+    // A colour outside the palette is dropped, from the document as well as the page.
+    if (node.marks) {
+      const marks = node.marks.filter((mark) => mark.type !== 'textColor' || isTextColor(mark.attrs?.color));
+      if (marks.length) node.marks = marks;
+      else delete node.marks;
+    }
     if (node.type === 'image') {
       const attrs = node.attrs ?? {};
       const src = attrs.src;

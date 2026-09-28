@@ -544,6 +544,14 @@ figure.tome-video .tome-video__play img {
 }
 
 a.tome-video__play:hover::before { opacity: 1; }
+/* A writer's text colour, by name; the shades are tokens with a light and a dark value. */
+.tome-color-red { color: var(--color-text-red); }
+.tome-color-orange { color: var(--color-text-orange); }
+.tome-color-green { color: var(--color-text-green); }
+.tome-color-blue { color: var(--color-text-blue); }
+.tome-color-purple { color: var(--color-text-purple); }
+.tome-color-grey { color: var(--color-text-grey); }
+
 a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 
 .tome-video__title {
@@ -724,6 +732,20 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   max-width: calc(100vw - 1rem);
   z-index: 50;
 }
+
+/* The colour button: an A over a bar in the colour in force, and its row of swatches. */
+.editor-color-bar { display: block; width: 0.9rem; height: 3px; margin-block-start: 1px; border-radius: 2px; }
+.editor-swatch {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.editor-swatch[aria-pressed='true'] { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.editor-swatch:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* Default is no colour at all: the ink the text has anyway, struck through. */
+.editor-swatch--default { background: linear-gradient(to top right, transparent 45%, var(--color-error) 45% 55%, transparent 55%), var(--color-paper); }
 
 /* The same frame Posts and Pages stand in, rather than a page width of its own. In the
  * picker the section sits inside a dialog, which brings its own padding. */

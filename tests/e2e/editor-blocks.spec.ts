@@ -259,7 +259,7 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
   await selectBack(page, 2, 'Hi');
 
   /** The buttons a pointer cannot press at both ends: a clipped end is not there to hit. */
-  const cut = () => page.evaluate(() => ['Bold', 'Italic', 'Link', 'Inline code'].filter((label) => {
+  const cut = () => page.evaluate(() => ['Bold', 'Italic', 'Underline', 'Strikethrough', 'Link', 'Inline code', 'Text colour'].filter((label) => {
     const button = document.querySelector(`button[aria-label="${label}"]`);
     if (!button) return true;
     const box = button.getBoundingClientRect();
@@ -267,6 +267,40 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
     return [box.left + 1, box.right - 1].some((x) => !button.contains(document.elementFromPoint(x, middle)));
   }));
   await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
+});
+
+test('the formatting bar keeps the cursor, and underlines, strikes and colours what is chosen', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  await page.goto(`${origin}/admin/new`);
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.keyboard.type('one two three');
+  await expect.poll(() => canvas.evaluate((node) => (node as HTMLElement & { editor?: { state: { doc: { textContent: string } } } }).editor?.state.doc.textContent))
+    .toBe('one two three');
+
+  // A button on the bar used to keep the focus it took, so the keys after it went nowhere.
+  await selectBack(page, 5, 'three');
+  await page.getByRole('button', { name: 'Text colour' }).click();
+  await page.getByRole('button', { name: 'Red', exact: true }).click();
+  await expect(canvas).toBeFocused();
+  await selectBack(page, 3, 'two', 6);
+  await page.getByRole('button', { name: 'Underline' }).click();
+  await expect(canvas).toBeFocused();
+  await selectBack(page, 3, 'one', 10);
+  await page.getByRole('button', { name: 'Strikethrough' }).click();
+  await expect(canvas).toBeFocused();
+  await expect(canvas.locator('span.tome-color-red')).toHaveText('three');
+  await expect(canvas.locator('u')).toHaveText('two');
+  await expect(canvas.locator('s')).toHaveText('one');
+
+  // End scrolls rather than moving the caret in Chromium on macOS; the editor's own command does not.
+  await canvas.evaluate((node) => (node as HTMLElement & { editor?: { commands: { focus(at: string): void } } }).editor?.commands.focus('end'));
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/');
+  await page.getByRole('option', { name: /^Numbered list/ }).click();
+  await page.keyboard.type('First');
+  await expect(canvas.locator('ol > li')).toHaveText('First');
 });
 
 test('a link opens a new tab only when its writer asked it to', async ({ context, page }) => {

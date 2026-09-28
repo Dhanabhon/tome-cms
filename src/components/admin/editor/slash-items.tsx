@@ -47,6 +47,13 @@ export const commandItems = (copy: AdminCopy, inTable: boolean): SlashItem[] => 
     command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleBulletList().run(),
   },
   {
+    title: copy.blocks.numberedList,
+    description: copy.blocks.numberedListHint,
+    icon: <Icon name="listOrdered" />,
+    searchTerms: ['ordered', 'numbered', 'list', '1.'],
+    command: ({ editor, range }) => editor.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
     title: copy.blocks.codeBlock,
     description: copy.blocks.codeBlockHint,
     icon: <Icon name="code" />,

@@ -2,6 +2,7 @@ import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
 
 import type { EditorDocument, EditorNode, Json } from '../types/cms';
+import { TEXT_COLORS } from './text-colors';
 
 export const MAX_DOCUMENT_BYTES = 1_000_000;
 
@@ -42,6 +43,7 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     'strong',
     'em',
     's',
+    'u',
     'a',
     'img',
     'hr',
@@ -76,7 +78,8 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     div: ['tableWrapper'],
     figure: ['tome-video'],
     p: ['file-card'],
-    span: ['file-card__name', 'file-card__meta', 'tome-video__title'],
+    // A colour is a name from the palette in editor-color.ts, never a style.
+    span: ['file-card__name', 'file-card__meta', 'tome-video__title', ...TEXT_COLORS.map((color) => `tome-color-${color}`)],
   },
   // Alignment is the one style a writer can set, and only to these three values.
   allowedStyles: { '*': { 'text-align': [/^(left|center|right)$/] } },
