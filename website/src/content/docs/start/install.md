@@ -16,7 +16,7 @@ On a new Ubuntu 24.04 server, [Preparing a new server](/tome-cms/start/prepare-s
 As root, clone the release's tag and install its packages:
 
 ```sh
-git clone --depth 1 --branch v1.0.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.0.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 npm ci
 ```
@@ -38,11 +38,11 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 Try it first with `--dry-run`, then install:
 
 ```sh
-./scripts/install-managed-vps.sh --dry-run --version 1.0.0
-./scripts/install-managed-vps.sh --version 1.0.0
+./scripts/install-managed-vps.sh --dry-run --version 1.0.1
+./scripts/install-managed-vps.sh --version 1.0.1
 ```
 
-From an ordinary account, keep the addresses through `sudo` with `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.0`.
+From an ordinary account, keep the addresses through `sudo` with `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.1`.
 
 The installer works through these steps and stops at the first one that fails:
 
@@ -61,7 +61,7 @@ The end of its output looks like this:
 ```text
 Installer: https://cms.example.com/install
 Installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
-Current version: 1.0.0
+Current version: 1.0.1
 Backups: /var/backups/tome-cms
 ```
 
@@ -97,6 +97,8 @@ It prints one line that says what is wrong. Until it has written its files, it a
 | `Managed installer requires a clean release checkout.` | Something in the checkout was changed. `git status` shows what. Clone the tag again. |
 | `Managed installation requires fresh empty destinations; existing files are retained.` or `Managed installation requires fresh Docker project and volumes.` | TomeCMS, or part of an earlier attempt, is already on this server. Install on a fresh server. |
 | `Invalid or non-immutable official release.` | That version is not a published stable release. Check the tag on the Releases page. |
+| `TOME_CMS_PUBLIC_URL is not set.` or `S3_ENDPOINT is not set.` | Export the addresses as in step 2, in the same shell you run the installer from. |
+| `Port 4321 is unavailable.` (or `5432`, `9000`) | Something else listens on that port, often an earlier install on this server. The managed install needs a fresh server. |
 | `systemd requires Node 22+ installed at /usr/bin/node.` or `Missing 'gh'.` | Install what it names. `prepare-vps.sh` installs both. |
 | `TOME_CMS_PUBLIC_URL requires a browser-reachable public host; local or special-use address forms are not allowed.` | Use the public host name that DNS points at the server, not an IP address or a local name. |
 

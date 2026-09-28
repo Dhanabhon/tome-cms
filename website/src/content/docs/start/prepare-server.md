@@ -121,7 +121,7 @@ To run one step by hand instead, use the commands it runs:
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.0
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.0.1
 ```
 
 The installer refuses to run over an install it already started. If it stopped after writing its files, [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) says what to do instead.

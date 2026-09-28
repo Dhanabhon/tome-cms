@@ -13,12 +13,12 @@ Under "System", the admin shows your version next to "Installed version:" and ch
 
 ## Updating a managed install
 
-On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.0.1 is available.", with that release's version.
+On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.0.2 is available.", with that release's version.
 
 1. Press "Read release notes" and read the notes of every version after yours.
-2. Press "Install 1.0.1". The admin asks "Install TomeCMS 1.0.1?". Press "Install 1.0.1" again, then confirm with your passkey.
+2. Press "Install 1.0.2". The admin asks "Install TomeCMS 1.0.2?". Press "Install 1.0.2" again, then confirm with your passkey.
 3. Keep the page open. "Installation progress" ticks off each step: "Check prerequisites", "Verify the official update", "Download update", "Prepare maintenance", "Create recovery backup", "Apply database migrations", "Restart TomeCMS" and "Check application health". The site is briefly down while TomeCMS restarts.
-4. When it is done, "System" says "TomeCMS 1.0.1 is installed."
+4. When it is done, "System" says "TomeCMS 1.0.2 is installed."
 
 What the updater does, and does not do:
 

@@ -16,7 +16,7 @@ sidebar:
 ในฐานะ root ให้ clone tag ของ release แล้วติดตั้ง package ของมัน
 
 ```sh
-git clone --depth 1 --branch v1.0.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.0.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 npm ci
 ```
@@ -38,11 +38,11 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ลองด้วย `--dry-run` ก่อน แล้วจึงติดตั้งจริง
 
 ```sh
-./scripts/install-managed-vps.sh --dry-run --version 1.0.0
-./scripts/install-managed-vps.sh --version 1.0.0
+./scripts/install-managed-vps.sh --dry-run --version 1.0.1
+./scripts/install-managed-vps.sh --version 1.0.1
 ```
 
-ถ้ารันจากบัญชีธรรมดา ให้ส่งที่อยู่ทั้งสามผ่าน `sudo` ไปด้วยคำสั่ง `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.0`
+ถ้ารันจากบัญชีธรรมดา ให้ส่งที่อยู่ทั้งสามผ่าน `sudo` ไปด้วยคำสั่ง `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.0.1`
 
 ตัวติดตั้งทำงานตามลำดับนี้ และหยุดทันทีที่ขั้นไหนไม่ผ่าน
 
@@ -61,7 +61,7 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ```text
 Installer: https://cms.example.com/install
 Installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
-Current version: 1.0.0
+Current version: 1.0.1
 Backups: /var/backups/tome-cms
 ```
 
@@ -97,6 +97,8 @@ curl -s https://cms.example.com/health/ready
 | `Managed installer requires a clean release checkout.` | มีบางอย่างในโค้ดที่ checkout ไว้ถูกแก้ `git status` จะบอกว่าอะไร ให้ clone tag ใหม่อีกครั้ง |
 | `Managed installation requires fresh empty destinations; existing files are retained.` หรือ `Managed installation requires fresh Docker project and volumes.` | บนเซิร์ฟเวอร์นี้มี TomeCMS หรือบางส่วนจากการลองครั้งก่อนอยู่แล้ว ให้ติดตั้งบนเซิร์ฟเวอร์เครื่องใหม่ |
 | `Invalid or non-immutable official release.` | เวอร์ชันนั้นไม่ใช่รุ่น stable ที่เผยแพร่แล้ว ตรวจ tag ในหน้า Releases |
+| `TOME_CMS_PUBLIC_URL is not set.` หรือ `S3_ENDPOINT is not set.` | export ที่อยู่ตามขั้นที่ 2 ใน shell เดียวกับที่ใช้รันตัวติดตั้ง |
+| `Port 4321 is unavailable.` (หรือ `5432`, `9000`) | มีโปรแกรมอื่นใช้พอร์ตนั้นอยู่ ส่วนใหญ่เป็นการติดตั้งครั้งก่อนบนเครื่องนี้ การติดตั้งแบบ managed ต้องใช้เซิร์ฟเวอร์ใหม่ |
 | `systemd requires Node 22+ installed at /usr/bin/node.` หรือ `Missing 'gh'.` | ติดตั้งสิ่งที่ข้อความระบุ `prepare-vps.sh` ติดตั้งให้ทั้งสองอย่าง |
 | `TOME_CMS_PUBLIC_URL requires a browser-reachable public host; local or special-use address forms are not allowed.` | ใช้ชื่อโฮสต์สาธารณะที่ DNS ชี้มาที่เซิร์ฟเวอร์ ไม่ใช่ IP หรือชื่อในเครื่อง |
 

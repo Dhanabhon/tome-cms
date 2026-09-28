@@ -94,6 +94,8 @@ The harness registers its cleanup before it builds anything. The cleanup removes
 
 CI runs it on every push to `develop`, on `linux/amd64`, and you can run it on your own computer. It does not replace a run on a real server, with the real GitHub and GHCR checks, systemd, the HTTPS wizard, passkeys, and content and media. Those runs, on `linux/amd64` and `linux/arm64`, are recorded in `docs/releases/1.0.0.md`.
 
+The harness stands in for the step that lists the migrations inside the real image, so CI also builds the application image and runs that step against it with `npm run check:inventory -- <image>`. It uses the same `docker run` arguments as the installer and the updater, from `src/updater/inventory.ts`, and fails unless the list ends at the newest migration in the checkout. 1.0.0 shipped with that step failing on every server.
+
 ## The documentation site
 
 This site lives in `website/`, with its own packages. The API reference is generated from `src/server/http/openapi.ts` and is not committed, so generate it before the first check:

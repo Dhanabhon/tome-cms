@@ -62,8 +62,8 @@ The same diagram is in the repository as a page you can explore, with a guided v
 
 ## Where things stand
 
-TomeCMS is at version 1.0.0, its first stable release. A VPS gets a managed install: the installer runs an official image that it has verified against the release's attestations, and the owner installs later updates from "System" in the admin. The update path starts with 1.0.0 to 1.0.1.
+TomeCMS is at version 1.0.1. A VPS gets a managed install: the installer runs an official image that it has verified against the release's attestations, and the owner installs later updates from "System" in the admin. 1.0.0 was the first stable release, but its installer could not finish on a real server, so a managed install starts from 1.0.1, and the update path from 1.0.1 to 1.0.2.
 
-The managed install is tested against real containers on every change, on `amd64` in CI and on `arm64`. Its first runs on real HTTPS servers, on both architectures, are recorded in [the 1.0.0 release notes](https://github.com/Dhanabhon/tome-cms/blob/main/docs/releases/1.0.0.md) as they are done.
+The managed install is tested against real containers on every change, on `amd64` in CI and on `arm64`, and CI builds the application image and runs the installer's image checks against it. Its runs on real HTTPS servers, on both architectures, are recorded in [the 1.0.0 release notes](https://github.com/Dhanabhon/tome-cms/blob/main/docs/releases/1.0.0.md) as they are done.
 
-A 0.x install will not turn into a managed one in place. Moving to 1.0.0 means a fresh server and a manual move of the content, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
+A 0.x install will not turn into a managed one in place. Moving to 1.x means a fresh server and a manual move of the content, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
