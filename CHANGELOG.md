@@ -2,6 +2,22 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.0.2 - 2026-09-28
+
+Uploads work on a managed install, the System screen speaks the owner's language, and preparing a server and installing share one clone. The first release a managed install takes from the admin.
+
+### Fixed
+
+- An upload finalizes when SeaweedFS refuses the first check that comes right after it: the check now tries up to four times, and the log names the storage error when it still fails. On 1.0.1 every upload ended with "Storage verification is temporarily unavailable."
+- On a managed install, the "Updates from the admin" card says each reason in English or Thai, from a code the server now sends, instead of the updater's English sentence.
+
+### Changed
+
+- Preparing a new server clones the release's tag into `/opt/tome-cms-src`, and the install runs from the same folder. Run by root, `prepare-vps.sh` no longer asks for an account.
+- A new Troubleshooting page, in English and Thai, lists the messages met while installing and running TomeCMS, with what to do about each.
+
+Full notes: [docs/releases/1.0.2.md](docs/releases/1.0.2.md)
+
 ## 1.0.1 - 2026-09-28
 
 The managed installer finishes on a real server. Install 1.0.1; 1.0.0 could not finish.
