@@ -6,6 +6,9 @@ its tests is the easiest kind to accept.
 Fixes and features are both welcome. A feature lands in the next minor release, and must
 keep what already works working, including the content API under `/api/v1`.
 
+Everyone who takes part, in issues, pull requests and discussions, follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Before you start
 
 - For anything bigger than a small fix, open an issue first and say what you want to change
