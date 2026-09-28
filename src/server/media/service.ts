@@ -6,6 +6,7 @@ import {
   HeadObjectCommand,
   PutObjectCommand,
   type GetObjectCommandOutput,
+  type HeadObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
@@ -166,6 +167,22 @@ function mediaFolder(row: Selectable<MediaFolderTable>): MediaFolder {
   };
 }
 
+const HEAD_ATTEMPTS = 4;
+
+// SeaweedFS answered the first HEAD after the browser's upload with 403, and every HEAD from
+// 50 ms later with the object, on a real server behind Caddy. The SDK retries no 403, so the
+// check waits it out here, about 1.2 s at most, before it reports storage as unavailable.
+async function headUploadedObject(objectKey: string): Promise<HeadObjectCommandOutput> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await s3.send(new HeadObjectCommand({ Bucket: s3Bucket, Key: objectKey, ChecksumMode: 'ENABLED' }));
+    } catch (error) {
+      if (isNotFound(error) || attempt === HEAD_ATTEMPTS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 200));
+    }
+  }
+}
+
 function isNotFound(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   const candidate = error as { name?: unknown; $metadata?: { httpStatusCode?: unknown } };
@@ -280,11 +297,12 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
 
       let head;
       try {
-        head = await s3.send(new HeadObjectCommand({ Bucket: s3Bucket, Key: reservation.object_key, ChecksumMode: 'ENABLED' }));
+        head = await headUploadedObject(reservation.object_key);
       } catch (error) {
         if (isNotFound(error)) {
           throw new InvalidUploadError('The uploaded object was not found. Upload the file again.', reservation.object_key, 409);
         }
+        console.error('Upload verification failed:', storageErrorCode(error), storageStatus(error));
         throw new HttpError(503, 'Storage verification is temporarily unavailable. Try finalizing again.');
       }
       const expectedSize = Number(reservation.expected_size_bytes);
@@ -376,6 +394,7 @@ async function verifiedImage(objectKey: string, type: SupportedImageType, size: 
     body = await readObjectBody(object.Body, size, objectKey);
   } catch (error) {
     if (error instanceof InvalidUploadError) throw error;
+    console.error('Image verification failed:', storageErrorCode(error), storageStatus(error));
     throw new HttpError(503, 'Storage verification is temporarily unavailable. Try finalizing again.');
   }
   if (body.length !== size || createHash('sha256').update(body).digest('base64') !== checksum) {
@@ -593,6 +612,11 @@ async function findMediaReferences(
 
 function referenceCount(references: MediaReferences): number {
   return Object.values(references.counts).reduce((total, count) => total + count, 0);
+}
+
+function storageStatus(error: unknown): number | 'no status' {
+  const status = (error as { $metadata?: { httpStatusCode?: unknown } } | null)?.$metadata?.httpStatusCode;
+  return typeof status === 'number' ? status : 'no status';
 }
 
 function storageErrorCode(error: unknown): string {

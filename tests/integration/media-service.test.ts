@@ -49,6 +49,9 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   const objects = new Map<string, { body: Buffer; mimeType: string }>();
   const deleted = new Set<string>();
   const failedDeletes = new Set<string>();
+  // SeaweedFS answered the first HEAD after an upload with 403 on a real server.
+  let headRefusals = 0;
+  let headCalls = 0;
   const transport = s3 as unknown as { send(command: object): Promise<object> };
   const originalSend = transport.send;
   transport.send = async (command) => {
@@ -60,6 +63,13 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
       objects.delete(key);
       deleted.add(key);
       return {};
+    }
+    if (command instanceof HeadObjectCommand) {
+      headCalls += 1;
+      if (headRefusals > 0) {
+        headRefusals -= 1;
+        throw Object.assign(new Error('UnknownError'), { name: 'Unknown', $metadata: { httpStatusCode: 403 } });
+      }
     }
     const object = objects.get(key);
     if (!object) throw Object.assign(new Error('missing'), { name: 'NoSuchKey', $metadata: { httpStatusCode: 404 } });
@@ -91,6 +101,26 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   assert.equal((await db.selectFrom('media_upload_reservations').select('state')
     .where('id', '=', reservation.id).executeTakeFirstOrThrow()).state, 'finalized');
   await assert.rejects(finalizeUpload(ownerId, reservation.id), (error: unknown) => error instanceof HttpError && error.status === 409);
+
+  // A refusal right after the upload is waited out; one that lasts still answers 503.
+  const reserveStored = async (name: string) => {
+    const next = await reserveUpload(ownerId, {
+      originalName: name, mimeType: 'image/png', sizeBytes: png.length, checksumSha256: checksum, folderId: null, altText: '',
+    });
+    const stored = await db.selectFrom('media_upload_reservations').select('object_key')
+      .where('id', '=', next.id).executeTakeFirstOrThrow();
+    objects.set(stored.object_key, { body: png, mimeType: 'image/png' });
+    return next;
+  };
+  const settling = await reserveStored('settling.png');
+  headRefusals = 1;
+  headCalls = 0;
+  assert.equal((await finalizeUpload(ownerId, settling.id)).id, settling.id);
+  assert.equal(headCalls, 2);
+  const refused = await reserveStored('refused.png');
+  headRefusals = 10;
+  await assert.rejects(finalizeUpload(ownerId, refused.id), (error: unknown) => error instanceof HttpError && error.status === 503);
+  headRefusals = 0;
 
   const bad = Buffer.from('not an image');
   const badChecksum = createHash('sha256').update(bad).digest('base64');
