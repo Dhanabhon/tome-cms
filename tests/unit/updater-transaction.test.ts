@@ -229,7 +229,9 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   assert.ok(commands[1].args.includes(`tomecms-update-${job.id}-inventory`));
   assert.ok(!commands[1].args.includes('sh'));
   assert.ok(commands[1].args.includes('--tmpfs'), 'the inventory gets a writable /tmp');
-  assert.deepEqual(commands[2], { args: [...prefix, 'stop', '--timeout', '30', 'app'], timeoutMs: 30000 });
+  // Docker's 30 s grace, plus 30 s for Docker itself: with only the grace, an app that used all
+  // of it always timed out (1.0.1 to 1.0.2 on a real server).
+  assert.deepEqual(commands[2], { args: [...prefix, 'stop', '--timeout', '30', 'app'], timeoutMs: 60000 });
   assert.deepEqual(commands[3], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-backup`, '--no-deps', '--user', `${process.getuid!()}:${process.getgid!()}`,
     '--volume', `${f.input.config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--', '--offline', '--direct', '--json', '--output-root', '/backups'], timeoutMs: 3600000 });
   assert.deepEqual(commands[4], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-migration`, '--no-deps', 'app', 'npm', 'run', 'db:migrate'], timeoutMs: 900000 });
@@ -278,6 +280,25 @@ test('journals one bounded stage diagnostic while public update state stays enum
   assert.ok(forms.every((form) => !publicJob.includes(form)));
   assert.equal(publicJob.includes('stdout'), false);
   assert.equal(publicJob.includes('stderr'), false);
+});
+
+test('a stop that times out is stopped again before the previous app starts, and rolls back', async (t) => {
+  const f = await fixture(t);
+  const run = f.input.dependencies.runCommand;
+  const order: string[] = [];
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    if (args.includes('stop')) {
+      order.push('stop');
+      if (order.filter((step) => step === 'stop').length === 1) return { code: 124, timedOut: true, signal: 'SIGKILL', stdout: '', stderr: '' };
+    }
+    if (args.includes('up')) order.push('up');
+    return run(executable, args, options);
+  };
+  t.mock.method(console, 'error', () => undefined);
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(job.backupCreatedAt, null);
+  assert.deepEqual(order, ['stop', 'stop', 'up'], 'the app is stopped again, then the previous one starts');
 });
 
 test('unsafe diagnostic secrets and logger errors cannot interrupt rollback', async (t) => {

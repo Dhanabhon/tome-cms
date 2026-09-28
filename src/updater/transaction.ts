@@ -32,6 +32,11 @@ const defaults: UpdateDependencies = {
 };
 const active = new WeakSet<UpdaterStateStore>();
 const terminal = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery']);
+// How long `compose stop` lets the app exit on SIGTERM before it kills it, and how long the
+// command itself may take: the grace plus 30 s for Docker. 1.0.1 gave the command only the grace,
+// so an app that used all of it (Node as PID 1 ignores SIGTERM) always timed out.
+const STOP_GRACE_SECONDS = 30;
+const STOP_COMMAND_MS = (STOP_GRACE_SECONDS + 30) * 1_000;
 
 type UpdateInput = {
   version: string;
@@ -107,7 +112,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await state.transitionJob(job.id, 'quiescing');
     quiesced = true;
     await dependencies.sleep(2_000);
-    await command('quiesce.stop_app', [...compose, 'stop', '--timeout', '30', 'app'], 30_000);
+    await command('quiesce.stop_app', [...compose, 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS);
     await state.transitionJob(job.id, 'backing_up');
     const output = await runOneShot(names.backup, [
       ...compose, 'run', '--rm', '--name', names.backup, '--no-deps', '--user', identity,
@@ -141,6 +146,10 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     try {
       await state.transitionJob(job.id, 'rolling_back', { errorCode });
       if (quiesced) {
+        // A stop that timed out can still be under way in Docker, and starting the app then fails.
+        // Stopping again waits for it. It is best effort: if it fails too, the start below decides.
+        await command('rollback.stop_app', [...compose, 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS)
+          .catch(() => undefined);
         await writeImageEnvironment(config.imageEnvironmentFile, installed.imageDigest);
         await startApp(config, dependencies, diagnostics, 'rollback.start_app');
         await awaitReadiness(config, dependencies);

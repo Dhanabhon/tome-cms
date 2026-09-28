@@ -43,6 +43,8 @@ services:
         target: /etc/seaweedfs/s3.json
     ports: ["127.0.0.1:${S3_PORT:-9000}:8333"]
   app:
+    # Node as PID 1 ignores SIGTERM; the init passes it on, so `compose stop` takes a second.
+    init: true
     image: ${TOME_CMS_APP_IMAGE:?TOME_CMS_APP_IMAGE must be an official digest}
     env_file: /etc/tome-cms/tome-cms.env
     environment:
