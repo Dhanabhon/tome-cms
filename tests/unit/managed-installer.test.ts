@@ -157,7 +157,7 @@ async function fixture(t: TestContext) {
   const prefix = join(root, 'host');
   const bin = join(prefix, 'bin');
   await mkdir(bin, { recursive: true });
-  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
+  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
   for (const file of files) {
     const target = join(source, file);
     await mkdir(dirname(target), { recursive: true });
@@ -606,6 +606,17 @@ test('installation writes private fixed state, then migrates before app and sock
     previous = index;
   }
   assert.ok(!commands.some(line => /sudo|docker.sock| down |volume rm/.test(line)));
+  assert.ok(commands.some(line => line.includes('tomecms-install-inventory') && line.includes('--read-only --tmpfs /tmp:')), 'the inventory gets a writable /tmp');
+});
+
+test('a missing address is named before anything is checked or changed', async t => {
+  const f = await fixture(t);
+  for (const key of ['TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT']) {
+    const result = f.run(['--dry-run'], { [key]: '' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, new RegExp(`${key} is not set`));
+  }
+  assert.deepEqual(await readdir(f.prefix), ['bin']);
 });
 
 test('a failed migration cleans only its named one-shot container and retains recovery files', async t => {

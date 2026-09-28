@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { isPrivateMode, makeEnvironment, migrateCommand, parseOptions, renderEnvironment, writeEnvironment } from '../../scripts/bootstrap-core.mjs';
+import { assertPortsFree, isPrivateMode, makeEnvironment, migrateCommand, parseOptions, renderEnvironment, writeEnvironment } from '../../scripts/bootstrap-core.mjs';
+import { createServer } from 'node:net';
 
 test('on Windows npm starts through its .cmd shim, and a file mode is not read as a privacy promise', () => {
   assert.deepEqual(migrateCommand('win32'), { args: [], command: 'npm.cmd run db:migrate', shell: true });
@@ -225,4 +226,16 @@ test('environment file is private and never overwritten without force, including
   await symlink(path, link);
   await assert.rejects(writeEnvironment(link, 'third', true));
   assert.equal(await readFile(path, 'utf8'), 'second');
+});
+
+test('a port another program holds on 127.0.0.1 is named', async () => {
+  const server = createServer();
+  await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+  const held = (server.address() as { port: number }).port;
+  try {
+    await assert.rejects(assertPortsFree([held]), new RegExp(`Port ${held} is unavailable`));
+  } finally {
+    await new Promise(done => server.close(done));
+  }
+  await assertPortsFree([held]);
 });

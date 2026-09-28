@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:p
 import { parseBackupManifest } from '../update/backup.js';
 import { compareStableVersions, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
+import { migrationInventoryArgs } from './inventory.js';
 import {
   parseManagedDiagnosticSecrets,
   runCheckedCommand,
@@ -31,7 +32,6 @@ const defaults: UpdateDependencies = {
 };
 const active = new WeakSet<UpdaterStateStore>();
 const terminal = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery']);
-const migrationInventoryScript = "import { migrations } from '/app/src/server/db/migrator.ts'; process.stdout.write(JSON.stringify(Object.keys(migrations)));";
 
 type UpdateInput = {
   version: string;
@@ -98,9 +98,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await command('download.image', ['pull', verified.imageReference], 15 * 60_000);
     errorCode = 'incompatible_update';
     const inventory = await runOneShot(names.inventory, [
-      'run', '--rm', '--name', names.inventory, '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
-      '--security-opt', 'no-new-privileges', '--entrypoint', 'node', verified.imageReference,
-      '--import', 'tsx', '--input-type=module', '-e', migrationInventoryScript,
+      'run', '--rm', '--name', names.inventory, ...migrationInventoryArgs(verified.imageReference),
     ], 30_000, dependencies, diagnostics, 'verify.migration_inventory');
     verifyMigrationInventory(inventory, verified.manifest.compatibility.targetMigration);
 

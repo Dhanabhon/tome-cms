@@ -150,19 +150,28 @@ function run(command, args, env = process.env, shell = false) {
   return result.stdout;
 }
 
-async function verifyPorts(values, compose, env) {
-  const containers = run('docker', [...compose, 'ps', '--format', 'json'], env).trim();
-  const owned = containers ? (containers.startsWith('[') ? JSON.parse(containers) : containers.split('\n').map(line => JSON.parse(line))) : [];
+// The host ports Compose publishes PostgreSQL, SeaweedFS and the application on.
+export function publishedPorts(values) {
   const ports = ['POSTGRES_PORT', 'S3_PORT', 'APP_PORT'].map((key, i) => Number(values[key] || [5432, 9000, 4321][i]));
   if (new Set(ports).size !== ports.length || ports.some(port => !Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('Ports must be distinct integers from 1 to 65535.');
+  return ports;
+}
+
+export async function assertPortsFree(ports) {
   for (const port of ports) {
-    if (owned.some(container => container.Publishers?.some(publisher => publisher.PublishedPort === port))) continue;
     await new Promise((done, reject) => {
       const server = createServer();
       server.once('error', () => reject(new Error(`Port ${port} is unavailable.`)));
       server.listen(port, '127.0.0.1', () => server.close(done));
     });
   }
+}
+
+async function verifyPorts(values, compose, env) {
+  const containers = run('docker', [...compose, 'ps', '--format', 'json'], env).trim();
+  const owned = containers ? (containers.startsWith('[') ? JSON.parse(containers) : containers.split('\n').map(line => JSON.parse(line))) : [];
+  await assertPortsFree(publishedPorts(values).filter(port =>
+    !owned.some(container => container.Publishers?.some(publisher => publisher.PublishedPort === port))));
 }
 
 async function main() {

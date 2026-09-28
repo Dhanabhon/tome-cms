@@ -228,6 +228,7 @@ test('orders backup, migration, readiness and installed commit; retains backup a
   assert.ok(commands[1].args.includes(targetImage));
   assert.ok(commands[1].args.includes(`tomecms-update-${job.id}-inventory`));
   assert.ok(!commands[1].args.includes('sh'));
+  assert.ok(commands[1].args.includes('--tmpfs'), 'the inventory gets a writable /tmp');
   assert.deepEqual(commands[2], { args: [...prefix, 'stop', '--timeout', '30', 'app'], timeoutMs: 30000 });
   assert.deepEqual(commands[3], { args: [...prefix, 'run', '--rm', '--name', `tomecms-update-${job.id}-backup`, '--no-deps', '--user', `${process.getuid!()}:${process.getgid!()}`,
     '--volume', `${f.input.config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--', '--offline', '--direct', '--json', '--output-root', '/backups'], timeoutMs: 3600000 });

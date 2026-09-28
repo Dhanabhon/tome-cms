@@ -9,9 +9,10 @@ import { constants, closeSync, fchmodSync, fsyncSync, openSync, renameSync, writ
 import { access, chmod, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, rmdir, unlink } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { makeEnvironment, renderEnvironment } from './scripts/bootstrap-core.mjs';
+import { assertPortsFree, makeEnvironment, publishedPorts, renderEnvironment } from './scripts/bootstrap-core.mjs';
 import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
 import { redactDiagnosticText } from './src/updater/process.ts';
+import { migrationInventoryArgs } from './src/updater/inventory.ts';
 
 const source = process.cwd();
 let dryRun = false;
@@ -314,6 +315,10 @@ async function main() {
   }
   version = parseStableVersion(version).raw;
   if (compareStableVersions(version, '1.0.0') < 0) throw new Error('Managed installation requires a stable release from 1.0.0 onward.');
+  // Without them, the defaults for a local checkout would fail later as "requires HTTPS".
+  for (const key of ['TOME_CMS_PUBLIC_URL', 'S3_ENDPOINT']) {
+    if (!process.env[key]) throw new Error(`${key} is not set. Export the site's HTTPS addresses first, as the install guide shows.`);
+  }
   if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Node 22+ is required.');
   if (prefix && (!isAbsolute(prefix) || resolve(prefix) !== prefix || prefix === '/')) throw new Error('Invalid root prefix.');
   for (const name of ['uname', 'id', 'getent', 'groupadd', 'groupdel', 'useradd', 'userdel', 'chown', 'git', 'docker', 'gh', 'npm', 'curl', 'systemctl']) {
@@ -408,6 +413,8 @@ async function main() {
   const input = Object.fromEntries(Object.entries(process.env).filter(([key]) => inputKeys.includes(key)));
   const values = makeEnvironment(input, true, {}, true);
   if (values.APP_PORT && values.APP_PORT !== '4321') throw new Error('Managed contract requires APP_PORT=4321.');
+  // Checked before anything changes: a Compose start that cannot bind one would stop the install halfway.
+  if (!prefix) await assertPortsFree(publishedPorts(values));
   // Validate every value before any install mutation, without printing secrets.
   renderEnvironment(values);
   rememberSecrets(values);
@@ -422,8 +429,7 @@ async function main() {
   const actual = inspection?.[0];
   if (inspection.length !== 1 || !actual?.RepoDigests?.includes(image) || `${actual.Os}/${actual.Architecture}` !== platform ||
       actual.Config?.Labels?.['org.opencontainers.image.version'] !== version || actual.Config?.Labels?.['org.opencontainers.image.revision'] !== commit) throw new Error('Pulled image identity or platform mismatch.');
-  const inventory = JSON.parse(runContainer([], 'inventory', ['--rm', '--pull', 'never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--entrypoint', 'node', image,
-    '--import', 'tsx', '--input-type=module', '-e', "import { migrations } from '/app/src/server/db/migrator.ts'; process.stdout.write(JSON.stringify(Object.keys(migrations)));" ]));
+  const inventory = JSON.parse(runContainer([], 'inventory', ['--rm', ...migrationInventoryArgs(image)]));
   if (!Array.isArray(inventory) || inventory.at(-1) !== compatibility.targetMigration) throw new Error('Target image migration inventory mismatch.');
   createServiceIdentity('group', 'groupadd', ['--system', 'tomecms-updater']);
   createServiceIdentity('user', 'useradd', ['--system', '--gid', 'tomecms-updater', '--groups', 'docker', '--home-dir', '/nonexistent', '--no-create-home', '--shell', '/usr/sbin/nologin', 'tomecms-updater']);
