@@ -155,6 +155,9 @@ test('requires a compatible managed updater, exact installed identity, and an av
   assert.equal(getManagedInstallability(check, { managed: false }).installable, false);
   assert.equal(getManagedInstallability(check, parseUpdaterStatus(status)).installable, false);
   assert.equal(getManagedInstallability({ ...check, availability: 'current' }, updater).installable, false);
+  assert.equal(getManagedInstallability(check, updater).code, 'installable');
+  assert.equal(getManagedInstallability(check, { managed: false }).code, 'check-only');
+  assert.equal(getManagedInstallability({ ...check, availability: 'current' }, updater).code, 'no-update');
   assert.equal(getManagedInstallability({ ...check, currentVersion: '0.9.0' }, updater).installable, false);
   for (const compatibility of [
     { ...check.latest.manifest.compatibility, minimumUpdaterVersion: '1.0.1' },

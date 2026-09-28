@@ -18,7 +18,7 @@ type UpdateCheck = {
   message: string;
   reason?: UpdateUnavailableReason;
   updateMode: 'check-only' | 'managed';
-  installability: { mode: 'check-only' | 'managed'; installable: boolean; reason: string };
+  installability: { mode: 'check-only' | 'managed'; installable: boolean; reason: string; code?: string };
   updater: UpdaterStatus;
 };
 
@@ -67,8 +67,17 @@ export function updateCheckFailureMessage(copy: AdminCopy, response: Response | 
  * Why nothing installs here. Check-only is this installation's own setting, so it is said in
  * the owner's words; a managed installation's reasons are the updater's own.
  */
+// Said from the code the server sends. Its English `reason` showed as is on the Thai admin.
 export function installabilityReason(copy: AdminCopy, check: Pick<UpdateCheck, 'installability' | 'updateMode'> | null): string {
-  return check?.updateMode === 'managed' ? check.installability.reason : copy.updates.checkOnly;
+  if (check?.updateMode !== 'managed') return copy.updates.checkOnly;
+  switch (check.installability.code) {
+    case 'manual-recovery': return copy.updates.contactOperator;
+    case 'in-progress': return copy.updates.updateInProgress;
+    case 'manual-upgrade': return copy.updates.manualUpgrade;
+    case 'installable': return copy.updates.readyToInstall;
+    case 'check-only': return copy.updates.checkOnly;
+    default: return copy.updates.noCompatibleUpdate;
+  }
 }
 
 /** The update mode in the owner's words, never the raw `check-only` / `managed` config value. */

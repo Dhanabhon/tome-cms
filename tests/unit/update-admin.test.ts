@@ -20,6 +20,7 @@ test('keeps check-only installation capability distinct from release availabilit
     mode: 'check-only',
     installable: false,
     reason: 'This installation is configured for update checks only.',
+    code: 'check-only',
   });
 });
 
@@ -61,6 +62,18 @@ test('every outcome of a check is said in the owner’s language, from the code 
     const checkOnly = { installability: getUpdateInstallability('check-only'), updateMode: 'check-only' as const };
     assert.equal(installabilityReason(copy, checkOnly), copy.updates.checkOnly, 'the server’s English line is not shown');
     assert.equal(installabilityReason(copy, null), copy.updates.checkOnly, 'nor before the first answer');
+
+    // On a managed install, each reason the server gives is said from its code, never its English line.
+    const managed = (code: string) => ({ installability: { mode: 'managed' as const, installable: code === 'installable', reason: 'English', code }, updateMode: 'managed' as const });
+    for (const [code, text] of [
+      ['manual-recovery', copy.updates.contactOperator],
+      ['in-progress', copy.updates.updateInProgress],
+      ['no-update', copy.updates.noCompatibleUpdate],
+      ['manual-upgrade', copy.updates.manualUpgrade],
+      ['installable', copy.updates.readyToInstall],
+    ] as const) {
+      assert.equal(installabilityReason(copy, managed(code) as never), text, code);
+    }
   }
   const th = adminCopy('th').updates;
   assert.equal(new Set([th.noRelease, th.releaseUnreachable, th.releaseUnusable]).size, 3, 'three causes, three sentences');

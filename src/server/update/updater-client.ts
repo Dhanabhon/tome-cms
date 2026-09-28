@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { compareStableVersions, parseStableVersion, type UpdateManifest } from '../../update/contracts.js';
 import { HttpError } from '../http/errors.js';
+import type { InstallabilityCode } from './admin.js';
 
 export const UPDATER_RESPONSE_LIMIT = 4 * 1024;
 const stableVersion = z.string().refine((value) => {
@@ -63,12 +64,12 @@ export function getManagedInstallability(check: {
   currentVersion: string;
   availability: string;
   latest: { manifest: Pick<UpdateManifest, 'version' | 'compatibility'> } | null;
-}, updater: UpdaterStatus): { mode: 'check-only' | 'managed'; installable: boolean; reason: string } {
-  if (!updater.managed) return { mode: 'check-only', installable: false, reason: 'Managed updater unavailable.' };
-  const unavailable = (reason: string) => ({ mode: 'managed' as const, installable: false, reason });
-  if (updater.job?.phase === 'failed_manual_recovery') return unavailable('Manual recovery is required. Contact your server operator.');
-  if (updater.job && !['succeeded', 'rolled_back'].includes(updater.job.phase)) return unavailable('An update is in progress.');
-  if (!check.latest || check.availability !== 'available') return unavailable('No compatible update is available.');
+}, updater: UpdaterStatus): { mode: 'check-only' | 'managed'; installable: boolean; reason: string; code: InstallabilityCode } {
+  if (!updater.managed) return { mode: 'check-only', installable: false, reason: 'Managed updater unavailable.', code: 'check-only' };
+  const unavailable = (reason: string, code: InstallabilityCode) => ({ mode: 'managed' as const, installable: false, reason, code });
+  if (updater.job?.phase === 'failed_manual_recovery') return unavailable('Manual recovery is required. Contact your server operator.', 'manual-recovery');
+  if (updater.job && !['succeeded', 'rolled_back'].includes(updater.job.phase)) return unavailable('An update is in progress.', 'in-progress');
+  if (!check.latest || check.availability !== 'available') return unavailable('No compatible update is available.', 'no-update');
   const { version, compatibility } = check.latest.manifest;
   if (updater.installed.version !== check.currentVersion
     || compareStableVersions(check.currentVersion, '1.0.0') < 0
@@ -77,9 +78,9 @@ export function getManagedInstallability(check: {
     || compareStableVersions(check.currentVersion, compatibility.rollbackSafeFrom) < 0
     || compareStableVersions(updater.updaterVersion, compatibility.minimumUpdaterVersion) < 0
     || compatibility.updaterProtocol !== 1 || compatibility.composeContract !== 1 || compatibility.environmentContract !== 1) {
-    return unavailable('Manual updater upgrade required. See the official release notes.');
+    return unavailable('Manual updater upgrade required. See the official release notes.', 'manual-upgrade');
   }
-  return { mode: 'managed', installable: true, reason: 'This managed installation can install the verified update.' };
+  return { mode: 'managed', installable: true, reason: 'This managed installation can install the verified update.', code: 'installable' };
 }
 
 interface SocketOptions { socketPath?: string; timeoutMs?: number }
