@@ -409,6 +409,17 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     else forget();
   }
 
+  // A press anywhere outside an open folder menu closes it, as Escape does.
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      for (const menu of document.querySelectorAll<HTMLDetailsElement>('details.media-category-menu[open]')) {
+        if (!menu.contains(event.target as Node)) menu.open = false;
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, []);
+
   // The posts list's "..." menu. Each action used to be a visible button that repeated the
   // folder's name, so two folders ran to a line of "Rename X Delete X Rename Y Delete Y".
   function folderMenu(folder: MediaFolder) {
@@ -417,7 +428,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       if (menu) menu.open = false;
     };
     return (
-      <details className="admin-story-menu media-category-menu" onKeyDown={(event) => {
+      // One name for every folder's menu: the browser closes the others when one opens.
+      <details className="admin-story-menu media-category-menu" name="media-folder-menu" onKeyDown={(event) => {
         if (event.key !== 'Escape' || !event.currentTarget.open) return;
         event.currentTarget.open = false;
         event.currentTarget.querySelector('summary')?.focus();

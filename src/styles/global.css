@@ -884,7 +884,9 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   color: var(--color-muted);
 }
 .media-category-menu.admin-story-menu summary:hover,
-.media-category-menu.admin-story-menu[open] summary { background: var(--color-paper-3); color: var(--color-ink); }
+.media-category-menu.admin-story-menu[open] summary { background: var(--color-paper-2); color: var(--color-ink); }
+/* Inset, so the ring stays inside the pill instead of circling past its edge. */
+.media-category-menu.admin-story-menu summary:focus-visible { outline-offset: -2px; }
 .media-category-menu button[data-folder-action="delete"] { color: var(--color-error-ink); }
 
 /* A folder is a chip, the shape the public feed's category chips already have. */
