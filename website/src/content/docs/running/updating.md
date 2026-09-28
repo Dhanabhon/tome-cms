@@ -13,12 +13,23 @@ Under "System", the admin shows your version next to "Installed version:" and ch
 
 ## Updating a managed install
 
-On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.0.3 is available.", with that release's version.
+:::caution[Installed with 1.0.1 or 1.0.2]
+Before the first update from the admin, run the application under an init, as root. Without it, the update stops at "Prepare maintenance" and the site goes down, as [Troubleshooting](/tome-cms/running/troubleshooting/#the-update-stops-at-prepare-maintenance-and-the-site-answers-502) describes. A web update replaces only the application image, so the Compose file keeps the version the server was installed with. A server installed with 1.0.3 or later has it already.
+
+```sh
+grep -q '^    init: true' /opt/tome-cms/compose.managed.yaml || sed -i '/^  app:$/a\    init: true' /opt/tome-cms/compose.managed.yaml
+cd /opt/tome-cms && docker compose -p tomecms -f compose.managed.yaml \
+  --env-file /etc/tome-cms/tome-cms.env \
+  --env-file /var/lib/tome-cms/updater/image.env up -d --wait --no-deps --pull never app
+```
+:::
+
+On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.0.4 is available.", with that release's version.
 
 1. Press "Read release notes" and read the notes of every version after yours.
-2. Press "Install 1.0.3". The admin asks "Install TomeCMS 1.0.3?". Press "Install 1.0.3" again, then confirm with your passkey.
+2. Press "Install 1.0.4". The admin asks "Install TomeCMS 1.0.4?". Press "Install 1.0.4" again, then confirm with your passkey.
 3. Keep the page open. "Installation progress" ticks off each step: "Check prerequisites", "Verify the official update", "Download update", "Prepare maintenance", "Create recovery backup", "Apply database migrations", "Restart TomeCMS" and "Check application health". The site is briefly down while TomeCMS restarts.
-4. When it is done, "System" says "TomeCMS 1.0.3 is installed."
+4. When it is done, "System" says "TomeCMS 1.0.4 is installed."
 
 What the updater does, and does not do:
 
@@ -70,7 +81,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
+| 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
 | 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
 | 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
 | 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |

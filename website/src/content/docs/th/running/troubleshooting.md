@@ -43,6 +43,44 @@ ss -tlnp | grep -E ':(4321|9000|5432) '
 
 ตัวติดตั้งของ 1.0.0 ติดตั้งจนจบไม่ได้บนเซิร์ฟเวอร์ไหนเลย เพราะการตรวจ migration ใน image ล้มเหลว ตัวติดตั้งลบสิ่งที่สร้างไว้ก่อนหยุด จึงไม่ต้องเก็บกวาดอะไร ให้ติดตั้ง 1.0.1 ขึ้นไปแทน
 
+## การอัปเดต
+
+### การอัปเดตหยุดที่ "เตรียมเข้าสู่โหมดปิดปรับปรุง" และเว็บตอบ `502`
+
+บนเซิร์ฟเวอร์ที่ติดตั้งด้วย 1.0.1 หรือ 1.0.2 แอปไม่สนใจสัญญาณให้หยุด ตัวอัปเดตรอ 30 วินาทีแล้วยอมแพ้ และการย้อนกลับก็ล้มเหลวด้วย แอปจึงหยุดค้างอยู่ และเมนู "ระบบ" เริ่มอัปเดตครั้งใหม่ไม่ได้ ตรวจบนเซิร์ฟเวอร์ได้ด้วยคำสั่งนี้
+
+```sh
+sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
+```
+
+ถ้าได้ `"phase":"failed_manual_recovery"` พร้อม `"backupCreatedAt":null` แปลว่าการอัปเดตหยุดก่อนสำรองข้อมูล ฐานข้อมูลและเวอร์ชันที่รันอยู่ยังเหมือนเดิม จากนั้นให้ทำดังนี้
+
+1. รันแอปภายใต้ init แล้วเปิดแอปอีกครั้งด้วยเวอร์ชันที่ใช้อยู่เดิม
+
+   ```sh
+   grep -q '^    init: true' /opt/tome-cms/compose.managed.yaml || sed -i '/^  app:$/a\    init: true' /opt/tome-cms/compose.managed.yaml
+   cd /opt/tome-cms && docker compose -p tomecms -f compose.managed.yaml \
+     --env-file /etc/tome-cms/tome-cms.env \
+     --env-file /var/lib/tome-cms/updater/image.env up -d --wait --no-deps --pull never app
+   ```
+
+2. แยกเก็บการอัปเดตที่ล้มเหลวไว้ โดยรันจากโค้ดที่ checkout ไว้ที่ 1.0.3 ขึ้นไป
+
+   ```sh
+   cd /opt/tome-cms-src
+   git fetch --depth 1 origin tag v1.0.3
+   git checkout --detach v1.0.3
+   npm ci
+   sudo npm run updater:clear-failed
+   ```
+
+   คำสั่งนี้เก็บบันทึกของการอัปเดตไว้เป็น `job.json.cleared-<id>` แล้วรีสตาร์ตตัวอัปเดต
+3. อัปเดตอีกครั้งจากเมนู "ระบบ"
+
+### `This update made a backup before it failed, so it may have changed the database. Follow the recovery steps instead.`
+
+`npm run updater:clear-failed` แยกเก็บเฉพาะการอัปเดตที่หยุดก่อนสำรองข้อมูล การอัปเดตครั้งนี้ไปไกลกว่านั้น และอาจรัน migration ไปแล้ว ให้ทำตามหัวข้อ[กู้คืนการติดตั้งแบบ managed](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed)แทน
+
 ## การเชื่อมต่อเซิร์ฟเวอร์
 
 ### `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`

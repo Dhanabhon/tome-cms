@@ -43,6 +43,44 @@ The folder you run the installer from is not a clean clone of a release tag, for
 
 The 1.0.0 installer could not finish on any server: its check of the image's migrations failed. It removes what it created before it stops, so nothing needs cleaning up. Install 1.0.1 or later instead.
 
+## Updating
+
+### The update stops at "Prepare maintenance", and the site answers `502`
+
+On a server installed with 1.0.1 or 1.0.2, the application ignores the signal to stop. The updater gives up after 30 seconds, and the rollback fails as well, so the application stays stopped and "System" cannot start another update. Check it on the server:
+
+```sh
+sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
+```
+
+`"phase":"failed_manual_recovery"` with `"backupCreatedAt":null` means the update stopped before its backup: the database and the running version are as they were. Then:
+
+1. Run the application under an init, and start it again on the version it had:
+
+   ```sh
+   grep -q '^    init: true' /opt/tome-cms/compose.managed.yaml || sed -i '/^  app:$/a\    init: true' /opt/tome-cms/compose.managed.yaml
+   cd /opt/tome-cms && docker compose -p tomecms -f compose.managed.yaml \
+     --env-file /etc/tome-cms/tome-cms.env \
+     --env-file /var/lib/tome-cms/updater/image.env up -d --wait --no-deps --pull never app
+   ```
+
+2. Set the failed update aside, from a checkout of 1.0.3 or later:
+
+   ```sh
+   cd /opt/tome-cms-src
+   git fetch --depth 1 origin tag v1.0.3
+   git checkout --detach v1.0.3
+   npm ci
+   sudo npm run updater:clear-failed
+   ```
+
+   It keeps the record as `job.json.cleared-<id>`, and restarts the updater.
+3. Update again from "System".
+
+### `This update made a backup before it failed, so it may have changed the database. Follow the recovery steps instead.`
+
+`npm run updater:clear-failed` sets aside only an update that stopped before its backup. This one got further, and may have run migrations. Follow [Recovering a managed installation](/tome-cms/running/recovery/#recovering-a-managed-installation) instead.
+
 ## Connecting to the server
 
 ### `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`

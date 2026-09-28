@@ -9,6 +9,8 @@ TomeCMS มีผู้ดูแลอยู่คนเดียว งาน�
 
 รับทั้งการแก้ไขข้อบกพร่องและฟีเจอร์ใหม่ ฟีเจอร์ใหม่จะเข้าไปใน minor release ถัดไป และต้องไม่ทำให้สิ่งที่ใช้ได้อยู่แล้วเสีย รวมถึง[content API](/tome-cms/th/api/overview/) ภายใต้ `/api/v1`
 
+ทุกคนที่มีส่วนร่วม ทั้งใน issue, pull request และ discussion ต้องทำตาม[หลักปฏิบัติของชุมชน (Code of Conduct)](https://github.com/Dhanabhon/tome-cms/blob/main/CODE_OF_CONDUCT.md)
+
 ## ก่อนเริ่ม
 
 ถ้าจะแก้อะไรที่ใหญ่กว่าการแก้เล็ก ๆ ให้[เปิด issue](https://github.com/Dhanabhon/tome-cms/issues/new/choose) ก่อน แล้วบอกว่าอยากเปลี่ยนอะไรและเพราะอะไร จะได้ไม่ต้องเขียนโค้ดที่ไปคนละทางกับแผน แบบฟอร์ม issue มีสองแบบ คือ "Bug report" กับ "Feature idea"

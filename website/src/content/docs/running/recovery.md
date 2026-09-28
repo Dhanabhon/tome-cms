@@ -134,4 +134,8 @@ sudo systemctl enable --now tomecms-updater
 sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 ```
 
-A web update that fails and cannot safely go back to the previous application ends as `failed_manual_recovery`. It keeps its backup, and the admin cannot start another update until the server's operator has dealt with it. Do not delete `/var/lib/tome-cms/updater/job.json` to bring the button back. Stop the updater and the application, and copy the backup, which is under `/var/backups/tome-cms/`, off the server. [Check it](/tome-cms/running/backups/) with `npm run restore:check` before you change anything. Restoring the database and the files is done by hand.
+A web update that fails and cannot safely go back to the previous application ends as `failed_manual_recovery`. It keeps its backup, and the admin cannot start another update until the server's operator has dealt with it. Do not delete `/var/lib/tome-cms/updater/job.json` to bring the button back.
+
+If the update stopped before its backup, `"backupCreatedAt"` is `null` in the updater's status, and nothing changed. `sudo npm run updater:clear-failed`, run from a checkout of 1.0.3 or later, then sets the job aside, as [Troubleshooting](/tome-cms/running/troubleshooting/#the-update-stops-at-prepare-maintenance-and-the-site-answers-502) shows. It refuses any other job.
+
+Otherwise, stop the updater and the application, and copy the backup, which is under `/var/backups/tome-cms/`, off the server. [Check it](/tome-cms/running/backups/) with `npm run restore:check` before you change anything. Restoring the database and the files is done by hand.

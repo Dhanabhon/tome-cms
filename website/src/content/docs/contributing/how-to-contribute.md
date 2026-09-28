@@ -9,6 +9,8 @@ TomeCMS is maintained by one person, so a small, focused change with its tests i
 
 Fixes and features are both welcome. A feature lands in the next minor release, and must keep what already works working, including [the content API](/tome-cms/api/overview/) under `/api/v1`.
 
+Everyone who takes part, in issues, pull requests and discussions, follows the [Code of Conduct](https://github.com/Dhanabhon/tome-cms/blob/main/CODE_OF_CONDUCT.md).
+
 ## Before you start
 
 For anything bigger than a small fix, [open an issue](https://github.com/Dhanabhon/tome-cms/issues/new/choose) first, and say what you want to change and why. That saves you writing code that goes a different way from the plan. The issue forms are "Bug report" and "Feature idea".
