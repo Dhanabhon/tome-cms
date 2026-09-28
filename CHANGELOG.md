@@ -2,6 +2,23 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.0.1 - 2026-09-28
+
+The managed installer finishes on a real server. Install 1.0.1; 1.0.0 could not finish.
+
+### Fixed
+
+- The installer and the updater list the migrations inside the release's image in a read-only container, and `tsx` could not write its cache there, so the 1.0.0 installer stopped at that step on every server. The container now gets a small in-memory `/tmp`, and both take the command from `src/updater/inventory.ts`.
+- The installer names `TOME_CMS_PUBLIC_URL` or `S3_ENDPOINT` when either is not set, instead of reporting "requires HTTPS".
+- The installer checks that ports 5432, 9000 and 4321 are free before it changes anything, the dry run included.
+
+### Changed
+
+- CI builds the application image and runs the installer's migration check against it, `npm run check:inventory`.
+- The docs install 1.0.1, and the update path from the admin starts at 1.0.1 to 1.0.2.
+
+Full notes: [docs/releases/1.0.1.md](docs/releases/1.0.1.md)
+
 ## 1.0.0 - 2026-09-28
 
 The first stable release. A fresh VPS gets a managed install, whose owner installs later releases from the admin, starting with 1.0.0 to 1.0.1.
