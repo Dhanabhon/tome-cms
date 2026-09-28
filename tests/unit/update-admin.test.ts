@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatPublishedAt, installabilityReason, updateCheckFailureMessage, updateCheckMessage, updateModeLabel } from '../../src/components/admin/UpdateManager.tsx';
+import { formatBackupTime, formatPublishedAt, progressVisible, installabilityReason, jobStatusMessage, updateCheckFailureMessage, updateCheckMessage, updateModeLabel } from '../../src/components/admin/UpdateManager.tsx';
 import { adminCopy, fill } from '../../src/lib/admin-i18n.js';
 import { getUpdateInstallability, updateActionSchema } from '../../src/server/update/admin.js';
 
@@ -86,5 +86,32 @@ test('the update mode shows as words, never the raw check-only / managed value t
     assert.equal(updateModeLabel(copy, 'managed'), copy.updates.modeManaged);
     assert.notEqual(updateModeLabel(copy, 'check-only'), 'check-only', 'never the raw config enum');
     assert.notEqual(updateModeLabel(copy, 'managed'), 'managed', 'never the raw config enum');
+  }
+});
+
+test('the progress line and the backup time are in the owner’s language, never the updater’s English', () => {
+  for (const locale of ['en', 'th'] as const) {
+    const copy = adminCopy(locale);
+    const said = (phase: string) => jobStatusMessage(copy, { phase } as never);
+    assert.equal(said('backing_up'), copy.updates.createBackup, 'a running step is its own label');
+    assert.equal(said('succeeded'), copy.updates.updateSucceeded);
+    assert.equal(said('rolling_back'), copy.updates.rollingBack);
+    assert.equal(said('rolled_back'), copy.updates.previousRestored);
+    assert.equal(said('failed_manual_recovery'), copy.updates.manualRecoveryRequired);
+  }
+  assert.notEqual(jobStatusMessage(adminCopy('th'), { phase: 'succeeded' } as never), 'Update installed successfully.');
+  const when = '2026-09-28T08:22:24.000Z';
+  assert.match(formatBackupTime(when, 'th'), /2569/, 'Thai shows the Buddhist year');
+  assert.match(formatBackupTime(when, 'en'), /2026/);
+  assert.equal(formatBackupTime('not-a-date', 'th'), 'not-a-date');
+});
+
+test('the progress card shows while an update runs; a finished one leaves only a summary', () => {
+  assert.equal(progressVisible(false, null), false);
+  assert.equal(progressVisible(true, null), true, 'just requested, before the updater answers');
+  assert.equal(progressVisible(false, { phase: 'backing_up' } as never), true);
+  for (const phase of ['succeeded', 'rolled_back', 'failed_manual_recovery']) {
+    assert.equal(progressVisible(false, { phase } as never), false, phase);
+    assert.equal(progressVisible(true, { phase } as never), true, `${phase}, while the owner watches it finish`);
   }
 });

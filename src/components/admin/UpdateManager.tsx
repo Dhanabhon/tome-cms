@@ -85,6 +85,28 @@ export function updateModeLabel(copy: AdminCopy, mode: UpdateCheck['updateMode']
   return mode === 'managed' ? copy.updates.modeManaged : copy.updates.modeCheckOnly;
 }
 
+// The step-by-step card is for an update in progress, or one the owner is watching finish. The
+// updater keeps the last job until the next one, and in 1.0.2 its card stayed up for good.
+export function progressVisible(watching: boolean, job: Pick<PublicUpdateJob, 'phase'> | null): boolean {
+  return watching || (job !== null && !terminalPhases.includes(job.phase));
+}
+
+// The updater's own `message` is English; the owner reads its phase in their language.
+export function jobStatusMessage(copy: AdminCopy, job: Pick<PublicUpdateJob, 'phase'>): string {
+  const step = buildSteps(copy).find(([phase]) => phase === job.phase);
+  if (step) return step[1];
+  if (job.phase === 'succeeded') return copy.updates.updateSucceeded;
+  if (job.phase === 'rolling_back') return copy.updates.rollingBack;
+  if (job.phase === 'rolled_back') return copy.updates.previousRestored;
+  return copy.updates.manualRecoveryRequired;
+}
+
+export function formatBackupTime(value: string, locale?: PostLocale | null): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
 export function formatPublishedAt(value: string, copy: AdminCopy, locale?: PostLocale | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return copy.updates.publishedUnavailable;
@@ -303,19 +325,32 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
         </dl>
       </section>
 
-      {(watch || job) && <section className="admin-card" aria-labelledby="update-progress-heading">
+      {progressVisible(!!watch, job) && <section className="admin-card" aria-labelledby="update-progress-heading">
         <header className="admin-card__head">
           <h2 id="update-progress-heading">{copy.updates.progress}</h2>
-          <p role="status" aria-live="polite">{reconnecting ? copy.updates.reconnecting : job?.message ?? copy.updates.waitingForUpdater}</p>
+          <p role="status" aria-live="polite">{reconnecting ? copy.updates.reconnecting : job ? jobStatusMessage(copy, job) : copy.updates.waitingForUpdater}</p>
         </header>
         <progress className="update-progress" max={8} value={job?.completedSteps ?? 0} aria-label={copy.updates.stepsCompleted} />
         <ol className="update-steps">{steps.map(([phase, label], index) => <li key={phase} aria-current={job?.phase === phase ? 'step' : undefined}>
           {index < (job?.completedSteps ?? 0) && <span aria-label={copy.updates.completed}>✓ </span>}{label}
         </li>)}</ol>
         {job?.phase === 'succeeded' && <p>{fill(copy.updates.installed, { version: job.targetVersion })}</p>}
-        {job?.backupCreatedAt && <p>{copy.updates.backupCreated} <time dateTime={job.backupCreatedAt}>{new Date(job.backupCreatedAt).toLocaleString()}</time>.</p>}
+        {job?.backupCreatedAt && <p>{copy.updates.backupCreated} <time dateTime={job.backupCreatedAt}>{formatBackupTime(job.backupCreatedAt, ownerLocale)}</time>.</p>}
         {job?.phase === 'rolled_back' && <p>{copy.updates.rolledBack}</p>}
         {job?.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
+      </section>}
+
+      {!progressVisible(!!watch, job) && currentJob && <section className="admin-card" aria-labelledby="last-update-heading">
+        <header className="admin-card__head">
+          <h2 id="last-update-heading">{copy.updates.lastUpdate}</h2>
+          <p>{jobStatusMessage(copy, currentJob)}</p>
+        </header>
+        <dl className="admin-facts">
+          <div><dt>{copy.updates.lastUpdateVersion}</dt><dd>{currentJob.targetVersion}</dd></div>
+          {currentJob.finishedAt && <div><dt>{copy.updates.lastUpdateFinished}</dt><dd><time dateTime={currentJob.finishedAt}>{formatBackupTime(currentJob.finishedAt, ownerLocale)}</time></dd></div>}
+          {currentJob.backupCreatedAt && <div><dt>{copy.updates.backupCreated}</dt><dd><time dateTime={currentJob.backupCreatedAt}>{formatBackupTime(currentJob.backupCreatedAt, ownerLocale)}</time></dd></div>}
+        </dl>
+        {currentJob.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
       </section>}
 
     </div>
