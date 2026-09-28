@@ -106,3 +106,7 @@ This shows when you upload a file in the admin. After the browser uploads the fi
 On 1.0.1 and earlier it happened to every upload: SeaweedFS refused the first check that came right after an upload, and the server gave up at once. 1.0.2 waits it out. Update from "System" in the admin, as [Updating](/tome-cms/running/updating/) describes, then upload the file again.
 
 If it still happens on 1.0.2 or later, look at `/health/ready` first, as in the entry above. Then read the application's log with the command at the top of this page. A line that starts `Upload verification failed:` or `Image verification failed:` names the storage error and its status, such as `Unknown 403`.
+
+### `The request could not be completed.` when deleting a file, removing a logo, or making new recovery codes
+
+On 1.0.3 and earlier, these three requests went out with no content type, and Astro refuses such a request when the site sits behind an HTTPS proxy, which every managed install does. Nothing was changed: the file, the logo and the old codes are all still there. Update to 1.0.4 or later from "System", as [Updating](/tome-cms/running/updating/) describes, and try again.

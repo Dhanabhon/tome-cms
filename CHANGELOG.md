@@ -2,6 +2,21 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.0.4 - 2026-09-28
+
+Deleting a file, removing a logo and making new recovery codes work on a managed install, and a folder's rename and delete move into a menu on its chip.
+
+### Fixed
+
+- Three admin requests had no body and no content type, and Astro refused them behind the HTTPS proxy every managed install sits behind, which the admin showed as "The request could not be completed.": deleting a file, removing a site logo, and making new recovery codes. They now send `application/json`, and a unit test fails on any changing request from the admin that names no content type.
+- The file library's folders: rename and delete sit in a "..." menu on each folder's chip instead of two buttons repeating its name, and on a phone beside the folder list.
+
+### Changed
+
+- Troubleshooting covers "The request could not be completed." for those three actions.
+
+Full notes: [docs/releases/1.0.4.md](docs/releases/1.0.4.md)
+
 ## 1.0.3 - 2026-09-28
 
 An update from the admin stops the application in time and goes back cleanly, a job that failed before its backup can be cleared, the System screen speaks the owner's language throughout, and a Code of Conduct.
