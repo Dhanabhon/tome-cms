@@ -1459,7 +1459,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   .admin-page-list .admin-story-start { border-block-start: 0; }
   /* Same shape as the phone rule above, or that one's third class wins and every status in
    * the panel lands on row 2, one pill printed over another. */
-  .admin-page-list .admin-story-edition > .admin-status { grid-column: 2; grid-row: var(--edition-row); justify-self: start; align-self: center; margin-block-end: 0; }
+  .admin-page-list .admin-story-edition > .admin-status { grid-column: 2; grid-row: var(--edition-row); justify-self: start; align-self: baseline; margin-block-end: 0; }
   .admin-page-list .admin-story-menu { grid-column: 4; }
   /* The date belongs to the story, so it sits on the story's first line. The timezone is
    * the column's, not each date's: the header says it once, and saying it again in a
