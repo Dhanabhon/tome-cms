@@ -36,6 +36,7 @@ export const createPostSchema = contentMutationSchema.omit({ updatedAt: true }).
   categoryIds: categoryIdsSchema,
   coverMediaId: z.uuid().nullable(),
   excerpt: excerptSchema,
+  showCover: z.boolean().default(true),
   locale: z.enum(['th', 'en']).optional(),
   sourcePostId: z.uuid().optional(),
 }).superRefine(({ locale, sourcePostId }, context) => {
@@ -49,10 +50,12 @@ export const updatePostSchema = contentMutationSchema.safeExtend({
   coverMediaId: z.uuid().nullable(),
   excerpt: excerptSchema,
   id: z.uuid(),
+  showCover: z.boolean().optional(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
 
-export type CreatePostInput = z.infer<typeof createPostSchema>;
+// The input side: a caller that does not mention the cover gets the default, shown.
+export type CreatePostInput = z.input<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 
 export function postFromRow(row: Selectable<PostTable>): Post {
@@ -64,6 +67,7 @@ export function postFromRow(row: Selectable<PostTable>): Post {
     translation_group_id: row.translation_group_id,
     cover_media_id: row.cover_media_id,
     cover_image: row.cover_media_id ? stableMediaPath(row.cover_media_id) : null,
+    show_cover: row.show_cover,
     content_json: row.content_json,
     content_html: row.content_html,
     excerpt: row.excerpt,
@@ -142,6 +146,7 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         title: input.title,
         slug: normalizedContentSlug('post', input.slug, input.title, id),
         cover_media_id: coverMediaId,
+        show_cover: input.showCover,
         content_json: content.contentJson,
         content_html: content.contentHtml,
         excerpt: input.excerpt,
@@ -204,6 +209,7 @@ export async function duplicatePost(ownerId: string, id: string): Promise<Post> 
         title: duplicateTitle(source.title, source.locale),
         slug: taken ? fallback : preferred,
         cover_media_id: source.cover_media_id,
+        show_cover: source.show_cover,
         content_json: source.content_json,
         content_html: source.content_html,
         meta_title: source.meta_title,
@@ -242,6 +248,7 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         title: input.title,
         slug: normalizedContentSlug('post', input.slug, input.title, input.id),
         cover_media_id: input.coverMediaId,
+        ...(input.showCover === undefined ? {} : { show_cover: input.showCover }),
         content_json: content.contentJson,
         content_html: content.contentHtml,
         excerpt: input.excerpt,

@@ -26,6 +26,7 @@ import * as homeSlides from './migrations/023_home_slides';
 import * as siteMaintenance from './migrations/024_site_maintenance';
 import * as contentStats from './migrations/025_content_stats';
 import * as plannedDates from './migrations/026_planned_dates';
+import * as postShowCover from './migrations/027_post_show_cover';
 
 export const migrations = {
   '001_system': system,
@@ -54,6 +55,7 @@ export const migrations = {
   '024_site_maintenance': siteMaintenance,
   '025_content_stats': contentStats,
   '026_planned_dates': plannedDates,
+  '027_post_show_cover': postShowCover,
 } as const;
 
 const provider: MigrationProvider = {

@@ -210,6 +210,8 @@ export interface ContentEditionColumns {
 
 export interface PostTable extends ContentEditionColumns {
   cover_media_id: string | null;
+  /** Whether the cover leads the article (027). */
+  show_cover: Generated<boolean>;
   /** The card's line, in the writer's words; '' falls back to the search description. */
   excerpt: Generated<string>;
 }

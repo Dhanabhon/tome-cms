@@ -19,6 +19,7 @@ interface EditorSourcePost {
   cover_image: string | null;
   cover_media_id: string | null;
   id: string;
+  show_cover: boolean;
 }
 
 interface EditorProps {
@@ -41,6 +42,7 @@ interface EditorDraft {
   excerpt: string;
   metaDescription: string | null;
   metaTitle: string | null;
+  showCover: boolean;
   slug: string;
   title: string;
 }
@@ -77,6 +79,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
   const [categoryIds, setCategoryIds] = useState(() => selectCategories(categories, initialCategoryIds));
   const [coverMediaId, setCoverMediaId] = useState(initialPost?.cover_media_id ?? sourcePost?.cover_media_id ?? null);
   const [coverImage, setCoverImage] = useState(initialPost?.cover_image ?? sourcePost?.cover_image ?? null);
+  const [showCover, setShowCover] = useState(initialPost?.show_cover ?? sourcePost?.show_cover ?? true);
   const [slug, setSlug] = useState(initialPost?.slug ?? '');
   const [metaTitle, setMetaTitle] = useState(initialPost?.meta_title ?? '');
   const [excerpt, setExcerpt] = useState(initialPost?.excerpt ?? '');
@@ -94,11 +97,11 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
 
   const draftRef = useRef<EditorDraft>({
     categoryIds, contentJson, coverMediaId, excerpt,
-    metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
+    metaDescription: metaDescription || null, metaTitle: metaTitle || null, showCover, slug, title,
   });
   draftRef.current = {
     categoryIds, contentJson, coverMediaId, excerpt,
-    metaDescription: metaDescription || null, metaTitle: metaTitle || null, slug, title,
+    metaDescription: metaDescription || null, metaTitle: metaTitle || null, showCover, slug, title,
   };
 
   const snapshot = useCallback(() => {
@@ -242,7 +245,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
 
     autosaveTimer.current = window.setTimeout(() => void persist().catch(() => undefined), 900);
     return () => window.clearTimeout(autosaveTimer.current);
-  }, [dirty, isNavigating, persist, title, slug, contentJson, excerpt, metaDescription, metaTitle, categoryIds, coverMediaId]);
+  }, [dirty, isNavigating, persist, title, slug, contentJson, excerpt, metaDescription, metaTitle, categoryIds, coverMediaId, showCover]);
 
   const saveBefore = async (action: (post: Post) => void, status?: PostStatus, leavesEditor = false): Promise<boolean> => {
     if (actionPending.current) return false;
@@ -451,12 +454,14 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
           onChangeExcerpt={(value) => { setExcerpt(value); markDirty(); }}
           onChangeMetaDescription={(value) => { setMetaDescription(value); markDirty(); }}
           onChangeMetaTitle={(value) => { setMetaTitle(value); markDirty(); }}
+          onChangeShowCover={(value) => { setShowCover(value); markDirty(); }}
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
           onClose={() => setSettingsOpen(false)}
           ownerLocale={ownerLocale}
           onManageCategories={() => void leave(adminHref({ admin_path: adminPath }, '/categories'))}
           open={settingsOpen}
           selectedCategoryIds={categoryIds}
+          showCover={showCover}
           slug={slug}
         />
       </div>

@@ -76,6 +76,7 @@ export interface Post {
   translation_group_id: string;
   cover_media_id: string | null;
   cover_image: string | null;
+  show_cover: boolean;
   content_json: EditorDocument;
   content_html: string;
   /** What a card shows. Empty means the theme falls back; see lib/posts.ts. */
@@ -94,6 +95,7 @@ export interface Post {
 export interface PostMutationInput {
   categoryIds: string[];
   coverMediaId: string | null;
+  showCover?: boolean;
   title: string;
   slug: string;
   contentJson: EditorDocument;
@@ -379,6 +381,7 @@ export interface PublicPost {
   contentHtml: string;
   contentJson: EditorDocument;
   coverImage: PublicMedia | null;
+  showCover: boolean;
   createdAt: string;
   id: string;
   locale: PostLocale;

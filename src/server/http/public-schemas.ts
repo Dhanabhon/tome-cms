@@ -102,6 +102,7 @@ export const publicPostSchema: z.ZodType<PublicPost> = z.object({
   ...publicContentFields,
   categories: z.array(publicCategorySchema).max(20),
   coverImage: publicMediaSchema.nullable(),
+  showCover: z.boolean(),
 }).strict();
 
 export const publicPageSchema: z.ZodType<PublicPage> = z.object(publicContentFields).strict();

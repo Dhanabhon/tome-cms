@@ -39,6 +39,7 @@ export function serializePublicPost(row: PublishedPost): PublicPost {
     contentHtml: row.content_html,
     contentJson: row.content_json,
     coverImage: row.coverImage ? serializePublicMedia(row.coverImage) : null,
+    showCover: row.show_cover,
     createdAt: row.created_at,
     id: row.id,
     locale: row.locale,

@@ -1,12 +1,13 @@
 ---
-import { withLeadImage } from '../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
+import { articleCover } from '../../lib/post-cover';
 import type { ThemePostProps } from '../contract';
 
 interface Props extends ThemePostProps {}
 
 const { categories, post, preview, profile, settings } = Astro.props;
 const copy = publicCopy(post.locale);
+const { cover, bodyHtml } = articleCover(post);
 const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone });
 const when = preview ? post.updated_at : post.published_at ?? post.created_at;
 ---
@@ -19,8 +20,8 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     <span>{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></span>
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
-  {post.cover_image && <img src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />}
-  <div class="plain-body" set:html={post.cover_image ? post.content_html : withLeadImage(post.content_html)} />
+  {cover && <img src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />}
+  <div class="plain-body" set:html={bodyHtml} />
   {profile?.bio && (
     <footer class="plain-author">
       <h2>{copy.aboutTheAuthor}</h2>

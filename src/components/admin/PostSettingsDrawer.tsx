@@ -41,6 +41,7 @@ interface PostSettingsDrawerProps {
   onChangeExcerpt: (value: string) => void;
   onChangeMetaDescription: (value: string) => void;
   onChangeMetaTitle: (value: string) => void;
+  onChangeShowCover: (value: boolean) => void;
   onChangeSlug: (value: string) => void;
   locale: PostLocale;
   onClose: () => void;
@@ -48,13 +49,14 @@ interface PostSettingsDrawerProps {
   open: boolean;
   ownerLocale?: PostLocale | null;
   selectedCategoryIds: string[];
+  showCover: boolean;
   slug: string;
 }
 
 export default function PostSettingsDrawer({
   categories, copy, coverImage, errorMessage, excerpt, locale, metaDescription, metaTitle,
-  onChangeCategories, onChangeCover, onChangeExcerpt, onChangeMetaDescription, onChangeMetaTitle, onChangeSlug,
-  onChangePublishedAt, onSuggestDescription, onSuggestExcerpt, onClose, onManageCategories, onSuggestCategories, open, ownerLocale, publishedAt, selectedCategoryIds, slug,
+  onChangeCategories, onChangeCover, onChangeExcerpt, onChangeMetaDescription, onChangeMetaTitle, onChangeShowCover, onChangeSlug,
+  onChangePublishedAt, onSuggestDescription, onSuggestExcerpt, onClose, onManageCategories, onSuggestCategories, open, ownerLocale, publishedAt, selectedCategoryIds, showCover, slug,
 }: PostSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   const [suggesting, setSuggesting] = useState(false);
@@ -175,6 +177,15 @@ export default function PostSettingsDrawer({
             </button>
             {coverImage && <button aria-label={copy.drawer.removeCover} className="admin-button admin-button--ghost admin-button--icon admin-cover-remove" onClick={() => onChangeCover(null)} title={copy.drawer.removeCover} type="button"><Icon name="trash" /></button>}
           </div>
+          {coverImage && (
+            <div className="admin-check">
+              <label>
+                <input checked={showCover} onChange={(event) => onChangeShowCover(event.target.checked)} type="checkbox" />
+                <span>{copy.drawer.showCover}</span>
+              </label>
+              <small>{copy.drawer.showCoverHint}</small>
+            </div>
+          )}
           <small className="admin-cover-help">
             {fill(copy.drawer.coverHelp, {
               height: COVER_IMAGE_GUIDANCE.recommendedHeight,

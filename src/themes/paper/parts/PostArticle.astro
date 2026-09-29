@@ -1,6 +1,6 @@
 ---
-import { withLeadImage } from '../../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../../lib/i18n';
+import { articleCover } from '../../../lib/post-cover';
 import type { Post, PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
 import AuthorBlock from './AuthorBlock.astro';
 import Icon from '../../../components/Icon.astro';
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const { authorLinks, categories = [], post, preview = false, profile, settings } = Astro.props;
+const { cover, bodyHtml } = articleCover(post);
 const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), {
   day: 'numeric',
   month: 'long',
@@ -47,9 +48,9 @@ const copy = publicCopy(post.locale);
       </ul>
     )}
   </header>
-  {post.cover_image && (
-    <img class="post-cover" src={post.cover_image} alt={post.title} fetchpriority="high" width="1200" height="675" />
+  {cover && (
+    <img class="post-cover" src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />
   )}
-  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={post.cover_image ? post.content_html : withLeadImage(post.content_html)} />
+  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={bodyHtml} />
   {profile && <AuthorBlock linkStyle={authorLinks === 'icons' || authorLinks === 'both' ? authorLinks : 'text'} locale={post.locale} profile={profile} />}
 </article>

@@ -301,3 +301,33 @@ test('several files go up at once into the folder chosen for them, and a failed 
     .select('media_folders.name').execute();
   expect(filed.filter((row) => row.name === 'Covers')).toHaveLength(3);
 });
+
+test('an unticked cover leaves the top of the published article, and the shared-link image keeps it', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  await signIn(context, page);
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('textarea.admin-title-input').first().fill('Cover test');
+  await page.locator('.ProseMirror').first().fill('Body without pictures.');
+  await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  // Uploading from the picker chooses the file as the cover in one step.
+  await page.getByRole('button', { name: 'Choose image' }).click();
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  await page.locator('.media-picker input[type="file"]').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: png });
+  await expect(page.locator('.admin-cover-preview')).toBeVisible({ timeout: 30_000 });
+  const toggle = page.getByLabel('Show the cover at the top of the post');
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await expect(page.locator('.admin-save-state[data-state="saved"]'), 'the toggle is saved like any other field').toBeVisible({ timeout: 15_000 });
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+
+  const { db } = await import('../../src/server/db/client');
+  await expect.poll(async () => (await db.selectFrom('posts').select('status').where('title', '=', 'Cover test').executeTakeFirst())?.status, { timeout: 30_000 }).toBe('published');
+  const row = await db.selectFrom('posts').select(['slug', 'locale', 'show_cover']).where('title', '=', 'Cover test').executeTakeFirstOrThrow();
+  expect(row.show_cover).toBe(false);
+  await page.goto(`${origin}/${row.locale}/blog/${row.slug}`);
+  await expect(page.locator('h1')).toContainText('Cover test');
+  await expect(page.locator('.post-cover')).toHaveCount(0);
+  await expect(page.locator('meta[property="og:image"]'), 'the shared-link image still reads the cover').toHaveCount(1);
+});

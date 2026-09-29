@@ -18,7 +18,7 @@ import { suggestionsAvailable } from '../../server/plugins/suggestions';
 let errorKey: 'editorUnavailable' | 'postNotFound' | null = null;
 let serverMessage: string | null = null;
 let locale: PostLocale | null = null;
-let sourcePost: { cover_image: string | null; cover_media_id: string | null; id: string } | undefined;
+let sourcePost: { cover_image: string | null; cover_media_id: string | null; id: string; show_cover: boolean } | undefined;
 let translations: PostTranslationSummary[] = [];
 let categories: PostCategory[] = [];
 let initialCategoryIds: string[] = [];
@@ -49,7 +49,7 @@ try {
       errorKey = 'postNotFound';
     } else {
       locale = targetLocale;
-      sourcePost = { cover_image: source.cover_image, cover_media_id: source.cover_media_id, id: source.id };
+      sourcePost = { cover_image: source.cover_image, cover_media_id: source.cover_media_id, id: source.id, show_cover: source.show_cover };
       initialCategoryIds = await categoryIdsForPost(current.user.id, source.id);
       translations = editions;
     }
