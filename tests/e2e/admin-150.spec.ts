@@ -281,14 +281,15 @@ test('several files go up at once into the folder chosen for them, and a failed 
   await expect(leave).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(leave).toBeHidden();
-  // Escape opens the leave prompt and Escape again declines it. Left to itself Chromium stops
-  // letting the page hold Escape back, and then closes the dialog on its own: the page has to
-  // follow, ending the uploads, rather than keep a hidden dialog mounted with uploads running.
+  // Chromium sometimes closes a dialog on Escape without letting the page hold it back. That is
+  // simulated rather than waited for: a cancel that cannot be cancelled is ignored by the page
+  // (it must not open the prompt), then the dialog closes itself, and the page has to follow --
+  // ending the uploads -- rather than keep a hidden dialog mounted with uploads running.
   const mounted = page.locator('dialog.media-upload-dialog');
-  for (let presses = 0; presses < 8 && await mounted.count() > 0; presses += 1) {
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-  }
+  await page.evaluate(() => document.querySelector('dialog.media-upload-dialog')?.dispatchEvent(new Event('cancel', { cancelable: false })));
+  await expect(leave, 'a cancel that cannot be held back does not ask').toBeHidden();
+  await expect(mounted).toHaveCount(1);
+  await page.evaluate(() => (document.querySelector('dialog.media-upload-dialog') as HTMLDialogElement | null)?.close());
   await expect(mounted, 'the dialog is gone, not hidden').toHaveCount(0);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   release();

@@ -9,6 +9,9 @@ import type { MediaFolder } from '../../types/cms';
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
 
+/** The longest Stop waits for uploads to settle before it closes anyway. */
+const SETTLE_MS = 10_000;
+
 type RowStatus = 'ready' | 'refused' | 'queued' | 'uploading' | 'done' | 'failed';
 type Row = { error?: string; file: File; id: number; progress: number; status: RowStatus };
 
@@ -81,7 +84,13 @@ export default function MediaUploadDialog({ copy, files, folders, initialFolderI
     closing.current = true;
     controller.current.abort();
     // A file whose finalize was already sent still lands, and must be in what onClose reports.
-    await Promise.allSettled([...sending.current]);
+    // The wait is bounded: a finalize to a stalled server must not keep the dialog open for good.
+    let timer = 0;
+    await Promise.race([
+      Promise.allSettled([...sending.current]),
+      new Promise((resolve) => { timer = window.setTimeout(resolve, SETTLE_MS); }),
+    ]);
+    window.clearTimeout(timer);
     await hide();
     onClose(folderId, uploaded.current);
   };

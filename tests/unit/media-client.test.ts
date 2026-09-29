@@ -108,19 +108,19 @@ test('a stopped upload aborts the request to storage and never finalizes', { tim
     }, { status: 201 });
   };
   let aborted = 0;
+  let onTheWire: () => void = () => {};
+  const wire = new Promise<void>((resolve) => { onTheWire = resolve; });
   globalThis.XMLHttpRequest = class {
     upload = { onprogress: null };
     timeout = 0;
     open() {}
     setRequestHeader() {}
-    send() { /* on the wire, and never answers */ }
+    send() { onTheWire(); /* on the wire, and never answers */ }
     abort() { aborted += 1; }
   } as unknown as typeof globalThis.XMLHttpRequest;
   const controller = new AbortController();
   const sending = uploadFile(new File(['x'], 'a.png', { type: 'image/png' }), { signal: controller.signal });
-  // The reservation is made and the file is on the wire.
-  while (calls.length < 1 || aborted > 0) await new Promise((resolve) => setTimeout(resolve, 1));
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  await wire;
   controller.abort();
   await assert.rejects(sending, (error: unknown) => error instanceof DOMException && error.name === 'AbortError');
   assert.equal(aborted, 1);
