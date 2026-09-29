@@ -562,7 +562,7 @@ test('no control opens a picker drawn by the operating system', () => {
 
 test('the date-time field clears to nothing and closes like a menu', () => {
   const field = read('src/components/admin/UiDateTime.tsx');
-  assert.match(field, /onClick=\{\(\) => \{ onChange\(''\); close\(\); \}\}/, 'Clear hands the caller an empty value');
+  assert.match(field, /onClick=\{\(\) => \{ if \(value\) onChange\(''\); close\(\); \}\}/, 'Clear hands the caller an empty value, and an empty field nothing');
   assert.match(field, /event\.key === 'Escape'/);
   assert.match(field, /placePopover\(/);
   assert.match(field, /role="grid"/);

@@ -74,8 +74,10 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
     if (!open) return;
     const place = () => {
       if (!trigger.current || !panel.current) return;
+      // Measured at its own height, not the one an earlier placement squeezed it to.
+      panel.current.style.maxHeight = '';
       const where = placePopover(trigger.current.getBoundingClientRect(), panel.current.scrollHeight, window.innerHeight,
-        parseFloat(getComputedStyle(document.documentElement).fontSize || '16'), { matchWidth: false, maxRows: 40 });
+        parseFloat(getComputedStyle(document.documentElement).fontSize || '16'), { matchWidth: false, maxRows: 40, minHeight: 240 });
       Object.assign(panel.current.style, {
         // Kept inside the window on a narrow screen, where the field can sit near the right edge.
         insetInlineStart: `${Math.max(8, Math.min(where.left, window.innerWidth - panel.current.offsetWidth - 8))}px`,
@@ -84,12 +86,17 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
         insetBlockEnd: where.bottom === null ? 'auto' : `${where.bottom}px`,
       });
     };
+    // The days scrolling inside the panel is not the field moving, and placing again would
+    // measure the panel at full height and send them back to the top.
+    const onScroll = (event: Event) => {
+      if (!panel.current?.contains(event.target as Node)) place();
+    };
     place();
     window.addEventListener('resize', place);
-    document.addEventListener('scroll', place, true);
+    document.addEventListener('scroll', onScroll, true);
     return () => {
       window.removeEventListener('resize', place);
-      document.removeEventListener('scroll', place, true);
+      document.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 
@@ -98,7 +105,10 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
   useEffect(() => {
     if (!open || !focusGrid.current) return;
     focusGrid.current = false;
-    grid.current?.querySelector<HTMLButtonElement>(`[data-date="${focusDate}"]`)?.focus();
+    const day = grid.current?.querySelector<HTMLButtonElement>(`[data-date="${focusDate}"]`);
+    day?.focus();
+    // Focus alone leaves a day half in view when only the days scroll.
+    day?.scrollIntoView({ block: 'nearest' });
   }, [focusDate, open]);
 
   const chooseDay = (date: string) => {
@@ -131,7 +141,9 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
   // What is typed stays as typed while the field has the keyboard ("1" on its way to "15"); a
   // whole number in range is passed on at once, and the field shows the padded time again on blur.
   const setTime = (field: TimeField, limit: number, raw: string) => {
-    const text = raw.replace(/\D/g, '').slice(0, 2);
+    const digits = raw.replace(/\D/g, '').slice(0, 2);
+    // Over the limit it is the limit, on screen as well as in the value.
+    const text = Number(digits) > limit ? String(limit) : digits;
     setTyping({ field, text });
     if (text === '') return;
     commit({ date: parts?.date ?? focusDate, hour: parts?.hour ?? 9, minute: parts?.minute ?? 0, [field]: Math.min(Number(text), limit) });
@@ -168,7 +180,7 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
     >
       <button
         aria-controls={open ? panelId : undefined}
-        aria-describedby={ariaDescribedBy}
+        aria-describedby={[ariaDescribedBy, `${id}-value`].filter(Boolean).join(' ')}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-invalid={invalid || undefined}
@@ -185,7 +197,7 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
         ref={trigger}
         type="button"
       >
-        <span>{triggerLabel}</span>
+        <span id={`${id}-value`}>{triggerLabel}</span>
         <Icon name="clock" />
       </button>
       {open && (
@@ -242,7 +254,7 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
             ))}
           </div>
           <div className="ui-datetime__foot">
-            {!required && <button className="admin-button admin-button--ghost" onClick={() => { onChange(''); close(); }} type="button">{labels.clear}</button>}
+            {!required && <button className="admin-button admin-button--ghost" onClick={() => { if (value) onChange(''); close(); }} type="button">{labels.clear}</button>}
             <button className="admin-button admin-button--primary" onClick={() => close()} type="button">{labels.done}</button>
           </div>
         </div>

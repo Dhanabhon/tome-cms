@@ -197,6 +197,7 @@ test('a publish date is chosen with the keyboard and saved with the draft', asyn
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(picker).toBeHidden();
   await expect(field).not.toContainText('Choose a date');
+  await expect(field, 'a screen reader is told the chosen moment').toHaveAccessibleDescription(/09:00/);
   await filed;
 
   const { db } = await import('../../src/server/db/client');
