@@ -35,7 +35,9 @@ test('the admin takes its own corners, controls, title and rhythm on top of the 
 });
 
 test('running text keeps proportional figures', () => {
-  assert.match(CSS, /\.editor-content,\n\.admin-story-content h2 \{ font-variant-numeric: normal; \}/);
+  assert.match(CSS, /\.editor-content \{ font-variant-numeric: normal; \}/);
+  // The card title's own rule carries it now, so its rule is the one `ruleBody` finds first.
+  assert.equal(declaration(ruleBody(CSS, '.admin-story-content h2'), 'font-variant-numeric'), 'normal');
 });
 
 test('the admin writes its 32px step as a token, not by hand', () => {
@@ -113,9 +115,9 @@ test('an empty state is one of three tiers, and none of them has an icon or a da
   }
 });
 
-test('a status spaces itself with margin, now that its box is painted', () => {
-  // On a narrow card the status carries the card's bottom spacing. As padding it was
-  // invisible; on a pill it painted 12px of tint below the words.
+test('a status spaces itself with margin, for rhythm', () => {
+  // On a narrow card the status carries the card's bottom spacing. Its pill is gone, so the
+  // margin is only there to keep the card's rhythm; as padding it was still the wrong tool.
   const narrow = /@container \(max-width: 24rem\) \{[\s\S]*?\n\}/.exec(CSS)?.[0] ?? '';
   assert.match(narrow, /\.admin-story-edition \.admin-status \{[^}]*margin-block-end/);
   assert.doesNotMatch(narrow, /\.admin-story-edition \.admin-status \{[^}]*padding-block/);
@@ -490,4 +492,28 @@ test('the stats screen leads with figures, and boxes nothing', () => {
   assert.equal(declaration(rule('.stats-panel h2'), 'font-family'), 'var(--font-display)');
   assert.equal(declaration(rule('.stats-table th'), 'text-transform'), 'uppercase');
   assert.match(read('src/components/admin/stats/StatsReport.astro'), /<dt class="admin-eyebrow">\{copy\.stats\.views\}<\/dt>/);
+});
+
+test('a status is a dot and a word, with no pill behind it', () => {
+  const status = ruleBody(CSS, '.admin-status');
+  assert.equal(declaration(status, 'background'), undefined);
+  assert.equal(declaration(status, 'border-radius'), undefined);
+  assert.equal(declaration(status, 'color'), 'var(--color-ink-2)');
+  assert.doesNotMatch(CSS, /\.admin-status\[data-status="published"\] \{[^}]*background/);
+});
+
+test('a card title is the display face, and the timezone is said once per list', () => {
+  assert.equal(declaration(ruleBody(CSS, '.admin-story-content h2'), 'font-family'), 'var(--font-display)');
+  for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
+    const source = read(page);
+    assert.match(source, /copy\.row\.timezoneNote/, `${page} does not say the timezone once`);
+    assert.doesNotMatch(source, /\(\{settings\?\.timezone \?\? 'UTC'\}\)/, `${page} still says it on every card`);
+  }
+});
+
+test('a table head is an eyebrow on a rule', () => {
+  const wide = /@media \(min-width: 48rem\) \{\s*\.admin-page-list[\s\S]*?\n\}/.exec(CSS)?.[0] ?? '';
+  assert.match(wide, /\.admin-page-head \{[^}]*text-transform: uppercase/);
+  assert.match(wide, /\.admin-page-head \{[^}]*letter-spacing: 0\.12em/);
+  assert.equal(declaration(ruleBody(CSS, '.admin-story-panel'), 'border'), undefined, 'the page list is still boxed');
 });

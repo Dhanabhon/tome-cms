@@ -121,6 +121,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         <p class="admin-eyebrow">{copy.nav.groupContent}</p>
         <h1>{copy.posts.heading}</h1>
         <p>{copy.posts.subheading}</p>
+        <p class="admin-page__note">{fill(copy.row.timezoneNote, { timezone: settings?.timezone ?? 'UTC' })}</p>
       </div>
       {!authRequired && !errorMessage && (
         <div class="admin-page__actions">
@@ -203,7 +204,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                   ))}
                 </div>
                 <div class="admin-story-foot">
-                  <span data-story-when><Icon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time> ({settings?.timezone ?? 'UTC'})</span>
+                  <span data-story-when><Icon name="clock" /><span data-story-verb>{newest.status === 'published' ? copy.status.publishedAt : copy.status.updatedAt}</span> <time datetime={timestamp}>{dateFormatter.format(new Date(timestamp))}</time></span>
                 </div>
               </article>
             );

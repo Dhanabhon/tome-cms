@@ -442,6 +442,7 @@ const en = {
     missing: 'Not written',
     preview: 'Preview',
     publish: 'Publish',
+    timezoneNote: 'Times are shown in {timezone}.',
     unpublish: 'Unpublish',
   },
   navigation: {
@@ -1405,6 +1406,7 @@ const th: typeof en = {
     missing: 'ยังไม่มี',
     preview: 'ดูตัวอย่าง',
     publish: 'เผยแพร่',
+    timezoneNote: 'เวลาแสดงตามเขตเวลา {timezone}',
     unpublish: 'ยกเลิกเผยแพร่',
   },
   navigation: {
