@@ -7,6 +7,7 @@ import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/rate-limit';
 import { consumeRecoveryCode, RecoveryCodeError } from '../../../server/auth/recovery';
 import { getServerEnv } from '../../../server/env';
+import { senderAddress } from '../../../server/http/sender-address';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 const requestSchema = z.object({ code: z.string().trim().min(1).max(128) }).strict();
@@ -22,7 +23,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
   const requestId = randomUUID();
   try {
     assertSameOrigin(request, configuredOrigin);
-    await enforceRateLimit('recovery', clientAddress);
+    await enforceRateLimit('recovery', senderAddress(request, clientAddress));
     let body: unknown;
     try {
       body = await request.json();

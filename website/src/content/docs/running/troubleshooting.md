@@ -119,6 +119,10 @@ On 1.0.1 and earlier it happened to every upload: SeaweedFS refused the first ch
 
 If it still happens on 1.0.2 or later, look at `/health/ready` first, as in the entry above. Then read the application's log with the command at the top of this page. A line that starts `Upload verification failed:` or `Image verification failed:` names the storage error and its status, such as `Unknown 403`.
 
+### `Too many sign-in attempts. Wait a few minutes and try again.` although you tried once
+
+This is the limit on signing in, 10 attempts in 15 minutes. On 1.1.1 and earlier the application counted every attempt against the reverse proxy in front of it rather than the person who made it, so there was one count for everyone: ten failed requests from anywhere, bots included, kept the owner out for up to fifteen minutes. Your passkey and your account are fine. Wait it out. From 1.1.2 each visitor has a count of their own, as long as the proxy sets `X-Forwarded-For`, as [the reverse proxy](/tome-cms/start/requirements/#the-reverse-proxy) says. The limits on recovery, installing and updating were counted the same way.
+
 ### `The request could not be completed.` when deleting a file, removing a logo, or making new recovery codes
 
 On 1.0.3 and earlier, these three requests went out with no content type, and Astro refuses such a request when the site sits behind an HTTPS proxy, which every managed install does. Nothing was changed: the file, the logo and the old codes are all still there. Update to 1.0.4 or later from "System", as [Updating](/tome-cms/running/updating/) describes, and try again.

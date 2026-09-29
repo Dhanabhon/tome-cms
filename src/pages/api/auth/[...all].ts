@@ -9,6 +9,7 @@ import {
 import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError, type RateLimitAction } from '../../../server/auth/rate-limit';
 import { getServerEnv } from '../../../server/env';
+import { senderAddress } from '../../../server/http/sender-address';
 
 const env = getServerEnv();
 const configuredOrigin = new URL(env.TOME_CMS_PUBLIC_URL).origin;
@@ -116,7 +117,7 @@ export const ALL: APIRoute = async (context) => {
       const { guardSignIn } = await import('../../../server/plugins/sign-in');
       const verdict = await guardSignIn({
         ownerId: settings.owner_id,
-        remoteIp: context.clientAddress,
+        remoteIp: senderAddress(request, context.clientAddress),
         token: request.headers.get(pluginTokenHeader),
       });
       if (verdict?.outcome === 'refused') {
@@ -135,7 +136,7 @@ export const ALL: APIRoute = async (context) => {
 
   if (action) {
     try {
-      await enforceRateLimit(action, context.clientAddress);
+      await enforceRateLimit(action, senderAddress(request, context.clientAddress));
     } catch (error) {
       if (!(error instanceof RateLimitExceededError)) throw error;
       return Response.json({ error: 'Too many authentication attempts. Try again later.' }, {

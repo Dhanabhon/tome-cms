@@ -8,6 +8,7 @@ import { enforceRateLimit, RateLimitExceededError } from '../../../../server/aut
 import { HttpError, requireInstalledOwner } from '../../../../server/auth/session';
 import { db } from '../../../../server/db/client';
 import { getServerEnv } from '../../../../server/env';
+import { senderAddress } from '../../../../server/http/sender-address';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 const renameSchema = z.object({ id: z.string().min(1).max(256), name: z.string().trim().min(1).max(80) }).strict();
@@ -36,7 +37,7 @@ async function parseBody(request: Request): Promise<unknown> {
 
 async function mutationGuard(request: Request, clientAddress: string): Promise<void> {
   assertSameOrigin(request, configuredOrigin);
-  await enforceRateLimit('signin', clientAddress);
+  await enforceRateLimit('signin', senderAddress(request, clientAddress));
 }
 
 function handleError(request: Request, error: unknown, requestId: string): Response {

@@ -11,6 +11,7 @@ import { storeRecoveryCodes } from '../../../server/auth/recovery';
 import { getSession } from '../../../server/auth/session';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
+import { senderAddress } from '../../../server/http/sender-address';
 
 const requestSchema = installationInputSchema.extend({
   context: z.string().min(1).max(2_048),
@@ -35,7 +36,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     }
 
     try {
-      await enforceRateLimit('install', clientAddress);
+      await enforceRateLimit('install', senderAddress(request, clientAddress));
     } catch (error) {
       if (!(error instanceof RateLimitExceededError)) throw error;
       return Response.json({ error: 'Too many installation attempts. Try again later.' }, {

@@ -2,8 +2,9 @@ import { getPublicSiteUrl } from '../../lib/seo';
 import { live } from '../content/live';
 import { getSiteSettings } from '../content/settings';
 import { db } from '../db/client';
+import { rateLimitKey, senderAddress } from '../http/sender-address';
 import { readerCountry } from './country';
-import { createRateLimit, deviceOf, hitSchema, isBot, rateLimitKey, readerAddress, referrerHost, statsDay, type Hit } from './rules';
+import { createRateLimit, deviceOf, hitSchema, isBot, referrerHost, statsDay, type Hit } from './rules';
 
 const MAX_BODY_BYTES = 1_024;
 const LIVE_FOR_MS = 5 * 60_000;
@@ -119,7 +120,7 @@ export async function receiveHit(
   const home = origin && URL.canParse(origin) ? new URL(origin).hostname : site.hostname;
   const referrer = referrerHost(hit.referrer, home);
   if (isBot(request.headers.get('user-agent'))) return 'bot';
-  const address = readerAddress(request, clientAddress);
+  const address = senderAddress(request, clientAddress);
   if (!limit.allow(rateLimitKey(address))) return 'rate-limited';
 
   await countHit({

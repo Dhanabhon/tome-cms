@@ -11,6 +11,7 @@ import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/r
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
 import { checkReadiness } from '../../../server/health';
+import { senderAddress } from '../../../server/http/sender-address';
 
 const requestSchema = installationInputSchema.extend({
   installationToken: z.string().min(1).max(512),
@@ -35,7 +36,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     }
 
     try {
-      await enforceRateLimit('install', clientAddress);
+      await enforceRateLimit('install', senderAddress(request, clientAddress));
     } catch (error) {
       if (!(error instanceof RateLimitExceededError)) throw error;
       return Response.json({ error: 'Too many installation attempts. Try again later.' }, {

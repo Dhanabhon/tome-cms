@@ -4,6 +4,7 @@ import { sql } from 'kysely';
 
 import { db } from '../db/client';
 import { getServerEnv } from '../env';
+import { rateLimitKey, type SenderAddress } from '../http/sender-address';
 
 export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply';
 
@@ -24,14 +25,33 @@ export class RateLimitExceededError extends Error {
   }
 }
 
+// A window is at most half an hour long, so a row from before that has nothing left to count.
+// Sweeping them keeps the table to who has been here lately: with a count for every sender it
+// would otherwise grow with every address that ever asked.
+const KEEP_SECONDS = 2 * Math.max(...Object.values(limits).map(({ windowSeconds }) => windowSeconds));
+const SWEEP_EVERY_MS = 60_000;
+let lastSweep = 0;
+
+async function sweepEndedWindows(): Promise<void> {
+  const now = Date.now();
+  if (now - lastSweep < SWEEP_EVERY_MS) return;
+  lastSweep = now;
+  try {
+    await sql`delete from security_rate_limits where window_started_at < CURRENT_TIMESTAMP - (${KEEP_SECONDS} * interval '1 second')`.execute(db);
+  } catch (error) {
+    // Counting goes on without it; the next minute tries again.
+    console.error('Rate limit sweep failed:', error);
+  }
+}
+
 export async function enforceRateLimit(
   action: RateLimitAction,
-  clientAddress: string,
+  address: SenderAddress,
 ): Promise<{ remaining: number; retryAfter: number }> {
-  if (!clientAddress || clientAddress.length > 512) throw new Error('Client address is unavailable.');
+  if (!address || address.length > 512) throw new Error('Client address is unavailable.');
   const { attempts: maximum, windowSeconds } = limits[action];
   const keyHash = createHmac('sha256', getServerEnv().TOME_CMS_CONTEXT_SECRET)
-    .update(`${action}\0${clientAddress}`)
+    .update(`${action}\0${rateLimitKey(address)}`)
     .digest('hex');
 
   const result = await sql<{ attempts: number; retry_after: number }>`
@@ -55,6 +75,7 @@ export async function enforceRateLimit(
   `.execute(db);
   const row = result.rows[0];
   if (!row) throw new Error('Rate limit state was not returned.');
+  await sweepEndedWindows();
   if (row.attempts > maximum) throw new RateLimitExceededError(row.retry_after);
   return { remaining: maximum - row.attempts, retryAfter: row.retry_after };
 }

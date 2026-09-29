@@ -85,6 +85,8 @@ test('passkey and installer database contract', async (context) => {
   await addUser('pending-owner');
   const { createEnrollment, consumeEnrollment, resolveEnrollmentUser } = await import('../../src/server/auth/enrollment');
   const { enforceRateLimit, RateLimitExceededError } = await import('../../src/server/auth/rate-limit');
+  const { senderAddress } = await import('../../src/server/http/sender-address');
+  const sender = (address: string) => senderAddress(new Request('http://localhost:4321'), address);
   const pendingEmail = 'pending-owner@example.invalid';
   let installContextForInstalledCheck = '';
 
@@ -223,7 +225,7 @@ test('passkey and installer database contract', async (context) => {
   });
 
   await context.test('database rate limiter rolls windows without storing client addresses', async () => {
-    const clientAddress = '203.0.113.42';
+    const clientAddress = sender('203.0.113.42');
     for (let attempt = 0; attempt < 8; attempt += 1) await enforceRateLimit('install', clientAddress);
     await assert.rejects(
       enforceRateLimit('install', clientAddress),
@@ -243,7 +245,7 @@ test('passkey and installer database contract', async (context) => {
       .where('key_hash', '=', row.key_hash).executeTakeFirstOrThrow()).attempts, 1);
 
     for (const [action, remaining] of updateRateLimits) {
-      assert.equal((await enforceRateLimit(action, `${action}-address`)).remaining, remaining);
+      assert.equal((await enforceRateLimit(action, sender(`${action}-address`))).remaining, remaining);
       assert.deepEqual((await sql<{ action: string; attempts: number }>`
         select action, attempts from security_rate_limits where action = ${action}
       `.execute(db)).rows, [{ action, attempts: 1 }]);

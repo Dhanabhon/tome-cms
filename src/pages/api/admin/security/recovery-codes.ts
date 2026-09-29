@@ -8,6 +8,7 @@ import { enforceRateLimit, RateLimitExceededError } from '../../../../server/aut
 import { RecoveryCodeError, regenerateRecoveryCodes } from '../../../../server/auth/recovery';
 import { HttpError, requireInstalledOwner } from '../../../../server/auth/session';
 import { getServerEnv } from '../../../../server/env';
+import { senderAddress } from '../../../../server/http/sender-address';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 
@@ -22,7 +23,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
   const requestId = randomUUID();
   try {
     assertSameOrigin(request, configuredOrigin);
-    await enforceRateLimit('recovery', clientAddress);
+    await enforceRateLimit('recovery', senderAddress(request, clientAddress));
     const current = await requireInstalledOwner(request.headers);
     await requireFreshOwnerSession(current);
     const recoveryCodes = await regenerateRecoveryCodes(current.user.id);

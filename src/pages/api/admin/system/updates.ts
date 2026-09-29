@@ -9,6 +9,7 @@ import { requireInstalledOwner } from '../../../../server/auth/session';
 import { getServerEnv } from '../../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../../server/http/errors';
 import { parseJson } from '../../../../server/http/json';
+import { senderAddress } from '../../../../server/http/sender-address';
 import { getUpdateInstallability, updateActionSchema } from '../../../../server/update/admin';
 import { getUpdateStatus, refreshUpdateStatus } from '../../../../server/update/service';
 import { readMaintenanceStatus } from '../../../../server/update/maintenance';
@@ -56,10 +57,10 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     const current = await requireInstalledOwner(request.headers);
     const action = await parseJson(request, updateActionSchema);
     if (action.action === 'check') {
-      await enforceRateLimit('update-check', clientAddress);
+      await enforceRateLimit('update-check', senderAddress(request, clientAddress));
       return Response.json(await response(refreshUpdateStatus()), { headers: headers(requestId) });
     }
-    await enforceRateLimit('update-apply', clientAddress);
+    await enforceRateLimit('update-apply', senderAddress(request, clientAddress));
     await requireFreshOwnerSession(current);
     const check = await getUpdateStatus();
     if (check.latest?.manifest.version !== action.version) throw new HttpError(409, 'The latest update has changed. Check again.');

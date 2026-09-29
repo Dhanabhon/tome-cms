@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  createRateLimit, deviceOf, hitSchema, isBot, rateLimitKey, readerAddress, referrerHost, statsDay,
+  createRateLimit, deviceOf, hitSchema, isBot, referrerHost, statsDay,
 } from '../../src/server/stats/rules';
 
 const ARTICLE = '5d0c7a1e-8b2f-4c3d-9e4f-1a2b3c4d5e6f';
@@ -90,20 +90,6 @@ test('the day is the site\'s, either side of its midnight', () => {
   assert.equal(statsDay(new Date('2026-12-31T17:30:00Z'), 'Asia/Bangkok'), '2027-01-01');
 });
 
-test('X-Forwarded-For is believed only from the proxy side of the app', () => {
-  const from = (forwarded?: string) => new Request('http://localhost/api/v1/stats/hit', {
-    headers: forwarded === undefined ? {} : { 'X-Forwarded-For': forwarded },
-  });
-  assert.equal(readerAddress(from('198.51.100.4'), '203.0.113.9'), '203.0.113.9', 'a reader who reached the app directly');
-  assert.equal(readerAddress(from('made-up, 198.51.100.4'), '127.0.0.1'), '198.51.100.4', 'the last entry is the proxy\'s own');
-  assert.equal(readerAddress(from('198.51.100.4'), '::1'), '198.51.100.4');
-  assert.equal(readerAddress(from('198.51.100.4'), '::ffff:127.0.0.1'), '198.51.100.4');
-  assert.equal(readerAddress(from('198.51.100.4'), '172.18.0.1'), '198.51.100.4', 'Docker\'s bridge, which is how the managed install is reached');
-  assert.equal(readerAddress(from('2001:db8::7'), '10.0.0.2'), '2001:db8::7');
-  assert.equal(readerAddress(from(), '127.0.0.1'), '127.0.0.1', 'no header, nothing to believe');
-  assert.equal(readerAddress(from('not an address'), '127.0.0.1'), '127.0.0.1');
-});
-
 test('the limit drops past 120 in ten minutes, starts again after, and remembers no more than its cap', () => {
   const limit = createRateLimit({ capacity: 3, limit: 120, windowMs: 600_000 });
   for (let hit = 0; hit < 120; hit += 1) assert.equal(limit.allow('198.51.100.4', 1_000), true);
@@ -113,18 +99,4 @@ test('the limit drops past 120 in ten minutes, starts again after, and remembers
 
   for (const address of ['a', 'b', 'c', 'd', 'e']) limit.allow(address, 700_000);
   assert.equal(limit.size, 3, 'never more addresses than the cap');
-});
-
-test('the rate limit key holds an IPv4 address, unwraps an IPv4-mapped one, and reduces any other IPv6 address to its /64', () => {
-  assert.equal(rateLimitKey('203.0.113.9'), '203.0.113.9');
-  assert.equal(rateLimitKey('::ffff:203.0.113.9'), '203.0.113.9');
-  assert.equal(
-    rateLimitKey('2001:db8:0:0:1::7'), rateLimitKey('2001:0DB8::1:0:0:7'),
-    'equivalent spellings of the same /64 give the same key',
-  );
-  assert.equal(
-    rateLimitKey('2001:db8::1'), rateLimitKey('2001:db8::ffff:1'),
-    'addresses that differ only past the /64 share one key',
-  );
-  assert.notEqual(rateLimitKey('2001:db8:1::1'), rateLimitKey('2001:db8:2::1'), 'a different /64 is a different key');
 });
