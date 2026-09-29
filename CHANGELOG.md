@@ -2,6 +2,18 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.2.1 - 2026-09-29
+
+Small fixes found while reviewing 1.1.1 and 1.2.0.
+
+### Fixed
+
+- With Turnstile on, a passkey check refused because the session had ended (on "System", "Security" or new recovery codes) told the owner to switch the plugin off. It now says the session expired and to reload and sign in, which is the way on.
+- The sign-in challenge is skipped only for a session that belongs to the installed owner, not for any valid session.
+- The Plain theme's secondary text (the tagline, dates, excerpts, filters, the footer) was drawn in full ink, because it read a colour token that does not exist. It is muted again, and a test fails on any theme that reads an undeclared token.
+
+Full notes: [docs/releases/1.2.1.md](docs/releases/1.2.1.md)
+
 ## 1.2.0 - 2026-09-29
 
 Readers can search the posts, from the homepage of both bundled themes and from the public API.
