@@ -2,6 +2,16 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.3.2 - 2026-09-29
+
+The Paper home page is about two and a half times as fast for a site written in Thai.
+
+### Fixed
+
+- The home page worked out every card's reading time on every request, which for Thai runs a dictionary word breaker over the whole post and was most of what the page cost. It now does it once per saved version of a post. With 60 Thai posts it answered 92 requests a second before and 246 after, on the same machine.
+
+Full notes: [docs/releases/1.3.2.md](docs/releases/1.3.2.md)
+
 ## 1.3.1 - 2026-09-29
 
 A documentation release, and the first update that 1.3.0's updater backs up with the database alone.
