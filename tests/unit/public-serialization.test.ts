@@ -107,6 +107,8 @@ test('public contracts validate queries and serialize only explicit fields', () 
     updatedAt: post.updated_at,
   });
 
+  assert.equal(serializePublicPost({ ...post, show_cover: false, categories: [], coverImage: media, lastModified: new Date(post.updated_at), media: [media], translations: [] }).showCover, false, 'a hidden cover is carried as false');
+
   const publicPage = serializePublicPage({
     ...post,
     author_id: 'private-owner',

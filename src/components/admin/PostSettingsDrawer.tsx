@@ -180,10 +180,10 @@ export default function PostSettingsDrawer({
           {coverImage && (
             <div className="admin-check">
               <label>
-                <input checked={showCover} onChange={(event) => onChangeShowCover(event.target.checked)} type="checkbox" />
+                <input aria-describedby="post-show-cover-hint" checked={showCover} onChange={(event) => onChangeShowCover(event.target.checked)} type="checkbox" />
                 <span>{copy.drawer.showCover}</span>
               </label>
-              <small>{copy.drawer.showCoverHint}</small>
+              <small id="post-show-cover-hint">{copy.drawer.showCoverHint}</small>
             </div>
           )}
           <small className="admin-cover-help">

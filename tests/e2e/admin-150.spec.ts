@@ -317,6 +317,7 @@ test('an unticked cover leaves the top of the published article, and the shared-
   await expect(page.locator('.admin-cover-preview')).toBeVisible({ timeout: 30_000 });
   const toggle = page.getByLabel('Show the cover at the top of the post');
   await expect(toggle).toBeChecked();
+  await expect(toggle, 'the hint is read with the checkbox').toHaveAccessibleDescription('The home page and shared links still use it.');
   await toggle.uncheck();
   await expect(page.locator('.admin-save-state[data-state="saved"]'), 'the toggle is saved like any other field').toBeVisible({ timeout: 15_000 });
   await page.keyboard.press('Escape');
