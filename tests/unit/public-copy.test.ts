@@ -56,8 +56,8 @@ test('the year in the footer is the year in the article', () => {
 
 test('the footer credits TomeCMS, and stops when the owner says so', () => {
   const footer = read('src/themes/paper/parts/Footer.astro');
-  // One line, not a third column: the footer is a flex row of two and stays that way.
-  assert.match(footer, /\{copy\.allRightsReserved\}\n\s+\{showPoweredBy && <><span aria-hidden="true"> · <\/span>\{copy\.poweredBy\}<\/>\}/);
+  // Its own paragraph, shown only when the owner has not switched it off (paper-footer.test.ts covers where it sits).
+  assert.match(footer, /\{showPoweredBy && <p class="site-footer__credit">\{copy\.poweredBy\}<\/p>\}/);
   assert.equal(publicCopy('en').poweredBy, 'Powered by TomeCMS');
   // The product's name is a name in both languages; only the verb is translated.
   assert.match(publicCopy('th').poweredBy, /TomeCMS$/);
