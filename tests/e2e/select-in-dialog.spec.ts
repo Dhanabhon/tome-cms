@@ -335,11 +335,11 @@ test('a menu link opens in a new tab only when its owner asked it to', async ({ 
   await add('https://example.com/elsewhere', 'Elsewhere', true, true);
   await add('/contact', 'Contact', false);
   await page.getByRole('button', { name: 'Save menu' }).click();
-  await expect(page.getByText('No unsaved changes in this menu')).toBeVisible();
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
   // Both menus had it added, and each is saved on its own.
   await page.getByRole('tab', { name: 'Footer' }).click();
   await page.getByRole('button', { name: 'Save menu' }).click();
-  await expect(page.getByText('No unsaved changes in this menu')).toBeVisible();
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
 
   // What was chosen comes back from the server, and each link can still change its mind.
   await page.reload();

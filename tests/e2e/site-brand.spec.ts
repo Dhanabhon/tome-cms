@@ -216,7 +216,7 @@ test('the owner uploads a logo and an icon, and hides the name behind the logo',
     new MutationObserver(() => log.push(performance.now())).observe(button, { attributeFilter: ['aria-busy'], attributes: true });
   });
   await save.click();
-  await expect(page.locator('.admin-save-bar [role="status"]')).toHaveText('Saved.');
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
   const [spinning, stopped] = await page.evaluate(() => (window as unknown as { busyLog: number[] }).busyLog);
   expect((stopped ?? 0) - (spinning ?? 0), 'long enough to be seen').toBeGreaterThanOrEqual(350);
 

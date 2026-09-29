@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 
 import MediaPicker from './MediaPicker';
 import UiSelect from './UiSelect';
+import SaveButton from './SaveButton';
 import { useDrawer } from './useDrawer';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
@@ -12,6 +13,7 @@ import type { MediaAsset, PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
+import { saveButtonState } from '../../lib/save-state';
 
 interface PluginManagerProps {
   initialPlugins: PluginState[];
@@ -173,13 +175,14 @@ interface PluginPictureProps {
   label: string;
   locale: 'en' | 'th';
   name: string;
+  onChange: () => void;
 }
 
 /**
  * A picture from the library, sent with the rest of the form as its id. The preview is the
  * library's own stable address for it, so nothing but the id travels.
  */
-function PluginPicture({ copy, hint, id, initial, label, locale, name }: PluginPictureProps) {
+function PluginPicture({ copy, hint, id, initial, label, locale, name, onChange }: PluginPictureProps) {
   const [mediaId, setMediaId] = useState(initial);
   const [picking, setPicking] = useState(false);
   const choose = useRef<HTMLButtonElement>(null);
@@ -187,6 +190,7 @@ function PluginPicture({ copy, hint, id, initial, label, locale, name }: PluginP
   function pick(asset: MediaAsset) {
     setMediaId(asset.id);
     setPicking(false);
+    onChange();
   }
 
   return (
@@ -198,7 +202,7 @@ function PluginPicture({ copy, hint, id, initial, label, locale, name }: PluginP
         <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setPicking(true)} ref={choose} type="button">
           {mediaId ? copy.plugins.changePicture : copy.plugins.choosePicture}
         </button>
-        {mediaId && <button className="admin-button admin-button--ghost" onClick={() => setMediaId('')} type="button">{copy.plugins.removePicture}</button>}
+        {mediaId && <button className="admin-button admin-button--ghost" onClick={() => { setMediaId(''); onChange(); }} type="button">{copy.plugins.removePicture}</button>}
       </div>
       {hint && <small>{hint}</small>}
       {picking && <MediaPicker kind="image" onCancel={() => setPicking(false)} onSelect={pick} ownerLocale={locale} returnFocus={choose.current} />}
@@ -226,6 +230,9 @@ interface PluginSetUpProps {
  */
 function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave, state }: PluginSetUpProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
+  // Typing, ticking or choosing a picture makes the panel dirty; a save that lands clears it.
+  const [dirty, setDirty] = useState(false);
+  const [savedOnce, setSavedOnce] = useState(false);
 
   const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose });
 
@@ -238,7 +245,11 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
     for (const setting of manifest.settings) {
       if (setting.kind === 'switch') values[setting.key] = form.get(setting.key) === 'on' ? 'on' : 'off';
     }
-    if (await onSave(values)) close();
+    if (await onSave(values)) {
+      setDirty(false);
+      setSavedOnce(true);
+      close();
+    }
   }
 
   return (
@@ -265,7 +276,7 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
           <Icon name="close" />
         </button>
       </header>
-      <form className="plugin-setup" onSubmit={submit}>
+      <form className="plugin-setup" onChange={() => setDirty(true)} onInput={() => setDirty(true)} onSubmit={submit}>
         <fieldset disabled={busy}>
           {manifest.settings.map((setting) => setting.kind === 'switch' ? (
             <div className="admin-check" key={setting.key}>
@@ -289,6 +300,7 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
               label={setting.label[locale]}
               locale={locale}
               name={setting.key}
+              onChange={() => setDirty(true)}
             />
           ) : setting.kind === 'choice' ? (
             <div className="admin-field" key={setting.key}>
@@ -299,6 +311,7 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
                 defaultValue={state?.values[setting.key] || setting.fallback}
                 id={`${manifest.id}-${setting.key}`}
                 name={setting.key}
+                onValueChange={() => setDirty(true)}
                 options={(setting.options ?? []).map((option) => ({ label: option.label[locale], value: option.value }))}
               />
               {setting.hint && <small>{setting.hint[locale]}</small>}
@@ -334,9 +347,13 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
             </div>
           ))}
           <div className="admin-form-actions">
-            <button aria-busy={busy} className="admin-button admin-button--primary" type="submit">
-              {copy.plugins.save}
-            </button>
+            <SaveButton
+              label={copy.plugins.save}
+              savedLabel={copy.shell.saved}
+              savingLabel={copy.shell.saving}
+              state={saveButtonState({ saving: busy, dirty, savedOnce })}
+              type="submit"
+            />
             {manifest.previewHref && (state?.enabled
               ? <a className="admin-button admin-button--secondary" href={manifest.previewHref} rel="noopener" target="_blank">{copy.plugins.preview}</a>
               : <small>{copy.plugins.previewOff}</small>)}

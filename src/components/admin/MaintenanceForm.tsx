@@ -5,6 +5,7 @@ import { atLeast } from '../../lib/busy';
 import { HEAVY_SLIDE_BYTES, NARROW_SLIDE_PIXELS } from '../../lib/home-slides';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 import { formatBytes } from '../../lib/media';
+import { saveButtonState } from '../../lib/save-state';
 import {
   DEFAULT_MAINTENANCE_WORDS,
   MAINTENANCE_TEMPLATES,
@@ -14,6 +15,7 @@ import {
 import { confirmUi } from '../../lib/ui-dialog';
 import type { HomeSlideMedia, MediaAsset, PageLocale, PostLocale } from '../../types/cms';
 import MediaPicker from './MediaPicker';
+import SaveButton from './SaveButton';
 import { moveTabFocus } from './tabs';
 
 /** The page as the form holds it: every field a string, converted only on save. */
@@ -56,6 +58,7 @@ export default function MaintenanceForm({ ownerLocale, previewHref, generalHref,
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState<'save' | 'state' | null>(null);
   const [status, setStatus] = useState('');
+  const [savedOnce, setSavedOnce] = useState(false);
   const [error, setError] = useState('');
   const [picking, setPicking] = useState(false);
   const pictureButton = useRef<HTMLButtonElement>(null);
@@ -109,7 +112,6 @@ export default function MaintenanceForm({ ownerLocale, previewHref, generalHref,
     }
     setBusy('save');
     setError('');
-    setStatus(text.saving);
     try {
       const response = await atLeast(fetch('/api/admin/maintenance', {
         // A picture chosen and then left for another template is not kept: it would stop the
@@ -127,10 +129,9 @@ export default function MaintenanceForm({ ownerLocale, previewHref, generalHref,
       const next = draftOf((await response.json() as { maintenance: MaintenanceSettings }).maintenance);
       setSaved(next);
       setDraft(next);
-      setStatus(text.saved);
+      setSavedOnce(true);
     } catch {
       setError(text.saveError);
-      setStatus('');
     } finally {
       setBusy(null);
     }
@@ -265,9 +266,16 @@ export default function MaintenanceForm({ ownerLocale, previewHref, generalHref,
 
           {error && <p className="admin-form-error" role="alert">{error}</p>}
           <div className="admin-save-bar">
-            <button aria-busy={busy === 'save'} className="admin-button admin-button--primary" disabled={busy !== null || !dirty} type="submit">{text.save}</button>
+            <SaveButton
+              disabled={busy !== null}
+              label={text.save}
+              savedLabel={copy.shell.saved}
+              savingLabel={copy.shell.saving}
+              state={saveButtonState({ saving: busy === 'save', dirty, savedOnce })}
+              type="submit"
+            />
             <a aria-label={text.previewLabel} className="admin-button admin-button--secondary" href={`${previewHref}?lang=${locale}`} rel="noopener" target="_blank">{text.preview}</a>
-            <p role="status">{busy === 'save' ? text.saving : status || (dirty ? `${text.unsaved} · ${text.previewSaved}` : text.noChanges)}</p>
+            <p role="status">{status}</p>
           </div>
         </form>
       </div>

@@ -5,8 +5,10 @@ import type { SiteBrand } from '../../lib/site-brand';
 import { DEFAULT_THEME_ID, isThemeId } from '../../themes/registry';
 import type { PostLocale, SiteSettings } from '../../types/cms';
 import SiteBrandFields from './SiteBrandFields';
+import SaveButton from './SaveButton';
 import UiSelect from './UiSelect';
 import { atLeast } from '../../lib/busy';
+import { saveButtonState } from '../../lib/save-state';
 
 interface SettingsFormProps {
   /** Everything stored for the logo, dark logo and icon, as addresses. */
@@ -47,7 +49,7 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState('');
+  const [savedOnce, setSavedOnce] = useState(false);
 
   /** Serialised, so a value edited and edited back counts as clean. */
   const snapshot = (values: readonly unknown[]) => JSON.stringify(values);
@@ -65,7 +67,6 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
     setSaving(true);
     setError('');
     setFieldErrors({});
-    setStatus('');
     try {
       const response = await atLeast(fetch('/api/admin/settings', {
         method: 'PUT',
@@ -98,7 +99,7 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
         window.location.reload();
         return;
       }
-      setStatus(copy.settings.saved);
+      setSavedOnce(true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : copy.settings.saveFailed);
     } finally {
@@ -108,7 +109,6 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
 
   return (
     <form className="admin-settings-form" noValidate onSubmit={save} onChange={(event) => {
-      setStatus('');
       const name = (event.target as HTMLInputElement).name;
       setFieldErrors((current) => ({ ...current, [name]: '' }));
     }}>
@@ -141,7 +141,7 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
                   aria-describedby="showPoweredBy-help"
                   checked={showPoweredBy}
                   name="showPoweredBy"
-                  onChange={(event) => { setShowPoweredBy(event.target.checked); setStatus(''); }}
+                  onChange={(event) => { setShowPoweredBy(event.target.checked); }}
                   type="checkbox"
                 />
                 <span>{copy.settings.poweredByLabel}</span>
@@ -166,7 +166,7 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
                       checked={hasLogo && hideSiteName}
                       disabled={!hasLogo}
                       name="hideSiteName"
-                      onChange={(event) => { setHideSiteName(event.target.checked); setStatus(''); }}
+                      onChange={(event) => { setHideSiteName(event.target.checked); }}
                       type="checkbox"
                     />
                     <span>{copy.brand.hideName}</span>
@@ -188,12 +188,12 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
             <div className="settings-pair">
               <div className="admin-field">
                 <label htmlFor="defaultLocale">{copy.settings.defaultLanguage}</label>
-                <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: copy.filters.thai, value: 'th' }, { label: copy.filters.english, value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setStatus(''); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
+                <UiSelect ariaDescribedBy="defaultLocale-error" className="admin-control" id="defaultLocale" invalid={Boolean(fieldErrors.defaultLocale)} name="defaultLocale" options={[{ label: copy.filters.thai, value: 'th' }, { label: copy.filters.english, value: 'en' }]} value={defaultLocale} onValueChange={(next) => { setDefaultLocale(next as SiteSettings['default_locale']); setFieldErrors((current) => ({ ...current, defaultLocale: '' })); }} />
                 <p className="admin-field-error" id="defaultLocale-error" aria-live="polite">{fieldErrors.defaultLocale}</p>
               </div>
               <div className="admin-field">
                 <label htmlFor="timezone">{copy.settings.timezone}</label>
-                <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setStatus(''); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
+                <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
                 <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
               </div>
             </div>
@@ -203,8 +203,13 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
       </fieldset>
       <p className="admin-form-error" role="alert">{error}</p>
       <div className="admin-save-bar">
-        <button aria-busy={saving} className="admin-button admin-button--primary" type="submit" disabled={saving || !dirty}>{copy.settings.save}</button>
-        <p role="status">{saving ? copy.settings.saving : dirty ? copy.settings.unsaved : status}</p>
+        <SaveButton
+          label={copy.settings.save}
+          savedLabel={copy.shell.saved}
+          savingLabel={copy.shell.saving}
+          state={saveButtonState({ saving, dirty, savedOnce })}
+          type="submit"
+        />
       </div>
     </form>
   );

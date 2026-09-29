@@ -1211,6 +1211,15 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   color: var(--color-accent-ink);
 }
 
+/* A save button's two words share one cell, so it keeps its width whichever it shows. */
+.admin-save-button { display: inline-grid; }
+.admin-save-button__label { display: inline-flex; grid-area: 1 / 1; gap: var(--space-2xs); align-items: center; justify-content: center; }
+.admin-save-button[data-state="saved"] .admin-save-button__label:not(.admin-save-button__label--saved),
+.admin-save-button:not([data-state="saved"]) .admin-save-button__label--saved { visibility: hidden; }
+.admin-save-button__label .icon { width: 1rem; height: 1rem; }
+/* Saved is a confirmation, not a greyed-out button: the fill goes and the words take the link green. */
+.admin-save-button[data-state="saved"]:disabled { opacity: 1; border-color: transparent; background: transparent; color: var(--color-link); cursor: default; }
+
 .admin-button--secondary { background: var(--color-paper); }
 .admin-page__head .admin-button--secondary { border-color: transparent; background: transparent; color: var(--color-muted); }
 .admin-page__head .admin-button--secondary:hover { color: var(--color-ink); background: var(--color-paper-3); }

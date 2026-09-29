@@ -112,7 +112,7 @@ test('the panel of fields is the one the admin already has', () => {
   // screen still believing it is open, and closing plays the exit before the screen is told --
   // Save as well as the ways out.
   assert.match(SOURCE, /onCancel=\{cancel\}/);
-  assert.match(SOURCE, /if \(await onSave\(values\)\) close\(\);/);
+  assert.match(SOURCE, /if \(await onSave\(values\)\) \{\s*setDirty\(false\);\s*setSavedOnce\(true\);\s*close\(\);\s*\}/);
 });
 
 test('a picture setting is chosen from the library and sent as its id', () => {

@@ -235,7 +235,9 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   test.setTimeout(180_000);
   await openSite();
   await signIn(context, page);
-  const status = page.locator('.admin-save-bar [role="status"]');
+  // The save button carries its own state; the paragraph beside it only announces the state switch.
+  const save = page.locator('.admin-save-button');
+  const status = page.locator('.admin-save-bar p[role="status"]');
 
   await page.goto(`${origin}/admin/maintenance`);
   await expect(page.getByRole('heading', { name: 'Maintenance', level: 1 })).toBeVisible();
@@ -261,11 +263,11 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await expect(closeSwitch, 'the site never closes on unsaved words').toBeDisabled();
   await expect(page.getByText('Save your changes before turning maintenance on.')).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(status).toHaveText('Saved.');
+  await expect(save).toHaveAttribute('data-state', 'saved');
   await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades!');
-  await expect(status, 'typing replaces the last message').toHaveText('Unsaved changes · Preview shows the last saved version.');
+  await expect(save, 'typing asks to be saved again').toHaveAttribute('data-state', 'dirty');
   await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades');
-  await expect(status).toHaveText('No unsaved changes');
+  await expect(save, 'typing it back is nothing to save').toHaveAttribute('data-state', 'saved');
 
   const [preview] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: /Preview/ }).click()]);
   await expect(preview.getByRole('heading', { level: 1 }), 'the preview follows the language tab').toHaveText('Closed for upgrades');

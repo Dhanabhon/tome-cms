@@ -12,6 +12,7 @@ import {
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 import { formatBytes } from '../../lib/media';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
+import { saveButtonState } from '../../lib/save-state';
 import {
   HOME_SLIDE_FOCUS,
   type HomeSlide,
@@ -26,6 +27,7 @@ import {
 } from '../../types/cms';
 import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
+import SaveButton from './SaveButton';
 import { moveTabFocus } from './tabs';
 import UiSelect from './UiSelect';
 import { useDrawer } from './useDrawer';
@@ -105,6 +107,8 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
+  // A save confirms the language just saved; the other tab starts over.
+  const [savedOnce, setSavedOnce] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [message, setMessage] = useState('');
   const [draft, setDraft] = useState<{ index: number | null; slide: LocalSlide } | null>(null);
@@ -235,7 +239,6 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     savingRef.current = true;
     setSaving(true);
     setSaveError('');
-    setMessage(text.saving);
     try {
       const response = await atLeast(fetch('/api/admin/slides', {
         body: JSON.stringify({ locale, slides: items.map(mutation) }),
@@ -247,6 +250,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
       setSlides((current) => ({ ...current, [locale]: result.slides.map(local) }));
       setDirty((current) => ({ ...current, [locale]: false }));
       setMessage(text.saved);
+      setSavedOnce(true);
     } catch {
       setSaveError(text.saveError);
       setMessage('');
@@ -298,7 +302,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
         <div aria-label={text.language} className="navigation-tabs" role="tablist">
           {languages.map((tab) => (
             <button aria-controls="home-slides-panel" aria-selected={locale === tab.value} className="navigation-tab" id={`home-slides-${tab.value}-tab`} key={tab.value}
-              onClick={() => setLocale(tab.value)} onKeyDown={moveTabFocus} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">
+              onClick={() => { setLocale(tab.value); setSavedOnce(false); }} onKeyDown={moveTabFocus} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">
               {tab.label}{dirty[tab.value] ? ' •' : ''}
             </button>
           ))}
@@ -339,8 +343,13 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
             })}
           </ol>
           <div className="navigation-save">
-            <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty[locale]} onClick={() => void save()} type="button">{text.save}</button>
-            <span>{saving ? text.saving : dirty[locale] ? text.unsaved : text.noUnsaved}</span>
+            <SaveButton
+              label={text.save}
+              onClick={() => void save()}
+              savedLabel={copy.shell.saved}
+              savingLabel={copy.shell.saving}
+              state={saveButtonState({ saving, dirty: dirty[locale], savedOnce })}
+            />
             <a href={`/${locale}`} rel="noopener noreferrer" target="_blank">{text.viewOnSite}<span className="sr-only"> {text.opensInNewTab}</span></a>
           </div>
           {saveError && <div className="admin-alert" role="alert">{saveError} <button className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{text.retry}</button></div>}

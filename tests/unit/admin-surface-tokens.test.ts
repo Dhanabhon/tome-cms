@@ -168,7 +168,9 @@ test('the details dialog uses the admin controls', () => {
     assert.ok(at > -1, `the dialog has no ${control}`);
     assert.match(dialog.slice(at, at + 400), /className="admin-control/, `${control} is not an admin control`);
   }
-  assert.match(dialog, /className="admin-button admin-button--primary"/, 'save is not the primary button');
+  // SaveButton draws the primary button itself.
+  assert.match(dialog, /<SaveButton/, 'save is not the shared save button');
+  assert.match(read('src/components/admin/SaveButton.tsx'), /className="admin-button admin-button--primary admin-save-button"/, 'save is not the primary button');
   assert.match(dialog, /className="admin-button admin-button--danger"/, 'delete is not the danger button');
 });
 
@@ -313,17 +315,13 @@ test('every control that starts a request reports it', () => {
   // Named rather than inferred: a button disabled while something else works is not busy,
   // and only the control that was pressed may say it is.
   const controls: ReadonlyArray<readonly [string, string]> = [
-    ['SettingsForm', 'saving'],
     ['ThemeForm', 'busy === id'],
     ['PluginManager', 'busy'],
-    ['ProfileForm', 'saving'],
     ['CategoryManager', "pendingActionIds.has('create')"],
     // One action at a time, and only its own button says so -- not every button on the screen.
     ['SecurityManager', "pressed('add')"],
     ['MediaLibrary', 'uploading'],
-    ['MediaLibrary', "pressed('save-details')"],
     ['MediaLibrary', 'deleting'],
-    ['NavigationManager', "pressed === 'save'"],
     ['PasskeySignIn', 'busy'],
     // Publish or Update, and not the autosave: that is shown by the save state beside it.
     ['Editor', 'publishing'],
@@ -338,10 +336,13 @@ test('every control that starts a request reports it', () => {
     const source = read(`src/components/admin/${component}.tsx`);
     assert.ok(source.includes(`aria-busy={${flag}}`), `${component} has no control reporting ${flag}`);
   }
-  // The words move to the status line, so a button keeps its width.
-  const settings = read('src/components/admin/SettingsForm.tsx');
-  assert.doesNotMatch(settings, /\{saving \? copy\.settings\.saving : copy\.settings\.save\}/);
-  assert.match(settings, /role="status">\{saving \? copy\.settings\.saving/);
+  // The seven save buttons are one component, and its spinner comes from the same aria-busy.
+  for (const component of ['SettingsForm', 'ProfileForm', 'MaintenanceForm', 'NavigationManager', 'SlidesManager', 'PluginManager', 'MediaLibrary']) {
+    assert.match(read(`src/components/admin/${component}.tsx`), /<SaveButton[\s\S]{0,400}?state=\{saveButtonState\(/, `${component} has a save button that does not carry its state`);
+  }
+  assert.match(read('src/components/admin/SaveButton.tsx'), /aria-busy=\{state === 'saving'\}/);
+  // A save button's words are on the button, not in a status line beside it.
+  assert.doesNotMatch(read('src/components/admin/SettingsForm.tsx'), /copy\.settings\.saving/);
   const swapped: ReadonlyArray<readonly [string, RegExp]> = [
     ['NavigationManager', /\{saving \? copy\.navigation\.saving : copy\.navigation\.saveMenu\}/],
     ['MediaLibrary', /\{deleting \? copy\.media\.deleting : copy\.media\.delete\}/],
@@ -353,6 +354,12 @@ test('every control that starts a request reports it', () => {
   for (const [component, label] of swapped) {
     assert.doesNotMatch(read(`src/components/admin/${component}.tsx`), label, `${component} swaps its label while it works`);
   }
+});
+
+test('a save button keeps one width and says Saved without greying out', () => {
+  assert.equal(declaration(ruleBody(CSS, '.admin-save-button'), 'display'), 'inline-grid');
+  assert.equal(declaration(ruleBody(CSS, '.admin-save-button__label'), 'grid-area'), '1 / 1');
+  assert.equal(declaration(ruleBody(CSS, '.admin-save-button[data-state="saved"]:disabled'), 'opacity'), '1');
 });
 
 test('a pressed control spins long enough to be seen', () => {

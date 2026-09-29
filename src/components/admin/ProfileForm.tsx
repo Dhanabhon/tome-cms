@@ -5,7 +5,9 @@ import { adminCopy, fill } from '../../lib/admin-i18n';
 import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
+import { saveButtonState } from '../../lib/save-state';
 import { LINK_SITES, linkNameChoice, type LinkNameChoice } from '../../lib/author-link-names';
+import SaveButton from './SaveButton';
 import UiSelect from './UiSelect';
 
 interface ProfileFormProps {
@@ -57,7 +59,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState('');
+  const [savedOnce, setSavedOnce] = useState(false);
 
   /** Serialised so a link edited and edited back counts as clean, not dirty. */
   const snapshot = (values: Pick<ProfileFormProps['initialSettings'],
@@ -79,7 +81,6 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
     setSaving(true);
     setError('');
     setFieldErrors({});
-    setStatus('');
     try {
       const response = await atLeast(fetch('/api/admin/profile', {
         method: 'PUT',
@@ -103,7 +104,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
       if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
       setUpdatedAt(result.settings.updated_at);
       setSavedSnapshot(currentSnapshot);
-      setStatus(copy.settings.saved);
+      setSavedOnce(true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : copy.profile.saveFailed);
     } finally {
@@ -113,7 +114,6 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
 
   return (
     <form className="admin-settings-form" noValidate onSubmit={save} onChange={(event) => {
-        setStatus('');
         const name = (event.target as HTMLInputElement).name;
         setFieldErrors((current) => ({ ...current, [name]: '' }));
       }}>
@@ -144,7 +144,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
                     <button aria-haspopup="dialog" className="admin-button admin-button--secondary" onClick={() => setAvatarPickerOpen(true)} ref={avatarButton} type="button">
                       {avatarUrl ? copy.profile.changeAvatar : copy.profile.chooseAvatar}
                     </button>
-                    {avatarUrl && <button aria-label={copy.profile.removeAvatar} className="admin-button admin-button--ghost admin-button--icon profile-avatar-remove" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); setStatus(''); }} title={copy.profile.removeAvatar} type="button"><Icon name="trash" /></button>}
+                    {avatarUrl && <button aria-label={copy.profile.removeAvatar} className="admin-button admin-button--ghost admin-button--icon profile-avatar-remove" onClick={() => { setAuthorAvatarMediaId(null); setAvatarUrl(null); }} title={copy.profile.removeAvatar} type="button"><Icon name="trash" /></button>}
                   </div>
                   {!avatarUrl && <p className="admin-hint">{copy.profile.noAvatar}</p>}
                 </div>
@@ -156,7 +156,6 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
                   setAuthorAvatarMediaId(asset.id);
                   setAvatarUrl(asset.publicUrl);
                   setAvatarPickerOpen(false);
-                  setStatus('');
                 }}
                 ownerLocale={ownerLocale}
                 returnFocus={avatarButton.current}
@@ -217,10 +216,10 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
                       <input className="admin-control" id={`authorLinks.${index}.url`} name={`authorLinks.${index}.url`} aria-invalid={Boolean(fieldErrors[`authorLinks.${index}.url`])} aria-describedby={`authorLinks.${index}.url-error`} type="url" pattern="https?://.*" required value={link.url} onChange={(event) => setAuthorLinks(authorLinks.map((item, i) => i === index ? { ...item, url: event.target.value } : item))} />
                       <p className="admin-field-error" id={`authorLinks.${index}.url-error`} aria-live="polite">{fieldErrors[`authorLinks.${index}.url`]}</p>
                     </div>
-                    <button className="admin-button admin-button--danger" type="button" aria-label={fill(copy.profile.removeLink, { index: index + 1 })} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setLinkChoices(linkChoices.filter((_, i) => i !== index)); setFieldErrors({}); setStatus(''); }}>{copy.profile.remove}</button>
+                    <button className="admin-button admin-button--danger" type="button" aria-label={fill(copy.profile.removeLink, { index: index + 1 })} onClick={() => { setAuthorLinks(authorLinks.filter((_, i) => i !== index)); setLinkChoices(linkChoices.filter((_, i) => i !== index)); setFieldErrors({}); }}>{copy.profile.remove}</button>
                   </div>
                 ))}
-                <button className="admin-button" type="button" disabled={authorLinks.length >= 5} onClick={() => { setAuthorLinks([...authorLinks, { label: copy.profile.linkWebsite, url: '' }]); setLinkChoices([...linkChoices, 'website']); setStatus(''); }}>{copy.profile.addLink}</button>
+                <button className="admin-button" type="button" disabled={authorLinks.length >= 5} onClick={() => { setAuthorLinks([...authorLinks, { label: copy.profile.linkWebsite, url: '' }]); setLinkChoices([...linkChoices, 'website']); }}>{copy.profile.addLink}</button>
               </div>
             </section>
 
@@ -228,8 +227,13 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
         </fieldset>
         <p className="admin-form-error" role="alert">{error}</p>
         <div className="admin-save-bar">
-          <button aria-busy={saving} className="admin-button admin-button--primary" disabled={saving || !dirty} type="submit">{copy.settings.save}</button>
-          <p role="status">{saving ? copy.settings.saving : dirty ? copy.profile.unsaved : status}</p>
+          <SaveButton
+            label={copy.settings.save}
+            savedLabel={copy.shell.saved}
+            savingLabel={copy.shell.saving}
+            state={saveButtonState({ saving, dirty, savedOnce })}
+            type="submit"
+          />
         </div>
     </form>
   );

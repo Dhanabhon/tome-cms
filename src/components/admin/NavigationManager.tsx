@@ -5,8 +5,10 @@ import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import { animateDismissals, closeOverlay } from '../../lib/overlay-motion';
 import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
+import SaveButton from './SaveButton';
 import UiSelect from './UiSelect';
 import { atLeast } from '../../lib/busy';
+import { saveButtonState } from '../../lib/save-state';
 
 type MenuKey = `${NavigationLocation}:${PageLocale}`;
 type LocalItem = NavigationMutationItem & { id: string };
@@ -42,6 +44,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   // Save and Retry both save; only the one that was pressed spins.
   const [pressed, setPressed] = useState<'retry' | 'save' | null>(null);
   const [status, setStatus] = useState('');
+  // A save confirms the menu that was open; another tab is another menu, so it starts over.
+  const [savedOnce, setSavedOnce] = useState(false);
   const [kind, setKind] = useState<NavigationKind>('home');
   const [pageId, setPageId] = useState('');
   const [label, setLabel] = useState(copy.navigation.home);
@@ -206,6 +210,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
       setMenus((current) => ({ ...current, [key]: result.items.map(localItem) }));
       setDirty((current) => ({ ...current, [key]: false }));
       setStatus(copy.navigation.menuSaved);
+      setSavedOnce(true);
     } catch {
       setSaveError(copy.navigation.saveError);
       setStatus('');
@@ -229,12 +234,12 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
         <div aria-label={copy.navigation.menuLocation} className="navigation-tabs" role="tablist">
           {locations.map((tab) => {
             const unsaved = languages.some((language) => dirty[`${tab.value}:${language.value}`]);
-            return <button aria-controls="navigation-location-panel" aria-describedby={unsaved ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={location === tab.value} className="navigation-tab" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocation(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={location === tab.value ? 0 : -1} type="button">{tab.label}{unsaved && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>;
+            return <button aria-controls="navigation-location-panel" aria-describedby={unsaved ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={location === tab.value} className="navigation-tab" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocation(tab.value); setSavedOnce(false); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={location === tab.value ? 0 : -1} type="button">{tab.label}{unsaved && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>;
           })}
         </div>
         <div aria-labelledby={`navigation-${location}-tab`} id="navigation-location-panel" role="tabpanel">
           <div aria-label={copy.navigation.menuLanguage} className="navigation-tabs" role="tablist">
-            {languages.map((tab) => <button aria-controls="navigation-language-panel" aria-describedby={dirty[`${location}:${tab.value}`] ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={locale === tab.value} className="navigation-tab" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocale(tab.value); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">{tab.label}{dirty[`${location}:${tab.value}`] && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>)}
+            {languages.map((tab) => <button aria-controls="navigation-language-panel" aria-describedby={dirty[`${location}:${tab.value}`] ? `navigation-${tab.value}-dirty` : undefined} aria-label={tab.label} aria-selected={locale === tab.value} className="navigation-tab" disabled={saving} id={`navigation-${tab.value}-tab`} key={tab.value} onClick={() => { setLocale(tab.value); setSavedOnce(false); setSaveError(''); setStatus(''); }} onKeyDown={switchTab} role="tab" tabIndex={locale === tab.value ? 0 : -1} type="button">{tab.label}{dirty[`${location}:${tab.value}`] && <span className="navigation-dirty" id={`navigation-${tab.value}-dirty`}>{copy.navigation.unsaved}</span>}</button>)}
           </div>
           <div aria-busy={saving} aria-labelledby={`navigation-${locale}-tab`} id="navigation-language-panel" role="tabpanel" tabIndex={0}>
             {!items.length && (
@@ -265,9 +270,14 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
               })}
             </ol>
             <div className="navigation-save">
-              <button aria-busy={pressed === 'save'} className="admin-button admin-button--primary" disabled={saving || !dirty[key]} onClick={() => void save()} type="button">{copy.navigation.saveMenu}</button>
-              {/* The words live here, so the button keeps its width while it spins. */}
-              <span>{saving ? copy.navigation.saving : dirty[key] ? copy.navigation.unsavedChanges : copy.navigation.noUnsavedChanges}</span>
+              <SaveButton
+                disabled={saving}
+                label={copy.navigation.saveMenu}
+                onClick={() => void save()}
+                savedLabel={copy.shell.saved}
+                savingLabel={copy.shell.saving}
+                state={saveButtonState({ saving: pressed === 'save', dirty: dirty[key], savedOnce })}
+              />
             </div>
             {saveError && <div className="admin-alert" role="alert">{saveError} <button aria-busy={pressed === 'retry'} className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
           </div>
