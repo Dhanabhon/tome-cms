@@ -2503,13 +2503,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* One frame for the list and the form that adds to it. The form was a card of its own
  * standing above a run of separate cards -- three frames to do one job, with the new
  * name landing further from the list than the rows are from each other. */
-.category-frame {
-  overflow: hidden;
-  min-width: 0;
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-card);
-  background: var(--color-paper);
-}
+.category-frame { min-width: 0; }
 /* A name is a few words. Left unbounded the field ran the width of the page, which
  * also flung the "80 characters" hint to the far end of a 1100px row, a thousand
  * pixels from the label it belongs to. */
@@ -2518,27 +2512,25 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   flex-wrap: wrap;
   gap: var(--space-md);
   align-items: end;
-  padding: var(--space-md);
-  background: var(--color-paper-2);
+  padding-block: var(--space-md);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 .category-create .admin-field { flex: 1 1 18rem; max-width: 28rem; }
 .category-list { display: grid; min-width: 0; margin: 0; padding: 0; list-style: none; }
-/* Each row draws the rule above itself rather than below. A trailing divider needs a
- * :last-child reset to take back, and the reset cannot see an empty list: React still
- * renders the <ul>, so the form is never the frame's last child and its rule was left
- * hanging a hairline above the frame's own edge. Drawn on top, the rules only ever
- * land between two things, and with no categories there are none to draw. */
+/* The frame has no box now, so a row is its own 48px of rhythm closed by a rule below it,
+ * the way a page row is; the add form above closes with the rule that starts the list. */
 .category-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-md);
   align-items: center;
   min-width: 0;
-  padding: var(--space-md);
-  border-block-start: var(--rule-hair) solid var(--color-rule);
+  min-height: 3rem;
+  padding-block: var(--space-md);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 .category-row__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); min-width: 0; }
-.category-row h2 { min-width: 0; margin: 0; font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
+.category-row h2 { min-width: 0; margin: 0; font-family: var(--font-display); font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 /* The count belongs beside the actions, not beneath the name: a row says one thing
  * about one category, and stacking the count under it made every row two lines. */
 .category-row__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: var(--space-sm); }
