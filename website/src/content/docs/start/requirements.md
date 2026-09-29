@@ -27,6 +27,8 @@ The peak is the build. A managed install pulls a built image and builds only the
 
 Uploading an image also takes extra memory for a moment while the server inspects it. That was not measured. Leave room for the operating system and the TLS proxy as well.
 
+A managed install is lighter, because it never builds the application. The test server behind these pages has 1 GB of memory, one shared vCPU and 2 GB of swap, and has run a managed install with real content since 1.0.1, through every update since. With the site in use it had about 400 MB available and swap in use, so the swap is what makes 1 GB work. Measured on it with 1.3.0, the home page answered about 17 requests a second with no failures, four at a time: comfortably a few hundred readers at once, a site of tens of thousands of page views a day. That is enough for a personal site. Take 2 GB for anything busier, or for a build from source.
+
 ### Why disk
 
 The PostgreSQL and SeaweedFS images take about 1.1 GB together, and the application image several hundred MB more. Each build leaves a cache of about the same size, which `docker builder prune` gives back.

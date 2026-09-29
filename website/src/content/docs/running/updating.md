@@ -24,12 +24,12 @@ cd /opt/tome-cms && docker compose -p tomecms -f compose.managed.yaml \
 ```
 :::
 
-On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.3.1 is available.", with that release's version.
+On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.3.2 is available.", with that release's version.
 
 1. Press "Read release notes" and read the notes of every version after yours.
-2. Press "Install 1.3.1". The admin asks "Install TomeCMS 1.3.1?". Press "Install 1.3.1" again, then confirm with your passkey.
+2. Press "Install 1.3.2". The admin asks "Install TomeCMS 1.3.2?". Press "Install 1.3.2" again, then confirm with your passkey.
 3. Keep the page open. "Installation progress" ticks off each step: "Check prerequisites", "Verify the official update", "Download update", "Prepare maintenance", "Create recovery backup", "Apply database migrations", "Restart TomeCMS" and "Check application health". The site is briefly down while TomeCMS restarts.
-4. When it is done, "System" says "TomeCMS 1.3.1 is installed."
+4. When it is done, "System" says "TomeCMS 1.3.2 is installed."
 
 Afterwards the "Last update" card says when it finished and, with an updater of 1.3.0 or later, how long the site was offline and what the backup held.
 
@@ -52,8 +52,8 @@ A release that needs a newer updater says so on "System" ("This version needs it
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.3.0
-git checkout --detach v1.3.0
+git fetch --depth 1 origin tag v1.3.1
+git checkout --detach v1.3.1
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -62,7 +62,7 @@ sudo npm run updater:upgrade
 A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
 
 ```sh
-git clone --depth 1 --branch v1.3.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.3.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -113,7 +113,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
+| 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
 | 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
 | 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
 | 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |
