@@ -151,7 +151,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
               );
             })}
             {!stories.length && (pages.length ? (
-              <p class="admin-empty admin-empty--filtered"><span>{copy.pages.noMatchTitle}</span><a href={adminHref(adminSettings, '/pages')}>{copy.pages.noMatchLink}</a></p>
+              <p class="admin-empty admin-empty--filtered"><span>{copy.pages.noMatchTitle}</span><a href={adminHref(adminSettings, `/pages?${new URLSearchParams({ status: 'all' })}`)}>{copy.pages.noMatchLink}</a></p>
             ) : (
               <div class="admin-empty">
                 <p class="admin-eyebrow">{copy.empty.eyebrow}</p>

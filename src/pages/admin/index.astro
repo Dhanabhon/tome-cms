@@ -210,7 +210,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
             );
           })}
           {!stories.length && (posts.length ? (
-            <p class="admin-empty admin-empty--filtered"><span>{copy.posts.noMatchTitle}</span><a href={adminHref(adminSettings)}>{copy.posts.noMatchLink}</a></p>
+            <p class="admin-empty admin-empty--filtered"><span>{copy.posts.noMatchTitle}</span><a href={adminHref(adminSettings, `?${new URLSearchParams({ status: 'all' })}`)}>{copy.posts.noMatchLink}</a></p>
           ) : (
             <div class="admin-empty">
               <p class="admin-eyebrow">{copy.empty.eyebrow}</p>

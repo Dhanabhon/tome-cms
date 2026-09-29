@@ -530,3 +530,8 @@ test('a filename is a title, and a one-sentence empty state has no heading', () 
     assert.doesNotMatch(read(file), /<div className="admin-empty">\s*<p className="admin-eyebrow">[^\n]*\n\s*<h2>/, `${file} sets its sentence as a heading`);
   }
 });
+
+test('"Show all" from an empty tab links to status=all', () => {
+  assert.match(read('src/pages/admin/index.astro'), /admin-empty--filtered[\s\S]{0,200}?status[^<]*all/);
+  assert.match(read('src/pages/admin/pages/index.astro'), /admin-empty--filtered[\s\S]{0,200}?status[^<]*all/);
+});
