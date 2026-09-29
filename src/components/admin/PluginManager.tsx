@@ -13,6 +13,7 @@ import type { MediaAsset, PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
+import { normalizeHex } from '../../lib/hex-color';
 import { saveButtonState } from '../../lib/save-state';
 
 interface PluginManagerProps {
@@ -210,6 +211,42 @@ function PluginPicture({ copy, hint, id, initial, label, locale, name, onChange 
   );
 }
 
+interface ColourFieldProps {
+  defaultValue: string;
+  id: string;
+  invalidText: string;
+  name: string;
+}
+
+/**
+ * A colour is typed as hex beside a swatch of what it says: the operating system's colour
+ * wheel is not this admin's to draw. Typing fires the form's own change handler, so the
+ * panel goes dirty on a real edit; focus and blur fire neither.
+ */
+function ColourField({ defaultValue, id, invalidText, name }: ColourFieldProps) {
+  const [text, setText] = useState(defaultValue);
+  const colour = normalizeHex(text);
+  return (
+    <div className="admin-colour">
+      <span aria-hidden="true" className="admin-colour__swatch" style={{ background: colour ?? 'transparent' }} />
+      <input
+        aria-describedby={colour ? undefined : `${id}-error`}
+        aria-invalid={colour ? undefined : true}
+        autoComplete="off"
+        className="admin-control"
+        id={id}
+        name={name}
+        onBlur={() => { if (colour) setText(colour); }}
+        onChange={(event) => setText(event.target.value)}
+        pattern="#?[0-9A-Fa-f]{6}"
+        spellCheck={false}
+        value={text}
+      />
+      {!colour && <small className="admin-field-error" id={`${id}-error`}>{invalidText}</small>}
+    </div>
+  );
+}
+
 interface PluginSetUpProps {
   busy: boolean;
   configured: boolean;
@@ -244,12 +281,15 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // A colour that is not six hex digits is never sent; the field says why, beside itself.
+    if (event.currentTarget.querySelector('.admin-colour input[aria-invalid="true"]')) return;
     const form = new FormData(event.currentTarget);
     const values = Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)]));
     // An unticked box sends nothing, and the store reads nothing as "leave it" -- so a
     // switch that is off has to say so, or it can be turned on and never off again.
     for (const setting of manifest.settings) {
       if (setting.kind === 'switch') values[setting.key] = form.get(setting.key) === 'on' ? 'on' : 'off';
+      if (setting.kind === 'color') values[setting.key] = normalizeHex(values[setting.key]) ?? values[setting.key];
     }
     if (await onSave(values)) {
       setDirty(false);
@@ -323,14 +363,13 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
               {setting.hint && <small>{setting.hint[locale]}</small>}
             </div>
           ) : setting.kind === 'color' ? (
-            <div className="admin-field admin-field--color" key={setting.key}>
+            <div className="admin-field" key={setting.key}>
               <label htmlFor={`${manifest.id}-${setting.key}`}>{setting.label[locale]}</label>
-              <input
-                className="admin-control admin-control--color"
+              <ColourField
                 defaultValue={state?.values[setting.key] || setting.fallback || '#000000'}
                 id={`${manifest.id}-${setting.key}`}
+                invalidText={copy.plugins.colorInvalid}
                 name={setting.key}
-                type="color"
               />
               {setting.hint && <small>{setting.hint[locale]}</small>}
             </div>

@@ -550,13 +550,11 @@ test('the list filters choose a language through the admin select, which submits
 });
 
 test('no control opens a picker drawn by the operating system', () => {
-  // The file chooser is the one exception the web imposes. Until the colour field lands (Task 6),
-  // that input type is listed here as still allowed.
-  const allowedForNow = /type="color"/;
-  for (const file of execSync('git ls-files src/components src/pages', { encoding: 'utf8' }).trim().split('\n')) {
+  // The file chooser is the one exception the web imposes, and `type="file"` is not in this list.
+  const root = new URL('../../', import.meta.url).pathname;
+  for (const file of execSync('git ls-files src/components src/pages', { cwd: root, encoding: 'utf8' }).trim().split('\n')) {
     if (!/\.(astro|tsx)$/.test(file)) continue;
-    const source = read(file).replace(new RegExp(allowedForNow.source, 'g'), '');
-    assert.doesNotMatch(source, /<select\b|type="(?:date|datetime-local|time|month|week|color)"/, file);
+    assert.doesNotMatch(read(file), /<select\b|type=["'](?:date|datetime-local|time|month|week|color)["']/, file);
   }
 });
 

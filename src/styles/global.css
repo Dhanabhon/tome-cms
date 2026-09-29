@@ -1923,6 +1923,9 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
 .admin-field-error { min-height: 1lh; margin: 0; color: var(--color-error-ink); font-size: var(--text-xs); font-weight: 400; }
 .admin-field-error:empty { display: none; }
+.admin-colour { display: grid; grid-template-columns: auto minmax(0, 10rem); gap: var(--space-2xs) var(--space-xs); align-items: center; }
+.admin-colour__swatch { width: var(--control-height); height: var(--control-height); border: var(--rule-hair) solid var(--color-rule-strong); border-radius: var(--radius-input); }
+.admin-colour .admin-field-error { grid-column: 1 / -1; }
 .admin-form-error { min-height: 1lh; margin: 0; color: var(--color-error-ink); font-size: var(--text-sm); }
 .admin-alert {
   margin: 0;
