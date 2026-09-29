@@ -10,6 +10,11 @@ export function menusToClose<T extends MenuLike>(menus: readonly T[], target: un
   return menus.filter((menu) => menu.open && !menu.contains(target));
 }
 
+/** The menu Escape closes: the one holding focus, else the open one (Safari does not focus a summary on click). */
+export function menuToEscape<T extends MenuLike>(menus: readonly T[], active: unknown): T | undefined {
+  return menus.find((menu) => menu.open && menu.contains(active)) ?? menus.find((menu) => menu.open);
+}
+
 export function wireDetailsMenus(selector: string, doc: Document = document): () => void {
   const menus = () => [...doc.querySelectorAll<HTMLDetailsElement>(selector)];
   const onPointerDown = (event: PointerEvent) => {
@@ -17,10 +22,13 @@ export function wireDetailsMenus(selector: string, doc: Document = document): ()
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return;
-    const menu = menus().find((candidate) => candidate.open && candidate.contains(doc.activeElement));
+    const menu = menuToEscape(menus(), doc.activeElement);
     if (!menu) return;
     menu.open = false;
     menu.querySelector<HTMLElement>('summary')?.focus();
+    // Only the menu closes: a menu inside a dialog must not close the dialog too.
+    event.preventDefault();
+    event.stopPropagation();
   };
   // toggle does not bubble, so it is listened for in the capture phase.
   const onToggle = (event: Event) => {

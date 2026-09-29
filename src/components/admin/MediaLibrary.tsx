@@ -433,11 +433,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     };
     return (
       // One name for every folder's menu: the browser closes the others when one opens.
-      <details className="admin-story-menu media-category-menu" name="media-folder-menu" onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !event.currentTarget.open) return;
-        event.currentTarget.open = false;
-        event.currentTarget.querySelector('summary')?.focus();
-      }}>
+      <details className="admin-story-menu media-category-menu" name="media-folder-menu">
         <summary aria-label={fill(copy.media.folderActions, { name: folder.name })}><Icon name="more" /></summary>
         <div>
           <button onClick={(event) => { close(event); setRenaming(folder); setRenameName(folder.name); }} type="button">{copy.categories.rename}</button>

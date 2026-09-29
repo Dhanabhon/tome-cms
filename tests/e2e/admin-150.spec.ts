@@ -153,4 +153,10 @@ test('a row menu closes on a press outside and on Escape', async ({ context, pag
   await page.keyboard.press('Escape');
   await expect(menu).not.toHaveAttribute('open', '');
   await expect(menu.locator('summary')).toBeFocused();
+  // Safari does not focus a summary on click: with focus on the page, Escape still closes it.
+  await menu.locator('summary').click();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('Escape');
+  await expect(menu).not.toHaveAttribute('open', '');
+  await expect(menu.locator('summary')).toBeFocused();
 });
