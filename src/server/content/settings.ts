@@ -9,6 +9,7 @@ import { db } from '../db/client';
 import type { SiteSettingsTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { assertReadyMediaReferences } from '../media/service';
+import { memoForRequest } from '../request-memo';
 import { invalidatePublicNavigationCache } from './navigation';
 
 const httpUrl = z.string().trim().pipe(z.url({ protocol: /^https?$/, error: 'Use an HTTP or HTTPS URL.' }));
@@ -83,12 +84,14 @@ function versionMatches(updatedAt: string) {
   return sql<boolean>`date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ${updatedAt}::timestamptz)`;
 }
 
-export async function getSiteSettings(): Promise<SiteSettings | null> {
-  const row = await db.selectFrom('site_settings')
-    .selectAll()
-    .where('id', '=', true)
-    .executeTakeFirst();
-  return row ? normalizeSettings(row) : null;
+export function getSiteSettings(): Promise<SiteSettings | null> {
+  return memoForRequest('site-settings', async () => {
+    const row = await db.selectFrom('site_settings')
+      .selectAll()
+      .where('id', '=', true)
+      .executeTakeFirst();
+    return row ? normalizeSettings(row) : null;
+  });
 }
 
 export async function getOwnerSettings(ownerId: string): Promise<SiteSettings | null> {

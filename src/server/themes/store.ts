@@ -1,5 +1,6 @@
 import { sql } from 'kysely';
 
+import { getSiteSettings } from '../content/settings';
 import { db } from '../db/client';
 import { HttpError } from '../http/errors';
 import { THEME_MANIFESTS } from '../../themes/manifests';
@@ -44,8 +45,8 @@ function accept(setting: ThemeSetting, supplied: string | undefined): string | n
 export async function readThemeSettings(themeId: string): Promise<ThemeSettings> {
   const settings = manifestSettings(themeId);
   if (!settings.length) return {};
-  const row = await db.selectFrom('site_settings').select('theme_settings')
-    .where('id', '=', true).executeTakeFirst();
+  // The site's settings row, read once per request with everything else in it.
+  const row = await getSiteSettings();
   const stored = storedFor(row?.theme_settings, themeId);
   // A stored value the theme no longer offers is not a value -- a setting whose choices
   // changed in a release, or a row edited by hand, must not reach a template as junk.

@@ -177,4 +177,9 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
   return routeConfiguredAdmin(context, next, settings);
 };
 
-export const onRequest: MiddlewareHandler = preparedHeadlessRequest;
+/** Reads are remembered for the request (see server/request-memo); a request that may write reads fresh. */
+export const onRequest: MiddlewareHandler = async (context, next) => {
+  if (context.request.method !== 'GET' && context.request.method !== 'HEAD') return (await preparedHeadlessRequest(context, next)) as Response;
+  const { withRequestMemo } = await import('./server/request-memo');
+  return withRequestMemo(async () => (await preparedHeadlessRequest(context, next)) as Response);
+};
