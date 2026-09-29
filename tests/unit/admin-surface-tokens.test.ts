@@ -64,10 +64,9 @@ test('an admin page title is semibold', () => {
 });
 
 test('a tab count adds only what a tab needs', () => {
-  // It is the shared badge, so its own rule may only carry the two things a tab changes:
-  // tighter sides, and no more weight than the label beside it. Matched as written rather
-  // than through ruleBody, which would find the shared rule this selector also ends.
-  assert.match(CSS, /\n\.admin-tab-count \{ padding-inline: var\(--space-2xs\); font-weight: 400; \}/);
+  // a count is the shared figure and adds nothing of its own
+  // (the shared rule ends in this selector, so a comma precedes it there)
+  assert.doesNotMatch(CSS, /[^,]\n\.admin-tab-count \{/);
 });
 
 test('the search field is a shared wrapper, not a top bar detail', () => {
@@ -195,8 +194,8 @@ test('a menu item is handled with icons that keep their words', () => {
 
 test('a count is one badge, wherever it is counted', () => {
   const badge = ruleBody(CSS, '.admin-count,\n.admin-nav-count,\n.admin-tab-count');
-  assert.equal(declaration(badge, 'border-radius'), 'var(--radius-pill)');
-  assert.equal(declaration(badge, 'background'), 'var(--color-paper-3)');
+  assert.equal(declaration(badge, 'border-radius'), undefined);
+  assert.equal(declaration(badge, 'background'), undefined);
   // The number is shown; the sentence it came from stays as the label.
   const manager = read('src/components/admin/CategoryManager.tsx');
   assert.match(manager, /className="admin-count"/, 'the category count is not a badge');
@@ -369,4 +368,39 @@ test('a row that is working dims rather than spinning inside its menu', () => {
   const list = read('src/lib/admin-story-list.ts');
   assert.match(list, /card\?\.setAttribute\('aria-busy', 'true'\)/);
   assert.match(list, /card\?\.removeAttribute\('aria-busy'\)/);
+});
+
+test('the shell has no top bar on a desktop and no search anywhere', () => {
+  const shell = read('src/components/admin/AdminShell.astro');
+  assert.doesNotMatch(shell, /admin-topbar__search/, 'the search field is still in the shell');
+  assert.doesNotMatch(shell, /postSearchState/, 'the shell still computes a search state');
+  assert.doesNotMatch(read('src/lib/admin.ts'), /postSearchState/, 'the helper outlived its only caller');
+  // The bar is the phone's: hidden from 64rem up, where the page head is the masthead.
+  assert.match(CSS, /@media \(min-width: 64rem\) \{[\s\S]*?\.admin-topbar \{ display: none; \}/);
+  assert.equal(declaration(ruleBody(CSS, '.admin-topbar'), 'background'), 'var(--color-paper-2)');
+});
+
+test('the sidebar sits on the page and marks the active link with a bar, not a fill', () => {
+  const wide = /@media \(min-width: 64rem\) \{\s*\.admin-sidebar \{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+  assert.doesNotMatch(wide, /background/, 'the sidebar still paints its own column');
+  assert.doesNotMatch(wide, /border-right/, 'the sidebar still draws a column edge');
+  const active = ruleBody(CSS, '.admin-sidebar nav a[aria-current=\'page\']::before,\n.admin-mobile-nav nav a[aria-current=\'page\']::before');
+  assert.equal(declaration(active, 'width'), '2px');
+  assert.equal(declaration(active, 'background'), 'var(--color-accent)');
+  assert.doesNotMatch(CSS, /\.admin-sidebar nav a\[aria-current='page'\][^:{]*\{[^}]*background: var\(--color-paper/, 'the active link still fills');
+});
+
+test('an eyebrow is one rule, shared by the nav groups and the page heads', () => {
+  const eyebrow = ruleBody(CSS, '.admin-eyebrow,\n.admin-nav-group');
+  assert.equal(declaration(eyebrow, 'text-transform'), 'uppercase');
+  assert.equal(declaration(eyebrow, 'letter-spacing'), '0.12em');
+  assert.equal(declaration(eyebrow, 'font-size'), '0.6875rem');
+  assert.equal(declaration(eyebrow, 'color'), 'var(--color-muted)');
+});
+
+test('the site line is a line under the logo, not a pill', () => {
+  const site = ruleBody(CSS, '.admin-shell-site');
+  assert.equal(declaration(site, 'background'), undefined);
+  assert.equal(declaration(site, 'border-radius'), undefined);
+  assert.match(declaration(site, 'border-block-end') ?? '', /var\(--color-rule\)$/);
 });

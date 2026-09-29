@@ -90,21 +90,6 @@ export function adminSignInPath(path: string, adminPath = DEFAULT_ADMIN_PATH) {
   return `${base}?${params}`;
 }
 
-/**
- * What the admin top bar's post search sends besides the words typed. On the Posts list it
- * keeps the status and language filters in force and shows the current query; from any other
- * screen it starts from all posts.
- */
-export function postSearchState(url: URL, postsPath: string): { hidden: Array<[string, string]>; query: string } {
-  const trim = (path: string) => path.replace(/\/+$/, '') || '/';
-  if (trim(url.pathname) !== trim(postsPath)) return { hidden: [], query: '' };
-  const hidden = (['status', 'locale'] as const).flatMap((name): Array<[string, string]> => {
-    const value = url.searchParams.get(name);
-    return value ? [[name, value]] : [];
-  });
-  return { hidden, query: url.searchParams.get('q') ?? '' };
-}
-
 /** The sidebar's links, in order. Each one's id is also the name of its icon. */
 export const ADMIN_NAV_IDS = ['stats', 'posts', 'pages', 'media', 'navigation', 'slides', 'redirects', 'profile', 'security', 'siteSettings', 'settings', 'maintenance', 'appearance', 'themes', 'plugins', 'system'] as const;
 export type AdminNavId = (typeof ADMIN_NAV_IDS)[number];
