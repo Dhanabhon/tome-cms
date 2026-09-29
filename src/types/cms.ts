@@ -345,6 +345,8 @@ export interface UploadImageOptions {
   altText?: string | null;
   folderId?: string | null;
   onProgress?: (percent: number) => void;
+  /** Aborting it stops the upload wherever it is: the request in flight is cancelled, the next is never sent. */
+  signal?: AbortSignal;
 }
 
 export interface PublicMedia {

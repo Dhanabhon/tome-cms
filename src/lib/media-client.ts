@@ -83,11 +83,12 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-async function sendJson<T>(path: string, method: 'POST' | 'PUT' | 'DELETE', body: unknown): Promise<T> {
+async function sendJson<T>(path: string, method: 'POST' | 'PUT' | 'DELETE', body: unknown, signal?: AbortSignal): Promise<T> {
   return readJson<T>(await fetch(path, {
     method,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   }));
 }
 
@@ -107,9 +108,15 @@ function uploadToStorage(
   reservation: UploadReservation,
   file: File,
   onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
+    // Aborting a request that has already settled is a no-op, so the listener is left to the signal.
+    signal?.addEventListener('abort', () => {
+      request.abort();
+      reject(signal.reason ?? new DOMException('Upload stopped', 'AbortError'));
+    }, { once: true });
     request.open('PUT', reservation.uploadUrl);
     request.timeout = uploadTimeoutMs(file.size);
     for (const [name, value] of Object.entries(reservation.headers)) request.setRequestHeader(name, value);
@@ -168,7 +175,9 @@ export interface UploadFileOptions extends UploadImageOptions {
 }
 
 async function upload(file: File, mimeType: SupportedMediaType, options: UploadImageOptions): Promise<MediaAsset> {
+  options.signal?.throwIfAborted();
   const checksumSha256 = await sha256(file);
+  options.signal?.throwIfAborted();
   const reservation = (await sendJson<{ reservation: UploadReservation }>('/api/admin/media/uploads', 'POST', {
     originalName: file.name,
     mimeType,
@@ -176,9 +185,12 @@ async function upload(file: File, mimeType: SupportedMediaType, options: UploadI
     checksumSha256,
     folderId: options.folderId ?? null,
     altText: isImageType(mimeType) ? options.altText ?? '' : '',
-  })).reservation;
-  await uploadToStorage(reservation, file, options.onProgress);
+  }, options.signal)).reservation;
+  options.signal?.throwIfAborted();
+  await uploadToStorage(reservation, file, options.onProgress, options.signal);
   options.onProgress?.(100);
+  // Once finalize is sent it completes: the file is in the library, and the caller is told so.
+  options.signal?.throwIfAborted();
   return (await sendJson<{ item: MediaAsset }>(`/api/admin/media/uploads/${reservation.id}/finalize`, 'POST', {})).item;
 }
 

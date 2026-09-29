@@ -512,7 +512,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         )}
         <div className="media-toolbar__end">
           <label aria-busy={uploading} className="admin-button admin-button--primary media-upload">
-            <span>{props.mode === 'select' && props.kind === 'image' ? copy.media.uploadImage : copy.media.uploadFile}</span>
+            <span>{props.mode === 'manage' ? copy.media.uploadTitle : props.kind === 'image' ? copy.media.uploadImage : copy.media.uploadFile}</span>
             <input accept={acceptAttribute(props.mode === 'select' ? props.kind : 'any')} className="sr-only" disabled={uploading} multiple={props.mode === 'manage'} onChange={handleUpload} type="file" />
           </label>
           {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><Icon name="close" /></button>}

@@ -96,3 +96,35 @@ test('a file is checked before anything is sent: a type the library does not kee
   assert.ok(!refused.ok && refused.error instanceof MediaFileError);
   assert.deepEqual(precheck(new File(['x'], 'a.png', { type: 'image/png' }), 'any'), { ok: true });
 });
+
+test('a stopped upload aborts the request to storage and never finalizes', { timeout: 5_000 }, async (context) => {
+  const { fetch, XMLHttpRequest } = globalThis;
+  context.after(() => Object.assign(globalThis, { fetch, XMLHttpRequest }));
+  const calls: string[] = [];
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    return Response.json({
+      reservation: { expiresAt: new Date().toISOString(), headers: {}, id: 'reservation', uploadUrl: 'https://store.invalid/put' },
+    }, { status: 201 });
+  };
+  let aborted = 0;
+  globalThis.XMLHttpRequest = class {
+    upload = { onprogress: null };
+    timeout = 0;
+    open() {}
+    setRequestHeader() {}
+    send() { /* on the wire, and never answers */ }
+    abort() { aborted += 1; }
+  } as unknown as typeof globalThis.XMLHttpRequest;
+  const controller = new AbortController();
+  const sending = uploadFile(new File(['x'], 'a.png', { type: 'image/png' }), { signal: controller.signal });
+  // The reservation is made and the file is on the wire.
+  while (calls.length < 1 || aborted > 0) await new Promise((resolve) => setTimeout(resolve, 1));
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  controller.abort();
+  await assert.rejects(sending, (error: unknown) => error instanceof DOMException && error.name === 'AbortError');
+  assert.equal(aborted, 1);
+  assert.deepEqual(calls, ['/api/admin/media/uploads'], 'no finalize was sent');
+  await assert.rejects(uploadFile(new File(['x'], 'b.png', { type: 'image/png' }), { signal: controller.signal }), { name: 'AbortError' });
+  assert.equal(calls.length, 1, 'an upload stopped before it began sends nothing');
+});

@@ -28,7 +28,12 @@ interface MediaUploadDialogProps {
  */
 export default function MediaUploadDialog({ copy, files, folders, initialFolderId, onClose }: MediaUploadDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const stopped = useRef(false);
+  // Stop aborts every upload at once: what is on the wire is cancelled, what is queued never starts.
+  const controller = useRef(new AbortController());
+  // Set by every file that lands, read at close: state read there would be the render before the last one.
+  const uploaded = useRef(false);
+  const closing = useRef(false);
+  const sending = useRef(new Set<Promise<void>>());
   const [folderId, setFolderId] = useState(initialFolderId);
   const [rows, setRows] = useState<Row[]>(() => files.map((file, id) => {
     const check = precheck(file, 'any');
@@ -49,34 +54,57 @@ export default function MediaUploadDialog({ copy, files, folders, initialFolderI
   const send = async (targets: Row[]) => {
     setStarted(true);
     for (const { id } of targets) update(id, { error: undefined, progress: 0, status: 'queued' });
-    await runQueue(targets, async ({ file, id }) => {
-      // Stopped from the leave prompt: what is already on its way finishes, nothing new starts.
-      if (stopped.current) return;
+    const queue = runQueue(targets, async ({ file, id }) => {
+      const { signal } = controller.current;
+      // A row that was stopped goes back to ready: it was not sent, and nothing about it failed.
+      const stopped = () => update(id, { progress: 0, status: 'ready' });
+      if (signal.aborted) return stopped();
       update(id, { status: 'uploading' });
       try {
-        await uploadFile(file, { accept: 'any', folderId: folderId || null, onProgress: (progress) => update(id, { progress }) });
+        await uploadFile(file, { accept: 'any', folderId: folderId || null, onProgress: (progress) => update(id, { progress }), signal });
+        uploaded.current = true;
         update(id, { progress: 100, status: 'done' });
       } catch (error) {
+        if (signal.aborted) return stopped();
         update(id, { error: uploadFailureText(error, copy) ?? copy.media.unavailable, status: 'failed' });
         throw error;
       }
     });
+    sending.current.add(queue);
+    await queue;
+    sending.current.delete(queue);
+  };
+
+  /** However the dialog ends, once: stop what is running, wait for it to settle, and say what landed. */
+  const finish = async (hide: () => Promise<void>) => {
+    if (closing.current) return;
+    closing.current = true;
+    controller.current.abort();
+    // A file whose finalize was already sent still lands, and must be in what onClose reports.
+    await Promise.allSettled([...sending.current]);
+    await hide();
+    onClose(folderId, uploaded.current);
   };
 
   const close = async () => {
+    if (closing.current) return;
     if (running) {
       const leave = await confirmUi({ cancelLabel: copy.shell.cancel, confirmLabel: copy.media.uploadStop, message: copy.media.uploadLeaveBody, title: copy.media.uploadLeave });
       if (!leave) return;
-      stopped.current = true;
     }
-    if (dialog.current) await closeOverlay(dialog.current);
-    onClose(folderId, rows.some((row) => row.status === 'done'));
+    await finish(async () => { if (dialog.current?.open) await closeOverlay(dialog.current); });
   };
 
   const folderOptions = [{ label: copy.media.unsorted, value: '' }, ...folders.map((folder) => ({ label: folder.name, value: folder.id }))];
 
   return (
-    <dialog aria-labelledby="media-upload-title" className="media-upload-dialog" onCancel={(event) => { event.preventDefault(); void close(); }} ref={dialog}>
+    <dialog aria-labelledby="media-upload-title" className="media-upload-dialog" onCancel={(event) => {
+      // Chromium lets a page hold Escape back only once the reader has done something on it. Past
+      // that the dialog closes whatever this does, and onClose below ends the uploads with it.
+      if (!event.cancelable) return;
+      event.preventDefault();
+      void close();
+    }} onClose={() => void finish(async () => {})} ref={dialog}>
       <div className="media-upload-dialog__head">
         <h2 id="media-upload-title">{copy.media.uploadTitle}</h2>
         <button aria-label={copy.shell.close} className="admin-button admin-button--ghost admin-button--icon" onClick={() => void close()} type="button"><Icon name="close" /></button>

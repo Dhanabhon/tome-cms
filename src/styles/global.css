@@ -812,11 +812,11 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .media-upload-dialog__head h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; }
 .media-upload-list { display: grid; margin: var(--space-md) 0; padding: 0; list-style: none; }
 .media-upload-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 7rem; gap: var(--space-2xs) var(--space-sm); align-items: center; min-height: 3rem; padding-block: var(--space-xs); border-block-end: var(--rule-hair) solid var(--color-rule); }
-.media-upload-row__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.media-upload-row__meta { color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
-.media-upload-row .update-progress, .media-upload-row .admin-field-error { grid-column: 1 / -1; }
-.media-upload-row > .admin-button:not(.admin-button--icon) { grid-column: 1 / -1; justify-self: start; }
-.media-upload-row__done, .media-upload-row > .admin-button--icon { justify-self: end; }
+.media-upload-row__name { grid-column: 1; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-upload-row__meta { grid-column: 2; grid-row: 1; color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+/* The row is two lines: what the file is and what can be done with it, then what is being said about it. */
+.media-upload-row__done, .media-upload-row > .admin-button { grid-column: 3; grid-row: 1; justify-self: end; }
+.media-upload-row .update-progress, .media-upload-row .admin-field-error { grid-column: 1 / -1; grid-row: 2; }
 .media-upload-row__done { display: inline-flex; gap: var(--space-3xs); align-items: center; color: var(--color-link); font-size: var(--text-sm); }
 .media-upload-row__done .icon { width: 1rem; height: 1rem; }
 .media-upload-dialog__foot { display: flex; justify-content: flex-end; }

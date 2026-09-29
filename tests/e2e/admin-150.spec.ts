@@ -261,7 +261,41 @@ test('several files go up at once into the folder chosen for them, and a failed 
   await expect(dialog).toBeHidden();
   await expect(page.locator('.media-card')).toHaveCount(3);
 
+  // Stop stops every upload, and Escape pressed again cannot leave the dialog hidden but mounted.
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.unroute('**/api/admin/media/uploads');
+  await page.route('**/api/admin/media/uploads', async (route) => {
+    if (route.request().method() === 'POST' && String(route.request().postDataJSON()?.originalName).startsWith('held-')) {
+      await held;
+      await route.abort();
+      return;
+    }
+    await route.continue();
+  });
+  await page.locator('.media-upload input[type="file"]').setInputFiles([1, 2].map((n) => ({ name: `held-${n}.png`, mimeType: 'image/png', buffer: png })));
+  await dialog.getByRole('button', { name: 'Upload 2 files' }).click();
+  await expect(dialog.locator('.media-upload-row[data-status="uploading"]')).toHaveCount(2);
+  const leave = page.getByRole('dialog', { name: 'Stop the uploads still running?' });
+  await page.keyboard.press('Escape');
+  await expect(leave).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(leave).toBeHidden();
+  // Escape opens the leave prompt and Escape again declines it. Left to itself Chromium stops
+  // letting the page hold Escape back, and then closes the dialog on its own: the page has to
+  // follow, ending the uploads, rather than keep a hidden dialog mounted with uploads running.
+  const mounted = page.locator('dialog.media-upload-dialog');
+  for (let presses = 0; presses < 8 && await mounted.count() > 0; presses += 1) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+  }
+  await expect(mounted, 'the dialog is gone, not hidden').toHaveCount(0);
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  release();
+  await expect(page.locator('.media-card')).toHaveCount(3);
   const { db } = await import('../../src/server/db/client');
+  expect(await db.selectFrom('media_items').select('id').where('original_name', 'like', 'held-%').execute(), 'a stopped upload lands nothing').toHaveLength(0);
+
   const filed = await db.selectFrom('media_items').innerJoin('media_folders', 'media_folders.id', 'media_items.folder_id')
     .select('media_folders.name').execute();
   expect(filed.filter((row) => row.name === 'Covers')).toHaveLength(3);
