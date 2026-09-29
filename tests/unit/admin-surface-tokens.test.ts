@@ -228,9 +228,10 @@ test('a passkey and an avatar are handled with the same icons as every other row
   const profile = read('src/components/admin/ProfileForm.tsx');
   assert.match(profile, /<Icon name="trash" \/>/, 'the avatar remove is not an icon button');
   assert.match(profile, /aria-label=\{copy\.profile\.removeAvatar\}/, 'the avatar remove has no label');
-  // The panels inside a card take the card's corner, not a control's.
+  // The panels inside a card are plain now: a card is a sheet with no box, so a box inside
+  // it would be the only rounded thing on the screen.
   for (const selector of ['.security-add', '.security-codes']) {
-    assert.equal(declaration(ruleBody(CSS, selector), 'border-radius'), 'var(--radius-card)', selector);
+    assert.equal(declaration(ruleBody(CSS, selector), 'border-radius'), undefined, selector);
   }
 });
 

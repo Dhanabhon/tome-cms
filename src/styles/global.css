@@ -2070,7 +2070,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-card > p, .admin-card > div > p { margin: var(--space-xs) 0 0; }
 /* A button is as wide as its label. A direct child of a grid card stretches to the
  * column, which is how a 900px "copy codes" button happens. */
-.admin-card > button, .admin-card > a.admin-button, .security-codes > button { justify-self: start; }
+.admin-card > button, .admin-card > a.admin-button, .security-codes > button { align-self: start; justify-self: start; }
 .security-form { display: grid; gap: var(--space-md); align-items: end; }
 .security-list { display: grid; gap: var(--space-md); }
 /* A passkey reads as a thing before it reads as a field: which key, then when it was
@@ -2090,9 +2090,9 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .security-key__edit .admin-field, .security-add .admin-field { flex: 1 1 18rem; max-width: 24rem; }
 /* Adding a key is a different act from renaming one, so it stands on its own ground. */
-.security-add { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper-2); }
+.security-add { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); border: 0; padding-inline: 0; }
 .security-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-.security-codes { display: grid; gap: var(--space-md); padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper-2); }
+.security-codes { display: grid; gap: var(--space-md); border: 0; padding-inline: 0; }
 /* Recovery codes are counted things -- you cross them off as you spend them. Preflight
  * strips the markers from every ol, which took the count away. */
 .security-codes ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-2xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; }
