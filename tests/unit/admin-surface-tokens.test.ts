@@ -535,3 +535,11 @@ test('"Show all" from an empty tab links to status=all', () => {
   assert.match(read('src/pages/admin/index.astro'), /admin-empty--filtered[\s\S]{0,200}?status[^<]*all/);
   assert.match(read('src/pages/admin/pages/index.astro'), /admin-empty--filtered[\s\S]{0,200}?status[^<]*all/);
 });
+
+test('the language filter waits for Enter when the keyboard drives it', () => {
+  for (const file of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
+    const source = read(file);
+    assert.match(source, /event\.key === 'Enter'/, file);
+    assert.match(source, /submit\.tabIndex = -1/, file);
+  }
+});

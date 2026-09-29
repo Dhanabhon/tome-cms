@@ -245,8 +245,20 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
     }),
   });
 
-  // The language select filters as it changes; the submit beside it is for a page with no script.
-  document.querySelector<HTMLFormElement>('[data-list-filter]')?.addEventListener('change', (event) => {
-    (event.currentTarget as HTMLFormElement).requestSubmit();
+  // Pointer users get the list on change. A keyboard user stepping through the options must
+  // not be sent away on the first arrow press (WCAG 3.2.2), so a change that began on the
+  // keyboard waits for Enter.
+  const form = document.querySelector<HTMLFormElement>('[data-list-filter]');
+  const select = form?.querySelector<HTMLSelectElement>('select');
+  const submit = form?.querySelector<HTMLButtonElement>('.admin-list-filter__submit');
+  let byKeyboard = false;
+  select?.addEventListener('keydown', (event) => {
+    byKeyboard = true;
+    if (event.key === 'Enter') { event.preventDefault(); form?.requestSubmit(); }
   });
+  select?.addEventListener('pointerdown', () => { byKeyboard = false; });
+  select?.addEventListener('change', () => { if (!byKeyboard) form?.requestSubmit(); });
+  // With script running, Enter and pointer change both submit; the no-script button would be a
+  // second control with the same name, so it steps out of the tab order.
+  if (submit) submit.tabIndex = -1;
 </script>
