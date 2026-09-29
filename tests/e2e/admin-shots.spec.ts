@@ -19,7 +19,7 @@ test.use({ stack: 'admin-shots' });
 test.skip(!process.env.ADMIN_SHOTS, 'Set ADMIN_SHOTS=<label> to write screenshots.');
 test.skip(({ isMobile }) => Boolean(isMobile), 'Widths are set by hand below.');
 
-const LABEL = process.env.ADMIN_SHOTS ?? 'unlabelled';
+const LABEL = process.env.ADMIN_SHOTS!;
 const OUT = join('test-results', 'admin-shots', LABEL);
 const PROJECT = 'tomecms-shots-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
@@ -138,21 +138,25 @@ test('every admin screen, three widths, both themes', async ({ context, page }) 
   // row to show as well as their empty states (shot first, before these exist).
   const empties: Array<readonly [string, string]> = [['posts-empty', '/admin'], ['pages-empty', '/admin/pages']];
   const measure: Record<string, unknown> = {};
+  // One readiness rule for the shots and the measurements, so they cannot drift apart.
+  const open = async (path: string) => {
+    await page.goto(`${origin}${path}`);
+    await page.locator('.admin-page, .media-shell, .security-page').first().waitFor({ state: 'visible' });
+    await page.waitForTimeout(400);
+  };
   const shoot = async (name: string, path: string) => {
     for (const width of WIDTHS) {
       for (const theme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme: theme });
         await page.setViewportSize({ width, height: 1000 });
-        await page.goto(`${origin}${path}`);
-        await page.locator('.admin-page, .media-shell, .security-page').first().waitFor({ state: 'visible' });
-        await page.waitForTimeout(400);
+        await open(path);
         await page.screenshot({ path: join(OUT, `${name}-${width}-${theme}.png`), fullPage: true });
       }
     }
     // Measured at 1440 light, where the claims are made.
     await page.emulateMedia({ colorScheme: 'light' });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.goto(`${origin}${path}`);
+    await open(path);
     measure[name] = await page.evaluate(() => {
       const box = (selector: string) => {
         const element = document.querySelector(selector);
@@ -176,13 +180,18 @@ test('every admin screen, three widths, both themes', async ({ context, page }) 
   };
   for (const [name, path] of empties) await shoot(name, path);
 
+  const created = (url: string) => page.waitForResponse((r) => r.url().endsWith(url) && r.request().method() === 'POST' && r.ok());
+  const postSaved = created('/api/admin/posts');
   await page.goto(`${origin}/admin/new`);
   await page.locator('textarea.admin-title-input').fill('Notes from a quiet workshop');
   await page.locator('.ProseMirror').first().fill('Six posts in, and the desk still fits in one corner of the room.');
+  await postSaved;
   await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
+  const pageSaved = created('/api/admin/pages');
   await page.goto(`${origin}/admin/pages/new`);
   await page.locator('textarea.admin-title-input').fill('About');
   await page.locator('.ProseMirror').first().fill('A small studio, writing in two languages.');
+  await pageSaved;
   await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
 
   for (const [name, path] of SCREENS) await shoot(name, path);
