@@ -559,3 +559,12 @@ test('a Stats change is set in the link colour, a note is not', () => {
   assert.equal(declaration(ruleBody(stats, '.stats-summary__change--delta'), 'font-weight'), '600');
   assert.match(read('src/components/admin/stats/StatsReport.astro'), /stats-summary__change--delta/);
 });
+
+test('on a phone each Stats tab row keeps its own rule and the figures draw no second one', () => {
+  const stats = read('src/styles/stats.css');
+  assert.equal(declaration(ruleBody(stats, '.stats-filters'), 'border-block-end'), undefined);
+  assert.equal(declaration(ruleBody(stats, '.stats-segments'), 'border-block-end'), 'var(--rule-hair) solid var(--color-rule)');
+  assert.equal(declaration(ruleBody(stats, '.stats-filters + .stats-summary'), 'border-block-start'), '0');
+  assert.match(stats, /\.stats-share li::before \{[^}]*opacity: 0\.5/);
+  assert.doesNotMatch(CSS, /\.admin-empty--inline a, \.admin-empty--inline button/);
+});

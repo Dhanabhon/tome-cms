@@ -6,9 +6,9 @@
 .stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution) a { color: var(--color-link); }
 .stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution, .stats-articles tbody) a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-.stats-filters { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-xl); margin-block-end: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
-/* Period and language are two rows of tabs on one rule, drawn like every other tab in the admin. */
-.stats-segments { display: inline-flex; flex-wrap: wrap; gap: var(--space-lg); }
+.stats-filters { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-xl); margin-block-end: 0; }
+/* Period and language are two rows of tabs, drawn like every other tab in the admin; each row rules itself, so a wrapped row keeps its underline. */
+.stats-segments { display: inline-flex; flex-wrap: wrap; gap: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
 .stats-segments a { min-height: var(--control-height); margin-block-end: -1px; padding-inline: var(--space-3xs); border-block-end: 2px solid transparent; color: var(--color-muted); font-size: var(--text-sm); font-weight: 500; line-height: var(--control-height); text-decoration: none; }
 .stats-segments a:hover { color: var(--color-ink); }
 .stats-segments a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -16,6 +16,7 @@
 
 /* Three figures on one row, ruled above and below, a rule between: the page's lead. */
 .stats-summary { display: grid; margin: var(--space-xl) 0 var(--space-xs); border-block: var(--rule-hair) solid var(--color-rule); }
+.stats-filters + .stats-summary { border-block-start: 0; }
 .stats-summary > div { display: grid; gap: var(--space-2xs); min-inline-size: 0; padding: var(--space-lg) 0; }
 .stats-summary > div + div { border-block-start: var(--rule-hair) solid var(--color-rule); }
 .stats-summary dd { margin: 0; }
@@ -82,7 +83,7 @@
 .stats-share ol { display: grid; margin: 0; padding: 0; list-style: none; }
 .stats-share li { position: relative; display: flex; justify-content: space-between; gap: var(--space-sm); padding: var(--space-xs) 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
 /* The share as a 2px line under the label, not a tint behind the row. */
-.stats-share li::before { content: ''; position: absolute; inset-block-end: -1px; inset-inline-start: 0; inline-size: var(--share); height: 2px; background: var(--color-accent); opacity: 0.6; }
+.stats-share li::before { content: ''; position: absolute; inset-block-end: -1px; inset-inline-start: 0; inline-size: var(--share); height: 2px; background: var(--color-accent); opacity: 0.5; }
 .stats-share__label { overflow-wrap: anywhere; }
 .stats-share__value { color: var(--color-ink); font-variant-numeric: tabular-nums; }
 .stats-share__none { color: var(--color-muted); }

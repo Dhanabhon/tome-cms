@@ -1692,7 +1692,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-empty--filtered a { color: var(--color-link); font-weight: 500; }
 /* Tier 3: a section of a form with nothing in it yet. A muted line with the way to add the first. */
 .admin-empty--inline { display: block; padding-block: var(--space-sm); border: 0; color: var(--color-muted); font-size: var(--text-sm); }
-.admin-empty--inline a, .admin-empty--inline button { padding: 0; border: 0; background: none; color: var(--color-link); font: inherit; font-weight: 500; cursor: pointer; }
 
 .admin-auth-page {
   display: grid;
