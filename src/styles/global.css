@@ -805,9 +805,21 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   cursor: pointer;
 }
 
-.media-upload:focus-within {
-  outline-color: var(--color-focus);
-}
+/* The ring shows when the keyboard reaches the button, not after the system's file chooser closes. */
+.media-upload:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
+.media-upload-dialog { width: min(36rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); margin: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-lg); background: var(--color-paper); color: var(--color-ink); overflow-y: auto; }
+.media-upload-dialog__head { display: flex; align-items: center; justify-content: space-between; margin-block-end: var(--space-md); }
+.media-upload-dialog__head h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; }
+.media-upload-list { display: grid; margin: var(--space-md) 0; padding: 0; list-style: none; }
+.media-upload-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 7rem; gap: var(--space-2xs) var(--space-sm); align-items: center; min-height: 3rem; padding-block: var(--space-xs); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.media-upload-row__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-upload-row__meta { color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.media-upload-row .update-progress, .media-upload-row .admin-field-error { grid-column: 1 / -1; }
+.media-upload-row > .admin-button:not(.admin-button--icon) { grid-column: 1 / -1; justify-self: start; }
+.media-upload-row__done, .media-upload-row > .admin-button--icon { justify-self: end; }
+.media-upload-row__done { display: inline-flex; gap: var(--space-3xs); align-items: center; color: var(--color-link); font-size: var(--text-sm); }
+.media-upload-row__done .icon { width: 1rem; height: 1rem; }
+.media-upload-dialog__foot { display: flex; justify-content: flex-end; }
 
 .media-grid {
   display: grid;

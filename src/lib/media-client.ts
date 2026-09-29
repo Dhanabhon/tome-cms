@@ -182,6 +182,16 @@ async function upload(file: File, mimeType: SupportedMediaType, options: UploadI
   return (await sendJson<{ item: MediaAsset }>(`/api/admin/media/uploads/${reservation.id}/finalize`, 'POST', {})).item;
 }
 
+/** Whether the library would take a file, asked before anything is sent; the size limits are part of that. */
+export function precheck(file: File, accept: MediaKind | 'any'): { ok: true } | { ok: false; error: unknown } {
+  try {
+    declaredMediaType(file, accept);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
 /** An image dropped or pasted into the editor. */
 export async function uploadImage(file: File, options: UploadImageOptions = {}): Promise<MediaAsset> {
   return upload(file, declaredMediaType(file, 'image'), options);

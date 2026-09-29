@@ -33,6 +33,7 @@ import Icon from '../Icon';
 import SaveButton from './SaveButton';
 import UiSelect from './UiSelect';
 import MediaTypes from './MediaTypes';
+import MediaUploadDialog from './MediaUploadDialog';
 import { atLeast } from '../../lib/busy';
 import { saveButtonState } from '../../lib/save-state';
 
@@ -91,6 +92,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  // Files chosen on the library page, waiting in the upload dialog. A picker never has any.
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [failedRequest, setFailedRequest] = useState<FailedRequest | null>(null);
   const [search, setSearch] = useState('');
@@ -218,6 +221,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
+    if (props.mode === 'manage') {
+      // The library page files several files at once, from a dialog of its own.
+      setPendingFiles([...input.files!]);
+      input.value = '';
+      return;
+    }
     const uploadSelection = currentSelection.current;
     const uploadQuery = currentQuery.current;
     const uploadFilter = currentFilter.current;
@@ -247,6 +256,18 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       setUploading(false);
       setUploadProgress(null);
     }
+  }
+
+  /** The dialog is done: show where its files went, whatever type filter would have hidden them. */
+  function finishUpload(chosenFolderId: string, uploadedAny: boolean) {
+    setPendingFiles(null);
+    if (!uploadedAny) return;
+    const next = chosenFolderId || 'unsorted';
+    const sameView = currentSelection.current === next && currentFilter.current === null;
+    selectCategory(next);
+    selectType(null);
+    // A view that does not change would not reload itself.
+    if (sameView) void load(1, false, currentQuery.current, next, null);
   }
 
   async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
@@ -492,7 +513,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         <div className="media-toolbar__end">
           <label aria-busy={uploading} className="admin-button admin-button--primary media-upload">
             <span>{props.mode === 'select' && props.kind === 'image' ? copy.media.uploadImage : copy.media.uploadFile}</span>
-            <input accept={acceptAttribute(props.mode === 'select' ? props.kind : 'any')} className="sr-only" disabled={uploading} onChange={handleUpload} type="file" />
+            <input accept={acceptAttribute(props.mode === 'select' ? props.kind : 'any')} className="sr-only" disabled={uploading} multiple={props.mode === 'manage'} onChange={handleUpload} type="file" />
           </label>
           {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><Icon name="close" /></button>}
         </div>
@@ -543,6 +564,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           : <span aria-hidden="true" className="media-card__file media-details__file">{formatLabel(selected.mime_type)}</span>}
         <p className="break-all font-medium">{selected.original_name}</p>
         <p className="text-sm text-muted">{isImageAsset(selected) ? `${selected.width} × ${selected.height} · ` : ''}{formatLabel(selected.mime_type)} · {formatBytes(selected.size_bytes)}</p><label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} />{isImageAsset(selected) && <label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label>}<label>{copy.media.fileUrl}<input aria-label={copy.media.fileUrl} className="admin-control" readOnly ref={urlInput} value={selected.publicUrl} /></label><div className="media-details-actions"><SaveButton disabled={working !== null || deleting} label={copy.media.save} onClick={() => void saveDetails()} savedLabel={copy.shell.saved} savingLabel={copy.shell.saving} state={saveButtonState({ saving: pressed('save-details'), dirty: draft.altText !== savedDraft.altText || draft.folderId !== savedDraft.folderId, savedOnce })} /><button className="admin-button" onClick={() => void copyUrl()} type="button">{copy.media.copyUrl}</button><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{referencingSlides.length > 0 && <ul>{referencingSlides.map((slide) => <li key={slide.id}><a href="/admin/slides">{slide.heading ?? fill(copy.media.slideReference, { language: slide.locale === 'th' ? 'ไทย' : 'English', position: String(slide.position + 1) })}</a></li>)}</ul>}{maintenanceReference && <p><a href="/admin/maintenance">{copy.media.maintenanceReference}</a></p>}{referencingPlugins.length > 0 && <ul>{referencingPlugins.map((plugin) => <li key={plugin.id}><a href="/admin/plugins">{plugin.name}</a></li>)}</ul>}{!referencingPosts.length && !referencingPages.length && !profileReference && !referencingSlides.length && !maintenanceReference && !referencingPlugins.length && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
+      {props.mode === 'manage' && pendingFiles && <MediaUploadDialog copy={copy} files={pendingFiles} folders={folders} initialFolderId={folderId(currentSelection.current) ?? ''} onClose={finishUpload} />}
     </section>
   );
 }

@@ -88,7 +88,7 @@ test('menus take the card corner and their items the small one', () => {
 });
 
 test('every admin dialog is the same surface', () => {
-  for (const selector of ['.media-details', '.media-picker', '.navigation-dialog']) {
+  for (const selector of ['.media-details', '.media-picker', '.media-upload-dialog', '.navigation-dialog']) {
     const body = ruleBody(CSS, selector);
     assert.equal(declaration(body, 'border-radius'), 'var(--radius-lg)', selector);
     assert.match(declaration(body, 'border') ?? '', /var\(--color-rule\)$/, selector);
@@ -633,4 +633,13 @@ test('every radio and checkbox in the admin shell takes the accent colour from o
   assert.match(rule[1], /\.admin-body input\[type="checkbox"\]/);
   // The per-surface copies inside global.css are gone; the rule above is the only one there.
   assert.equal(CSS.match(/accent-color/g)?.length, 1);
+});
+
+test('the library takes several files into a chosen folder, and its button rings only for the keyboard', () => {
+  const library = read('src/components/admin/MediaLibrary.tsx');
+  assert.match(library, /multiple=\{props\.mode === 'manage'\}/);
+  assert.match(library, /<MediaUploadDialog\b/);
+  assert.doesNotMatch(CSS, /\.media-upload:focus-within/);
+  assert.match(CSS, /\.media-upload:has\(input:focus-visible\)/);
+  assert.match(read('src/components/admin/MediaUploadDialog.tsx'), /runQueue\(/);
 });

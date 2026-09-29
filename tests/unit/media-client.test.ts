@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
 import { MediaFileError, uploadTimeoutMs } from '../../src/lib/media';
-import { bytesToBase64, MediaRequestError, stillUsedText, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
+import { bytesToBase64, MediaRequestError, precheck, stillUsedText, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
 
 test('browser checksum encoding handles the maximum upload size without a spread overflow', () => {
   const bytes = new Uint8Array(8 * 1024 * 1024).fill(0xab);
@@ -88,4 +88,11 @@ test('a file the library keeps is explained in the owner’s language, from the 
   assert.equal(stillUsedText(once, adminCopy('th')), 'ไฟล์นี้ยังถูกใช้อยู่ 1 แห่ง เอาออกจากที่นั้นก่อน แล้วค่อยลบ');
   const library = readFileSync(new URL('../../src/components/admin/MediaLibrary.tsx', import.meta.url), 'utf8');
   assert.match(library, /stillUsedText\(deleteFailure\.references, copy\)/, 'the library shows it, not the server’s sentence');
+});
+
+test('a file is checked before anything is sent: a type the library does not keep is refused, a small PNG is taken', () => {
+  const refused = precheck(new File(['x'], 'a.exe', { type: 'application/x-msdownload' }), 'any');
+  assert.equal(refused.ok, false);
+  assert.ok(!refused.ok && refused.error instanceof MediaFileError);
+  assert.deepEqual(precheck(new File(['x'], 'a.png', { type: 'image/png' }), 'any'), { ok: true });
 });

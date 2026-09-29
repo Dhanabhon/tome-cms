@@ -42,6 +42,9 @@ let origin = '';
 test.beforeAll(async () => {
   const port = await freePort();
   origin = `http://localhost:${port}`;
+  // The store's CORS allows this origin, so the browser may PUT a file to it; and a media key
+  // is filed under its owner's UUID, so the owner below has one.
+  process.env.TOME_CMS_TEST_ORIGIN = origin;
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: 'development',
@@ -71,10 +74,10 @@ test.beforeAll(async () => {
   const { sql } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
   await sql`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
-    values ('admin-150-owner', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
+    values ('a1500000-0000-4000-8000-000000000001', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
-    values (true, 'admin-150-owner', 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
-  await sql`insert into categories (owner_id, name, is_default) values ('admin-150-owner', 'Uncategorized', true)`.execute(db);
+    values (true, 'a1500000-0000-4000-8000-000000000001', 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
+  await sql`insert into categories (owner_id, name, is_default) values ('a1500000-0000-4000-8000-000000000001', 'Uncategorized', true)`.execute(db);
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env, stdio: 'pipe' });
   let output = '';
@@ -203,4 +206,63 @@ test('a publish date is chosen with the keyboard and saved with the draft', asyn
   const { db } = await import('../../src/server/db/client');
   const row = await db.selectFrom('posts').select(['planned_at']).where('title', '=', 'Date test').executeTakeFirstOrThrow();
   expect(row.planned_at).not.toBeNull();
+});
+
+test('several files go up at once into the folder chosen for them, and a failed row can be retried', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  await signIn(context, page);
+  await page.goto(`${origin}/admin/media`);
+  await page.getByPlaceholder('Folder name').fill('Covers');
+  await page.getByRole('button', { name: 'Create folder' }).click();
+  await expect(page.getByRole('button', { name: 'Covers' })).toBeVisible();
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  // The store refuses pixel-2 the first time it is asked, as a flaky network would.
+  let refusedOnce = false;
+  await page.route('**/api/admin/media/uploads', async (route) => {
+    if (route.request().method() === 'POST' && route.request().postDataJSON()?.originalName === 'pixel-2.png' && !refusedOnce) {
+      refusedOnce = true;
+      await route.fulfill({ contentType: 'application/json', json: { error: 'Storage is busy.' }, status: 503 });
+      return;
+    }
+    await route.continue();
+  });
+  await page.locator('.media-upload input[type="file"]').setInputFiles([
+    ...[1, 2, 3].map((n) => ({ name: `pixel-${n}.png`, mimeType: 'image/png', buffer: png })),
+    { name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') },
+  ]);
+  const dialog = page.getByRole('dialog', { name: 'Upload files' });
+  const rows = dialog.locator('.media-upload-row');
+  await expect(rows).toHaveCount(4);
+  // The file that cannot be kept is told at once, before anything is sent, and has no Retry.
+  const refused = rows.filter({ hasText: 'setup.exe' });
+  await expect(refused).toHaveAttribute('data-status', 'refused');
+  await expect(refused.getByRole('alert')).not.toBeEmpty();
+  await expect(refused.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+
+  // Escape closes the folder list alone; the dialog stays.
+  const folder = dialog.locator('#media-upload-folder');
+  await folder.click();
+  await expect(dialog.getByRole('listbox')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog.getByRole('listbox')).toBeHidden();
+  await expect(dialog, 'Escape did not take the dialog with it').toBeVisible();
+  await folder.click();
+  await dialog.getByRole('option', { name: 'Covers' }).click();
+  await expect(folder).toContainText('Covers');
+
+  await dialog.getByRole('button', { name: 'Upload 3 files' }).click();
+  await expect(rows.filter({ hasText: 'pixel-1.png' })).toHaveAttribute('data-status', 'done', { timeout: 60_000 });
+  await expect(rows.filter({ hasText: 'pixel-3.png' })).toHaveAttribute('data-status', 'done', { timeout: 60_000 });
+  const failed = rows.filter({ hasText: 'pixel-2.png' });
+  await expect(failed).toHaveAttribute('data-status', 'failed');
+  await failed.getByRole('button', { name: 'Retry' }).click();
+  await expect(failed).toHaveAttribute('data-status', 'done', { timeout: 60_000 });
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('.media-card')).toHaveCount(3);
+
+  const { db } = await import('../../src/server/db/client');
+  const filed = await db.selectFrom('media_items').innerJoin('media_folders', 'media_folders.id', 'media_items.folder_id')
+    .select('media_folders.name').execute();
+  expect(filed.filter((row) => row.name === 'Covers')).toHaveLength(3);
 });
