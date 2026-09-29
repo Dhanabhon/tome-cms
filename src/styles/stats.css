@@ -27,6 +27,7 @@
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 .stats-summary__unit { margin-inline-start: var(--space-3xs); font-size: var(--text-xl); letter-spacing: 0; }
 .stats-summary__change { color: var(--color-ink-2); font-size: var(--text-sm); }

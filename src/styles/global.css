@@ -856,7 +856,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .media-details__file { @apply mb-4 aspect-video rounded-md; }
 
-.media-card strong { padding-inline: var(--space-sm); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; letter-spacing: -0.01em; }
+.media-card strong { padding-inline: var(--space-sm); font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; }
 .media-card > span:not(.media-card-select) { padding: 0 var(--space-sm) var(--space-sm); }
 
 .media-card-select {
@@ -1473,12 +1473,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
    * 14rem cell pushed the date out of its column and into the menu's. */
   .admin-page-list .admin-story-foot { grid-column: 3; grid-row: 1; padding: 0; justify-content: start; }
 }
-/* Pages read as rows inside one frame rather than under a bare top rule, so the rows
- * take their own inline padding and the last one stops drawing a line on the frame. */
-/* No overflow clip, for the same reason as the post card: the last rows' menus opened past
- * the panel's edge. Nothing inside paints a background, so there is no corner to protect. */
 .admin-story-panel { min-width: 0; }
-.admin-story-panel > * { padding-inline: 0; }
 .admin-story-panel > :last-child { border-block-end: 0; }
 .admin-story-content { min-width: 0; }
 .admin-story-content h2 { margin: 0 0 var(--space-xs); font-family: var(--font-display); font-size: 1.0625rem; font-variant-numeric: normal; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
@@ -2444,7 +2439,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .home-slides-notice p, .admin-maintenance-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 /* Maintenance: the notice sits above the screen's head, not below it, inset from the shell's
  * edges as the migrations alert in the same place is. */
-.admin-maintenance-notice { margin: 0; padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); border: 0; border-inline-start: 3px solid var(--color-accent); border-block-end: var(--rule-hair) solid var(--color-rule); border-radius: 0; background: none; }
+.admin-maintenance-notice { margin: 0; padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); border-block-end: var(--rule-hair) solid var(--color-rule); }
 /* In a card, the card's gap spaces the tabs; their page margins would double it. */
 .maintenance-screen .navigation-tabs { margin-block: 0; }
 .maintenance-state__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; }

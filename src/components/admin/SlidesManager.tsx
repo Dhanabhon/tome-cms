@@ -305,9 +305,10 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
         </div>
         <div aria-busy={saving} aria-labelledby={`home-slides-${locale}-tab`} id="home-slides-panel" role="tabpanel" tabIndex={0}>
           {!items.length && (
+            // One sentence, no title: the copy has none, and a sentence at 28px reads as a shout.
             <div className="admin-empty">
               <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
-              <h2>{text.empty}</h2>
+              <p>{text.empty}</p>
             </div>
           )}
           <ol aria-label={text.list} className="navigation-items" ref={list}>

@@ -485,6 +485,8 @@ test('the stats screen leads with figures, and boxes nothing', () => {
   assert.equal(declaration(value, 'font-family'), 'var(--font-display)');
   assert.equal(declaration(value, 'font-size'), 'var(--text-3xl)');
   assert.equal(declaration(value, 'font-variant-numeric'), 'tabular-nums');
+  // A five-digit total must wrap, not overflow a narrow column.
+  assert.equal(declaration(value, 'overflow-wrap'), 'anywhere');
   const figure = rule('.stats-summary > div');
   assert.equal(declaration(figure, 'border'), undefined);
   assert.equal(declaration(figure, 'background'), undefined);
@@ -517,4 +519,14 @@ test('a table head is an eyebrow on a rule', () => {
   assert.match(wide, /\.admin-page-head \{[^}]*text-transform: uppercase/);
   assert.match(wide, /\.admin-page-head \{[^}]*letter-spacing: 0\.12em/);
   assert.equal(declaration(ruleBody(CSS, '.admin-story-panel'), 'border'), undefined, 'the page list is still boxed');
+});
+
+test('a filename is a title, and a one-sentence empty state has no heading', () => {
+  const name = ruleBody(CSS, '.media-card strong');
+  assert.equal(declaration(name, 'font-family'), 'var(--font-display)');
+  assert.equal(declaration(name, 'font-size'), 'var(--text-base)');
+  assert.equal(declaration(name, 'font-weight'), '700');
+  for (const file of ['src/components/admin/NavigationManager.tsx', 'src/components/admin/SlidesManager.tsx']) {
+    assert.doesNotMatch(read(file), /<div className="admin-empty">\s*<p className="admin-eyebrow">[^\n]*\n\s*<h2>/, `${file} sets its sentence as a heading`);
+  }
 });

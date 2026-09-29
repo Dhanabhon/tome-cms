@@ -238,9 +238,10 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
           </div>
           <div aria-busy={saving} aria-labelledby={`navigation-${locale}-tab`} id="navigation-language-panel" role="tabpanel" tabIndex={0}>
             {!items.length && (
+              // One sentence, no title: the copy has none, and a sentence at 28px reads as a shout.
               <div className="admin-empty">
                 <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
-                <h2>{copy.navigation.empty}</h2>
+                <p>{copy.navigation.empty}</p>
               </div>
             )}
             <ol aria-label={copy.navigation.menuItems} className="navigation-items" ref={list}>
