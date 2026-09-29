@@ -317,6 +317,15 @@ Rhythm: 8 / 16 / 24 / 32 / 64 / 80, with 12 for small horizontal gaps only. Line
 Exceptions: 44px touch targets, 2px outlines and active bars, 1px hairlines.
 Figures: `font-variant-numeric: tabular-nums` on the admin body; `normal` inside the editor and on card titles.
 
+**Shape.** No top bar from 64rem; the page head is the masthead (eyebrow, display title, lede,
+actions on the baseline, a rule). The sidebar sits on the page surface; the active link is ink
+with a 2px accent bar in the gutter. Form pages are two-column sheets separated by rules inside
+a `.admin-card-stack` container 53rem or wider, one column under that. Cards remain only where
+there is a picture to frame (posts, files, themes, plugins), at 8px. Empty states are three
+tiers by situation: nothing yet (`.admin-empty`), nothing matches (`--filtered`), a section of a
+form is empty (`--inline`). Stats leads with three figures at `--text-3xl`. A status is a dot
+and a word. Selected and active states come from ink and the accent, never from a surface fill.
+
 Design: `docs/specs/2026-09-29-admin-editorial-refresh-design.md` (shape), `docs/specs/2026-09-17-admin-modern-ui-design.md` (icons, groups, counts).
 
 ## Components

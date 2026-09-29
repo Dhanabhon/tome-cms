@@ -2,6 +2,12 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## Unreleased
+
+### Changed
+
+- The admin reads as an editorial page: display titles under eyebrows, sheets and rules instead of boxed cards, Stats led by figures, one empty-state system, and no top bar on a desktop. The admin's post search is gone; the public themes' search sits on the category row.
+
 ## 1.2.1 - 2026-09-29
 
 Small fixes found while reviewing 1.1.1 and 1.2.0.
