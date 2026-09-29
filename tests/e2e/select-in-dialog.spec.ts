@@ -391,7 +391,16 @@ test('the footer thanks the writer, and a link is named after its site or with a
   });
   const { getSiteSettings } = await import('../../src/server/content/site-settings');
   const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const { createPost } = await import('../../src/server/content/posts');
+  const { createCategory } = await import('../../src/server/content/categories');
   const settings = await getSiteSettings();
+  // One published post and no drafts: the Drafts tab is empty while the site is not.
+  const category = await createCategory(settings!.owner_id, 'Notes');
+  await createPost(settings!.owner_id, {
+    categoryIds: [category.id], contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Here.' }] }] },
+    coverMediaId: null, excerpt: '', metaDescription: null, metaTitle: null,
+    slug: 'listed', status: 'published', title: 'Listed',
+  });
   const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
   await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
@@ -413,6 +422,16 @@ test('the footer thanks the writer, and a link is named after its site or with a
   }
   const box = await page.getByRole('contentinfo', { name: 'About TomeCMS' }).boundingBox();
   expect(box && box.y + box.height, 'on a short page it sits at the bottom of the window').toBeGreaterThan((page.viewportSize()?.height ?? 0) - 80);
+
+  // The Posts list's language filter and the empty-tab link ride on this sign-in too: the
+  // five-sign-in cap leaves no room for a test of their own.
+  await page.goto(`${origin}/admin?status=draft`);
+  await page.locator('#post-locale').selectOption('en');
+  await page.waitForURL(/locale=en/);
+  await page.getByRole('link', { name: 'Show all posts' }).click();
+  await page.waitForURL(/status=all/);
+  await expect(page.locator('.admin-story-row').first(), '"Show all" lists the published post the empty Drafts tab hid').toBeVisible();
+
   await page.goto(`${origin}/admin/profile`);
 
   const choose = async (index: number, name: string) => {
