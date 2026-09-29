@@ -91,6 +91,10 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-ink', 'color-paper', 4.5],
   ['color-ink', 'color-paper-2', 4.5],
   ['color-ink', 'color-surface', 4.5],
+  // The editorial refresh leans on these on the admin's page surfaces: the sidebar's active bar
+  // and the tab underline (accent, paper-2), the change figure and "show all" link (link,
+  // paper-2), and a status label with no pill behind it (ink-2 on both page surfaces). Each is
+  // pinned below, most at a stricter 4.5 than the 3 a mark needs.
   ['color-ink-2', 'color-paper', 4.5],
   // A homepage card's excerpt, set straight on the page, and the category pill in force.
   ['color-ink-2', 'color-paper-2', 4.5],

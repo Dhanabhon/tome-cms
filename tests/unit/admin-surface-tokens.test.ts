@@ -19,15 +19,29 @@ function declaration(body: string, property: string): string | undefined {
   return new RegExp(`(?:^|[;{\\s])${escaped}\\s*:\\s*([^;]+);`).exec(body)?.[1]?.trim();
 }
 
-test('the admin takes rounder corners, shorter controls and a smaller title than the site', () => {
+test('the admin takes its own corners, controls, title and rhythm on top of the root tokens', () => {
   const admin = ruleBody(CSS, '.admin-body');
   assert.equal(declaration(admin, '--radius-sm'), '0.5rem');
   assert.equal(declaration(admin, '--radius-input'), '0.625rem');
-  // Restated, not inherited: on :root it is an alias resolved there, so overriding
-  // --radius-input alone would leave cards at 8px.
-  assert.equal(declaration(admin, '--radius-card'), '0.875rem');
+  // 8px, not 14: a card frames a cover or a preview, and reads as a page element, not a widget.
+  assert.equal(declaration(admin, '--radius-card'), '0.5rem');
   assert.equal(declaration(admin, '--control-height'), '2.5rem');
-  assert.equal(declaration(admin, '--text-title'), '1.75rem');
+  // The display size: the title is the masthead now that there is no top bar.
+  assert.equal(declaration(admin, '--text-title'), 'var(--text-2xl)');
+  // The 32px step the root scale lacks; global.css used to write 2rem by hand for it.
+  assert.equal(declaration(admin, '--space-xl'), '2rem');
+  assert.equal(declaration(admin, '--admin-topbar-height'), '3.5rem');
+  assert.equal(declaration(admin, 'font-variant-numeric'), 'tabular-nums');
+});
+
+test('running text keeps proportional figures', () => {
+  assert.match(CSS, /\.editor-content,\n\.admin-story-content h2 \{ font-variant-numeric: normal; \}/);
+});
+
+test('the admin writes its 32px step as a token, not by hand', () => {
+  // The two the sweep is certain of; the rest is `grep -n 2rem` in Step 4.
+  assert.match(declaration(ruleBody(CSS, '.admin-mobile-nav'), 'width') ?? '', /calc\(100% - var\(--space-xl\)\)/);
+  assert.equal(declaration(ruleBody(CSS, '.admin-check input'), 'margin-block-start'), 'var(--space-3xs)');
 });
 
 test('a touch screen keeps a 44px control in the admin', () => {

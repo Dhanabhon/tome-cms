@@ -30,7 +30,7 @@
 .admin-footer a { color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
 .admin-footer a:hover { color: var(--color-ink); }
 .admin-sidebar { display: none; }
-.admin-mobile-nav { position: fixed; inset: 0 auto 0 0; width: min(22rem, calc(100% - 2rem)); height: 100svh; max-height: 100svh; margin: 0; overflow-y: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: 0 var(--radius-card) var(--radius-card) 0; background: var(--color-paper); color: var(--color-ink); }
+.admin-mobile-nav { position: fixed; inset: 0 auto 0 0; width: min(22rem, calc(100% - var(--space-xl))); height: 100svh; max-height: 100svh; margin: 0; overflow-y: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: 0 var(--radius-card) var(--radius-card) 0; background: var(--color-paper); color: var(--color-ink); }
 .admin-mobile-nav[open] { display: flex; flex-direction: column; }
 .admin-mobile-nav .admin-shell-account { margin-top: auto; }
 .admin-shell-close { align-self: flex-end; }
@@ -348,7 +348,7 @@ html[data-notice-closed] .site-notice { display: none; }
  * wrapping the input, which is what associates them, without becoming a row of its own. */
 .admin-check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2xs) var(--space-sm); align-items: start; }
 .admin-check > label { display: contents; }
-.admin-check input { width: 1.125rem; height: 1.125rem; margin-block-start: 0.15rem; accent-color: var(--color-accent); }
+.admin-check input { width: 1.125rem; height: 1.125rem; margin-block-start: var(--space-3xs); accent-color: var(--color-accent); }
 .admin-check small { grid-column: 2; }
 /* The logo, dark logo and icon fields on Settings. Each preview sits on the surface it will be
  * seen on, in either admin theme -- --color-sample-light and --color-hero do not turn with it. */
@@ -961,7 +961,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* The same surface the cards behind it use, said in tokens rather than borrowed from
  * utility classes -- rounded-xl already meant --radius-lg and border-line --color-rule. */
 .media-details {
-  max-height: calc(100% - 2rem);
+  max-height: calc(100% - var(--space-xl));
   @apply w-full max-w-lg overflow-y-auto p-5;
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-lg);
@@ -969,7 +969,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 
 .media-picker {
-  max-height: calc(100% - 2rem);
+  max-height: calc(100% - var(--space-xl));
   @apply w-[calc(100%-2rem)] max-w-7xl overflow-y-auto p-0;
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-lg);
@@ -1023,24 +1023,30 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   }
 }
 
-/* The admin's own shape and density (docs/specs/2026-09-17-admin-modern-ui-design.md):
- * rounder corners, 40px controls where a mouse points and 44px where a finger does, and a
- * 28px page title. Set on the admin's body rather than on :root, so the public site and the
- * installer, which share the root tokens, keep theirs. --radius-card is restated because on
- * :root it is an alias resolved there -- overriding --radius-input alone would not reach it. */
+/* The admin's own shape and density (docs/specs/2026-09-29-admin-editorial-refresh-design.md):
+ * 8px card corners, 10px control corners, 40px controls where a mouse points and 44px where a
+ * finger does, the display size for the page title, and the 32px spacing step the root scale
+ * lacks. Set on the admin's body rather than on :root, so the public site and the installer,
+ * which share the root tokens, keep theirs. --radius-card is restated because on :root it is
+ * an alias resolved there -- overriding --radius-input alone would not reach it. */
 .admin-body {
   --radius-sm: 0.5rem;
   --radius-input: 0.625rem;
-  --radius-card: 0.875rem;
+  --radius-card: 0.5rem;
   --control-height: 2.5rem;
-  --text-title: 1.75rem;
+  --text-title: var(--text-2xl);
+  --space-xl: 2rem;
   --admin-sidebar-width: 16rem;
-  --admin-topbar-height: 4rem;
+  --admin-topbar-height: 3.5rem;
   min-width: 0;
   min-height: 100svh;
   background: var(--color-paper-2);
   color: var(--color-ink);
+  /* Counts, dates, sizes and figures line up down a column. */
+  font-variant-numeric: tabular-nums;
 }
+.editor-content,
+.admin-story-content h2 { font-variant-numeric: normal; }
 @media (pointer: coarse) {
   .admin-body { --control-height: 2.75rem; }
 }
