@@ -382,7 +382,6 @@ test('the shell has no top bar on a desktop and no search anywhere', () => {
   assert.doesNotMatch(read('src/lib/admin.ts'), /postSearchState/, 'the helper outlived its only caller');
   // The bar is the phone's: hidden from 64rem up, where the page head is the masthead.
   assert.match(CSS, /@media \(min-width: 64rem\) \{[\s\S]*?\.admin-topbar \{ display: none; \}/);
-  assert.equal(declaration(ruleBody(CSS, '.admin-topbar'), 'background'), 'var(--color-paper-2)');
 });
 
 test('the sidebar sits on the page and marks the active link with a bar, not a fill', () => {
@@ -463,7 +462,6 @@ test('the save bar is a row on the page edge, with its state beside the button',
   assert.equal(declaration(bar, 'border-radius'), undefined);
   assert.equal(declaration(bar, 'inset-block-end'), '0');
   assert.match(declaration(bar, 'border-block-start') ?? '', /var\(--color-rule\)$/);
-  assert.match(declaration(bar, 'background') ?? '', /color-mix\(in oklch, var\(--color-paper-2\) 94%/);
   // row-reverse: flex-start is the right edge, where the button goes.
   assert.equal(declaration(bar, 'justify-content'), 'flex-start');
   assert.equal(declaration(bar, 'flex-direction'), 'row-reverse');
@@ -573,4 +571,14 @@ test('the Stats tabs stand on one full-width rule, and the figures draw no secon
   assert.equal(declaration(ruleBody(stats, '.stats-filters + .stats-summary'), 'border-block-start'), '0');
   assert.match(stats, /\.stats-share li::before \{[^}]*opacity: 0\.5/);
   assert.doesNotMatch(CSS, /\.admin-empty--inline a, \.admin-empty--inline button/);
+});
+
+test('the work sits on the lightest surface, the sidebar on the page behind it', () => {
+  // --color-paper is the raised surface in both themes (white in light, the lighter night in dark);
+  // the sidebar is left on .admin-shell's --color-paper-2.
+  assert.equal(declaration(ruleBody(CSS, '.admin-shell-main'), 'background'), 'var(--color-paper)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-shell'), 'background'), 'var(--color-paper-2)');
+  // What sits on or floats over the main column mixes its surface, not the sidebar's.
+  assert.equal(declaration(ruleBody(CSS, '.admin-topbar'), 'background'), 'var(--color-paper)');
+  assert.match(declaration(ruleBody(CSS, '.admin-save-bar'), 'background') ?? '', /color-mix\(in oklch, var\(--color-paper\) 94%/);
 });
