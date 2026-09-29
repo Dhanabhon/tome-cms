@@ -40,9 +40,11 @@ const draftOf = (page: MaintenanceSettings): Draft => ({
 interface MaintenanceFormProps {
   ownerLocale?: PostLocale | null;
   previewHref: string;
+  generalHref: string;
+  maintenanceHref: string;
 }
 
-export default function MaintenanceForm({ ownerLocale, previewHref }: MaintenanceFormProps) {
+export default function MaintenanceForm({ ownerLocale, previewHref, generalHref, maintenanceHref }: MaintenanceFormProps) {
   const copy = adminCopy(ownerLocale);
   const text = copy.maintenance;
   const [enabled, setEnabled] = useState(false);
@@ -173,7 +175,11 @@ export default function MaintenanceForm({ ownerLocale, previewHref }: Maintenanc
 
   return (<>
     <section className="admin-page admin-form-page maintenance-screen">
-      <header className="admin-page__head"><div><p className="admin-eyebrow">{copy.nav.settings}</p><h1>{text.heading}</h1><p>{text.subheading}</p></div></header>
+      <header className="admin-page__head admin-page__head--tabs"><div><p className="admin-eyebrow">{copy.nav.settings}</p><h1>{text.heading}</h1><p>{text.subheading}</p></div></header>
+      <nav className="admin-post-tabs admin-subtabs" aria-label={copy.nav.settings}>
+        <a href={generalHref}>{copy.nav.general}</a>
+        <a aria-current="page" href={maintenanceHref}>{copy.nav.maintenance}</a>
+      </nav>
       <div className="admin-card-stack">
         <section aria-labelledby="maintenance-state-heading" className="admin-card maintenance-state" data-enabled={enabled}>
           <header className="admin-card__head">

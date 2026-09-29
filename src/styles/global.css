@@ -317,7 +317,8 @@ html[data-notice-closed] .site-notice { display: none; }
 .admin-shell-email { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--color-ink-2); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
 .admin-shell-signout { margin-inline-start: auto; }
 .admin-shell-account .admin-form-error:empty { display: none; }
-.admin-form-page { max-width: 52rem; }
+/* 57rem: the page's 2rem of padding each side leaves the 53rem the sheets need for two columns. */
+.admin-form-page { max-width: 57rem; }
 /* Labelled values -- version numbers, modes, dates. They used to be muted sentences
  * stacked at one weight, so the number you came to read had no more presence than
  * the words around it. */
@@ -328,12 +329,7 @@ html[data-notice-closed] .site-notice { display: none; }
 .update-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-sm); }
 /* Where the release stands, then the numbers, then what you can do about it -- one row
  * rather than six blocks stacked down the left of a card 944px wide. */
-.update-card { align-items: start; }
 .update-summary { display: grid; gap: var(--space-xs); min-width: 0; }
-@media (min-width: 48rem) {
-  .update-card { grid-template-columns: minmax(0, 1fr) auto; }
-  .update-card > .admin-card__head { grid-column: 1 / -1; }
-}
 .update-status { margin: 0; color: var(--color-ink-2); font-weight: 600; }
 /* Two classes: `.admin-card p` sets every card paragraph muted, and would win over one. */
 .update-summary .update-error { margin: 0; color: var(--color-error-ink); }
@@ -351,7 +347,7 @@ html[data-notice-closed] .site-notice { display: none; }
  * a single file of them pushed the backup line 196px below the bar it belongs to. */
 .update-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: var(--space-2xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; color: var(--color-muted); font-size: var(--text-sm); }
 .update-steps li[aria-current='step'] { color: var(--color-ink); font-weight: 600; }
-.admin-settings-form { display: grid; gap: var(--space-md); margin-top: var(--space-xl); }
+.admin-settings-form { display: grid; gap: 0; margin-top: 0; }
 .admin-settings-form fieldset { display: grid; min-width: 0; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
 .admin-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
 .admin-hint { margin: 0; color: var(--color-muted); font-size: var(--text-xs); }
@@ -396,7 +392,24 @@ html[data-notice-closed] .site-notice { display: none; }
  * with hairline borders: its top edge read as a divider inside the card it covered,
  * not as the edge of something in front. This palette has no shadow to lean on, so the
  * gap is what says the bar is a separate object. */
-.admin-save-bar { position: sticky; inset-block-end: var(--space-md); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+/* The primary action stays in reach at the foot of a long form. No box: a rule above, the page
+ * showing through at 94%, the save state in words beside the button -- a colour cannot say it,
+ * no two surfaces here are far enough apart. */
+.admin-save-bar {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-block-start: var(--space-xl);
+  padding-block: var(--space-md);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+  background: color-mix(in oklch, var(--color-paper-2) 94%, transparent);
+  backdrop-filter: blur(var(--space-sm));
+}
 .admin-save-bar p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 /* Sized on the room the card actually has, not on the width of the window. These three
  * layouts used to turn two-column at the same breakpoint that pins the sidebar -- so at
@@ -1290,6 +1303,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* The tab row and, at its right end, the one filter a list keeps: the language. */
 .admin-list-bar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-xs) var(--space-lg); margin-block-start: var(--space-lg); margin-block-end: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
 .admin-list-bar .admin-post-tabs { border-block-end: 0; }
+/* End margin, not `+ *`: on Settings the next sibling is an Astro island, which has no box. */
+.admin-subtabs { margin-block: var(--space-lg) var(--space-xl); }
 .admin-list-filter { position: relative; display: flex; align-items: center; margin-block-end: -1px; }
 /* Two classes, because .admin-control is declared later at one and would box the select. */
 .admin-list-filter .admin-list-filter__select {
@@ -1924,10 +1939,13 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .security-page__head p { color: var(--color-muted); }
 .security-page__head .tomecms-logo { width: 9rem; }
 .security-eyebrow { margin: 0 0 var(--space-xs); color: var(--color-accent) !important; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-/* One card language for the whole admin. Profile used to be a bare form on the page
- * while security had panels; these are the panels, now shared by both. */
-.admin-card-stack { display: grid; gap: var(--space-lg); }
-.admin-card { display: grid; gap: var(--space-lg); padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+/* One sheet language for the whole admin. A form is a stack of sheets: each is a section's
+ * name and a line about it, then its fields, and a rule between one sheet and the next.
+ * Nothing is boxed -- what separates one thing from the next is a rule or 32px of air. */
+.admin-card-stack { display: grid; container-type: inline-size; }
+.admin-card { display: grid; gap: var(--space-lg); padding-block: var(--space-xl); }
+.admin-card + .admin-card { border-block-start: var(--rule-hair) solid var(--color-rule); }
+.admin-card-stack > .admin-card:first-child { padding-block-start: 0; }
 
 /* Themes.
  *
@@ -2053,7 +2071,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* A picture field in a plugin's settings: its name above, the chosen picture, then the buttons. */
 .plugin-setup__label { font-size: var(--text-sm); font-weight: 600; }
 .plugin-setup__picture { aspect-ratio: 16 / 9; margin-block-start: 0; }
-.admin-card--note { gap: var(--space-2xs); background: none; border-style: dashed; }
+/* A note among sheets is a paragraph with an accent bar, not a dashed box. */
+.admin-card--note { gap: var(--space-2xs); padding-inline-start: var(--space-md); border-inline-start: 3px solid var(--color-accent); }
 .admin-card--note h2 { margin: 0; font-size: var(--text-base); }
 .admin-card--note p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 @media (prefers-reduced-motion: reduce) {
@@ -2063,10 +2082,18 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Tailwind's preflight resets every heading to font-size: inherit, so a card heading
  * nobody sized rendered at 16px/400 -- lighter than the 14px/500 field labels beneath
  * it. That is an inverted hierarchy, and it needs stating once, here. */
-.admin-card h2 { margin: 0; color: var(--color-ink); font-size: var(--text-xl); font-weight: 600; line-height: 1.25; }
-.admin-card__head { display: grid; gap: var(--space-2xs); }
+.admin-card h2 { margin: 0; color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.admin-card__head { display: grid; gap: var(--space-2xs); align-content: start; }
 .admin-card__head p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 .admin-card p { color: var(--color-muted); }
+/* Two columns from 53rem of stack: the head in a 16rem column, the fields in one capped at
+ * 34rem, which is as wide as anything here is typed. The head is the first child and spans
+ * nothing; every sibling after it flows down the second column. */
+@container (min-width: 53rem) {
+  .admin-card { grid-template-columns: 16rem minmax(0, 34rem); column-gap: var(--space-xl); }
+  .admin-card > .admin-card__head { grid-column: 1; grid-row: 1; }
+  .admin-card > :not(.admin-card__head) { grid-column: 2; }
+}
 .admin-card > p, .admin-card > div > p { margin: var(--space-xs) 0 0; }
 /* A button is as wide as its label. A direct child of a grid card stretches to the
  * column, which is how a 900px "copy codes" button happens. */
@@ -2106,7 +2133,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
 @media (min-width: 42rem) {
   .security-page { padding-block-start: var(--space-2xl); }
-  .admin-card { padding: var(--space-xl); }
   .security-form { grid-template-columns: minmax(0, 1fr) auto; }
   .security-form > .admin-card__head { grid-column: 1 / -1; }
 }
@@ -2277,7 +2303,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-page__head + .admin-skeleton__panel,
 .admin-skeleton__panel:first-child { margin-block-start: var(--space-xl); }
 .admin-skeleton__row { display: grid; gap: var(--space-2xs); padding-block: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
-.admin-skeleton__stack { display: grid; gap: var(--space-lg); margin-block-start: var(--space-xl); }
+.admin-skeleton__stack { margin-block-start: var(--space-lg); }
 .admin-skeleton__tile { aspect-ratio: 1; border-radius: var(--radius-input); }
 .admin-skeleton__auth { display: grid; gap: var(--space-md); justify-items: start; }
 .admin-skeleton__prose { display: grid; gap: var(--space-xs); margin-block-start: var(--space-lg); font-size: var(--text-md); }
@@ -2446,8 +2472,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Maintenance: the notice sits above the screen's head, not below it, inset from the shell's
  * edges as the migrations alert in the same place is. */
 .admin-maintenance-notice { margin: 0; padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); border: 0; border-inline-start: 3px solid var(--color-accent); border-block-end: var(--rule-hair) solid var(--color-rule); border-radius: 0; background: none; }
-/* The cards keep the distance from the head that Settings keeps from its. */
-.maintenance-screen > .admin-card-stack { margin-block-start: var(--space-xl); }
 /* In a card, the card's gap spaces the tabs; their page margins would double it. */
 .maintenance-screen .navigation-tabs { margin-block: 0; }
 .maintenance-state__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; }

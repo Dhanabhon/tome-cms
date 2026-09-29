@@ -41,6 +41,8 @@ try {
 const ownerLocale = settings?.default_locale ?? null;
 const copy = adminCopy(ownerLocale);
 const errorMessage = errorKey ? copy.errors[errorKey] : null;
+const generalHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, '/settings');
+const maintenanceHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, '/maintenance');
 const previewHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, '/maintenance/preview');
 ---
 
@@ -49,7 +51,7 @@ const previewHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, 
     <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main>
   ) : (
     <AdminShell active="maintenance" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
-      <MaintenanceForm client:only="react" ownerLocale={ownerLocale} previewHref={previewHref}>
+      <MaintenanceForm client:only="react" ownerLocale={ownerLocale} previewHref={previewHref} generalHref={generalHref} maintenanceHref={maintenanceHref}>
         <AdminSkeleton kind="form" label={copy.maintenance.loading} slot="fallback" />
       </MaintenanceForm>
     </AdminShell>

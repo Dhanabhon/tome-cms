@@ -129,9 +129,13 @@ const filters = kind === 'posts' || kind === 'pages';
         )}
 
         {kind === 'form' && (
-          <div class="admin-skeleton__stack">
+          <div class="admin-card-stack admin-skeleton__stack">
             {[3, 2].map((fields) => (
               <div class="admin-card">
+                <div class="admin-card__head">
+                  <span class="skeleton-line" style="--skeleton-width: 8rem"></span>
+                  <span class="skeleton-line" style="--skeleton-width: 12rem"></span>
+                </div>
                 {count(fields).map((index) => (
                   <div class="admin-field">
                     <span class="skeleton-line" style={`--skeleton-width: ${index ? 6 : 9}rem`}></span>

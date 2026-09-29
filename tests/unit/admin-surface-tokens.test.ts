@@ -72,8 +72,7 @@ test('the search field is a shared wrapper, not a top bar detail', () => {
   assert.match(CSS, /\.admin-search \.admin-control \{[^}]*padding-inline-start: 2\.5rem;/);
 });
 
-test('a card is a quiet surface and a control is not', () => {
-  assert.match(declaration(ruleBody(CSS, '.admin-card'), 'border') ?? '', /var\(--color-rule\)$/);
+test('a control keeps the strong rule a sheet no longer has', () => {
   // Controls keep the strong rule: that is the pair pinned at 3:1.
   assert.match(declaration(ruleBody(CSS, '.admin-control'), 'border') ?? '', /var\(--color-rule-strong\)$/);
 });
@@ -433,4 +432,30 @@ test('the list screens filter from the tab row and keep a submit for a page with
   assert.equal(declaration(select, 'background-color'), 'transparent');
   assert.equal(declaration(ruleBody(CSS, '.admin-list-bar'), 'margin-block-end'), 'var(--space-lg)');
   assert.match(CSS, /\.admin-list-filter__submit:not\(:focus-visible\) \{[^}]*position: absolute/);
+});
+
+test('a form is a stack of sheets: no box, a rule between, two columns when the stack is wide', () => {
+  const card = ruleBody(CSS, '.admin-card');
+  assert.equal(declaration(card, 'border'), undefined, 'a sheet has no frame');
+  assert.equal(declaration(card, 'background'), undefined, 'a sheet has no fill');
+  assert.equal(declaration(card, 'border-radius'), undefined);
+  assert.match(CSS, /\.admin-card \+ \.admin-card \{ border-block-start: var\(--rule-hair\) solid var\(--color-rule\); \}/);
+  assert.equal(declaration(ruleBody(CSS, '.admin-card-stack'), 'container-type'), 'inline-size');
+  // 53rem: a 16rem head column, 2rem between, a 34rem field column. Under it one column, so
+  // a 768px tablet (a 640px main column) stacks and a 1024px one does not.
+  assert.match(CSS, /@container \(min-width: 53rem\) \{\s*\.admin-card \{ grid-template-columns: 16rem minmax\(0, 34rem\); column-gap: var\(--space-xl\);/);
+});
+
+test('the save bar is a row on the page edge, with its state beside the button', () => {
+  const bar = ruleBody(CSS, '.admin-save-bar');
+  assert.equal(declaration(bar, 'border-radius'), undefined);
+  assert.equal(declaration(bar, 'inset-block-end'), '0');
+  assert.match(declaration(bar, 'border-block-start') ?? '', /var\(--color-rule\)$/);
+  assert.match(declaration(bar, 'background') ?? '', /color-mix\(in oklch, var\(--color-paper-2\) 94%/);
+  assert.equal(declaration(bar, 'justify-content'), 'flex-end');
+});
+
+test('Settings and Maintenance are two tabs of one section', () => {
+  assert.match(read('src/pages/admin/settings.astro'), /admin-page__head admin-page__head--tabs[\s\S]*?admin-post-tabs admin-subtabs[\s\S]*?aria-current="page"[^>]*>\{copy\.nav\.general\}/);
+  assert.match(read('src/components/admin/MaintenanceForm.tsx'), /admin-post-tabs admin-subtabs[\s\S]*?aria-current="page"[^>]*>\{[\w.]*maintenance\}/);
 });
