@@ -34,8 +34,8 @@
 
 /* A panel is a heading in the display face and what it heads, 40px from the next. No box. */
 .stats-panel { min-inline-size: 0; }
-.stats-panel + .stats-panel, .stats-shares + .stats-panel, .stats-panel + .stats-shares { margin-block-start: var(--space-xl); }
-.stats-shares > .stats-panel { margin-block-start: 0; } /* the grid's gap spaces them */
+.stats-page > .stats-panel + .stats-panel { margin-block-start: var(--space-xl); } /* margins collapse with .stats-shares' own margin-block */
+.stats-page .admin-empty { border-block-end: 0; } /* the filter row's rule sits below; two rules would stack */
 .stats-panel h2 { margin: 0 0 var(--space-xs); font-family: var(--font-display); font-size: var(--text-md); font-weight: 700; letter-spacing: -0.015em; }
 
 .stats-legend {
