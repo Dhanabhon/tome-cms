@@ -1171,6 +1171,12 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .admin-page__head p.admin-page__note { margin: var(--space-2xs) 0 0; color: var(--color-muted); font-size: var(--text-xs); }
 .admin-page__head + * { margin-block-start: var(--space-lg); }
+/* The rule above lands on nothing on these screens: what follows the head is a <style> and a
+ * <script>, then an island, which is display: contents. A margin on a box that is not drawn
+ * goes nowhere, so the sheet stack inside takes the space itself, or it sits on the head's
+ * rule. Not after a tab row (Settings): the tabs already space it. */
+.admin-page__head:not(.admin-page__head--tabs) ~ astro-island:first-of-type > .admin-card-stack:first-child,
+.admin-page__head:not(.admin-page__head--tabs) ~ astro-island:first-of-type > .admin-settings-form > fieldset > .admin-card-stack { margin-block-start: var(--space-lg); }
 
 .admin-button {
   --admin-button-hover: var(--color-paper-3);
