@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import type { UpdaterConfig } from '../../src/updater/config.js';
 import { createUpdaterStateStore, type InstalledState, type UpdatePhase } from '../../src/updater/state.js';
+import { UPDATER_VERSION } from '../../src/updater/version.js';
 
 const installed: InstalledState = {
   version: '1.0.0',
@@ -104,7 +105,7 @@ test('records backup before image selection and permits explicit boot reconcilia
   const { store } = await fixture();
   await store.writeInstalled(installed);
   const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
-  const backup = { backupDirectory: '/var/backups/tome-cms/backup-1', backupCreatedAt: '2026-09-20T10:01:00.000Z' };
+  const backup = { backupDirectory: '/var/backups/tome-cms/backup-1', backupCreatedAt: '2026-09-20T10:01:00.000Z', backupKind: 'full' as const };
   await assert.rejects(() => store.recordBackup(job.id, backup), /phase/i);
   for (const phase of ['verifying', 'downloading', 'quiescing', 'backing_up'] as const) await store.transitionJob(job.id, phase);
   await store.recordBackup(job.id, backup);
@@ -153,8 +154,44 @@ test('a failure after its backup is never cleared', async () => {
   await store.writeInstalled(installed);
   const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
   for (const phase of ['verifying', 'downloading', 'quiescing', 'backing_up'] as UpdatePhase[]) await store.transitionJob(job.id, phase);
-  await store.recordBackup(job.id, { backupDirectory: '/var/backups/tome-cms/b', backupCreatedAt: '2026-09-28T08:00:00.000Z' });
+  await store.recordBackup(job.id, { backupDirectory: '/var/backups/tome-cms/b', backupCreatedAt: '2026-09-28T08:00:00.000Z', backupKind: 'full' });
   await store.transitionJob(job.id, 'failed_manual_recovery');
   await assert.rejects(() => store.clearUnstartedFailure(), /backup/i);
   assert.equal((await store.readJob())?.phase, 'failed_manual_recovery');
+});
+
+test('a job keeps when each phase began, and which kind of backup it made, apart from the public status', async () => {
+  const { statusPath, store } = await fixture();
+  await store.writeInstalled(installed);
+  const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  for (const phase of ['verifying', 'downloading', 'quiescing', 'backing_up'] as const) await store.transitionJob(job.id, phase);
+  await store.recordBackup(job.id, { backupDirectory: '/var/backups/tome-cms/b', backupCreatedAt: '2026-09-20T10:01:00.000Z', backupKind: 'database' });
+  for (const phase of ['migrating', 'restarting', 'health_check', 'succeeded'] as const) await store.transitionJob(job.id, phase);
+  const done = await store.readJob();
+  assert.deepEqual(done?.timeline.map(({ phase }) => phase), [
+    'preflight', 'verifying', 'downloading', 'quiescing', 'backing_up', 'migrating', 'restarting', 'health_check', 'succeeded',
+  ]);
+  assert.ok(done?.timeline.every(({ at }, index, all) => index === 0 || Date.parse(at) >= Date.parse(all[index - 1]!.at)));
+  assert.equal(done?.backupKind, 'database');
+  // The public status keeps its old shape: an app from before this release parses it strictly.
+  const status = JSON.parse(await readFile(statusPath, 'utf8')) as { job: Record<string, unknown>; updaterVersion: string };
+  assert.equal('timeline' in status.job, false);
+  assert.equal('backupKind' in status.job, false);
+  assert.equal(status.updaterVersion, UPDATER_VERSION);
+});
+
+test('a job written by an earlier updater is still read, and carries on from there', async () => {
+  const { stateDirectory, store } = await fixture();
+  await store.writeInstalled(installed);
+  const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+  const jobPath = join(stateDirectory, 'job.json');
+  const { timeline: _timeline, backupKind: _kind, ...legacy } = JSON.parse(await readFile(jobPath, 'utf8'));
+  await writeFile(jobPath, JSON.stringify(legacy));
+  const read = await store.readJob();
+  assert.deepEqual(read?.timeline, [], 'no timeline was kept then');
+  assert.equal(read?.backupKind, null);
+  await store.transitionJob(job.id, 'verifying');
+  assert.deepEqual((await store.readJob())?.timeline.map(({ phase }) => phase), ['verifying']);
+  await writeFile(jobPath, JSON.stringify({ ...legacy, backupKind: 'everything' }));
+  await assert.rejects(() => store.readJob(), /job state/i);
 });

@@ -1,6 +1,6 @@
 {
   "name": "tome-cms",
-  "version": "1.2.1",
+  "version": "1.3.3",
   "packageManager": "npm@11.19.1",
   "private": true,
   "type": "module",
@@ -32,6 +32,7 @@
     "test:integration": "node scripts/test-foundation.mjs --all",
     "test:operations": "node --import tsx --test tests/operations/fresh-install.test.ts",
     "updater:clear-failed": "node --import tsx scripts/updater-clear-failed-job.ts",
+    "updater:upgrade": "node --import tsx scripts/updater-upgrade.ts",
     "check:inventory": "node --import tsx scripts/check-migration-inventory.ts",
     "test:operations:update": "node --import tsx --test tests/operations/managed-update.test.ts",
     "astro": "astro",

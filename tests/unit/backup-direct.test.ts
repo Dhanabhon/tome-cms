@@ -6,7 +6,8 @@ import { directPgDumpInvocation, parseBackupOptions } from '../../scripts/backup
 test('direct backups require the offline flag', () => {
   assert.deepEqual(parseBackupOptions([
     '--offline', '--direct', '--json', '--output-root', '/var/backups/tome-cms',
-  ]), { offline: true, direct: true, json: true, outputRoot: '/var/backups/tome-cms' });
+  ]), { offline: true, direct: true, json: true, databaseOnly: false, outputRoot: '/var/backups/tome-cms' });
+  assert.equal(parseBackupOptions(['--offline', '--database-only', '--output-root', '/var/backups/tome-cms']).databaseOnly, true);
   assert.throws(() => parseBackupOptions(['--direct', '--output-root', '/var/backups/tome-cms']), /offline/);
 });
 

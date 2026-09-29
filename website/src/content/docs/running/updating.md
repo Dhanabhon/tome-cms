@@ -24,19 +24,51 @@ cd /opt/tome-cms && docker compose -p tomecms -f compose.managed.yaml \
 ```
 :::
 
-On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.2.2 is available.", with that release's version.
+On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.3.4 is available.", with that release's version.
 
 1. Press "Read release notes" and read the notes of every version after yours.
-2. Press "Install 1.2.2". The admin asks "Install TomeCMS 1.2.2?". Press "Install 1.2.2" again, then confirm with your passkey.
+2. Press "Install 1.3.4". The admin asks "Install TomeCMS 1.3.4?". Press "Install 1.3.4" again, then confirm with your passkey.
 3. Keep the page open. "Installation progress" ticks off each step: "Check prerequisites", "Verify the official update", "Download update", "Prepare maintenance", "Create recovery backup", "Apply database migrations", "Restart TomeCMS" and "Check application health". The site is briefly down while TomeCMS restarts.
-4. When it is done, "System" says "TomeCMS 1.2.2 is installed."
+4. When it is done, "System" says "TomeCMS 1.3.4 is installed."
+
+Afterwards the "Last update" card says when it finished and, with an updater of 1.3.0 or later, how long the site was offline and what the backup held.
 
 What the updater does, and does not do:
 
 - It installs only an official release that it has verified against the release's attestations, the same checks the installer makes.
-- Before each update it takes a full backup of PostgreSQL and the bucket into `/var/backups/tome-cms/`, then runs the migrations. It never deletes old backups, so leave room for them on the disk and copy them off the server yourself.
+- Before each update it takes a backup into `/var/backups/tome-cms/`, then runs the migrations. When the update brings a migration, the backup is full: PostgreSQL and the bucket. When it brings none, which is most updates, an updater of 1.3.0 or later backs up PostgreSQL alone: both versions ship the same migrations, so no table changes, and copying the media library is what keeps the site offline longest. The files are left out on the understanding that an update without a migration does not rewrite them; keep your own copies of the bucket, as [Backups and restore](/tome-cms/running/backups/) describes. The application you are updating from has to be 1.3.0 or later too, since the backup runs in it. It never deletes old backups, so leave room for them on the disk and copy them off the server yourself.
 - If an update fails after its migrations have started, it goes back to the previous application only when the new release declares the previous version compatible with the new database. The admin then says "Your previous application is running." Otherwise the update stops and waits for the server's operator, as [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) describes. Restoring the database and the files from the backup is always done by hand.
-- There are no automatic updates and no beta channel. The updater service itself, and the PostgreSQL and SeaweedFS images, are upgraded by hand.
+- There are no automatic updates and no beta channel. The PostgreSQL and SeaweedFS images are upgraded by hand, and so is the updater service, as the next section shows.
+
+### Upgrading the updater
+
+The updater runs on the server itself and is built once, when the server is installed. Updating from "System" replaces the application only, so a server keeps the updater it was installed with. `"updaterVersion"` in the updater's status says which one it has:
+
+```sh
+sudo curl -s --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
+```
+
+A release that needs a newer updater says so on "System" ("This version needs its updater upgraded by hand first"). Otherwise it is worth doing when a release's notes say its updater changed. From 1.3.0, it replaces the updater with the one in a checkout of a release, and leaves the site running:
+
+```sh
+cd /opt/tome-cms-src
+git fetch --depth 1 origin tag v1.3.3
+git checkout --detach v1.3.3
+npm ci
+sudo npm run updater:upgrade -- --dry-run
+sudo npm run updater:upgrade
+```
+
+A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
+
+```sh
+git clone --depth 1 --branch v1.3.3 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+cd /opt/tome-cms-src
+```
+
+`--dry-run` checks and says what it would replace, without changing anything. The upgrade builds the updater from the checkout, stops the `tomecms-updater` service, replaces `/opt/tome-cms/updater`, the service's unit file and `/opt/tome-cms/compose.managed.yaml` with the release's own, starts the service again and waits for it to answer with its new version. The site stays up throughout, and a change to the compose file takes effect the next time the application starts. The previous updater, unit file and compose file are kept beside the new ones with `.previous-` and the time in their names. If the new updater does not answer within 30 seconds, it puts the previous one back. A change you made to the compose file by hand is not kept: the command says when the file was not the release's own, and your copy is the `.previous-` one. An old updater cannot read the job records a newer one writes, so once an update has run under the new updater, do not put the `.previous-` updater back by hand.
+
+It refuses to run while an update is in progress, from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
 
 A 0.x install cannot become a managed one in place. The move to 1.0.0 needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
 
@@ -81,7 +113,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
+| 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
 | 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
 | 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
 | 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |

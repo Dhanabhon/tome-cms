@@ -7,6 +7,8 @@ import { dirname, join, resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import { parseEnv } from 'node:util';
 
+import { UPDATER_VERSION } from '../../src/updater/version.js';
+
 const repository = resolve(import.meta.dirname, '../..');
 const commit = 'a'.repeat(40);
 const digest = `sha256:${'b'.repeat(64)}`;
@@ -99,7 +101,7 @@ if (name === 'git') {
   else if (args.includes('status')) output = process.env.SOURCE_DIRTY || '';
 }
 if (name === 'curl') {
-  if (args.includes('--unix-socket')) output = JSON.stringify({ protocolVersion: 1, updaterVersion: '1.0.0', managed: true, installed: { version: '1.0.0', imageDigest: '${digest}' }, job: null });
+  if (args.includes('--unix-socket')) output = JSON.stringify({ protocolVersion: 1, updaterVersion: '${UPDATER_VERSION}', managed: true, installed: { version: '1.0.0', imageDigest: '${digest}' }, job: null });
   else if (text.includes('/health/ready')) output = '{}';
   else if (text.includes('/releases/tags/')) output = fs.readFileSync(process.env.RELEASE_FIXTURE, 'utf8');
   else if (text.includes('/releases/download/')) {
@@ -157,7 +159,7 @@ async function fixture(t: TestContext) {
   const prefix = join(root, 'host');
   const bin = join(prefix, 'bin');
   await mkdir(bin, { recursive: true });
-  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
+  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'src/updater/version.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
   for (const file of files) {
     const target = join(source, file);
     await mkdir(dirname(target), { recursive: true });

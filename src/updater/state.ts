@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 
 import { parseStableVersion } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
+import { UPDATER_VERSION } from './version.js';
 
 export type UpdatePhase =
   | 'preflight' | 'verifying' | 'downloading' | 'quiescing'
@@ -35,7 +36,13 @@ export interface UpdateJob {
   errorCode: string | null;
   backupDirectory: string | null;
   backupCreatedAt: string | null;
+  /** When each phase began, in order. A job an earlier updater wrote has none. */
+  timeline: Array<{ phase: UpdatePhase; at: string }>;
+  /** What the backup copied: everything, or the database alone because no migration was due. */
+  backupKind: BackupKind | null;
 }
+
+export type BackupKind = 'full' | 'database';
 
 export type PublicUpdateJob = Pick<UpdateJob,
   | 'id' | 'targetVersion' | 'phase' | 'completedSteps' | 'totalSteps'
@@ -48,7 +55,7 @@ export interface UpdaterStateStore {
   readJob(): Promise<UpdateJob | null>;
   refreshStatus(): Promise<UpdateJob | null>;
   createJob(input: Pick<UpdateJob, 'requestId' | 'targetVersion'>): Promise<UpdateJob>;
-  recordBackup(id: string, backup: Pick<UpdateJob, 'backupDirectory' | 'backupCreatedAt'>): Promise<UpdateJob>;
+  recordBackup(id: string, backup: Pick<UpdateJob, 'backupDirectory' | 'backupCreatedAt' | 'backupKind'>): Promise<UpdateJob>;
   /** Boot-only terminalization after the caller verifies image identity and readiness. */
   reconcileJob(id: string, phase: 'succeeded' | 'rolled_back' | 'failed_manual_recovery'): Promise<UpdateJob>;
   transitionJob(id: string, phase: UpdatePhase, patch?: Partial<Pick<UpdateJob,
@@ -108,11 +115,15 @@ const messages: Record<UpdatePhase, string> = {
 const installedKeys = [
   'version', 'imageDigest', 'composeContract', 'environmentContract', 'updaterProtocol', 'installedAt',
 ] as const;
-const jobKeys = [
+const legacyJobKeys = [
   'id', 'requestId', 'targetVersion', 'previousVersion', 'previousImageDigest',
   'targetImageDigest', 'phase', 'completedSteps', 'totalSteps', 'message', 'startedAt',
   'finishedAt', 'errorCode', 'backupDirectory', 'backupCreatedAt',
 ] as const;
+// Written since 1.3.0. An updater upgraded in the middle of a server's life finds a job.json from
+// before them, so they may be missing -- both at once -- but never half there.
+const jobKeys = [...legacyJobKeys, 'timeline', 'backupKind'] as const;
+const backupKinds = new Set(['full', 'database']);
 const patchKeys = ['targetImageDigest', 'finishedAt', 'errorCode', 'backupDirectory', 'backupCreatedAt'];
 
 export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStore {
@@ -138,7 +149,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
   const writeStatus = async (installed: InstalledState, job: UpdateJob | null): Promise<void> => {
     await atomicJson(config.statusPath, {
       protocolVersion: 1,
-      updaterVersion: '1.0.0',
+      updaterVersion: UPDATER_VERSION,
       managed: true,
       installed: { version: installed.version, imageDigest: installed.imageDigest },
       job: job ? toPublicUpdateJob(job) : null,
@@ -177,6 +188,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
           targetImageDigest: null, phase: 'preflight', completedSteps: 0, totalSteps: 8,
           message: messages.preflight, startedAt, finishedAt: null, errorCode: null,
           backupDirectory: null, backupCreatedAt: null,
+          timeline: [{ phase: 'preflight', at: startedAt }], backupKind: null,
         };
         await atomicJson(jobPath, job, 0o600);
         await writeStatus(installed, job);
@@ -202,8 +214,8 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
       return exclusive(async () => {
         const current = await readJob();
         if (!current || current.id !== id || current.phase !== 'backing_up') throw new Error('Invalid backup job phase');
-        if (!isRecord(backup) || !hasExactKeys(backup, ['backupDirectory', 'backupCreatedAt']) ||
-          backup.backupDirectory === null || backup.backupCreatedAt === null) throw new Error('Invalid backup record');
+        if (!isRecord(backup) || !hasExactKeys(backup, ['backupDirectory', 'backupCreatedAt', 'backupKind']) ||
+          backup.backupDirectory === null || backup.backupCreatedAt === null || backup.backupKind === null) throw new Error('Invalid backup record');
         const job = parseJob({ ...current, ...backup });
         await atomicJson(jobPath, job, 0o600);
         await writeStatus(await readInstalled(), job);
@@ -216,9 +228,10 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         const current = await readJob();
         if (!current || current.id !== id) throw new Error('Update job not found');
         if (terminalPhases.has(current.phase)) throw new Error('Update job is terminal');
+        const at = new Date().toISOString();
         const job = parseJob({ ...current, phase,
           completedSteps: completedSteps[phase] ?? current.completedSteps,
-          message: messages[phase], finishedAt: new Date().toISOString(),
+          message: messages[phase], finishedAt: at, timeline: [...current.timeline, { phase, at }],
           errorCode: phase === 'failed_manual_recovery' ? 'manual_recovery_required' : current.errorCode,
         });
         await atomicJson(jobPath, job, 0o600);
@@ -234,13 +247,15 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         if (terminalPhases.has(current.phase)) throw new Error('Update job is terminal');
         if (!validTransition(current.phase, phase)) throw new Error('Invalid update job transition');
         const terminal = terminalPhases.has(phase);
+        const at = new Date().toISOString();
         const job = parseJob({
           ...current,
           ...patch,
           phase,
           completedSteps: completedSteps[phase] ?? current.completedSteps,
           message: messages[phase],
-          finishedAt: terminal ? patch.finishedAt ?? new Date().toISOString() : null,
+          finishedAt: terminal ? patch.finishedAt ?? at : null,
+          timeline: [...current.timeline, { phase, at }],
         });
         const installed = await readInstalled();
         await atomicJson(jobPath, job, 0o600);
@@ -279,8 +294,11 @@ function parseInstalled(value: unknown): InstalledState {
   return { ...value } as unknown as InstalledState;
 }
 
-function parseJob(value: unknown): UpdateJob {
-  if (!isRecord(value) || !hasExactKeys(value, jobKeys)) throw invalidJob();
+function parseJob(input: unknown): UpdateJob {
+  if (!isRecord(input)) throw invalidJob();
+  const value: Record<string, unknown> = hasExactKeys(input, legacyJobKeys) ? { ...input, timeline: [], backupKind: null } : input;
+  if (!hasExactKeys(value, jobKeys)) throw invalidJob();
+  if (!(value.backupKind === null || backupKinds.has(value.backupKind as string)) || !validTimeline(value.timeline)) throw invalidJob();
   try {
     parseStableVersion(value.targetVersion);
     parseStableVersion(value.previousVersion);
@@ -302,6 +320,11 @@ function parseJob(value: unknown): UpdateJob {
   if ((expectedCompleted !== null && value.completedSteps !== expectedCompleted) ||
     terminalPhases.has(phase) !== (value.finishedAt !== null)) throw invalidJob();
   return { ...value } as unknown as UpdateJob;
+}
+
+function validTimeline(value: unknown): boolean {
+  return Array.isArray(value) && value.length <= 64 && value.every((entry) => isRecord(entry) &&
+    hasExactKeys(entry, ['phase', 'at']) && phases.includes(entry.phase as UpdatePhase) && isoDate(entry.at));
 }
 
 async function readJson(path: string): Promise<unknown> {

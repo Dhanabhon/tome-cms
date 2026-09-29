@@ -58,6 +58,8 @@ Each run makes one new directory under the output root, named after the time it 
 
 The manifest is written last. A directory without `manifest.json` is a backup that failed or was cut off, and must not be restored.
 
+`--database-only` leaves the bucket out: the directory has no `objects/`, and the manifest says `"scope": "database"` and lists no objects. The updater takes one of these before an update that brings no migration, from 1.3.0 on, because such an update changes no table and is not expected to rewrite the files. To restore one, restore the dump and leave the bucket as it is. The restore check handles both kinds and says which it checked.
+
 A backup carries none of the credentials in `.env.local`. A site restored from it needs the secrets it had, so keep a private copy of `.env.local` apart from the backups, as [Configuration](/tome-cms/running/configuration/) explains. The dump still holds everything in the database, sign-in data included, so keep backups as private as that file.
 
 ## Where the files go

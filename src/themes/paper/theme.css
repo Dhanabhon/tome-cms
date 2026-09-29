@@ -279,7 +279,10 @@
 @supports ((animation-timeline: view()) and (animation-range: entry)) {
   @media (prefers-reduced-motion: no-preference) {
     .hero-slider[data-move='fade'] > .hero-slide {
-      animation: hero-slide-fade linear both;
+      /* Longhands, never the shorthand: see .reading-progress. */
+      animation-name: hero-slide-fade;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
       animation-timeline: view(inline);
     }
   }
@@ -764,7 +767,12 @@
     background: var(--color-accent);
     transform: scaleX(0);
     transform-origin: 0 50%;
-    animation: reading-progress linear both;
+    /* Longhands, never the shorthand: the minifier folds `animation` and `animation-timeline`
+     * into one, Chrome does not accept a timeline inside it, and drops the declaration. That
+     * shipped: the bar sat at zero on every production site while the dev server showed it. */
+    animation-name: reading-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
     animation-timeline: scroll(root block);
   }
 

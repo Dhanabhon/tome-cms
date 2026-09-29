@@ -6,6 +6,7 @@ import { db } from '../db/client';
 import { HttpError } from '../http/errors';
 import { isUuid } from '../media/keys';
 import { assertReadyMediaReferences } from '../media/service';
+import { memoForRequest } from '../request-memo';
 import { isSealed, openSecret, sealSecret } from './secrets';
 
 /** The one shape of colour a style attribute can be trusted with. */
@@ -57,8 +58,10 @@ export async function readPluginStates(ownerId: string): Promise<PluginState[]> 
  * plugin the owner turned off by reading its settings and finding them filled in.
  */
 export async function readEnabledPlugin(ownerId: string, id: string): Promise<PluginSettings | null> {
-  const row = await db.selectFrom('plugin_settings').selectAll()
-    .where('owner_id', '=', ownerId).where('id', '=', id).where('enabled', '=', true).executeTakeFirst();
+  // Every enabled plugin in one query, once per request: a page asks about each plugin in turn.
+  const rows = await memoForRequest(`enabled-plugins:${ownerId}`, () => db.selectFrom('plugin_settings').selectAll()
+    .where('owner_id', '=', ownerId).where('enabled', '=', true).execute());
+  const row = rows.find((candidate) => candidate.id === id);
   if (!row) return null;
   const manifest = pluginManifest(id);
   if (!manifest) return null;

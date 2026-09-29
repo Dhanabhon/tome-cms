@@ -16,7 +16,7 @@ import { expect, test } from './own-worker';
  * status into "check unavailable". Nothing in a test over an unchallenged site could see it.
  *
  * Each signIn() here is one of the five /recovery sign-ins the server allows a spec file in half an
- * hour, and a sixth is answered 429. This file makes three, so a new test that signs in has one to spare.
+ * hour, and a sixth is answered 429. This file makes four, so a new test that signs in has one to spare.
  */
 
 test.use({ stack: 'reauth-with-challenge' });
@@ -233,4 +233,28 @@ test('a refused passkey is named on the update screen, and the release status st
   const replay = await verifyWithoutToken(stale);
   expect(replay.status).toBe(403);
   expect(await replay.json()).toMatchObject({ code: 'challenge_refused' });
+});
+
+test('the last update says how long the site was offline and what the backup held', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  const at = (seconds: number) => new Date(Date.UTC(2026, 8, 29, 7, 50, 0) + seconds * 1000).toISOString();
+  const job = {
+    id: '440dc7fc-974e-4e07-9eea-ddbb20a84f73', targetVersion: '1.0.4', phase: 'succeeded', completedSteps: 8, totalSteps: 8,
+    message: 'Update installed successfully.', startedAt: at(-60), finishedAt: at(21), errorCode: null, backupCreatedAt: at(5),
+  };
+  await page.route('**/api/admin/system/updates', (route) => route.fulfill({ json: {
+    ...managedCheck, availability: 'current', latest: null, message: 'TomeCMS 1.0.4 is up to date.',
+    installability: { code: 'no-update', installable: false, mode: 'managed', reason: 'No compatible update is available.' },
+    updater: { ...managedCheck.updater, job },
+    timeline: { jobId: job.id, backupKind: 'database', timeline: [
+      { phase: 'preflight', at: at(-60) }, { phase: 'quiescing', at: at(0) }, { phase: 'backing_up', at: at(2) },
+      { phase: 'migrating', at: at(5) }, { phase: 'succeeded', at: at(21) },
+    ] },
+  } }));
+  await page.goto(`${origin}/admin/system`);
+  const card = page.getByRole('region', { name: 'Last update' });
+  await expect(card.getByText('Site offline for:'), 'measured from maintenance to the end').toBeVisible({ timeout: 15_000 });
+  await expect(card.getByText('21 s')).toBeVisible();
+  await expect(card.getByText('Database only, no migration was due (3 s)')).toBeVisible();
 });

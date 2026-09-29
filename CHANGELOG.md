@@ -8,6 +8,55 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 - The admin reads as an editorial page: display titles under eyebrows, sheets and rules instead of boxed cards, Stats led by figures, one empty-state system, and no top bar on a desktop. The admin's post search is gone; the public themes' search sits on the category row.
 
+## 1.3.3 - 2026-09-29
+
+Paper's reading progress bar and fading hero work on a real site, and every public page sends far fewer database queries.
+
+### Fixed
+
+- Paper's "Reading progress bar" and the "Fading" way of changing slides never moved on a production site. The build's CSS minifier folded their scroll timeline into the `animation` shorthand, which Chrome rejects whole. They are written as longhands now, and a test minifies every theme sheet to keep it so.
+- A public page read the site's settings up to six times and each plugin's settings in a query of its own. They are read once per request now: the home page sends 6 queries instead of 16, and a post's page 5 instead of 14. Nothing is kept past the request, so an edit shows at once.
+
+Full notes: [docs/releases/1.3.3.md](docs/releases/1.3.3.md)
+
+## 1.3.2 - 2026-09-29
+
+The Paper home page is about two and a half times as fast for a site written in Thai.
+
+### Fixed
+
+- The home page worked out every card's reading time on every request, which for Thai runs a dictionary word breaker over the whole post and was most of what the page cost. It now does it once per saved version of a post. With 60 Thai posts it answered 92 requests a second before and 246 after, on the same machine.
+
+Full notes: [docs/releases/1.3.2.md](docs/releases/1.3.2.md)
+
+## 1.3.1 - 2026-09-29
+
+A documentation release, and the first update that 1.3.0's updater backs up with the database alone.
+
+### Documentation
+
+- Upgrading the updater says what a server installed before 1.0.2 does first: it has no `/opt/tome-cms-src`, so it clones the release there.
+- The requirements say, with the measurements, that a managed install runs a personal site on 1 GB of memory with 2 GB of swap. The 2 GB minimum stays for anything busier and for a build from source.
+- The 1.0.0 acceptance record has its first real-server row: the managed install on the test server, its updates to 1.3.0, the updater upgrade, and two backups verified with the restore check.
+
+Full notes: [docs/releases/1.3.1.md](docs/releases/1.3.1.md)
+
+## 1.3.0 - 2026-09-29
+
+Updates that bring no migration keep the site offline for less time, the System screen says how long an update kept it offline, and the updater itself can be upgraded.
+
+### Added
+
+- `sudo npm run updater:upgrade`, run from a checkout of a release, replaces the managed updater with that release's, along with its systemd unit and `compose.managed.yaml`. It leaves the site running, refuses during an update, keeps the previous files, and puts them back if the new updater does not answer. Until now a server kept the updater it was installed with.
+- The "Last update" card on "System" says how long the site was offline and what the backup held, with an updater of 1.3.0 or later.
+- `npm run backup -- --database-only`, and the manifest's `"scope": "database"` for such a backup.
+
+### Changed
+
+- Before an update that brings no migration, an updater of 1.3.0 or later backs up the database alone instead of the database and the whole media library. It needs the application being updated from to be 1.3.0 or later too; otherwise, and whenever a migration is due or anything is uncertain, the backup is full as before.
+
+Full notes: [docs/releases/1.3.0.md](docs/releases/1.3.0.md)
+
 ## 1.2.1 - 2026-09-29
 
 Small fixes found while reviewing 1.1.1 and 1.2.0.

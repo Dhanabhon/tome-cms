@@ -36,6 +36,11 @@ export interface BackupManifest {
     sizeBytes: number;
     sha256: string;
   }>;
+  /**
+   * Present only on a backup of the database alone, which the updater takes when an update brings
+   * no migration. A full backup has no such key, so a restore check from before 1.3.0 still reads it.
+   */
+  scope?: 'database';
 }
 
 function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -77,9 +82,12 @@ export function parseBackupRecordCounts(value: unknown): BackupRecordCounts {
 }
 
 export function parseBackupManifest(value: unknown): BackupManifest {
-  const input = record(value, [
-    'format', 'version', 'createdAt', 'applicationVersion', 'config', 'database', 'records', 'objects',
-  ]);
+  const keys = ['format', 'version', 'createdAt', 'applicationVersion', 'config', 'database', 'records', 'objects'];
+  const databaseOnly = !!value && typeof value === 'object' && 'scope' in value;
+  const input = record(value, databaseOnly ? [...keys, 'scope'] : keys);
+  if (databaseOnly && (input.scope !== 'database' || !Array.isArray(input.objects) || input.objects.length !== 0)) {
+    throw new Error('Invalid backup manifest');
+  }
   const config = record(input.config, ['publicUrl', 'database', 's3Endpoint', 'bucket']);
   const database = record(input.database, ['file', 'sha256']);
   if (input.format !== 'tomecms-backup' || input.version !== 1 || !nonempty(input.applicationVersion) ||
@@ -113,5 +121,6 @@ export function parseBackupManifest(value: unknown): BackupManifest {
     database: { file: 'database.dump', sha256: database.sha256 },
     records: parseBackupRecordCounts(input.records),
     objects,
+    ...(databaseOnly ? { scope: 'database' as const } : {}),
   };
 }

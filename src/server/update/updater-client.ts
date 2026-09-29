@@ -95,6 +95,23 @@ export async function getUpdaterStatus(options: SocketOptions = {}): Promise<Upd
   }
 }
 
+const timelineSchema = z.object({
+  jobId: uuid,
+  backupKind: z.enum(['full', 'database']).nullable(),
+  timeline: z.array(z.object({ phase: z.enum(Object.keys(phaseMessages) as [keyof typeof phaseMessages, ...(keyof typeof phaseMessages)[]]), at: timestamp }).strict()).max(64),
+}).strict();
+export type UpdaterTimeline = z.infer<typeof timelineSchema>;
+
+/** When each phase of the last update began. An updater from before 1.3.0 has none, and says 404. */
+export async function getUpdaterTimeline(options: SocketOptions = {}): Promise<UpdaterTimeline | null> {
+  try {
+    const response = await socketRequest('GET', '/v1/timeline', options);
+    return response.status === 200 ? timelineSchema.parse(response.body) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function requestUpdate(options: SocketOptions & { version: string; requestId: string }): Promise<UpdateRequestResult> {
   const body = { version: stableVersion.parse(options.version), requestId: uuid.parse(options.requestId) };
   try {

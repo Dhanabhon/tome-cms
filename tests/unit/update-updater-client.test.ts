@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import { getApplyResponseAction } from '../../src/components/admin/UpdateManager';
-import { getManagedInstallability, getUpdaterStatus, parseUpdaterStatus, requestUpdate } from '../../src/server/update/updater-client.js';
+import { getManagedInstallability, getUpdaterStatus, getUpdaterTimeline, parseUpdaterStatus, requestUpdate } from '../../src/server/update/updater-client.js';
 
 const job = {
   id: randomUUID(), targetVersion: '1.0.1', phase: 'preflight', completedSteps: 0, totalSteps: 8,
@@ -199,4 +199,23 @@ test('fresh-session gate matches the exact authenticated credential and database
   assert.deepEqual(queries[0].parameters, ['current-session', 'current-token', 'owner', 300]);
   found = false;
   await assert.rejects(requireFreshOwnerSession(current), { status: 403, message: 'Verify a Passkey and try again.' });
+});
+
+test('the timeline of the last update is read when the updater has one, and is nothing otherwise', async (t) => {
+  const timeline = {
+    jobId: job.id, backupKind: 'database',
+    timeline: [{ phase: 'preflight', at: '2026-09-29T07:49:32.608Z' }, { phase: 'quiescing', at: '2026-09-29T07:50:20.000Z' }],
+  };
+  const socketPath = await socketServer(t, (req, res) => {
+    assert.equal(req.url, '/v1/timeline');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(timeline));
+  });
+  assert.deepEqual(await getUpdaterTimeline({ socketPath }), timeline);
+
+  // An updater from before 1.3.0 has no such route; the System screen just shows less.
+  const old = await socketServer(t, (_req, res) => { res.writeHead(404, { 'content-type': 'application/json' }); res.end('{"error":"not_found"}'); });
+  assert.equal(await getUpdaterTimeline({ socketPath: old }), null);
+  const odd = await socketServer(t, (_req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...timeline, stdout: 'x' })); });
+  assert.equal(await getUpdaterTimeline({ socketPath: odd }), null, 'anything unexpected is nothing');
 });
