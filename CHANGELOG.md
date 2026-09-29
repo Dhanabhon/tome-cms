@@ -2,6 +2,17 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.3.3 - 2026-09-29
+
+Paper's reading progress bar and fading hero work on a real site, and every public page sends far fewer database queries.
+
+### Fixed
+
+- Paper's "Reading progress bar" and the "Fading" way of changing slides never moved on a production site. The build's CSS minifier folded their scroll timeline into the `animation` shorthand, which Chrome rejects whole. They are written as longhands now, and a test minifies every theme sheet to keep it so.
+- A public page read the site's settings up to six times and each plugin's settings in a query of its own. They are read once per request now: the home page sends 6 queries instead of 16, and a post's page 5 instead of 14. Nothing is kept past the request, so an edit shows at once.
+
+Full notes: [docs/releases/1.3.3.md](docs/releases/1.3.3.md)
+
 ## 1.3.2 - 2026-09-29
 
 The Paper home page is about two and a half times as fast for a site written in Thai.
