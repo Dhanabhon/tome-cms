@@ -2033,8 +2033,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .plugin-card__foot { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding: var(--space-sm) var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
 .plugin-card__said { margin: 0; padding: 0 var(--space-lg) var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); }
 .plugin-card .admin-form-error { padding: 0 var(--space-lg) var(--space-sm); }
-.plugin-card--source { grid-template-rows: auto; gap: var(--space-2xs); align-content: center; padding: var(--space-lg); border-style: dashed; background: none; }
-.plugin-card--source strong { color: var(--color-ink); font-size: var(--text-base); font-weight: 600; }
+.plugin-card--source { grid-template-rows: auto; gap: var(--space-2xs); align-content: center; padding: var(--space-lg) 0 var(--space-lg) var(--space-md); border: 0; border-inline-start: 3px solid var(--color-accent); border-radius: 0; background: none; }
+.plugin-card--source strong { color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; }
 .plugin-card--source p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 /* The panel is the editors' drawer, which spaces its own direct children; the fields are
  * a level further in, inside the fieldset that disables them while a save is in flight. */
@@ -2044,6 +2044,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .plugin-setup__picture { aspect-ratio: 16 / 9; margin-block-start: 0; }
 /* A note among sheets is a paragraph with an accent bar, not a dashed box. */
 .admin-card--note { gap: var(--space-2xs); padding-inline-start: var(--space-md); border-inline-start: 3px solid var(--color-accent); }
+.admin-card.admin-card--note { grid-template-columns: minmax(0, 34rem); }
+.admin-card.admin-card--note > :not(.admin-card__head) { grid-column: 1; }
 .admin-card--note h2 { margin: 0; font-size: var(--text-base); }
 .admin-card--note p { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 @media (prefers-reduced-motion: reduce) {
