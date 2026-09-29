@@ -189,7 +189,7 @@ export default function ProfileForm({ initialAvatarUrl, initialSettings, ownerLo
               </header>
               <div className="profile-links">
                 <p className="admin-field-error" id="authorLinks-error" aria-live="polite">{fieldErrors.authorLinks}</p>
-                {!authorLinks.length && <p className="admin-empty admin-empty--inline">{copy.profile.linksEmpty} <button type="button" onClick={() => { setAuthorLinks([{ label: copy.profile.linkWebsite, url: '' }]); setLinkChoices(['website']); setStatus(''); }}>{copy.profile.linksAdd}</button></p>}
+                {!authorLinks.length && <p className="admin-empty admin-empty--inline">{copy.profile.linksEmpty}</p>}
                 {authorLinks.map((link, index) => (
                   <div className={`profile-link${linkChoices[index] === 'other' ? ' profile-link--named' : ''}`} key={index}>
                     <div className="admin-field">
