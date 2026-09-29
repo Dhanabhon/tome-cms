@@ -1690,6 +1690,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Directly under a tab row or a head that already drew a rule, the block needs none of its own. */
 .admin-list-bar + .admin-empty, .admin-page__head + .admin-empty, [data-admin-posts] > .admin-empty, .admin-story-list > .admin-empty { border-block-start: 0; }
 .admin-story-list > .admin-empty { grid-column: 1 / -1; }
+/* Inside a tab panel the tab row above and the save row below already draw the rules. */
+[role='tabpanel'] > .admin-empty { border-block: 0; }
 /* Tier 2: there are things, and the tab or filter finds none. One line, and the way back. */
 .admin-empty--filtered { display: flex; flex-wrap: wrap; gap: var(--space-sm); max-width: none; padding-block: var(--space-lg); border-block-start: 0; color: var(--color-muted); }
 .admin-empty--filtered a { color: var(--color-link); font-weight: 500; }
@@ -2387,20 +2389,21 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .navigation-tabs { margin-block-end: var(--space-md); }
 .navigation-dirty { font-size: var(--text-xs); color: var(--color-muted); }
 .navigation-status { min-height: 1.5em; margin-block: var(--space-md); color: var(--color-muted); }
+/* Empty, it is a live region with nothing to say: it keeps the head's space above and gives back its own line. */
+.navigation-status:empty { min-height: 0; margin-block-end: 0; }
 /* One frame around the run, rows divided inside it -- the same shape the pages list
  * takes, and for the same reason: this is an ordered list you scan, not a set of
  * separate objects. */
 .navigation-items {
   display: grid;
-  overflow: hidden;
   padding: 0;
   list-style: none;
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-card);
-  background: var(--color-paper);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
 }
+/* No rows, no rule: the empty block says so, and its own rule would stack on this one. */
+.navigation-items:empty { border-block-start: 0; }
 .navigation-items > :last-child { border-block-end: 0; }
-.navigation-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.navigation-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-sm); min-height: 3rem; padding-block: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
 /* The grip is a handle, so it takes the pointer that says so and the height of the field
  * it sits beside. */
 .navigation-grip { display: grid; align-self: start; place-items: center; min-height: var(--control-height); color: var(--color-muted); cursor: grab; }
