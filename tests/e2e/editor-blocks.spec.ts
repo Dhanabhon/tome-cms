@@ -799,10 +799,19 @@ test('a file joins the library, is found by its type, and the filter holds throu
 
   await page.goto(`${origin}/admin/media`);
   const upload = page.locator('.media-upload input[type="file"]');
-  await upload.setInputFiles({ name: 'Swatch.png', mimeType: 'image/png', buffer: png });
+  // The library page takes a file into its upload dialog: choose, upload, and close it once it is done.
+  const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
+  const uploadThroughDialog = async (file: { name: string; mimeType: string; buffer: Buffer }) => {
+    await upload.setInputFiles(file);
+    await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
+    await expect(uploadDialog.locator('.media-upload-row')).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+    await uploadDialog.getByRole('button', { name: 'Done' }).click();
+    await expect(uploadDialog).toBeHidden();
+  };
+  await uploadThroughDialog({ name: 'Swatch.png', mimeType: 'image/png', buffer: png });
   const swatch = page.getByRole('button', { name: /^Swatch\.png,/ });
   await expect(swatch).toBeVisible();
-  await upload.setInputFiles({ name: 'Guide.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') });
+  await uploadThroughDialog({ name: 'Guide.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') });
   const guide = page.getByRole('button', { name: /^Guide\.pdf, PDF,/ });
   await expect(guide).toBeVisible();
 
@@ -824,7 +833,7 @@ test('a file joins the library, is found by its type, and the filter holds throu
 
   // A file the chosen type would hide is not left looking as if it never landed, to be uploaded
   // again: the view opens to every type, where it is.
-  await upload.setInputFiles({ name: 'Notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n% notes\n%%EOF\n') });
+  await uploadThroughDialog({ name: 'Notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n% notes\n%%EOF\n') });
   await expect(page.getByRole('button', { name: /^Notes\.pdf, PDF,/ })).toBeVisible();
   await expect(types.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page).not.toHaveURL(/type=/);
@@ -890,7 +899,8 @@ test('a file joins the library, is found by its type, and the filter holds throu
   // A spreadsheet saved in the Thai code page is refused, and the owner is told how to save it --
   // in the admin's words ("this file"), not the API's ("the file").
   await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
-  await expect(page.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, "CSV UTF-8")');
+  await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
+  await expect(uploadDialog.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, "CSV UTF-8")');
 });
 
 test('a file goes into an article from + or /, and a reader downloads it', async ({ context, page }) => {
