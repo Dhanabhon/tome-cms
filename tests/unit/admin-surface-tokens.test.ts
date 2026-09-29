@@ -617,3 +617,20 @@ test('a row menu floats, is quiet at rest, and closes like a menu', () => {
   }
   assert.match(read('src/components/admin/MediaLibrary.tsx'), /wireDetailsMenus\('details\.media-category-menu'\)/);
 });
+
+test('a note is a paragraph with a 2px bar and a 16px heading, and it sits under the grid, not in it', () => {
+  assert.doesNotMatch(read('src/components/admin/PluginManager.tsx'), /plugin-card--source/);
+  const note = ruleBody(CSS, '.admin-notes');
+  assert.equal(declaration(note, 'margin-block-start'), 'var(--space-xl)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-card.admin-card--note h2'), 'font-size'), 'var(--text-base)');
+  assert.doesNotMatch(CSS, /border-inline-start: 3px solid/, 'a bar is 2px');
+});
+
+test('every radio and checkbox in the admin shell takes the accent colour from one rule', () => {
+  const rule = /(?:^|\n)([^{}\n]*\.admin-body[^{}]*)\{([^}]*accent-color:\s*var\(--color-accent\)[^}]*)\}/.exec(CSS);
+  assert.ok(rule, 'no admin-wide accent-color rule');
+  assert.match(rule[1], /\.admin-body input\[type="radio"\]/);
+  assert.match(rule[1], /\.admin-body input\[type="checkbox"\]/);
+  // The per-surface copies inside global.css are gone; the rule above is the only one there.
+  assert.equal(CSS.match(/accent-color/g)?.length, 1);
+});

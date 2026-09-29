@@ -133,12 +133,6 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
             </li>
           );
         })}
-        {/* Not a button. Nothing here installs a plugin, and an Upload Plugin next to these
-            would say otherwise; this says where the next one actually comes from. */}
-        <li className="plugin-card plugin-card--source">
-          <strong>{copy.plugins.sourceTitle}</strong>
-          <p>{copy.plugins.sourceBody}</p>
-        </li>
       </ul>
 
       {setUpManifest && (
@@ -159,11 +153,19 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
         />
       )}
 
-      {/* The thing an owner is right to worry about, answered where they are deciding. */}
-      <section className="admin-card admin-card--note" aria-labelledby="plugins-safe-heading">
-        <h2 id="plugins-safe-heading">{copy.plugins.safeTitle}</h2>
-        <p>{copy.plugins.safeBody}</p>
-      </section>
+      <div className="admin-notes">
+        {/* Not a button. Nothing here installs a plugin, and an Upload Plugin next to these
+            would say otherwise; this says where the next one actually comes from. */}
+        <section className="admin-card admin-card--note" aria-labelledby="plugins-source-heading">
+          <h2 id="plugins-source-heading">{copy.plugins.sourceTitle}</h2>
+          <p>{copy.plugins.sourceBody}</p>
+        </section>
+        {/* The thing an owner is right to worry about, answered where they are deciding. */}
+        <section className="admin-card admin-card--note" aria-labelledby="plugins-safe-heading">
+          <h2 id="plugins-safe-heading">{copy.plugins.safeTitle}</h2>
+          <p>{copy.plugins.safeBody}</p>
+        </section>
+      </div>
     </div>
   );
 }
