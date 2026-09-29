@@ -41,6 +41,23 @@ export function readingMinutes(node: EditorNode) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+// ponytail: one process's memory, the newest 1,000 versions. A post's reading time changes only when
+// the post does, and working it out segments the whole text -- a Thai one against a dictionary --
+// which was most of what the home page cost. Past the cap the oldest version is forgotten.
+const READING_CAP = 1_000;
+const measured = new Map<string, number>();
+
+/** readingMinutes for a post, worked out once per saved version of it. */
+export function postReadingMinutes(post: Pick<Post, 'id' | 'updated_at' | 'content_json'>): number {
+  const key = `${post.id}\0${post.updated_at}`;
+  const known = measured.get(key);
+  if (known !== undefined) return known;
+  const minutes = readingMinutes(post.content_json);
+  if (measured.size >= READING_CAP) measured.delete(measured.keys().next().value!);
+  measured.set(key, minutes);
+  return minutes;
+}
+
 export interface AdminPostFilters {
   locale: 'all' | PostLocale;
   query: string;

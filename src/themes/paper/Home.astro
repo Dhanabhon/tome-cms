@@ -3,7 +3,7 @@ import Icon from '../../components/Icon.astro';
 import HeroControls from './parts/HeroControls.astro';
 import { FOCUS_POSITION } from '../../lib/home-slides';
 import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
-import { postExcerpt, readingMinutes } from '../../lib/posts';
+import { postExcerpt, postReadingMinutes } from '../../lib/posts';
 import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
 
@@ -99,7 +99,7 @@ const dateFormatter = new Intl.DateTimeFormat(dateLocale(locale), {
 });
 const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
 const readTime = (post: Post) => {
-  const minutes = readingMinutes(post.content_json);
+  const minutes = postReadingMinutes(post);
   return locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
 };
 // A post without a cover keeps the cover's space, so the titles along a row start level,
