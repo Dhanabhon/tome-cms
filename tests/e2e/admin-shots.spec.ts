@@ -22,7 +22,8 @@ test.use({ stack: 'admin-shots' });
 test.skip(!process.env.ADMIN_SHOTS, 'Set ADMIN_SHOTS=<label> to write screenshots.');
 test.skip(({ isMobile }) => Boolean(isMobile), 'Widths are set by hand below.');
 
-const LABEL = process.env.ADMIN_SHOTS!;
+// Unset, the file is skipped above, but it is still loaded: join() must not see undefined.
+const LABEL = process.env.ADMIN_SHOTS ?? 'unset';
 const OUT = join('.superpowers', 'admin-shots', LABEL);
 const PROJECT = 'tomecms-shots-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
