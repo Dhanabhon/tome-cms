@@ -45,7 +45,7 @@
 
 /* A form and nothing else: the field, and a button beside it that says what it does. */
 .plain-controls { display: flex; flex-wrap: wrap-reverse; align-items: baseline; justify-content: space-between; gap: var(--space-sm) var(--space-lg); margin-block-end: var(--space-xl); }
-.plain-search { display: flex; flex: 1 1 14rem; max-width: 18rem; gap: var(--space-sm); }
+.plain-search { display: flex; flex: 1 1 14rem; max-width: 18rem; gap: var(--space-sm); margin-inline-start: auto; }
 .plain-search input {
   flex: 1 1 auto;
   min-width: 0;

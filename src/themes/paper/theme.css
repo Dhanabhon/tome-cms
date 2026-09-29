@@ -491,7 +491,7 @@
 /* The search is a pill like the categories are, with the magnifier as its button inside the
  * right end. It works with no script -- a plain GET form -- and a smaller field would make iOS
  * zoom in, so the size stays 1rem. */
-.post-search { position: relative; flex: 0 1 15rem; max-width: 20rem; min-width: 0; }
+.post-search { position: relative; flex: 0 1 15rem; max-width: 20rem; min-width: 0; margin-inline-start: auto; }
 
 /* It grows a little while it has focus. No transition: flex-basis is layout, and only transform
  * and opacity are animated here. */
@@ -518,7 +518,7 @@
 
 .post-search input:hover { border-color: var(--color-rule-strong); }
 
-.post-search input:focus-visible { border-color: var(--color-accent); outline: 0; }
+.post-search input:focus-visible { border-color: var(--color-accent); }
 
 .post-search__submit {
   position: absolute;
