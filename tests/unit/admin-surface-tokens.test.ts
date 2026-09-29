@@ -426,5 +426,11 @@ test('the list screens filter from the tab row and keep a submit for a page with
     assert.doesNotMatch(source, /name="q"/, `${page} still has a title search`);
     assert.doesNotMatch(source, /copy\.filters\.apply/, `${page} still has Apply filters`);
   }
+  // .admin-control (later in the file, equal specificity) would box the select again, so the
+  // filter's rule has to outrank it.
+  const select = ruleBody(CSS, '.admin-list-filter .admin-list-filter__select');
+  assert.equal(declaration(select, 'border-radius'), '0');
+  assert.equal(declaration(select, 'background-color'), 'transparent');
+  assert.equal(declaration(ruleBody(CSS, '.admin-list-bar'), 'margin-block-end'), 'var(--space-lg)');
   assert.match(CSS, /\.admin-list-filter__submit:not\(:focus-visible\) \{[^}]*position: absolute/);
 });

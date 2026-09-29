@@ -1288,22 +1288,28 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .navigation-tabs [role="tab"]:disabled { cursor: not-allowed; opacity: 0.55; }
 .navigation-tab { min-width: 0; }
 /* The tab row and, at its right end, the one filter a list keeps: the language. */
-.admin-list-bar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-xs) var(--space-lg); margin-block-start: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.admin-list-bar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-xs) var(--space-lg); margin-block-start: var(--space-lg); margin-block-end: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
 .admin-list-bar .admin-post-tabs { border-block-end: 0; }
 .admin-list-filter { position: relative; display: flex; align-items: center; margin-block-end: -1px; }
-.admin-list-filter__select {
+/* Two classes, because .admin-control is declared later at one and would box the select. */
+.admin-list-filter .admin-list-filter__select {
+  width: auto;
+  height: auto;
   min-height: var(--control-height);
   padding-inline: 0 var(--space-lg);
   border: 0;
   border-block-end: 2px solid transparent;
   border-radius: 0;
-  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.5'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right center;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.5'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right center;
+  background-repeat: no-repeat;
   color: var(--color-ink-2);
   font-size: var(--text-sm);
   font-weight: 500;
   appearance: none;
 }
-.admin-list-filter__select:focus-visible { outline: 0; border-block-end-color: var(--color-focus); }
+.admin-list-filter .admin-list-filter__select:focus-visible { outline: 0; background-color: transparent; border-color: transparent; border-block-end-color: var(--color-focus); }
 /* The submit is for a page with no script: unseen until a keyboard reaches it. */
 .admin-list-filter__submit:not(:focus-visible) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
