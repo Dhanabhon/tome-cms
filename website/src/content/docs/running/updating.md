@@ -59,6 +59,13 @@ sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
 ```
 
+A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
+
+```sh
+git clone --depth 1 --branch v1.3.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+cd /opt/tome-cms-src
+```
+
 `--dry-run` checks and says what it would replace, without changing anything. The upgrade builds the updater from the checkout, stops the `tomecms-updater` service, replaces `/opt/tome-cms/updater`, the service's unit file and `/opt/tome-cms/compose.managed.yaml` with the release's own, starts the service again and waits for it to answer with its new version. The site stays up throughout, and a change to the compose file takes effect the next time the application starts. The previous updater, unit file and compose file are kept beside the new ones with `.previous-` and the time in their names. If the new updater does not answer within 30 seconds, it puts the previous one back. A change you made to the compose file by hand is not kept: the command says when the file was not the release's own, and your copy is the `.previous-` one. An old updater cannot read the job records a newer one writes, so once an update has run under the new updater, do not put the `.previous-` updater back by hand.
 
 It refuses to run while an update is in progress, from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
