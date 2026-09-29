@@ -2,6 +2,29 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## Unreleased
+
+### Added
+
+- A post can keep its cover off the top of the article ("Show the cover at the top of the post" in its settings, on by default). The home page card and shared links still use it. `/api/v1` posts carry `showCover`. Migration `027_post_show_cover`.
+- The File Manager uploads several files at once, into a folder chosen for them, with progress and a retry for each file. Stop cancels the uploads still running.
+
+### Changed
+
+- No control in the admin opens a picker drawn by the operating system: lists, dates and times, and colours use the admin's own controls. Dates and times have a picker of their own, in the owner's calendar.
+- Every radio and checkbox in the admin uses the accent colour instead of the browser's default blue.
+- A save button spins while it saves, says "Saved" after, and asks again once something changes.
+- The row menu (Posts, Pages and the File Manager's file and folder menus) closes on a press outside or Escape, and Escape works wherever focus is.
+- The Posts and Pages language filters and the Redirects article list use the admin's own list.
+- Plugin colour settings are typed as hex beside a swatch.
+- The admin's main column is white, and the sidebar sits on the cream page behind it.
+- Paper's footer sets the TomeCMS credit at the right.
+
+### Fixed
+
+- The Plugins screen's two notes no longer stretch into the plugin grid; their headings are the right size.
+- The upload button no longer keeps a focus ring after a file is chosen.
+
 ## 1.4.0 - 2026-09-30
 
 The admin reads as an editorial page instead of a set of equal boxes, and the public search moves onto the row of categories.

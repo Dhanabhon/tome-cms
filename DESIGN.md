@@ -326,6 +326,19 @@ tiers by situation: nothing yet (`.admin-empty`), nothing matches (`--filtered`)
 form is empty (`--inline`). Stats leads with three figures at `--text-3xl`. A status is a dot
 and a word. Selected and active states come from ink and the accent, never from a surface fill.
 
+**Surfaces.** The main column is `--color-paper` (white in light, the lighter night in dark); the
+sidebar sits on `--color-paper-2` behind it.
+
+**No system pickers.** No control in the admin opens a picker the operating system draws: lists are
+`UiSelect`, dates and times `UiDateTime`, colours a hex field with a swatch. The one exception is the
+file chooser behind "Upload", which the web does not let a page replace. A unit test fails on a
+native `<select>`, date, time or colour input in `src/components` or `src/pages`. A form in the admin
+takes `noValidate`, so the browser's validation bubble, which the operating system also draws, never
+shows and the admin's own words say what is wrong; new forms do the same.
+
+**Save buttons** carry their state (`SaveButton`): a spinner while saving, "Saved" after, "Save"
+once something changes; the button keeps one width.
+
 Design: `docs/specs/2026-09-29-admin-editorial-refresh-design.md` (shape), `docs/specs/2026-09-17-admin-modern-ui-design.md` (icons, groups, counts).
 
 ## Components

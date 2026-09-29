@@ -1663,11 +1663,12 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-story-menu button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 .admin-story-menu summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 
-/* The select drops the same kind of menu, and shares its stylesheet with the installer --
- * so the admin's corners are set here rather than in ui-controls.css. */
 /* Nothing OS-drawn keeps its default look in the admin: every radio and checkbox, dialogs and
    drawers included (they mount inside the body), takes the accent. */
 .admin-body input[type="radio"], .admin-body input[type="checkbox"] { accent-color: var(--color-accent); }
+
+/* The select drops the same kind of menu, and shares its stylesheet with the installer --
+ * so the admin's corners are set here rather than in ui-controls.css. */
 .admin-body .ui-select__menu { border-radius: var(--radius-card); }
 .admin-body .ui-select__option { border-radius: var(--radius-sm); }
 
