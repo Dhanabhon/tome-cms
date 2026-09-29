@@ -75,8 +75,9 @@ const filters = kind === 'posts' || kind === 'pages';
     ) : (
       <div class:list={[head && 'admin-page', head && kind === 'form' && 'admin-form-page']}>
         {head && (
-          <div class="admin-page__head">
+          <div class:list={['admin-page__head', filters && 'admin-page__head--tabs']}>
             <div>
+              <span class="skeleton-line" style="--skeleton-width: 4rem"></span>
               <span class="skeleton skeleton--title"></span>
               <span class="skeleton-line admin-skeleton__lede"></span>
             </div>
@@ -89,20 +90,12 @@ const filters = kind === 'posts' || kind === 'pages';
         )}
 
         {filters && (
-          <Fragment>
+          <div class="admin-list-bar">
             <div class="admin-post-tabs">
               {count(3).map(() => <span class="skeleton-tab"></span>)}
             </div>
-            <div class:list={['admin-post-filters', kind === 'posts' && 'admin-post-filters--compact']}>
-              {(kind === 'posts' ? [3] : [4, 3]).map((width) => (
-                <div class="admin-field">
-                  <span class="skeleton-line" style={`--skeleton-width: ${width}rem`}></span>
-                  <span class="skeleton skeleton--control"></span>
-                </div>
-              ))}
-              <span class="skeleton skeleton--button" style="--skeleton-width: 6rem"></span>
-            </div>
-          </Fragment>
+            <span class="skeleton-line" style="--skeleton-width: 7rem"></span>
+          </div>
         )}
 
         {kind === 'posts' && (

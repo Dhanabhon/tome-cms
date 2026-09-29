@@ -57,12 +57,6 @@ test('the public site and the installer keep the root tokens', () => {
   assert.equal(declaration(root, '--text-title'), 'clamp(1.75rem, 6vw, 2.5rem)');
 });
 
-test('an admin page title is semibold', () => {
-  // One selector, not two: the file library used to bring its own heading, and now stands
-  // in the same page head as every other screen.
-  assert.equal(declaration(ruleBody(CSS, '.admin-page__head h1'), 'font-weight'), '600');
-});
-
 test('a tab count adds only what a tab needs', () => {
   // a count is the shared figure and adds nothing of its own
   // (the shared rule ends in this selector, so a comma precedes it there)
@@ -403,4 +397,34 @@ test('the site line is a line under the logo, not a pill', () => {
   assert.equal(declaration(site, 'background'), undefined);
   assert.equal(declaration(site, 'border-radius'), undefined);
   assert.match(declaration(site, 'border-block-end') ?? '', /var\(--color-rule\)$/);
+});
+
+test('every page head carries an eyebrow, and the title is the display face at 700', () => {
+  const heads = [
+    'src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro', 'src/pages/admin/categories.astro',
+    'src/pages/admin/redirects.astro', 'src/pages/admin/stats.astro', 'src/pages/admin/profile.astro',
+    'src/pages/admin/security.astro', 'src/pages/admin/settings.astro', 'src/pages/admin/system.astro',
+    'src/pages/admin/plugins.astro', 'src/pages/admin/themes/index.astro', 'src/components/admin/MediaLibrary.tsx',
+    'src/components/admin/NavigationManager.tsx', 'src/components/admin/MaintenanceForm.tsx', 'src/components/admin/SlidesManager.tsx',
+  ];
+  for (const head of heads) {
+    assert.match(read(head), /admin-page__head[\s\S]{0,120}?class(?:Name)?="admin-eyebrow"/, `${head} has no eyebrow`);
+  }
+  const title = ruleBody(CSS, '.admin-page__head h1');
+  // 700, not 600: Google Sans Thai ships one bold weight and font-synthesis is off, so a 600
+  // Thai title would fall back to the body face without a word of warning.
+  assert.equal(declaration(title, 'font-weight'), '700');
+  assert.equal(declaration(title, 'font-family'), 'var(--font-display)');
+});
+
+test('the list screens filter from the tab row and keep a submit for a page with no script', () => {
+  for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
+    const source = read(page);
+    assert.match(source, /class="admin-list-bar"/, `${page} has no list bar`);
+    assert.match(source, /<select class="admin-control admin-list-filter__select"[^>]*name="locale"/, `${page} does not filter with a select`);
+    assert.match(source, /class="admin-button admin-list-filter__submit"[^>]*type="submit"/, `${page} lost its no-script submit`);
+    assert.doesNotMatch(source, /name="q"/, `${page} still has a title search`);
+    assert.doesNotMatch(source, /copy\.filters\.apply/, `${page} still has Apply filters`);
+  }
+  assert.match(CSS, /\.admin-list-filter__submit:not\(:focus-visible\) \{[^}]*position: absolute/);
 });

@@ -137,10 +137,8 @@ const en = {
   },
   filters: {
     allLanguages: 'All languages',
-    apply: 'Apply filters',
     english: 'English',
     language: 'Language',
-    searchByTitle: 'Search by title',
     thai: 'Thai',
   },
   updates: {
@@ -685,7 +683,6 @@ const en = {
     newPost: 'New post',
     noMatchBody: 'Try another title, language, or status.',
     noMatchTitle: 'No posts match these filters',
-    search: 'Search posts',
     statusLabel: 'Post status',
     subheading: 'Draft, publish, and keep your writing in one place.',
     untitled: 'Untitled post',
@@ -704,7 +701,6 @@ const en = {
     newPage: 'New page',
     noMatchBody: 'Try another title, language, or status.',
     noMatchTitle: 'No pages match these filters',
-    search: 'Search pages',
     statusLabel: 'Page status',
     subheading: 'Manage your site pages and their language editions.',
     untitled: 'Untitled page',
@@ -1100,10 +1096,8 @@ const th: typeof en = {
   },
   filters: {
     allLanguages: 'ทุกภาษา',
-    apply: 'กรองข้อมูล',
     english: 'อังกฤษ',
     language: 'ภาษา',
-    searchByTitle: 'ค้นหาจากชื่อเรื่อง',
     thai: 'ไทย',
   },
   updates: {
@@ -1647,7 +1641,6 @@ const th: typeof en = {
     newPost: 'บทความใหม่',
     noMatchBody: 'ลองเปลี่ยนชื่อเรื่อง ภาษา หรือสถานะ',
     noMatchTitle: 'ไม่พบบทความที่ตรงกับตัวกรองนี้',
-    search: 'ค้นหาบทความ',
     statusLabel: 'สถานะบทความ',
     subheading: 'ร่าง เผยแพร่ และเก็บงานเขียนไว้ที่เดียว',
     untitled: 'บทความไม่มีชื่อ',
@@ -1666,7 +1659,6 @@ const th: typeof en = {
     newPage: 'เพจใหม่',
     noMatchBody: 'ลองเปลี่ยนชื่อเรื่อง ภาษา หรือสถานะ',
     noMatchTitle: 'ไม่พบเพจที่ตรงกับตัวกรองนี้',
-    search: 'ค้นหาเพจ',
     statusLabel: 'สถานะเพจ',
     subheading: 'จัดการเพจและฉบับภาษาต่าง ๆ',
     untitled: 'เพจไม่มีชื่อ',

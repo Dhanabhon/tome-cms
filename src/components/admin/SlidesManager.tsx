@@ -283,7 +283,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
   return (<>
     <section className="admin-page navigation-manager home-slides">
       <header className="admin-page__head">
-        <div><h1>{text.heading}</h1><p>{text.subheading}</p></div>
+        <div><p className="admin-eyebrow">{copy.nav.groupContent}</p><h1>{text.heading}</h1><p>{text.subheading}</p></div>
         <button className="admin-button admin-button--primary" disabled={loading || !!loadError || saving} onClick={() => open(null)} ref={addButton} type="button">{text.add}</button>
       </header>
       {!heroUsesSlides && (

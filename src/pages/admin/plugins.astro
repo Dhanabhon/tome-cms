@@ -47,7 +47,7 @@ const errorMessage = errorKey ? copy.errors[errorKey] : null;
     <AdminShell active="plugins" adminPath={settings.admin_path} locale={settings.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
         <header class="admin-page__head">
-          <div><h1>{copy.plugins.heading}</h1><p>{copy.plugins.subheading}</p></div>
+          <div><p class="admin-eyebrow">{copy.nav.groupConfig}</p><h1>{copy.plugins.heading}</h1><p>{copy.plugins.subheading}</p></div>
         </header>
         <PluginManager client:load initialPlugins={plugins} ownerLocale={ownerLocale} />
       </section>

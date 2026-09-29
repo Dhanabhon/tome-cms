@@ -44,7 +44,7 @@ const errorMessage = errorKey ? copy.errors[errorKey] : null;
   {errorMessage || !settings ? <main><p class="admin-alert admin-alert--page" role="alert">{errorMessage}</p></main> : (
     <AdminShell active="profile" adminPath={settings.admin_path} locale={settings?.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
-        <header class="admin-page__head"><div><h1>{copy.profile.heading}</h1><p>{copy.profile.subheading}</p></div></header>
+        <header class="admin-page__head"><div><p class="admin-eyebrow">{copy.nav.groupConfig}</p><h1>{copy.profile.heading}</h1><p>{copy.profile.subheading}</p></div></header>
         <ProfileForm
           client:load
           ownerLocale={ownerLocale}

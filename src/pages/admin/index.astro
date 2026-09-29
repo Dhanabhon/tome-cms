@@ -4,7 +4,6 @@ import Icon from '../../components/Icon.astro';
 import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
-import UiSelect from '../../components/admin/UiSelect';
 import { adminHref, adminPreviewHref } from '../../lib/admin';
 import { adminCopy, adminDateFormat, fill, statusLabel } from '../../lib/admin-i18n';
 import { filterAdminPosts, groupAdminStories, type AdminPostFilters } from '../../lib/posts';
@@ -117,8 +116,9 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
   ) : (
   <Frame active="posts" adminPath={adminPath} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
   <section class="admin-page">
-    <header class="admin-page__head">
+    <header class="admin-page__head admin-page__head--tabs">
       <div>
+        <p class="admin-eyebrow">{copy.nav.groupContent}</p>
         <h1>{copy.posts.heading}</h1>
         <p>{copy.posts.subheading}</p>
       </div>
@@ -134,31 +134,23 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       <p class="admin-alert" role="alert">{errorMessage}</p>
     ) : (
       <div data-admin-posts data-edit-base={adminHref(adminSettings, '/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-action-failed={copy.errors.actionFailed} data-copy-content-required={copy.editor.contentRequired} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-cancel={copy.shell.cancel} data-copy-delete-title={copy.posts.deleteTitle} data-copy-delete-message={copy.posts.deleteMessage}>
-        <nav class="admin-post-tabs" aria-label={copy.posts.statusLabel}>
-          {tabs.map((tab) => (
-            <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale, q: query })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
-          ))}
-        </nav>
-        <form class="admin-post-filters admin-post-filters--compact" action={adminHref(adminSettings)} method="get" novalidate>
-          <input type="hidden" name="status" value={status} />
-          {query && <input type="hidden" name="q" value={query} />}
-          <div class="admin-field">
-            <label for="post-locale">{copy.filters.language}</label>
-            <UiSelect
-              client:load
-              className="admin-control"
-              defaultValue={locale}
-              id="post-locale"
-              name="locale"
-              options={[
-                { label: copy.filters.allLanguages, value: 'all' },
-                { label: copy.filters.thai, value: 'th' },
-                { label: copy.filters.english, value: 'en' },
-              ]}
-            />
-          </div>
-          <button class="admin-button" type="submit">{copy.filters.apply}</button>
-        </form>
+        <div class="admin-list-bar">
+          <nav class="admin-post-tabs" aria-label={copy.posts.statusLabel}>
+            {tabs.map((tab) => (
+              <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
+            ))}
+          </nav>
+          <form class="admin-list-filter" action={adminHref(adminSettings)} method="get" novalidate data-list-filter>
+            <input type="hidden" name="status" value={status} />
+            <label class="sr-only" for="post-locale">{copy.filters.language}</label>
+            <select class="admin-control admin-list-filter__select" id="post-locale" name="locale">
+              <option value="all" selected={locale === 'all'}>{copy.filters.allLanguages}</option>
+              <option value="th" selected={locale === 'th'}>{copy.filters.thai}</option>
+              <option value="en" selected={locale === 'en'}>{copy.filters.english}</option>
+            </select>
+            <button class="admin-button admin-list-filter__submit" type="submit">{copy.filters.language}</button>
+          </form>
+        </div>
         <p class="admin-alert" data-post-error role="alert" hidden></p>
         <div class="admin-story-list admin-story-grid">
           {stories.map((story) => {
@@ -247,5 +239,10 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       cancelLabel: copy.copyCancel ?? 'Cancel',
       tone: 'danger',
     }),
+  });
+
+  // The language select filters as it changes; the submit beside it is for a page with no script.
+  document.querySelector<HTMLFormElement>('[data-list-filter]')?.addEventListener('change', (event) => {
+    (event.currentTarget as HTMLFormElement).requestSubmit();
   });
 </script>

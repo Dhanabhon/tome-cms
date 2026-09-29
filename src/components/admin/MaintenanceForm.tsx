@@ -173,7 +173,7 @@ export default function MaintenanceForm({ ownerLocale, previewHref }: Maintenanc
 
   return (<>
     <section className="admin-page admin-form-page maintenance-screen">
-      <header className="admin-page__head"><div><h1>{text.heading}</h1><p>{text.subheading}</p></div></header>
+      <header className="admin-page__head"><div><p className="admin-eyebrow">{copy.nav.settings}</p><h1>{text.heading}</h1><p>{text.subheading}</p></div></header>
       <div className="admin-card-stack">
         <section aria-labelledby="maintenance-state-heading" className="admin-card maintenance-state" data-enabled={enabled}>
           <header className="admin-card__head">

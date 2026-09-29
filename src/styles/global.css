@@ -1131,34 +1131,35 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   margin-inline: auto;
   padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-xl)) var(--space-3xl);
 }
-
+/* The masthead: an eyebrow naming the group, the title in the display face, a line of lede,
+ * the actions on the title's baseline, and a rule to close it. Where tabs follow, the tab
+ * row supplies the rule instead (see .admin-page__head--tabs). */
 .admin-page__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-lg);
   align-items: end;
+  padding-block-end: var(--space-lg);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
 }
-
-/* --text-display is the hero token; this is a working surface that gets scanned, not a page
- * that gets read, and the sidebar already says which screen you are on. The admin sets
- * --text-title to 28px and the weight to semibold, so the title labels the screen without
- * taking the height the first rows of the list need. */
+.admin-page__head--tabs { padding-block-end: 0; border-block-end: 0; }
+.admin-page__head .admin-eyebrow { margin-block-end: var(--space-xs); }
 .admin-page__head h1 {
   min-width: 0;
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 1;
   overflow-wrap: anywhere;
 }
-
-.admin-page__head p {
+.admin-page__head p:not(.admin-eyebrow) {
   max-width: 55ch;
   margin: var(--space-sm) 0 0;
   color: var(--color-muted);
 }
+.admin-page__head + * { margin-block-start: var(--space-lg); }
 
 .admin-button {
   --admin-button-hover: var(--color-paper-3);
@@ -1186,12 +1187,15 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
 .admin-button--primary {
   --admin-button-hover: var(--color-accent-hover);
+  border-radius: 0.5rem;
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-ink);
 }
 
 .admin-button--secondary { background: var(--color-paper); }
+.admin-page__head .admin-button--secondary { border-color: transparent; background: transparent; color: var(--color-muted); }
+.admin-page__head .admin-button--secondary:hover { color: var(--color-ink); background: var(--color-paper-3); }
 /* For actions that sit in chrome rather than in content: no fill and no edge until hovered. */
 .admin-button--ghost { --admin-button-hover: var(--color-paper-3); border-color: transparent; background: transparent; color: var(--color-muted); }
 .admin-button--ghost:hover { color: var(--color-ink); }
@@ -1249,28 +1253,26 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-button[data-state="error"] { border-color: var(--color-error); color: var(--color-error-ink); }
 .admin-button[data-state="success"] { border-color: var(--color-green); }
 
-/* One set of tab rules for the whole admin. Posts and Pages tab with links; the menu
- * editor tabs with real ARIA tabs, which are buttons -- so the shared rule resets what a
- * button brings with it and both end up as words with an underline. */
+/* One set of tab rules for the whole admin. Posts and Pages tab with links; the menu editor
+ * and Maintenance tab with real ARIA tabs, which are buttons. The chosen one is ink with the
+ * accent under it, on the row's own rule. */
 .admin-post-tabs,
 .navigation-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-lg);
-  margin-block-start: var(--space-xl);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 .admin-post-tabs a,
 .navigation-tabs [role="tab"] {
   display: inline-flex;
-  /* A flex container drops whitespace-only text nodes, so the space between the label
-   * and its count has to be a gap or the two run together. */
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   min-inline-size: 44px;
   min-height: var(--control-height);
+  margin-block-end: -1px;
   align-items: center;
   justify-content: center;
-  padding-inline: var(--space-xs);
+  padding-inline: var(--space-3xs);
   border: 0;
   border-block-end: 2px solid transparent;
   background: none;
@@ -1278,29 +1280,32 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   cursor: pointer;
   font: inherit;
   font-size: var(--text-sm);
+  font-weight: 500;
   text-decoration: none;
 }
 .admin-post-tabs a[aria-current="page"],
-.navigation-tabs [aria-selected="true"] { border-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
+.navigation-tabs [aria-selected="true"] { border-color: var(--color-accent); color: var(--color-ink); font-weight: 600; }
 .navigation-tabs [role="tab"]:disabled { cursor: not-allowed; opacity: 0.55; }
 .navigation-tab { min-width: 0; }
-/* A title filter is a few words, so the field is capped and the row packs left. Left to
- * grow it took every pixel the others did not -- 696px at 1024, the widest control on
- * the page, for a box you type "slow" into. */
-.admin-post-filters {
-  display: grid;
-  grid-template-columns: minmax(0, 20rem) minmax(9rem, auto) auto;
-  justify-content: start;
-  gap: var(--space-md);
-  align-items: end;
-  margin-block: var(--space-lg);
+/* The tab row and, at its right end, the one filter a list keeps: the language. */
+.admin-list-bar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-xs) var(--space-lg); margin-block-start: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.admin-list-bar .admin-post-tabs { border-block-end: 0; }
+.admin-list-filter { position: relative; display: flex; align-items: center; margin-block-end: -1px; }
+.admin-list-filter__select {
+  min-height: var(--control-height);
+  padding-inline: 0 var(--space-lg);
+  border: 0;
+  border-block-end: 2px solid transparent;
+  border-radius: 0;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='currentColor' stroke-width='1.5'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right center;
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  appearance: none;
 }
-.admin-post-filters .admin-field { min-width: 0; }
-/* A button that is a direct grid child fills its column, and on a phone that column is
- * the whole row. */
-.admin-post-filters > button { justify-self: start; }
-/* On Posts the search lives in the admin top bar, so the row is the language and its button. */
-.admin-post-filters--compact { grid-template-columns: minmax(9rem, auto) auto; }
+.admin-list-filter__select:focus-visible { outline: 0; border-block-end-color: var(--color-focus); }
+/* The submit is for a page with no script: unseen until a keyboard reaches it. */
+.admin-list-filter__submit:not(:focus-visible) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
  * date shares a footer with the row menu. Pages keeps the row list this class started
  * as -- the two lists answer different questions and the reference separates them. */
@@ -2257,7 +2262,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .skeleton--control { height: var(--control-height); border-radius: var(--radius-input); }
 .skeleton--chip { flex: none; width: 3.5rem; height: 2rem; border-radius: var(--radius-pill); }
 .admin-skeleton__lede { width: var(--skeleton-width, min(26rem, 90%)); margin-block-start: var(--space-sm); }
-.admin-post-filters > .skeleton { justify-self: start; }
 /* A post card's cover, then about the height the edition lines and the date footer take. */
 .admin-skeleton__cover {
   aspect-ratio: 16 / 7;
@@ -2325,7 +2329,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   .admin-page { padding-block-start: var(--space-xl); }
   .admin-page__head { grid-template-columns: minmax(0, 1fr); align-items: start; }
   .admin-page__head .admin-button { width: fit-content; }
-  .admin-post-filters { grid-template-columns: minmax(0, 1fr); }
   .admin-story-row { grid-template-columns: 3rem minmax(0, 1fr) 44px; gap: var(--space-sm); }
   .admin-story-meta { align-items: start; }
   /* The date takes its own line, named rather than counted. As :last-child this caught

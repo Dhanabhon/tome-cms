@@ -474,6 +474,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       {props.mode === 'manage' && (
         <div className="admin-page__head">
           <div>
+            <p className="admin-eyebrow">{copy.nav.groupContent}</p>
             <h1 ref={mediaHeading} tabIndex={-1}>{copy.media.heading}</h1>
             <p>{copy.media.subheading}</p>
           </div>

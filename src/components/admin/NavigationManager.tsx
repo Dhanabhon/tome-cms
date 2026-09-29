@@ -220,7 +220,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   return (
     <section className="admin-page navigation-manager">
       <header className="admin-page__head">
-        <div><h1>{copy.navigation.heading}</h1><p>{copy.navigation.subheading}</p></div>
+        <div><p className="admin-eyebrow">{copy.nav.groupContent}</p><h1>{copy.navigation.heading}</h1><p>{copy.navigation.subheading}</p></div>
         <button className="admin-button admin-button--primary" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
       </header>
       <p className="navigation-status" role="status" aria-live="polite" aria-atomic="true">{loading ? copy.navigation.loading : status}</p>
