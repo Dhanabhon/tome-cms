@@ -1,9 +1,9 @@
 /** The layouts an admin page can take while it loads (components/admin/AdminSkeleton.astro). */
 /** 'auth' is a fallback only -- the shape the sign-in island shows while it loads.
  *  transitionKind never returns it: nothing inside the admin navigates to the sign-in. */
-export type AdminSkeletonKind = 'posts' | 'pages' | 'list' | 'media' | 'form' | 'editor' | 'auth';
+export type AdminSkeletonKind = 'posts' | 'pages' | 'list' | 'media' | 'form' | 'settings' | 'editor' | 'auth';
 
-const FORMS = new Set(['/maintenance', '/profile', '/security', '/settings', '/system']);
+const FORMS = new Set(['/profile', '/security', '/system']);
 
 /**
  * The layout of the admin page a URL leads to, so the navigation overlay can stand in for it
@@ -21,5 +21,6 @@ export function transitionKind(url: URL, adminPath: string, origin: string): Adm
   if (path === '') return 'posts';
   if (path === '/pages') return 'pages';
   if (path === '/media') return 'media';
+  if (path === '/settings' || path === '/maintenance') return 'settings';
   return FORMS.has(path) ? 'form' : 'list';
 }

@@ -543,3 +543,12 @@ test('the language filter waits for Enter when the keyboard drives it', () => {
     assert.match(source, /submit\.tabIndex = -1/, file);
   }
 });
+
+test('the skeletons keep the tab row, the eyebrow and the note their pages draw', () => {
+  const skeleton = read('src/components/admin/AdminSkeleton.astro');
+  assert.match(skeleton, /kind === 'settings'[\s\S]*?admin-post-tabs admin-subtabs/);
+  assert.match(skeleton, /<div class="admin-page__head">\s*<div>\s*<span class="skeleton-line" style="--skeleton-width: 4rem">/);
+  assert.match(skeleton, /admin-page__note/);
+  assert.match(read('src/components/PageTransitionSkeleton.astro'), /'settings'/);
+  assert.match(read('src/pages/admin/maintenance.astro'), /<AdminSkeleton kind="settings"/);
+});

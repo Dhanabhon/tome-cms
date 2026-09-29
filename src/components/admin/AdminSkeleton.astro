@@ -20,8 +20,10 @@ interface Props {
 
 const { kind, head = true, label } = Astro.props;
 const count = (length: number) => Array.from({ length }, (_, index) => index);
-const actions = kind === 'posts' ? 2 : kind === 'form' ? 0 : 1;
+const actions = kind === 'posts' ? 2 : kind === 'form' || kind === 'settings' ? 0 : 1;
 const filters = kind === 'posts' || kind === 'pages';
+const tabbed = filters || kind === 'settings';
+const stacked = kind === 'form' || kind === 'settings';
 ---
 
 <div class="admin-skeleton" data-kind={kind}>
@@ -60,6 +62,7 @@ const filters = kind === 'posts' || kind === 'pages';
       <div class="media-shell" data-mode="manage">
         <div class="admin-page__head">
           <div>
+            <span class="skeleton-line" style="--skeleton-width: 4rem"></span>
             <span class="skeleton skeleton--title"></span>
             <span class="skeleton-line admin-skeleton__lede"></span>
           </div>
@@ -73,13 +76,14 @@ const filters = kind === 'posts' || kind === 'pages';
         </div>
       </div>
     ) : (
-      <div class:list={[head && 'admin-page', head && kind === 'form' && 'admin-form-page']}>
+      <div class:list={[head && 'admin-page', head && stacked && 'admin-form-page']}>
         {head && (
-          <div class:list={['admin-page__head', filters && 'admin-page__head--tabs']}>
+          <div class:list={['admin-page__head', tabbed && 'admin-page__head--tabs']}>
             <div>
               <span class="skeleton-line" style="--skeleton-width: 4rem"></span>
               <span class="skeleton skeleton--title"></span>
               <span class="skeleton-line admin-skeleton__lede"></span>
+              {filters && <span class="skeleton-line admin-page__note" style="--skeleton-width: 12rem"></span>}
             </div>
             {actions > 0 && (
               <div class="admin-page__actions">
@@ -87,6 +91,10 @@ const filters = kind === 'posts' || kind === 'pages';
               </div>
             )}
           </div>
+        )}
+
+        {kind === 'settings' && (
+          <div class="admin-post-tabs admin-subtabs"><span class="skeleton-tab"></span><span class="skeleton-tab"></span></div>
         )}
 
         {filters && (
@@ -128,7 +136,7 @@ const filters = kind === 'posts' || kind === 'pages';
           </div>
         )}
 
-        {kind === 'form' && (
+        {stacked && (
           <div class="admin-card-stack admin-skeleton__stack">
             {[3, 2].map((fields) => (
               <div class="admin-card">

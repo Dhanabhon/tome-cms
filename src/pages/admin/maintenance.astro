@@ -52,7 +52,7 @@ const previewHref = adminHref({ admin_path: settings?.admin_path ?? '/admin' }, 
   ) : (
     <AdminShell active="maintenance" adminPath={settings?.admin_path} locale={settings?.default_locale} siteName={settings?.site_name ?? 'TomeCMS'} userEmail={userEmail}>
       <MaintenanceForm client:only="react" ownerLocale={ownerLocale} previewHref={previewHref} generalHref={generalHref} maintenanceHref={maintenanceHref}>
-        <AdminSkeleton kind="form" label={copy.maintenance.loading} slot="fallback" />
+        <AdminSkeleton kind="settings" label={copy.maintenance.loading} slot="fallback" />
       </MaintenanceForm>
     </AdminShell>
   )}

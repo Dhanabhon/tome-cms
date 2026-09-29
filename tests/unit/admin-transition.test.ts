@@ -14,8 +14,12 @@ test('each admin screen gets the skeleton of its own layout', () => {
   assert.equal(kind('/admin/media'), 'media');
   assert.equal(kind('/admin/navigation'), 'list');
   assert.equal(kind('/admin/categories'), 'list');
-  for (const form of ['/admin/profile', '/admin/security', '/admin/settings', '/admin/system', '/admin/maintenance']) {
+  for (const form of ['/admin/profile', '/admin/security', '/admin/system']) {
     assert.equal(kind(form), 'form', form);
+  }
+  // Settings and Maintenance carry a tab row under the head; their skeleton draws it too.
+  for (const tabbed of ['/admin/settings', '/admin/maintenance']) {
+    assert.equal(kind(tabbed), 'settings', tabbed);
   }
 });
 
