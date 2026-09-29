@@ -238,7 +238,6 @@ function ColourField({ defaultValue, id, invalidText, name }: ColourFieldProps) 
         name={name}
         onBlur={() => { if (colour) setText(colour); }}
         onChange={(event) => setText(event.target.value)}
-        pattern="#?[0-9A-Fa-f]{6}"
         spellCheck={false}
         value={text}
       />
@@ -281,8 +280,13 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // A colour that is not six hex digits is never sent; the field says why, beside itself.
-    if (event.currentTarget.querySelector('.admin-colour input[aria-invalid="true"]')) return;
+    // A colour that is not six hex digits is never sent; the field says why, beside itself,
+    // and takes the focus so the way back is one keystroke.
+    const invalid = event.currentTarget.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (invalid) {
+      invalid.focus();
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const values = Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)]));
     // An unticked box sends nothing, and the store reads nothing as "leave it" -- so a
@@ -322,7 +326,9 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
           <Icon name="close" />
         </button>
       </header>
-      <form className="plugin-setup" onChange={markDirty} onInput={markDirty} onSubmit={submit}>
+      {/* noValidate: the browser's own validation bubble is drawn by the operating system. The
+            colour field says what is wrong in the admin's words, and normalizeHex alone decides. */}
+      <form className="plugin-setup" noValidate onChange={markDirty} onInput={markDirty} onSubmit={submit}>
         <fieldset disabled={busy}>
           {manifest.settings.map((setting) => setting.kind === 'switch' ? (
             <div className="admin-check" key={setting.key}>

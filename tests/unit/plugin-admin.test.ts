@@ -134,3 +134,11 @@ test('a choice setting offers its options and only those', () => {
 test('a plugin that can be previewed says how, and only while it is on', () => {
   assert.match(SOURCE, /manifest\.previewHref && \(state\?\.enabled/);
 });
+
+test('a mistyped colour is told in the admin\'s words, never in the browser\'s bubble', () => {
+  assert.match(SOURCE, /<form className="plugin-setup" noValidate /, 'the setup form does not let the browser validate');
+  const field = /function ColourField[\s\S]*?\n}\n/.exec(SOURCE)?.[0] ?? '';
+  assert.ok(field, 'ColourField is in the source');
+  assert.doesNotMatch(field, /\spattern=/, 'normalizeHex alone decides what a colour is');
+  assert.match(SOURCE, /querySelector<HTMLElement>\('\[aria-invalid="true"\]'\)[\s\S]{0,80}invalid\.focus\(\)/, 'a refused save takes the focus to the field');
+});
