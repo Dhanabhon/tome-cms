@@ -2,11 +2,25 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
-## Unreleased
+## 1.4.0 - 2026-09-30
+
+The admin reads as an editorial page instead of a set of equal boxes, and the public search moves onto the row of categories.
 
 ### Changed
 
-- The admin reads as an editorial page: display titles under eyebrows, sheets and rules instead of boxed cards, Stats led by figures, one empty-state system, and no top bar on a desktop. The admin's post search is gone; the public themes' search sits on the category row.
+- Every admin screen but the editor takes a new shape: a 40px display title under a small label naming its group, sheets separated by rules instead of boxed cards, a sidebar on the page's own surface that marks where you are with a green bar, and no top bar on a desktop. Colours, fonts, screens and what each one does are unchanged.
+- Form screens (Settings, Maintenance, Profile, Security, System) are two columns wide enough: the section's name and a line about it on the left, its fields on the right. The save bar sits on the page's lower edge and says whether anything is waiting. Settings and Maintenance share a General / Maintenance tab row.
+- Stats leads with its three numbers as large figures on one ruled row; its charts, lists and table lose their boxes. A change is set in green, a note is not.
+- Empty screens follow one pattern by situation: nothing made yet, nothing matching the tab or filter (with a way back to all), or an empty part of a form.
+- Status is a dot and a word without a pill, card titles use the display face, numbers line up in columns, and a list says its timezone once instead of on every card.
+- On Paper and Plain the search box sits at the right end of the category row, with the magnifier as its button, instead of a filled button above it.
+
+### Removed
+
+- The post search in the admin's top bar and the title filter on Pages. Posts and Pages keep their tabs and a language filter on the tab row, which applies a choice made with the mouse at once; with the keyboard, Tab to "Show this language".
+- The "Apply filters" button, which the language filter no longer needs.
+
+Full notes: [docs/releases/1.4.0.md](docs/releases/1.4.0.md)
 
 ## 1.3.3 - 2026-09-29
 
