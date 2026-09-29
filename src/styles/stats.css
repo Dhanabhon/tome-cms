@@ -31,6 +31,7 @@
 }
 .stats-summary__unit { margin-inline-start: var(--space-3xs); font-size: var(--text-xl); letter-spacing: 0; }
 .stats-summary__change { color: var(--color-ink-2); font-size: var(--text-sm); }
+.stats-summary__change--delta { color: var(--color-link); font-weight: 600; }
 .stats-note { margin: 0 0 var(--space-xl); color: var(--color-muted); font-size: var(--text-xs); }
 
 /* A panel is a heading in the display face and what it heads, 40px from the next. No box. */

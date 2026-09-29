@@ -552,3 +552,10 @@ test('the skeletons keep the tab row, the eyebrow and the note their pages draw'
   assert.match(read('src/components/PageTransitionSkeleton.astro'), /'settings'/);
   assert.match(read('src/pages/admin/maintenance.astro'), /<AdminSkeleton kind="settings"/);
 });
+
+test('a Stats change is set in the link colour, a note is not', () => {
+  const stats = read('src/styles/stats.css');
+  assert.equal(declaration(ruleBody(stats, '.stats-summary__change--delta'), 'color'), 'var(--color-link)');
+  assert.equal(declaration(ruleBody(stats, '.stats-summary__change--delta'), 'font-weight'), '600');
+  assert.match(read('src/components/admin/stats/StatsReport.astro'), /stats-summary__change--delta/);
+});

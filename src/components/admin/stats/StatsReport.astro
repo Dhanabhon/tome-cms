@@ -22,6 +22,9 @@ const calendar = new Intl.DateTimeFormat(tag, unit === 'day'
 const dateOf = (key: string) => calendar.format(new Date(`${unit === 'day' ? key : `${key}-01`}T00:00:00Z`));
 const chartTitle = unit === 'day' ? copy.stats.chartDaily : copy.stats.chartMonthly;
 
+/** A figure that moved is set in the link colour; a note ("Nothing to compare with yet") is not. */
+const changeClass = (text: string) => ['stats-summary__change', /^[↑↓]/.test(text) && 'stats-summary__change--delta'];
+
 /** ↑ 12% or ↓ 3%: how a count changed. */
 function countChange(current: number, previous: number): string {
   const value = percentChange(current, previous);
@@ -54,12 +57,12 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
   <div>
     <dt class="admin-eyebrow">{copy.stats.views}</dt>
     <dd class="stats-summary__value">{number.format(report.totals.views)}</dd>
-    <dd class="stats-summary__change">{countChange(report.totals.views, report.previous.views)}</dd>
+    <dd class:list={changeClass(countChange(report.totals.views, report.previous.views))}>{countChange(report.totals.views, report.previous.views)}</dd>
   </div>
   <div>
     <dt class="admin-eyebrow">{copy.stats.reads}</dt>
     <dd class="stats-summary__value">{number.format(report.totals.reads)}</dd>
-    <dd class="stats-summary__change">{countChange(report.totals.reads, report.previous.reads)}</dd>
+    <dd class:list={changeClass(countChange(report.totals.reads, report.previous.reads))}>{countChange(report.totals.reads, report.previous.reads)}</dd>
   </div>
   <div>
     <dt class="admin-eyebrow">{copy.stats.readRatio}</dt>
@@ -71,7 +74,7 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
         </>
       )}
     </dd>
-    <dd class="stats-summary__change">{ratioChange()}</dd>
+    <dd class:list={changeClass(ratioChange())}>{ratioChange()}</dd>
   </div>
 </dl>
 <p class="stats-note">{copy.stats.previousPeriod}</p>
