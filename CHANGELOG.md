@@ -2,6 +2,17 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.1.2 - 2026-09-29
+
+The limits on signing in, recovery, installing and updating count each visitor, not the reverse proxy in front of the application.
+
+### Fixed
+
+- Behind a reverse proxy every visitor arrived from the proxy, so each of these limits was one count shared by everyone: ten failing sign-in requests from anywhere kept the owner out for up to fifteen minutes, and the Turnstile plugin was told the proxy's address. The limits now count the address the proxy wrote last in `X-Forwarded-For`, believed only from the proxy's side. An IPv6 visitor counts by their /64, and rows of the limit table older than an hour are swept.
+- The proxy has to set that header, as Caddy does and nginx needs a line for. [The reverse proxy](https://dhanabhon.github.io/tome-cms/start/requirements/#the-reverse-proxy) says which.
+
+Full notes: [docs/releases/1.1.2.md](docs/releases/1.1.2.md)
+
 ## 1.1.1 - 2026-09-29
 
 Installing an update from "System" works with the Cloudflare Turnstile plugin switched on, and says why when the passkey check does not go through.
