@@ -11,6 +11,9 @@ import { expect, test } from './own-worker';
  *
  *   ADMIN_SHOTS=before npm run test:e2e -- tests/e2e/admin-shots.spec.ts --project=desktop
  *
+ * Writes to .superpowers/admin-shots/<label>/ (git-ignored): Playwright empties test-results/
+ * at the start of every run, so nothing written there survives the next one.
+ *
  * Without ADMIN_SHOTS it skips, so the suite never pays for it. It signs in once:
  * /recovery allows five sign-ins per file, and one is all this needs.
  */
@@ -20,7 +23,7 @@ test.skip(!process.env.ADMIN_SHOTS, 'Set ADMIN_SHOTS=<label> to write screenshot
 test.skip(({ isMobile }) => Boolean(isMobile), 'Widths are set by hand below.');
 
 const LABEL = process.env.ADMIN_SHOTS!;
-const OUT = join('test-results', 'admin-shots', LABEL);
+const OUT = join('.superpowers', 'admin-shots', LABEL);
 const PROJECT = 'tomecms-shots-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
 const CREDENTIAL = 'admin-shots-secret-at-least-32-chars-x';
