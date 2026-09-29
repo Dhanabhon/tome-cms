@@ -305,9 +305,9 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
         </div>
         <div aria-busy={saving} aria-labelledby={`home-slides-${locale}-tab`} id="home-slides-panel" role="tabpanel" tabIndex={0}>
           {!items.length && (
-            <div className="admin-empty navigation-empty">
-              <span aria-hidden="true" className="admin-empty__mark"><Icon name="slides" /></span>
-              <div><p>{text.empty}</p></div>
+            <div className="admin-empty">
+              <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
+              <h2>{text.empty}</h2>
             </div>
           )}
           <ol aria-label={text.list} className="navigation-items" ref={list}>

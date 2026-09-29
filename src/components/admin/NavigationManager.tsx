@@ -238,9 +238,9 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
           </div>
           <div aria-busy={saving} aria-labelledby={`navigation-${locale}-tab`} id="navigation-language-panel" role="tabpanel" tabIndex={0}>
             {!items.length && (
-              <div className="admin-empty navigation-empty">
-                <span className="admin-empty__mark" aria-hidden="true"><Icon name="navigation" /></span>
-                <div><p>{copy.navigation.empty}</p></div>
+              <div className="admin-empty">
+                <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
+                <h2>{copy.navigation.empty}</h2>
               </div>
             )}
             <ol aria-label={copy.navigation.menuItems} className="navigation-items" ref={list}>

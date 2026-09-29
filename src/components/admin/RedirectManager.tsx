@@ -111,7 +111,7 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
       </form>
 
       {redirects.length === 0 ? (
-        <p className="redirect-empty">{copy.redirects.empty}</p>
+        <p className="admin-empty admin-empty--inline">{copy.redirects.empty}</p>
       ) : (
         <ul className="redirect-list" aria-label={copy.redirects.listLabel}>
           {redirects.map((entry) => {

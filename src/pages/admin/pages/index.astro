@@ -150,13 +150,16 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                 </article>
               );
             })}
-            {!stories.length && (
+            {!stories.length && (pages.length ? (
+              <p class="admin-empty admin-empty--filtered"><span>{copy.pages.noMatchTitle}</span><a href={adminHref(adminSettings, '/pages')}>{copy.pages.noMatchLink}</a></p>
+            ) : (
               <div class="admin-empty">
-                <span class="admin-empty__mark" aria-hidden="true"><Icon name="pages" /></span>
-                <div><h2>{pages.length ? copy.pages.noMatchTitle : copy.pages.emptyTitle}</h2><p>{pages.length ? copy.pages.noMatchBody : copy.pages.emptyBody}</p></div>
-                {!pages.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.createFirst}</a>}
+                <p class="admin-eyebrow">{copy.empty.eyebrow}</p>
+                <h2>{copy.pages.emptyTitle}</h2>
+                <p>{copy.pages.emptyBody}</p>
+                <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.createFirst}</a>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </section>

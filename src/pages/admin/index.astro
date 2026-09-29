@@ -208,13 +208,16 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
               </article>
             );
           })}
-          {!stories.length && (
+          {!stories.length && (posts.length ? (
+            <p class="admin-empty admin-empty--filtered"><span>{copy.posts.noMatchTitle}</span><a href={adminHref(adminSettings)}>{copy.posts.noMatchLink}</a></p>
+          ) : (
             <div class="admin-empty">
-              <span class="admin-empty__mark" aria-hidden="true"><Icon name="posts" /></span>
-              <div><h2>{posts.length ? copy.posts.noMatchTitle : copy.posts.emptyTitle}</h2><p>{posts.length ? copy.posts.noMatchBody : copy.posts.emptyBody}</p></div>
-              {!posts.length && <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/new')}>{copy.posts.createFirst}</a>}
+              <p class="admin-eyebrow">{copy.empty.eyebrow}</p>
+              <h2>{copy.posts.emptyTitle}</h2>
+              <p>{copy.posts.emptyBody}</p>
+              <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/new')}>{copy.posts.createFirst}</a>
             </div>
-          )}
+          ))}
         </div>
       </div>
     )}

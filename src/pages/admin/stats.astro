@@ -76,11 +76,10 @@ const COLUMNS: Array<[StatsSort, string]> = [['views', copy.stats.views], ['read
           </div>
         </header>
         {!counted && (
-          <div class="stats-empty-notice" role="status">
-            <div>
-              <h2>{copy.stats.emptyHeading}</h2>
-              <p>{copy.stats.emptyBody}</p>
-            </div>
+          <div class="admin-empty" role="status">
+            <p class="admin-eyebrow">{copy.empty.eyebrow}</p>
+            <h2>{copy.stats.emptyHeading}</h2>
+            <p>{copy.stats.emptyBody}</p>
           </div>
         )}
         <StatsFilters base={base} copy={copy} query={query} />

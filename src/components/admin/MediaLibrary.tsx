@@ -513,9 +513,10 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection, failedRequest.filter)} type="button">{copy.media.retry}</button>}</div>}
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}
           {!loading && !error && !items.length && (
-            <div className="admin-empty media-empty">
-              <span className="admin-empty__mark" aria-hidden="true"><Icon name="media" /></span>
-              <div><h2>{copy.media.emptyTitle}</h2><p>{copy.media.emptyBody}</p></div>
+            <div className="admin-empty">
+              <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
+              <h2>{copy.media.emptyTitle}</h2>
+              <p>{copy.media.emptyBody}</p>
             </div>
           )}
           {items.length > 0 && <><div className="media-grid">{items.map((item) => {

@@ -72,10 +72,14 @@ const siteHref = edition?.slug && edition.live && getServerEnv().TOME_CMS_FRONTE
       <section class="admin-page stats-page">
         <p class="stats-back"><a href={statsHref(base, query, { page: 1 })}>← {copy.stats.back}</a></p>
         {!edition || !report ? (
-          <div class="stats-empty">
-            <h1>{copy.stats.heading}</h1>
-            <p>{copy.stats.notFound}</p>
-          </div>
+          <>
+            <header class="admin-page__head">
+              <div>
+                <h1>{copy.stats.heading}</h1>
+              </div>
+            </header>
+            <p class="admin-empty admin-empty--filtered" role="status">{copy.stats.notFound}</p>
+          </>
         ) : (
           <>
             <header class="admin-page__head">

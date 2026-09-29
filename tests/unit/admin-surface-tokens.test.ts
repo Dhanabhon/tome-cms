@@ -93,13 +93,23 @@ test('every admin dialog is the same surface', () => {
   }
 });
 
-test("an empty state shows its screen's icon in a soft circle", () => {
-  const mark = ruleBody(CSS, '.admin-empty__mark');
-  assert.equal(declaration(mark, 'background'), 'var(--color-paper-3)');
-  assert.equal(declaration(mark, 'border'), undefined, 'a filled circle needs no outline');
-  assert.equal(declaration(mark, 'color'), 'var(--color-muted)');
-  for (const [page, icon] of [['src/pages/admin/index.astro', 'posts'], ['src/pages/admin/pages/index.astro', 'pages']] as const) {
-    assert.match(read(page), new RegExp(`admin-empty__mark[^>]*>\\s*<Icon name="${icon}" />`), page);
+test('an empty state is one of three tiers, and none of them has an icon or a dashed box', () => {
+  assert.doesNotMatch(CSS, /\.admin-empty__mark/, 'the icon circle is still drawn');
+  for (const gone of ['.admin-empty-inline', '.redirect-empty', '.navigation-empty', '.media-empty', '.stats-empty {']) {
+    assert.ok(!CSS.includes(`\n${gone}`) && !read('src/styles/stats.css').includes(`\n${gone}`), `${gone} still exists`);
+  }
+  const first = ruleBody(CSS, '.admin-empty');
+  assert.equal(declaration(first, 'border-block-start'), 'var(--rule-hair) solid var(--color-rule)');
+  assert.equal(declaration(first, 'max-width'), '36rem');
+  assert.equal(declaration(ruleBody(CSS, '.admin-empty h2'), 'font-family'), 'var(--font-display)');
+  assert.doesNotMatch(CSS, /\.admin-story-list > \.admin-empty \{[^}]*dashed/);
+  // The screens: which tier each one draws.
+  assert.match(read('src/pages/admin/index.astro'), /posts\.length \? \(\s*<p class="admin-empty admin-empty--filtered">/);
+  assert.match(read('src/pages/admin/pages/index.astro'), /pages\.length \? \(\s*<p class="admin-empty admin-empty--filtered">/);
+  assert.match(read('src/components/admin/ProfileForm.tsx'), /className="admin-empty admin-empty--inline"/);
+  assert.match(read('src/components/admin/RedirectManager.tsx'), /className="admin-empty admin-empty--inline"/);
+  for (const file of ['src/components/admin/MediaLibrary.tsx', 'src/components/admin/NavigationManager.tsx', 'src/components/admin/SlidesManager.tsx', 'src/pages/admin/stats.astro']) {
+    assert.match(read(file), /class(?:Name)?="admin-empty"[\s\S]{0,80}?class(?:Name)?="admin-eyebrow"/, `${file} is not a tier-1 empty`);
   }
 });
 
@@ -139,14 +149,13 @@ test('the file library stands in the same frame as every other screen', () => {
 });
 
 test('the media surfaces are tokens, not utility chains', () => {
-  for (const selector of ['.media-card', '.media-empty', '.media-status', '.media-grid']) {
+  for (const selector of ['.media-card', '.media-status', '.media-grid']) {
     assert.doesNotMatch(ruleBody(CSS, selector), /@apply/, `${selector} still borrows its look from utilities`);
   }
   assert.equal(declaration(ruleBody(CSS, '.media-card'), 'border-radius'), 'var(--radius-card)');
-  // The empty state is the one the lists use, icon and all.
+  // The empty state is the one the lists use.
   const library = read('src/components/admin/MediaLibrary.tsx');
-  assert.match(library, /className="admin-empty media-empty"/);
-  assert.match(library, /<Icon name="media" \/>/);
+  assert.match(library, /className="admin-empty"/);
 });
 
 test('the details dialog uses the admin controls', () => {
@@ -182,7 +191,7 @@ test('a menu item is handled with icons that keep their words', () => {
     assert.match(manager, new RegExp(`aria-label=\\{copy\\.navigation\\.${label}\\}`), `${label} lost its label`);
     assert.match(manager, new RegExp(`title=\\{copy\\.navigation\\.${label}\\}`), `${label} lost its title`);
   }
-  assert.match(manager, /className="admin-empty navigation-empty"/, 'the empty menu is not the shared empty state');
+  assert.match(manager, /className="admin-empty"/, 'the empty menu is not the shared empty state');
 });
 
 test('a count is one badge, wherever it is counted', () => {
