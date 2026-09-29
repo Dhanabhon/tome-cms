@@ -426,7 +426,8 @@ test('the footer thanks the writer, and a link is named after its site or with a
   // The Posts list's language filter and the empty-tab link ride on this sign-in too: the
   // five-sign-in cap leaves no room for a test of their own.
   await page.goto(`${origin}/admin?status=draft`);
-  await page.locator('#post-locale').selectOption('en');
+  await page.locator('#post-locale').click();
+  await page.getByRole('option', { name: 'English' }).click();
   await page.waitForURL(/locale=en/);
   await page.getByRole('link', { name: 'Show all posts' }).click();
   await page.waitForURL(/status=all/);

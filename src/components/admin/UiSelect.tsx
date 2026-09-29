@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
+import { placePopover } from '../../lib/popover';
+
 /** The gap between the trigger and its list, and the shortest list worth opening. */
 const GAP = 4;
 const MIN_HEIGHT = 120;
@@ -21,6 +23,7 @@ interface UiSelectProps {
   name?: string;
   onValueChange?: (value: string) => void;
   options: UiSelectOption[];
+  submitOnChange?: boolean;
   value?: string;
 }
 
@@ -35,6 +38,7 @@ export default function UiSelect({
   name,
   onValueChange,
   options,
+  submitOnChange = false,
   value,
 }: UiSelectProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -71,17 +75,13 @@ export default function UiSelect({
     const button = trigger.current;
     const list = menu.current;
     if (!button || !list) return;
-    const rect = button.getBoundingClientRect();
-    const below = window.innerHeight - rect.bottom - GAP;
-    const above = rect.top - GAP;
-    const flip = list.scrollHeight > below && above > below;
-    const room = Math.max(flip ? above : below, MIN_HEIGHT);
-    const cap = MAX_ROWS * parseFloat(getComputedStyle(document.documentElement).fontSize || '16');
-    list.style.insetInlineStart = `${rect.left}px`;
-    list.style.width = `${rect.width}px`;
-    list.style.maxHeight = `${Math.min(room, cap)}px`;
-    list.style.insetBlockStart = flip ? 'auto' : `${rect.bottom + GAP}px`;
-    list.style.insetBlockEnd = flip ? `${window.innerHeight - rect.top + GAP}px` : 'auto';
+    const where = placePopover(button.getBoundingClientRect(), list.scrollHeight, window.innerHeight,
+      parseFloat(getComputedStyle(document.documentElement).fontSize || '16'), { gap: GAP, minHeight: MIN_HEIGHT, maxRows: MAX_ROWS });
+    list.style.insetInlineStart = `${where.left}px`;
+    list.style.width = where.width === null ? '' : `${where.width}px`;
+    list.style.maxHeight = `${where.maxHeight}px`;
+    list.style.insetBlockStart = where.top === null ? 'auto' : `${where.top}px`;
+    list.style.insetBlockEnd = where.bottom === null ? 'auto' : `${where.bottom}px`;
   }, []);
 
   // Before paint, so the list is never seen in the corner it starts in. Scrolling is
@@ -97,6 +97,14 @@ export default function UiSelect({
     };
   }, [open, place]);
 
+  // A list that filters a page submits its form once the new value is in its hidden input.
+  const submitPending = useRef(false);
+  useEffect(() => {
+    if (!submitPending.current) return;
+    submitPending.current = false;
+    root.current?.closest('form')?.requestSubmit();
+  }, [selectedValue]);
+
   const openMenu = () => {
     setActiveIndex(selectedIndex);
     setOpen(true);
@@ -105,6 +113,7 @@ export default function UiSelect({
   const choose = (index: number) => {
     const option = options[index];
     if (!option) return;
+    if (submitOnChange && option.value !== selectedValue) submitPending.current = true;
     if (value === undefined) setInternalValue(option.value);
     onValueChange?.(option.value);
     setOpen(false);

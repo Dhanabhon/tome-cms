@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
@@ -433,12 +434,10 @@ test('every page head carries an eyebrow, and the title is the display face at 7
   assert.equal(declaration(title, 'font-family'), 'var(--font-display)');
 });
 
-test('the list screens filter from the tab row and keep a submit for a page with no script', () => {
+test('the list screens filter from the tab row', () => {
   for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
     const source = read(page);
     assert.match(source, /class="admin-list-bar"/, `${page} has no list bar`);
-    assert.match(source, /<select class="admin-control admin-list-filter__select"[^>]*name="locale"/, `${page} does not filter with a select`);
-    assert.match(source, /class="admin-button admin-list-filter__submit"[^>]*type="submit"/, `${page} lost its no-script submit`);
     assert.doesNotMatch(source, /name="q"/, `${page} still has a title search`);
     assert.doesNotMatch(source, /copy\.filters\.apply/, `${page} still has Apply filters`);
   }
@@ -448,7 +447,6 @@ test('the list screens filter from the tab row and keep a submit for a page with
   assert.equal(declaration(select, 'border-radius'), '0');
   assert.equal(declaration(select, 'background-color'), 'transparent');
   assert.equal(declaration(ruleBody(CSS, '.admin-list-bar'), 'margin-block-end'), 'var(--space-lg)');
-  assert.match(CSS, /\.admin-list-filter__submit:not\(:focus-visible\) \{[^}]*position: absolute/);
 });
 
 test('a form is a stack of sheets: no box, a rule between, two columns when the stack is wide', () => {
@@ -540,15 +538,25 @@ test('"Show all" from an empty tab links to status=all', () => {
   assert.match(read('src/pages/admin/pages/index.astro'), /admin-empty--filtered[\s\S]{0,200}?status[^<]*all/);
 });
 
-test('the language filter leaves a keyboard choice to its own submit button', () => {
+test('the list filters choose a language through the admin select, which submits on a choice', () => {
   for (const file of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
     const source = read(file);
-    // A change that began on the keyboard must not navigate (WCAG 3.2.2)...
-    assert.match(source, /addEventListener\('change', \(\) => \{ if \(!byKeyboard\) form\?\.requestSubmit\(\); \}\)/, file);
-    // ...and nothing takes over the select's Enter or hides the button the keyboard applies it with.
-    assert.doesNotMatch(source, /event\.key === 'Enter'/, file);
-    assert.doesNotMatch(source, /tabIndex = -1/, file);
-    assert.match(source, /admin-list-filter__submit" type="submit">\{copy\.filters\.showLanguage\}/, file);
+    assert.match(source, /<UiSelect[\s\S]{0,400}?name="locale"[\s\S]{0,300}?submitOnChange/, file);
+    assert.doesNotMatch(source, /admin-list-filter__submit|<select/, file);
+  }
+  const select = read('src/components/admin/UiSelect.tsx');
+  assert.match(select, /closest\('form'\)\?\.requestSubmit\(\)/);
+  assert.match(select, /placePopover\(/);
+});
+
+test('no control opens a picker drawn by the operating system', () => {
+  // The file chooser is the one exception the web imposes. Until the date-time picker and the
+  // colour field land (Tasks 5 and 6), those two input types are listed here as still allowed.
+  const allowedForNow = /type="(?:datetime-local|color)"/;
+  for (const file of execSync('git ls-files src/components src/pages', { encoding: 'utf8' }).trim().split('\n')) {
+    if (!/\.(astro|tsx)$/.test(file)) continue;
+    const source = read(file).replace(new RegExp(allowedForNow.source, 'g'), '');
+    assert.doesNotMatch(source, /<select\b|type="(?:date|datetime-local|time|month|week|color)"/, file);
   }
 });
 

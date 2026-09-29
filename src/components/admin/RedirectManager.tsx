@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 
 import Icon from '../Icon';
+import UiSelect from './UiSelect';
 import { adminCopy, fill } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
 import type { RedirectEntry } from '../../server/content/redirects';
@@ -87,17 +88,19 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
       <form className="admin-card redirect-add" onSubmit={add}>
         <h2>{copy.redirects.addHeading}</h2>
         <p>{copy.redirects.addHint}</p>
-        <label className="admin-field">
-          <span>{copy.redirects.article}</span>
-          <select className="admin-control" onChange={(event) => setTargetKey(event.target.value)} required value={targetKey}>
-            <option value="">{copy.redirects.chooseArticle}</option>
-            {targets.map((option) => (
-              <option key={`${option.kind}:${option.id}`} value={`${option.kind}:${option.id}`}>
-                {option.locale.toUpperCase()} · {option.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="admin-field">
+          <label htmlFor="redirect-target">{copy.redirects.article}</label>
+          <UiSelect
+            className="admin-control"
+            id="redirect-target"
+            onValueChange={setTargetKey}
+            options={[
+              { label: copy.redirects.chooseArticle, value: '' },
+              ...targets.map((option) => ({ label: `${option.locale.toUpperCase()} · ${option.title}`, value: `${option.kind}:${option.id}` })),
+            ]}
+            value={targetKey}
+          />
+        </div>
         <label className="admin-field">
           <span>{copy.redirects.oldAddress}</span>
           <div className="admin-control admin-control--prefixed">

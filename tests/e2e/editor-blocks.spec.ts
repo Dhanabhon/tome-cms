@@ -650,7 +650,8 @@ test('an owner can forward an old address, and stop', async ({ context, page }) 
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
 
   await page.goto(`${origin}/admin/redirects`);
-  await page.locator('.redirect-add select').selectOption({ label: 'EN · Destination' });
+  await page.locator('#redirect-target').click();
+  await page.getByRole('option', { name: 'EN · Destination' }).click();
   // The field shows where the address will live once the article is chosen.
   await expect(page.locator('.redirect-add .admin-control--prefixed > span')).toHaveText('/en/blog/');
   await page.locator('.redirect-add input[type="text"]').fill('somewhere-old');

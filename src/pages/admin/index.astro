@@ -2,6 +2,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import Icon from '../../components/Icon.astro';
 import AdminSkeleton from '../../components/admin/AdminSkeleton.astro';
+import UiSelect from '../../components/admin/UiSelect';
 import AdminShell from '../../components/admin/AdminShell.astro';
 import PasskeySignIn from '../../components/admin/PasskeySignIn';
 import { adminHref, adminPreviewHref } from '../../lib/admin';
@@ -141,15 +142,22 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
               <a aria-current={status === tab.status ? "page" : undefined} href={adminHref(adminSettings, `?${new URLSearchParams({ status: tab.status, locale })}`)}>{tab.label} <span class="admin-tab-count">{tab.count}</span></a>
             ))}
           </nav>
-          <form class="admin-list-filter" action={adminHref(adminSettings)} method="get" novalidate data-list-filter>
+          <form class="admin-list-filter" action={adminHref(adminSettings)} method="get" novalidate>
             <input type="hidden" name="status" value={status} />
-            <label class="sr-only" for="post-locale">{copy.filters.language}</label>
-            <select class="admin-control admin-list-filter__select" id="post-locale" name="locale">
-              <option value="all" selected={locale === 'all'}>{copy.filters.allLanguages}</option>
-              <option value="th" selected={locale === 'th'}>{copy.filters.thai}</option>
-              <option value="en" selected={locale === 'en'}>{copy.filters.english}</option>
-            </select>
-            <button class="admin-button admin-list-filter__submit" type="submit">{copy.filters.showLanguage}</button>
+            <UiSelect
+              client:load
+              ariaLabel={copy.filters.language}
+              className="admin-control admin-list-filter__select"
+              defaultValue={locale}
+              id="post-locale"
+              name="locale"
+              options={[
+                { label: copy.filters.allLanguages, value: 'all' },
+                { label: copy.filters.thai, value: 'th' },
+                { label: copy.filters.english, value: 'en' },
+              ]}
+              submitOnChange
+            />
           </form>
         </div>
         <p class="admin-alert" data-post-error role="alert" hidden></p>
@@ -247,15 +255,4 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
   });
 
   wireDetailsMenus('details.admin-story-menu');
-
-  // Pointer users get the list on change. A keyboard user stepping through the options must
-  // not be sent away on the first arrow press (WCAG 3.2.2): a change that began on the keyboard
-  // does nothing, and the submit button beside the select -- shown as soon as Tab reaches it --
-  // is how the keyboard applies the choice. The select's own Enter is left to the browser.
-  const form = document.querySelector<HTMLFormElement>('[data-list-filter]');
-  const select = form?.querySelector<HTMLSelectElement>('select');
-  let byKeyboard = false;
-  select?.addEventListener('keydown', () => { byKeyboard = true; });
-  select?.addEventListener('pointerdown', () => { byKeyboard = false; });
-  select?.addEventListener('change', () => { if (!byKeyboard) form?.requestSubmit(); });
 </script>

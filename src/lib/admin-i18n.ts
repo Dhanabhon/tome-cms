@@ -140,7 +140,6 @@ const en = {
     allLanguages: 'All languages',
     english: 'English',
     language: 'Language',
-    showLanguage: 'Show this language',
     thai: 'Thai',
   },
   updates: {
@@ -1097,7 +1096,6 @@ const th: typeof en = {
     allLanguages: 'ทุกภาษา',
     english: 'อังกฤษ',
     language: 'ภาษา',
-    showLanguage: 'แสดงภาษานี้',
     thai: 'ไทย',
   },
   updates: {
