@@ -90,10 +90,11 @@ export const openApiDocument = {
         operationId: 'listPublicPosts',
         summary: 'List published posts',
         tags: ['Content'],
-        parameters: [parameterRef('Locale'), parameterRef('Limit'), parameterRef('Cursor'), parameterRef('Category')],
+        parameters: [parameterRef('Locale'), parameterRef('Limit'), parameterRef('Cursor'), parameterRef('Category'), parameterRef('Search')],
         responses: {
           '200': jsonResponse('A cursor-paginated page of published posts.', 'PostListResponse'),
           ...standardResponses,
+          '429': responseRef('TooManyRequests'),
         },
       },
       options: optionsOperation('optionsPublicPosts'),
@@ -234,6 +235,13 @@ export const openApiDocument = {
         description: 'Filter posts by category name.',
         schema: { type: 'string', minLength: 1, maxLength: 80 },
       },
+      Search: {
+        name: 'q',
+        in: 'query',
+        required: false,
+        description: 'Find the posts that contain every word, in the title, the excerpt or the text, ignoring case. Only the first five words count.',
+        schema: { type: 'string', minLength: 1, maxLength: 100 },
+      },
       Slug: {
         name: 'slug',
         in: 'path',
@@ -247,6 +255,11 @@ export const openApiDocument = {
       NotModified: { description: 'The cached representation is still current.' },
       BadRequest: { description: 'The request parameters are invalid.', content: problemContent },
       NotFound: { description: 'The published resource does not exist.', content: problemContent },
+      TooManyRequests: {
+        description: 'A search was asked for too often, or the server is busy with other searches. Ask again after `Retry-After` seconds.',
+        headers: { 'Retry-After': { description: 'Seconds to wait.', schema: { type: 'integer' } } },
+        content: problemContent,
+      },
       ServerError: { description: 'The request could not be completed.', content: problemContent },
       ServiceUnavailable: { description: 'The content service is not ready, or the site is closed for maintenance; then `maintenance` carries what the owner wrote for visitors.', content: problemContent },
     },

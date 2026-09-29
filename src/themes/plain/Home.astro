@@ -5,7 +5,7 @@ import type { ThemeHomeProps } from '../contract';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, loadError, locale, nextCursor, posts, tagline, timezone } = Astro.props;
+const { activeCategory, categories, loadError, locale, nextCursor, posts, query, tagline, timezone } = Astro.props;
 const copy = publicCopy(locale);
 const unavailable = locale === 'th'
   ? 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง'
@@ -13,12 +13,21 @@ const unavailable = locale === 'th'
 const home = localePath(locale);
 const formatter = new Intl.DateTimeFormat(dateLocale(locale), { dateStyle: 'long', timeZone: timezone });
 const olderHref = nextCursor
-  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), cursor: nextCursor })}`
+  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
   : null;
+// The reader's words go into a sentence as text, whatever they contain.
+const saying = (template: string) => template.replace('{query}', () => query ?? '');
 ---
 
 <div class="plain-page">
   {tagline && <p class="plain-tagline">{tagline}</p>}
+
+  <form class="plain-search" role="search" method="get" action={home}>
+    <label class="sr-only" for="plain-search-q">{copy.searchLabel}</label>
+    <input id="plain-search-q" name="q" type="search" value={query ?? ''} maxlength="100" placeholder={copy.searchLabel} autocomplete="off" enterkeyhint="search" />
+    <button type="submit">{copy.search}</button>
+  </form>
+  {query && <p class="plain-search-status" role="status">{saying(copy.searchResults)} · <a href={home}>{copy.clearSearch}</a></p>}
 
   {categories.length > 0 && (
     <nav class="plain-filter" aria-label={copy.categories}>
@@ -42,6 +51,8 @@ const olderHref = nextCursor
       );
     })}
   </ol>
+
+  {query && posts.length === 0 && !loadError && <p class="plain-search-none">{saying(copy.noResults)}</p>}
 
   {olderHref && <p class="plain-more"><a href={olderHref}>{copy.allPosts} →</a></p>}
   {loadError && <p role="alert">{unavailable}</p>}

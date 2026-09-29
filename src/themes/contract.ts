@@ -98,6 +98,10 @@ export interface ThemeHomeProps {
   themeSettings: Readonly<Record<string, string>>;
   /** The category the reader filtered by, as they wrote it. */
   activeCategory: string | undefined;
+  /** What the reader searched for, trimmed, or undefined when they did not. The posts are already
+   *  only the ones that match. A theme draws them first, without a hero, and says what was
+   *  searched for and how to leave it: the words are the reader's, so it prints them as text. */
+  query: string | undefined;
   /** Set when a page beyond the first is being shown, which changes what is eager. */
   cursor: string | undefined;
   categories: PostCategoryBadge[];

@@ -70,6 +70,7 @@ test('OpenAPI describes only the complete public content contract', () => {
       '#/components/parameters/Limit',
       '#/components/parameters/Cursor',
       '#/components/parameters/Category',
+      '#/components/parameters/Search',
     ],
   );
   assert.deepEqual(

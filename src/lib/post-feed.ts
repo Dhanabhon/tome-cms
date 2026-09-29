@@ -164,6 +164,9 @@ function wireFilter(nav: HTMLElement, first: HTMLElement, stopFirst: () => void)
       feed = next;
       stopRows = startRows(feed);
       shown = key(url);
+      // The box says what the list on screen was searched for, and a pill's list was not.
+      const box = document.querySelector<HTMLInputElement>('[data-post-search] input[name="q"]');
+      if (box) box.value = url.searchParams.get('q') ?? '';
       if (push) history.pushState(null, '', url);
       if (status) status.textContent = (nav.dataset.announce ?? '{name}').replace('{name}', label);
     } catch (error) {

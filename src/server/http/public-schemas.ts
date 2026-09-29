@@ -19,6 +19,7 @@ import type {
 } from '../../types/cms';
 import { HOME_SLIDE_FOCUS, POST_LOCALES, POST_STATUSES } from '../../types/cms';
 import { normalizedContentSlugSchema } from '../content/mutations';
+import { searchTerms } from '../content/search';
 
 export const localeQuerySchema = z.enum(POST_LOCALES);
 
@@ -30,6 +31,7 @@ export const listQuerySchema = z.object({
 
 export const postListQuerySchema = listQuerySchema.extend({
   category: z.string().trim().min(1).max(80).optional(),
+  q: z.string().trim().min(1).max(100).refine((value) => searchTerms(value).length > 0, 'Search for at least one word.').optional(),
 }).strict();
 
 export const detailQuerySchema = z.object({ locale: localeQuerySchema }).strict();

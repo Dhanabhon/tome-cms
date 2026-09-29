@@ -35,6 +35,12 @@ const claims: CursorClaims = {
   id: '2945700a-b92e-46d2-ab94-c845249f5a6d',
 };
 
+test('a list with no search is tied to the same query as before search existed', () => {
+  // Cursors already in a headless site's hands must keep working: an undefined entry adds nothing.
+  assert.equal(cursorQueryHash({ ...query, q: undefined }), claims.queryHash);
+  assert.notEqual(cursorQueryHash({ ...query, q: 'compost' }), claims.queryHash, 'and a search is a different list');
+});
+
 function signPayload(payload: string): string {
   const signature = createHmac('sha256', secret)
     .update('tomecms:content-cursor:v1:signature\0')

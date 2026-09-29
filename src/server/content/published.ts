@@ -18,6 +18,8 @@ import type { SiteBrand } from '../../lib/site-brand';
 import { brandOf } from './brand';
 import { getSiteSettings, type SiteSettings } from './settings';
 import { live } from './live';
+import { whileSearching } from '../http/search-limit';
+import { likeContaining, searchTerms } from './search';
 export interface PublishedPost extends Post {
   categories: PostCategoryBadge[];
   coverImage: ReadyImage | null;
@@ -40,6 +42,8 @@ export interface PublicPageListInput {
 
 export interface PublicPostListInput extends PublicPageListInput {
   category?: string;
+  /** What the reader searched for: every word must be found in the title, the excerpt or the body. */
+  q?: string;
 }
 
 export interface PublishedPageResult<T> {
@@ -182,11 +186,27 @@ export async function enrichPages(ownerId: string, pages: Page[]): Promise<Publi
   });
 }
 
+// A post's body as a reader reads it. A block tag is a gap, because a paragraph, a list item or a
+// cell ends a word; every other tag is nothing, because bold or a link inside a word does not,
+// and Thai, which has no spaces, is a phrase that runs straight across them. Then the few
+// entities the editor's HTML writes for a character are put back, `&amp;` last so that
+// `&amp;lt;` stays the four characters it shows.
+const READ_BODY = sql`replace(replace(replace(replace(replace(replace(
+  regexp_replace(
+    regexp_replace(
+      post.content_html,
+      '</?(p|br|hr|h[1-6]|ul|ol|li|blockquote|pre|div|table|thead|tbody|tfoot|tr|th|td|figure|figcaption)([[:space:]/][^>]*)?>',
+      ' ', 'gi'),
+    '<[^>]*>', '', 'g'),
+  '&nbsp;', ' '), '&lt;', '<'), '&gt;', '>'), '&quot;', '"'), '&#39;', ''''), '&amp;', '&')`;
+
 export async function listPublishedPosts(input: PublicPostListInput): Promise<PublishedPageResult<PublishedPost>> {
   const settings = await getSiteSettings();
   if (!settings) return { hasMore: false, items: [], lastModified: new Date(0), nextCursor: null };
   const limit = boundedLimit(input.limit);
-  const cursorQuery: CursorQuery = { category: input.category, limit, locale: input.locale };
+  const terms = searchTerms(input.q);
+  // The search is part of what a cursor is tied to, and a list with none is as it was before.
+  const cursorQuery: CursorQuery = { category: input.category, limit, locale: input.locale, q: terms.join(' ') || undefined };
   const cursor = input.cursor ? decodeCursor(input.cursor, { query: cursorQuery, resource: 'posts' }) : null;
   let query = db.selectFrom('posts as post').selectAll('post')
     .where('post.owner_id', '=', settings.owner_id)
@@ -203,6 +223,13 @@ export async function listPublishedPosts(input: PublicPostListInput): Promise<Pu
         and lower(category.name) = lower(${input.category})
     )`);
   }
+  if (terms.length) {
+    // The three fields are one text, so the body is read once however many words there are, and a
+    // word found anywhere counts. A word holds no control character, so it cannot straddle a break.
+    query = query.where(sql<boolean>`(
+      post.title || chr(10) || post.excerpt || chr(10) || ${READ_BODY}
+    ) ilike all (${terms.map(likeContaining)}::text[])`);
+  }
   if (cursor) {
     query = query.where(sql<boolean>`(
       date_trunc('milliseconds', post.published_at) < ${cursor.publishedAt}::timestamptz
@@ -212,8 +239,9 @@ export async function listPublishedPosts(input: PublicPostListInput): Promise<Pu
       )
     )`);
   }
-  const rows = await query.orderBy(sql`date_trunc('milliseconds', post.published_at)`, 'desc')
+  const read = () => query.orderBy(sql`date_trunc('milliseconds', post.published_at)`, 'desc')
     .orderBy('post.id', 'desc').limit(limit + 1).execute();
+  const rows = terms.length ? await whileSearching(read) : await read();
   const hasMore = rows.length > limit;
   const items = await enrichPosts(settings.owner_id, rows.slice(0, limit).map(postFromRow));
   const last = items.at(-1);

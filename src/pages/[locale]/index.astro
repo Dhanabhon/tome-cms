@@ -5,7 +5,9 @@ import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
 import { getPublicSlides } from '../../server/content/slides';
 import { getSiteSettings } from '../../server/content/settings';
+import { searchQuery } from '../../server/content/search';
 import { HttpError } from '../../server/http/errors';
+import { maySearch } from '../../server/http/search-limit';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../themes/registry';
 import { readThemeSettings } from '../../server/themes/store';
 import type { Post, PostAlternate, PostCategoryBadge, PublicHomeSlide } from '../../types/cms';
@@ -19,6 +21,15 @@ const locale = localeValue;
 // so the rows the feed script adds after it line up.
 const category = Astro.url.searchParams.get('category')?.trim().slice(0, 100) || undefined;
 const cursor = Astro.url.searchParams.get('cursor') || undefined;
+// What the reader searched for, as the words that will be looked for. An empty box sends `q=`,
+// and a query of nothing but spaces or control characters is no search either.
+const query = searchQuery(Astro.url.searchParams.get('q'));
+if (query && !maySearch(Astro.request, Astro.clientAddress)) {
+  return new Response('Too many searches. Try again in a minute.\n', {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '60' },
+    status: 429,
+  });
+}
 let posts: Post[] = [];
 // Read whatever the theme will do with them: which hero it draws is its own setting, and the
 // read is five seconds of cache away. It never throws: a failure is a hero without slides.
@@ -37,7 +48,7 @@ const profile = settings ? await getPublicAuthorProfile(settings, locale) : null
 const slidesRead = getPublicSlides(locale);
 try {
   const [page, published] = await Promise.all([
-    listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale }),
+    listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale, q: query }),
     listPublishedCategories(locale),
   ]);
   posts = page.items;
@@ -69,7 +80,8 @@ const activeTheme = await resolveTheme(settings?.theme_id);
   canonicalPath={localePath(locale)}
   description={siteDescription}
   locale={locale}
-  robots={loadError ? 'noindex, nofollow' : cursor ? 'noindex, follow' : undefined}
+  robots={loadError ? 'noindex, nofollow' : cursor || query ? 'noindex, follow' : undefined}
+  title={query ? publicCopy(locale).searchResults.replace('{query}', () => query) : undefined}
   stats={loadError ? undefined : { kind: 'home' }}
 >
   <activeTheme.Home
@@ -82,6 +94,7 @@ const activeTheme = await resolveTheme(settings?.theme_id);
     nextCursor={nextCursor}
     posts={posts}
     profile={profile}
+    query={query}
     slides={slides}
     siteName={settings?.site_name ?? 'TomeCMS'}
     tagline={settings?.tagline?.trim() || publicCopy(locale).defaultTagline}

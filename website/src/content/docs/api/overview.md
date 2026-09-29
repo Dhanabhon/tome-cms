@@ -70,7 +70,7 @@ The routes are strict about their parameters. A parameter a route does not know 
 
 ## Pages of results
 
-The lists of posts and pages come a page at a time, newest first. `limit` sets how many, from 1 to 50, and is 20 when you leave it out. `category` narrows the posts to one category by its name, and case does not matter.
+The lists of posts and pages come a page at a time, newest first. `limit` sets how many, from 1 to 50, and is 20 when you leave it out. `category` narrows the posts to one category by its name, and case does not matter. `q` searches them, as [Searching the posts](#searching-the-posts) describes.
 
 When there are more, `meta.hasMore` is `true` and `links.next` is the address of the next page. On the last page `links.next` is `null`.
 
@@ -91,7 +91,7 @@ curl -s 'https://cms.example.com/api/v1/content/posts?locale=th&limit=2' | jq '{
 }
 ```
 
-Follow `links.next` as it is. It keeps your `locale`, `limit` and `category` and adds a `cursor`. This loop prints the slug of every English post:
+Follow `links.next` as it is. It keeps your `locale`, `limit`, `category` and `q` and adds a `cursor`. This loop prints the slug of every English post:
 
 ```sh
 url='https://cms.example.com/api/v1/content/posts?locale=en&limit=50'
@@ -102,7 +102,21 @@ while [ "$url" != null ]; do
 done
 ```
 
-The server signs each cursor and ties it to the query it came from. Keep the cursor but change `limit` or `category`, or edit the cursor by hand, and the answer is `400` with `Invalid pagination cursor.` The signature uses `TOME_CMS_CONTEXT_SECRET`, so changing that secret makes every earlier cursor invalid.
+The server signs each cursor and ties it to the query it came from. Keep the cursor but change `limit`, `category` or `q`, or edit the cursor by hand, and the answer is `400` with `Invalid pagination cursor.` The signature uses `TOME_CMS_CONTEXT_SECRET`, so changing that secret makes every earlier cursor invalid.
+
+## Searching the posts
+
+`q` narrows the posts to those that contain every word of it, in the title, the excerpt or the text. Case does not matter. It takes up to 100 characters and only the first five words count, and a `q` with no word in it is a `400`. `category`, `limit` and `cursor` work with it, and `links.next` keeps it.
+
+This prints the titles of the English posts that mention compost:
+
+```sh
+curl -s 'https://cms.example.com/api/v1/content/posts?locale=en&q=compost' | jq -r '.data[].title'
+```
+
+The search is a substring match, which is what makes it work in Thai, where words are not separated by spaces. Posts come newest first, as they always do, and are not ranked by how well they match.
+
+A search reads every post of the language, so a sender may make 60 a minute, and no more than two searches run at once. Past either, the answer is a `429` with a `Retry-After` of 60 seconds. A list with no `q` is never held back. A sender is the address your server's proxy reports for the request, and searches from the home page count toward the same 60. A headless site that fetches from its own server is therefore one sender for all its visitors: have the visitor's browser call the API, or keep what your server fetches for a minute.
 
 ## Caching
 
@@ -132,6 +146,7 @@ An error comes back as `application/problem+json`, with `type`, `title`, `status
 | --- | --- |
 | `400` | A parameter is missing, unknown or out of range, or the cursor is not valid |
 | `404` | No published post or page has that slug in that language |
+| `429` | A search was asked for too often, or two others are already running; wait for `Retry-After` |
 | `500` | The request could not be completed |
 | `503` | The site is not ready, or it is closed for maintenance |
 

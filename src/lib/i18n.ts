@@ -41,6 +41,7 @@ export function publicCopy(locale: PostLocale) {
       authorLinks: 'ลิงก์ของผู้เขียน',
       by: 'โดย',
       categories: 'หมวดหมู่',
+      clearSearch: 'ล้างการค้นหา',
       closeImage: 'ปิดภาพ',
       openImage: 'เปิดภาพขนาดเต็ม',
       playVideo: 'เล่นวิดีโอ',
@@ -51,6 +52,7 @@ export function publicCopy(locale: PostLocale) {
       draftPreview: 'ตัวอย่างฉบับร่าง',
       footerNavigation: 'ลิงก์ท้ายเว็บ',
       menu: 'เมนู',
+      noResults: 'ไม่พบบทความที่ตรงกับ “{query}”',
       opensInNewTab: '(เปิดในแท็บใหม่)',
       poweredBy: 'ขับเคลื่อนด้วย TomeCMS',
       lastSaved: 'บันทึกล่าสุด',
@@ -64,6 +66,9 @@ export function publicCopy(locale: PostLocale) {
       maintenanceSoon: 'กลับมาในอีกไม่ช้า',
       primaryNavigation: 'เมนูหลัก',
       published: 'เผยแพร่เมื่อ',
+      search: 'ค้นหา',
+      searchLabel: 'ค้นหาบทความ',
+      searchResults: 'ผลการค้นหา “{query}”',
       updated: 'แก้ไขเมื่อ',
     }
     : {
@@ -73,6 +78,7 @@ export function publicCopy(locale: PostLocale) {
       authorLinks: 'Author links',
       by: 'By',
       categories: 'Categories',
+      clearSearch: 'Clear search',
       closeImage: 'Close image',
       openImage: 'Open the image full size',
       playVideo: 'Play video',
@@ -83,6 +89,7 @@ export function publicCopy(locale: PostLocale) {
       draftPreview: 'Draft preview',
       footerNavigation: 'Footer',
       menu: 'Menu',
+      noResults: 'No posts match “{query}”.',
       opensInNewTab: '(opens in a new tab)',
       poweredBy: 'Powered by TomeCMS',
       lastSaved: 'Last saved',
@@ -96,6 +103,9 @@ export function publicCopy(locale: PostLocale) {
       maintenanceSoon: 'Back any moment now',
       primaryNavigation: 'Primary',
       published: 'Published',
+      search: 'Search',
+      searchLabel: 'Search posts',
+      searchResults: 'Results for “{query}”',
       updated: 'Updated',
     };
 }

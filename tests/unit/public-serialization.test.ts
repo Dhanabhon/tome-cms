@@ -59,7 +59,12 @@ test('public contracts validate queries and serialize only explicit fields', () 
   assert.deepEqual(parsePublicQuery(new URLSearchParams('locale=th&limit=10&category=News'), postListQuerySchema), {
     category: 'News', limit: 10, locale: 'th',
   });
-  for (const query of ['locale=th&locale=en', 'locale=th&unknown=1', 'locale=th&__proto__=x', 'locale=xx', 'locale=th&limit=51']) {
+  assert.deepEqual(parsePublicQuery(new URLSearchParams('locale=en&q=%20hello%20world%20'), postListQuerySchema), {
+    limit: 20, locale: 'en', q: 'hello world',
+  }, 'a search is trimmed and carried as it is');
+  const tooLong = `locale=en&q=${'x'.repeat(101)}`;
+  for (const query of ['locale=th&locale=en', 'locale=th&unknown=1', 'locale=th&__proto__=x', 'locale=xx', 'locale=th&limit=51',
+    'locale=en&q=', 'locale=en&q=%20%20', 'locale=en&q=%00', 'locale=en&q=%01%1f', 'locale=en&q=a&q=b', tooLong]) {
     assert.throws(() => parsePublicQuery(new URLSearchParams(query), postListQuerySchema), z.ZodError);
   }
   assert.deepEqual(parsePublicQuery(new URLSearchParams('locale=en'), detailQuerySchema), { locale: 'en' });

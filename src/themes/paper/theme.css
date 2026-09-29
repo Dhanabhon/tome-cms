@@ -482,6 +482,69 @@
 /* The categories, as pills over the grid. All posts leads and is current until a category is
  * chosen; the current pill fills with ink, so the filter in force reads at a glance. A name
  * too long for the column is cut short rather than wrapped onto a second line. */
+/* The search box: a plain form above the pills, so it works with no script. The field is a pill
+ * like they are, with the magnifier inside its left edge, and the button beside it is the one
+ * filled control on the page. The size is 1rem on purpose -- a smaller field makes iOS zoom in. */
+.post-search { display: flex; gap: var(--space-sm); max-width: 34rem; margin: 0 0 var(--space-lg); }
+
+.post-search__field { position: relative; flex: 1 1 auto; min-width: 0; }
+
+.post-search__field .icon {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--space-md);
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-block: auto;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+.post-search input {
+  width: 100%;
+  min-height: var(--control-height);
+  padding-block: 0;
+  padding-inline: calc(var(--space-md) + 1.125rem + var(--space-sm)) var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  appearance: none;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  transition: border-color var(--dur-short) var(--ease-out);
+}
+
+.post-search input::placeholder { color: var(--color-placeholder); opacity: 1; }
+
+.post-search input:hover { border-color: var(--color-rule-strong); }
+
+.post-search input:focus-visible { border-color: var(--color-accent); }
+
+.post-search__submit {
+  flex: 0 0 auto;
+  min-height: var(--control-height);
+  padding-inline: var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+
+.post-search__submit:hover { background: var(--color-accent-hover); }
+
+/* What the list is: the words searched for, and the way back. It is inside the feed, so choosing
+ * a category, which swaps the feed, takes it away with the list it described. */
+.post-search__status { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-xs); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
+
+.post-search__status a { color: var(--color-link); font-weight: 500; }
+
+.post-search__status a:hover { text-decoration: underline; }
+
 .post-filter ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0 0 var(--space-xl); padding: 0; list-style: none; }
 
 .post-filter li { min-width: 0; max-width: 100%; }
@@ -543,6 +606,8 @@
   .post-card__cover img,
   .post-feed,
   .post-filter a,
+  .post-search input,
+  .post-search__submit,
   .post-more button { transition: none; }
   .post-card[data-revealed],
   .post-feed[data-revealed] { animation: none; }

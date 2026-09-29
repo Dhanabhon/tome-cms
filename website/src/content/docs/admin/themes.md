@@ -39,6 +39,10 @@ Settings are kept for each theme separately. Paper's stay as you left them while
 | "Author links" | "Words" (to begin with), "Icons", "Icons and words" | How the links from your [profile](/tome-cms/admin/settings/) appear under the author at the end of a post. A link to GitHub, X, LinkedIn, Facebook, Instagram or YouTube gets that site's mark, and any other link a plain link icon. |
 | "Load more as the reader scrolls" | On (to begin with) or off | New rows appear as the reader nears the end of the grid. Off leaves the "Older posts" link, which a reader without JavaScript follows anyway. |
 
+## Searching the posts
+
+Both bundled themes put a search box above the posts on the home page. It finds the published posts, in the language of the page, that contain every word typed, whether the word is in the title, the excerpt or the text. It matches inside words and ignores case, which is what lets it work in Thai. The box is an ordinary form, so it works without JavaScript, and a page of results is kept out of search engines. Paper hides its hero while results are on screen, and choosing a category leaves the search. A reader who searches more than 60 times in a minute is asked to wait, so a script cannot keep the database busy. There is nothing to switch on. A [headless site](/tome-cms/api/overview/) asks for the same thing with `q`.
+
 ## Light and dark for readers
 
 The "Appearance" card at the bottom of the screen decides how the public site looks to readers.

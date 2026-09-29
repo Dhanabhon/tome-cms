@@ -43,6 +43,36 @@
 .plain-page { width: min(100%, 44rem); margin-inline: auto; padding: var(--space-xl) var(--space-md); }
 .plain-tagline { margin: 0 0 var(--space-xl); color: var(--color-ink-muted); }
 
+/* A form and nothing else: the field, and a button beside it that says what it does. */
+.plain-search { display: flex; gap: var(--space-sm); margin-block-end: var(--space-lg); }
+.plain-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--control-height);
+  padding-inline: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font: inherit;
+}
+.plain-search input::placeholder { color: var(--color-placeholder); opacity: 1; }
+.plain-search button {
+  flex: 0 0 auto;
+  min-height: var(--control-height);
+  padding-inline: var(--space-lg);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.plain-search button:hover { border-color: var(--color-ink); }
+.plain-search-status,
+.plain-search-none { margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: 0.875rem; }
+.plain-search-status a { color: var(--color-link); }
+
 .plain-filter { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-block-end: var(--space-xl); font-size: 0.875rem; }
 .plain-filter a { color: var(--color-ink-muted); text-decoration: none; }
 .plain-filter a[aria-current="page"] { color: var(--color-link); text-decoration: underline; }

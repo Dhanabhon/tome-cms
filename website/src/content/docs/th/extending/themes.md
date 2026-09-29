@@ -57,9 +57,18 @@ registry คืนค่าเป็น union ของ template จากทุ
 | Template | Props | ได้รับอะไร |
 | --- | --- | --- |
 | `Shell` | `ThemeShellProps` | `themeSettings`, `allowVisitorTheme`, `alternates` (หน้าเดียวกันในอีกภาษา), `brand`, เมนู `header` กับ `footer`, `locale`, `showPoweredBy`, `siteName` และ `theme` ซึ่งเป็นโหมดสว่างหรือมืดที่เซิร์ฟเวอร์วาดมา |
-| `Home` | `ThemeHomeProps` | `themeSettings`, `posts`, `categories`, `activeCategory`, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
+| `Home` | `ThemeHomeProps` | `themeSettings`, `posts`, `categories`, `activeCategory`, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
 | `Post` | `ThemePostProps` | `themeSettings`, `post`, `categories`, `locale`, `profile`, `settings` (ชื่อเว็บและเขตเวลา) และ `preview` ซึ่งถูกตั้งไว้เมื่อเจ้าของเว็บกำลังดูฉบับร่าง |
 | `Page` | `ThemePageProps` | `page`, `locale` และ `preview` เพจไม่ได้รับการตั้งค่าของธีม |
+
+เมื่อ `query` มีค่า route ได้กรอง `posts` เหลือเฉพาะบทความที่ตรงกันแล้ว สิ่งที่ template ของ `Home` ต้องทำเองคือ
+
+- วาด `<form role="search" method="get">` ที่ช่องกรอกชื่อ `q` เพื่อให้ค้นได้โดยไม่ต้องมีสคริปต์ และใส่ `query` ปัจจุบันกลับลงในช่อง
+- บอกว่าค้นหาอะไรและออกจากการค้นหาได้อย่างไร โดยแสดงคำของผู้อ่านเป็นข้อความ ไม่ใช่ markup
+- ใส่ `q` ไว้ในลิงก์ไปบทความเก่ากว่า คู่กับ `category`
+- วาดผลลัพธ์ก่อน hero และบอกเมื่อไม่มีอะไรตรงกัน
+
+ธีมที่มากับระบบทั้งสองทำครบแล้ว ส่วนการส่ง `noindex, follow` สำหรับหน้าผลการค้นหา route ทำให้ template ไม่ต้องทำอะไร
 
 ทั้งหมดนี้คือข้อมูลที่ route มีอยู่แล้ว ธีมไม่มีทางดึงข้อมูลเพิ่มเอง และมีเทสต์ที่ล้มทันทีถ้าไฟล์ไหนในธีม import จาก `src/server/` หรือ `src/pages/`
 
