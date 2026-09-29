@@ -42,3 +42,12 @@ test('a backup manifest refuses an object one byte over 25 MB', () => {
   const key = createObjectKey(OWNER, 'application/pdf', DATE);
   assert.throws(() => parseBackupManifest(manifest([objectEntry(key, MAX_DOCUMENT_FILE_BYTES + 1)])), /Invalid backup manifest/);
 });
+
+test('a database-only backup says so, holds no objects, and a full one keeps its old shape', () => {
+  const base = manifest([objectEntry(createObjectKey(OWNER, "image/webp", DATE), 10)]);
+  const databaseOnly = parseBackupManifest({ ...base, objects: [], scope: 'database' });
+  assert.equal(databaseOnly.scope, 'database');
+  assert.throws(() => parseBackupManifest({ ...base, scope: 'database' }), /Invalid backup manifest/, 'a database-only backup with objects');
+  assert.throws(() => parseBackupManifest({ ...base, objects: [], scope: 'full' }), /Invalid backup manifest/, 'full is the absence of scope');
+  assert.equal('scope' in parseBackupManifest(base), false, 'a full backup is written as it always was, for an older restore check');
+});

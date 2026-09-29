@@ -14,7 +14,7 @@ import {
   type CommandDiagnosticContext,
   type CommandDiagnosticStage,
 } from './process.js';
-import type { InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
+import type { BackupKind, InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
 import { runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
 
 export interface UpdateDependencies {
@@ -37,6 +37,9 @@ const terminal = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery'])
 // so an app that used all of it (Node as PID 1 ignores SIGTERM) always timed out.
 const STOP_GRACE_SECONDS = 30;
 const STOP_COMMAND_MS = (STOP_GRACE_SECONDS + 30) * 1_000;
+// The first release whose backup script takes --database-only. The backup runs in the installed
+// image, so an older one would refuse the flag and fail the update.
+const DATABASE_ONLY_SINCE = '1.3.0';
 
 type UpdateInput = {
   version: string;
@@ -67,7 +70,7 @@ export async function applyUpdate(input: UpdateInput): Promise<UpdateJob> {
         previousVersion: version, previousImageDigest: installed.imageDigest, targetImageDigest: installed.imageDigest,
         phase: 'succeeded', completedSteps: 8, totalSteps: 8, message: 'Update installed successfully.',
         startedAt: installed.installedAt, finishedAt: installed.installedAt, errorCode: null,
-        backupDirectory: null, backupCreatedAt: null,
+        backupDirectory: null, backupCreatedAt: null, timeline: [], backupKind: null,
       };
     }
     const job = current && !terminal.has(current.phase) ? current : await input.state.createJob({
@@ -106,6 +109,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
       'run', '--rm', '--name', names.inventory, ...migrationInventoryArgs(verified.imageReference),
     ], 30_000, dependencies, diagnostics, 'verify.migration_inventory');
     verifyMigrationInventory(inventory, verified.manifest.compatibility.targetMigration);
+    const backupKind = await chooseBackupKind(installed, inventory, names.installedInventory, dependencies, diagnostics);
 
     errorCode = 'backup_failed';
     // transitionJob must finish writing the public maintenance marker before drain/stop.
@@ -118,10 +122,11 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
       ...compose, 'run', '--rm', '--name', names.backup, '--no-deps', '--user', identity,
       '--volume', `${config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--',
       '--offline', '--direct', '--json', '--output-root', '/backups',
+      ...(backupKind === 'database' ? ['--database-only'] : []),
     ], 60 * 60_000, dependencies, diagnostics, 'backup.create');
-    const backup = await validateBackup(output, config, installed.version);
+    const backup = await validateBackup(output, config, installed.version, backupKind);
     // Persist the recovery reference before image selection can change (including a crash here).
-    await state.recordBackup(job.id, backup);
+    await state.recordBackup(job.id, { ...backup, backupKind });
     await writeImageEnvironment(config.imageEnvironmentFile, verified.manifest.image.digest);
     errorCode = 'migration_failed';
     await state.transitionJob(job.id, 'migrating');
@@ -230,12 +235,36 @@ async function finishJob(state: UpdaterStateStore, id: string, persist: () => Pr
   }
 }
 
-function oneShotNames(projectName: UpdaterConfig['projectName'], id: string): { inventory: string; backup: string; migration: string } {
+/**
+ * The database alone when nothing in it will change: the installed image and the target ship the
+ * same migrations, so the update swaps code and no table. The media library is what makes a full
+ * backup slow, and an update like that does not touch it. Anything uncertain is a full backup.
+ */
+async function chooseBackupKind(
+  installed: InstalledState,
+  targetInventory: string,
+  name: string,
+  dependencies: UpdateDependencies,
+  diagnostics: CommandDiagnosticContext,
+): Promise<BackupKind> {
+  if (compareStableVersions(installed.version, DATABASE_ONLY_SINCE) < 0) return 'full';
+  try {
+    const current = await runOneShot(name, [
+      'run', '--rm', '--name', name, ...migrationInventoryArgs(`${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`),
+    ], 30_000, dependencies, diagnostics, 'verify.migration_inventory');
+    const same = JSON.stringify(JSON.parse(current)) === JSON.stringify(JSON.parse(targetInventory));
+    return same ? 'database' : 'full';
+  } catch {
+    return 'full';
+  }
+}
+
+function oneShotNames(projectName: UpdaterConfig['projectName'], id: string): { inventory: string; backup: string; migration: string; installedInventory: string } {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw new Error('Invalid updater job ID');
   }
   const prefix = `${projectName}-update-${id.toLowerCase()}`;
-  return { inventory: `${prefix}-inventory`, backup: `${prefix}-backup`, migration: `${prefix}-migration` };
+  return { inventory: `${prefix}-inventory`, backup: `${prefix}-backup`, migration: `${prefix}-migration`, installedInventory: `${prefix}-installed-inventory` };
 }
 
 class OneShotCleanupError extends Error {
@@ -382,7 +411,7 @@ function verifyMigrationInventory(output: string, target: string): void {
     new Set(keys).size !== keys.length || !keys.includes(target)) throw new Error('Target migration not shipped');
 }
 
-async function validateBackup(output: string, config: UpdaterConfig, applicationVersion: string): Promise<{
+async function validateBackup(output: string, config: UpdaterConfig, applicationVersion: string, kind: BackupKind): Promise<{
   backupDirectory: string; backupCreatedAt: string;
 }> {
   if (Buffer.byteLength(output) >= 32 * 1024) throw new Error('Backup receipt too large');
@@ -413,6 +442,7 @@ async function validateBackup(output: string, config: UpdaterConfig, application
   if (createHash('sha256').update(bytes).digest('hex') !== receipt.manifestSha256) throw new Error('Backup manifest hash mismatch');
   const manifest = parseBackupManifest(JSON.parse(bytes.toString('utf8')));
   if (manifest.applicationVersion !== applicationVersion) throw new Error('Invalid backup manifest');
+  if ((manifest.scope === 'database') !== (kind === 'database')) throw new Error('Backup is not the kind that was asked for');
   await verifyBackupFile(directory, manifest.database.file, manifest.database.sha256);
   for (const object of manifest.objects) {
     await verifyBackupFile(directory, join('objects', ...object.key.split('/')), object.sha256, object.sizeBytes);

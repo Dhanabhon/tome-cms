@@ -8,6 +8,7 @@ import test from 'node:test';
 
 import type { UpdaterConfig } from '../../src/updater/config.js';
 import { runCommand } from '../../src/updater/process.js';
+import { UPDATER_VERSION } from '../../src/updater/version.js';
 import { createUpdaterServer } from '../../src/updater/server.js';
 import { createUpdaterStateStore, type InstalledState } from '../../src/updater/state.js';
 
@@ -39,7 +40,7 @@ test('exposes only bounded status and exact apply requests over the Unix socket'
   const status = await unixRequest(socketPath, 'GET', '/v1/status');
   assert.equal(status.status, 200);
   assert.deepEqual(status.json, {
-    protocolVersion: 1, updaterVersion: '1.0.0', managed: true,
+    protocolVersion: 1, updaterVersion: UPDATER_VERSION, managed: true,
     installed: { version: '1.0.0', imageDigest: installed.imageDigest }, job: null,
   });
 
@@ -64,6 +65,14 @@ test('exposes only bounded status and exact apply requests over the Unix socket'
   ]) assert.equal((await unixRequest(socketPath, 'POST', '/v1/apply', invalid)).status, 400);
 
   assert.equal((await unixRequest(socketPath, 'POST', '/v1/apply', 'x'.repeat(4097))).status, 413);
+  // What the admin shows about the last update beyond the status: when each phase began and
+  // what kind of backup it made. A route of its own, so an app that does not ask never sees it.
+  const timeline = await unixRequest(socketPath, 'GET', '/v1/timeline');
+  assert.equal(timeline.status, 200);
+  const detail = timeline.json as { jobId: string; backupKind: unknown; timeline: Array<{ phase: string; at: string }> };
+  assert.deepEqual(Object.keys(detail).sort(), ['backupKind', 'jobId', 'timeline']);
+  assert.equal(detail.backupKind, null);
+  assert.deepEqual(detail.timeline.map(({ phase }) => phase), ['preflight']);
   assert.equal((await unixRequest(socketPath, 'GET', '/v1/unknown')).status, 404);
   assert.equal((await unixRequest(socketPath, 'DELETE', '/v1/status')).status, 405);
 });

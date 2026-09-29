@@ -4,6 +4,7 @@ import { createConnection } from 'node:net';
 
 import { parseStableVersion } from '../update/contracts.js';
 import { toPublicUpdateJob, type UpdateJob, type UpdaterStateStore } from './state.js';
+import { UPDATER_VERSION } from './version.js';
 
 export interface ApplyRequest {
   version: string;
@@ -48,6 +49,12 @@ export function createUpdaterServer(input: {
       if (request.url === '/v1/status' && request.method === 'GET') {
         return json(response, 200, await publicStatus(input.state));
       }
+      if (request.url === '/v1/timeline' && request.method === 'GET') {
+        // Kept off /v1/status on purpose: an app from before 1.3.0 parses that strictly.
+        const job = await input.state.readJob();
+        if (!job) return json(response, 404, { error: 'not_found' });
+        return json(response, 200, { jobId: job.id, backupKind: job.backupKind, timeline: job.timeline });
+      }
       if (request.url === '/v1/apply' && request.method === 'POST') {
         const applyRequest = parseApplyRequest(await readBody(request));
         if (active) return json(response, 409, { error: 'update_in_progress' });
@@ -84,7 +91,7 @@ export function createUpdaterServer(input: {
           if (!dispatched) active = false;
         }
       }
-      if (request.url === '/v1/status' || request.url === '/v1/apply') {
+      if (request.url === '/v1/status' || request.url === '/v1/apply' || request.url === '/v1/timeline') {
         return json(response, 405, { error: 'method_not_allowed' });
       }
       return json(response, 404, { error: 'not_found' });
@@ -105,7 +112,7 @@ async function publicStatus(state: UpdaterStateStore): Promise<unknown> {
   const [installed, job] = await Promise.all([state.readInstalled(), state.readJob()]);
   return {
     protocolVersion: 1,
-    updaterVersion: '1.0.0',
+    updaterVersion: UPDATER_VERSION,
     managed: true,
     installed: { version: installed.version, imageDigest: installed.imageDigest },
     job: job ? toPublicUpdateJob(job) : null,

@@ -13,7 +13,7 @@ import { senderAddress } from '../../../../server/http/sender-address';
 import { getUpdateInstallability, updateActionSchema } from '../../../../server/update/admin';
 import { getUpdateStatus, refreshUpdateStatus } from '../../../../server/update/service';
 import { readMaintenanceStatus } from '../../../../server/update/maintenance';
-import { getManagedInstallability, getUpdaterStatus, requestUpdate, type UpdaterStatus } from '../../../../server/update/updater-client';
+import { getManagedInstallability, getUpdaterStatus, getUpdaterTimeline, requestUpdate, type UpdaterStatus } from '../../../../server/update/updater-client';
 
 const environment = getServerEnv();
 const configuredOrigin = new URL(environment.TOME_CMS_PUBLIC_URL).origin;
@@ -29,8 +29,12 @@ async function managedStatus(): Promise<UpdaterStatus> {
 
 async function response(status: ReturnType<typeof getUpdateStatus>) {
   const [check, updater] = await Promise.all([status, managedStatus()]);
+  // Only for a finished job: while one runs the screen shows its progress, not its durations.
+  const finished = updater.managed && updater.job?.finishedAt;
+  const timeline = finished ? await getUpdaterTimeline({ socketPath: environment.TOME_CMS_UPDATER_SOCKET }) : null;
   return {
     ...check, updateMode: environment.TOME_CMS_UPDATE_MODE, updater,
+    timeline: timeline && updater.managed && timeline.jobId === updater.job?.id ? timeline : null,
     installability: environment.TOME_CMS_UPDATE_MODE === 'check-only'
       ? getUpdateInstallability('check-only') : getManagedInstallability(check, updater),
   };

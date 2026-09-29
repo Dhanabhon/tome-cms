@@ -184,6 +184,8 @@ async function main(): Promise<void> {
     const expectedKeys = manifest.objects.map(({ key }) => key).sort();
     if (JSON.stringify(keys) !== JSON.stringify(expectedKeys)) throw new Error('Restored object inventory does not match the backup.');
     console.log(`Restore verified in disposable project ${options.project}.`);
+    // An update that brought no migration backs up the database alone; the media library is not in it.
+    if (manifest.scope === 'database') console.log('This backup holds the database only. The media library was left in place and is not in it.');
   } catch (error) {
     failure = error;
   } finally {

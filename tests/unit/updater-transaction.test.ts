@@ -110,6 +110,8 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
   let runningContainerIds = `${'c'.repeat(64)}\n`;
   let inspectionOutput: string | undefined;
   let migrationOutput = JSON.stringify(['001_system', '999_future_migration']);
+  let installedMigrationOutput: string | undefined;
+  let installedInventoryFails = false;
   let backupOutput = JSON.stringify(report);
   let interrupted = '';
   let rejectInterrupted = false;
@@ -143,7 +145,10 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
       let event: string;
       let stdout = '';
       if (args[0] === 'pull') event = 'pull';
-      else if (args[0] === 'run') { event = 'migrations'; stdout = migrationOutput; }
+      else if (args[0] === 'run' && args.includes(`${OFFICIAL_IMAGE_REPOSITORY}@${previous.imageDigest}`)) {
+        event = 'installed-migrations'; stdout = installedMigrationOutput ?? migrationOutput;
+        if (installedInventoryFails) return { code: 1, stdout: '', stderr: 'private failure' };
+      } else if (args[0] === 'run') { event = 'migrations'; stdout = migrationOutput; }
       else if (args[0] === 'inspect') {
         event = 'inspect'; stdout = inspectionOutput ?? JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: { Running: true } }]);
       } else if (args.includes('ps')) { event = 'ps'; stdout = runningContainerIds; }
@@ -174,7 +179,8 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
       const selected = await readFile(config.imageEnvironmentFile, 'utf8');
       const target = selected === imageEnv(targetDigest);
       events.push(target ? 'health-target' : 'health-previous');
-      assert.equal((await state.readInstalled()).version, previous.version);
+      // Nothing is committed before the target proves ready.
+      assert.equal((await state.readInstalled()).imageDigest, previous.imageDigest);
       return new Response('', { status: !readiness || (failure === 'health' && target) ? 503 : 200 });
     },
     sleep: async (ms) => {
@@ -195,6 +201,8 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     runningContainers: (value: string) => { runningContainerIds = value; },
     inspection: (value: string) => { inspectionOutput = value; },
     migrations: (value: string) => { migrationOutput = value; },
+    installedMigrations: (value: string) => { installedMigrationOutput = value; },
+    failInstalledInventory: () => { installedInventoryFails = true; },
     backupOutput: (value: string) => { backupOutput = value; },
     writeBackupManifest: async (value: unknown) => {
       const bytes = JSON.stringify(value);
@@ -782,4 +790,64 @@ test('socket reserves durable job, returns before execution ends, rejects concur
   await f.state.transitionJob(job.id, 'failed_manual_recovery');
   finish(); await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(await post('1.0.2'), 409);
+});
+
+async function fromVersion(f: Awaited<ReturnType<typeof fixture>>, version: string, scope?: 'database') {
+  await f.state.writeInstalled({ ...previous, version });
+  const { objects, ...rest } = f.backupManifest;
+  await f.writeBackupManifest(scope ? { ...rest, applicationVersion: version, objects: [], scope } : { ...rest, objects, applicationVersion: version });
+  return { ...f.input, version: '9.9.9' };
+}
+const backupArgs = (f: Awaited<ReturnType<typeof fixture>>) => f.commands.find(({ args }) => args.includes('backup'))!.args;
+
+test('an update that brings no migration backs up the database alone, and says so', async (t) => {
+  const f = await fixture(t);
+  const input = await fromVersion(f, '1.3.0', 'database');
+  const job = await applyUpdate(input);
+  assert.equal(job.phase, 'succeeded');
+  assert.ok(f.events.indexOf('installed-migrations') < f.events.indexOf('state:quiescing'), 'decided before the site goes down');
+  assert.deepEqual(backupArgs(f).slice(-2), ['/backups', '--database-only']);
+  assert.equal((await f.state.readJob())?.backupKind, 'database');
+});
+
+test('an update that brings a migration backs up everything', async (t) => {
+  const f = await fixture(t);
+  f.installedMigrations(JSON.stringify(['001_system']));
+  const job = await applyUpdate(await fromVersion(f, '1.3.0'));
+  assert.equal(job.phase, 'succeeded');
+  assert.equal(backupArgs(f).includes('--database-only'), false);
+  assert.equal((await f.state.readJob())?.backupKind, 'full');
+});
+
+test('an installed image from before 1.3.0 is never asked for a backup it cannot make', async (t) => {
+  // Its own backup script refuses the flag, and the backup runs in the installed image.
+  const f = await fixture(t);
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'succeeded');
+  assert.equal(f.events.includes('installed-migrations'), false);
+  assert.equal(backupArgs(f).includes('--database-only'), false);
+  assert.equal((await f.state.readJob())?.backupKind, 'full');
+});
+
+test('when the installed image cannot say its migrations, the backup is a full one', async (t) => {
+  const f = await fixture(t);
+  f.failInstalledInventory();
+  const job = await applyUpdate(await fromVersion(f, '1.3.0'));
+  assert.equal(job.phase, 'succeeded');
+  assert.equal(backupArgs(f).includes('--database-only'), false);
+});
+
+test('a backup that is not the kind asked for is refused before the image changes', async (t) => {
+  // Asked for the database alone, handed a full backup: not what was decided.
+  const f = await fixture(t);
+  const job = await applyUpdate(await fromVersion(f, '1.3.0'));
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal((await f.state.readInstalled()).imageDigest, previous.imageDigest);
+
+  // And the other way round: a migration is due, and the backup left the files out.
+  const g = await fixture(t);
+  g.installedMigrations(JSON.stringify(['001_system']));
+  const second = await applyUpdate(await fromVersion(g, '1.3.0', 'database'));
+  assert.equal(second.phase, 'rolled_back');
+  assert.equal((await g.state.readInstalled()).imageDigest, previous.imageDigest);
 });

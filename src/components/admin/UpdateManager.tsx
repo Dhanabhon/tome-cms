@@ -4,6 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
 
 import { authClient } from '../../lib/auth-client';
+import { updateDurations, type UpdateTimeline } from '../../lib/update-timeline';
 import { describePasskeyException, describeReauthFailure } from '../../lib/passkey-failure';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
@@ -21,6 +22,8 @@ type UpdateCheck = {
   updateMode: 'check-only' | 'managed';
   installability: { mode: 'check-only' | 'managed'; installable: boolean; reason: string; code?: string };
   updater: UpdaterStatus;
+  /** When each phase of the last finished update began; null from an updater before 1.3.0. */
+  timeline?: UpdateTimeline | null;
 };
 
 const terminalPhases = ['succeeded', 'rolled_back', 'failed_manual_recovery'];
@@ -297,6 +300,8 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   };
   const currentJob = check?.updater?.managed ? check.updater.job : null;
   const job = currentJob && currentJob.id !== watch?.previousJobId ? currentJob : null;
+  // Measured by the updater since 1.3.0; an older one gives nothing, and the card says nothing.
+  const durations = currentJob ? updateDurations(currentJob, check?.timeline ?? null) : null;
   const releaseNotes = check?.latest && check.latest.manifest.releaseNotesUrl
     === `https://github.com/Dhanabhon/tome-cms/releases/tag/v${check.latest.manifest.version}`
     ? check.latest.manifest.releaseNotesUrl : null;
@@ -362,6 +367,11 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
           <div><dt>{copy.updates.lastUpdateVersion}</dt><dd>{currentJob.targetVersion}</dd></div>
           {currentJob.finishedAt && <div><dt>{copy.updates.lastUpdateFinished}</dt><dd><time dateTime={currentJob.finishedAt}>{formatBackupTime(currentJob.finishedAt, ownerLocale)}</time></dd></div>}
           {currentJob.backupCreatedAt && <div><dt>{copy.updates.backupCreated}</dt><dd><time dateTime={currentJob.backupCreatedAt}>{formatBackupTime(currentJob.backupCreatedAt, ownerLocale)}</time></dd></div>}
+          {durations && <div><dt>{copy.updates.lastUpdateOffline}</dt><dd>{fill(copy.updates.durationSeconds, { count: String(durations.offlineSeconds) })}</dd></div>}
+          {durations?.backupKind && durations.backupSeconds !== null && <div><dt>{copy.updates.lastUpdateBackup}</dt><dd>{fill(
+            durations.backupKind === 'database' ? copy.updates.backupKindDatabase : copy.updates.backupKindFull,
+            { seconds: fill(copy.updates.durationSeconds, { count: String(durations.backupSeconds) }) },
+          )}</dd></div>}
         </dl>
         {currentJob.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
       </section>}

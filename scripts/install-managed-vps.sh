@@ -13,6 +13,7 @@ import { assertPortsFree, makeEnvironment, publishedPorts, renderEnvironment } f
 import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
 import { redactDiagnosticText } from './src/updater/process.ts';
 import { migrationInventoryArgs } from './src/updater/inventory.ts';
+import { UPDATER_VERSION } from './src/updater/version.ts';
 
 const source = process.cwd();
 let dryRun = false;
@@ -469,7 +470,7 @@ async function main() {
   run('systemctl', ['daemon-reload']);
   run('systemctl', ['enable', '--now', 'tomecms-updater.service']);
   const status = JSON.parse(run('curl', ['--disable', '--fail', '--silent', '--show-error', '--retry', '20', '--retry-all-errors', '--retry-delay', '1', '--retry-max-time', '30', '--max-time', '2', '--unix-socket', at(config.socketPath), 'http://localhost/v1/status'], 35_000));
-  if (status.managed !== true || status.protocolVersion !== 1 || status.updaterVersion !== '1.0.0' || status.installed?.version !== version || status.installed?.imageDigest !== manifest.image.digest) throw new Error('Updater socket status does not match installed release.');
+  if (status.managed !== true || status.protocolVersion !== 1 || status.updaterVersion !== UPDATER_VERSION || status.installed?.version !== version || status.installed?.imageDigest !== manifest.image.digest) throw new Error('Updater socket status does not match installed release.');
   const socket = await lstat(at(config.socketPath));
   if ((!prefix && !socket.isSocket()) || socket.isSymbolicLink() || (socket.mode & 0o777) !== 0o660) throw new Error('Updater socket type or permissions are invalid.');
   console.log(`Installer: ${values.TOME_CMS_PUBLIC_URL}/install\nInstallation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env\nCurrent version: ${version}\nBackups: /var/backups/tome-cms`);

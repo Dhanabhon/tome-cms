@@ -29,24 +29,30 @@ export function safeBackupRoot(input: string, root = repository): string {
 export interface BackupOptions {
   offline: true;
   direct: boolean;
+  /** The database alone, for an update that changes no table; the media library is left where it is. */
+  databaseOnly: boolean;
   json: boolean;
   outputRoot: string;
 }
+
+const USAGE = 'Usage: npm run backup -- --offline [--direct] [--json] [--database-only] --output-root /absolute/backup/path';
 
 export function parseBackupOptions(args: string[]): BackupOptions {
   let offline = false;
   let direct = false;
   let json = false;
+  let databaseOnly = false;
   let outputRoot = '';
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === '--offline') offline = true;
     else if (args[index] === '--direct') direct = true;
     else if (args[index] === '--json') json = true;
+    else if (args[index] === '--database-only') databaseOnly = true;
     else if (args[index] === '--output-root' && args[index + 1]) outputRoot = args[++index]!;
-    else throw new Error('Usage: npm run backup -- --offline [--direct] [--json] --output-root /absolute/backup/path');
+    else throw new Error(USAGE);
   }
-  if (!offline || !outputRoot) throw new Error('Usage: npm run backup -- --offline [--direct] [--json] --output-root /absolute/backup/path');
-  return { offline: true, direct, json, outputRoot: safeBackupRoot(outputRoot) };
+  if (!offline || !outputRoot) throw new Error(USAGE);
+  return { offline: true, direct, json, databaseOnly, outputRoot: safeBackupRoot(outputRoot) };
 }
 
 export async function sha256File(path: string): Promise<string> {
@@ -196,7 +202,7 @@ async function main(): Promise<void> {
   }
   const [records, objects] = await Promise.all([
     recordCounts(),
-    mirrorObjects(join(destination, 'objects')),
+    options.databaseOnly ? Promise.resolve([]) : mirrorObjects(join(destination, 'objects')),
   ]);
   const packageJson: unknown = JSON.parse(await readFile(join(repository, 'package.json'), 'utf8'));
   if (!packageJson || typeof packageJson !== 'object' || Array.isArray(packageJson)) throw new Error('Invalid package version.');
@@ -221,6 +227,7 @@ async function main(): Promise<void> {
     database: { file: 'database.dump', sha256: await sha256File(databaseFile) },
     records,
     objects,
+    ...(options.databaseOnly ? { scope: 'database' } : {}),
   });
   const manifestPath = join(destination, 'manifest.json');
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
@@ -228,7 +235,9 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({ backupDirectory: destination, manifestSha256: await sha256File(manifestPath) }));
   } else {
     console.log(`Backup complete: ${destination}`);
-    console.log(`Database records: ${records.posts + records.pages}; media objects: ${objects.length}`);
+    console.log(options.databaseOnly
+      ? `Database records: ${records.posts + records.pages}; the media library was not copied (--database-only).`
+      : `Database records: ${records.posts + records.pages}; media objects: ${objects.length}`);
   }
 }
 
