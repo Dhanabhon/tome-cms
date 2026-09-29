@@ -23,6 +23,6 @@ const copy = publicCopy(locale);
   )}
   <p>
     &copy; {currentYear(locale)} {siteName}. {copy.allRightsReserved}
-    {showPoweredBy && <><span aria-hidden="true"> · </span>{copy.poweredBy}</>}
   </p>
+  {showPoweredBy && <p class="site-footer__credit">{copy.poweredBy}</p>}
 </footer>

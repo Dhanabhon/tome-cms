@@ -55,6 +55,12 @@
 
 .site-footer p { overflow-wrap: anywhere; }
 
+.site-footer__credit { margin-inline-start: auto; }
+
+@media (max-width: 39.999rem) {
+  .site-footer__credit { margin-inline-start: 0; }
+}
+
 @media (min-width: 48rem) {
   /* The wordmark stops growing, and its own margin pushes everything after it to the right:
      the nav when there is one, and the controls either way. The nav used to carry that margin,
