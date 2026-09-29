@@ -224,7 +224,8 @@ test('a refused passkey is named on the update screen, and the release status st
   const signedOut = await page.request.post(`${origin}/api/auth/sign-out`, { data: {}, headers: { origin } });
   expect(signedOut.ok()).toBe(true);
   await pressInstall(page);
-  await expect(page.getByRole('alert')).toContainText('The sign-in check was not passed');
+  // The session is gone, and the one way on is to sign in again, not to switch the challenge off.
+  await expect(page.getByRole('alert')).toContainText('The sign-in session expired. Reload the page and try again.');
   // The check itself worked, so it does not say it failed.
   await expect(page.locator('.update-status')).toHaveText('Release availability: Update available');
   await expect(page.getByText('TomeCMS 1.1.0 is available.')).toBeVisible();

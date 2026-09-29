@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { atLeast } from '../../lib/busy';
 import { authClient } from '../../lib/auth-client';
-import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
+import { describePasskeyException, describePasskeyFailure, describeReauthFailure } from '../../lib/passkey-failure';
 import type { PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 
@@ -89,7 +89,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     try {
       const result = await authClient.signIn.passkey();
       if (result.error || !result.data) {
-        setMessage(describePasskeyFailure(result, copy, copy.security.noPasskeyAccepted, copy.auth.passkeyNotRegistered));
+        setMessage(describeReauthFailure(result, copy, copy.security.noPasskeyAccepted));
         return;
       }
       await loadPasskeys();
@@ -162,7 +162,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setRecoveryCodes([]);
     try {
       const assertion = await authClient.signIn.passkey();
-      if (assertion.error || !assertion.data) throw new Error(describePasskeyFailure(assertion, copy, copy.security.codesUnchangedNoPasskey, copy.auth.passkeyNotRegistered));
+      if (assertion.error || !assertion.data) throw new Error(describeReauthFailure(assertion, copy, copy.security.codesUnchangedNoPasskey));
       const response = await fetch('/api/admin/security/recovery-codes', { headers: { 'content-type': 'application/json' }, method: 'POST' });
       const payload = await responsePayload(response);
       const codes = Array.isArray(payload.recoveryCodes)

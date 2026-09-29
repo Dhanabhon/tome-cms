@@ -51,8 +51,9 @@ export const ALL: APIRoute = async (context) => {
     headers: request.headers,
     query: { disableCookieCache: true, disableRefresh: true },
   });
+  // Kept for the challenge below: only an installed owner's session is excused from it.
+  const identity = current ? await classifyAuthIdentity(current.user.id) : null;
   if (current) {
-    const identity = await classifyAuthIdentity(current.user.id);
     if (identity === 'invalid') return rejectInvalidSession(request.headers);
     if (identity === 'pending-install' && !pendingSessionPaths.has(`${request.method} ${url.pathname}`)) {
       return Response.json({ error: 'This session is limited to installer finalization.' }, {
@@ -108,9 +109,10 @@ export const ALL: APIRoute = async (context) => {
   // registration: the recovery flow is the way back in when this goes wrong, and a wall
   // across it would be a wall across the exit. Nor on an owner who is already signed in: that
   // is the update screen or the recovery codes asking for a passkey once more, only the
-  // sign-in page can pass a token, and someone holding a session is not who it keeps out. A
-  // session that is not an installed owner's was turned away above, so `current` is one.
-  if (!current && request.method === 'POST' && url.pathname === '/api/auth/passkey/verify-authentication') {
+  // sign-in page can pass a token, and someone holding a session is not who it keeps out. The
+  // test is the identity, not the session, so a path later opened to a pending install's session
+  // does not quietly open this too.
+  if (identity !== 'installed-owner' && request.method === 'POST' && url.pathname === '/api/auth/passkey/verify-authentication') {
     const { getSiteSettings } = await import('../../../server/content/site-settings');
     const settings = await getSiteSettings();
     if (settings) {

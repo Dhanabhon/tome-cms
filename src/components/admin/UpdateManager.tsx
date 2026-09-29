@@ -4,7 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
 
 import { authClient } from '../../lib/auth-client';
-import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
+import { describePasskeyException, describeReauthFailure } from '../../lib/passkey-failure';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
 import type { UpdateUnavailableReason } from '../../server/update/service';
@@ -230,7 +230,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
       if (assertion.error || !assertion.data) {
         // Said as the other passkey screens say it: a challenge, a rate limit, a passkey the site
         // does not know and a server fault are not all "it may have been cancelled".
-        if (mounted.current) setInstallError(describePasskeyFailure(assertion, copy, copy.updates.noPasskey, copy.auth.passkeyNotRegistered));
+        if (mounted.current) setInstallError(describeReauthFailure(assertion, copy, copy.updates.noPasskey));
         return;
       }
       if (!mounted.current) return;

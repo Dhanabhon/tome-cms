@@ -42,7 +42,8 @@ test('401 says what the flow was refused, not what the flow assumed', () => {
   // Adding a spare is the one flow that does need a session, so it keeps the old sentence.
   const security = readFileSync(new URL('../../src/components/admin/SecurityManager.tsx', import.meta.url), 'utf8');
   assert.match(security, /copy\.security\.spareNotAdded, copy\.auth\.sessionExpired\)/);
-  assert.equal(security.match(/copy\.auth\.passkeyNotRegistered/g)?.length, 2, 'both sign-in paths name the credential');
+  // Both of its passkey checks go through describeReauthFailure, which names the credential on 401.
+  assert.equal(security.match(/describeReauthFailure\(/g)?.length, 2, 'both sign-in paths name the credential');
   for (const locale of ['en', 'th'] as const) {
     const text = adminCopy(locale);
     assert.ok(text.auth.passkeyNotRegistered.trim());
@@ -119,4 +120,25 @@ test('a recovery code that starts nothing is refused in the owner’s words, not
   assert.equal(refused(400), th.security.recoveryNotStarted, 'a wrong code');
   assert.equal(refused(429), th.auth.tooManyAttempts, 'too many tries');
   assert.equal(refused(500), th.auth.serverError, 'the server');
+});
+
+test('a check asked for while signed in, refused by the challenge, means the session is gone', async () => {
+  const { describeReauthFailure } = await import('../../src/lib/passkey-failure');
+  const { adminCopy } = await import('../../src/lib/admin-i18n');
+  for (const locale of ['en', 'th'] as const) {
+    const copy = adminCopy(locale);
+    // Only the sign-in page can pass a challenge; "try again, or switch the plugin off" sends an owner
+    // to disable a security control when all they need is to sign in again.
+    assert.equal(describeReauthFailure({ error: { code: 'challenge_refused', status: 403 } }, copy, 'fallback'), copy.auth.sessionExpired);
+    assert.equal(describeReauthFailure({ error: { status: 429 } }, copy, 'fallback'), copy.auth.tooManyAttempts);
+    assert.equal(describeReauthFailure({ error: { status: 401 } }, copy, 'fallback'), copy.auth.passkeyNotRegistered);
+    assert.equal(describeReauthFailure({ error: { code: 'ERROR_CEREMONY_ABORTED' } }, copy, 'fallback'), 'fallback');
+  }
+});
+
+test('every screen that asks a signed-in owner for a passkey again words a refusal as a re-check', () => {
+  const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+  assert.match(read('src/components/admin/UpdateManager.tsx'), /describeReauthFailure\(assertion/);
+  const security = read('src/components/admin/SecurityManager.tsx');
+  assert.equal((security.match(/describeReauthFailure\(/g) ?? []).length, 2, 'the sign-in fallback and new recovery codes');
 });

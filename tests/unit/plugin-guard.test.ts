@@ -59,7 +59,7 @@ test('the guard stands on the attempt and nowhere near the way back in', () => {
   assert.match(gate, /request\.method === 'POST' && url\.pathname === '\/api\/auth\/passkey\/verify-authentication'/);
   // Only a caller with no session meets it. A cookie is not a session, so the test is `current`,
   // which the database answers, and never the cookie's presence.
-  assert.match(gate, /if \(!current && request\.method === 'POST' && url\.pathname === '\/api\/auth\/passkey\/verify-authentication'\) \{\s+const \{ getSiteSettings \}/);
+  assert.match(gate, /if \(identity !== 'installed-owner' && request\.method === 'POST' && url\.pathname === '\/api\/auth\/passkey\/verify-authentication'\) \{\s+const \{ getSiteSettings \}/);
   // Registration is how a recovery ends. A challenge across it would be a wall across the exit.
   const guarded = gate.slice(gate.indexOf('guardSignIn'), gate.indexOf('if (action) {'));
   assert.doesNotMatch(guarded, /verify-registration|registrationVerificationPath/);
