@@ -22,21 +22,22 @@ const saying = (template: string) => template.replace('{query}', () => query ?? 
 <div class="plain-page">
   {tagline && <p class="plain-tagline">{tagline}</p>}
 
-  <form class="plain-search" role="search" method="get" action={home}>
-    <label class="sr-only" for="plain-search-q">{copy.searchLabel}</label>
-    <input id="plain-search-q" name="q" type="search" value={query ?? ''} maxlength="100" placeholder={copy.searchLabel} autocomplete="off" enterkeyhint="search" />
-    <button type="submit">{copy.search}</button>
-  </form>
+  <div class="plain-controls">
+    {categories.length > 0 && (
+      <nav class="plain-filter" aria-label={copy.categories}>
+        <a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.allPosts}</a>
+        {categories.map(({ name }) => (
+          <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase() ? 'page' : undefined}>{name}</a>
+        ))}
+      </nav>
+    )}
+    <form class="plain-search" role="search" method="get" action={home}>
+      <label class="sr-only" for="plain-search-q">{copy.searchLabel}</label>
+      <input id="plain-search-q" name="q" type="search" value={query ?? ''} maxlength="100" placeholder={copy.searchLabel} autocomplete="off" enterkeyhint="search" />
+      <button type="submit">{copy.search}</button>
+    </form>
+  </div>
   {query && <p class="plain-search-status" role="status">{saying(copy.searchResults)} · <a href={home}>{copy.clearSearch}</a></p>}
-
-  {categories.length > 0 && (
-    <nav class="plain-filter" aria-label={copy.categories}>
-      <a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.allPosts}</a>
-      {categories.map(({ name }) => (
-        <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase() ? 'page' : undefined}>{name}</a>
-      ))}
-    </nav>
-  )}
 
   <ol class="plain-list">
     {posts.map((post) => {

@@ -482,29 +482,24 @@
 /* The categories, as pills over the grid. All posts leads and is current until a category is
  * chosen; the current pill fills with ink, so the filter in force reads at a glance. A name
  * too long for the column is cut short rather than wrapped onto a second line. */
-/* The search box: a plain form above the pills, so it works with no script. The field is a pill
- * like they are, with the magnifier inside its left edge, and the button beside it is the one
- * filled control on the page. The size is 1rem on purpose -- a smaller field makes iOS zoom in. */
-.post-search { display: flex; gap: var(--space-sm); max-width: 34rem; margin: 0 0 var(--space-lg); }
+/* The controls row: categories on the left, the search at the right end. Under 40rem the
+ * search takes the full width above the pills, where a thumb finds it first. */
+.post-controls { display: flex; flex-wrap: wrap-reverse; align-items: center; justify-content: space-between; gap: var(--space-md) var(--space-lg); margin: 0 0 var(--space-xl); }
 
-.post-search__field { position: relative; flex: 1 1 auto; min-width: 0; }
+.post-filter { min-width: 0; }
 
-.post-search__field .icon {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: var(--space-md);
-  width: 1.125rem;
-  height: 1.125rem;
-  margin-block: auto;
-  color: var(--color-muted);
-  pointer-events: none;
-}
+/* The search is a pill like the categories are, with the magnifier as its button inside the
+ * right end. It works with no script -- a plain GET form -- and a smaller field would make iOS
+ * zoom in, so the size stays 1rem. */
+.post-search { position: relative; flex: 1 1 15rem; max-width: 20rem; min-width: 0; }
+
+@media (max-width: 39.999rem) { .post-search { flex-basis: 100%; max-width: none; } }
 
 .post-search input {
   width: 100%;
   min-height: var(--control-height);
   padding-block: 0;
-  padding-inline: calc(var(--space-md) + 1.125rem + var(--space-sm)) var(--space-md);
+  padding-inline: var(--space-md) calc(var(--control-height) + var(--space-2xs));
   border: var(--rule-hair) solid var(--color-rule);
   border-radius: var(--radius-pill);
   appearance: none;
@@ -519,23 +514,29 @@
 
 .post-search input:hover { border-color: var(--color-rule-strong); }
 
-.post-search input:focus-visible { border-color: var(--color-accent); }
+.post-search input:focus-visible { border-color: var(--color-accent); outline: 0; }
 
 .post-search__submit {
-  flex: 0 0 auto;
-  min-height: var(--control-height);
-  padding-inline: var(--space-lg);
+  position: absolute;
+  inset-block: var(--space-2xs);
+  inset-inline-end: var(--space-2xs);
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  background: transparent;
+  color: var(--color-muted);
   cursor: pointer;
-  transition: background-color var(--dur-short) var(--ease-out);
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
 }
 
-.post-search__submit:hover { background: var(--color-accent-hover); }
+.post-search__submit .icon { width: 1.125rem; height: 1.125rem; }
+
+.post-search__submit:hover,
+.post-search__submit:focus-visible { background: var(--color-paper-3); color: var(--color-ink); }
+
+.post-search__submit:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 /* What the list is: the words searched for, and the way back. It is inside the feed, so choosing
  * a category, which swaps the feed, takes it away with the list it described. */
@@ -545,7 +546,7 @@
 
 .post-search__status a:hover { text-decoration: underline; }
 
-.post-filter ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0 0 var(--space-xl); padding: 0; list-style: none; }
+.post-filter ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0; padding: 0; list-style: none; }
 
 .post-filter li { min-width: 0; max-width: 100%; }
 

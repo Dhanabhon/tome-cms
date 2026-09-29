@@ -44,7 +44,8 @@
 .plain-tagline { margin: 0 0 var(--space-xl); color: var(--color-muted); }
 
 /* A form and nothing else: the field, and a button beside it that says what it does. */
-.plain-search { display: flex; gap: var(--space-sm); margin-block-end: var(--space-lg); }
+.plain-controls { display: flex; flex-wrap: wrap-reverse; align-items: baseline; justify-content: space-between; gap: var(--space-sm) var(--space-lg); margin-block-end: var(--space-xl); }
+.plain-search { display: flex; flex: 1 1 14rem; max-width: 18rem; gap: var(--space-sm); }
 .plain-search input {
   flex: 1 1 auto;
   min-width: 0;
@@ -73,7 +74,7 @@
 .plain-search-none { margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: 0.875rem; }
 .plain-search-status a { color: var(--color-link); }
 
-.plain-filter { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-block-end: var(--space-xl); font-size: 0.875rem; }
+.plain-filter { display: flex; flex-wrap: wrap; gap: var(--space-md); font-size: 0.875rem; }
 .plain-filter a { color: var(--color-muted); text-decoration: none; }
 .plain-filter a[aria-current="page"] { color: var(--color-link); text-decoration: underline; }
 

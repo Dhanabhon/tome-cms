@@ -212,26 +212,27 @@ const initial = (title: string) => {
 )}
 
 <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
-  <form class="post-search" role="search" method="get" action={home} data-post-search>
-    <label class="sr-only" for="post-search-q">{shared.searchLabel}</label>
-    <div class="post-search__field">
-      <Icon name="search" />
+  <!-- What narrows the feed, on one row: the categories, and at the row's end a quiet search.
+       Both are the same kind of thing, so they sit together; the search used to be a filled
+       button above them, the one loud control on the page. -->
+  <div class="post-controls">
+    {categories.length > 0 && (
+      <nav class="post-filter" aria-label={copy.categories} data-post-filter data-announce={copy.showing}>
+        <ul>
+          <li><a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.all}</a></li>
+          {categories.map(({ name }) => (
+            <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
+          ))}
+        </ul>
+        <p class="sr-only" role="status" data-post-filter-status></p>
+      </nav>
+    )}
+    <form class="post-search" role="search" method="get" action={home} data-post-search>
+      <label class="sr-only" for="post-search-q">{shared.searchLabel}</label>
       <input id="post-search-q" name="q" type="search" value={query ?? ''} maxlength="100" placeholder={shared.searchLabel} autocomplete="off" enterkeyhint="search" />
-    </div>
-    <button class="post-search__submit" type="submit">{shared.search}</button>
-  </form>
-
-  {categories.length > 0 && (
-    <nav class="post-filter" aria-label={copy.categories} data-post-filter data-announce={copy.showing}>
-      <ul>
-        <li><a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.all}</a></li>
-        {categories.map(({ name }) => (
-          <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
-        ))}
-      </ul>
-      <p class="sr-only" role="status" data-post-filter-status></p>
-    </nav>
-  )}
+      <button class="post-search__submit" type="submit" aria-label={shared.search} title={shared.search}><Icon name="search" /></button>
+    </form>
+  </div>
 
   <!-- Everything a category changes, so a chosen pill can swap it whole. -->
   <div class="post-feed" data-post-feed={endless ? "" : undefined}>
