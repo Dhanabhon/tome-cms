@@ -2415,7 +2415,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .navigation-visibility { margin-block-start: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
 .navigation-new-tab { margin-block-start: var(--space-2xs); font-size: var(--text-sm); }
 .navigation-save { margin-block: var(--space-lg); }
-.navigation-save > span { color: var(--color-muted); font-size: var(--text-sm); }
+.navigation-save > span, .navigation-save > a { color: var(--color-muted); font-size: var(--text-sm); }
+.navigation-save > a { color: var(--color-link); }
 .navigation-manager [role="tabpanel"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-2xs); }
 .navigation-dialog { width: min(34rem, calc(100% - var(--space-lg))); max-height: calc(100dvh - var(--space-lg)); margin: auto; padding: var(--space-lg); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-lg); background: var(--color-paper); color: var(--color-ink); overflow-y: auto; }
 .navigation-dialog form { display: grid; gap: var(--space-md); min-width: 0; }
@@ -2439,7 +2440,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Slides the home page will not show yet: said once, calmly, with the way to change it. It is
  * advice, not a failure, so it wears a card's surface rather than the error's red, and it
  * keeps its distance from the page head, whose button sits on the head's bottom edge. */
-.home-slides-notice, .admin-maintenance-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); }
+.home-slides-notice, .admin-maintenance-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) 0 var(--space-sm) var(--space-md); border: 0; border-inline-start: 3px solid var(--color-accent); border-radius: 0; background: none; }
 .home-slides-notice p, .admin-maintenance-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
 /* Maintenance: the notice sits above the screen's head, not below it, inset from the shell's
  * edges as the migrations alert in the same place is. */
