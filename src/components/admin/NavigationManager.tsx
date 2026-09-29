@@ -209,7 +209,6 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
       const result = await response.json() as { items: SavedItem[] };
       setMenus((current) => ({ ...current, [key]: result.items.map(localItem) }));
       setDirty((current) => ({ ...current, [key]: false }));
-      setStatus(copy.navigation.menuSaved);
       setSavedOnce(true);
     } catch {
       setSaveError(copy.navigation.saveError);

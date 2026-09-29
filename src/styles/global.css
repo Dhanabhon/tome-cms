@@ -392,7 +392,7 @@ html[data-notice-closed] .site-notice { display: none; }
  * not as the edge of something in front. This palette has no shadow to lean on, so the
  * gap is what says the bar is a separate object. */
 /* The primary action stays in reach at the foot of a long form. No box: a rule above, the page
- * showing through at 94%, the save state in words beside the button -- a colour cannot say it,
+ * showing through at 94%, the save state on the button itself -- a colour cannot say it,
  * no two surfaces here are far enough apart. */
 .admin-save-bar {
   position: sticky;

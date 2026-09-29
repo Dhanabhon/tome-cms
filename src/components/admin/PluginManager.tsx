@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type SyntheticEvent } from 'react';
 
 import MediaPicker from './MediaPicker';
 import UiSelect from './UiSelect';
@@ -236,6 +236,12 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
 
   const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose });
 
+  // Events from the picture picker's own dialog (its search, an upload) bubble through this form
+  // but are not edits to the plugin's fields.
+  function markDirty(event: SyntheticEvent<HTMLFormElement>) {
+    if ((event.target as HTMLElement).closest('dialog') === event.currentTarget.closest('dialog')) setDirty(true);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -276,7 +282,7 @@ function PluginSetUp({ busy, configured, copy, locale, manifest, onClose, onSave
           <Icon name="close" />
         </button>
       </header>
-      <form className="plugin-setup" onChange={() => setDirty(true)} onInput={() => setDirty(true)} onSubmit={submit}>
+      <form className="plugin-setup" onChange={markDirty} onInput={markDirty} onSubmit={submit}>
         <fieldset disabled={busy}>
           {manifest.settings.map((setting) => setting.kind === 'switch' ? (
             <div className="admin-check" key={setting.key}>

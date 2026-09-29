@@ -249,7 +249,6 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
       const result = await response.json() as { slides: HomeSlide[] };
       setSlides((current) => ({ ...current, [locale]: result.slides.map(local) }));
       setDirty((current) => ({ ...current, [locale]: false }));
-      setMessage(text.saved);
       setSavedOnce(true);
     } catch {
       setSaveError(text.saveError);

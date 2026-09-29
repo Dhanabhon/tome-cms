@@ -128,7 +128,8 @@ test('a save button spins, says Saved, and asks again after an edit', async ({ c
   await expect(save).toHaveAttribute('data-state', 'dirty');
   await save.click();
   await expect(save).toHaveAttribute('data-state', 'saved');
-  await expect(save).toContainText('Saved');
+  await expect(page.getByRole('button', { name: 'Saved' })).toBeDisabled();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toHaveCount(1);
   const width = (await save.boundingBox())!.width;
   await page.getByLabel('Tagline').fill('A small studio, again');
   await expect(save).toHaveAttribute('data-state', 'dirty');

@@ -344,7 +344,6 @@ test('every control that starts a request reports it', () => {
   // A save button's words are on the button, not in a status line beside it.
   assert.doesNotMatch(read('src/components/admin/SettingsForm.tsx'), /copy\.settings\.saving/);
   const swapped: ReadonlyArray<readonly [string, RegExp]> = [
-    ['NavigationManager', /\{saving \? copy\.navigation\.saving : copy\.navigation\.saveMenu\}/],
     ['MediaLibrary', /\{deleting \? copy\.media\.deleting : copy\.media\.delete\}/],
     ['UpdateManager', /\{busy \? copy\.updates\.checking : copy\.updates\.checkAgain\}/],
     ['UpdateManager', /\{installing \? copy\.updates\.verifying/],

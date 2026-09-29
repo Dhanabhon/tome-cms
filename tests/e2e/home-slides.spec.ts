@@ -177,7 +177,7 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   await drawer.getByRole('button', { name: 'Done' }).click();
 
   await page.getByRole('button', { name: 'Save slides' }).click();
-  await expect(status).toHaveText('Slides saved.');
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
 
   const home = async (locale: 'th' | 'en') => {
     await page.goto(`${origin}/${locale}`);
@@ -215,7 +215,7 @@ test('an owner makes slides for one language, orders them by keyboard, and sees 
   await page.keyboard.press('Enter');
   await expect(status).toHaveText('Moved slide 1 to position 2.');
   await page.getByRole('button', { name: 'Save slides' }).click();
-  await expect(status).toHaveText('Slides saved.');
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
   expect((await home('th')).map((slide) => slide.heading)).toEqual(['Second', 'ทะเลสาบยามเช้า']);
 
   // The library will not delete the picture from under them, and names each slide.
