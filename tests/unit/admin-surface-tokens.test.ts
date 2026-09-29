@@ -536,11 +536,15 @@ test('"Show all" from an empty tab links to status=all', () => {
   assert.match(read('src/pages/admin/pages/index.astro'), /admin-empty--filtered[\s\S]{0,200}?status[^<]*all/);
 });
 
-test('the language filter waits for Enter when the keyboard drives it', () => {
+test('the language filter leaves a keyboard choice to its own submit button', () => {
   for (const file of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
     const source = read(file);
-    assert.match(source, /event\.key === 'Enter'/, file);
-    assert.match(source, /submit\.tabIndex = -1/, file);
+    // A change that began on the keyboard must not navigate (WCAG 3.2.2)...
+    assert.match(source, /addEventListener\('change', \(\) => \{ if \(!byKeyboard\) form\?\.requestSubmit\(\); \}\)/, file);
+    // ...and nothing takes over the select's Enter or hides the button the keyboard applies it with.
+    assert.doesNotMatch(source, /event\.key === 'Enter'/, file);
+    assert.doesNotMatch(source, /tabIndex = -1/, file);
+    assert.match(source, /admin-list-filter__submit" type="submit">\{copy\.filters\.showLanguage\}/, file);
   }
 });
 
@@ -560,10 +564,12 @@ test('a Stats change is set in the link colour, a note is not', () => {
   assert.match(read('src/components/admin/stats/StatsReport.astro'), /stats-summary__change--delta/);
 });
 
-test('on a phone each Stats tab row keeps its own rule and the figures draw no second one', () => {
+test('the Stats tabs stand on one full-width rule, and the figures draw no second one', () => {
   const stats = read('src/styles/stats.css');
-  assert.equal(declaration(ruleBody(stats, '.stats-filters'), 'border-block-end'), undefined);
-  assert.equal(declaration(ruleBody(stats, '.stats-segments'), 'border-block-end'), 'var(--rule-hair) solid var(--color-rule)');
+  // On the filters block, as every other tab row in the admin: on the two groups it broke into
+  // two stubs with a gap between them on a desktop.
+  assert.equal(declaration(ruleBody(stats, '.stats-filters'), 'border-block-end'), 'var(--rule-hair) solid var(--color-rule)');
+  assert.equal(declaration(ruleBody(stats, '.stats-segments'), 'border-block-end'), undefined);
   assert.equal(declaration(ruleBody(stats, '.stats-filters + .stats-summary'), 'border-block-start'), '0');
   assert.match(stats, /\.stats-share li::before \{[^}]*opacity: 0\.5/);
   assert.doesNotMatch(CSS, /\.admin-empty--inline a, \.admin-empty--inline button/);

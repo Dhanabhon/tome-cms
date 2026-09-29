@@ -149,7 +149,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
               <option value="th" selected={locale === 'th'}>{copy.filters.thai}</option>
               <option value="en" selected={locale === 'en'}>{copy.filters.english}</option>
             </select>
-            <button class="admin-button admin-list-filter__submit" type="submit">{copy.filters.language}</button>
+            <button class="admin-button admin-list-filter__submit" type="submit">{copy.filters.showLanguage}</button>
           </form>
         </div>
         <p class="admin-alert" data-post-error role="alert" hidden></p>
@@ -246,19 +246,13 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
   });
 
   // Pointer users get the list on change. A keyboard user stepping through the options must
-  // not be sent away on the first arrow press (WCAG 3.2.2), so a change that began on the
-  // keyboard waits for Enter.
+  // not be sent away on the first arrow press (WCAG 3.2.2): a change that began on the keyboard
+  // does nothing, and the submit button beside the select -- shown as soon as Tab reaches it --
+  // is how the keyboard applies the choice. The select's own Enter is left to the browser.
   const form = document.querySelector<HTMLFormElement>('[data-list-filter]');
   const select = form?.querySelector<HTMLSelectElement>('select');
-  const submit = form?.querySelector<HTMLButtonElement>('.admin-list-filter__submit');
   let byKeyboard = false;
-  select?.addEventListener('keydown', (event) => {
-    byKeyboard = true;
-    if (event.key === 'Enter') { event.preventDefault(); form?.requestSubmit(); }
-  });
+  select?.addEventListener('keydown', () => { byKeyboard = true; });
   select?.addEventListener('pointerdown', () => { byKeyboard = false; });
   select?.addEventListener('change', () => { if (!byKeyboard) form?.requestSubmit(); });
-  // With script running, Enter and pointer change both submit; the no-script button would be a
-  // second control with the same name, so it steps out of the tab order.
-  if (submit) submit.tabIndex = -1;
 </script>
