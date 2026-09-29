@@ -105,8 +105,11 @@ export const ALL: APIRoute = async (context) => {
   }
   // A challenge, if the owner put one there, on the attempt and on nothing else. Not on
   // registration: the recovery flow is the way back in when this goes wrong, and a wall
-  // across it would be a wall across the exit.
-  if (request.method === 'POST' && url.pathname === '/api/auth/passkey/verify-authentication') {
+  // across it would be a wall across the exit. Nor on an owner who is already signed in: that
+  // is the update screen or the recovery codes asking for a passkey once more, only the
+  // sign-in page can pass a token, and someone holding a session is not who it keeps out. A
+  // session that is not an installed owner's was turned away above, so `current` is one.
+  if (!current && request.method === 'POST' && url.pathname === '/api/auth/passkey/verify-authentication') {
     const { getSiteSettings } = await import('../../../server/content/site-settings');
     const settings = await getSiteSettings();
     if (settings) {

@@ -4,6 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import type { PostLocale } from '../../types/cms';
 
 import { authClient } from '../../lib/auth-client';
+import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { UpdaterStatus } from '../../server/update/updater-client';
 import type { UpdateUnavailableReason } from '../../server/update/service';
@@ -126,7 +127,11 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   const steps = buildSteps(copy);
   const [check, setCheck] = useState<UpdateCheck | null>(null);
   const [busy, setBusy] = useState(true);
+  // The release check failing, which is all `availability` and the status line may say.
   const [error, setError] = useState('');
+  // The install going wrong: a refused passkey, a refused request. It says so beside the buttons
+  // and leaves the status of the release as the check found it, which was fine.
+  const [installError, setInstallError] = useState('');
   const [installing, setInstalling] = useState(false);
   // Pressed, as against the check the page makes on its own when it opens.
   const [checking, setChecking] = useState(false);
@@ -139,6 +144,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     setBusy(true);
     setChecking(refresh);
     setError('');
+    setInstallError('');
     // Read in the catch below, so a 429 there still gets its own sentence and nothing else
     // ever shows the server's, fetch's or an abort's own English.
     let response: Response | null = null;
@@ -193,6 +199,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
           observedJob.current = job;
           if (terminalPhases.includes(job.phase)) {
             setError('');
+            setInstallError('');
             setWatch(null);
             return;
           }
@@ -212,7 +219,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
     const version = check?.latest?.manifest.version;
     if (!version || !check?.installability.installable || installing || watch) return;
     setInstalling(true);
-    setError('');
+    setInstallError('');
     try {
       const confirmed = await confirmUi({
         title: fill(copy.updates.installTitle, { version }), confirmLabel: fill(copy.updates.install, { version }), cancelLabel: copy.shell.cancel,
@@ -220,7 +227,12 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
       });
       if (!confirmed || !mounted.current) return;
       const assertion = await authClient.signIn.passkey();
-      if (assertion.error || !assertion.data) throw new Error(copy.updates.noPasskey);
+      if (assertion.error || !assertion.data) {
+        // Said as the other passkey screens say it: a challenge, a rate limit, a passkey the site
+        // does not know and a server fault are not all "it may have been cancelled".
+        if (mounted.current) setInstallError(describePasskeyFailure(assertion, copy, copy.updates.noPasskey, copy.auth.passkeyNotRegistered));
+        return;
+      }
       if (!mounted.current) return;
       const previousJobId = check.updater?.managed ? check.updater.job?.id : undefined;
       observedJob.current = null;
@@ -250,7 +262,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
       }
       if (definiteRefusal) {
         if (action === 'stop') setWatch(null);
-        setError(typeof result?.error === 'string' ? result.error : copy.updates.updateRequestUnavailable);
+        setInstallError(typeof result?.error === 'string' ? result.error : copy.updates.updateRequestUnavailable);
         return;
       }
       if (action === 'preserve') return;
@@ -261,7 +273,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
         && (!current.updater.job || current.updater.job.id === previousJobId)
         ? { ...current, updater: { ...current.updater, job: acceptedJob } } : current);
     } catch (failure) {
-      if (mounted.current) setError(failure instanceof Error ? failure.message : copy.updates.updateRequestUnavailable);
+      if (mounted.current) setInstallError(describePasskeyException(failure, copy, copy.updates.updateRequestUnavailable));
     } finally {
       if (mounted.current) setInstalling(false);
     }
@@ -305,6 +317,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
           </dl>
           {/* The words live here, so neither button changes width while it works. */}
           <p>{progress}</p>
+          {installError && <p className="update-error" role="alert">{installError}</p>}
           {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
         </div>
         <div className="update-actions">

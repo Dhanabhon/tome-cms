@@ -317,6 +317,8 @@ html[data-notice-closed] .site-notice { display: none; }
   .update-card > .admin-card__head { grid-column: 1 / -1; }
 }
 .update-status { margin: 0; color: var(--color-ink-2); font-weight: 600; }
+/* Two classes: `.admin-card p` sets every card paragraph muted, and would win over one. */
+.update-summary .update-error { margin: 0; color: var(--color-error-ink); }
 .update-status[data-status='available'] { color: var(--color-accent); }
 .update-status[data-status='manual-transition'], .update-status[data-status='unavailable'] { color: var(--color-error-ink); }
 /* The bar was a raw <progress>: the browser's own grey-and-green, the one element on

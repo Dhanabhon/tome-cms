@@ -46,6 +46,8 @@ The sign-in form shows the challenge above the passkey button. When you sign in 
 
 The last row is why a mistyped secret key cannot lock you out. The challenge never guards creating a passkey either, so `/recovery` works whether the plugin is on or not. If the challenge will not load in your browser, switch the plugin off from the server as [Getting back in](/tome-cms/running/recovery/) shows.
 
+The challenge belongs to the sign-in page. When you are already signed in and the admin asks for your passkey once more, to install an update or to make new recovery codes, it is neither shown nor checked. On 1.1.0 and earlier it was checked, and those two stopped: see [Troubleshooting](/tome-cms/running/troubleshooting/#the-passkey-check-did-not-finish-it-may-have-been-cancelled-try-again-when-installing-an-update).
+
 ## What Cloudflare receives
 
 In your browser, the admin's sign-in page loads Cloudflare's script from `challenges.cloudflare.com`, and the challenge runs there. Cloudflare sees what any site you load something from sees, your address included. No other page loads it, and a reader of the public site never reaches Cloudflare through this plugin.

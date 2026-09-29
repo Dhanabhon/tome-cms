@@ -81,6 +81,18 @@ sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 `npm run updater:clear-failed` sets aside only an update that stopped before its backup. This one got further, and may have run migrations. Follow [Recovering a managed installation](/tome-cms/running/recovery/#recovering-a-managed-installation) instead.
 
+### `The passkey check did not finish. It may have been cancelled. Try again.` when installing an update
+
+This shows on "System" after you confirm an update, although your passkey works: signing out and back in goes through. The line "Release availability" also turns red and says "Check unavailable", although the check worked.
+
+It happens on 1.1.0 and earlier, on a site with the [Cloudflare Turnstile](/tome-cms/plugins/turnstile/) plugin switched on. Asking for your passkey again went through the same sign-in check as signing in, only the sign-in page can pass that check, and the server refused. "Verify and create new codes", under "Recovery codes" on "Security", ran into the same wall and says `The sign-in check was not passed.` Nothing was changed. From 1.1.1 the check is asked for only when there is no session, so an owner who is signed in is not asked.
+
+The running version is the one that asks, so an update started from 1.1.0 or earlier still needs this:
+
+1. Open "Plugins", under "Appearance" in "Configuration", and switch "Cloudflare Turnstile" off. Its keys stay stored.
+2. Install the update from "System", as [Updating](/tome-cms/running/updating/) describes.
+3. Switch "Cloudflare Turnstile" on again.
+
 ## Connecting to the server
 
 ### `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`
