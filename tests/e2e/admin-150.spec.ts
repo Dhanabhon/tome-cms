@@ -135,3 +135,22 @@ test('a save button spins, says Saved, and asks again after an edit', async ({ c
   await expect(save).toHaveAttribute('data-state', 'dirty');
   expect(Math.round((await save.boundingBox())!.width)).toBe(Math.round(width));
 });
+
+test('a row menu closes on a press outside and on Escape', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('textarea.admin-title-input').first().fill('Menu test');
+  await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
+  await page.goto(`${origin}/admin?status=all`);
+  const menus = page.locator('details.admin-story-menu');
+  const menu = menus.first();
+  await menu.locator('summary').click();
+  await expect(menu).toHaveAttribute('open', '');
+  await page.mouse.click(5, 5);
+  await expect(menu).not.toHaveAttribute('open', '');
+  await menu.locator('summary').click();
+  await page.keyboard.press('Escape');
+  await expect(menu).not.toHaveAttribute('open', '');
+  await expect(menu.locator('summary')).toBeFocused();
+});

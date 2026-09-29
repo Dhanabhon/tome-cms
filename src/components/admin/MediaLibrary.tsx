@@ -26,6 +26,7 @@ import {
   type MediaTypeFilter,
 } from '../../lib/media';
 import { closeOverlay } from '../../lib/overlay-motion';
+import { wireDetailsMenus } from '../../lib/details-menu';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { MediaAsset, MediaFolder, MediaReferences, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
@@ -420,16 +421,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     else forget();
   }
 
-  // A press anywhere outside an open folder menu closes it, as Escape does.
-  useEffect(() => {
-    const closeOutside = (event: PointerEvent) => {
-      for (const menu of document.querySelectorAll<HTMLDetailsElement>('details.media-category-menu[open]')) {
-        if (!menu.contains(event.target as Node)) menu.open = false;
-      }
-    };
-    document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
-  }, []);
+  // A folder menu closes on a press outside and on Escape, and only one is open at a time.
+  useEffect(() => wireDetailsMenus('details.media-category-menu'), []);
 
   // The posts list's "..." menu. Each action used to be a visible button that repeated the
   // folder's name, so two folders ran to a line of "Rename X Delete X Rename Y Delete Y".

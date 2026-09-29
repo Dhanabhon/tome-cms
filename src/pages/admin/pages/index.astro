@@ -169,6 +169,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
 
 <script>
   import wireStoryList from '../../../lib/admin-story-list';
+  import { wireDetailsMenus } from '../../../lib/details-menu';
   import { confirmUi } from '../../../lib/ui-dialog';
 
   const copy = (document.querySelector<HTMLElement>('[data-admin-pages]') ?? document.createElement('div')).dataset;
@@ -186,6 +187,8 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
       tone: 'danger',
     }),
   });
+
+  wireDetailsMenus('details.admin-story-menu');
 
   // Pointer users get the list on change. A keyboard user stepping through the options must
   // not be sent away on the first arrow press (WCAG 3.2.2): a change that began on the keyboard

@@ -229,6 +229,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
 
 <script>
   import wireStoryList from '../../lib/admin-story-list';
+  import { wireDetailsMenus } from '../../lib/details-menu';
   import { confirmUi } from '../../lib/ui-dialog';
 
   const copy = (document.querySelector<HTMLElement>('[data-admin-posts]') ?? document.createElement('div')).dataset;
@@ -244,6 +245,8 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       tone: 'danger',
     }),
   });
+
+  wireDetailsMenus('details.admin-story-menu');
 
   // Pointer users get the list on change. A keyboard user stepping through the options must
   // not be sent away on the first arrow press (WCAG 3.2.2): a change that began on the keyboard

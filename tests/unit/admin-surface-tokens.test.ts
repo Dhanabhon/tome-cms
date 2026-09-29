@@ -588,3 +588,14 @@ test('the work sits on the lightest surface, the sidebar on the page behind it',
   assert.equal(declaration(ruleBody(CSS, '.admin-topbar'), 'background'), 'var(--color-paper)');
   assert.match(declaration(ruleBody(CSS, '.admin-save-bar'), 'background') ?? '', /color-mix\(in oklch, var\(--color-paper\) 94%/);
 });
+
+test('a row menu floats, is quiet at rest, and closes like a menu', () => {
+  const panel = ruleBody(CSS, '.admin-story-menu > div');
+  assert.equal(declaration(panel, 'box-shadow'), 'var(--shadow-float)');
+  assert.match(declaration(panel, 'border') ?? '', /var\(--color-rule\)$/);
+  assert.match(CSS, /\.admin-story-menu summary:focus-visible \{ outline: 2px solid var\(--color-focus\); outline-offset: -2px; \}/);
+  for (const page of ['src/pages/admin/index.astro', 'src/pages/admin/pages/index.astro']) {
+    assert.match(read(page), /wireDetailsMenus\('details\.admin-story-menu'\)/, page);
+  }
+  assert.match(read('src/components/admin/MediaLibrary.tsx'), /wireDetailsMenus\('details\.media-category-menu'\)/);
+});
