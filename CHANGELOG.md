@@ -2,6 +2,22 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.3.0 - 2026-09-29
+
+Updates that bring no migration keep the site offline for less time, the System screen says how long an update kept it offline, and the updater itself can be upgraded.
+
+### Added
+
+- `sudo npm run updater:upgrade`, run from a checkout of a release, replaces the managed updater with that release's, along with its systemd unit and `compose.managed.yaml`. It leaves the site running, refuses during an update, keeps the previous files, and puts them back if the new updater does not answer. Until now a server kept the updater it was installed with.
+- The "Last update" card on "System" says how long the site was offline and what the backup held, with an updater of 1.3.0 or later.
+- `npm run backup -- --database-only`, and the manifest's `"scope": "database"` for such a backup.
+
+### Changed
+
+- Before an update that brings no migration, an updater of 1.3.0 or later backs up the database alone instead of the database and the whole media library. It needs the application being updated from to be 1.3.0 or later too; otherwise, and whenever a migration is due or anything is uncertain, the backup is full as before.
+
+Full notes: [docs/releases/1.3.0.md](docs/releases/1.3.0.md)
+
 ## 1.2.1 - 2026-09-29
 
 Small fixes found while reviewing 1.1.1 and 1.2.0.
