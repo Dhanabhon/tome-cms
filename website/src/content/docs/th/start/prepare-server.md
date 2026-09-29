@@ -27,7 +27,7 @@ VPS ที่เพิ่งสร้างยังไม่มีสิ่ง�
 ทำงานในฐานะ root ถ้าเซิร์ฟเวอร์ให้ล็อกอินด้วยบัญชีอื่น ให้รัน `sudo -i` ก่อน ดึง release ลงมาครั้งเดียว ไว้ในโฟลเดอร์ที่การติดตั้งใช้ด้วย แล้วรันสคริปต์จากโฟลเดอร์นั้น
 
 ```sh
-git clone --depth 1 --branch v1.1.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.2.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
 ```
@@ -118,7 +118,7 @@ sudo /usr/local/sbin/tomecms-first-boot
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.1.2
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.2.0
 ```
 
 ตัวติดตั้งไม่ยอมรันทับการติดตั้งที่มันเริ่มไว้แล้ว ถ้ามันหยุดไปหลังจากเขียนไฟล์แล้ว หน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed) บอกว่าต้องทำอะไรแทน

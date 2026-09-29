@@ -2,6 +2,18 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.2.0 - 2026-09-29
+
+Readers can search the posts, from the homepage of both bundled themes and from the public API.
+
+### Added
+
+- A search box above the posts on the homepage of Paper and Plain. It finds the published posts, in the language of the page, that contain every word typed, in the title, the excerpt or the text. It matches inside words and ignores case, so it works in Thai, and bold or a link inside a word does not cut it while a paragraph, a list item or a table cell does. It is a plain form that works without JavaScript, a page of results is kept out of search engines, and Paper hides its hero while results are shown. Choosing a category leaves the search.
+- `q` on `GET /api/v1/content/posts`, with the same rule. `links.next` and the signed cursor keep it, and a list without it answers as before. A sender may search 60 times a minute and two searches run at once; past either the answer is `429` with `Retry-After`.
+- `query` in the props of a theme's `Home` template: the words a reader searched for.
+
+Full notes: [docs/releases/1.2.0.md](docs/releases/1.2.0.md)
+
 ## 1.1.2 - 2026-09-29
 
 The limits on signing in, recovery, installing and updating count each visitor, not the reverse proxy in front of the application.
