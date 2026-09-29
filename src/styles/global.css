@@ -1164,6 +1164,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   line-height: 1;
   overflow-wrap: anywhere;
 }
+.admin-page__head h1 .admin-count { margin-inline-start: var(--space-xs); color: var(--color-muted); font-size: var(--text-lg); font-weight: 600; letter-spacing: 0; line-height: inherit; vertical-align: baseline; }
 .admin-page__head p:not(.admin-eyebrow) {
   max-width: 55ch;
   margin: var(--space-sm) 0 0;
@@ -1961,7 +1962,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .theme-card__mark .icon { width: 1rem; height: 1rem; }
 /* Nothing here installs a theme, so this card carries no affordance to. It breaks the grid's
  * rhythm on purpose: it is a note among cards, not another theme. */
-.theme-card--source { grid-template-rows: auto; gap: var(--space-xs); align-content: center; padding: var(--space-lg); border-style: dashed; background: none; }
+.theme-card--source { grid-template-rows: auto; gap: var(--space-xs); align-content: center; padding: var(--space-lg) 0 var(--space-lg) var(--space-md); border: 0; border-inline-start: 3px solid var(--color-accent); border-radius: 0; background: none; }
 .theme-report:not(:has(:not(:empty))) { display: none; }
 .theme-status { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 
