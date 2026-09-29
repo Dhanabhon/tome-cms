@@ -845,6 +845,16 @@ const en = {
     subheading: 'Group related posts without changing how their language editions stay together.',
     updateFailed: 'The category could not be updated.',
   },
+  dateTime: {
+    calendar: 'Choose a date and time',
+    clear: 'Clear',
+    done: 'Done',
+    hour: 'Hour',
+    minute: 'Minute',
+    nextMonth: 'Next month',
+    placeholder: 'Choose a date',
+    previousMonth: 'Previous month',
+  },
   drawer: {
     categories: 'Categories',
     categoryFallback: 'Uncategorized is used when no custom categories are selected.',
@@ -1799,6 +1809,16 @@ const th: typeof en = {
     saveLabelFor: 'บันทึก {name}',
     subheading: 'จัดกลุ่มบทความที่เกี่ยวข้องกัน โดยไม่กระทบการจับคู่ฉบับภาษา',
     updateFailed: 'แก้ไขหมวดหมู่ไม่สำเร็จ',
+  },
+  dateTime: {
+    calendar: 'เลือกวันและเวลา',
+    clear: 'ล้าง',
+    done: 'เสร็จ',
+    hour: 'ชั่วโมง',
+    minute: 'นาที',
+    nextMonth: 'เดือนถัดไป',
+    placeholder: 'เลือกวันที่',
+    previousMonth: 'เดือนก่อน',
   },
   drawer: {
     categories: 'หมวดหมู่',

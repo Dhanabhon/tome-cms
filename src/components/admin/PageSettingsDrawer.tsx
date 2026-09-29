@@ -8,6 +8,7 @@ import type { PageLocale } from '../../types/cms';
 import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 import ExcerptSuggestion from './ExcerptSuggestion';
+import UiDateTime from './UiDateTime';
 
 interface PageSettingsDrawerProps {
   /** Absent when this installation has no key for it. */
@@ -28,12 +29,13 @@ interface PageSettingsDrawerProps {
   onChangeSlug: (value: string) => void;
   onClose: () => void;
   open: boolean;
+  ownerLocale?: PageLocale | null;
   slug: string;
 }
 
 export default function PageSettingsDrawer({
   copy, errorMessage, excerpt, locale, metaDescription, metaTitle, onChangeExcerpt,
-  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onSuggestDescription, onSuggestExcerpt, onClose, open, publishedAt, slug,
+  onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onSuggestDescription, onSuggestExcerpt, onClose, open, ownerLocale, publishedAt, slug,
 }: PageSettingsDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
   /* Built by the same function that builds the real link, so the two cannot drift. */
@@ -58,16 +60,12 @@ export default function PageSettingsDrawer({
           </div>
           <small>{copy.drawer.slugHintPage}</small>
         </label>
-        <label className="admin-field">
-          <span>{copy.drawer.publishAt}</span>
-          <input
-            className="admin-control"
-            onChange={(event) => onChangePublishedAt(fromLocalInput(event.target.value))}
-            type="datetime-local"
-            value={toLocalInput(publishedAt)}
-          />
-          <small>{copy.drawer.publishAtHint}</small>
-        </label>
+        <div className="admin-field">
+          <label htmlFor="page-publish-at">{copy.drawer.publishAt}</label>
+          <UiDateTime ariaDescribedBy="page-publish-at-hint" id="page-publish-at" labels={copy.dateTime} locale={ownerLocale ?? locale}
+            onChange={(next) => onChangePublishedAt(fromLocalInput(next))} value={toLocalInput(publishedAt)} />
+          <small id="page-publish-at-hint">{copy.drawer.publishAtHint}</small>
+        </div>
       </section>
 
       {/* Apart from Search preview, for the reason a post's is: one of these is written

@@ -550,13 +550,25 @@ test('the list filters choose a language through the admin select, which submits
 });
 
 test('no control opens a picker drawn by the operating system', () => {
-  // The file chooser is the one exception the web imposes. Until the date-time picker and the
-  // colour field land (Tasks 5 and 6), those two input types are listed here as still allowed.
-  const allowedForNow = /type="(?:datetime-local|color)"/;
+  // The file chooser is the one exception the web imposes. Until the colour field lands (Task 6),
+  // that input type is listed here as still allowed.
+  const allowedForNow = /type="color"/;
   for (const file of execSync('git ls-files src/components src/pages', { encoding: 'utf8' }).trim().split('\n')) {
     if (!/\.(astro|tsx)$/.test(file)) continue;
     const source = read(file).replace(new RegExp(allowedForNow.source, 'g'), '');
     assert.doesNotMatch(source, /<select\b|type="(?:date|datetime-local|time|month|week|color)"/, file);
+  }
+});
+
+test('the date-time field clears to nothing and closes like a menu', () => {
+  const field = read('src/components/admin/UiDateTime.tsx');
+  assert.match(field, /onClick=\{\(\) => \{ onChange\(''\); close\(\); \}\}/, 'Clear hands the caller an empty value');
+  assert.match(field, /event\.key === 'Escape'/);
+  assert.match(field, /placePopover\(/);
+  assert.match(field, /role="grid"/);
+  assert.match(read('src/styles/global.css'), /@media \(pointer: coarse\) \{[^}]*\}[^}]*\.ui-datetime__day \{ min-height: 44px; \}/, 'a day is 44px under a coarse pointer');
+  for (const file of ['PostSettingsDrawer', 'PageSettingsDrawer', 'MaintenanceForm', 'SlidesManager']) {
+    assert.match(read(`src/components/admin/${file}.tsx`), /<UiDateTime\b/, file);
   }
 });
 

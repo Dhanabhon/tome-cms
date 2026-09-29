@@ -17,6 +17,7 @@ import type { HomeSlideMedia, MediaAsset, PageLocale, PostLocale } from '../../t
 import MediaPicker from './MediaPicker';
 import SaveButton from './SaveButton';
 import { moveTabFocus } from './tabs';
+import UiDateTime from './UiDateTime';
 
 /** The page as the form holds it: every field a string, converted only on save. */
 interface Draft {
@@ -258,10 +259,11 @@ export default function MaintenanceForm({ ownerLocale, previewHref, generalHref,
 
           <section aria-labelledby="maintenance-back-heading" className="admin-card">
             <header className="admin-card__head"><h2 id="maintenance-back-heading">{text.backGroup}</h2><p>{text.backHint}</p></header>
-            <label className="admin-field">{text.backAt}
-              <input className="admin-control" onChange={(event) => change({ backAt: fromLocalInput(event.target.value) ?? '' })}
-                required={draft.template === 'countdown'} type="datetime-local" value={toLocalInput(draft.backAt)} />
-            </label>
+            <div className="admin-field">
+              <label htmlFor="maintenance-back-at">{text.backAt}</label>
+              <UiDateTime id="maintenance-back-at" labels={copy.dateTime} locale={ownerLocale ?? 'en'}
+                onChange={(next) => change({ backAt: fromLocalInput(next) ?? '' })} required={draft.template === 'countdown'} value={toLocalInput(draft.backAt)} />
+            </div>
           </section>
 
           {error && <p className="admin-form-error" role="alert">{error}</p>}

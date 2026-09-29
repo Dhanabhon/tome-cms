@@ -10,6 +10,7 @@ import MediaPicker from './MediaPicker';
 import Icon from '../Icon';
 import { fromLocalInput, toLocalInput } from '../../lib/local-datetime';
 import ExcerptSuggestion from './ExcerptSuggestion';
+import UiDateTime from './UiDateTime';
 import { atLeast } from '../../lib/busy';
 
 export interface CategorySuggestion {
@@ -84,16 +85,12 @@ export default function PostSettingsDrawer({
           </div>
           <small>{copy.drawer.slugHintPost}</small>
         </label>
-        <label className="admin-field">
-          <span>{copy.drawer.publishAt}</span>
-          <input
-            className="admin-control"
-            onChange={(event) => onChangePublishedAt(fromLocalInput(event.target.value))}
-            type="datetime-local"
-            value={toLocalInput(publishedAt)}
-          />
-          <small>{copy.drawer.publishAtHint}</small>
-        </label>
+        <div className="admin-field">
+          <label htmlFor="post-publish-at">{copy.drawer.publishAt}</label>
+          <UiDateTime ariaDescribedBy="post-publish-at-hint" id="post-publish-at" labels={copy.dateTime} locale={ownerLocale ?? locale}
+            onChange={(next) => onChangePublishedAt(fromLocalInput(next))} value={toLocalInput(publishedAt)} />
+          <small id="post-publish-at-hint">{copy.drawer.publishAtHint}</small>
+        </div>
         <fieldset aria-describedby="category-fallback-help" className="admin-field">
           <legend>{copy.drawer.categories}</legend>
           <div className="drawer-checks">

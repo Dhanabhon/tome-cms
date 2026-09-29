@@ -432,6 +432,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
           onChangeSlug={(value) => { slugTouched.current = true; setSlug(value); markDirty(); }}
           onClose={() => setSettingsOpen(false)}
           open={settingsOpen}
+          ownerLocale={ownerLocale}
           slug={slug}
         />
       </div>

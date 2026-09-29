@@ -256,7 +256,11 @@ test('the owner writes the page, previews it, closes the site, still sees it, an
   await page.getByRole('tab', { name: 'English' }).click();
   await expect(page.getByLabel('Heading', { exact: true }), 'the product’s words shown as the placeholder').toHaveAttribute('placeholder', 'Down for maintenance');
   await page.getByLabel('Heading', { exact: true }).fill('Closed for upgrades');
-  await page.getByLabel('Date and time', { exact: true }).fill('2030-01-01T09:00');
+  // The picker opens on today: one ArrowRight and Enter choose tomorrow, at 09:00.
+  await page.getByLabel('Date and time', { exact: true }).click();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   const closeSwitch = page.getByRole('switch', { name: 'Close the site for maintenance' });
   await expect(closeSwitch).not.toBeChecked();

@@ -545,26 +545,30 @@ test('a post can be published for later, and is nobody else\'s until then', asyn
   await page.locator('.ProseMirror').click();
   await page.keyboard.type('Words enough to be publishable.');
 
-  // Tomorrow, in the clock the owner is looking at -- which is what the input holds.
+  // Tomorrow, in the clock the owner is looking at, as the field says it: the picker opens on
+  // today, so one ArrowRight and Enter choose tomorrow, and the time it takes is 09:00.
   const friday = await page.evaluate(() => {
     const when = new Date(Date.now() + 86_400_000);
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
+    when.setHours(9, 0, 0, 0);
+    return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short', hourCycle: 'h23' }).format(when);
   });
   await page.getByRole('button', { name: /^Settings$/ }).first().click();
-  const when = page.locator('dialog.admin-editor-settings input[type="datetime-local"]');
+  const when = page.locator('dialog.admin-editor-settings #post-publish-at');
   await when.waitFor({ state: 'visible' });
   // The draft is filed with the date on it, and keeps it: a reload is the owner's next visit.
   const filed = page.waitForResponse((response) => response.url().endsWith('/api/admin/posts')
     && ['POST', 'PUT'].includes(response.request().method()) && response.ok()
     && Boolean(response.request().postDataJSON()?.publishedAt));
-  await when.fill(friday);
+  await when.click();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: /Close settings/i }).click();
   await filed;
   await page.reload();
   await page.getByRole('button', { name: /^Settings$/ }).first().click();
   await when.waitFor({ state: 'visible' });
-  await expect(when, 'a draft keeps the date it was given').toHaveValue(friday);
+  await expect(when, 'a draft keeps the date it was given').toHaveText(friday);
   await page.getByRole('button', { name: /Close settings/i }).click();
 
   const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')

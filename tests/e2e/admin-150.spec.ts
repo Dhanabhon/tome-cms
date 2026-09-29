@@ -160,3 +160,46 @@ test('a row menu closes on a press outside and on Escape', async ({ context, pag
   await expect(menu).not.toHaveAttribute('open', '');
   await expect(menu.locator('summary')).toBeFocused();
 });
+
+test('a publish date is chosen with the keyboard and saved with the draft', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('textarea.admin-title-input').first().fill('Date test');
+  await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
+  await page.getByRole('button', { name: /^Settings$/ }).first().click();
+  const settings = page.locator('dialog.admin-editor-settings');
+  const field = page.locator('#post-publish-at');
+  const picker = page.getByRole('dialog', { name: 'Choose a date and time' });
+  await expect(field).toContainText('Choose a date');
+
+  // Escape closes the picker alone and hands the keyboard back to its button.
+  await field.click();
+  await expect(picker).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(field).toBeFocused();
+  await expect(settings, 'Escape did not take the drawer with it').toBeVisible();
+
+  // Arrows, PageDown/PageUp and Enter drive the grid; Done closes it.
+  await field.click();
+  const focused = () => page.evaluate(() => document.activeElement?.getAttribute('data-date') ?? '');
+  const start = await focused();
+  await page.keyboard.press('PageDown');
+  expect(await focused(), 'PageDown moves a month').not.toBe(start);
+  await page.keyboard.press('PageUp');
+  expect(await focused()).toBe(start);
+  const filed = page.waitForResponse((response) => response.url().endsWith('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok()
+    && Boolean(response.request().postDataJSON()?.publishedAt));
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(picker).toBeHidden();
+  await expect(field).not.toContainText('Choose a date');
+  await filed;
+
+  const { db } = await import('../../src/server/db/client');
+  const row = await db.selectFrom('posts').select(['planned_at']).where('title', '=', 'Date test').executeTakeFirstOrThrow();
+  expect(row.planned_at).not.toBeNull();
+});

@@ -119,6 +119,7 @@ dialog[data-closing]::backdrop {
 /* Menus drop in from just above. The ones React draws go as they came, at once: a menu that
  * lingers after its choice is made is in the way of the next thing. */
 .ui-select__menu,
+.ui-datetime__panel,
 .block-insert-menu,
 .editor-menu[role='listbox'],
 .language-switcher__menu {
@@ -126,6 +127,7 @@ dialog[data-closing]::backdrop {
 }
 
 .ui-select__menu,
+.ui-datetime__panel,
 .block-insert-menu,
 .editor-menu[role='listbox'] {
   transition-property: transform, opacity;
@@ -135,6 +137,7 @@ dialog[data-closing]::backdrop {
 
 @starting-style {
   .ui-select__menu,
+  .ui-datetime__panel,
   .block-insert-menu,
   .editor-menu[role='listbox'] {
     opacity: 0;
@@ -207,6 +210,7 @@ dialog[data-closing]::backdrop {
   .admin-editor-settings,
   .admin-mobile-nav,
   .ui-select__menu,
+  .ui-datetime__panel,
   .block-insert-menu,
   .editor-menu[role='listbox'],
   .language-switcher__menu,

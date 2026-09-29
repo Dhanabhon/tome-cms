@@ -29,6 +29,7 @@ import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
 import SaveButton from './SaveButton';
 import { moveTabFocus } from './tabs';
+import UiDateTime from './UiDateTime';
 import UiSelect from './UiSelect';
 import { useDrawer } from './useDrawer';
 
@@ -424,10 +425,15 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
           <section className="drawer-group">
             <h3>{text.whenGroup}</h3>
             <div className="drawer-checks"><label><input checked={draft.slide.enabled} onChange={(event) => change({ enabled: event.target.checked })} type="checkbox" />{text.enabled}</label></div>
-            <label className="admin-field">{text.starts}<input className="admin-control" onChange={(event) => change({ startsAt: fromLocalInput(event.target.value) ?? '' })} type="datetime-local" value={toLocalInput(draft.slide.startsAt)} /></label>
+            <div className="admin-field">
+              <label htmlFor="home-slide-starts">{text.starts}</label>
+              <UiDateTime id="home-slide-starts" labels={copy.dateTime} locale={ownerLocale ?? 'en'}
+                onChange={(next) => change({ startsAt: fromLocalInput(next) ?? '' })} value={toLocalInput(draft.slide.startsAt)} />
+            </div>
             <div className="admin-field">
               <label htmlFor="home-slide-ends">{text.ends}</label>
-              <input aria-describedby="home-slides-times-hint" className="admin-control" id="home-slide-ends" onChange={(event) => change({ endsAt: fromLocalInput(event.target.value) ?? '' })} type="datetime-local" value={toLocalInput(draft.slide.endsAt)} />
+              <UiDateTime ariaDescribedBy="home-slides-times-hint" id="home-slide-ends" labels={copy.dateTime} locale={ownerLocale ?? 'en'}
+                onChange={(next) => change({ endsAt: fromLocalInput(next) ?? '' })} value={toLocalInput(draft.slide.endsAt)} />
               <small id="home-slides-times-hint">{text.timesHint}</small>
             </div>
           </section>
