@@ -402,7 +402,7 @@ html[data-notice-closed] .site-notice { display: none; }
   flex-direction: row-reverse;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--space-md);
   margin-block-start: var(--space-xl);
   padding-block: var(--space-md);
@@ -1946,6 +1946,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-card { display: grid; gap: var(--space-lg); padding-block: var(--space-xl); }
 .admin-card + .admin-card { border-block-start: var(--rule-hair) solid var(--color-rule); }
 .admin-card-stack > .admin-card:first-child { padding-block-start: 0; }
+/* Maintenance nests its form, a stack, inside the stack, so its first sheet follows the state sheet across a boundary `+` cannot cross. */
+.admin-card-stack .admin-card-stack > .admin-card:first-child { padding-block-start: var(--space-xl); border-block-start: var(--rule-hair) solid var(--color-rule); }
 
 /* Themes.
  *

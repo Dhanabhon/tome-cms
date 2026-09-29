@@ -452,10 +452,16 @@ test('the save bar is a row on the page edge, with its state beside the button',
   assert.equal(declaration(bar, 'inset-block-end'), '0');
   assert.match(declaration(bar, 'border-block-start') ?? '', /var\(--color-rule\)$/);
   assert.match(declaration(bar, 'background') ?? '', /color-mix\(in oklch, var\(--color-paper-2\) 94%/);
-  assert.equal(declaration(bar, 'justify-content'), 'flex-end');
+  // row-reverse: flex-start is the right edge, where the button goes.
+  assert.equal(declaration(bar, 'justify-content'), 'flex-start');
+  assert.equal(declaration(bar, 'flex-direction'), 'row-reverse');
 });
 
 test('Settings and Maintenance are two tabs of one section', () => {
   assert.match(read('src/pages/admin/settings.astro'), /admin-page__head admin-page__head--tabs[\s\S]*?admin-post-tabs admin-subtabs[\s\S]*?aria-current="page"[^>]*>\{copy\.nav\.general\}/);
   assert.match(read('src/components/admin/MaintenanceForm.tsx'), /admin-post-tabs admin-subtabs[\s\S]*?aria-current="page"[^>]*>\{[\w.]*maintenance\}/);
+});
+
+test('a stack nested in a stack keeps the rule and the air above its first sheet', () => {
+  assert.match(CSS, /\.admin-card-stack \.admin-card-stack > \.admin-card:first-child \{ padding-block-start: var\(--space-xl\); border-block-start: var\(--rule-hair\) solid var\(--color-rule\); \}/);
 });
