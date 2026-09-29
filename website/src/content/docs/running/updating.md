@@ -24,12 +24,12 @@ cd /opt/tome-cms && docker compose -p tomecms -f compose.managed.yaml \
 ```
 :::
 
-On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.1.1 is available.", with that release's version.
+On a managed install, "Update mode:" reads "From the admin". When a newer release is out, "System" says "TomeCMS 1.1.2 is available.", with that release's version.
 
 1. Press "Read release notes" and read the notes of every version after yours.
-2. Press "Install 1.1.1". The admin asks "Install TomeCMS 1.1.1?". Press "Install 1.1.1" again, then confirm with your passkey.
+2. Press "Install 1.1.2". The admin asks "Install TomeCMS 1.1.2?". Press "Install 1.1.2" again, then confirm with your passkey.
 3. Keep the page open. "Installation progress" ticks off each step: "Check prerequisites", "Verify the official update", "Download update", "Prepare maintenance", "Create recovery backup", "Apply database migrations", "Restart TomeCMS" and "Check application health". The site is briefly down while TomeCMS restarts.
-4. When it is done, "System" says "TomeCMS 1.1.1 is installed."
+4. When it is done, "System" says "TomeCMS 1.1.2 is installed."
 
 What the updater does, and does not do:
 
@@ -81,7 +81,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
+| 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
 | 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
 | 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
 | 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |
