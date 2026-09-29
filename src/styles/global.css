@@ -2449,7 +2449,6 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .maintenance-screen .navigation-tabs { margin-block: 0; }
 .maintenance-state__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; }
 .maintenance-state__actions small { color: var(--color-muted); font-size: var(--text-xs); }
-.maintenance-state[data-enabled='true'] { border-color: var(--color-rule-strong); }
 .maintenance-words { display: grid; gap: var(--space-md); }
 
 /* Four templates, each a card with a small drawing of its layout and its radio beside its
