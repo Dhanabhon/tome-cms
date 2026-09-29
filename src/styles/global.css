@@ -2608,7 +2608,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Redirects: the form to add one, then the list of old addresses and where each goes. */
 .redirect-manager { display: grid; gap: var(--space-lg); }
 .redirect-add { display: grid; gap: var(--space-md); }
-.redirect-add h2 { margin: 0; font-size: var(--text-lg); }
+.redirect-add h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; letter-spacing: -0.015em; }
 .redirect-add p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 .redirect-add .admin-button { justify-self: start; }
 .redirect-list { display: grid; margin: 0; padding: 0; list-style: none; border-block-start: var(--rule-hair) solid var(--color-rule); }
