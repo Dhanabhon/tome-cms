@@ -15,7 +15,6 @@ interface Props {
 const { copy, locale, report, unit } = Astro.props;
 const tag = locale === 'th' ? 'th-TH' : 'en';
 const number = new Intl.NumberFormat(tag);
-const percent = new Intl.NumberFormat(tag, { maximumFractionDigits: 0, style: 'percent' });
 const regions = new Intl.DisplayNames([tag], { type: 'region' });
 const calendar = new Intl.DateTimeFormat(tag, unit === 'day'
   ? { day: 'numeric', month: 'short', timeZone: 'UTC' }
@@ -53,19 +52,19 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
 
 <dl class="stats-summary">
   <div>
-    <dt>{copy.stats.views}</dt>
+    <dt class="admin-eyebrow">{copy.stats.views}</dt>
     <dd class="stats-summary__value">{number.format(report.totals.views)}</dd>
     <dd class="stats-summary__change">{countChange(report.totals.views, report.previous.views)}</dd>
   </div>
   <div>
-    <dt>{copy.stats.reads}</dt>
+    <dt class="admin-eyebrow">{copy.stats.reads}</dt>
     <dd class="stats-summary__value">{number.format(report.totals.reads)}</dd>
     <dd class="stats-summary__change">{countChange(report.totals.reads, report.previous.reads)}</dd>
   </div>
   <div>
-    <dt>{copy.stats.readRatio}</dt>
+    <dt class="admin-eyebrow">{copy.stats.readRatio}</dt>
     <dd class="stats-summary__value">
-      {report.totals.views > 0 ? percent.format(readRatio(report.totals)) : (
+      {report.totals.views > 0 ? <>{number.format(Math.round(readRatio(report.totals) * 100))}<small class="stats-summary__unit">%</small></> : (
         <>
           <span aria-hidden="true">—</span>
           <span class="sr-only">{copy.stats.noReadsYet}</span>

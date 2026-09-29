@@ -474,3 +474,20 @@ test('Settings and Maintenance are two tabs of one section', () => {
 test('a stack nested in a stack keeps the rule and the air above its first sheet', () => {
   assert.match(CSS, /\.admin-card-stack \.admin-card-stack > \.admin-card:first-child \{ padding-block-start: var\(--space-xl\); border-block-start: var\(--rule-hair\) solid var\(--color-rule\); \}/);
 });
+
+test('the stats screen leads with figures, and boxes nothing', () => {
+  const stats = read('src/styles/stats.css');
+  const rule = (selector: string) => ruleBody(stats, selector);
+  const value = rule('.stats-summary__value');
+  assert.equal(declaration(value, 'font-family'), 'var(--font-display)');
+  assert.equal(declaration(value, 'font-size'), 'var(--text-3xl)');
+  assert.equal(declaration(value, 'font-variant-numeric'), 'tabular-nums');
+  const figure = rule('.stats-summary > div');
+  assert.equal(declaration(figure, 'border'), undefined);
+  assert.equal(declaration(figure, 'background'), undefined);
+  assert.equal(declaration(rule('.stats-panel'), 'border'), undefined);
+  assert.equal(declaration(rule('.stats-panel'), 'background'), undefined);
+  assert.equal(declaration(rule('.stats-panel h2'), 'font-family'), 'var(--font-display)');
+  assert.equal(declaration(rule('.stats-table th'), 'text-transform'), 'uppercase');
+  assert.match(read('src/components/admin/stats/StatsReport.astro'), /<dt class="admin-eyebrow">\{copy\.stats\.views\}<\/dt>/);
+});
