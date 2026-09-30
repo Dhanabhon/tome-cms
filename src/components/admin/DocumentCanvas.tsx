@@ -298,7 +298,7 @@ function FormattingBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?
     </BubbleMenu>
     {library && (
       <MediaPicker
-        kind="document"
+        kind="any"
         onCancel={() => {
           setLibrary(null);
           editor.commands.focus();

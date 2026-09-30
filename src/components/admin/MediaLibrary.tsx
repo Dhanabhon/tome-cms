@@ -43,7 +43,7 @@ import { saveButtonState } from '../../lib/save-state';
 
 type MediaLibraryProps = { ownerLocale?: PostLocale | null } & (
   | { mode: 'manage' }
-  | { kind: MediaKind; mode: 'select'; onCancel: () => void; onSelect: (asset: MediaAsset) => void }
+  | { kind: MediaKind | 'any'; mode: 'select'; onCancel: () => void; onSelect: (asset: MediaAsset) => void }
 );
 
 type CategorySelection = 'all' | 'unsorted' | string;
@@ -66,7 +66,8 @@ function folderId(selection: CategorySelection) {
  * shared link shows the same files; a picker starts from its kind and never reads the address.
  */
 function initialView(props: MediaLibraryProps): { filter: MediaTypeFilter | null; selection: CategorySelection } {
-  if (props.mode === 'select') return { filter: props.kind === 'image' ? 'image' : 'file', selection: 'all' };
+  // A picker for anything (a link's file) opens on All, as the library page does.
+  if (props.mode === 'select') return { filter: props.kind === 'image' ? 'image' : props.kind === 'any' ? null : 'file', selection: 'all' };
   const query = new URLSearchParams(window.location.search);
   const type = query.get('type');
   const folder = query.get('folder') ?? '';
@@ -570,7 +571,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <input className="admin-control" onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
         {!(props.mode === 'select' && props.kind === 'image') && (
-          <MediaTypes copy={copy} filters={props.mode === 'select' ? FILE_FILTERS : LIBRARY_FILTERS} onChange={selectType} value={filter} />
+          <MediaTypes copy={copy} filters={props.mode === 'select' && props.kind === 'document' ? FILE_FILTERS : LIBRARY_FILTERS} onChange={selectType} value={filter} />
         )}
         <div className="media-toolbar__end">
           <label aria-busy={uploading} className="admin-button admin-button--primary media-upload">

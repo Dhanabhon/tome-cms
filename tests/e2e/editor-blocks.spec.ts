@@ -347,12 +347,19 @@ test('a link can point at a file from the File Manager, and keeps that file from
   test.setTimeout(150_000);
   await signIn(context, page);
 
-  // The file is in the library first.
+  // The files are in the library first: a document, and a picture a link may point at too.
   await page.goto(`${origin}/admin/media`);
   const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
-  await page.locator('.media-upload input[type="file"]').setInputFiles({ name: 'Rulebook.pdf', mimeType: 'application/pdf', buffer: onePagePdf('Rulebook') });
-  await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
-  await expect(uploadDialog.locator('.media-upload-row')).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+  const sharp = (await import('sharp')).default;
+  const photo = await sharp({ create: { width: 4, height: 3, channels: 4, background: '#264653' } }).png().toBuffer();
+  await page.locator('.media-upload input[type="file"]').setInputFiles([
+    { name: 'Rulebook.pdf', mimeType: 'application/pdf', buffer: onePagePdf('Rulebook') },
+    { name: 'Pitch.png', mimeType: 'image/png', buffer: photo },
+  ]);
+  await uploadDialog.getByRole('button', { name: 'Upload 2 files' }).click();
+  for (const row of await uploadDialog.locator('.media-upload-row').all()) {
+    await expect(row).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+  }
   await uploadDialog.getByRole('button', { name: 'Done' }).click();
   await expect(uploadDialog).toBeHidden();
 
@@ -378,6 +385,10 @@ test('a link can point at a file from the File Manager, and keeps that file from
   await page.getByRole('button', { name: 'Link', exact: true }).click();
   await dialog.getByRole('button', { name: 'Choose from the File Manager' }).click();
   const picker = page.locator('dialog.media-picker');
+  // A link may point at any file: the picker opens on All, and pictures are there beside documents.
+  await expect(picker.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(picker.getByRole('button', { name: 'Images', exact: true })).toBeVisible();
+  await expect(picker.getByRole('button', { name: /^Select Pitch\.png,/ })).toBeVisible();
   await picker.getByRole('button', { name: /^Select Rulebook\.pdf,/ }).click();
   await expect(picker).toBeHidden();
 

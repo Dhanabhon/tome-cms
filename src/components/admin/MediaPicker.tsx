@@ -7,7 +7,7 @@ import type { MediaAsset, PostLocale } from '../../types/cms';
 import MediaLibrary from './MediaLibrary';
 
 interface MediaPickerProps {
-  kind: MediaKind;
+  kind: MediaKind | 'any';
   onCancel: () => void;
   ownerLocale?: PostLocale | null;
   onSelect: (asset: MediaAsset) => void;
