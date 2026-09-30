@@ -87,7 +87,7 @@ curl -s https://cms.example.com/health/ready
 {"status":"ready","checks":{"database":"ready","migrations":"ready","storage":"ready"}}
 ```
 
-ถ้าคำสั่งแรกตอบแต่คำสั่งที่สองไม่ตอบ ให้ตรวจ DNS และ proxy ถ้าคำสั่งแรกแสดง `"storage":"unavailable"` แปลว่า DNS หรือ proxy ของ origin มีเดียยังไม่ตอบ เพราะแอปเข้าถึง bucket ผ่าน `S3_ENDPOINT` เมื่อตอบทั้งคู่แล้ว เปิด `https://cms.example.com/install` แล้วไปต่อที่[ตัวช่วยตั้งค่าครั้งแรก](/tome-cms/th/start/first-run/)
+ถ้าคำสั่งแรกตอบแต่คำสั่งที่สองไม่ตอบ ให้ตรวจ DNS และ proxy ถ้าคำสั่งแรกแสดง `"storage":"unavailable"` แปลว่าแอปเข้าถึง bucket ไม่ได้ แอปเข้าถึง SeaweedFS ที่มากับชุดติดตั้งที่ `http://seaweedfs:8333` (`S3_INTERNAL_ENDPOINT`) ให้รอสักครู่แล้วตรวจอีกครั้ง ส่วน origin ของมีเดียที่ DNS หรือ proxy ยังไม่ตอบจะไม่แสดงตรงนี้ เพราะเบราว์เซอร์อัปโหลดผ่าน `S3_ENDPOINT` แต่แอปไม่ได้ใช้ เมื่อตอบทั้งคู่แล้ว เปิด `https://cms.example.com/install` แล้วไปต่อที่[ตัวช่วยตั้งค่าครั้งแรก](/tome-cms/th/start/first-run/)
 
 เวอร์ชันต่อ ๆ ไปติดตั้งได้จากหน้าแอดมิน ตามที่หน้า[การอัปเดต](/tome-cms/th/running/updating/) อธิบายไว้
 

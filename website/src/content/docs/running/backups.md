@@ -15,7 +15,7 @@ The backup and the restore check run on the server, from the checkout, with Node
 npm ci
 ```
 
-Both commands read `.env.local` from the checkout. The backup reaches PostgreSQL through Compose and the bucket through `S3_ENDPOINT`, so both services and the media origin's proxy have to be up.
+Both commands read `.env.local` from the checkout. The backup reaches PostgreSQL through Compose and the bucket through `S3_INTERNAL_ENDPOINT` when you set it and `S3_ENDPOINT` when you do not, so both services and the proxy of the media origin (or the internal address) have to be up.
 
 ## Making a backup
 

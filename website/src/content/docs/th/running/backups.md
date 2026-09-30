@@ -15,7 +15,7 @@ sidebar:
 npm ci
 ```
 
-ทั้งสองคำสั่งอ่าน `.env.local` จากโฟลเดอร์โค้ด คำสั่งสำรองข้อมูลเข้าถึง PostgreSQL ผ่าน Compose และเข้าถึง bucket ผ่าน `S3_ENDPOINT` ดังนั้นทั้งสอง service และ proxy ของ origin มีเดียต้องทำงานอยู่
+ทั้งสองคำสั่งอ่าน `.env.local` จากโฟลเดอร์โค้ด คำสั่งสำรองข้อมูลเข้าถึง PostgreSQL ผ่าน Compose และเข้าถึง bucket ผ่าน `S3_INTERNAL_ENDPOINT` ถ้าตั้งไว้ และผ่าน `S3_ENDPOINT` ถ้าไม่ได้ตั้ง ดังนั้นทั้งสอง service และ proxy ของ origin มีเดีย (หรือที่อยู่ภายใน) ต้องทำงานอยู่
 
 ## สำรองข้อมูล
 

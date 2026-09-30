@@ -19,7 +19,7 @@ The wizard checks four things, and all four have to show "Ready" before it lets 
 | --- | --- |
 | "PostgreSQL database" | The database answers. |
 | "Database migrations" | No migration is waiting. |
-| "S3-compatible storage" | The bucket answers at `S3_ENDPOINT`. |
+| "S3-compatible storage" | The bucket answers at the address the application uses: `S3_INTERNAL_ENDPOINT` when set, which on a managed install is the bundled SeaweedFS, otherwise `S3_ENDPOINT`. |
 | "HTTPS / passkey identity" | `TOME_CMS_PUBLIC_URL` is HTTPS on a host name, not an IP address, and matches the address you opened. |
 
 A check that fails shows "Needs attention" with a hint. Fix what it names and press "Check again". On a build from source, a waiting migration or a stopped container is fixed by running `./scripts/deploy-vps.sh` again. A managed install finishes only once the application is ready, so a check that fails there means something stopped since. [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) shows how to read its logs. If you opened the wizard at another address, the hint gives the one it expects.

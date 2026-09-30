@@ -87,7 +87,7 @@ Both should print:
 {"status":"ready","checks":{"database":"ready","migrations":"ready","storage":"ready"}}
 ```
 
-If the first answers and the second does not, look at the DNS and the proxy. If the first shows `"storage":"unavailable"`, the media origin's DNS or proxy is not answering yet, because the application reaches the bucket through `S3_ENDPOINT`. When both answer, open `https://cms.example.com/install` and go on with [the first-run wizard](/tome-cms/start/first-run/).
+If the first answers and the second does not, look at the DNS and the proxy. If the first shows `"storage":"unavailable"`, the application cannot reach the bucket: it reaches the bundled SeaweedFS at `http://seaweedfs:8333` (`S3_INTERNAL_ENDPOINT`), so give the containers a minute and check again. A media origin whose DNS or proxy is not answering yet does not show here, because the browser uploads through `S3_ENDPOINT` and the application does not. When both answer, open `https://cms.example.com/install` and go on with [the first-run wizard](/tome-cms/start/first-run/).
 
 Later versions install from the admin, as [Updating](/tome-cms/running/updating/) describes.
 
