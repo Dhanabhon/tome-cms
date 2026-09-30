@@ -343,6 +343,71 @@ test('a link opens a new tab only when its writer asked it to', async ({ context
   expect(links).toEqual([['this', '_blank'], ['that', null]]);
 });
 
+test('a link can point at a file from the File Manager, and keeps that file from being deleted', async ({ context, page }) => {
+  test.setTimeout(150_000);
+  await signIn(context, page);
+
+  // The file is in the library first.
+  await page.goto(`${origin}/admin/media`);
+  const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
+  await page.locator('.media-upload input[type="file"]').setInputFiles({ name: 'Rulebook.pdf', mimeType: 'application/pdf', buffer: onePagePdf('Rulebook') });
+  await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
+  await expect(uploadDialog.locator('.media-upload-row')).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+  await uploadDialog.getByRole('button', { name: 'Done' }).click();
+  await expect(uploadDialog).toBeHidden();
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('Links to a rulebook');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.keyboard.type('Read the rules here');
+  await expect.poll(() => canvas.evaluate((node) => (node as HTMLElement & { editor?: { state: { doc: { textContent: string } } } }).editor?.state.doc.textContent))
+    .toBe('Read the rules here');
+  await selectBack(page, 5, 'rules', 5);
+
+  await page.getByRole('button', { name: 'Link', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add a link' });
+  // It is a second way to fill the same dialog: the checkbox still applies, and Escape still cancels.
+  await expect(dialog.getByRole('button', { name: 'Choose from the File Manager' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Choose from the File Manager' }).focus();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(canvas.locator('a')).toHaveCount(0);
+
+  await selectBack(page, 5, 'rules', 5);
+  await page.getByRole('button', { name: 'Link', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Choose from the File Manager' }).click();
+  const picker = page.locator('dialog.media-picker');
+  await picker.getByRole('button', { name: /^Select Rulebook\.pdf,/ }).click();
+  await expect(picker).toBeHidden();
+
+  const link = canvas.locator('a');
+  await expect(link).toHaveCount(1);
+  await expect(link).toHaveText('rules');
+  await expect(link).toHaveAttribute('href', /^\/media\/[0-9a-f-]{36}$/);
+  await expect(link, 'the box was ticked, as it is for every link').toHaveAttribute('target', '_blank');
+  const id = (await link.getAttribute('href'))!.split('/').pop()!;
+  await expect(link).toHaveAttribute('data-media-id', id);
+  await expect(canvas).toBeFocused();
+
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+
+  // The page has the same site-relative link, and the library will not delete the file while it does.
+  const { db } = await import('../../src/server/db/client');
+  const stored = await db.selectFrom('posts').select('content_html').where('title', '=', 'Links to a rulebook').executeTakeFirstOrThrow();
+  expect(stored.content_html).toContain(`href="/media/${id}"`);
+  await page.goto(`${origin}/admin/media`);
+  await page.getByRole('button', { name: /^Rulebook\.pdf, PDF,/ }).click();
+  const details = page.getByRole('dialog', { name: 'File details' });
+  await details.getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete file', exact: true }).click();
+  await expect(details.getByRole('alert')).toContainText('still used');
+  await expect(details.getByRole('link', { name: 'Links to a rulebook' })).toBeVisible();
+});
+
 test('a line and a table cell can be aligned, from either bar', async ({ context, page }) => {
   test.setTimeout(120_000);
   await signIn(context, page);

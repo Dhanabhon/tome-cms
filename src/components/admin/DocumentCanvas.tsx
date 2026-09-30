@@ -1,7 +1,6 @@
 import { type Editor, isNodeSelection, type JSONContent } from '@tiptap/core';
 import { Placeholder } from '@tiptap/extensions';
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
 import { CellSelection } from '@tiptap/pm/tables';
 import { EditorContent, EditorContext, useCurrentEditor, useEditor, useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -12,6 +11,7 @@ import { adminCopy, type AdminCopy } from '../../lib/admin-i18n';
 import { textAlign } from '../../lib/editor-align';
 import { TEXT_COLORS, textColor, type TextColor } from '../../lib/editor-color';
 import { attachment, attachmentMeta } from '../../lib/editor-attachment';
+import { linkWithFile } from '../../lib/editor-link';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
 import { video, type VideoAttrs } from '../../lib/editor-video';
@@ -23,8 +23,9 @@ import { handleImageDrop, handleImagePaste, imageUploadPlugin } from './editor/e
 import { createSlashCommand } from './editor/slash-command';
 import { handleVideoPaste } from './editor/video-insert';
 import { createUploadFn } from './ImageUploader';
+import MediaPicker from './MediaPicker';
 import TableBubble from './TableBubble';
-import type { PostLocale } from '../../types/cms';
+import type { MediaAsset, PostLocale } from '../../types/cms';
 
 interface DocumentCanvasProps {
   initialContent: JSONContent;
@@ -124,7 +125,7 @@ const buildExtensions = (copy: AdminCopy) => [
   // includeChildren is what puts the hint inside an empty heading or list item, not only in an
   // empty document. The removed editor package set it; now it is said here.
   Placeholder.configure({ includeChildren: true, placeholder: copy.blocks.placeholder }),
-  Link.configure({
+  linkWithFile.configure({
     autolink: true,
     openOnClick: false,
     HTMLAttributes: { class: 'text-link underline underline-offset-2', rel: 'noopener noreferrer' },
@@ -149,7 +150,10 @@ function normalizedLink(value: string): string | null {
   }
 }
 
-function FormattingBubble({ copy }: { copy: AdminCopy }) {
+/** The words a link was asked about, kept while the File Manager is open: the selection may not survive it. */
+type LinkFromLibrary = { from: number; newTab: boolean; to: number };
+
+function FormattingBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
   const { editor } = useCurrentEditor();
   const active = useEditorState({
     editor,
@@ -165,7 +169,20 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
   });
   // The swatches open as a second row inside the bubble, which clips anything that pops out of it.
   const [colorsOpen, setColorsOpen] = useState(false);
+  const [library, setLibrary] = useState<LinkFromLibrary | null>(null);
   if (!editor || !active) return null;
+
+  /** The chosen file becomes the link: its site-relative address, and the file it is, so the library knows it is used. */
+  const linkFile = (asset: MediaAsset) => {
+    const asked = library;
+    setLibrary(null);
+    if (!asked) return;
+    const attrs = { href: asset.publicUrl, mediaId: asset.id, target: asked.newTab ? '_blank' : null };
+    const chain = editor.chain().focus().setTextSelection({ from: asked.from, to: asked.to });
+    // A cursor has nothing to link, so the file's name is what is linked.
+    if (asked.from === asked.to) chain.insertContent({ type: 'text', text: asset.original_name, marks: [{ type: 'link', attrs }] }).run();
+    else chain.setLink(attrs).run();
+  };
 
   const actions: Array<{
     active: boolean;
@@ -187,6 +204,7 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
           return;
         }
 
+        const { from, to } = instance.state.selection;
         void promptWithToggleUi({
           title: copy.blocks.linkTitle,
           message: copy.blocks.linkHint,
@@ -195,9 +213,14 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
           cancelLabel: copy.shell.cancel,
           // Every link opened a new tab before there was a choice, so that is where it starts.
           toggle: { checked: true, label: copy.blocks.linkNewTab },
+          secondary: { label: copy.blocks.linkFromLibrary },
           validate: (value) => normalizedLink(value) ? null : copy.blocks.invalidLink,
         }).then((answer) => {
           if (answer === null) return;
+          if (answer.secondary) {
+            setLibrary({ from, newTab: answer.checked, to });
+            return;
+          }
           const href = normalizedLink(answer.value);
           if (href) instance.chain().focus().setLink({ href, target: answer.checked ? '_blank' : null }).run();
         });
@@ -207,6 +230,7 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
   ];
 
   return (
+    <>
     <BubbleMenu
       className="editor-menu flex flex-col overflow-hidden rounded-md border border-line bg-surface p-1 font-sans"
       editor={editor}
@@ -269,6 +293,19 @@ function FormattingBubble({ copy }: { copy: AdminCopy }) {
         </div>
       )}
     </BubbleMenu>
+    {library && (
+      <MediaPicker
+        kind="document"
+        onCancel={() => {
+          setLibrary(null);
+          editor.commands.focus();
+        }}
+        onSelect={linkFile}
+        ownerLocale={ownerLocale}
+        returnFocus={editor.view.dom}
+      />
+    )}
+    </>
   );
 }
 
@@ -304,7 +341,7 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
           the gutter that button sits in. */}
       <div className="editor-canvas editor-content admin-editor-content">
         <EditorContent editor={editor} />
-        <FormattingBubble copy={copy} />
+        <FormattingBubble copy={copy} ownerLocale={ownerLocale} />
         <TableBubble copy={copy} />
         <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
       </div>

@@ -12,6 +12,8 @@ interface DialogOptions {
 
 interface PromptOptions extends DialogOptions {
   label: string;
+  /** A second way to answer, beside Cancel and the confirm button: it skips validation and says so in the answer. */
+  secondary?: { label: string };
   validate?: (value: string) => string | null;
   value?: string;
 }
@@ -21,16 +23,20 @@ interface ToggledPromptOptions extends PromptOptions {
   toggle: { checked: boolean; label: string };
 }
 
-/** What a dialog was answered with: the field's value, and whether its checkbox was ticked. */
-interface DialogAnswer {
-  checked: boolean;
-  value: string;
+/**
+ * What a dialog was answered with: the field's value and whether its checkbox was ticked, or
+ * that the secondary action was chosen instead (and so there is no value to read).
+ */
+export type DialogAnswer = { checked: boolean; secondary: false; value: string } | { checked: boolean; secondary: true };
+
+export function dialogAnswer(secondary: boolean, checked: boolean, value: string): DialogAnswer {
+  return secondary ? { checked, secondary: true } : { checked, secondary: false, value };
 }
 
 let sequence = 0;
 let dismissActive: (() => void) | null = null;
 
-function button(label: string, kind: 'cancel' | 'confirm', tone: DialogTone) {
+function button(label: string, kind: 'cancel' | 'confirm' | 'secondary', tone: DialogTone) {
   const element = document.createElement('button');
   element.className = `ui-dialog__button ui-dialog__button--${kind}`;
   element.dataset.tone = tone;
@@ -104,6 +110,9 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
   const tone = options.tone ?? 'default';
   const cancel = kind === 'alert' ? null : button(options.cancelLabel ?? 'Cancel', 'cancel', tone);
   const confirm = button(options.confirmLabel ?? (kind === 'alert' ? 'OK' : 'Confirm'), 'confirm', tone);
+  const secondaryLabel = kind === 'prompt' ? (options as PromptOptions).secondary?.label : undefined;
+  const secondary = secondaryLabel ? button(secondaryLabel, 'secondary', tone) : null;
+  if (secondary) actions.append(secondary);
   if (cancel) actions.append(cancel);
   actions.append(confirm);
   surface.append(actions);
@@ -133,6 +142,7 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
     }, { once: true });
     animateDismissals(dialog);
     cancel?.addEventListener('click', () => finish(null));
+    secondary?.addEventListener('click', () => finish(dialogAnswer(true, toggle?.checked ?? false, '')));
     confirm.addEventListener('click', () => {
       if (kind === 'prompt' && input) {
         const issue = (options as PromptOptions).validate?.(input.value) ?? null;
@@ -142,10 +152,10 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
           input.focus();
           return;
         }
-        finish({ checked: toggle?.checked ?? false, value: input.value });
+        finish(dialogAnswer(false, toggle?.checked ?? false, input.value));
         return;
       }
-      finish({ checked: false, value: '' });
+      finish(dialogAnswer(false, false, ''));
     });
     input?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -172,8 +182,9 @@ export async function confirmUi(options: Labelled<DialogOptions>) {
   return (await openDialog('confirm', options)) !== null;
 }
 
-export async function promptUi(options: Labelled<PromptOptions>) {
-  return (await openDialog('prompt', options))?.value ?? null;
+export async function promptUi(options: Labelled<Omit<PromptOptions, 'secondary'>>) {
+  const answer = await openDialog('prompt', options);
+  return answer && !answer.secondary ? answer.value : null;
 }
 
 /** A prompt with one checkbox under its field: what was typed, and whether the box was ticked. */

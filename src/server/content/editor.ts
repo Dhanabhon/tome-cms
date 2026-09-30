@@ -1,6 +1,5 @@
 import { getSchema, type Attributes } from '@tiptap/core';
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
 import { DOMSerializer, Node } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import { createHTMLDocument } from 'zeed-dom';
@@ -14,9 +13,10 @@ import {
 import { textAlign } from '../../lib/editor-align';
 import { isTextColor, textColor } from '../../lib/editor-color';
 import { attachment, type AttachmentFile } from '../../lib/editor-attachment';
+import { linkWithFile } from '../../lib/editor-link';
 import { tableExtensions } from '../../lib/editor-table';
 import { video, videoAttrs } from '../../lib/editor-video';
-import type { EditorDocument, EditorNode } from '../../types/cms';
+import type { EditorDocument, EditorMark, EditorNode } from '../../types/cms';
 import { isUuid } from '../media/keys';
 
 const mediaImage = Image.extend({
@@ -35,7 +35,7 @@ const mediaImage = Image.extend({
 // A link's class comes only from this extension's own config below, never from a writer's
 // contentJson: without this, Link's own `class` attribute would let a link mark stamp any
 // class -- including a video's `tome-video__play` -- onto an ordinary link.
-const editorLink = Link.extend({
+const editorLink = linkWithFile.extend({
   addAttributes() {
     const { class: _class, ...attributes } = (this.parent?.() ?? {}) as Attributes;
     return attributes;
@@ -102,6 +102,17 @@ export interface StoredEditorContent {
   contentHtml: string;
 }
 
+/** A link that names a file is that file's address, as an image is: a writer cannot hold one file with another's link. */
+function normalizeLinkedFile(mark: EditorMark): void {
+  const attrs = mark.attrs;
+  if (attrs?.mediaId === undefined || attrs.mediaId === null) return;
+  const mediaId = typeof attrs.mediaId === 'string' ? attrs.mediaId.toLowerCase() : '';
+  if (!isUuid(mediaId) || typeof attrs.href !== 'string' || attrs.href.toLowerCase() !== `/media/${mediaId}`) {
+    throw new ValidationError('A link to a file must be that file\'s address.');
+  }
+  mark.attrs = { ...attrs, href: `/media/${mediaId}`, mediaId };
+}
+
 function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string, AttachmentFile>): void {
   const pending: EditorNode[] = [document];
   while (pending.length) {
@@ -109,6 +120,7 @@ function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string
     if (!node) break;
     // A colour outside the palette is dropped, from the document as well as the page.
     if (node.marks) {
+      for (const mark of node.marks) if (mark.type === 'link') normalizeLinkedFile(mark);
       const marks = node.marks.filter((mark) => mark.type !== 'textColor' || isTextColor(mark.attrs?.color));
       if (marks.length) node.marks = marks;
       else delete node.marks;
