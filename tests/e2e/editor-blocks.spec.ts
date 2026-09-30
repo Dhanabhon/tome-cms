@@ -855,6 +855,27 @@ test('a file joins the library, is found by its type, and the filter holds throu
   const folders = page.locator('.media-categories nav');
   await page.getByRole('textbox', { name: 'Folder name' }).fill('Plans');
   await page.getByRole('button', { name: 'Create folder' }).click();
+  await expect(folders.getByRole('button', { name: 'Plans', exact: true })).toBeVisible();
+
+  // The emptied field is not red: red is the admin's to say. Submitting it empty says why, asks the
+  // server nothing, and the warning goes as the owner types.
+  const folderName = page.getByRole('textbox', { name: 'Folder name' });
+  await expect(folderName).toHaveValue('');
+  await expect(folderName).not.toHaveAttribute('aria-invalid', 'true');
+  const calm = await folderName.evaluate((node) => getComputedStyle(node).backgroundColor);
+  let folderPosts = 0;
+  page.on('request', (request) => { if (request.method() === 'POST' && request.url().includes('/api/admin/media/folders')) folderPosts += 1; });
+  await page.getByRole('button', { name: 'Create folder' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Enter a folder name.' })).toBeVisible();
+  await expect(folderName).toHaveAttribute('aria-invalid', 'true');
+  await expect(folderName).toBeFocused();
+  expect(await folderName.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(calm);
+  expect(folderPosts).toBe(0);
+  await folderName.pressSequentially('P');
+  await expect(folderName).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('alert').filter({ hasText: 'Enter a folder name.' })).toBeHidden();
+  await folderName.fill('');
+
   await folders.getByRole('button', { name: 'Plans', exact: true }).click();
   await expect(page).toHaveURL(/[?&]folder=[0-9a-f-]{36}(&|$)/);
   await page.reload();

@@ -1930,10 +1930,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-control:active { border-color: var(--color-ink); }
 .admin-control:disabled { cursor: not-allowed; opacity: 0.55; }
 .admin-control[aria-busy="true"] { background: var(--color-paper-3); }
-.admin-control[aria-invalid="true"],
-.admin-control:user-invalid { border-color: var(--color-error); background: var(--color-error-soft); }
-.admin-control[aria-invalid="true"]:focus-visible,
-.admin-control:user-invalid:focus-visible { outline-color: var(--color-error); outline-offset: 0; }
+.admin-control[aria-invalid="true"] { border-color: var(--color-error); background: var(--color-error-soft); }
+.admin-control[aria-invalid="true"]:focus-visible { outline-color: var(--color-error); outline-offset: 0; }
 .admin-control[data-state="success"] { border-color: var(--color-green); }
 .admin-control--textarea { min-height: 7rem; padding-block: var(--space-sm); resize: vertical; }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -547,6 +547,18 @@ test('the list filters choose a language through the admin select, which submits
   const select = read('src/components/admin/UiSelect.tsx');
   assert.match(select, /closest\('form'\)\?\.requestSubmit\(\)/);
   assert.match(select, /placePopover\(/);
+});
+
+test('a field turns red only when the admin says so', () => {
+  // :user-invalid reds a required field again after a save resets it to '', with no message to explain it.
+  const root = new URL('../../', import.meta.url);
+  for (const dir of ['src/styles', 'src/themes']) {
+    for (const file of readdirSync(new URL(dir, root), { recursive: true, encoding: 'utf8' })) {
+      if (!file.endsWith('.css')) continue;
+      assert.doesNotMatch(read(`${dir}/${file}`), /:user-invalid|:invalid\b/, `${dir}/${file}`);
+    }
+  }
+  assert.match(CSS, /\.admin-control\[aria-invalid="true"\] \{ border-color: var\(--color-error\)/);
 });
 
 test('no control opens a picker drawn by the operating system', () => {
