@@ -133,7 +133,8 @@ export async function createPost(ownerId: string, input: CreatePostInput): Promi
         const settings = await trx.selectFrom('site_settings').select('default_locale')
           .where('id', '=', true).where('owner_id', '=', ownerId).executeTakeFirst();
         if (!settings) throw new HttpError(503, 'Site settings are unavailable.');
-        locale = settings.default_locale;
+        // An import names its own language; the editor's "New post" does not, and gets the default.
+        locale = input.locale ?? settings.default_locale;
         await trx.insertInto('post_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
       }
 
