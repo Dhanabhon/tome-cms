@@ -27,6 +27,24 @@ The editor saves on its own a moment after you stop typing, once the post has a 
 
 "Preview" saves the post and opens it in a new tab, drawn by the site's theme, even while it is a draft. It needs a title.
 
+## Importing from Markdown
+
+"Import Markdown", beside "New post", turns one `.md` file into one draft. Nothing is published. The file can be up to 900 KB.
+
+The settings at the top of the file, between two `---` lines, fill the post: `title`, `slug`, `locale` (`th` or `en`), `date`, `categories`, `excerpt` or `description`, `meta_title`, `meta_description`, and `cover` or `image`. Each is optional. Without a `title`, the first level 1 heading is the title, then the file name. Without a `locale`, the post is in the site's default language. A category is matched to one of yours by its name; one you do not have is named in the report and not created. If another post in the same language already has the address, the new post gets a few letters and digits after it, and the report says so. Whatever the file says about `status`, the post is a draft.
+
+The server does not download pictures. After you choose the file, the sheet lists every picture in it:
+
+- A picture from another site's address stays loaded from that site.
+- A picture from your computer needs its file. Choose the picture files, several at once if you like, and each is matched to the post by its file name, whatever its capital letters. You can also choose a file for one picture, or skip it. The import starts once every picture has a file or is skipped.
+- A skipped picture becomes a line such as `[Missing image: photo.png]` where it was, or `[รูปที่ขาด: photo.png]` in a Thai post. Search the draft for it to put the picture in later.
+
+The chosen pictures go into the File Manager, and stay there if you close the sheet partway. When the import is done the sheet lists what it changed on the way, then "Open the draft" opens it in the editor.
+
+Fenced code keeps its language, so a block written as ` ```ts ` opens as "TypeScript". Some things in a Markdown file have no place in a post and are left out, with a note in the report: HTML, the links of footnotes (their words stay), and the checkboxes of a task list. Headings deeper than level 3 become level 3.
+
+A file that is very long or very complex is refused, and the sheet says which part is too much and what to do: split the file, or simplify it. So is a second file sent while another is being read; try again in a moment.
+
 ## Adding blocks
 
 Type `/` at the start of a line, or after a space, and a menu opens: "Heading 2", "Heading 3", "Bullet list", "Numbered list", "Code block", "Quote", "Table", "File" and "Video". Keep typing to narrow it, and press Enter to choose.

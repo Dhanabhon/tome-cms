@@ -59,17 +59,18 @@ extensions.
 | A footnote `[^1]` | Makes a link to the footnote's text | Removes the link and keeps its text |
 | A task list `- [ ]` | Makes an ordinary list | Accepts it, and says so in the report |
 | Raw HTML | Keeps it as a paragraph of text such as `<div …>` | Removes it, and says so in the report |
-| Pictures on their own lines | Leaves an empty paragraph before and after them | Removes those empty paragraphs |
+| Pictures on their own lines | Leaves an empty paragraph before and after them | Removes every empty top-level paragraph, because Markdown cannot write one on purpose |
 
 ## The file
 
-A UTF-8 text file up to 1 MB, with or without frontmatter. Frontmatter is YAML between two `---`
+A UTF-8 text file up to 900 KB, with or without frontmatter. The admin's JSON body is capped at
+1 MB, and the text has to fit inside it with its wrapper. Frontmatter is YAML between two `---`
 lines at the very top, read with `yaml`, which the project already has. Every key is optional.
 
 | Key | Becomes | When it is missing or wrong |
 |---|---|---|
 | `title` | The title, cut to 200 characters | The first level 1 heading, which is then removed from the body. Without one, the file name without `.md`. |
-| `slug` | The slug, normalized by `normalizedContentSlug` | Made from the title, as a new post's is |
+| `slug` | The slug, normalized by `normalizedContentSlug` | Made from the title, as a new post's is. A slug another post in the same language already uses gets an 8-character suffix, and the report says so. |
 | `locale` | `th` or `en` | The site's default language |
 | `date` | The planned date of the draft (`publishedAt`); publishing uses it as the date | None. A date that cannot be read is dropped and reported. |
 | `categories` | The site's categories whose names match, ignoring case | A name with no match is reported and no category is created. With no match at all, the post gets the default category. At most 20, as a post allows. |
@@ -100,11 +101,12 @@ sheet with three steps.
    - a picture from the computer, such as `./images/a.png` or `a.png`, **needs a file**;
    - a `data:` picture, or any other address, **cannot be used**. It will be skipped.
 
-   The owner drops files, or a whole folder's worth, onto the sheet. Each file is matched to every
-   picture with the same file name, ignoring case; that includes a picture from an address, whose
-   file then replaces the address. A picture no file matched can be given one by hand, or skipped.
+   The owner chooses the picture files in the system's file chooser, several at once if they like.
+   Each file is matched to every picture with the same file name, ignoring case; that includes a
+   picture from an address, whose file then replaces the address. A picture no file matched can be given one by hand, or skipped.
    Every picture from the computer has to be matched or skipped before the import can go on.
-3. **Import.** The matched files upload one by one through `uploadImage` in `src/lib/media-client.ts`,
+3. **Import.** The matched files upload two at a time, each once however many pictures it fills,
+   through `uploadImage` in `src/lib/media-client.ts`,
    the same upload the File Manager uses. The browser then sends the text again, with
    `{ address → mediaId }` for each match, to `POST /api/admin/posts/import`. The server parses the
    file again; it is fast enough that nothing needs keeping between the two calls. It then:
@@ -112,20 +114,25 @@ sheet with three steps.
    - replaces each skipped one with the missing-image line;
    - creates the draft with `createPost`.
 
-   The sheet closes on the new draft's editor, with the report above it.
+   The sheet then shows the report, with an "Open the draft" link. The editor is left untouched.
 
-A cancel after the upload leaves the uploaded pictures in the library, where they can be deleted.
-The sheet says so beside the cancel button once anything has uploaded.
+A file the server will not read is refused in the sheet, in the admin's words and with what to do:
+too many blocks or lines, too much formatting or HTML, nested too deeply, a post too long to save,
+or a read that took too long. The same goes for a second import started while one is running.
+A picture that fails to upload goes back to needing a file, on its own row.
+
+Closing the sheet after an upload leaves the uploaded pictures in the library, where they can be
+deleted. The sheet says so beside an error once anything has uploaded.
 
 **The report** is a short list, only of what happened. For example:
 
 - "3 pictures are still loaded from other sites."
 - "2 pictures were skipped; search the post for "Missing image"."
-- "The category "Notes" does not exist."
-- "HTML in the file was removed (2 places)."
+- "These categories do not exist: Notes."
+- "HTML in the file was removed."
 - "Checkboxes in a task list became an ordinary list."
 
-It shows once, above the editor. It is not stored.
+It shows once, in the sheet. It is not stored.
 
 ## The server
 
@@ -137,14 +144,14 @@ It shows once, above the editor. It is not stored.
 - **`src/pages/api/admin/posts/import/preview.ts`** and **`import/index.ts`**: the two routes.
   - Like every admin write, they require the installed owner and the same origin.
   - They take JSON `{ fileName, text, pictures? }`.
-  - They refuse text over 1 MB with 413.
+  - They refuse text over 900 KB with 413.
   - Every `mediaId` in `pictures` has to be a ready picture of this owner. `createPost` already checks
     that through `assertContentMedia`.
 - **`createPost`** chooses a new group's language from the site default only. It gains an optional
   `locale` for a post with no `sourcePostId`, so an English file on a site whose default is Thai
   becomes an English post. The editor's own "New post" does not send one, and so behaves as before.
 - **The dependency:** `@tiptap/markdown` pinned to the Tiptap version, as the other `@tiptap/*`
-  packages are. `npm run check:inventory` then lists `marked` as well.
+  packages are.
 
 ## Tests
 
@@ -153,15 +160,17 @@ It shows once, above the editor. It is not stored.
   - the frontmatter fallbacks;
   - Thai text;
   - a picture inside a sentence;
-  - a file over 1 MB;
+  - a file over 900 KB;
   - a file with no frontmatter;
   - frontmatter that is not valid YAML, which is reported and the body still imported.
 - **Integration:**
   - an import creates a draft in the file's language with matched categories;
   - a picture from another owner's library is refused;
   - a `date` becomes the planned date.
-- **e2e:** one flow at 390 px and at 1440 px: choose a file, drop two of three pictures, skip the
-  third, import, and see the draft with two pictures, the missing-image line and the report.
+- **e2e:** one flow at 390 px and at 1440 px: choose a file, choose two of three pictures, skip the
+  third, import, and see the report in the sheet, then the draft with its pictures and the
+  missing-image line. A second test covers a refused file, a picture that fails to upload, and the
+  sheet closing on Escape and on a press outside.
 
 ## Left for later
 

@@ -839,6 +839,22 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .media-upload-row__done { display: inline-flex; gap: var(--space-3xs); align-items: center; color: var(--color-link); font-size: var(--text-sm); }
 .media-upload-row__done .icon { width: 1rem; height: 1rem; }
 .media-upload-dialog__foot { display: flex; justify-content: flex-end; }
+/* The Markdown import sheet borrows the upload dialog's frame; a picture is a row in the same way. */
+.markdown-import-list { display: grid; margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
+.markdown-import-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3xs) var(--space-sm); align-items: center; min-height: 3rem; padding-block: var(--space-xs); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.markdown-import-row__name { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+.markdown-import-row__status { grid-column: 1; color: var(--color-muted); font-size: var(--text-xs); }
+.markdown-import-row[data-state="needs"] .markdown-import-row__status { color: var(--color-ink); font-weight: 600; }
+.markdown-import-row[data-state="matched"] .markdown-import-row__status, .markdown-import-row[data-state="done"] .markdown-import-row__status { color: var(--color-link); }
+.markdown-import-row__actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: var(--space-2xs); }
+.markdown-import-row .admin-field-error { grid-column: 1 / -1; }
+.markdown-import-lede { margin: 0 0 var(--space-sm); }
+.markdown-import-title { margin: 0; font-weight: 600; }
+.markdown-import-heading { margin: var(--space-md) 0 var(--space-2xs); font-size: var(--text-base); font-weight: 600; }
+.markdown-import-foot { margin-block-start: var(--space-md); }
+.media-upload-dialog > .admin-field-error { margin-block-start: var(--space-xs); }
+.markdown-import-hint { margin-block: var(--space-sm) 0; color: var(--color-muted); font-size: var(--text-sm); }
+.markdown-import-report { display: grid; gap: var(--space-xs); margin: 0; padding: 0; list-style: none; }
 
 .media-grid {
   display: grid;
