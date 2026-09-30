@@ -1,0 +1,139 @@
+/* Code: the block a reader sees and the one the writer types in, and the colours both are
+ * highlighted with.
+ *
+ * It is drawn here once, for the admin's editor and for both themes, because the two must agree:
+ * the page shows what the editor showed. The surface and every colour are tokens
+ * (installer-tokens.css), so the block follows the light and dark schemes without a rule of its own.
+ *
+ * Posts written before a block had a language carry a bare <pre>; it is drawn the same, only
+ * without a label. The label is the picker's name for the language, from data-language. */
+
+pre.code-block,
+.post-body pre,
+.plain-body pre,
+.code-block-editor {
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-code-surface);
+  color: var(--color-code-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+pre.code-block,
+.post-body pre,
+.plain-body pre {
+  margin-block: var(--space-lg);
+  padding: var(--space-md);
+  overflow-x: auto;
+}
+
+/* Across a wide line the label stays where it is, rather than scrolling off with the code. */
+pre[data-language]::before {
+  content: attr(data-language);
+  content: attr(data-language) / '';
+  display: block;
+  position: sticky;
+  inset-inline-start: 0;
+  margin-block-end: var(--space-xs);
+  color: var(--color-code-comment);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--space-md);
+  user-select: none;
+}
+
+/* The editor's block is a box of its own, with the picker in its top-left corner and the text
+ * below. The <pre> inside keeps only the padding: the box carries the surface and the edge. */
+.code-block-editor { margin-block: var(--space-lg); }
+
+/* The header is the interface's, not the code's: the list the picker opens inherits from it. */
+.code-block-editor__header {
+  display: flex;
+  padding: var(--space-xs) var(--space-xs) 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.code-block-editor__header .ui-select { width: auto; }
+
+.code-block-editor__language {
+  min-height: var(--space-xl);
+  padding-inline: var(--space-xs);
+  border: var(--rule-hair) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-code-text);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.code-block-editor__language:hover { border-color: var(--color-rule-strong); }
+
+@media (pointer: coarse) {
+  .code-block-editor__language { min-height: 44px; }
+}
+
+.code-block-editor pre {
+  margin: 0;
+  padding: var(--space-xs) var(--space-md) var(--space-md);
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.code-block-editor pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+/* highlight.js names what a span is, not how it looks; these are the looks. Where scopes nest
+ * (a string inside a meta line) the inner span has a rule of its own, so the order below only
+ * matters between rules for the same span. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-name { color: var(--color-code-keyword); }
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition { color: var(--color-code-string); }
+
+.hljs-title,
+.hljs-section,
+.hljs-link { color: var(--color-code-function); }
+
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet { color: var(--color-code-number); }
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta { color: var(--color-code-comment); }
+
+.hljs-type,
+.hljs-built_in { color: var(--color-code-type); }
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-property,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-deletion { color: var(--color-code-attr); }
+
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }

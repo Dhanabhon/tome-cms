@@ -55,7 +55,7 @@ test('server renders, sanitizes, and bounds editor content', () => {
   assert.match(prepared.contentHtml, /<ul><li><p>Item<\/p><\/li><\/ul>/);
   assert.match(prepared.contentHtml, /<ol><li><p>First<\/p><\/li><\/ol>/);
   assert.match(prepared.contentHtml, /<blockquote><p>Quote<\/p><\/blockquote>/);
-  assert.match(prepared.contentHtml, /<pre><code>const x = 1;<\/code><\/pre>/);
+  assert.match(prepared.contentHtml, /<pre class="code-block"><code>const x = 1;<\/code><\/pre>/);
   // Every image in an article loads as it nears the window, and decodes off the main thread.
   assert.match(prepared.contentHtml, /<img src="https:\/\/example\.com\/image\.webp" alt="Example" decoding="async" loading="lazy" \/>/);
   assert.match(prepared.contentHtml, new RegExp(`<img src="/media/${mediaId}" alt="Stored image" decoding="async" loading="lazy" \\/>`));

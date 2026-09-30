@@ -1,6 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
+import type { Editor } from '@tiptap/core';
 import type { BrowserContext, Page, Route } from '@playwright/test';
 
 import { onePagePdf } from '../helpers/pdf';
@@ -1360,6 +1361,74 @@ test('a new part is added from the + menu, drawn as three dots, and published as
   await page.goto(`${origin}/en/blog/${slug}`);
   await expect(page.locator('.post-body hr'), 'a break is an hr, which a screen reader hears as one').toHaveCount(1);
   expect(await dots('.post-body hr'), 'and the page draws it as dots, with no line').toMatchObject({ border: '0px', content: expect.stringMatching(/^"\u2022\u2022\u2022"( \/ "")?$/) });
+});
+
+test('a code block has a language, highlighted in the editor and on the published page', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('With code');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  const addCodeBlock = async () => {
+    await page.getByRole('button', { name: /Add block/i }).click();
+    await page.getByRole('menuitem', { name: 'Code block', exact: true }).click();
+    await expect(canvas).toBeFocused();
+  };
+  await addCodeBlock();
+
+  // A new block is None, and the picker is where it says so.
+  const picker = page.getByRole('combobox', { name: 'Language' });
+  await expect(picker.first()).toHaveText('None');
+  await picker.first().click();
+  await page.getByRole('option', { name: 'Java', exact: true }).click();
+  await expect(picker.first()).toHaveText('Java');
+  await page.locator('.code-block-editor pre').first().click();
+  await page.keyboard.type('public static void main(String[] args) {}');
+  await expect(canvas.locator('pre code .hljs-keyword').first(), 'the editor colours the code as it is typed').toBeVisible();
+
+  // Escape in the open list closes it and puts the cursor back in the code.
+  await picker.first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('listbox')).toBeHidden();
+  await expect(canvas).toBeFocused();
+
+  // Below it, a second block that finds its own language. ArrowDown at the end of the last block
+  // leaves it for a paragraph, and the + menu makes the new block there.
+  await page.keyboard.press('End');
+  await expect.poll(() => canvas.evaluate((node) => {
+    const { $from } = (node as unknown as { editor: Editor }).editor.state.selection;
+    return $from.parentOffset === $from.parent.content.size;
+  }), { message: 'the cursor is at the end of the code' }).toBe(true);
+  await page.keyboard.press('ArrowDown');
+  await addCodeBlock();
+  await picker.nth(1).click();
+  await page.getByRole('option', { name: 'Auto', exact: true }).click();
+  await expect(picker.nth(1), 'Auto has nothing to name while the block is empty').toHaveText('Auto');
+  await page.locator('.code-block-editor pre').nth(1).click();
+  await page.keyboard.type('interface User { id: number }');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('const u: User = { id: 1 };');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('export type Id = string | number;');
+  await expect(picker.nth(1), 'once the typing pauses, Auto says what it found').toHaveText('Auto (TypeScript)');
+
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+  const { db } = await import('../../src/server/db/client');
+  const { slug } = await db.selectFrom('posts').select('slug').where('title', '=', 'With code')
+    .orderBy('created_at', 'desc').executeTakeFirstOrThrow();
+  await page.goto(`${origin}/en/blog/${slug}`);
+  const java = page.locator('.post-body pre.code-block[data-language="Java"]');
+  await expect(java.locator('.hljs-keyword').first(), 'the page carries the highlighting, made on the server').toBeVisible();
+  await expect(page.locator('.post-body pre.code-block[data-language="TypeScript"] .hljs-keyword').first()).toBeVisible();
+  expect(await java.evaluate((node) => getComputedStyle(node.querySelector('.hljs-keyword') as Element).color), 'and a colour the keyword did not inherit')
+    .not.toBe(await java.evaluate((node) => getComputedStyle(node).color));
 });
 
 test('the row menu copies a published post\'s link, offers none for a draft, and offers it the moment one is published', async ({ context, page }) => {

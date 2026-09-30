@@ -31,7 +31,6 @@ export default {
     extend: {
       colors: {
         accent: 'var(--color-accent)',
-        code: 'var(--color-code-bg)',
         ondark: 'var(--color-on-dark)',
         error: 'var(--color-error)',
         hero: 'var(--color-hero)',
@@ -48,6 +47,7 @@ export default {
       fontFamily: {
         display: ['var(--font-display)'],
         sans: ['var(--font-body)'],
+        mono: ['var(--font-mono)'],
       },
       // Radii resolve to the token scale in src/styles/installer-tokens.css — keep one source.
       borderRadius: {
@@ -68,8 +68,8 @@ export default {
             '--tw-prose-quotes': 'var(--color-ink)',
             '--tw-prose-quote-borders': 'var(--color-accent)',
             '--tw-prose-code': 'var(--color-ink)',
-            '--tw-prose-pre-code': 'var(--color-on-dark)',
-            '--tw-prose-pre-bg': 'var(--color-code-bg)',
+            '--tw-prose-pre-code': 'var(--color-code-text)',
+            '--tw-prose-pre-bg': 'var(--color-code-surface)',
             '--tw-prose-th-borders': 'var(--color-rule-strong)',
             '--tw-prose-td-borders': 'var(--color-rule)',
             fontFamily: 'var(--font-body)',

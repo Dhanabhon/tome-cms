@@ -33,7 +33,7 @@
     "Night": {
       "$type": "color",
       "$value": "#181d19",
-      "$description": "Dark-mode page, hero, and code surfaces"
+      "$description": "Dark-mode page and hero surfaces"
     },
     "Dim": {
       "$type": "color",

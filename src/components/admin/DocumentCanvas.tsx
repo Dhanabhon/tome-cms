@@ -19,6 +19,7 @@ import { VIDEO_PROVIDER_NAMES } from '../../lib/video-link';
 import Icon from '../Icon';
 import AlignButtons from './AlignButtons';
 import BlockInsertMenu from './BlockInsertMenu';
+import { createCodeBlock } from './editor/CodeBlockView';
 import { handleImageDrop, handleImagePaste, imageUploadPlugin } from './editor/editor-image-upload';
 import { createSlashCommand } from './editor/slash-command';
 import { handleVideoPaste } from './editor/video-insert';
@@ -116,12 +117,14 @@ const buildExtensions = (copy: AdminCopy) => [
     heading: { levels: [1, 2, 3] },
     blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
-    codeBlock: { HTMLAttributes: { class: 'rounded-lg bg-code p-5 font-mono text-sm text-ondark' } },
+    // The code block is the one below: it has a language, and a picker for it.
+    codeBlock: false,
     link: false,
     // StarterKit 3 also appends an empty paragraph after a document that ends in anything but
     // one. A post that ends in a quote or a table would store a paragraph it never had.
     trailingNode: false,
   }),
+  createCodeBlock(copy),
   // includeChildren is what puts the hint inside an empty heading or list item, not only in an
   // empty document. The removed editor package set it; now it is said here.
   Placeholder.configure({ includeChildren: true, placeholder: copy.blocks.placeholder }),

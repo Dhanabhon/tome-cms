@@ -135,7 +135,7 @@ value below.
 | #D9DCD3 | `--color-rule` | hairline dividers and borders |
 | #101317 | `--color-ink` | body text and headings |
 | #61665F | `--color-muted` | secondary text |
-| #181D19 | `--color-hero`, `--color-code-bg` | surfaces that are dark on purpose |
+| #181D19 | `--color-hero` | a surface that is dark on purpose |
 | #ACB3A8 | `--color-on-dark-muted` | secondary text on those |
 | #2E7D5B | `--color-accent`, `--color-green` | master green: the fold in the logo and the favicon, primary actions and positive state |
 | #256B4E | `--color-accent-hover`, `--color-link`, `--color-focus` | deep green: hover, links, icons and focus rings |
@@ -163,6 +163,27 @@ Note the token names: `--color-paper` is the **panel**, not the page. The page i
 `--color-paper-2`. That is how the stylesheets already used them, and renaming across
 every component to fix the numbering would be a larger change than it is worth.
 
+### Code
+
+A code block is a light recessed surface in the light theme and a dark one in the dark
+theme: it follows the page rather than staying dark on purpose. Its text and the eight
+colours the highlighter draws with are tokens, each with a light and a dark value, and each
+holds **4.5** on the block's surface in its mode, comments included
+(`tests/unit/theme-contrast.test.ts` pins them). `src/styles/code.css` maps every `hljs-*`
+scope to one of them, for the editor and for both themes alike.
+
+| Light | Dark | Token | Draws |
+|-------|------|-------|-------|
+| #F0F0EA | #101411 | `--color-code-surface` | the block |
+| #1E231F | #E1E6E0 | `--color-code-text` | code with no scope of its own |
+| #7238A5 | #C49BF3 | `--color-code-keyword` | keywords, tags, selectors |
+| #196632 | #8BD28D | `--color-code-string` | strings, regular expressions, added lines |
+| #155AA7 | #79B6F4 | `--color-code-function` | function, class and section names |
+| #91450D | #F2AD73 | `--color-code-number` | numbers, literals |
+| #5D625B | #A1A79E | `--color-code-comment` | comments, meta lines |
+| #006768 | #6BCAC9 | `--color-code-type` | types and built-ins |
+| #9E2C2C | #FB9890 | `--color-code-attr` | attributes, variables, removed lines |
+
 ### Why the accent and the link use two green values
 
 They are one green family in two jobs. Master green #2E7D5B measures **4.62** on the
@@ -183,9 +204,8 @@ These carry meaning rather than a fixed lightness, so they stay correct when the
 theme flips. Reach for them instead of `--color-surface` or a literal colour whenever
 the surface is dark *on purpose*.
 
-- **On Dark** (`--color-on-dark`): text on a surface that is dark in either theme — the hero panel, a code block, a danger fill.
+- **On Dark** (`--color-on-dark`): text on a surface that is dark in either theme — the hero panel, a danger fill.
 - **On Dark Muted** (`--color-on-dark-muted`): secondary text on those same surfaces.
-- **Code Background** (`--color-code-bg`): the code-block surface. Keyed separately from `--color-ink` because that token inverts with the theme.
 - **Scrim** (`--color-scrim`): the wash behind a modal. Always dark, in both themes.
 - **Light Sample** (`--color-sample-light`): the light page in either theme, where the admin shows how something will look on it — the logo preview. Its partner for the dark page is `--color-hero`.
 
@@ -210,6 +230,8 @@ rings. It also rejects a literal `bg-white` anywhere in `src/`.
 ## Typography
 
 Typography uses two families. Google Sans carries the display roles -- the post title the writer types and the reader gets, the hero, and the card and section headings -- and IBM Plex Sans Thai carries the interface and the running text. A headline set in the interface face at 54px read as an app header rather than as a headline, so the pair is the point. Keep hierarchy mapped to these token rows before adding decorative type styles.
+
+Code, in a block and inline, is set in `--font-mono`: the reader's own monospace, so nothing is downloaded for it.
 
 The display headlines lead at 1.2. Thai stacks marks above and below the letter, and a Latin headline's 1.0 to 1.04 brought a wrapped title's two lines into each other wherever a descender on the first met a tone mark on the second. Weight range spans bold, regular, semi-bold, medium. Sizes range from 12px to 64px.
 

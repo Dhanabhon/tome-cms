@@ -151,8 +151,11 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
 
   ['color-on-dark', 'color-hero', 4.5],
   ['color-on-dark-muted', 'color-hero', 4.5],
-  ['color-on-dark', 'color-code-bg', 4.5],
-  ['color-on-dark-muted', 'color-code-bg', 4.5],
+  // A code block: its text and the eight colours the highlighter draws with, on its surface, in
+  // either mode. Comments are held to 4.5 as well: they are read, not decoration.
+  ...['text', 'keyword', 'string', 'function', 'number', 'comment', 'type', 'attr'].map((name) => [`color-code-${name}`, 'color-code-surface', 4.5] as const),
+  // The block's own edge against the page it sits on, drawn as a mark.
+  ['color-rule-strong', 'color-code-surface', 3],
   // The auth panel inks its text in a brand tone rather than plain ink. Left out of
   // the first version of this list, which is how it reached a screenshot as dark text
   // on a dark panel.

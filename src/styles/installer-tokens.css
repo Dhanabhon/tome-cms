@@ -66,11 +66,23 @@
 
   /* Surfaces that are dark on purpose, and the text that sits on them. */
   --color-auth-ink: oklch(22.4% 0.0107 151.27);
-  --color-code-bg: oklch(22.4% 0.0107 151.27);
   --color-on-dark: oklch(100% 0 0);
   --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
   --color-scrim: color-mix(in srgb, oklch(18.53% 0.0095 255.64) 40%, transparent);
   --logo-source: url('/brand/tomecms-logo-color.png');
+
+  /* A code block: a light recessed surface, its text, and the eight colours the highlighter
+   * draws with (src/styles/code.css maps each hljs-* scope to one). Each holds 4.5 on the
+   * surface -- comments included, since a comment is still something a reader has to read. */
+  --color-code-surface: oklch(95.3% 0.007 100);
+  --color-code-text: oklch(25% 0.01 150);
+  --color-code-keyword: oklch(47% 0.17 305);
+  --color-code-string: oklch(45% 0.11 150);
+  --color-code-function: oklch(47% 0.14 255);
+  --color-code-number: oklch(48% 0.12 50);
+  --color-code-comment: oklch(49% 0.012 136);
+  --color-code-type: oklch(46% 0.09 195);
+  --color-code-attr: oklch(47% 0.15 25);
 
   /* Two families, and the pair is the point: a post title used to be the interface
    * font at 54px, which reads as an app header rather than as a headline. Display
@@ -78,6 +90,8 @@
    * and section headings; body carries the interface and the running text. */
   --font-display: "Google Sans", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Code, in a block and inline: the reader's own monospace, so nothing is downloaded for it. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --space-3xs: 0.125rem;
   --space-2xs: 0.25rem;
@@ -176,7 +190,15 @@
     --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
     --color-auth-ink: oklch(100% 0 0);
-    --color-code-bg: oklch(16% 0.008 151);
+    --color-code-surface: oklch(18.5% 0.009 151);
+    --color-code-text: oklch(92% 0.01 140);
+    --color-code-keyword: oklch(76% 0.13 305);
+    --color-code-string: oklch(80% 0.12 145);
+    --color-code-function: oklch(76% 0.11 250);
+    --color-code-number: oklch(80% 0.11 60);
+    --color-code-comment: oklch(72% 0.014 136);
+    --color-code-type: oklch(78% 0.09 195);
+    --color-code-attr: oklch(78% 0.12 25);
     --color-on-dark: oklch(100% 0 0);
     --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
     --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);
@@ -226,7 +248,15 @@
   --color-error-soft: color-mix(in oklch, var(--color-error) 18%, var(--color-paper));
 
   --color-auth-ink: oklch(100% 0 0);
-  --color-code-bg: oklch(16% 0.008 151);
+  --color-code-surface: oklch(18.5% 0.009 151);
+  --color-code-text: oklch(92% 0.01 140);
+  --color-code-keyword: oklch(76% 0.13 305);
+  --color-code-string: oklch(80% 0.12 145);
+  --color-code-function: oklch(76% 0.11 250);
+  --color-code-number: oklch(80% 0.11 60);
+  --color-code-comment: oklch(72% 0.014 136);
+  --color-code-type: oklch(78% 0.09 195);
+  --color-code-attr: oklch(78% 0.12 25);
   --color-on-dark: oklch(100% 0 0);
   --color-on-dark-muted: oklch(75.8% 0.0173 133.86);
   --color-scrim: color-mix(in srgb, oklch(4% 0 0) 62%, transparent);

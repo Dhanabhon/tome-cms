@@ -10,7 +10,9 @@ import {
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
+import { normalizeCodeLanguage } from '../../lib/code-languages';
 import { textAlign } from '../../lib/editor-align';
+import { codeBlock } from '../../lib/editor-code';
 import { isTextColor, textColor } from '../../lib/editor-color';
 import { attachment, type AttachmentFile } from '../../lib/editor-attachment';
 import { linkWithFile } from '../../lib/editor-link';
@@ -48,8 +50,9 @@ const rawEditorContentInputSchema = z.object({ contentJson: z.unknown() }).stric
 const extensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
-    // No class for a quote or a code block: the sanitizer keeps none on blockquote or pre, so
-    // the theme draws both. The editor's own classes match paper's, which is why they differ.
+    // No class for a quote: the sanitizer keeps none on blockquote, so the theme draws it. The
+    // editor's own classes match paper's, which is why they differ. The code block is ours, below.
+    codeBlock: false,
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
     // StarterKit 3 brings its own link; the one configured below is TomeCMS's.
     link: false,
@@ -57,6 +60,7 @@ const extensions = [
     // one. A post that ends in a quote or a table would store a paragraph it never had.
     trailingNode: false,
   }),
+  codeBlock,
   editorLink.configure({
     autolink: true,
     openOnClick: false,
@@ -130,6 +134,8 @@ function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string
       if (marks.length) node.marks = marks;
       else delete node.marks;
     }
+    // A language is None, Auto or one of the list's: a writer's own string never reaches the page.
+    if (node.type === 'codeBlock') node.attrs = { ...node.attrs, language: normalizeCodeLanguage(node.attrs?.language) };
     if (node.type === 'image') {
       const attrs = node.attrs ?? {};
       const src = attrs.src;

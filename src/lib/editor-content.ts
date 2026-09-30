@@ -2,6 +2,7 @@ import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
 
 import type { EditorDocument, EditorNode, Json } from '../types/cms';
+import { CODE_LANGUAGES } from './code-languages';
 import { TEXT_COLORS } from './text-colors';
 
 export const MAX_DOCUMENT_BYTES = 1_000_000;
@@ -26,6 +27,8 @@ export const editorDocumentSchema: z.ZodType<EditorDocument> = z.object({
 export const editorContentInputSchema = z.object({
   contentJson: editorDocumentSchema,
 }).strict();
+
+const CODE_LABELS: ReadonlySet<string> = new Set(CODE_LANGUAGES.map((language) => language.label));
 
 const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -67,6 +70,9 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     // so they are allowed here as well, with no value but the one the transform writes.
     img: ['src', 'alt', 'title', 'width', 'height', { name: 'decoding', values: ['async'] }, { name: 'loading', values: ['lazy'] }],
     p: ['style'],
+    // The transform below keeps only a label the picker has; the attribute itself has no
+    // value list, because sanitize-html leaves a bare `data-language` behind for a wrong one.
+    pre: ['data-language'],
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan'],
   },
@@ -78,14 +84,23 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     div: ['tableWrapper'],
     figure: ['tome-video'],
     p: ['file-card'],
+    // A code block is drawn by its class, its language by the one on its code, and its
+    // colours by the highlighter's own scopes (hljs-keyword, hljs-built_in, ...).
+    code: CODE_LANGUAGES.map((language) => `language-${language.id}`),
+    pre: ['code-block'],
     // A colour is a name from the palette in editor-color.ts, never a style.
-    span: ['file-card__name', 'file-card__meta', 'tome-video__title', ...TEXT_COLORS.map((color) => `tome-color-${color}`)],
+    span: ['file-card__name', 'file-card__meta', 'tome-video__title', /^hljs(-[a-z_-]+)?$/, ...TEXT_COLORS.map((color) => `tome-color-${color}`)],
   },
   // Alignment is the one style a writer can set, and only to these three values.
   allowedStyles: { '*': { 'text-align': [/^(left|center|right)$/] } },
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: { img: ['http', 'https'] },
   transformTags: {
+    // A code block's label is one of the picker's own, never text a writer typed.
+    pre: (tagName, { 'data-language': label, ...attribs }) => ({
+      tagName,
+      attribs: label !== undefined && CODE_LABELS.has(label) ? { ...attribs, 'data-language': label } : attribs,
+    }),
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }, true),
     img: sanitizeHtml.simpleTransform('img', { decoding: 'async', loading: 'lazy' }, true),
   },
