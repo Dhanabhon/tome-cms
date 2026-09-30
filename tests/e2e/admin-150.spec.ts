@@ -200,13 +200,15 @@ test('a publish date is chosen with the keyboard and saved with the draft', asyn
   const focused = () => page.evaluate(() => document.activeElement?.getAttribute('data-date') ?? '');
   const start = await focused();
   await page.keyboard.press('PageDown');
-  expect(await focused(), 'PageDown moves a month').not.toBe(start);
+  await expect.poll(focused, { message: 'PageDown moves a month' }).not.toBe(start);
   await page.keyboard.press('PageUp');
-  expect(await focused()).toBe(start);
+  await expect.poll(focused).toBe(start);
   const filed = page.waitForResponse((response) => response.url().endsWith('/api/admin/posts')
     && ['POST', 'PUT'].includes(response.request().method()) && response.ok()
     && Boolean(response.request().postDataJSON()?.publishedAt));
   await page.keyboard.press('ArrowRight');
+  await expect.poll(focused, { message: 'ArrowRight moves a day' }).not.toBe(start);
+  const chosen = await focused();
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(picker).toBeHidden();
@@ -216,7 +218,10 @@ test('a publish date is chosen with the keyboard and saved with the draft', asyn
 
   const { db } = await import('../../src/server/db/client');
   const row = await db.selectFrom('posts').select(['planned_at']).where('title', '=', 'Date test').executeTakeFirstOrThrow();
-  expect(row.planned_at).not.toBeNull();
+  // The picker's day, at 09:00, in the owner's zone (Asia/Bangkok above).
+  const bangkok = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', ...options }).format(row.planned_at!);
+  expect(bangkok({ year: 'numeric', month: '2-digit', day: '2-digit' }), 'the saved day is the day chosen').toBe(chosen);
+  expect(bangkok({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })).toBe('09:00');
 });
 
 test('several files go up at once into the folder chosen for them, and a failed row can be retried', async ({ context, page }) => {
@@ -249,6 +254,9 @@ test('several files go up at once into the folder chosen for them, and a failed 
   await expect(refused).toHaveAttribute('data-status', 'refused');
   await expect(refused.getByRole('alert')).not.toBeEmpty();
   await expect(refused.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+  // Each row names its type and size as the library does; a refused file has only a size.
+  await expect(rows.filter({ hasText: 'pixel-1.png' }).locator('.media-upload-row__meta')).toHaveText('PNG · 70 B');
+  await expect(refused.locator('.media-upload-row__meta')).toHaveText('2 B');
 
   // Escape closes the folder list alone; the dialog stays.
   const folder = dialog.locator('#media-upload-folder');
@@ -341,5 +349,8 @@ test('an unticked cover leaves the top of the published article, and the shared-
   await page.goto(`${origin}/${row.locale}/blog/${row.slug}`);
   await expect(page.locator('h1')).toContainText('Cover test');
   await expect(page.locator('.post-cover')).toHaveCount(0);
-  await expect(page.locator('meta[property="og:image"]'), 'the shared-link image still reads the cover').toHaveCount(1);
+  const cover = await db.selectFrom('posts').select('cover_media_id').where('title', '=', 'Cover test').executeTakeFirstOrThrow();
+  expect(cover.cover_media_id, 'the post has its cover').toBeTruthy();
+  // The shared-link image is the cover itself, not the site's default one.
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', new RegExp(cover.cover_media_id!));
 });

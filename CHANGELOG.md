@@ -14,7 +14,7 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 - No control in the admin opens a picker drawn by the operating system: lists, dates and times, and colours use the admin's own controls. Dates and times have a picker of their own, in the owner's calendar.
 - Every radio and checkbox in the admin uses the accent colour instead of the browser's default blue.
 - A save button spins while it saves, says "Saved" after, and asks again once something changes.
-- The row menu (Posts, Pages and the File Manager's file and folder menus) closes on a press outside or Escape, and Escape works wherever focus is.
+- The row menu (Posts, Pages and the File Manager's folder menu) closes on a press outside or Escape, and Escape works wherever focus is.
 - The Posts and Pages language filters and the Redirects article list use the admin's own list.
 - Plugin colour settings are typed as hex beside a swatch.
 - The admin's main column is white, and the sidebar sits on the cream page behind it.

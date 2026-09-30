@@ -116,6 +116,11 @@ test('Post and Page services own content, versions, translations, and Category w
   const second = await duplicatePost('owner-a', publishedPost.id);
   assert.notEqual(second.slug, copy.slug);
   assert.match(second.slug, new RegExp(`^${publishedPost.slug}-copy-[0-9a-f]{8}$`));
+  // Whether the article shows its cover travels with the copy: a hidden cover stays hidden.
+  assert.equal(copy.show_cover, true, 'a post that shows its cover copies as one that does');
+  const coverless = await createPost('owner-a', { ...postInput, slug: 'no-cover', title: 'No cover', showCover: false });
+  assert.equal(coverless.show_cover, false);
+  assert.equal((await duplicatePost('owner-a', coverless.id)).show_cover, false, 'a duplicate keeps a hidden cover hidden');
   await assert.rejects(
     duplicatePost('owner-a', createdPost.translation_group_id),
     (error: unknown) => error instanceof HttpError && error.status === 404,

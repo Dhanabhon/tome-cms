@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { fill, type AdminCopy } from '../../lib/admin-i18n';
+import { declaredMediaType, formatBytes, formatLabel } from '../../lib/media';
 import { precheck, uploadFailureText, uploadFile } from '../../lib/media-client';
 import { closeOverlay } from '../../lib/overlay-motion';
 import { confirmUi } from '../../lib/ui-dialog';
@@ -14,6 +15,16 @@ const SETTLE_MS = 10_000;
 
 type RowStatus = 'ready' | 'refused' | 'queued' | 'uploading' | 'done' | 'failed';
 type Row = { error?: string; file: File; id: number; progress: number; status: RowStatus };
+
+/** "PNG · 1.2 MB", as the library writes it. A file the library will not take has no format to name, only a size. */
+function rowMeta(file: File): string {
+  const size = formatBytes(file.size);
+  try {
+    return `${formatLabel(declaredMediaType(file))} · ${size}`;
+  } catch {
+    return size;
+  }
+}
 
 interface MediaUploadDialogProps {
   copy: AdminCopy;
@@ -126,7 +137,7 @@ export default function MediaUploadDialog({ copy, files, folders, initialFolderI
         {rows.map((row) => (
           <li className="media-upload-row" data-status={row.status} key={row.id}>
             <span className="media-upload-row__name">{row.file.name}</span>
-            <span className="media-upload-row__meta">{Math.max(1, Math.round(row.file.size / 1024))} KB</span>
+            <span className="media-upload-row__meta">{rowMeta(row.file)}</span>
             {(row.status === 'queued' || row.status === 'uploading') && <progress className="update-progress" max={100} value={row.progress} />}
             {row.status === 'done' && <span className="media-upload-row__done"><Icon name="check" />{copy.media.uploadUploaded}</span>}
             {(row.status === 'refused' || row.status === 'failed') && <span className="admin-field-error" role="alert">{row.error}</span>}

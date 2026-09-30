@@ -681,5 +681,10 @@ test('the library takes several files into a chosen folder, and its button rings
   assert.match(library, /<MediaUploadDialog\b/);
   assert.doesNotMatch(CSS, /\.media-upload:focus-within/);
   assert.match(CSS, /\.media-upload:has\(input:focus-visible\)/);
-  assert.match(read('src/components/admin/MediaUploadDialog.tsx'), /runQueue\(/);
+  const dialog = read('src/components/admin/MediaUploadDialog.tsx');
+  assert.match(dialog, /runQueue\(/);
+  // A row shows its type and size the way the library does, not raw kilobytes.
+  assert.match(dialog, /formatLabel\(declaredMediaType\(file\)\)/);
+  assert.match(dialog, /formatBytes\(file\.size\)/);
+  assert.doesNotMatch(dialog, /1024\)\} KB/);
 });
