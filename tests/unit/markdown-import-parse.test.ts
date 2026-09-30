@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
-import { prepareEditorContent } from '../../src/server/content/editor';
+import { MarkdownTooComplexError, parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
+import { prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 
 const MEDIA = '55555555-5555-4555-8555-555555555555';
@@ -64,7 +64,7 @@ test('with no frontmatter, the first level 1 heading is the title, then the file
 });
 
 test('a file saved on Windows reads the same', () => {
-  const parsed = parseMarkdownPost('﻿---\r\ntitle: Windows\r\n---\r\n\r\nBody\r\n', 'w.md');
+  const parsed = parseMarkdownPost('\uFEFF---\r\ntitle: Windows\r\n---\r\n\r\nBody\r\n', 'w.md');
   assert.equal(parsed.title, 'Windows');
   assert.deepEqual(parsed.warnings, []);
 });
@@ -156,4 +156,107 @@ test('a fenced block keeps its language, by the short names code usually carries
 test('--- between paragraphs is a new part', () => {
   const parsed = parseMarkdownPost('ก่อน\n\n---\n\nหลัง', 'a.md');
   assert.deepEqual(parsed.document.content?.map((node) => node.type), ['paragraph', 'horizontalRule', 'paragraph']);
+});
+
+test('an empty frontmatter block is read as one, and trailing spaces after its dashes are fine', () => {
+  const parsed = parseMarkdownPost('---\n---\nBody', 'empty.md');
+  assert.deepEqual(parsed.document.content?.map((node) => node.type), ['paragraph']);
+  assert.equal(parseMarkdownPost('---  \ntitle: Spaced\n---\t\nBody', 'a.md').title, 'Spaced');
+});
+
+test('a heading with no words is dropped, and the title still comes from the file name', () => {
+  const parsed = parseMarkdownPost('# \n\nBody', 'named.md');
+  assert.equal(parsed.title, 'named');
+  assert.equal(nodes(parsed.document).some((node) => node.type === 'heading'), false);
+});
+
+test('only a web, site or page address survives as a link', () => {
+  const parsed = parseMarkdownPost('[a](javascript:alert(1)) [b](JaVaScRiPt:x) [c](data:text/html,x) [d](//evil.com) [e](/\\evil.com) [f](/ok)', 'a.md');
+  const hrefs = nodes(parsed.document).flatMap((node) => node.marks ?? []).filter((mark) => mark.type === 'link').map((mark) => mark.attrs?.href);
+  assert.deepEqual(hrefs, ['/ok']);
+  assert.deepEqual(parsed.warnings, [{ code: 'links-removed', count: 5 }]);
+});
+
+test('fence names with a symbol in them are taken for the language they stand for', () => {
+  const languages = nodes(parseMarkdownPost('```c++\nint a;\n```\n\n```c#\nint b;\n```', 'a.md').document)
+    .filter((node) => node.type === 'codeBlock').map((node) => node.attrs?.language);
+  assert.deepEqual(languages, ['cpp', 'csharp']);
+});
+
+test('the same picture twice is placed in both spots', () => {
+  const parsed = parseMarkdownPost('![a](./a.png)\n\nmiddle\n\n![a again](./a.png)', 'a.md');
+  assert.equal(html(placePictures(parsed.document, new Map([['./a.png', MEDIA]]), 'th')).split(`src="/media/${MEDIA}"`).length - 1, 2);
+});
+
+test('frontmatter keys that are not fields do no harm', () => {
+  const parsed = parseMarkdownPost('---\n__proto__: {polluted: true}\nconstructor: x\ntitle: T\n---\nx', 'a.md');
+  assert.equal(parsed.title, 'T');
+  assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  const bomb = ['a: &a [x, x, x, x, x, x, x, x, x]', ...'bcdefghi'.split('').map((key, i) => `${key}: &${key} [${`*${'abcdefgh'[i]}, `.repeat(9)}x]`), 'title: Bomb'].join('\n');
+  assert.deepEqual(parseMarkdownPost(`---\n${bomb}\n---\nx`, 'a.md').warnings, [{ code: 'frontmatter-unreadable' }]);
+});
+
+// What one file may ask of the server. Each input is at most what the import accepts (900 KB) and
+// is the shape that made the lexer take minutes before the limits; the bound is generous, the time
+// is printed so a slow machine shows.
+const MB = 900_000;
+const timed = (name: string, input: string, limit: string | null) => test(name, (t) => {
+  assert.ok(input.length <= MB, 'the input is within the import limit');
+  const started = performance.now();
+  let refused: string | null = null;
+  try {
+    parseMarkdownPost(input, 'big.md');
+  } catch (error) {
+    assert.ok(error instanceof MarkdownTooComplexError, String(error));
+    refused = error.limit;
+    assert.deepEqual(error.warning, { code: 'too-complex', limit });
+  }
+  const took = performance.now() - started;
+  t.diagnostic(`${Math.round(took)} ms, ${refused ? `refused: ${refused}` : 'parsed'}`);
+  assert.equal(refused, limit);
+  assert.ok(took < 5000, `took ${Math.round(took)} ms`);
+});
+
+timed('55,000 pictures, each in its own paragraph, are refused at once', '![a](./a.png)\n\n'.repeat(55_000), 'pictures');
+timed('90,000 inline tags are refused at once', '<b>x</b>'.repeat(90_000), 'inline');
+timed('25,000 links in one paragraph are refused at once', '[a](https://a.com) '.repeat(25_000), 'inline');
+timed('100,000 headings are refused at once', '## h\n'.repeat(100_000), 'blocks');
+timed('400,000 list dashes on one line are read at once', '- '.repeat(400_000), null);
+timed('450,000 short lines are refused at once', 'a\n'.repeat(450_000), 'lines');
+timed('30,000 different tags are refused at once', Array.from({ length: 30_000 }, (_, i) => `<t${i}>`).join(''), 'html');
+timed('a long post, 100,000 words and 500 pictures, is read whole', Array.from({ length: 100 }, (_, part) => [
+  `## Part ${part}`,
+  ...Array.from({ length: 15 }, (_, item) => `${'คำ word '.repeat(35)} **bold** and [link](https://x.com/${part}/${item}) and \`code\`.${item % 3 === 0 ? `\n\n![pic](./img/${part}-${item}.png)` : ''}`),
+  '- one\n- two',
+].join('\n\n')).join('\n\n'), null);
+
+test('more different tags than the limit allows are refused', () => {
+  const source = Array.from({ length: 301 }, (_, i) => `<t${i}>`).join(' ');
+  assert.throws(() => parseMarkdownPost(source, 'a.md'), (error) => error instanceof MarkdownTooComplexError && error.limit === 'html');
+});
+
+test('code is not read for marks, so a long listing does not count against the post', () => {
+  const listing = '```js\n' + 'a_b * c[d] <e>\n'.repeat(8_000) + '```';
+  assert.equal(nodes(parseMarkdownPost(listing, 'a.md').document).filter((node) => node.type === 'codeBlock').length, 1);
+});
+
+test('frontmatter over 20 KB is reported, not handed to the YAML reader, and the body still comes in', () => {
+  const started = performance.now();
+  const parsed = parseMarkdownPost(`---\n${Array.from({ length: 50_000 }, (_, i) => `k${i}: v`).join('\n')}\n---\nBody text`, 'keys.md');
+  const took = performance.now() - started;
+  assert.deepEqual(parsed.warnings, [{ code: 'frontmatter-unreadable' }]);
+  assert.match(html(parsed.document), /Body text/);
+  console.log(`# frontmatter of 50,000 keys: ${Math.round(took)} ms`);
+  assert.ok(took < 5000);
+});
+
+test('a file nested too deeply is refused with an error the service can show, never a stack overflow', () => {
+  const lists = Array.from({ length: 300 }, (_, level) => `${'  '.repeat(level)}- item`).join('\n');
+  for (const source of [lists, `${'> '.repeat(3_000)}text`]) {
+    assert.throws(() => parseMarkdownPost(source, 'deep.md'), (error) => {
+      assert.ok(error instanceof ValidationError);
+      assert.ok(!(error instanceof RangeError));
+      return true;
+    });
+  }
 });

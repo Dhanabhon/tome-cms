@@ -6,11 +6,12 @@ import {
   describePicture,
   MISSING_IMAGE,
   pictureLabel,
+  type ImportLimit,
   type ImportPicture,
   type ImportWarning,
 } from '../../lib/markdown-import';
 import type { EditorDocument, EditorNode } from '../../types/cms';
-import { extensions } from './editor';
+import { extensions, ValidationError } from './editor';
 
 /**
  * One Markdown file, read into what a new post is made of. No database: the service decides
@@ -20,11 +21,57 @@ import { extensions } from './editor';
  */
 const markdown = new MarkdownManager({ extensions });
 
-const FRONTMATTER = /^---\n([\s\S]*?)\n---(?:\n|$)/;
+const FRONTMATTER = /^---[ \t]*\n(?:([\s\S]*?)\n)?---[ \t]*(?:\n|$)/;
 // ponytail: matched on the raw text, so a task item inside a code block also warns; it is only a warning.
-const TASK_ITEM = /^\s*[-*+] \[[ xX]\] /m;
-// A footnote reference comes out as a link to the footnote's words; only these are real.
-const KEPT_LINK = /^(?:https?:|\/|#)/i;
+const TASK_ITEM = /^[ \t]*[-*+] \[[ xX]\] /m;
+// A footnote reference comes out as a link to the footnote's words; only these are real. An address
+// starting with two slashes (or a slash and a backslash) names another site, like a picture's does.
+const KEPT_LINK = /^(?:https?:|\/(?![/\\])|#)/i;
+
+/*
+ * Limits on what one file may ask of the server. The Markdown lexer is slower than linear: every
+ * block re-reads the rest of the file, and a paragraph's marks are slower than linear in their
+ * number, so a 900 KB file of tiny blocks or marks takes minutes and stops the whole site. They
+ * are counted on the text, in one pass, before any lexing; a file over one is refused. A long
+ * post (100,000 words, 500 pictures) uses a fraction of each.
+ */
+export const MAX_FRONTMATTER = 20_000;
+export const MAX_BLOCKS = 4_000;
+export const MAX_LINES = 12_000;
+/** Characters that start a mark: emphasis, code, a link or tag, an escape, a bare address. */
+export const MAX_INLINE = 40_000;
+export const MAX_PICTURES = 2_000;
+/** Levels of lists, quotes and tables inside each other; the server's own check stops a little past this. */
+export const MAX_DEPTH = 40;
+/** Different tags a file may hold; each is searched for in every text that has a `<`. */
+export const MAX_HTML = 300;
+
+// A block starts at a blank line, a heading, a quote, a fence or a rule; a list or a table is one.
+const BLOCK_START = /^ {0,3}(?:#{1,6}(?:\s|$)|>|```|~~~|(?:[-*_][ \t]*){3,}$)|\n[ \t]*\n+/gm;
+const FENCED = /^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?(?:\n {0,3}\1[~`]*[ \t]*(?=\n|$)|(?![\s\S]))/gm;
+const INLINE_START = /[<[*_`~\\]|https?:|www\./gi;
+const PICTURE_START = /!\[/g;
+
+/** A file that is too big or too deep to read; `warning` says which limit, for the sheet to show. */
+export class MarkdownTooComplexError extends ValidationError {
+  constructor(readonly limit: ImportLimit) {
+    super(limit === 'depth' ? 'This file is nested too deeply to import.' : 'This file is too long or too complex to import.');
+  }
+
+  get warning(): ImportWarning {
+    return { code: 'too-complex', limit: this.limit };
+  }
+}
+
+const count = (value: string, pattern: RegExp): number => value.match(pattern)?.length ?? 0;
+
+function checkSize(body: string): void {
+  if (count(body, PICTURE_START) > MAX_PICTURES) throw new MarkdownTooComplexError('pictures');
+  if (count(body, BLOCK_START) > MAX_BLOCKS) throw new MarkdownTooComplexError('blocks');
+  if (count(body, /\n/g) > MAX_LINES) throw new MarkdownTooComplexError('lines');
+  // Code is not read for marks, so a long listing does not count against the post.
+  if (count(body.replace(FENCED, ''), INLINE_START) > MAX_INLINE) throw new MarkdownTooComplexError('inline');
+}
 
 export interface ParsedMarkdownPost {
   title: string;
@@ -50,6 +97,7 @@ function text(value: unknown, max: number): string {
 
 function readFrontmatter(yaml: string, warnings: ImportWarning[]): Record<string, unknown> {
   try {
+    if (yaml.length > MAX_FRONTMATTER) throw new RangeError('Frontmatter too long');
     const value: unknown = parseYaml(yaml);
     if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
     if (value === null) return {};
@@ -73,9 +121,13 @@ function htmlTokens(body: string): string[] {
     if (token.type === 'html' && typeof token.raw === 'string' && token.raw.trim()) found.push(token.raw.trim());
     for (const child of Object.values(value)) if (child && typeof child === 'object') visit(child);
   };
-  visit(markdown.instance.lexer(body));
+  // Lexed a second time, only when there is a tag to find: the parser's own lexer is not reachable.
+  if (body.includes('<')) visit(markdown.instance.lexer(body));
   return found;
 }
+
+const isTooDeep = (node: EditorNode, depth = 1): boolean =>
+  depth > MAX_DEPTH || Boolean(node.content?.some((child) => isTooDeep(child, depth + 1)));
 
 function plainText(node: EditorNode): string {
   return node.text ?? (node.content ?? []).map(plainText).join('');
@@ -85,7 +137,7 @@ function clean(node: EditorNode, html: readonly string[], counts: { links: numbe
   if (node.type === 'text') {
     const isCode = inCode || Boolean(node.marks?.some((mark) => mark.type === 'code'));
     let value = node.text ?? '';
-    if (!isCode) for (const raw of html) value = value.split(raw).join('');
+    if (!isCode && value.includes('<')) for (const raw of html) value = value.split(raw).join('');
     if (!value.trim() && value !== node.text) return null;
     const marks = node.marks?.filter((mark) => {
       if (mark.type !== 'link') return true;
@@ -110,7 +162,7 @@ function clean(node: EditorNode, html: readonly string[], counts: { links: numbe
 }
 
 export function parseMarkdownPost(source: string, fileName: string): ParsedMarkdownPost {
-  const input = source.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  const input = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   const warnings: ImportWarning[] = [];
   const found = FRONTMATTER.exec(input);
   const fields = found ? readFrontmatter(found[1] ?? '', warnings) : {};
@@ -126,17 +178,33 @@ export function parseMarkdownPost(source: string, fileName: string): ParsedMarkd
     else publishedAt = date.toISOString();
   }
 
-  const html = htmlTokens(body).sort((left, right) => right.length - left.length);
-  // A round trip through JSON drops the `content: undefined` the parser leaves on an inline picture,
-  // which the server's check refuses as not JSON.
-  const parsed = JSON.parse(JSON.stringify(markdown.parse(body))) as EditorDocument;
+  checkSize(body);
   const counts = { links: 0 };
-  let blocks = (parsed.content ?? [])
-    .map((node) => clean(node, html, counts, false))
-    .filter((node): node is EditorNode => node !== null)
-    // Markdown cannot write an empty paragraph on purpose; the parser adds them around pictures.
-    .filter((node) => node.type !== 'paragraph' || Boolean(node.content?.length));
-  if (html.length) warnings.push({ code: 'html-removed', count: html.length });
+  let blocks: EditorNode[];
+  let htmlCount: number;
+  try {
+    const found = htmlTokens(body);
+    htmlCount = found.length;
+    const html = [...new Set(found)].sort((left, right) => right.length - left.length);
+    if (html.length > MAX_HTML) throw new MarkdownTooComplexError('html');
+    // A round trip through JSON drops the `content: undefined` the parser leaves on an inline picture,
+    // which the server's check refuses as not JSON.
+    const parsed = JSON.parse(JSON.stringify(markdown.parse(body))) as EditorDocument;
+    blocks = (parsed.content ?? [])
+      .map((node) => clean(node, html, counts, false))
+      .filter((node): node is EditorNode => node !== null)
+      // Markdown cannot write an empty paragraph on purpose; the parser adds them around pictures.
+      .filter((node) => node.type !== 'paragraph' || Boolean(node.content?.length))
+      .filter((node) => node.type !== 'heading' || Boolean(plainText(node).trim()));
+    // Whether the lexer ran out of stack depends on the machine; this does not.
+    if (blocks.some((node) => isTooDeep(node))) throw new MarkdownTooComplexError('depth');
+  } catch (error) {
+    if (error instanceof ValidationError) throw error;
+    // Nesting is the one thing the lexer cannot bound: it runs out of stack, and says so.
+    if (error instanceof RangeError) throw new MarkdownTooComplexError('depth');
+    throw new ValidationError('This file could not be read as Markdown.');
+  }
+  if (htmlCount) warnings.push({ code: 'html-removed', count: htmlCount });
   if (counts.links) warnings.push({ code: 'links-removed', count: counts.links });
   if (TASK_ITEM.test(body)) warnings.push({ code: 'task-list' });
 
