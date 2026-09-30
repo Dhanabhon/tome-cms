@@ -29,7 +29,8 @@ Both files put every value between single quotes, as in `S3_REGION='us-east-1'`.
 | `BETTER_AUTH_SECRET` | Required | None | Better Auth, which runs sign-in, signs sessions with it. At least 32 characters. |
 | `TOME_CMS_CONTEXT_SECRET` | Required | None | Signs the short-lived steps of installing and recovery and the API's page cursors, keys the rate limits, and encrypts plugins' secret settings. At least 32 characters. |
 | `TOME_CMS_RECOVERY_PEPPER` | Required | None | Hashes the owner's recovery codes. At least 32 characters. |
-| `S3_ENDPOINT` | Required | None | The object storage origin. The application reaches the bucket through it, and the browser uploads to it. |
+| `S3_ENDPOINT` | Required | None | The object storage origin, the public address. The browser uploads to it, and the application signs upload addresses for it. The application's own calls use it too, unless `S3_INTERNAL_ENDPOINT` says otherwise. |
+| `S3_INTERNAL_ENDPOINT` | Optional | None | The address the application itself uses to reach the bucket: to check, read, copy and delete files. Set it when storage sits behind a CDN or a proxy that can fail these signed requests, or when the application can reach storage on a private network. `http://` is fine, and the production HTTPS and public-host rules for `S3_ENDPOINT` do not apply to it. A managed install, from 1.5.2 on, uses the bundled SeaweedFS at `http://seaweedfs:8333` without you setting it. Anywhere else, leave it out and the application uses `S3_ENDPOINT`. |
 | `S3_REGION` | Optional | `us-east-1` | The bucket's region. |
 | `S3_ACCESS_KEY_ID` | Required | None | The object storage access key. |
 | `S3_SECRET_ACCESS_KEY` | Required | None | The object storage secret key. At least 8 characters. |
