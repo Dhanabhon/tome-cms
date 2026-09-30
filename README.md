@@ -9,10 +9,8 @@ TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It
 
 ## Architecture
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/tome-cms-overview.en.dark.png">
-  <img alt="How TomeCMS fits together: a visitor reads public pages that the chosen theme draws and the Astro server renders on every request; the site owner writes in the React admin, which calls the same server; the server keeps content in PostgreSQL and files in S3-compatible storage; Better Auth signs the owner in with a passkey; plugins can check a sign-in with Cloudflare Turnstile and suggest while writing through Jev (TypeSafe AI)." src="docs/tome-cms-overview.en.light.png">
-</picture>
+<img alt="How TomeCMS fits together: a visitor reads public pages that the chosen theme draws and the Astro server renders on every request; the site owner writes in the React admin, which calls the same server; the server keeps content in PostgreSQL and files in S3-compatible storage; Better Auth signs the owner in with a passkey; plugins can check a sign-in with Cloudflare Turnstile and suggest while writing through Jev (TypeSafe AI)." src="docs/tome-cms-overview.en.light.png#gh-light-mode-only">
+<img alt="How TomeCMS fits together: a visitor reads public pages that the chosen theme draws and the Astro server renders on every request; the site owner writes in the React admin, which calls the same server; the server keeps content in PostgreSQL and files in S3-compatible storage; Better Auth signs the owner in with a passkey; plugins can check a sign-in with Cloudflare Turnstile and suggest while writing through Jev (TypeSafe AI)." src="docs/tome-cms-overview.en.dark.png#gh-dark-mode-only">
 
 One Node.js process serves the public pages, the admin and both APIs, and PostgreSQL and the object store hold everything that lasts. [docs/tome-cms-overview.en.html](docs/tome-cms-overview.en.html) is the same diagram to explore, with a guided view of each path through it: download it and open it in a browser. A Thai edition sits beside it.
 
