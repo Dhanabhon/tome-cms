@@ -42,6 +42,12 @@ test('an article keeps its 44rem column inside the frame', () => {
   assert.match(css, /\.plain-article \{[^}]*width: min\(var\(--plain-frame\), 44rem\)/);
 });
 
+test("an article's and a page's title is as bold as the home page's lead", () => {
+  const weight = (selector: string) => css.match(new RegExp(`${selector} \\{[^}]*font-weight: (\\d+)`))?.[1];
+  assert.equal(weight('\\.plain-lead h2'), '700');
+  assert.equal(weight('\\.plain-article h1'), weight('\\.plain-lead h2'));
+});
+
 test('the grid is one column, two from 40rem and three from 64rem, each item under a hairline', () => {
   assert.match(css, /\.plain-grid \{[^}]*grid-template-columns: 1fr/);
   assert.match(css, /@media \(min-width: 40rem\) \{[^}]*\.plain-grid \{ grid-template-columns: repeat\(2, 1fr\)/);

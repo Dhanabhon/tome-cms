@@ -167,7 +167,7 @@
 .plain-more { margin-block-start: var(--space-xl); }
 
 .plain-back { margin: 0 0 var(--space-md); font-size: 0.875rem; }
-.plain-article h1 { margin: 0 0 var(--space-sm); font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); line-height: 1.2; }
+.plain-article h1 { margin: 0 0 var(--space-sm); font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 700; line-height: 1.2; }
 .plain-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: 0.875rem; }
 .plain-draft { margin: 0 0 var(--space-sm); color: var(--color-muted); font-size: 0.875rem; }
 .plain-article img { width: 100%; height: auto; }
