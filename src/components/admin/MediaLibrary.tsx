@@ -9,12 +9,12 @@ import {
   renameMediaFolder,
   saveMediaDraft,
   stillUsedText,
-  uploadFailureText,
+  uploadFailureMessage,
   uploadFile,
   MediaRequestError,
   type MediaDraft,
 } from '../../lib/media-client';
-import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
+import { adminCopy, fill } from '../../lib/admin-i18n';
 import {
   acceptAttribute,
   DOCUMENT_GROUPS,
@@ -51,14 +51,6 @@ type FailedRequest = { append: boolean; filter: MediaTypeFilter | null; page: nu
 const LIBRARY_FILTERS: ReadonlyArray<MediaTypeFilter | null> = [null, 'image', ...DOCUMENT_GROUPS];
 const FILE_FILTERS: ReadonlyArray<MediaTypeFilter | null> = ['file', ...DOCUMENT_GROUPS];
 const FOLDER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function errorMessage(error: unknown, copy: AdminCopy) {
-  const known = uploadFailureText(error, copy);
-  if (known) return known;
-  if (error instanceof Error) return error.message;
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
-  return copy.media.unavailable;
-}
 
 function folderId(selection: CategorySelection) {
   if (selection === 'all') return undefined;
@@ -148,7 +140,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       setPage(nextPage);
     } catch (loadError) {
       if (id === requestId.current) {
-        setError(errorMessage(loadError, copy));
+        setError(uploadFailureMessage(loadError, copy));
         setFailedRequest({ append, filter: nextFilter, page: nextPage, selection: nextSelection, term });
       }
     } finally {
@@ -168,7 +160,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       const current = currentSelection.current;
       if (FOLDER_ID.test(current) && !loaded.some((folder) => folder.id === current)) selectCategory('all');
     } catch (folderError) {
-      if (request === foldersRequest.current) setFolderLoadError(errorMessage(folderError, copy));
+      if (request === foldersRequest.current) setFolderLoadError(uploadFailureMessage(folderError, copy));
     }
   }, []);
 
@@ -251,7 +243,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         else await load(1, false, uploadQuery, uploadSelection, uploadFilter);
       }
     } catch (uploadError) {
-      setError(errorMessage(uploadError, copy));
+      setError(uploadFailureMessage(uploadError, copy));
       setFailedRequest(null);
     } finally {
       input.value = '';
@@ -290,7 +282,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       setCategoryName('');
       setFolderNameMissing(false);
     } catch (createError) {
-      setCategoryError(errorMessage(createError, copy));
+      setCategoryError(uploadFailureMessage(createError, copy));
     } finally {
       setWorking(null);
     }
@@ -307,7 +299,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       setFolders((current) => current.map((currentFolder) => (currentFolder.id === folder.id ? folder : currentFolder)).sort((left, right) => left.name.localeCompare(right.name)));
       setRenaming(null);
     } catch (renameError) {
-      setCategoryError(errorMessage(renameError, copy));
+      setCategoryError(uploadFailureMessage(renameError, copy));
     } finally {
       setWorking(null);
     }
@@ -333,7 +325,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       if (savedDraft.folderId === folder.id) setSavedDraft((current) => ({ ...current, folderId: '' }));
       if (currentSelection.current === folder.id) selectCategory('unsorted');
     } catch (deleteError) {
-      setCategoryError(errorMessage(deleteError, copy));
+      setCategoryError(uploadFailureMessage(deleteError, copy));
     }
   }
 
@@ -369,7 +361,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       }
       await load(1, false, currentQuery.current, currentSelection.current, currentFilter.current);
     } catch (saveError) {
-      setDetailsStatus(errorMessage(saveError, copy));
+      setDetailsStatus(uploadFailureMessage(saveError, copy));
     } finally {
       setWorking(null);
     }
@@ -417,7 +409,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       if (selectedId.current === item.id) {
         setDeleteError(deleteFailure instanceof MediaRequestError && deleteFailure.references
           ? stillUsedText(deleteFailure.references, copy)
-          : errorMessage(deleteFailure, copy));
+          : uploadFailureMessage(deleteFailure, copy));
         if (deleteFailure instanceof MediaRequestError && deleteFailure.references) {
           setReferencingPosts(deleteFailure.references.posts);
           setReferencingPages(deleteFailure.references.pages);

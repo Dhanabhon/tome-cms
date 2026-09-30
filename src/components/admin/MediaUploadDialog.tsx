@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { fill, type AdminCopy } from '../../lib/admin-i18n';
 import { declaredMediaType, formatBytes, formatLabel } from '../../lib/media';
-import { precheck, uploadFailureText, uploadFile } from '../../lib/media-client';
+import { precheck, uploadFailureMessage, uploadFile } from '../../lib/media-client';
 import { closeOverlay } from '../../lib/overlay-motion';
 import { confirmUi } from '../../lib/ui-dialog';
 import { runQueue } from '../../lib/upload-queue';
@@ -53,7 +53,7 @@ export default function MediaUploadDialog({ copy, files, folders, initialFolderI
     const check = precheck(file, 'any');
     return check.ok
       ? { file, id, progress: 0, status: 'ready' }
-      : { error: uploadFailureText(check.error, copy) ?? copy.media.unavailable, file, id, progress: 0, status: 'refused' };
+      : { error: uploadFailureMessage(check.error, copy), file, id, progress: 0, status: 'refused' };
   }));
   const [started, setStarted] = useState(false);
   const running = rows.some((row) => row.status === 'queued' || row.status === 'uploading');
@@ -80,7 +80,7 @@ export default function MediaUploadDialog({ copy, files, folders, initialFolderI
         update(id, { progress: 100, status: 'done' });
       } catch (error) {
         if (signal.aborted) return stopped();
-        update(id, { error: uploadFailureText(error, copy) ?? copy.media.unavailable, status: 'failed' });
+        update(id, { error: uploadFailureMessage(error, copy), status: 'failed' });
         throw error;
       }
     });

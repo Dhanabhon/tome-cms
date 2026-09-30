@@ -56,6 +56,15 @@ export function uploadFailureText(error: unknown, copy: AdminCopy): string | und
   }
 }
 
+/** What to tell the owner of a failed request: a known cause in their language, else what the server said, else the generic line. */
+export function uploadFailureMessage(error: unknown, copy: AdminCopy): string {
+  const known = uploadFailureText(error, copy);
+  if (known) return known;
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message) return error.message;
+  return copy.media.unavailable;
+}
+
 /** Why the library kept a file, in the owner's language, counted from the places the server named. */
 export function stillUsedText(references: MediaReferences, copy: AdminCopy): string {
   const count = Object.values(references.counts).reduce((total, places) => total + places, 0);

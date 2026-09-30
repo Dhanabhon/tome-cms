@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
 import { MediaFileError, uploadTimeoutMs } from '../../src/lib/media';
-import { bytesToBase64, MediaRequestError, precheck, stillUsedText, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
+import { bytesToBase64, MediaRequestError, precheck, stillUsedText, uploadFailureMessage, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
 
 test('browser checksum encoding handles the maximum upload size without a spread overflow', () => {
   const bytes = new Uint8Array(8 * 1024 * 1024).fill(0xab);
@@ -65,6 +65,21 @@ test('a failed upload reads in the owner\'s language when its cause is known', (
     // Anything else keeps its own words.
     assert.equal(failure('media_unknown'), undefined);
     assert.equal(uploadFailureText(new Error('Network down'), copy), undefined);
+  }
+});
+
+test('a failed upload says what the server said before it says the library is unavailable', () => {
+  for (const locale of ['en', 'th'] as const) {
+    const copy = adminCopy(locale);
+    // A known cause: its copy, not the server's English.
+    assert.equal(uploadFailureMessage(new MediaRequestError('Storage rejected the upload.', undefined, 'storage_rejected'), copy), copy.media.storageRejected);
+    // An unknown one: the server's own message.
+    assert.equal(uploadFailureMessage(new MediaRequestError('Storage is busy.', undefined, 'media_unknown'), copy), 'Storage is busy.');
+    assert.equal(uploadFailureMessage(new Error('Network down'), copy), 'Network down');
+    // Nothing to say: the generic line.
+    assert.equal(uploadFailureMessage(new Error(''), copy), copy.media.unavailable);
+    assert.equal(uploadFailureMessage('boom', copy), copy.media.unavailable);
+    assert.equal(uploadFailureMessage(undefined, copy), copy.media.unavailable);
   }
 });
 
