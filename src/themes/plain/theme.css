@@ -87,7 +87,7 @@
 .plain-filter a[aria-current="page"] { color: var(--color-ink); font-weight: 600; border-block-end-color: var(--color-link); }
 
 /* The field is the form: the magnifier inside it is the button that sends it. */
-.plain-search { position: relative; flex: 0 1 14rem; min-width: 0; margin-inline-start: auto; padding-block: var(--space-xs); }
+.plain-search { position: relative; order: 1; flex: 0 1 14rem; min-width: 0; margin-inline-start: auto; padding-block: var(--space-xs); }
 .plain-search input {
   width: 100%;
   min-height: var(--plain-field);
@@ -121,9 +121,10 @@
 .plain-search__submit:hover { color: var(--color-ink); }
 .plain-search__submit:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; color: var(--color-ink); }
 
-/* On a phone the search takes the row above the tabs, and the tabs wrap under it. */
+/* It comes first in the page, so a phone draws it above the tabs and reaches it before them. A wide
+   screen sets it at the row's end with `order`, which moves only what is drawn. */
 @media (max-width: 39.999rem) {
-  .plain-search { order: -1; flex-basis: 100%; }
+  .plain-search { order: 0; flex-basis: 100%; }
 }
 
 .plain-search-status,

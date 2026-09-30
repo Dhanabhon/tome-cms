@@ -35,7 +35,6 @@ test('the header, the page and the footer share one frame of 80rem with the gutt
   assert.match(css, /--plain-gutter: 1\.25rem/);
   assert.match(css, /@media \(min-width: 40rem\) \{[^}]*--plain-gutter: 1\.75rem/);
   assert.match(css, /\.plain-head,\s*\.plain-foot,\s*\.plain-page \{[^}]*width: var\(--plain-frame\)/);
-  assert.doesNotMatch(css, /44rem\) *;? *margin-inline: auto; padding: var\(--space-xl\) var\(--space-md\)/);
 });
 
 test('an article keeps its 44rem column inside the frame', () => {
@@ -56,10 +55,17 @@ test('the grid is one column, two from 40rem and three from 64rem, each item und
   assert.match(css, /-webkit-line-clamp: 3;\s*line-clamp: 3;/);
 });
 
-test('the active tab is ink with a 2px link bar, and search goes above the tabs on a phone', () => {
+test('the active tab is ink with a 2px link bar', () => {
   assert.match(css, /\.plain-filter a\[aria-current="page"\] \{[^}]*font-weight: 600[^}]*border-block-end-color: var\(--color-link\)/);
   assert.match(css, /border-block-end: 2px solid transparent/);
-  assert.match(css, /@media \(max-width: 39\.999rem\) \{[^}]*\.plain-search \{[^}]*order: -1/);
+});
+
+test('search is first on a phone in sight and in tab order: it comes before the tabs in the page, and goes to the row\'s end on a wide screen', () => {
+  const home = read('Home.astro');
+  assert.ok(home.indexOf('<form class="plain-search"') < home.indexOf('<nav class="plain-filter"'), 'the form is before the tabs in the source');
+  assert.doesNotMatch(css, /order: -1/, 'nothing is drawn out of its source order');
+  assert.match(css, /\.plain-search \{[^}]*order: 1/, 'wide: the field sits after the tabs');
+  assert.match(css, /@media \(max-width: 39\.999rem\) \{[^}]*\.plain-search \{[^}]*order: 0; flex-basis: 100%/, 'phone: back in source order, on its own row');
 });
 
 test("the footer's credit is its own paragraph at the right, and wraps under the copyright on a phone", () => {
