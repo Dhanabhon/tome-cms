@@ -2,6 +2,25 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.5.1 - 2026-09-30
+
+Plain widens with the screen and leads with the newest post, Paper sets its header on cream over a white page, and a few admin fields and messages behave as they should.
+
+### Changed
+
+- Plain uses a wide frame: its categories are tabs with search at the end of their row, the newest post leads the first page across the width, and the rest sit three, two or one to a row. Articles keep their reading width, and their titles match the lead's weight.
+- Paper's header sits on cream, and its page, hero and footer on white, as the admin's navigation and content do.
+- A theme may say it leads its first page with the newest post (`leadsFirstPage`); that page then holds one more post, so the grid under the lead ends on a full row.
+
+### Fixed
+
+- An admin field turns red only when the admin says what is wrong, so a field that clears after a save no longer stays red.
+- An empty folder name, new or renamed, is told why; Navigation and Categories mark and focus the field an empty submit is about.
+- Security's name warning goes as soon as a name is typed.
+- A failed upload says what the server said, and never the browser's raw text.
+
+Full notes: [docs/releases/1.5.1.md](docs/releases/1.5.1.md)
+
 ## 1.5.0 - 2026-09-30
 
 Nothing in the admin is drawn by the operating system any more, save buttons say what they are doing, the File Manager takes several files at once, and a post can keep its cover off the top of the article.
