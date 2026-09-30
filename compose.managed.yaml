@@ -50,6 +50,8 @@ services:
     environment:
       DATABASE_URL: postgresql://tomecms:${POSTGRES_PASSWORD}@postgres:5432/tomecms
       NODE_ENV: production
+      # The app reaches storage on the compose network, not through the public media host and its CDN.
+      S3_INTERNAL_ENDPOINT: http://seaweedfs:8333
       TOME_CMS_UPDATE_MODE: managed
       TOME_CMS_UPDATER_SOCKET: /run/tome-cms/updater.sock
     volumes:

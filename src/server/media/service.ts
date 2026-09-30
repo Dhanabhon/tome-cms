@@ -41,7 +41,7 @@ import { contentDisposition } from './disposition';
 import { documentRefusal, isTextDocument, readDocument, type DocumentRefusal } from './document';
 import { detectImageType, inspectImage } from './image';
 import { createObjectKey } from './keys';
-import { s3, s3Bucket } from './storage';
+import { s3, s3Bucket, s3Presign } from './storage';
 import { stableMediaPath } from './url';
 
 const checksumSha256 = z.string().regex(/^[A-Za-z0-9+/]{43}=$/);
@@ -261,7 +261,7 @@ export async function reserveUpload(ownerId: string, input: ReserveUploadInput):
     ...(disposition ? { ContentDisposition: disposition } : {}),
   });
   try {
-    const uploadUrl = await getSignedUrl(s3, command, {
+    const uploadUrl = await getSignedUrl(s3Presign, command, {
       expiresIn: 300,
       // The presigner leaves content-type unsigned unless it is named here.
       signableHeaders: new Set(disposition ? ['content-type', 'content-disposition'] : ['content-type']),

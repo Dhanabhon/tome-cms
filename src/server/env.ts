@@ -38,6 +38,8 @@ const serverEnvSchema = z.object({
   TOME_CMS_CONTEXT_SECRET: secret,
   TOME_CMS_RECOVERY_PEPPER: secret,
   S3_ENDPOINT: z.url({ protocol: /^https?$/ }),
+  // Where the app itself reaches storage; private, so the production HTTPS and public-host rules are not applied.
+  S3_INTERNAL_ENDPOINT: z.url({ protocol: /^https?$/ }).optional(),
   S3_REGION: z.string().trim().min(1).default('us-east-1'),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(8),

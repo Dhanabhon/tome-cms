@@ -56,6 +56,16 @@ test('rejects missing secrets, malformed URLs, and production HTTP', () => {
   }
 });
 
+test('the internal storage endpoint is optional, a URL, and exempt from the public-HTTPS rule', () => {
+  assert.equal(parseServerEnv(valid).S3_INTERNAL_ENDPOINT, undefined);
+  const production = { ...valid, NODE_ENV: 'production', S3_ENDPOINT: 'https://s3.example.com', MEDIA_PUBLIC_URL: 'https://media.example.com/tomecms-media/' } as const;
+  for (const internal of ['http://seaweedfs:8333', 'http://10.0.0.5:8333', 'https://storage.internal']) {
+    assert.equal(parseServerEnv({ ...production, S3_INTERNAL_ENDPOINT: internal }).S3_INTERNAL_ENDPOINT, internal);
+  }
+  assert.throws(() => parseServerEnv({ ...production, S3_INTERNAL_ENDPOINT: 'seaweedfs:8333' }), { name: 'ZodError' });
+  assert.throws(() => parseServerEnv({ ...production, S3_INTERNAL_ENDPOINT: 'ftp://seaweedfs' }), { name: 'ZodError' });
+});
+
 test('database timeouts default to finite bounds and accept only bounded decimal integers', () => {
   const defaults = parseServerEnv(valid);
   assert.equal(defaults.DATABASE_CONNECTION_TIMEOUT_MS, 5000);
