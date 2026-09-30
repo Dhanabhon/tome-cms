@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const CSS = read('src/styles/global.css');
 const TOKENS = read('src/styles/installer-tokens.css');
+
+/** Every .astro and .tsx source under the given folders, as repo-relative paths: the folders, not git's index, so a new untracked file is seen. */
+const sources = (...dirs: string[]) => dirs.flatMap((dir) => readdirSync(new URL(`../../${dir}`, import.meta.url), { recursive: true, encoding: 'utf8' })
+  .filter((file) => /\.(astro|tsx)$/.test(file))
+  .map((file) => `${dir}/${file}`));
 
 /** The declarations of the first unindented rule whose selector list is exactly `selector`. */
 function ruleBody(css: string, selector: string): string {
@@ -569,9 +573,7 @@ test('a field turns red only when the admin says so', () => {
 
 test('no control opens a picker drawn by the operating system', () => {
   // The file chooser is the one exception the web imposes, and `type="file"` is not in this list.
-  const root = new URL('../../', import.meta.url).pathname;
-  for (const file of execSync('git ls-files src/components src/pages', { cwd: root, encoding: 'utf8' }).trim().split('\n')) {
-    if (!/\.(astro|tsx)$/.test(file)) continue;
+  for (const file of sources('src/components', 'src/pages')) {
     assert.doesNotMatch(read(file), /<select\b|type=["'](?:date|datetime-local|time|month|week|color)["']/, file);
   }
 });
@@ -596,9 +598,8 @@ function formTags(source: string): string[] {
 test('no admin form lets the browser draw its own validation bubble', () => {
   // The bubble is drawn by the operating system, so every admin form checks in the admin's own words.
   // No exceptions: a form that submits nothing natively still takes the attribute.
-  const root = new URL('../../', import.meta.url).pathname;
   let seen = 0;
-  for (const file of execSync('git ls-files src/components/admin src/pages/admin', { cwd: root, encoding: 'utf8' }).trim().split('\n')) {
+  for (const file of sources('src/components/admin', 'src/pages/admin')) {
     const isTsx = /^src\/components\/admin\/[^/]+\.tsx$/.test(file);
     if (!isTsx && !/\.astro$/.test(file)) continue;
     const pattern = isTsx ? /\snoValidate\b/ : /\snovalidate\b/;
