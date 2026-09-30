@@ -109,7 +109,7 @@ ssh-keygen -R your-server-address
 
 ### `/health/ready` แสดง `"storage":"unavailable"`
 
-แอปเข้าถึง bucket ของมีเดียผ่าน `S3_INTERNAL_ENDPOINT` เมื่อตั้งไว้ ซึ่งการติดตั้งแบบ managed ตั้งแต่ 1.5.2 ขึ้นไปตั้งไว้เป็น SeaweedFS ที่มากับชุดติดตั้ง ถ้าไม่ได้ตั้งจะใช้ `S3_ENDPOINT` ซึ่งคือ origin ของมีเดีย และที่อยู่นั้นไม่ตอบ ถ้าเป็นการติดตั้งแบบ managed ตั้งแต่ 1.5.2 ขึ้นไป ให้ดู container `seaweedfs` ก่อน ถ้าไม่ใช่ ให้ตรวจว่าชื่อโฮสต์ของมีเดียชี้มาที่เซิร์ฟเวอร์ ตามที่หน้า[ชี้ DNS มาที่เซิร์ฟเวอร์](/tome-cms/th/start/requirements/#ชี้-dns-มาที่เซิร์ฟเวอร์)อธิบายไว้ และ Caddy ทำงานอยู่ ด้วย `systemctl status caddy`
+แอปเข้าถึง bucket ของมีเดียที่ `S3_INTERNAL_ENDPOINT` เมื่อตั้งไว้ ในการติดตั้งแบบ managed ที่ไม่ได้ตั้งค่านี้ ซึ่งรวมถึงที่อัปเดตจากหน้าแอดมิน เพราะยังใช้ไฟล์ Compose เดิม แอปจะใช้ค่าเริ่มต้นเป็น SeaweedFS ที่มากับชุดติดตั้งที่ `http://seaweedfs:8333` ส่วนที่อื่นจะใช้ `S3_ENDPOINT` ซึ่งคือ origin ของมีเดีย และที่อยู่นั้นไม่ตอบ ถ้าเป็นการติดตั้งแบบ managed ตั้งแต่ 1.5.2 ขึ้นไป ให้ดู container `seaweedfs` ก่อน ถ้าไม่ใช่ ให้ตรวจว่าชื่อโฮสต์ของมีเดียชี้มาที่เซิร์ฟเวอร์ ตามที่หน้า[ชี้ DNS มาที่เซิร์ฟเวอร์](/tome-cms/th/start/requirements/#ชี้-dns-มาที่เซิร์ฟเวอร์)อธิบายไว้ และ Caddy ทำงานอยู่ ด้วย `systemctl status caddy`
 
 ### `Storage verification is temporarily unavailable. Try finalizing again.`
 
@@ -119,7 +119,7 @@ ssh-keygen -R your-server-address
 
 ถ้าเกิดกับไฟล์ที่ Cloudflare หรือ CDN อื่นยังไม่เคยแคช และใน log มี `SignatureDoesNotMatch` หรือ 403 สาเหตุคือ CDN แอปตรวจไฟล์ด้วยคำขอแบบเซ็นไปที่ origin ของมีเดีย และ CDN ที่อยู่หน้า storage อาจทำให้คำขอนั้นล้มเหลว 1.5.2 แก้เรื่องนี้ให้การติดตั้งแบบ managed แล้ว คือแอปเข้าถึง SeaweedFS ที่มากับชุดติดตั้งโดยตรง และที่อยู่มีเดียสาธารณะใช้เฉพาะตอนเบราว์เซอร์อัปโหลด ให้อัปเดตจากเมนู "ระบบ" ในหน้าแอดมิน แล้วอัปโหลดอีกครั้ง ส่วนการติดตั้งแบบอื่น ให้ตั้ง `S3_INTERNAL_ENDPOINT` เป็นที่อยู่ที่แอปเข้าถึงได้โดยไม่ผ่าน CDN ตามที่[หน้าอ้างอิงการตั้งค่า](/tome-cms/th/running/configuration/)อธิบายไว้
 
-ถ้ายังเกิดใน 1.0.2 ขึ้นไป ให้ดู `/health/ready` ก่อน ตามหัวข้อด้านบน จากนั้นอ่าน log ของแอปด้วยคำสั่งที่ต้นหน้านี้ บรรทัดที่ขึ้นต้นด้วย `Upload verification failed:` หรือ `Image verification failed:` จะบอกข้อผิดพลาดของ storage และสถานะของมัน เช่น `Unknown 403`
+ถ้ายังเกิดใน 1.0.2 ขึ้นไป ให้ดู `/health/ready` ก่อน ตามหัวข้อด้านบน จากนั้นอ่าน log ของแอปด้วยคำสั่งที่ต้นหน้านี้ บรรทัดที่ขึ้นต้นด้วย `Upload verification failed:` `Image verification failed:` หรือ `Document verification failed:` จะบอกข้อผิดพลาดของ storage และสถานะของมัน เช่น `Unknown 403`
 
 ### `พยายามเข้าสู่ระบบบ่อยเกินไป รอสักครู่แล้วลองอีกครั้ง` ทั้งที่ลองครั้งเดียว
 

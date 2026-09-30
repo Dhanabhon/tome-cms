@@ -9,7 +9,7 @@ TomeCMS อ่านการตั้งค่าจากตัวแปรส
 
 ## แอปและสคริปต์อ่านค่าจากที่ไหน
 
-- คอนเทนเนอร์ของแอปอ่าน `/etc/tome-cms/tome-cms.env` ในการติดตั้งแบบ managed และอ่าน `.env.local` ในการติดตั้งแบบ build จากซอร์สโค้ด แต่ Compose จะกำหนดค่าสองตัวทับเองเสมอ ไม่ว่าในไฟล์จะเขียนไว้อย่างไร ได้แก่ `DATABASE_URL` ซึ่งชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` ซึ่งเป็น `production`
+- คอนเทนเนอร์ของแอปอ่าน `/etc/tome-cms/tome-cms.env` ในการติดตั้งแบบ managed และอ่าน `.env.local` ในการติดตั้งแบบ build จากซอร์สโค้ด แต่ Compose จะกำหนดค่าสองตัวทับเองเสมอ ไม่ว่าในไฟล์จะเขียนไว้อย่างไร ได้แก่ `DATABASE_URL` ซึ่งชี้ไปที่ PostgreSQL ที่มากับชุดติดตั้งภายในเครือข่ายของ Compose และ `NODE_ENV` ซึ่งเป็น `production` การติดตั้งแบบ managed ใหม่ตั้งแต่ 1.5.2 ขึ้นไปให้ Compose กำหนดเพิ่มอีกสามค่า ได้แก่ `S3_INTERNAL_ENDPOINT` ซึ่งเป็น SeaweedFS ที่มากับชุดติดตั้งที่ `http://seaweedfs:8333` `TOME_CMS_UPDATE_MODE` ซึ่งเป็น `managed` และ `TOME_CMS_UPDATER_SOCKET` ซึ่งเป็น socket ของตัวอัปเดต ค่าของตัวใดตัวหนึ่งใน `/etc/tome-cms/tome-cms.env` จะถูกทับที่นั่น การติดตั้งที่อัปเดตจากหน้าแอดมินยังใช้ไฟล์ Compose เดิม จึงใช้ `S3_INTERNAL_ENDPOINT` ที่คุณตั้ง และถ้าไม่ได้ตั้ง แอปจะใช้ที่อยู่ SeaweedFS เดียวกันเป็นค่าเริ่มต้น
 - สคริปต์ที่สั่งด้วย `npm run` เช่น `db:migrate`, `backup` และ `admin:reset-installation` โหลด `.env.local` ถ้ามีไฟล์นี้อยู่
 - `npm run admin:recover` ซึ่งเป็นคำสั่งในหน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/) อ่านไฟล์ที่ `TOME_CMS_ENV_FILE` ระบุ ถ้าไม่ได้ระบุจะอ่าน `.env.local` และถ้าไม่มีจึงอ่าน `/etc/tome-cms/tome-cms.env`
 

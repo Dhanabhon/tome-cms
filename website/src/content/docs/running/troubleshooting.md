@@ -109,7 +109,7 @@ If you did not rebuild it, stop and find out why the key changed before you conn
 
 ### `/health/ready` shows `"storage":"unavailable"`
 
-The application reaches the media bucket through `S3_INTERNAL_ENDPOINT` when it is set, which a managed install from 1.5.2 on does, at the bundled SeaweedFS; otherwise through `S3_ENDPOINT`, the media origin. It does not answer. On a managed install from 1.5.2 on, look at the `seaweedfs` container first. Otherwise check that the media host name points at the server, as [Pointing DNS at the server](/tome-cms/start/requirements/#pointing-dns-at-the-server) describes, and that Caddy runs, with `systemctl status caddy`.
+The application reaches the media bucket at `S3_INTERNAL_ENDPOINT` when it is set. On a managed install where it is not set, which includes one updated from the admin, since that keeps its old Compose file, the application defaults to the bundled SeaweedFS at `http://seaweedfs:8333`. Anywhere else it uses `S3_ENDPOINT`, the media origin. That address does not answer. On a managed install from 1.5.2 on, look at the `seaweedfs` container first. Otherwise check that the media host name points at the server, as [Pointing DNS at the server](/tome-cms/start/requirements/#pointing-dns-at-the-server) describes, and that Caddy runs, with `systemctl status caddy`.
 
 ### `Storage verification is temporarily unavailable. Try finalizing again.`
 
@@ -119,7 +119,7 @@ On 1.0.1 and earlier it happened to every upload: SeaweedFS refused the first ch
 
 If it happens on a file Cloudflare or another CDN has not cached yet, and the log shows `SignatureDoesNotMatch` or a 403, the cause is the CDN. The application checks the file with a signed request to the media origin, and a CDN in front of storage can fail that request. 1.5.2 fixes this on a managed install: the application now reaches the bundled SeaweedFS directly and the public media address is used only for the browser's upload. Update from "System" in the admin, then upload again. On any other install, set `S3_INTERNAL_ENDPOINT` to an address the application reaches without the CDN, as [the configuration reference](/tome-cms/running/configuration/) describes.
 
-If it still happens on 1.0.2 or later, look at `/health/ready` first, as in the entry above. Then read the application's log with the command at the top of this page. A line that starts `Upload verification failed:` or `Image verification failed:` names the storage error and its status, such as `Unknown 403`.
+If it still happens on 1.0.2 or later, look at `/health/ready` first, as in the entry above. Then read the application's log with the command at the top of this page. A line that starts `Upload verification failed:`, `Image verification failed:` or `Document verification failed:` names the storage error and its status, such as `Unknown 403`.
 
 ### `Too many sign-in attempts. Wait a few minutes and try again.` although you tried once
 

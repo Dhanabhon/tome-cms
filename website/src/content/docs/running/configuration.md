@@ -9,7 +9,7 @@ TomeCMS takes its settings from environment variables. On a managed install they
 
 ## Where the values are read
 
-- The application container reads `/etc/tome-cms/tome-cms.env` on a managed install, and `.env.local` on a build from source. Compose then sets two values itself, whatever the file says: `DATABASE_URL` points at the bundled PostgreSQL inside Compose's network, and `NODE_ENV` is `production`.
+- The application container reads `/etc/tome-cms/tome-cms.env` on a managed install, and `.env.local` on a build from source. Compose then sets two values itself, whatever the file says: `DATABASE_URL` points at the bundled PostgreSQL inside Compose's network, and `NODE_ENV` is `production`. A fresh managed install from 1.5.2 on has Compose set three more: `S3_INTERNAL_ENDPOINT` is the bundled SeaweedFS at `http://seaweedfs:8333`, `TOME_CMS_UPDATE_MODE` is `managed`, and `TOME_CMS_UPDATER_SOCKET` is the updater's socket. A value for any of them in `/etc/tome-cms/tome-cms.env` is overridden there. An install updated from the admin keeps its old Compose file, so it honours your `S3_INTERNAL_ENDPOINT`, and the application defaults to the same SeaweedFS address when you set none.
 - The `npm run` scripts, such as `db:migrate`, `backup` and `admin:reset-installation`, load `.env.local` when it exists.
 - `npm run admin:recover`, the command in [Getting back in](/tome-cms/running/recovery/), reads the file `TOME_CMS_ENV_FILE` names, or else `.env.local`, or else `/etc/tome-cms/tome-cms.env`.
 
