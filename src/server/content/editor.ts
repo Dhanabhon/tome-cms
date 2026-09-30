@@ -47,7 +47,7 @@ const editorLink = linkWithFile.extend({
 const MAX_DOCUMENT_DEPTH = 100;
 const rawEditorContentInputSchema = z.object({ contentJson: z.unknown() }).strict();
 
-const extensions = [
+export const extensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
     // No class for a quote: the sanitizer keeps none on blockquote, so the theme draws it. The
