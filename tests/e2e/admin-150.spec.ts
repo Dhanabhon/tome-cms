@@ -218,10 +218,12 @@ test('a publish date is chosen with the keyboard and saved with the draft', asyn
 
   const { db } = await import('../../src/server/db/client');
   const row = await db.selectFrom('posts').select(['planned_at']).where('title', '=', 'Date test').executeTakeFirstOrThrow();
-  // The picker's day, at 09:00, in the owner's zone (Asia/Bangkok above).
-  const bangkok = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', ...options }).format(row.planned_at!);
-  expect(bangkok({ year: 'numeric', month: '2-digit', day: '2-digit' }), 'the saved day is the day chosen').toBe(chosen);
-  expect(bangkok({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })).toBe('09:00');
+  // The picker's day, at 09:00, on the device's clock: the field reads and writes the browser's own
+  // zone (fromLocalInput), which is Asia/Bangkok on a laptop here and UTC on CI.
+  const zone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const local = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-CA', { timeZone: zone, ...options }).format(row.planned_at!);
+  expect(local({ year: 'numeric', month: '2-digit', day: '2-digit' }), 'the saved day is the day chosen').toBe(chosen);
+  expect(local({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })).toBe('09:00');
 });
 
 test('several files go up at once into the folder chosen for them, and a failed row can be retried', async ({ context, page }) => {
