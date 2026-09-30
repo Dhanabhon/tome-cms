@@ -21,6 +21,16 @@
   border-block-start: var(--rule-hair) solid var(--color-rule);
 }
 
+/* Paper sets the page as the admin does: the content on white paper, the navigation on cream
+ * paper-2. global.css paints the whole document cream for every theme, so Paper repaints its
+ * own -- the html too, or an overscroll and a page shorter than the window would show cream
+ * under the white body. The header is cream whether or not it is sticky, and the footer is
+ * left on the white with its own top rule. */
+html:has(> body.paper),
+body.paper { background: var(--color-paper); }
+
+.site-header { background: var(--color-paper-2); }
+
 .site-header__inner { flex-wrap: wrap; }
 
 .site-header__desktop { display: none; }
@@ -114,11 +124,11 @@
   .author-block { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* The homepage opens the way every admin screen does: the title on paper with a hairline
- * under it, rather than a painted band. In dark mode the head and the page are one colour
- * and the hairline carries the separation. */
+/* The homepage opens the way every admin screen does: the title on the page's own paper with
+ * a hairline under it, rather than a painted band. The header above it is the cream; the
+ * hero is the page, so the hairline carries the separation in both colour schemes. */
 .home-hero {
-  background: var(--color-paper-2);
+  background: var(--color-paper);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
 
@@ -792,9 +802,8 @@
  * A header that stays in view.
  *
  * Sticky rather than fixed, so the header keeps its place in the flow and nothing below it
- * has to be pushed down by the height of something that left the page. It needs a
- * background of its own: the body's shows through an element that is no longer scrolling
- * with what it sits on.
+ * has to be pushed down by the height of something that left the page. It keeps the cream
+ * it has at rest, so the page scrolling under it never shows through.
  *
  * Under the reading progress bar, which is the one thing that should stay above it.
  */
@@ -802,5 +811,4 @@
   position: sticky;
   inset-block-start: 0;
   z-index: var(--z-sticky-nav);
-  background: var(--color-paper);
 }

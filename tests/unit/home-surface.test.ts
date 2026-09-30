@@ -23,7 +23,7 @@ test('the homepage opens with a page head, not a painted band', () => {
   assert.doesNotMatch(HOME, /text-white/);
   assert.match(HOME, /class="home-hero"/);
   const hero = ruleBody('.home-hero');
-  assert.match(hero, /background: var\(--color-paper-2\)/);
+  assert.match(hero, /background: var\(--color-paper\);/);
   assert.match(hero, /border-block-end: var\(--rule-hair\) solid var\(--color-rule\)/);
 });
 
