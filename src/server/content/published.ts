@@ -42,6 +42,9 @@ export interface PublicPageListInput {
 
 export interface PublicPostListInput extends PublicPageListInput {
   category?: string;
+  /** How many to return when that is not `limit`. Cursors stay tied to `limit`, so the pages after
+   *  a first page of another size are asked for with `limit` and neither repeat nor skip a post. */
+  take?: number;
   /** What the reader searched for: every word must be found in the title, the excerpt or the body. */
   q?: string;
 }
@@ -204,6 +207,7 @@ export async function listPublishedPosts(input: PublicPostListInput): Promise<Pu
   const settings = await getSiteSettings();
   if (!settings) return { hasMore: false, items: [], lastModified: new Date(0), nextCursor: null };
   const limit = boundedLimit(input.limit);
+  const take = boundedLimit(input.take ?? input.limit);
   const terms = searchTerms(input.q);
   // The search is part of what a cursor is tied to, and a list with none is as it was before.
   const cursorQuery: CursorQuery = { category: input.category, limit, locale: input.locale, q: terms.join(' ') || undefined };
@@ -240,10 +244,10 @@ export async function listPublishedPosts(input: PublicPostListInput): Promise<Pu
     )`);
   }
   const read = () => query.orderBy(sql`date_trunc('milliseconds', post.published_at)`, 'desc')
-    .orderBy('post.id', 'desc').limit(limit + 1).execute();
+    .orderBy('post.id', 'desc').limit(take + 1).execute();
   const rows = terms.length ? await whileSearching(read) : await read();
-  const hasMore = rows.length > limit;
-  const items = await enrichPosts(settings.owner_id, rows.slice(0, limit).map(postFromRow));
+  const hasMore = rows.length > take;
+  const items = await enrichPosts(settings.owner_id, rows.slice(0, take).map(postFromRow));
   const last = items.at(-1);
   const nextCursor = hasMore && last?.published_at ? encodeCursor({
     v: 1,

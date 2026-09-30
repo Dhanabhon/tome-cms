@@ -212,6 +212,28 @@ for (const theme of ['paper', 'plain'] as const) {
   });
 }
 
+// Plain's first page is its lead and a grid of six; Paper's is six cards. Either way the page after
+// it carries on where it stopped: nothing twice, nothing missed, and nine posts in all.
+for (const [theme, pages] of [['paper', [6, 3]], ['plain', [7, 2]]] as const) {
+  test(`${theme}: an unsearched list pages as ${pages.join(' then ')}, with no post repeated or skipped`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    useTheme(theme);
+    const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    const titles = () => cards(page, theme).locator('h2').allTextContents();
+    await page.goto(`${origin}/en`);
+    await expect(cards(page, theme)).toHaveCount(pages[0]);
+    const first = await titles();
+    await page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /All posts →/ }).click();
+    await expect(page).toHaveURL(/cursor=/);
+    await expect(cards(page, theme)).toHaveCount(pages[1]);
+    const second = await titles();
+    expect(new Set([...first, ...second]).size, 'every post once').toBe(9);
+    expect(await page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /All posts →/ }).count(), 'and nothing older than the last').toBe(0);
+    await context.close();
+  });
+}
+
 test('paper: choosing a category leaves the search, in the list and in the box', async ({ page }) => {
   test.setTimeout(120_000);
   useTheme('paper');

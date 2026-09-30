@@ -66,6 +66,9 @@ export interface ThemeManifest {
   /** The value stored in the settings; also the directory name. */
   id: string;
   name: string;
+  /** The home page sets the newest post of an unsearched first page apart from its grid, so that
+   *  page asks for one more and the grid under it ends on a full row. Absent means it does not. */
+  leadsFirstPage?: boolean;
   /** What Customize offers for this theme. A theme with none is not customisable. */
   settings?: readonly ThemeSetting[];
 }

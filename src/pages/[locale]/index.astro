@@ -8,6 +8,8 @@ import { getSiteSettings } from '../../server/content/settings';
 import { searchQuery } from '../../server/content/search';
 import { HttpError } from '../../server/http/errors';
 import { maySearch } from '../../server/http/search-limit';
+import { THEME_MANIFESTS } from '../../themes/manifests';
+import { homePageLimit } from '../../themes/page-size';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../themes/registry';
 import { readThemeSettings } from '../../server/themes/store';
 import type { Post, PostAlternate, PostCategoryBadge, PublicHomeSlide } from '../../types/cms';
@@ -39,16 +41,25 @@ let nextCursor: string | null = null;
 let loadError = false;
 const settings = await getSiteSettings();
 // How many a page holds is the theme's to say: six ends on a full row at one, two or three
-// cards across, which is true of paper's grid and means nothing to a one-column list.
-const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? settings.theme_id : DEFAULT_THEME_ID);
+// cards across, which is what both themes' grids want. Paper can be told another multiple of
+// six. A theme that leads with the newest post asks its first page for one more, so the grid
+// under the lead is six too; the pages after it are the normal size.
+const themeId = isThemeId(settings?.theme_id) ? settings.theme_id : DEFAULT_THEME_ID;
+const themeSettings = await readThemeSettings(themeId);
 const PAGE_SIZE = Number(themeSettings.postsPerLoad ?? 6) || 6;
+const take = homePageLimit({
+  cursor,
+  leadsFirstPage: THEME_MANIFESTS.find((manifest) => manifest.id === themeId)?.leadsFirstPage,
+  pageSize: PAGE_SIZE,
+  query,
+});
 const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
 
 const slidesRead = getPublicSlides(locale);
 try {
   const [page, published] = await Promise.all([
-    listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale, q: query }),
+    listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale, q: query, take }),
     listPublishedCategories(locale),
   ]);
   posts = page.items;

@@ -4,5 +4,6 @@ import type { ThemeManifest } from '../contract';
 export const manifest: ThemeManifest = {
   description: 'The system font on a wide frame, with rules in place of surfaces.',
   id: 'plain',
+  leadsFirstPage: true,
   name: 'Plain',
 };
