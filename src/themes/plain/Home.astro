@@ -1,11 +1,14 @@
 ---
+import Icon from '../../components/Icon.astro';
 import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
 import { postExcerpt } from '../../lib/posts';
+import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
+import { leadsWith } from './lead';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, loadError, locale, nextCursor, posts, query, tagline, timezone } = Astro.props;
+const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, tagline, timezone } = Astro.props;
 const copy = publicCopy(locale);
 const unavailable = locale === 'th'
   ? 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง'
@@ -17,6 +20,12 @@ const olderHref = nextCursor
   : null;
 // The reader's words go into a sentence as text, whatever they contain.
 const saying = (template: string) => template.replace('{query}', () => query ?? '');
+// A category filter narrows the list but not the lead: the newest post in it leads.
+const leads = leadsWith({ cursor, posts: posts.length, query });
+const lead = leads ? posts[0] : undefined;
+const rest = leads ? posts.slice(1) : posts;
+const leadExcerpt = lead && postExcerpt(lead, '');
+const when = (post: Post) => post.published_at ?? post.created_at;
 ---
 
 <div class="plain-page">
@@ -34,19 +43,26 @@ const saying = (template: string) => template.replace('{query}', () => query ?? 
     <form class="plain-search" role="search" method="get" action={home}>
       <label class="sr-only" for="plain-search-q">{copy.searchLabel}</label>
       <input id="plain-search-q" name="q" type="search" value={query ?? ''} maxlength="100" placeholder={copy.searchLabel} autocomplete="off" enterkeyhint="search" />
-      <button type="submit">{copy.search}</button>
+      <button class="plain-search__submit" type="submit" aria-label={copy.search} title={copy.search}><Icon name="search" /></button>
     </form>
   </div>
   {query && <p class="plain-search-status" role="status">{saying(copy.searchResults)} · <a href={home}>{copy.clearSearch}</a></p>}
 
-  <ol class="plain-list">
-    {posts.map((post) => {
+  {lead && (
+    <article class="plain-lead">
+      <h2><a href={postPath(lead)}>{lead.title}</a></h2>
+      <time datetime={when(lead)}>{formatter.format(new Date(when(lead)))}</time>
+      {leadExcerpt && <p>{leadExcerpt}</p>}
+    </article>
+  )}
+
+  <ol class="plain-grid">
+    {rest.map((post) => {
       const excerpt = postExcerpt(post, '');
-      const when = post.published_at ?? post.created_at;
       return (
         <li>
           <h2><a href={postPath(post)}>{post.title}</a></h2>
-          <time datetime={when}>{formatter.format(new Date(when))}</time>
+          <time datetime={when(post)}>{formatter.format(new Date(when(post)))}</time>
           {excerpt && <p>{excerpt}</p>}
         </li>
       );

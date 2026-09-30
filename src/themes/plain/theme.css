@@ -2,12 +2,18 @@
  *
  * It reads the same tokens the rest of the product does, so the owner's light and dark
  * settings go on working and the contrast pairs stay the measured ones. What it does not
- * take is the shape: one column, the reader's own font, and a rule where Paper draws a
- * surface. That difference is the point -- a second theme that agreed with the first about
- * everything would not have tested the contract it was written to test.
+ * take is the shape: the reader's own font, and a rule where Paper draws a surface -- on the
+ * same 80rem frame, so it widens with the screen as Paper does. That difference is the
+ * point -- a second theme that agreed with the first about everything would not have tested
+ * the contract it was written to test.
  */
 
 .plain {
+  /* Paper's frame: 80rem across, with 1.25rem at the sides and 1.75rem from the sm width.
+   * The frame is the text's width, so a rule drawn on it ends where the words do. */
+  --plain-gutter: 1.25rem;
+  --plain-frame: min(100% - 2 * var(--plain-gutter), 80rem - 2 * var(--plain-gutter));
+  --plain-field: 2.5rem;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -16,20 +22,39 @@
   background: var(--color-paper);
 }
 
+@media (min-width: 40rem) {
+  .plain { --plain-gutter: 1.75rem; }
+}
+
+@media (pointer: coarse) {
+  .plain { --plain-field: var(--control-height); }
+}
+
+.plain-head,
+.plain-foot,
+.plain-page {
+  width: var(--plain-frame);
+  margin-inline: auto;
+}
+
 .plain-head,
 .plain-foot {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm) var(--space-md);
   align-items: center;
-  justify-content: space-between;
-  width: min(100%, 44rem);
-  margin-inline: auto;
-  padding: var(--space-md) var(--space-md);
+  padding-block: var(--space-md);
 }
 
-.plain-head { border-block-end: var(--rule-hair) solid var(--color-rule); }
+.plain-head { justify-content: space-between; border-block-end: var(--rule-hair) solid var(--color-rule); }
 .plain-foot { margin-block-start: auto; border-block-start: var(--rule-hair) solid var(--color-rule); color: var(--color-muted); font-size: 0.875rem; }
+
+.plain-foot p { overflow-wrap: anywhere; }
+.plain-foot__credit { margin-inline-start: auto; }
+
+@media (max-width: 39.999rem) {
+  .plain-foot__credit { flex-basis: 100%; margin-inline-start: 0; }
+}
 
 .plain-wordmark { --site-logo-height: 1.75rem; font-weight: 700; letter-spacing: -0.01em; color: inherit; text-decoration: none; }
 
@@ -40,52 +65,104 @@
 .plain-nav a:hover,
 .plain-foot a:hover { border-block-end-color: currentColor; }
 
-.plain-page { width: min(100%, 44rem); margin-inline: auto; padding: var(--space-xl) var(--space-md); }
-.plain-tagline { margin: 0 0 var(--space-xl); color: var(--color-muted); }
+.plain-page { padding-block: var(--space-xl); }
+/* An article is a reading column, centred in the frame the rest of the page spans. */
+.plain-article { width: min(var(--plain-frame), 44rem); }
+.plain-tagline { margin: 0 0 var(--space-md); color: var(--color-muted); }
 
-/* A form and nothing else: the field, and a button beside it that says what it does. */
-.plain-controls { display: flex; flex-wrap: wrap-reverse; align-items: baseline; justify-content: space-between; gap: var(--space-sm) var(--space-lg); margin-block-end: var(--space-xl); }
-.plain-search { display: flex; flex: 1 1 14rem; max-width: 18rem; gap: var(--space-sm); margin-inline-start: auto; }
+/* One row under one rule: the categories as tabs, the search at the far end. The tab that is
+ * open draws its 2px bar over the row's hairline, so the bar sits on the rule. */
+.plain-controls { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: space-between; gap: 0 var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.plain-filter { display: flex; flex-wrap: wrap; gap: 0 var(--space-lg); }
+.plain-filter a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--plain-field);
+  margin-block-end: calc(-1 * var(--rule-hair));
+  border-block-end: 2px solid transparent;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.plain-filter a:hover { color: var(--color-ink); }
+.plain-filter a[aria-current="page"] { color: var(--color-ink); font-weight: 600; border-block-end-color: var(--color-link); }
+
+/* The field is the form: the magnifier inside it is the button that sends it. */
+.plain-search { position: relative; flex: 0 1 14rem; min-width: 0; margin-inline-start: auto; padding-block: var(--space-xs); }
 .plain-search input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: var(--control-height);
-  padding-inline: var(--space-md);
+  width: 100%;
+  min-height: var(--plain-field);
+  padding-block: 0;
+  padding-inline: var(--space-sm) calc(var(--plain-field) + var(--space-2xs));
   border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-sm);
+  appearance: none;
   background: var(--color-paper);
   color: var(--color-ink);
   font: inherit;
+  font-size: 1rem;
 }
 .plain-search input::placeholder { color: var(--color-placeholder); opacity: 1; }
-.plain-search button {
-  flex: 0 0 auto;
-  min-height: var(--control-height);
-  padding-inline: var(--space-lg);
-  border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-input);
+.plain-search input:hover { border-color: var(--color-ink); }
+.plain-search input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.plain-search__submit {
+  position: absolute;
+  inset-block: var(--space-xs);
+  inset-inline-end: 0;
+  display: grid;
+  width: var(--plain-field);
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-ink);
-  font: inherit;
+  color: var(--color-muted);
   cursor: pointer;
 }
-.plain-search button:hover { border-color: var(--color-ink); }
+.plain-search__submit .icon { width: 1.125rem; height: 1.125rem; }
+.plain-search__submit:hover { color: var(--color-ink); }
+.plain-search__submit:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; color: var(--color-ink); }
+
+/* On a phone the search takes the row above the tabs, and the tabs wrap under it. */
+@media (max-width: 39.999rem) {
+  .plain-search { order: -1; flex-basis: 100%; }
+}
+
 .plain-search-status,
-.plain-search-none { margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: 0.875rem; }
+.plain-search-none { margin: var(--space-md) 0; color: var(--color-muted); font-size: 0.875rem; }
 .plain-search-status a { color: var(--color-link); }
 
-.plain-filter { display: flex; flex-wrap: wrap; gap: var(--space-md); font-size: 0.875rem; }
-.plain-filter a { color: var(--color-muted); text-decoration: none; }
-.plain-filter a[aria-current="page"] { color: var(--color-link); text-decoration: underline; }
+/* The newest post, set large across the frame. */
+.plain-lead { padding-block: var(--space-lg); }
+.plain-lead h2 { margin: 0 0 var(--space-2xs); font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; }
+.plain-lead time { display: block; margin-block-end: var(--space-xs); color: var(--color-muted); font-size: 0.875rem; }
+.plain-lead p { max-width: 40rem; margin: 0; color: var(--color-muted); font-size: 1.125rem; line-height: 1.6; }
 
-.plain-list { margin: 0; padding: 0; list-style: none; }
-.plain-list > li { padding-block: var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
-.plain-list > li:first-child { border-block-start: 0; padding-block-start: 0; }
-.plain-list h2 { margin: 0 0 var(--space-2xs); font-size: 1.25rem; line-height: 1.3; }
-.plain-list h2 a { color: inherit; text-decoration: none; }
-.plain-list h2 a:hover { text-decoration: underline; }
-.plain-list time { display: block; margin-block-end: var(--space-2xs); color: var(--color-muted); font-size: 0.8125rem; }
-.plain-list p { margin: 0; color: var(--color-muted); }
+/* The rest: a grid of rules, not boxes. */
+.plain-grid { display: grid; grid-template-columns: 1fr; gap: 0 var(--space-xl); margin: 0; padding: 0; list-style: none; }
+@media (min-width: 40rem) {
+  .plain-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 64rem) {
+  .plain-grid { grid-template-columns: repeat(3, 1fr); }
+}
+/* With nothing between them the first row's hairlines lie on the controls' own. */
+.plain-controls + .plain-grid { margin-block-start: calc(-1 * var(--rule-hair)); }
+.plain-grid > li { min-width: 0; padding-block: var(--space-md) var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
+.plain-grid h2 { margin: 0 0 var(--space-2xs); font-size: 1.125rem; font-weight: 600; line-height: 1.3; }
+.plain-lead h2 a,
+.plain-grid h2 a { color: inherit; text-decoration: none; }
+.plain-lead h2 a:hover,
+.plain-grid h2 a:hover { text-decoration: underline; }
+.plain-grid time { display: block; margin-block-end: var(--space-2xs); color: var(--color-muted); font-size: 0.8125rem; }
+.plain-grid p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
 
 .plain-more { margin-block-start: var(--space-xl); }
 

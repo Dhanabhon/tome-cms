@@ -147,7 +147,7 @@ test.afterAll(async () => {
 });
 
 const useTheme = (id: 'paper' | 'plain') => psql(`update site_settings set theme_id = '${id}'`);
-const cards = (page: Page, theme: 'paper' | 'plain') => page.locator(theme === 'paper' ? '.post-card' : '.plain-list > li');
+const cards = (page: Page, theme: 'paper' | 'plain') => page.locator(theme === 'paper' ? '.post-card' : '.plain-lead, .plain-grid > li');
 const searchBox = (page: Page, label = 'Search posts') => page.getByRole('search').getByRole('searchbox', { name: label });
 const robots = (page: Page) => page.locator('meta[name="robots"]').getAttribute('content');
 
