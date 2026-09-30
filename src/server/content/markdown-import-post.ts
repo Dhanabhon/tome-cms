@@ -10,6 +10,7 @@ import { HttpError } from '../http/errors';
 import { ValidationError } from './editor';
 import { MarkdownTooComplexError, placePictures, type ParsedMarkdownPost } from './markdown-import';
 import { MarkdownBusyError, readMarkdownPost } from './markdown-import-run';
+import { ContentTooLargeHttpError } from './mutations';
 import { createPost } from './posts';
 
 export const markdownImportSchema = z.object({
@@ -95,14 +96,6 @@ export async function previewMarkdownImport(ownerId: string, input: MarkdownImpo
   return { title: parsed.title, slug, locale, categories: categories.map(({ name }) => name), pictures: parsed.pictures, warnings };
 }
 
-const SIZE_CHECKS = new Set(['posts_content_json_check', 'posts_content_html_check']);
-
-/** The database refused the post for its size, which the preview's measure should have caught first. */
-function isTooBigToStore(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23514'
-    && 'constraint' in error && SIZE_CHECKS.has(String(error.constraint));
-}
-
 /**
  * Makes the draft. The file is parsed again rather than kept from the preview: it takes well under a
  * tenth of a second, and nothing has to live between the two calls. The pictures were uploaded by
@@ -126,7 +119,7 @@ export async function importMarkdownPost(ownerId: string, input: MarkdownImportI
     showCover: true,
     locale,
   }).catch((error: unknown) => {
-    if (!isTooBigToStore(error)) throw error;
+    if (!(error instanceof ContentTooLargeHttpError)) throw error;
     const tooBig = new MarkdownTooComplexError('size');
     throw new HttpError(413, tooBig.message, { warning: tooBig.warning });
   });

@@ -12,8 +12,10 @@ import { assertContentMedia, prepareContentWithFiles } from './content-media';
 import {
   assertCurrentVersion,
   contentMutationSchema,
+  ContentTooLargeHttpError,
   duplicateSlugCandidates,
   duplicateTitle,
+  isContentSizeViolation,
   isUniqueViolation,
   normalizedContentSlug,
   plannedAtWrite,
@@ -71,6 +73,7 @@ function pageSlug(input: { id: string; requested: string; title: string }): stri
 
 function writeConflict(error: unknown): never {
   if (isUniqueViolation(error)) throw new HttpError(409, 'That Page language or slug already exists.');
+  if (isContentSizeViolation(error)) throw new ContentTooLargeHttpError();
   throw error;
 }
 

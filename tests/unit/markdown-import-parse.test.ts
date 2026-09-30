@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
 import { MarkdownManager } from '@tiptap/markdown';
-import { jsonbTextLength, MarkdownTooComplexError, parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
-import { prepareEditorContent, ValidationError } from '../../src/server/content/editor';
+import { MarkdownTooComplexError, parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
+import { jsonbTextLength, prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 
 const MEDIA = '55555555-5555-4555-8555-555555555555';

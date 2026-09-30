@@ -162,6 +162,54 @@ test('Post and Page services own content, versions, translations, and Category w
     (error: unknown) => error instanceof HttpError && error.status === 400,
   );
 
+  // A document is measured as the database stores it (jsonb printed as text, a space after each
+  // ':' and ','), not as JSON.stringify writes it, which is a tenth smaller on many small nodes.
+  const { sql } = await import('kysely');
+  const long = await createPost('owner-a', { ...postInput, slug: 'long-post' });
+  const paragraph = { type: 'paragraph', content: Array.from({ length: 20 }, () => [
+    { type: 'text', marks: [{ type: 'italic' }], text: 'ab' }, { type: 'text', text: ' cd ' },
+  ]).flat() };
+  const dense = (paragraphs: number): EditorDocument => ({ type: 'doc', content: Array.from({ length: paragraphs }, () => structuredClone(paragraph)) });
+  const printed = async (document: EditorDocument) => (await sql<{ length: number }>`select octet_length(${JSON.stringify(document)}::jsonb::text) as length`
+    .execute(db)).rows[0]!.length;
+  // The most paragraphs the database takes, found by halving.
+  let paragraphs = 1;
+  while (await printed(dense(paragraphs * 2)) <= 1_000_000) paragraphs *= 2;
+  for (let step = paragraphs / 2; step >= 1; step /= 2) if (await printed(dense(paragraphs + step)) <= 1_000_000) paragraphs += step;
+  const over = dense(paragraphs + 1);
+  assert.ok(new TextEncoder().encode(JSON.stringify(over)).byteLength < 950_000, 'JSON.stringify alone would have let it through');
+  const tooLong = await updatePost('owner-a', { ...postInput, slug: 'long-post', id: long.id, contentJson: over, updatedAt: long.updated_at })
+    .catch((error: unknown) => error);
+  assert.ok(tooLong instanceof HttpError, String(tooLong));
+  assert.equal(tooLong.status, 400);
+  assert.equal(tooLong.message, 'The editor content is invalid.');
+  const underCap = await updatePost('owner-a', { ...postInput, slug: 'long-post', id: long.id, contentJson: dense(paragraphs), updatedAt: long.updated_at });
+  const { length: storedLength } = await db.selectFrom('posts').select(sql<number>`octet_length(content_json::text)`.as('length'))
+    .where('id', '=', long.id).executeTakeFirstOrThrow();
+  assert.ok(storedLength > 999_000 && storedLength <= 1_000_000, `stored ${storedLength} bytes`);
+
+  // Should the database refuse a document for its size all the same (a picture's address grows
+  // after the check), the editor gets the same refusal: never a 500.
+  for (const [table, constraint, tight] of [
+    ['posts', 'posts_content_json_check', 'check (octet_length(content_json::text) <= 20)'],
+    ['posts', 'posts_content_html_check', 'check (octet_length(content_html) <= 5)'],
+    ['pages', 'pages_content_json_check', 'check (octet_length(content_json::text) <= 20)'],
+    ['pages', 'pages_content_html_check', 'check (octet_length(content_html) <= 5)'],
+  ] as const) {
+    const { definition } = (await sql<{ definition: string }>`select pg_get_constraintdef(oid) as definition from pg_constraint where conname = ${constraint}`
+      .execute(db)).rows[0]!;
+    const replace = (check: string) => sql`alter table ${sql.id(table)} drop constraint ${sql.id(constraint)}, add constraint ${sql.id(constraint)} ${sql.raw(check)} not valid`.execute(db);
+    await replace(tight);
+    const refused = await (table === 'posts'
+      ? updatePost('owner-a', { ...postInput, slug: 'long-post', id: long.id, updatedAt: underCap.updated_at })
+      : updatePage('owner-a', { ...pageInput, id: updatedPage.id, updatedAt: updatedPage.updated_at })
+    ).catch((error: unknown) => error);
+    await replace(definition);
+    assert.ok(refused instanceof HttpError, `${constraint}: ${String(refused)}`);
+    assert.equal(refused.status, 400);
+    assert.equal(refused.message, 'The editor content is invalid.');
+  }
+
   await deletePage('owner-a', updatedPage.id, updatedPage.updated_at);
   await deletePost('owner-a', publishedPost.id, publishedPost.updated_at);
   assert.ok(await getPost('owner-a', createdPost.id), 'deleting one edition keeps its sibling');

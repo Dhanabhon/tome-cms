@@ -13,8 +13,10 @@ import { assertContentMedia, prepareContentWithFiles } from './content-media';
 import {
   assertCurrentVersion,
   contentMutationSchema,
+  ContentTooLargeHttpError,
   duplicateSlugCandidates,
   duplicateTitle,
+  isContentSizeViolation,
   isUniqueViolation,
   normalizedContentSlug,
   plannedAtWrite,
@@ -89,6 +91,7 @@ async function lockOwner(trx: Transaction<Database>, ownerId: string): Promise<v
 
 function writeConflict(error: unknown): never {
   if (isUniqueViolation(error)) throw new HttpError(409, 'That Post language or slug already exists.');
+  if (isContentSizeViolation(error)) throw new ContentTooLargeHttpError();
   throw error;
 }
 

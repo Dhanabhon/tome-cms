@@ -101,6 +101,27 @@ export class ValidationError extends Error {
   override name = 'ValidationError';
 }
 
+/** A document, or its page, too long to store. */
+export class ContentTooLargeError extends ValidationError {}
+
+const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
+
+/**
+ * The bytes of a JSON value as Postgres prints it as jsonb, which is what the content tables'
+ * checks measure: a space after each key's colon and after each comma, strings escaped as JSON does.
+ * That is a tenth more than JSON.stringify on a document of many small nodes. Postgres orders the
+ * keys its own way, which does not change the length; numbers are as JSON writes them, which is
+ * Postgres's form for any number without an exponent.
+ */
+export function jsonbTextLength(value: unknown): number {
+  if (Array.isArray(value)) return 2 + value.reduce<number>((sum, item, index) => sum + (index ? 2 : 0) + jsonbTextLength(item), 0);
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+    return 2 + entries.reduce((sum, [key, item], index) => sum + (index ? 2 : 0) + bytes(JSON.stringify(key)) + 2 + jsonbTextLength(item), 0);
+  }
+  return bytes(JSON.stringify(value));
+}
+
 export interface StoredEditorContent {
   contentJson: EditorDocument;
   contentHtml: string;
@@ -231,10 +252,7 @@ function assertJsonBounds(value: unknown): void {
     }
   }
 
-  const serialized = JSON.stringify(value);
-  if (serialized === undefined || new TextEncoder().encode(serialized).byteLength > MAX_DOCUMENT_BYTES) {
-    throw new ValidationError('Content JSON is too large.');
-  }
+  if (jsonbTextLength(value) > MAX_DOCUMENT_BYTES) throw new ContentTooLargeError('Content JSON is too large.');
 }
 
 export function renderEditorHtml(document: EditorDocument): string {
@@ -246,7 +264,7 @@ export function renderEditorHtml(document: EditorDocument): string {
   }
 
   const result = sanitizedContentHtmlSchema.safeParse(html);
-  if (!result.success) throw new ValidationError('Rendered content is too large.');
+  if (!result.success) throw new ContentTooLargeError('Rendered content is too large.');
   return result.data;
 }
 

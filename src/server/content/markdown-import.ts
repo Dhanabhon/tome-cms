@@ -13,7 +13,7 @@ import {
   type ImportWarning,
 } from '../../lib/markdown-import';
 import type { EditorDocument, EditorNode } from '../../types/cms';
-import { extensions, renderEditorHtml, ValidationError } from './editor';
+import { ContentTooLargeError, extensions, jsonbTextLength, renderEditorHtml, ValidationError } from './editor';
 
 /**
  * One Markdown file, read into what a new post is made of. No database: the service decides
@@ -72,21 +72,6 @@ const DEFINITION = /^ {0,3}\[[^\]\n]+\]:/gm;
 const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
 
 /**
- * The bytes of a JSON value as Postgres prints it as jsonb, which is what the posts table's check
- * measures: a space after each key's colon and after each comma, strings escaped as JSON does.
- * Postgres orders the keys its own way, which does not change the length; numbers are as JSON writes
- * them, which is Postgres's form for any number without an exponent (the parser makes small whole ones).
- */
-export function jsonbTextLength(value: unknown): number {
-  if (Array.isArray(value)) return 2 + value.reduce<number>((sum, item, index) => sum + (index ? 2 : 0) + jsonbTextLength(item), 0);
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
-    return 2 + entries.reduce((sum, [key, item], index) => sum + (index ? 2 : 0) + bytes(JSON.stringify(key)) + 2 + jsonbTextLength(item), 0);
-  }
-  return bytes(JSON.stringify(value));
-}
-
-/**
  * A post stores its document and its rendered page, each capped at a million bytes, and both are
  * much larger than the Markdown (prose is about twice as large as JSON; a listing is several times
  * as large as HTML). A file whose post would not fit is refused here, at the preview, and not by
@@ -99,7 +84,7 @@ function assertFits(document: EditorDocument): void {
   try {
     html = renderEditorHtml(document);
   } catch (error) {
-    if (error instanceof ValidationError && error.message === 'Rendered content is too large.') throw new MarkdownTooComplexError('size');
+    if (error instanceof ContentTooLargeError) throw new MarkdownTooComplexError('size');
     throw error;
   }
   if (bytes(html) > FITS_BYTES) throw new MarkdownTooComplexError('size');

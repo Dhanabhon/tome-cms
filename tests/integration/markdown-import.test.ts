@@ -185,7 +185,8 @@ test('a Markdown file becomes a draft in its own language, with its pictures, ca
   // A post is measured as the database measures it: jsonb printed as text, a tenth larger than
   // JSON.stringify on a document of many small nodes.
   const { sql } = await import('kysely');
-  const { jsonbTextLength, parseMarkdownPost } = await import('../../src/server/content/markdown-import');
+  const { parseMarkdownPost } = await import('../../src/server/content/markdown-import');
+  const { jsonbTextLength } = await import('../../src/server/content/editor');
   const measured = async (value: unknown) => (await sql<{ length: number }>`select octet_length(${JSON.stringify(value)}::jsonb::text) as length`
     .execute(db)).rows[0]!.length;
   const samples = [

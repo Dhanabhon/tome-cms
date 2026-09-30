@@ -5,7 +5,7 @@ import { editorDocumentSchema, hasMeaningfulContent, hasMeaningfulHtml } from '.
 import { contentSlug, SLUG, SLUG_LENGTH } from '../../lib/slug';
 import type { PostStatus } from '../../types/cms';
 import { HttpError } from '../http/errors';
-import { prepareEditorContent, ValidationError, type StoredEditorContent } from './editor';
+import { ContentTooLargeError, prepareEditorContent, ValidationError, type StoredEditorContent } from './editor';
 
 export const normalizedContentSlugSchema = z.string().trim().normalize('NFC').min(1).max(SLUG_LENGTH)
   .regex(SLUG);
@@ -41,6 +41,26 @@ export const deleteMutationSchema = z.object({
 }).strict();
 
 /**
+ * A document too long to store, found by the check here or by the database's: the refusal the
+ * editor has always had for it. Its own class so that an import can say so in its own words.
+ */
+export class ContentTooLargeHttpError extends HttpError {
+  constructor() {
+    super(400, 'The editor content is invalid.');
+  }
+}
+
+const SIZE_CHECKS: ReadonlySet<string> = new Set([
+  'pages_content_html_check', 'pages_content_json_check', 'posts_content_html_check', 'posts_content_json_check',
+]);
+
+/** The database refused a post or page for its size, after the check here passed it. */
+export function isContentSizeViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23514'
+    && 'constraint' in error && SIZE_CHECKS.has(String(error.constraint));
+}
+
+/**
  * A document ready to store: checked, its cards filled from `files`, and refused for
  * publishing if there is nothing in it. The files are the library's word on each card; a
  * caller with no cards to fill passes none.
@@ -53,6 +73,7 @@ export function prepareContent(
   try {
     content = prepareEditorContent({ contentJson: input.contentJson }, files);
   } catch (error) {
+    if (error instanceof ContentTooLargeError) throw new ContentTooLargeHttpError();
     if (error instanceof ValidationError || error instanceof z.ZodError) {
       throw new HttpError(400, 'The editor content is invalid.');
     }
