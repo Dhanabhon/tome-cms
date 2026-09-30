@@ -723,3 +723,8 @@ test('the library takes several files into a chosen folder, and its button rings
   assert.match(dialog, /formatBytes\(file\.size\)/);
   assert.doesNotMatch(dialog, /1024\)\} KB/);
 });
+
+test("a theme card in use keeps Customize beside View site, with its mark alone at the start", () => {
+  // The row spreads its items; the mark's auto margin takes the free space, so the two buttons sit together at the end.
+  assert.equal(declaration(ruleBody(CSS, '.theme-card__mark'), 'margin-inline-end'), 'auto');
+});

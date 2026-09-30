@@ -2014,7 +2014,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .theme-card__note { color: var(--color-ink-2); font-size: var(--text-sm); }
 .theme-card__foot { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding: var(--space-sm) var(--space-md); border-block-start: var(--rule-hair) solid var(--color-rule); }
 .theme-card[data-in-use] .theme-card__foot { border-block-start-color: var(--color-focus); background: var(--color-status-ok); }
-.theme-card__mark { display: flex; gap: var(--space-2xs); align-items: center; color: var(--color-focus); font-size: var(--text-sm); font-weight: 600; }
+/* The mark takes the row's free space, so Customize and View site sit together at the end. */
+.theme-card__mark { display: flex; gap: var(--space-2xs); align-items: center; margin-inline-end: auto; color: var(--color-focus); font-size: var(--text-sm); font-weight: 600; }
 .theme-card__mark .icon { width: 1rem; height: 1rem; }
 /* Nothing here installs a theme, so this card carries no affordance to. It breaks the grid's
  * rhythm on purpose: it is a note among cards, not another theme. */
