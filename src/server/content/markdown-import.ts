@@ -3,6 +3,7 @@ import type { Token } from 'marked';
 import { parse as parseYaml } from 'yaml';
 
 import { normalizeCodeLanguage } from '../../lib/code-languages';
+import { MAX_DOCUMENT_BYTES } from '../../lib/editor-content';
 import {
   describePicture,
   MISSING_IMAGE,
@@ -12,7 +13,7 @@ import {
   type ImportWarning,
 } from '../../lib/markdown-import';
 import type { EditorDocument, EditorNode } from '../../types/cms';
-import { extensions, ValidationError } from './editor';
+import { extensions, renderEditorHtml, ValidationError } from './editor';
 
 /**
  * One Markdown file, read into what a new post is made of. No database: the service decides
@@ -60,10 +61,33 @@ export const MAX_DEPTH = 40;
 /** Different tags a file may hold; they are searched for together, in every text that has a `<`. */
 export const MAX_HTML = 300;
 
+/** What a post stores, the document and its page, is capped at MAX_DOCUMENT_BYTES each; this much of it is used. */
+const FITS_BYTES = Math.floor(MAX_DOCUMENT_BYTES * 0.9);
+
 const INLINE_START = /[<[*_`~\\]|https?:|www\./gi;
 const EMPHASIS = /[*_~]/g;
 const PICTURE_START = /!\[/g;
 const DEFINITION = /^ {0,3}\[[^\]\n]+\]:/gm;
+
+/**
+ * A post stores its document and its rendered page, each capped at a million bytes, and both are
+ * much larger than the Markdown (prose is about twice as large as JSON; a listing is several times
+ * as large as HTML). A file whose post would not fit is refused here, at the preview, and not by
+ * the database after the pictures are uploaded. The rest of the cap is room for the pictures'
+ * addresses, which are longer once they are in the library.
+ */
+function assertFits(document: EditorDocument): void {
+  const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
+  if (bytes(JSON.stringify(document)) > FITS_BYTES) throw new MarkdownTooComplexError('size');
+  let html: string;
+  try {
+    html = renderEditorHtml(document);
+  } catch (error) {
+    if (error instanceof ValidationError && error.message === 'Rendered content is too large.') throw new MarkdownTooComplexError('size');
+    throw error;
+  }
+  if (bytes(html) > FITS_BYTES) throw new MarkdownTooComplexError('size');
+}
 
 /** What the worker sends back: the post, or why there is none. */
 export type ParseReply =
@@ -292,6 +316,7 @@ export function parseMarkdownPost(source: string, fileName: string): ParsedMarkd
   const cover = coverSrc ? describePicture(coverSrc, 'cover') : null;
 
   const document: EditorDocument = { type: 'doc', content: blocks };
+  assertFits(document);
   const seen = new Set<string>();
   const pictures: ImportPicture[] = cover ? [cover] : [];
   const collect = (node: EditorNode): void => {

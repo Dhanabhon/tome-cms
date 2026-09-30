@@ -62,6 +62,7 @@ test('a Markdown file becomes a draft in its own language, with its pictures, ca
   assert.equal(post.show_cover, true, 'the cover is shown, as for any new post');
   assert.equal(post.cover_media_id, mine);
   assert.equal(post.planned_at, '2021-03-04T05:06:07.000Z');
+  assert.equal(post.published_at, null, 'the date plans a draft; it does not publish it');
   assert.match(post.content_html, new RegExp(`/media/${mine}`));
   assert.match(post.content_html, /https:\/\/x\.com\/s\.jpg/);
   assert.match(post.content_html, /\[Missing image: two\.webp\]/);
@@ -73,9 +74,15 @@ test('a Markdown file becomes a draft in its own language, with its pictures, ca
   assert.equal(row.show_cover, true, 'stored as true, not null and not the column\'s absence');
 
   // The same slug again, in the same language: a changed slug and a warning, not a 409.
+  const again = await previewMarkdownImport('owner-a', { fileName: 'a.md', text: file });
   const second = await importMarkdownPost('owner-a', { fileName: 'a.md', text: file });
   assert.match(second.post.slug, /^an-english-post-[0-9a-f]{8}$/);
   assert.deepEqual(second.warnings.at(-1), { code: 'slug-changed', slug: second.post.slug });
+  assert.equal(again.slug, second.post.slug, 'the preview shows the address the import makes');
+  // Imported a third time, that address is taken too: one of its own, not a 409.
+  const third = await importMarkdownPost('owner-a', { fileName: 'a.md', text: file });
+  assert.match(third.post.slug, /^an-english-post-[0-9a-f]{8}$/);
+  assert.notEqual(third.post.slug, second.post.slug);
   // With no matching category the post gets the default one.
   const plain = await importMarkdownPost('owner-a', { fileName: 'หมายเหตุ.md', text: 'ข้อความ' });
   assert.equal(plain.post.locale, 'th');
@@ -85,11 +92,15 @@ test('a Markdown file becomes a draft in its own language, with its pictures, ca
   assert.deepEqual(plainCategories.map(({ category_id }) => category_id), [fallback!.id]);
 
   // Another owner's picture, or a document, is refused by the media check createPost already runs, as body or cover.
+  const counts = async () => Promise.all(['posts', 'post_translation_groups', 'post_category_assignments'].map(async (table) =>
+    (await db.selectFrom(table as 'posts').select('created_at' as never).execute()).length));
+  const rowsBefore = await counts();
   const refused = (error: unknown) => error instanceof HttpError && error.status === 400;
   for (const id of [theirs, guide, '44444444-4444-4444-8444-444444444444']) {
     await assert.rejects(importMarkdownPost('owner-a', { fileName: 'b.md', text: '![x](./x.webp)', pictures: { './x.webp': id } }), refused);
     await assert.rejects(importMarkdownPost('owner-a', { fileName: 'b.md', text: '---\ncover: ./x.webp\n---\nhi', pictures: { './x.webp': id } }), refused);
   }
+  assert.deepEqual(await counts(), rowsBefore, 'a refused import leaves no group, post or assignment behind');
   // A file over the limit is refused before it is parsed.
   await assert.rejects(
     previewMarkdownImport('owner-a', { fileName: 'big.md', text: 'ก'.repeat(300_001) }),
@@ -147,6 +158,15 @@ test('a Markdown file becomes a draft in its own language, with its pictures, ca
     const body = await tooComplex.json() as { error: string; warning: unknown };
     assert.deepEqual(body.warning, { code: 'too-complex', limit: 'blocks' });
     assert.equal(tooComplex.headers.get('cache-control'), 'no-store');
+    // A file the parser accepts whose post would be too big to store is refused at the preview, and
+    // at the import, not by the database after the pictures are uploaded: 3,500 paragraphs, 794 KB.
+    const tooBig = await call(route, { fileName: 'big.md', text: Array.from({ length: 3_500 }, (_, i) => `${i} ${'x'.repeat(220)}`).join('\n\n') });
+    assert.equal(tooBig.status, 413);
+    assert.deepEqual(((await tooBig.json()) as { warning: unknown }).warning, { code: 'too-complex', limit: 'size' });
+    // A body over the JSON cap (quotes double in it) is the body's own 413, before anything is read.
+    const overBody = await call(route, { fileName: 'quotes.md', text: '"\n'.repeat(450_000) });
+    assert.equal(overBody.status, 413);
+    assert.equal(((await overBody.json()) as { error: string }).error, 'The request body is too large.');
   }
   assert.equal((await db.selectFrom('posts').select('id').execute()).length, postsBefore, 'nothing was saved by any of those');
 

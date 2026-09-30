@@ -237,7 +237,7 @@ timed('30,000 different tags in one paragraph are refused at once', Array.from({
 timed('30,000 tags of 299 kinds, in paragraphs of 3,000, are read, and gone from the text', Array.from({ length: 10 }, () => Array.from({ length: 3_000 }, (_, i) => `<t${i % 299}>`).join(' ')).join('\n\n'), null);
 timed('a long post, 100,000 words and 500 pictures, is read whole', Array.from({ length: 100 }, (_, part) => [
   `## Part ${part}`,
-  ...Array.from({ length: 15 }, (_, item) => `${'คำ word '.repeat(35)} **bold** and [link](https://x.com/${part}/${item}) and \`code\`.${item % 3 === 0 ? `\n\n![pic](./img/${part}-${item}.png)` : ''}`),
+  ...Array.from({ length: 15 }, (_, item) => `${'คำ word '.repeat(35)}${item % 5 === 0 ? ` **bold** and [link](https://x.com/${part}/${item}) and \`code\`` : ''}.${item % 3 === 0 ? `\n\n![pic](./img/${part}-${item}.png)` : ''}`),
   '- one\n- two',
 ].join('\n\n')).join('\n\n'), null);
 
@@ -281,8 +281,12 @@ timed('a task item with 12,000 lazy lines is refused at once', `- [ ] a\n${'b\n'
 timed('4,750 paragraphs in five quotes are counted as blocks, and refused at once', `${'> a\n>\n'.repeat(950)}\n`.repeat(5), 'blocks');
 timed('24,000 link definitions are refused at once', '[a]: http://x\n'.repeat(24_000), 'definitions');
 timed('12,000 footnote definitions are refused at once', '[^1]: a\n'.repeat(12_000), 'definitions');
-timed('a table of 24,000 rows is read whole', `| a | b |\n| - | - |\n${'| 1 | 2 |\n'.repeat(24_000)}`, null);
-timed('a list of 12,000 items is read whole', '- a\n'.repeat(12_000), null);
+timed('a table of 3,000 rows is read whole', `| a | b |\n| - | - |\n${'| 1 | 2 |\n'.repeat(3_000)}`, null);
+timed('a list of 6,000 items is read whole', '- a\n'.repeat(6_000), null);
+// A post stores its document and its page, each capped at a million bytes, and both are larger than the Markdown.
+timed('3,500 paragraphs of 225 characters (794 KB) would be too big to store, and are refused', Array.from({ length: 3_500 }, (_, i) => `${i} ${'x'.repeat(220)}`).join('\n\n'), 'size');
+timed('a listing whose highlighted page would be too big to store is refused', `\`\`\`js\n${'x = f(a, b) + [1, 2, 3].map(n => n * 2);\n'.repeat(21_000)}\`\`\``, 'size');
+timed('2,500 paragraphs of 200 characters (516 KB) are read whole', Array.from({ length: 2_500 }, (_, i) => `${i} ${'x'.repeat(200)}`).join('\n\n'), null);
 timed('a listing over the line limit is refused for its lines, not its blocks', `\`\`\`\n${'\n'.repeat(26_000)}\`\`\``, 'lines');
 
 test('a file nested too deeply is refused with an error the service can show, never a stack overflow', () => {

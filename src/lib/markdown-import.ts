@@ -10,7 +10,7 @@ export const MAX_MARKDOWN_BYTES = 900_000;
 export const MISSING_IMAGE = { th: 'รูปที่ขาด', en: 'Missing image' } as const;
 
 /** What a refused file ran over: too many blocks or lines, marks, emphasis in one paragraph, pictures or tags, too deep, or more than the time a read is given. */
-export type ImportLimit = 'blocks' | 'lines' | 'inline' | 'emphasis' | 'pictures' | 'html' | 'depth' | 'time' | 'block-lines' | 'definitions';
+export type ImportLimit = 'blocks' | 'lines' | 'inline' | 'emphasis' | 'pictures' | 'html' | 'depth' | 'time' | 'block-lines' | 'definitions' | 'size';
 
 export type PictureKind = 'local' | 'remote' | 'refused';
 

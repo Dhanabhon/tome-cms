@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { z } from 'zod';
 
@@ -74,13 +74,17 @@ async function resolve(ownerId: string, input: MarkdownImportInput): Promise<Res
   const warnings = [...parsed.warnings];
   if (missing.length) warnings.push({ code: 'category-missing', names: missing });
 
+  const isTaken = async (candidate: string) => Boolean(await db.selectFrom('posts').select('id')
+    .where('locale', '=', locale).where('slug', '=', candidate).executeTakeFirst());
   let slug = contentSlug(parsed.slug || parsed.title);
-  if (slug) {
-    const taken = await db.selectFrom('posts').select('id').where('locale', '=', locale).where('slug', '=', slug).executeTakeFirst();
-    if (taken) {
-      slug = `${slug.slice(0, 151).replace(/-+$/, '')}-${randomUUID().slice(0, 8)}`;
-      warnings.push({ code: 'slug-changed', slug });
-    }
+  if (slug && await isTaken(slug)) {
+    // The same file gets the same suffix, so the preview shows the address the import will make;
+    // a file imported again after that finds it taken too, and gets one of its own.
+    const stem = slug.slice(0, 151).replace(/-+$/, '');
+    const seed = createHash('sha256').update(`${ownerId}\n${slug}\n${input.text}`).digest('hex').slice(0, 8);
+    slug = `${stem}-${seed}`;
+    if (await isTaken(slug)) slug = `${stem}-${randomUUID().slice(0, 8)}`;
+    warnings.push({ code: 'slug-changed', slug });
   }
   return { parsed, locale, categories, slug, warnings };
 }
