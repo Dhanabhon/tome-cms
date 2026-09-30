@@ -229,6 +229,22 @@ test('the passkey name warning goes as soon as a name is typed, and no other mes
   assert.equal(security.match(/onChange=\{[^}]*nameTyped\(\)/g)?.length, 2, 'the add and rename fields both clear it');
 });
 
+test('an empty submit marks and focuses the field it is about, and lets go as the owner types: Navigation and Categories', () => {
+  const navigation = read('src/components/admin/NavigationManager.tsx');
+  assert.match(navigation, /setAddInvalid\('label'\);\s*labelField\.current\?\.focus\(\)/, 'a bad label is focused');
+  assert.match(navigation, /setAddInvalid\('url'\);\s*urlField\.current\?\.focus\(\)/, 'a bad address is focused');
+  assert.match(navigation, /aria-invalid=\{addInvalid === 'label' \|\| undefined\}/, 'the label field is marked');
+  assert.match(navigation, /aria-invalid=\{addInvalid === 'url' \|\| undefined\}/, 'the address field is marked');
+  assert.equal(navigation.match(/if \(addInvalid === '(label|url)'\) \{ setAddInvalid\(null\); setAddError\(''\); \}/g)?.length, 2, 'typing clears both');
+  const categories = read('src/components/admin/CategoryManager.tsx');
+  assert.match(categories, /setNameMissing\('create'\);[^]*?createField\.current\?\.focus\(\)/, 'an empty new name is focused');
+  assert.match(categories, /setNameMissing\('rename'\);[^]*?renameField\.current\?\.focus\(\)/, 'an empty rename is focused');
+  for (const form of ['create', 'rename']) {
+    assert.match(categories, new RegExp(`aria-invalid=\\{nameMissing === '${form}' \\|\\| undefined\\}`), `${form} field is not marked`);
+    assert.match(categories, new RegExp(`if \\(nameMissing === '${form}'\\) \\{ setNameMissing\\(null\\); setError\\(''\\); \\}`), `typing does not clear ${form}`);
+  }
+});
+
 test('a passkey and an avatar are handled with the same icons as every other row', () => {
   const security = read('src/components/admin/SecurityManager.tsx');
   for (const name of ['pencil', 'trash']) {

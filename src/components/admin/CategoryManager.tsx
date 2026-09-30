@@ -28,6 +28,10 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
   const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(() => new Set());
   const [liveStatus, setLiveStatus] = useState('');
   const [error, setError] = useState('');
+  // Which form an empty name was about: its field is marked, focused, and released as the owner types.
+  const [nameMissing, setNameMissing] = useState<'create' | 'rename' | null>(null);
+  const createField = useRef<HTMLInputElement>(null);
+  const renameField = useRef<HTMLInputElement>(null);
   const categoryRevision = useRef(0);
   const renameButtons = useRef(new Map<string, HTMLButtonElement>());
 
@@ -42,10 +46,16 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
   async function createCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = createName.trim();
-    if (!name) return setError(copy.categories.nameRequired);
+    if (!name) {
+      setNameMissing('create');
+      setError(copy.categories.nameRequired);
+      createField.current?.focus();
+      return;
+    }
     const actionId = 'create';
     startAction(actionId);
     setError('');
+    setNameMissing(null);
     setLiveStatus(`Creating “${name}”…`);
     try {
       const response = await atLeast(fetch('/api/admin/categories', {
@@ -72,10 +82,16 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
     if (!edit) return;
     const id = edit.id;
     const name = edit.name.trim();
-    if (!name) return setError(copy.categories.nameRequired);
+    if (!name) {
+      setNameMissing('rename');
+      setError(copy.categories.nameRequired);
+      renameField.current?.focus();
+      return;
+    }
     const actionId = `rename:${id}`;
     startAction(actionId);
     setError('');
+    setNameMissing(null);
     setLiveStatus(`Renaming Category to “${name}”…`);
     try {
       const response = await atLeast(fetch('/api/admin/categories', {
@@ -169,11 +185,13 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
           <label className="admin-field" htmlFor="category-name">
             <span>{copy.categories.nameLabel} <small>{copy.categories.nameHint}</small></span>
             <input
+              aria-invalid={nameMissing === 'create' || undefined}
               aria-label={copy.categories.nameLabel}
               className="admin-control"
               id="category-name"
               maxLength={80}
-              onChange={(event) => setCreateName(event.target.value)}
+              onChange={(event) => { setCreateName(event.target.value); if (nameMissing === 'create') { setNameMissing(null); setError(''); } }}
+              ref={createField}
               required
               type="text"
               value={createName}
@@ -195,11 +213,13 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                     <label className="admin-field">
                       <span>{fill(copy.categories.renameNameLabel, { name: category.name })}</span>
                       <input
+                        aria-invalid={nameMissing === 'rename' || undefined}
                         autoFocus
                         className="admin-control"
                         disabled={pendingActionIds.has(renameAction)}
                         maxLength={80}
-                        onChange={(event) => setEdit({ id: category.id, name: event.target.value })}
+                        onChange={(event) => { setEdit({ id: category.id, name: event.target.value }); if (nameMissing === 'rename') { setNameMissing(null); setError(''); } }}
+                        ref={renameField}
                         required
                         value={edit.name}
                       />
@@ -209,7 +229,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                       <button
                         className="admin-button"
                         disabled={pendingActionIds.has(renameAction)}
-                        onClick={() => { setEdit(null); setError(''); focusRename(category.id); }}
+                        onClick={() => { setEdit(null); setError(''); setNameMissing(null); focusRename(category.id); }}
                         type="button"
                       >
                         {copy.categories.cancelRename}
@@ -229,7 +249,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                           <button
                             aria-label={fill(copy.categories.renameLabelFor, { name: category.name })}
                             className="admin-button admin-button--ghost admin-button--icon"
-                            onClick={() => { setEdit({ id: category.id, name: category.name }); setError(''); setLiveStatus(''); }}
+                            onClick={() => { setEdit({ id: category.id, name: category.name }); setError(''); setNameMissing(null); setLiveStatus(''); }}
                             ref={(button) => { if (button) renameButtons.current.set(category.id, button); }}
                             title={fill(copy.categories.renameLabelFor, { name: category.name })}
                             type="button"
