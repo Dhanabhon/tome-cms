@@ -962,8 +962,8 @@ test('a PDF shows its first page in the library and in its details, and a file p
   const upload = page.locator('.media-upload input[type="file"]');
   const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
   for (const file of [
-    { name: 'Guide.pdf', mimeType: 'application/pdf', buffer: onePagePdf('Guide', { padding: 300_000 }) },
-    { name: 'Broken.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') },
+    { name: 'Brochure.pdf', mimeType: 'application/pdf', buffer: onePagePdf('Brochure', { padding: 300_000 }) },
+    { name: 'Unreadable.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') },
   ]) {
     await upload.setInputFiles(file);
     await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
@@ -973,20 +973,20 @@ test('a PDF shows its first page in the library and in its details, and a file p
   }
 
   const loaded = (image: import('@playwright/test').Locator) => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0);
-  const guide = page.getByRole('button', { name: /^Guide\.pdf, PDF,/ });
-  const broken = page.getByRole('button', { name: /^Broken\.pdf, PDF,/ });
+  const brochure = page.getByRole('button', { name: /^Brochure\.pdf, PDF,/ });
+  const unreadable = page.getByRole('button', { name: /^Unreadable\.pdf, PDF,/ });
   // The card says what the file is until the page is drawn, and shows the page once it is.
-  await expect(guide.locator('img')).toHaveCount(1, { timeout: 30_000 });
-  await expect.poll(() => loaded(guide.locator('img'))).toBe(true);
-  await expect(guide.locator('img')).toHaveAttribute('src', /^blob:/);
-  await expect(guide.locator('img')).toHaveAttribute('alt', '');
-  await expect(guide.locator('.media-card__file')).toHaveCount(0);
-  // A file that is not a PDF, however it is named, is still the label it was.
-  await expect(broken.locator('.media-card__file')).toHaveText('PDF');
-  await expect(broken.locator('img')).toHaveCount(0);
+  await expect(brochure.locator('img')).toHaveCount(1, { timeout: 30_000 });
+  await expect.poll(() => loaded(brochure.locator('img'))).toBe(true);
+  await expect(brochure.locator('img')).toHaveAttribute('src', /^blob:/);
+  await expect(brochure.locator('img')).toHaveAttribute('alt', '');
+  await expect(brochure.locator('.media-card__file')).toHaveCount(0);
+  // A file pdf.js cannot open is still the label it was.
+  await expect(unreadable.locator('.media-card__file')).toHaveText('PDF');
+  await expect(unreadable.locator('img')).toHaveCount(0);
   expect(ranges, 'pdf.js read the file from the admin in ranges').toContain(206);
 
-  await guide.click();
+  await brochure.click();
   const details = page.getByRole('dialog', { name: 'File details' });
   await expect(details.locator('img.media-page')).toHaveCount(1);
   await expect.poll(() => loaded(details.locator('img.media-page'))).toBe(true);
@@ -994,7 +994,7 @@ test('a PDF shows its first page in the library and in its details, and a file p
   await details.getByRole('button', { name: 'Close details' }).click();
   await expect(details).toBeHidden();
 
-  await broken.click();
+  await unreadable.click();
   await expect(details.locator('.media-details__file')).toHaveText('PDF');
   await expect(details.locator('img')).toHaveCount(0);
 });
