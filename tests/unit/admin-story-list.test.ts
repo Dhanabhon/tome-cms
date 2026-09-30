@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 import { apiErrorMessage } from '../../src/lib/admin';
 import { readRecord } from '../../src/lib/admin-story-list';
+import { adminCopy } from '../../src/lib/admin-i18n';
 import { adminErrorResponse } from '../../src/server/http/errors';
 import { prepareContent } from '../../src/server/content/mutations';
 
@@ -69,4 +70,29 @@ test('every phrase the list script reads is one the lists actually hand it', () 
     const source = readFileSync(new URL(`../../${page}`, import.meta.url), 'utf8');
     for (const attribute of attributes) assert.ok(source.includes(`${attribute}={`), `${page} is missing ${attribute}`);
   }
+});
+
+test('a post too long to store is refused with its own code, which each editor says in its own language', async () => {
+  // Many small marked nodes: Postgres prints them a tenth longer than JSON.stringify does.
+  const paragraph = { type: 'paragraph', content: Array.from({ length: 20 }, () => [
+    { type: 'text', marks: [{ type: 'italic' }], text: 'ab' }, { type: 'text', text: ' cd ' },
+  ]).flat() };
+  let refusal: unknown;
+  try {
+    prepareContent({ contentJson: { type: 'doc', content: Array.from({ length: 4_000 }, () => structuredClone(paragraph)) }, status: 'draft' });
+  } catch (error) {
+    refusal = error;
+  }
+  const response = adminErrorResponse(refusal, 'test-request');
+  assert.equal(response.status, 400);
+  const body: unknown = await response.json();
+  assert.equal((body as { code?: string }).code, 'content_too_large');
+  assert.equal((body as { error?: string }).error, 'The editor content is invalid.', 'the API keeps its words');
+  for (const locale of ['en', 'th'] as const) {
+    const { editor } = adminCopy(locale);
+    assert.equal(apiErrorMessage(body, { contentRequired: editor.contentRequired, contentTooLarge: editor.postTooLong, failed: editor.postNotSaved }), editor.postTooLong);
+    assert.notEqual(editor.postTooLong, editor.pageTooLong);
+  }
+  // A reader with no words for it (the row menu) still gets the server's.
+  assert.equal(apiErrorMessage(body, copy), 'The editor content is invalid.');
 });

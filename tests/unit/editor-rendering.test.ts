@@ -262,7 +262,7 @@ test('an editor that is refused anyway is refused in the same language', () => {
   for (const name of ['Editor', 'PageEditor'] as const) {
     const source = readFileSync(new URL(`../../src/components/admin/${name}.tsx`, import.meta.url), 'utf8');
     assert.match(source, /import \{ adminHref, adminPreviewHref, apiErrorMessage \} from '\.\.\/\.\.\/lib\/admin';/);
-    assert.match(source, /apiErrorMessage\(payload, \{ contentRequired: copy\.editor\.contentRequired, failed: copy\.editor\.(post|page)NotSaved \}\)/);
+    assert.match(source, /apiErrorMessage\(payload, \{ contentRequired: copy\.editor\.contentRequired, contentTooLarge: copy\.editor\.(post|page)TooLong, failed: copy\.editor\.(post|page)NotSaved \}\)/);
     // Each editor had grown its own reader of the same body.
     assert.doesNotMatch(source, /function readApiError/);
   }

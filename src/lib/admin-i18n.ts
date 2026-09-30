@@ -799,7 +799,9 @@ const en = {
     unsaved: 'Unsaved',
     update: 'Update',
     pageNotSaved: 'The page could not be saved.',
+    pageTooLong: 'This page is too long to save. Split it or remove some of it.',
     postNotSaved: 'The post could not be saved.',
+    postTooLong: 'This post is too long to save. Split it or remove some of it.',
   },
   empty: {
     eyebrow: 'Nothing here yet',
@@ -1844,7 +1846,9 @@ const th: typeof en = {
     unsaved: 'ยังไม่บันทึก',
     update: 'อัปเดต',
     pageNotSaved: 'บันทึกเพจไม่สำเร็จ',
+    pageTooLong: 'เพจนี้ยาวเกินไปจนบันทึกไม่ได้ ลองแบ่งเป็นสองเพจ หรือตัดบางส่วนออก',
     postNotSaved: 'บันทึกบทความไม่สำเร็จ',
+    postTooLong: 'บทความนี้ยาวเกินไปจนบันทึกไม่ได้ ลองแบ่งเป็นสองบทความ หรือตัดบางส่วนออก',
   },
   empty: {
     eyebrow: 'ยังไม่มีอะไรตรงนี้',

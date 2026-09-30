@@ -101,8 +101,9 @@ export type AdminNavId = (typeof ADMIN_NAV_IDS)[number];
  * more use in the server's own words than behind a sentence the admin made up. A *coded*
  * refusal is different: it is a rule the admin knows, written in the owner's language.
  */
-export function apiErrorMessage(payload: unknown, copy: { contentRequired: string; failed: string }): string {
+export function apiErrorMessage(payload: unknown, copy: { contentRequired: string; contentTooLarge?: string; failed: string }): string {
   const body = typeof payload === 'object' && payload !== null ? payload as Record<string, unknown> : null;
   if (body?.code === 'content_required') return copy.contentRequired;
+  if (body?.code === 'content_too_large' && copy.contentTooLarge) return copy.contentTooLarge;
   return typeof body?.error === 'string' ? body.error : copy.failed;
 }

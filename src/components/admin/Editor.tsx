@@ -126,7 +126,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
       }),
     });
     const payload: unknown = await response.json();
-    if (!response.ok) throw new Error(apiErrorMessage(payload, { contentRequired: copy.editor.contentRequired, failed: copy.editor.postNotSaved }));
+    if (!response.ok) throw new Error(apiErrorMessage(payload, { contentRequired: copy.editor.contentRequired, contentTooLarge: copy.editor.postTooLong, failed: copy.editor.postNotSaved }));
 
     const savedPost = readPost(payload);
     if (!savedPost) throw new Error(copy.editor.serverSentInvalidPost);

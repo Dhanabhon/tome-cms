@@ -128,7 +128,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
     });
     const payload: unknown = await response.json();
     if (!response.ok) throw new Error(readContentIssue(payload)
-      ?? apiErrorMessage(payload, { contentRequired: copy.editor.contentRequired, failed: copy.editor.pageNotSaved }));
+      ?? apiErrorMessage(payload, { contentRequired: copy.editor.contentRequired, contentTooLarge: copy.editor.pageTooLong, failed: copy.editor.pageNotSaved }));
 
     const savedPage = readPage(payload);
     if (!savedPage) throw new Error(copy.editor.serverSentInvalidPage);

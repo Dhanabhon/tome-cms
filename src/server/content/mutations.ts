@@ -46,7 +46,8 @@ export const deleteMutationSchema = z.object({
  */
 export class ContentTooLargeHttpError extends HttpError {
   constructor() {
-    super(400, 'The editor content is invalid.');
+    // The message stays the API's; the code is how an editor says it in the owner's language.
+    super(400, 'The editor content is invalid.', { code: 'content_too_large' });
   }
 }
 
