@@ -12,6 +12,8 @@ import { MarkdownTooComplexError, parseMarkdownPost, type ParsedMarkdownPost, ty
  * is, and one file is read at a time.
  */
 export const PARSE_TIME_LIMIT_MS = 5_000;
+/** The worker's heap, well under the server's memory; a file that needs more is too much. */
+const PARSE_HEAP_MB = 256;
 
 /** A second file arrived while one was being read. Not queued: the server is small. */
 export class MarkdownBusyError extends Error {
@@ -24,11 +26,12 @@ export class MarkdownBusyError extends Error {
 
 let reading = false;
 
-// A test hook: the built server is tried with a limit short enough for a file that is only
-// slow on this machine. Anything outside 10 ms to a minute is ignored.
-function timeLimit(): number {
-  const hook = Number(process.env.TOME_CMS_MARKDOWN_PARSE_LIMIT_MS);
-  return Number.isInteger(hook) && hook >= 10 && hook <= 60_000 ? hook : PARSE_TIME_LIMIT_MS;
+// Test hooks, read only under test: the built server is tried with a time limit short enough for a
+// file that is only slow on this machine, and with a heap small enough to run out. A value outside
+// its range is ignored.
+function testHook(name: string, min: number, max: number, fallback: number): number {
+  const hook = process.env.NODE_ENV === 'test' ? Number(process.env[name]) : Number.NaN;
+  return Number.isInteger(hook) && hook >= min && hook <= max ? hook : fallback;
 }
 
 /**
@@ -48,20 +51,23 @@ function workerEntry(): URL | null {
 
 function parseInWorker(entry: URL, text: string, fileName: string): Promise<ParsedMarkdownPost> {
   return new Promise((resolve, reject) => {
-    // The heap is capped well under the server's memory; a file that needs more is too much.
-    const worker = new Worker(entry, { workerData: { text, fileName }, resourceLimits: { maxOldGenerationSizeMb: 256 } });
+    const worker = new Worker(entry, {
+      workerData: { text, fileName },
+      resourceLimits: { maxOldGenerationSizeMb: testHook('TOME_CMS_MARKDOWN_PARSE_HEAP_MB', 1, PARSE_HEAP_MB, PARSE_HEAP_MB) },
+    });
     const finish = (settle: () => void) => {
       clearTimeout(timer);
       void worker.terminate();
       settle();
     };
-    const timer = setTimeout(() => finish(() => reject(new MarkdownTooComplexError('time'))), timeLimit());
+    const limit = testHook('TOME_CMS_MARKDOWN_PARSE_LIMIT_MS', 10, 60_000, PARSE_TIME_LIMIT_MS);
+    const timer = setTimeout(() => finish(() => reject(new MarkdownTooComplexError('time'))), limit);
     worker.once('message', (reply: ParseReply) => finish(() => {
       if (reply.kind === 'parsed') resolve(reply.post);
       else reject(reply.kind === 'too-complex' ? new MarkdownTooComplexError(reply.limit) : new ValidationError(reply.message));
     }));
     worker.once('error', (error: Error & { code?: string }) => finish(() => {
-      reject(error.code === 'ERR_WORKER_OUT_OF_MEMORY' ? new MarkdownTooComplexError('time') : error);
+      reject(error.code === 'ERR_WORKER_OUT_OF_MEMORY' ? new MarkdownTooComplexError('size') : error);
     }));
     worker.once('exit', (code) => finish(() => reject(new Error(`The Markdown worker stopped (${code}) without an answer.`))));
   });
@@ -69,7 +75,8 @@ function parseInWorker(entry: URL, text: string, fileName: string): Promise<Pars
 
 /**
  * `parseMarkdownPost` in a worker, stopped after `PARSE_TIME_LIMIT_MS` (`MarkdownTooComplexError`,
- * limit `time`), and one at a time (`MarkdownBusyError`). Everything else is as that function.
+ * limit `time`; out of memory, limit `size`), and one at a time (`MarkdownBusyError`). Everything
+ * else is as that function.
  */
 export async function readMarkdownPost(text: string, fileName: string): Promise<ParsedMarkdownPost> {
   if (reading) throw new MarkdownBusyError();

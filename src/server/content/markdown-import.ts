@@ -148,12 +148,24 @@ function countBlocks(tokens: readonly Token[]): number {
   return blocks;
 }
 
-/** The longest run of lines in one paragraph, quote or list item; code, tables and HTML are read once. */
+/** Lines of code, tables and HTML at any depth: they are read once, wherever they stand. */
+function readOnce(tokens: readonly Token[]): number {
+  let lines = 0;
+  for (const token of tokens) {
+    if (token.type === 'code' || token.type === 'table' || token.type === 'html') lines += lineCount(token.raw);
+    else if (token.type === 'blockquote') lines += readOnce(token.tokens ?? []);
+    else if (token.type === 'list') for (const item of token.items) lines += readOnce(item.tokens);
+  }
+  return lines;
+}
+
+/** The longest run of lines in one paragraph, quote or list item, less the code, tables and HTML in it. */
 function longestBlock(tokens: readonly Token[]): number {
   let longest = 0;
   for (const token of tokens) {
-    if (token.type === 'list') for (const item of token.items) longest = Math.max(longest, lineCount(item.raw));
-    else if (token.type === 'blockquote' || token.type === 'paragraph') longest = Math.max(longest, lineCount(token.raw));
+    if (token.type === 'list') for (const item of token.items) longest = Math.max(longest, lineCount(item.raw) - readOnce(item.tokens));
+    else if (token.type === 'blockquote') longest = Math.max(longest, lineCount(token.raw) - readOnce(token.tokens ?? []));
+    else if (token.type === 'paragraph') longest = Math.max(longest, lineCount(token.raw));
   }
   return longest;
 }

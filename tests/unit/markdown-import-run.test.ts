@@ -18,6 +18,9 @@ test('a file the limits refuse is refused the same way from the worker', async (
   await assert.rejects(readMarkdownPost('*a '.repeat(39_000), 'a.md'), (error) => error instanceof MarkdownTooComplexError && error.limit === 'emphasis');
 });
 
+// The hooks below are read only under test, as the integration runs are.
+process.env.NODE_ENV = 'test';
+
 test('a file that takes longer than the limit is stopped, and the next one is read', async (context) => {
   process.env.TOME_CMS_MARKDOWN_PARSE_LIMIT_MS = '300';
   context.after(() => { delete process.env.TOME_CMS_MARKDOWN_PARSE_LIMIT_MS; });
@@ -35,4 +38,23 @@ test('a second file is turned away while one is being read, and not queued', asy
   await assert.rejects(readMarkdownPost('Second', 'second.md'), MarkdownBusyError);
   assert.equal((await first).title, 'first');
   assert.equal((await readMarkdownPost('Third', 'third.md')).title, 'third', 'the place is free again');
+});
+
+test('outside tests the time limit is the constant, whatever the environment asks', async (context) => {
+  process.env.NODE_ENV = 'production';
+  process.env.TOME_CMS_MARKDOWN_PARSE_LIMIT_MS = '10';
+  context.after(() => {
+    process.env.NODE_ENV = 'test';
+    delete process.env.TOME_CMS_MARKDOWN_PARSE_LIMIT_MS;
+  });
+  // Starting a worker alone takes longer than 10 ms.
+  assert.equal((await readMarkdownPost('Body', 'b.md')).title, 'b');
+});
+
+test('a worker that runs out of memory is told as a file too big, not as one too slow', async (context) => {
+  process.env.TOME_CMS_MARKDOWN_PARSE_HEAP_MB = '8';
+  context.after(() => { delete process.env.TOME_CMS_MARKDOWN_PARSE_HEAP_MB; });
+  await assert.rejects(readMarkdownPost('- a\n'.repeat(6_000), 'big.md'), (error) => error instanceof MarkdownTooComplexError && error.limit === 'size');
+  delete process.env.TOME_CMS_MARKDOWN_PARSE_HEAP_MB;
+  assert.equal((await readMarkdownPost('Body', 'b.md')).title, 'b', 'the place is free again');
 });

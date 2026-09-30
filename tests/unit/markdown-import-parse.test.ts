@@ -282,6 +282,12 @@ timed('a task item with 12,000 lazy lines is refused at once', `- [ ] a\n${'b\n'
 timed('4,750 paragraphs in five quotes are counted as blocks, and refused at once', `${'> a\n>\n'.repeat(950)}\n`.repeat(5), 'blocks');
 timed('24,000 link definitions are refused at once', '[a]: http://x\n'.repeat(24_000), 'definitions');
 timed('12,000 footnote definitions are refused at once', '[^1]: a\n'.repeat(12_000), 'definitions');
+// Code, tables and HTML are read once wherever they are, so inside a list item or quote they are not its lines.
+const listing = (indent: string) => `${indent}\`\`\`js\n${`${indent}const a = b; // one line of code\n`.repeat(2_500)}${indent}\`\`\``;
+timed('a 2,500-line listing inside a list item is read whole', `1. Save this:\n\n${listing('   ')}\n`, null);
+timed('a 2,500-line listing inside a quote is read whole', `> Save this:\n>\n${listing('> ')}\n`, null);
+timed('a 2,500-row table inside a list item is read whole', `- Results:\n\n  | a | b |\n  | - | - |\n${'  | 1 | 2 |\n'.repeat(2_500)}`, null);
+timed('a list item of 2,100 lines around a short listing is still refused', `- a\n${'b\n'.repeat(2_100)}\n  \`\`\`\n  x\n  \`\`\`\n`, 'block-lines');
 timed('a table of 3,000 rows is read whole', `| a | b |\n| - | - |\n${'| 1 | 2 |\n'.repeat(3_000)}`, null);
 timed('a list of 6,000 items is read whole', '- a\n'.repeat(6_000), null);
 // A post stores its document and its page, each capped at a million bytes, and both are larger than the Markdown.
