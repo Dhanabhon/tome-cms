@@ -75,7 +75,10 @@ test('a failed upload says what the server said before it says the library is un
     assert.equal(uploadFailureMessage(new MediaRequestError('Storage rejected the upload.', undefined, 'storage_rejected'), copy), copy.media.storageRejected);
     // An unknown one: the server's own message.
     assert.equal(uploadFailureMessage(new MediaRequestError('Storage is busy.', undefined, 'media_unknown'), copy), 'Storage is busy.');
-    assert.equal(uploadFailureMessage(new Error('Network down'), copy), 'Network down');
+    // Anything the browser or runtime raised is never shown: a dropped connection, an unreadable file, a broken reply.
+    assert.equal(uploadFailureMessage(new TypeError('Failed to fetch'), copy), copy.media.unavailable);
+    assert.equal(uploadFailureMessage(new Error('Network down'), copy), copy.media.unavailable);
+    assert.equal(uploadFailureMessage(new DOMException('The requested file could not be read', 'NotReadableError'), copy), copy.media.unavailable);
     // Nothing to say: the generic line.
     assert.equal(uploadFailureMessage(new Error(''), copy), copy.media.unavailable);
     assert.equal(uploadFailureMessage('boom', copy), copy.media.unavailable);

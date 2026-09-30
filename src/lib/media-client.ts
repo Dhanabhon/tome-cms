@@ -56,12 +56,11 @@ export function uploadFailureText(error: unknown, copy: AdminCopy): string | und
   }
 }
 
-/** What to tell the owner of a failed request: a known cause in their language, else what the server said, else the generic line. */
+/** What to tell the owner of a failed request: a known cause in their language, else what the server said, else the generic line. Only the server's curated words pass: a browser's raw "Failed to fetch" never does. */
 export function uploadFailureMessage(error: unknown, copy: AdminCopy): string {
   const known = uploadFailureText(error, copy);
   if (known) return known;
-  if (error instanceof Error && error.message) return error.message;
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message) return error.message;
+  if (error instanceof MediaRequestError && error.message) return error.message;
   return copy.media.unavailable;
 }
 
