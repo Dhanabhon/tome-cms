@@ -2,6 +2,21 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.5.2 - 2026-09-30
+
+Uploads no longer fail at "Storage verification is temporarily unavailable" when the media address sits behind a CDN.
+
+### Added
+
+- `S3_INTERNAL_ENDPOINT`: the address the application itself reaches storage on. A managed install needs none; the application uses the bundled SeaweedFS by itself.
+
+### Fixed
+
+- The application checks an upload through its own storage address rather than the public one, so a CDN such as Cloudflare in front of the media host can no longer refuse the check. Upload links and media URLs still use the public addresses.
+- On Themes, the theme in use keeps "Customize" beside "View site".
+
+Full notes: [docs/releases/1.5.2.md](docs/releases/1.5.2.md)
+
 ## 1.5.1 - 2026-09-30
 
 Plain widens with the screen and leads with the newest post, Paper sets its header on cream over a white page, and a few admin fields and messages behave as they should.
