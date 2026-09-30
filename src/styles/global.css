@@ -631,6 +631,23 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   border-radius: var(--radius-input);
 }
 
+/* A new part, drawn as the readers will see it: three dots, no line. */
+.editor-content .ProseMirror hr {
+  height: auto;
+  margin-block: var(--space-xl);
+  border: 0;
+  color: var(--color-muted);
+  font-size: var(--text-base);
+  line-height: 1;
+  text-align: center;
+}
+
+.editor-content .ProseMirror hr::before {
+  content: '\2022\2022\2022';
+  letter-spacing: 1em;
+  margin-inline-end: -1em;
+}
+
 .editor-content .ProseMirror-selectednode {
   outline: 2px solid var(--color-focus);
   outline-offset: var(--space-2xs);

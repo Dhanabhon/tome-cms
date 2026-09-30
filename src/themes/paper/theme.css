@@ -708,6 +708,25 @@ body.paper { background: var(--color-paper); }
 
 .post-body { margin-block-start: var(--space-xl); }
 
+/* A new part: three dots, no line. It stays an hr, which is what a screen reader hears as a
+ * break; the dots are only how it is drawn. The trailing letter-space of the last dot is taken
+ * back so the three sit centred. */
+.post-body hr {
+  height: auto;
+  margin-block: var(--space-xl);
+  border: 0;
+  color: var(--color-muted);
+  font-size: var(--text-base);
+  line-height: 1;
+  text-align: center;
+}
+
+.post-body hr::before {
+  content: '\2022\2022\2022';
+  letter-spacing: 1em;
+  margin-inline-end: -1em;
+}
+
 /* Tables. The editor puts a header in the table's first row, as <th> in <tbody>, and the
  * typography plugin only gives room to a header in <thead>: so the room is given to every
  * cell alike here, and a header row is ruled the way the plugin rules a <thead>. */

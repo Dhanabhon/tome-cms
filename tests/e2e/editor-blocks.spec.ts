@@ -1327,6 +1327,41 @@ test('a pasted YouTube link inside an empty table cell stays a link', async ({ c
   await expect(canvas.locator('figure.tome-video')).toHaveCount(0);
 });
 
+test('a new part is added from the + menu, drawn as three dots, and published as a break', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('With a new part');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.keyboard.type('Before the break.');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'New part', exact: true }).click();
+  // Focus comes back a frame after the menu closes, and keys sent sooner are lost.
+  await expect(canvas).toBeFocused();
+  await page.keyboard.type('After the break.');
+  await expect(canvas.locator('hr')).toHaveCount(1);
+  await expect(canvas.locator('hr + p'), 'the writer carries on below the break').toHaveText('After the break.');
+  const dots = (selector: string) => page.evaluate((target) => {
+    const node = document.querySelector(target);
+    return node ? { content: getComputedStyle(node, '::before').content, border: getComputedStyle(node).borderTopWidth } : null;
+  }, selector);
+  expect(await dots('.ProseMirror hr'), 'the editor draws what the reader will see').toEqual({ border: '0px', content: '"\u2022\u2022\u2022"' });
+
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+  const { db } = await import('../../src/server/db/client');
+  const { slug } = await db.selectFrom('posts').select('slug').where('title', '=', 'With a new part')
+    .orderBy('created_at', 'desc').executeTakeFirstOrThrow();
+  await page.goto(`${origin}/en/blog/${slug}`);
+  await expect(page.locator('.post-body hr'), 'a break is an hr, which a screen reader hears as one').toHaveCount(1);
+  expect(await dots('.post-body hr'), 'and the page draws it as dots, with no line').toEqual({ border: '0px', content: '"\u2022\u2022\u2022"' });
+});
+
 /** Signs the owner in through a recovery enrollment, as a new device would. */
 /**
  * Selects the `count` characters before the last `skip` of the line, until the selection holds. Typing marks the

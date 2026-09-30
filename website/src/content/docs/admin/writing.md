@@ -31,7 +31,7 @@ The editor saves on its own a moment after you stop typing, once the post has a 
 
 Type `/` at the start of a line, or after a space, and a menu opens: "Heading 2", "Heading 3", "Bullet list", "Numbered list", "Code block", "Quote", "Table", "File" and "Video". Keep typing to narrow it, and press Enter to choose.
 
-The "+" button beside the line you are on ("Add block") opens the longer list. It has "Text" and "Heading 1" as well, and "Image". Use the arrow keys and Enter, or click.
+The "+" button beside the line you are on ("Add block") opens the longer list. It has "Text" and "Heading 1" as well, and "Image" and "New part". "New part" is a break between sections, drawn as three centred dots with room above and below. Use the arrow keys and Enter, or click.
 
 A new table has three rows and three columns, the first row a header. While the cursor is in it, a bar over its corner has "Add row", "Add column", "Delete row", "Delete column" and "Delete table", and the same actions come first in the `/` menu.
 
