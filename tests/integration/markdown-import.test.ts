@@ -181,4 +181,44 @@ test('a Markdown file becomes a draft in its own language, with its pictures, ca
   assert.equal(made.post.title, 'Through the route');
   assert.deepEqual(made.warnings, []);
   assert.equal((await db.selectFrom('posts').select('id').execute()).length, postsBefore + 1);
+
+  // A post is measured as the database measures it: jsonb printed as text, a tenth larger than
+  // JSON.stringify on a document of many small nodes.
+  const { sql } = await import('kysely');
+  const { jsonbTextLength, parseMarkdownPost } = await import('../../src/server/content/markdown-import');
+  const measured = async (value: unknown) => (await sql<{ length: number }>`select octet_length(${JSON.stringify(value)}::jsonb::text) as length`
+    .execute(db)).rows[0]!.length;
+  const samples = [
+    parseMarkdownPost(['# หัวข้อ *a* **b** `c` [d](https://x.io "t")', '', '| 1 | "2" |', '| - | - |', '| ก | \\ |', '',
+      '```js\nconst a = "\t";\n```', '', '1. one', '2. two', '', '> quote', '', '---', '', '![p](./p.webp)'].join('\n'), 's.md').document,
+    parseMarkdownPost(Array.from({ length: 50 }, () => '*ab* cd '.repeat(20)).join('\n\n'), 'i.md').document,
+    { type: 'doc', numbers: [0, 7, -2, 1.5, 123456789], empty: {}, none: [], nothing: null, yes: true, text: 'tab\t \u0001 😀 " / \\ ไทย' },
+  ];
+  for (const sample of samples) assert.equal(jsonbTextLength(sample), await measured(sample));
+
+  // A post just under the ceiling, as the database measures it, still imports.
+  const nearCap = Array.from({ length: 3_000 }, (_, i) => `${i} ${'x'.repeat(228)}`).join('\n\n');
+  const near = await importMarkdownPost('owner-a', { fileName: 'near.md', text: nearCap });
+  const { length: nearLength } = await db.selectFrom('posts').select(sql<number>`octet_length(content_json::text)`.as('length'))
+    .where('id', '=', near.post.id).executeTakeFirstOrThrow();
+  assert.ok(nearLength > 890_000 && nearLength <= 900_000, `stored ${nearLength} bytes`);
+
+  // Should the database refuse a post for its size all the same, the owner is told so as at the
+  // preview, and nothing is saved; it is never a 500.
+  const postsNow = (await db.selectFrom('posts').select('id').execute()).length;
+  for (const [constraint, tight] of [
+    ['posts_content_json_check', 'check (octet_length(content_json::text) <= 20)'],
+    ['posts_content_html_check', 'check (octet_length(content_html) <= 20)'],
+  ] as const) {
+    const { definition } = (await sql<{ definition: string }>`select pg_get_constraintdef(oid) as definition from pg_constraint where conname = ${constraint}`
+      .execute(db)).rows[0]!;
+    const replace = (check: string) => sql`alter table posts drop constraint ${sql.id(constraint)}, add constraint ${sql.id(constraint)} ${sql.raw(check)} not valid`.execute(db);
+    await replace(tight);
+    const tooBig = await importMarkdownPost('owner-a', { fileName: 'tight.md', text: 'A paragraph that fits neither of the lowered checks.' })
+      .catch((error: unknown) => error);
+    await replace(definition);
+    assert.ok(tooBig instanceof HttpError && tooBig.status === 413, `${constraint}: ${String(tooBig)}`);
+    assert.deepEqual(tooBig.details, { warning: { code: 'too-complex', limit: 'size' } });
+  }
+  assert.equal((await db.selectFrom('posts').select('id').execute()).length, postsNow);
 });

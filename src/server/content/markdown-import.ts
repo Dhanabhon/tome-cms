@@ -69,6 +69,23 @@ const EMPHASIS = /[*_~]/g;
 const PICTURE_START = /!\[/g;
 const DEFINITION = /^ {0,3}\[[^\]\n]+\]:/gm;
 
+const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
+
+/**
+ * The bytes of a JSON value as Postgres prints it as jsonb, which is what the posts table's check
+ * measures: a space after each key's colon and after each comma, strings escaped as JSON does.
+ * Postgres orders the keys its own way, which does not change the length; numbers are as JSON writes
+ * them, which is Postgres's form for any number without an exponent (the parser makes small whole ones).
+ */
+export function jsonbTextLength(value: unknown): number {
+  if (Array.isArray(value)) return 2 + value.reduce<number>((sum, item, index) => sum + (index ? 2 : 0) + jsonbTextLength(item), 0);
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+    return 2 + entries.reduce((sum, [key, item], index) => sum + (index ? 2 : 0) + bytes(JSON.stringify(key)) + 2 + jsonbTextLength(item), 0);
+  }
+  return bytes(JSON.stringify(value));
+}
+
 /**
  * A post stores its document and its rendered page, each capped at a million bytes, and both are
  * much larger than the Markdown (prose is about twice as large as JSON; a listing is several times
@@ -77,8 +94,7 @@ const DEFINITION = /^ {0,3}\[[^\]\n]+\]:/gm;
  * addresses, which are longer once they are in the library.
  */
 function assertFits(document: EditorDocument): void {
-  const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
-  if (bytes(JSON.stringify(document)) > FITS_BYTES) throw new MarkdownTooComplexError('size');
+  if (jsonbTextLength(document) > FITS_BYTES) throw new MarkdownTooComplexError('size');
   let html: string;
   try {
     html = renderEditorHtml(document);

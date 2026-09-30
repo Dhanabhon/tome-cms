@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
 import { MarkdownManager } from '@tiptap/markdown';
-import { MarkdownTooComplexError, parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
+import { jsonbTextLength, MarkdownTooComplexError, parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
 import { prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 
@@ -235,9 +235,10 @@ timed('400,000 list dashes on one line are read at once', '- '.repeat(400_000), 
 timed('450,000 short lines are refused at once', 'a\n'.repeat(450_000), 'lines');
 timed('30,000 different tags in one paragraph are refused at once', Array.from({ length: 30_000 }, (_, i) => `<t${i}>`).join(''), 'inline');
 timed('30,000 tags of 299 kinds, in paragraphs of 3,000, are read, and gone from the text', Array.from({ length: 10 }, () => Array.from({ length: 3_000 }, (_, i) => `<t${i % 299}>`).join(' ')).join('\n\n'), null);
+// 102,000 words: 892 KB as the database measures the document, just inside what an import may use.
 timed('a long post, 100,000 words and 500 pictures, is read whole', Array.from({ length: 100 }, (_, part) => [
   `## Part ${part}`,
-  ...Array.from({ length: 15 }, (_, item) => `${'คำ word '.repeat(35)}${item % 5 === 0 ? ` **bold** and [link](https://x.com/${part}/${item}) and \`code\`` : ''}.${item % 3 === 0 ? `\n\n![pic](./img/${part}-${item}.png)` : ''}`),
+  ...Array.from({ length: 15 }, (_, item) => `${'คำ word '.repeat(34)}${item % 5 === 0 ? ` **bold** and [link](https://x.com/${part}/${item}) and \`code\`` : ''}.${item % 3 === 0 ? `\n\n![pic](./img/${part}-${item}.png)` : ''}`),
   '- one\n- two',
 ].join('\n\n')).join('\n\n'), null);
 
@@ -286,6 +287,11 @@ timed('a list of 6,000 items is read whole', '- a\n'.repeat(6_000), null);
 // A post stores its document and its page, each capped at a million bytes, and both are larger than the Markdown.
 timed('3,500 paragraphs of 225 characters (794 KB) would be too big to store, and are refused', Array.from({ length: 3_500 }, (_, i) => `${i} ${'x'.repeat(220)}`).join('\n\n'), 'size');
 timed('a listing whose highlighted page would be too big to store is refused', `\`\`\`js\n${'x = f(a, b) + [1, 2, 3].map(n => n * 2);\n'.repeat(21_000)}\`\`\``, 'size');
+// The database measures the document as it prints jsonb, with a space after each ':' and ','; on
+// many small nodes that is a tenth larger than JSON.stringify, and these passed it (the review's probes).
+timed('513 paragraphs of short italics, under the cap as JSON but over it as the database stores it, are refused',
+  Array.from({ length: 513 }, () => '*ab* cd '.repeat(20)).join('\n\n'), 'size');
+timed('701 paragraphs of ten links each are refused the same way', Array.from({ length: 701 }, () => '[a](https://x.io) '.repeat(10)).join('\n\n'), 'size');
 timed('2,500 paragraphs of 200 characters (516 KB) are read whole', Array.from({ length: 2_500 }, (_, i) => `${i} ${'x'.repeat(200)}`).join('\n\n'), null);
 timed('a listing over the line limit is refused for its lines, not its blocks', `\`\`\`\n${'\n'.repeat(26_000)}\`\`\``, 'lines');
 
@@ -312,4 +318,11 @@ test('any other error from the parser is a plain refusal with nothing of its ins
   } finally {
     parse.mock.restore();
   }
+});
+
+test('a document is measured as the database prints it: a space after each key and between items', () => {
+  // Postgres: select '{"a":[1,2],"b":{"c":"ก\n"}}'::jsonb::text  ->  {"a": [1, 2], "b": {"c": "ก\n"}}
+  assert.equal(jsonbTextLength({ a: [1, 2], b: { c: 'ก\n' } }), new TextEncoder().encode('{"a": [1, 2], "b": {"c": "ก\\n"}}').byteLength);
+  assert.equal(jsonbTextLength({ type: 'doc', content: [] }), '{"type": "doc", "content": []}'.length);
+  assert.equal(jsonbTextLength({}), 2);
 });
