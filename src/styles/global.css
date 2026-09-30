@@ -1377,7 +1377,9 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   font-weight: 500;
 }
 .admin-list-filter .ui-select { width: auto; }
-.admin-list-filter .admin-list-filter__select:focus-visible { outline: 0; background-color: transparent; border-color: transparent; border-block-end-color: var(--color-focus); }
+/* Its focus is a ring, like any control's. It was a 2px accent line under the words, which is what
+ * marks the current tab a few pixels to its left, and the filter is not a tab. */
+.admin-list-filter .admin-list-filter__select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); background-color: transparent; border-color: transparent; }
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
  * date shares a footer with the row menu. Pages keeps the row list this class started
  * as -- the two lists answer different questions and the reference separates them. */

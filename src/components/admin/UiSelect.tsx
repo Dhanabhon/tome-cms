@@ -69,16 +69,24 @@ export default function UiSelect({
    *
    * It opens below unless the list does not fit there and more of it fits above, and it is
    * capped by whichever room it took -- a list can be shorter than it wants, never cut off
-   * by something it happens to be inside.
+   * by something it happens to be inside. Across, it is as wide as its options want and no
+   * narrower than the trigger, and lines up with the trigger's end where it would leave the
+   * window from its start (see placePopover).
    */
   const place = useCallback(() => {
     const button = trigger.current;
     const list = menu.current;
     if (!button || !list) return;
+    // Measured at the width its options want, not the one an earlier placement gave it.
+    list.style.minWidth = '';
+    list.style.maxWidth = '';
     const where = placePopover(button.getBoundingClientRect(), list.scrollHeight, window.innerHeight,
-      parseFloat(getComputedStyle(document.documentElement).fontSize || '16'), { gap: GAP, minHeight: MIN_HEIGHT, maxRows: MAX_ROWS });
-    list.style.insetInlineStart = `${where.left}px`;
-    list.style.width = where.width === null ? '' : `${where.width}px`;
+      parseFloat(getComputedStyle(document.documentElement).fontSize || '16'),
+      { gap: GAP, maxRows: MAX_ROWS, minHeight: MIN_HEIGHT, panelWidth: list.offsetWidth, viewportWidth: window.innerWidth });
+    list.style.left = `${where.left}px`;
+    list.style.right = 'auto';
+    list.style.minWidth = where.minWidth === null ? '' : `${where.minWidth}px`;
+    list.style.maxWidth = where.maxWidth === null ? '' : `${where.maxWidth}px`;
     list.style.maxHeight = `${where.maxHeight}px`;
     list.style.insetBlockStart = where.top === null ? 'auto' : `${where.top}px`;
     list.style.insetBlockEnd = where.bottom === null ? 'auto' : `${where.bottom}px`;

@@ -146,6 +146,31 @@ test('a row menu closes on a press outside and on Escape', async ({ context, pag
   await page.locator('textarea.admin-title-input').first().fill('Menu test');
   await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
   await page.goto(`${origin}/admin?status=all`);
+
+  // The language filter sits at the end of the row. Its list shows every option whole, however
+  // short the trigger, shades one row and not two, and lines up with the trigger's end rather than
+  // hanging off its far side.
+  const filter = page.locator('#post-locale');
+  const options = page.locator('.ui-select__option');
+  const filled = () => options.evaluateAll((rows) => rows.map((row) => getComputedStyle(row).backgroundColor !== 'rgba(0, 0, 0, 0)'));
+  await filter.click();
+  await expect(options).toHaveCount(3);
+  expect(await options.evaluateAll((rows) => rows.map((row) => {
+    const label = row.firstElementChild as HTMLElement;
+    return label.scrollWidth > label.clientWidth;
+  })), 'no option is cut short').toEqual([false, false, false]);
+  await expect(options.first().locator('span').first()).toHaveText('All languages');
+  const [trigger, list] = await Promise.all([filter.boundingBox(), page.locator('.ui-select__menu').boundingBox()]);
+  expect(list!.width, 'never narrower than the trigger').toBeGreaterThanOrEqual(trigger!.width - 1);
+  expect(list!.x + list!.width, 'lined up with the trigger\'s end').toBeCloseTo(trigger!.x + trigger!.width, 0);
+  expect(await filled(), 'chosen and active are one row: one fill').toEqual([true, false, false]);
+  await page.keyboard.press('ArrowDown');
+  expect(await filled(), 'the chosen row keeps its check and weight, not a second fill').toEqual([false, true, false]);
+  await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.ui-select__menu')).toBeHidden();
+  expect(await filter.evaluate((node) => getComputedStyle(node).borderBottomColor), 'no accent line under the filter, as the current tab has').toBe('rgba(0, 0, 0, 0)');
+
   const menus = page.locator('details.admin-story-menu');
   const menu = menus.first();
   await menu.locator('summary').click();

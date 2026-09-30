@@ -55,6 +55,9 @@
   z-index: var(--z-sticky-nav);
   inset-block-start: 0;
   inset-inline-start: 0;
+  /* As wide as the longest option, which the script then holds between the trigger's width and
+   * the window's. */
+  width: max-content;
   overflow-y: auto;
   padding: var(--space-2xs);
   border: var(--rule-hair) solid var(--color-rule-strong);
@@ -70,6 +73,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
+  padding-block: var(--space-2xs);
   padding-inline: var(--space-sm);
   border: 0;
   border-radius: var(--radius-input);
@@ -78,11 +82,11 @@
   cursor: pointer;
   font: inherit;
   text-align: start;
-  white-space: nowrap;
 }
 
-.ui-select__option[data-active='true'],
-.ui-select__option[aria-selected='true'] {
+/* One row is shaded: the one under the pointer or the keyboard. The chosen one is marked by its
+ * check and its weight, so the list never has two rows filled at once. */
+.ui-select__option[data-active='true'] {
   background: var(--color-paper-3);
 }
 
@@ -90,7 +94,10 @@
 .ui-select__option:focus-visible { outline: 2px solid var(--color-focus); outline-offset: calc(-1 * var(--space-3xs)); }
 .ui-select__option:active { background: var(--color-focus-soft); }
 .ui-select__option:disabled { cursor: not-allowed; opacity: 0.55; }
-.ui-select__option > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* An option stays on one line while it fits, and wraps when the window is narrower than it is;
+ * it is never cut short with an ellipsis. */
+.ui-select__option > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.ui-select__option > span:last-child { flex: 0 0 auto; }
 
 .ui-dialog {
   width: min(calc(100% - (var(--space-md) * 2)), 30rem);
@@ -154,7 +161,8 @@
 .ui-dialog__button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
 @media (hover: hover) and (pointer: fine) {
-  .ui-select__option:hover,
+  /* Not .ui-select__option:hover: moving the pointer makes that row the active one, and a
+   * second fill for it would leave two rows shaded when the keyboard had moved on. */
   .ui-dialog__button--secondary:hover,
   .ui-dialog__button--cancel:hover { background: var(--color-paper-3); }
   .ui-dialog__button--confirm:hover { background: var(--color-accent-hover); }
