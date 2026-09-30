@@ -46,11 +46,22 @@ test('the server keeps the file in the stored JSON and the site-relative address
   assert.equal(attrs?.href, `/media/${id}`);
 });
 
-test('a link that names a file must be an address of that file', () => {
+test('a URL typed over a file link saves as an ordinary link: the file it was is let go, not refused', () => {
+  // Tiptap merges attributes, so typing a URL over a file link leaves the old mediaId beside the new href.
+  const stored = prepareEditorContent({ contentJson: linked({ href: 'https://example.com', mediaId: id, target: '_blank' }) });
+  const attrs = stored.contentJson.content?.[0]?.content?.[0]?.marks?.[0]?.attrs;
+  assert.equal(attrs?.href, 'https://example.com');
+  assert.equal('mediaId' in (attrs ?? {}), false, 'it no longer holds the file');
+  assert.match(stored.contentHtml, /<a target="_blank" rel="noopener noreferrer" href="https:\/\/example\.com">the guide<\/a>/);
+  // The same for another file's address, and for the typed link that clears it on purpose.
+  const other = prepareEditorContent({ contentJson: linked({ href: '/media/44444444-4444-4444-8444-444444444444', mediaId: id }) });
+  assert.equal('mediaId' in (other.contentJson.content?.[0]?.content?.[0]?.marks?.[0]?.attrs ?? {}), false);
+  assert.doesNotThrow(() => prepareEditorContent({ contentJson: linked({ href: 'https://example.com', mediaId: null }) }));
+});
+
+test('a link that names a file keeps it only when it is that file\'s address, and an id that is no id is refused', () => {
   assert.doesNotThrow(() => prepareEditorContent({ contentJson: linked({ href: `/media/${id}`, mediaId: id }) }));
   for (const attrs of [
-    { href: 'https://elsewhere.example/', mediaId: id },
-    { href: `/media/${id}`, mediaId: '44444444-4444-4444-8444-444444444444' },
     { href: `/media/${id}`, mediaId: 'not-a-uuid' },
     { href: `/media/${id}`, mediaId: 7 },
   ]) {

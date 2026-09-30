@@ -102,15 +102,20 @@ export interface StoredEditorContent {
   contentHtml: string;
 }
 
-/** A link that names a file is that file's address, as an image is: a writer cannot hold one file with another's link. */
+/**
+ * A link holds a file only while it is that file's address. Typing a URL over one leaves the old
+ * mediaId beside the new href, since the editor merges attributes; that link is an ordinary link
+ * now, and saves as one. An id that is no id is not that, and is refused.
+ */
 function normalizeLinkedFile(mark: EditorMark): void {
   const attrs = mark.attrs;
   if (attrs?.mediaId === undefined || attrs.mediaId === null) return;
   const mediaId = typeof attrs.mediaId === 'string' ? attrs.mediaId.toLowerCase() : '';
-  if (!isUuid(mediaId) || typeof attrs.href !== 'string' || attrs.href.toLowerCase() !== `/media/${mediaId}`) {
-    throw new ValidationError('A link to a file must be that file\'s address.');
-  }
-  mark.attrs = { ...attrs, href: `/media/${mediaId}`, mediaId };
+  if (!isUuid(mediaId)) throw new ValidationError('A link to a file must name a file from this site.');
+  const { mediaId: _held, ...rest } = attrs;
+  mark.attrs = typeof attrs.href === 'string' && attrs.href.toLowerCase() === `/media/${mediaId}`
+    ? { ...rest, href: `/media/${mediaId}`, mediaId }
+    : rest;
 }
 
 function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string, AttachmentFile>): void {

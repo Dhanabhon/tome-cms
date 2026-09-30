@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 
+import { runWithEndpointContext } from '@better-auth/core/context';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { makeSignature } from 'better-auth/crypto';
 
 test('a PDF is read back through the app: only its owner, only a ready PDF, by range, never a stack', async (context) => {
   assert.equal(process.env.NODE_ENV, 'test');
@@ -120,4 +122,35 @@ test('a PDF is read back through the app: only its owner, only a ready PDF, by r
   assert.equal(response.status, 401);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(asked.length, calls);
+
+  // A signed-in owner, as a browser would be: the session is bound to a passkey, and sends its cookie.
+  await db.insertInto('passkey').values({
+    id: 'route-passkey', name: 'Route', publicKey: 'route-key', userId: ownerId, credentialID: 'route-credential', counter: 0,
+    deviceType: 'singleDevice', backedUp: false, transports: '', aaguid: null,
+  }).execute();
+  const { auth } = await import('../../src/server/auth/config');
+  const authContext = await auth.$context;
+  const session = await runWithEndpointContext({
+    context: authContext as unknown as Parameters<typeof runWithEndpointContext>[0]['context'],
+    path: '/passkey/verify-authentication',
+    body: { response: { id: 'route-credential' } },
+  }, () => authContext.internalAdapter.createSession(ownerId));
+  const cookie = `${authContext.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, authContext.secret)}`;
+  const signedIn = (headers: Record<string, string> = {}) => GET({
+    params: { id: ready.id },
+    request: new Request(`http://localhost:4321/api/admin/media/${ready.id}/content`, { headers: { Cookie: cookie, ...headers } }),
+  } as unknown as Parameters<typeof GET>[0]);
+
+  // The same origin check as every sibling GET: another origin's page cannot read the bytes, and storage is not asked.
+  const beforeOrigin = asked.length;
+  const foreignOrigin = await signedIn({ Origin: 'https://evil.example' });
+  assert.equal(foreignOrigin.status, 403);
+  assert.equal(foreignOrigin.headers.get('cache-control'), 'no-store');
+  assert.equal(asked.length, beforeOrigin);
+  // A page of this site (no Origin on a same-origin GET, or its own) is answered.
+  for (const headers of [{}, { Origin: 'http://localhost:4321' }] as Array<Record<string, string>>) {
+    const answered = await signedIn(headers);
+    assert.equal(answered.status, 200);
+    assert.deepEqual(Buffer.from(await answered.arrayBuffer()), pdf);
+  }
 });

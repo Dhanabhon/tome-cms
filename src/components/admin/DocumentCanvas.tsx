@@ -222,7 +222,10 @@ function FormattingBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?
             return;
           }
           const href = normalizedLink(answer.value);
-          if (href) instance.chain().focus().setLink({ href, target: answer.checked ? '_blank' : null }).run();
+          // mediaId is cleared by name: text that was a file link keeps its attributes otherwise.
+          if (!href) return;
+          const typed = { href, mediaId: null, target: answer.checked ? '_blank' : null };
+          instance.chain().focus().setLink(typed).run();
         });
       },
     },
