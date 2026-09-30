@@ -541,7 +541,9 @@ body.paper { background: var(--color-paper); }
 
 .post-search input:hover { border-color: var(--color-rule-strong); }
 
-.post-search input:focus-visible { border-color: var(--color-accent); }
+/* One line, not two: the site-wide focus outline would ring the field outside its own accent
+ * border. The inset line thickens the border to two pixels without moving the text. */
+.post-search input:focus-visible { border-color: var(--color-accent); outline: none; box-shadow: inset 0 0 0 var(--rule-hair) var(--color-accent); }
 
 .post-search__submit {
   position: absolute;
