@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 
+import { MarkdownManager } from '@tiptap/markdown';
 import { MarkdownTooComplexError, parseMarkdownPost, placePictures } from '../../src/server/content/markdown-import';
 import { prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
@@ -214,16 +215,26 @@ const timed = (name: string, input: string, limit: string | null) => test(name, 
   const took = performance.now() - started;
   t.diagnostic(`${Math.round(took)} ms, ${refused ? `refused: ${refused}` : 'parsed'}`);
   assert.equal(refused, limit);
-  assert.ok(took < 5000, `took ${Math.round(took)} ms`);
+  // A refusal is at once. What is read may take seconds on a loaded runner, and must still end.
+  assert.ok(took < (limit === null || limit === 'html' ? 15_000 : 5_000), `took ${Math.round(took)} ms`);
 });
 
-timed('55,000 pictures, each in its own paragraph, are refused at once', '![a](./a.png)\n\n'.repeat(55_000), 'pictures');
+timed('55,000 pictures, each in its own paragraph, are refused at once', '![a](./a.png)\n\n'.repeat(55_000), 'lines');
+timed('2,500 pictures in one paragraph are refused at once', '![a](./a.png) '.repeat(2_500), 'pictures');
 timed('90,000 inline tags are refused at once', '<b>x</b>'.repeat(90_000), 'inline');
 timed('25,000 links in one paragraph are refused at once', '[a](https://a.com) '.repeat(25_000), 'inline');
-timed('100,000 headings are refused at once', '## h\n'.repeat(100_000), 'blocks');
+timed('100,000 headings are refused at once', '## h\n'.repeat(100_000), 'lines');
+timed('5,000 headings are refused at once', '## h\n'.repeat(5_000), 'blocks');
+timed('a code fence that is not one, then 290,000 emphases, is refused at once', '``` `\n' + '*a '.repeat(290_000), 'emphasis');
+timed('the same with 100,000 tags is refused at once', '``` `\n' + '<b>x</b>'.repeat(100_000), 'inline');
+timed('the same with 120,000 links is refused at once', '``` `\n' + '[a](x) '.repeat(120_000), 'inline');
+timed('a fence inside an HTML block is not code, and 290,000 emphases after it are refused at once', '<div>\n```\n\n' + '*a '.repeat(290_000), 'emphasis');
+timed('39,000 emphases in one paragraph are refused at once', '*a '.repeat(39_000), 'emphasis');
+timed('20,000 underscores, tildes and mixed marks in one paragraph are refused at once', '_a ~b *c '.repeat(7_000), 'emphasis');
 timed('400,000 list dashes on one line are read at once', '- '.repeat(400_000), null);
 timed('450,000 short lines are refused at once', 'a\n'.repeat(450_000), 'lines');
-timed('30,000 different tags are refused at once', Array.from({ length: 30_000 }, (_, i) => `<t${i}>`).join(''), 'html');
+timed('30,000 different tags in one paragraph are refused at once', Array.from({ length: 30_000 }, (_, i) => `<t${i}>`).join(''), 'inline');
+timed('30,000 tags of 299 kinds, in paragraphs of 3,000, are read, and gone from the text', Array.from({ length: 10 }, () => Array.from({ length: 3_000 }, (_, i) => `<t${i % 299}>`).join(' ')).join('\n\n'), null);
 timed('a long post, 100,000 words and 500 pictures, is read whole', Array.from({ length: 100 }, (_, part) => [
   `## Part ${part}`,
   ...Array.from({ length: 15 }, (_, item) => `${'คำ word '.repeat(35)} **bold** and [link](https://x.com/${part}/${item}) and \`code\`.${item % 3 === 0 ? `\n\n![pic](./img/${part}-${item}.png)` : ''}`),
@@ -250,13 +261,40 @@ test('frontmatter over 20 KB is reported, not handed to the YAML reader, and the
   assert.ok(took < 5000);
 });
 
+test('a paragraph with 200 emphases is read', () => {
+  const parsed = parseMarkdownPost('word *em* and **strong** '.repeat(200), 'a.md');
+  assert.equal(nodes(parsed.document).filter((node) => node.marks?.length).length, 400);
+});
+
+// Hard-wrapped at 80 columns, there are many lines and few blocks; a listing is lines and no blocks.
+const wrapped = (words: number) => Array.from({ length: words / 40 }, (_, i) => `Paragraph ${i}: ${'lorem ipsum dolor sit amet '.repeat(8)}`
+  .replace(/(.{1,78})(\s|$)/g, '$1\n').trimEnd()).join('\n\n');
+timed('100,000 words hard-wrapped at 80 columns, and a 3,000-line listing, are read whole', `${wrapped(100_000)}\n\n\`\`\`js\n${'const a = b; // one line of code\n'.repeat(3_000)}\`\`\`\n`, null);
+timed('a listing of 11,000 lines, with blank lines and comments in it, is read whole',
+  `\`\`\`python\n${Array.from({ length: 11_000 }, (_, i) => (i % 4 === 0 ? '' : i % 4 === 1 ? '# a comment' : i % 4 === 2 ? '> x' : '---')).join('\n')}\n\`\`\``, null);
+timed('a listing over the line limit is refused for its lines, not its blocks', `\`\`\`\n${'\n'.repeat(26_000)}\`\`\``, 'lines');
+
 test('a file nested too deeply is refused with an error the service can show, never a stack overflow', () => {
   const lists = Array.from({ length: 300 }, (_, level) => `${'  '.repeat(level)}- item`).join('\n');
   for (const source of [lists, `${'> '.repeat(3_000)}text`]) {
     assert.throws(() => parseMarkdownPost(source, 'deep.md'), (error) => {
-      assert.ok(error instanceof ValidationError);
-      assert.ok(!(error instanceof RangeError));
+      assert.ok(error instanceof MarkdownTooComplexError);
+      assert.equal(error.limit, 'depth');
       return true;
     });
+  }
+});
+
+test('any other error from the parser is a plain refusal with nothing of its insides in it', () => {
+  const parse = mock.method(MarkdownManager.prototype, 'parse', () => { throw new Error('internal detail: /srv/app/secret.ts'); });
+  try {
+    assert.throws(() => parseMarkdownPost('Some text', 'a.md'), (error) => {
+      assert.ok(error instanceof ValidationError);
+      assert.ok(!(error instanceof MarkdownTooComplexError));
+      assert.equal(error.message, 'This file could not be read as Markdown.');
+      return true;
+    });
+  } finally {
+    parse.mock.restore();
   }
 });

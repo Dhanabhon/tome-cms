@@ -1,4 +1,5 @@
 import { MarkdownManager } from '@tiptap/markdown';
+import type { Token } from 'marked';
 import { parse as parseYaml } from 'yaml';
 
 import { normalizeCodeLanguage } from '../../lib/code-languages';
@@ -30,26 +31,33 @@ const KEPT_LINK = /^(?:https?:|\/(?![/\\])|#)/i;
 
 /*
  * Limits on what one file may ask of the server. The Markdown lexer is slower than linear: every
- * block re-reads the rest of the file, and a paragraph's marks are slower than linear in their
- * number, so a 900 KB file of tiny blocks or marks takes minutes and stops the whole site. They
- * are counted on the text, in one pass, before any lexing; a file over one is refused. A long
- * post (100,000 words, 500 pictures) uses a fraction of each.
+ * block re-reads the rest of the file, and the marks in one paragraph cost more than linear in
+ * their number, so a 900 KB file of tiny blocks or marks takes minutes and stops the whole site.
+ * The file is first cut into blocks by a plain Markdown lexer, which is fast because it leaves
+ * the marks inside blocks alone; the blocks are counted, and so are the marks in each. Reading
+ * the file as the parser does (rather than guessing where its code blocks are) means a file
+ * cannot hide its marks from the count. A file over a limit is refused. A long post (100,000
+ * words, 500 pictures, long listings) uses a fraction of each.
  */
 export const MAX_FRONTMATTER = 20_000;
+/** Top-level blocks; each makes the parser read the rest of the file again. */
 export const MAX_BLOCKS = 4_000;
-export const MAX_LINES = 12_000;
-/** Characters that start a mark: emphasis, code, a link or tag, an escape, a bare address. */
+/** The same, per line: hard-wrapped text and listings are long but are few blocks. */
+export const MAX_LINES = 25_000;
+/** Characters that start a mark in text: emphasis, code, a link or tag, an escape, a bare address. */
 export const MAX_INLINE = 40_000;
+/** Marks in one paragraph, heading or cell: the lexer's cost grows with their square. */
+export const MAX_INLINE_IN_BLOCK = 5_000;
+/** Emphasis marks in one of them: the dearest kind (1,500 cost a tenth of a second). */
+export const MAX_EMPHASIS = 1_500;
 export const MAX_PICTURES = 2_000;
 /** Levels of lists, quotes and tables inside each other; the server's own check stops a little past this. */
 export const MAX_DEPTH = 40;
-/** Different tags a file may hold; each is searched for in every text that has a `<`. */
+/** Different tags a file may hold; they are searched for together, in every text that has a `<`. */
 export const MAX_HTML = 300;
 
-// A block starts at a blank line, a heading, a quote, a fence or a rule; a list or a table is one.
-const BLOCK_START = /^ {0,3}(?:#{1,6}(?:\s|$)|>|```|~~~|(?:[-*_][ \t]*){3,}$)|\n[ \t]*\n+/gm;
-const FENCED = /^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?(?:\n {0,3}\1[~`]*[ \t]*(?=\n|$)|(?![\s\S]))/gm;
 const INLINE_START = /[<[*_`~\\]|https?:|www\./gi;
+const EMPHASIS = /[*_~]/g;
 const PICTURE_START = /!\[/g;
 
 /** A file that is too big or too deep to read; `warning` says which limit, for the sheet to show. */
@@ -65,12 +73,31 @@ export class MarkdownTooComplexError extends ValidationError {
 
 const count = (value: string, pattern: RegExp): number => value.match(pattern)?.length ?? 0;
 
+/** The text of every block that holds marks (code and HTML blocks hold none), at any depth. */
+function* markedText(tokens: readonly Token[]): Generator<string> {
+  for (const token of tokens) {
+    if (token.type === 'paragraph' || token.type === 'heading' || token.type === 'text') yield token.text;
+    else if (token.type === 'table') for (const cell of [...token.header, ...token.rows.flat()]) yield cell.text;
+    else if (token.type === 'blockquote') yield* markedText(token.tokens ?? []);
+    else if (token.type === 'list') for (const item of token.items) yield* markedText(item.tokens);
+  }
+}
+
 function checkSize(body: string): void {
-  if (count(body, PICTURE_START) > MAX_PICTURES) throw new MarkdownTooComplexError('pictures');
-  if (count(body, BLOCK_START) > MAX_BLOCKS) throw new MarkdownTooComplexError('blocks');
   if (count(body, /\n/g) > MAX_LINES) throw new MarkdownTooComplexError('lines');
-  // Code is not read for marks, so a long listing does not count against the post.
-  if (count(body.replace(FENCED, ''), INLINE_START) > MAX_INLINE) throw new MarkdownTooComplexError('inline');
+  const tokens = new markdown.instance.Lexer(markdown.instance.getDefaults()).blockTokens(body);
+  if (tokens.filter((token) => token.type !== 'space').length > MAX_BLOCKS) throw new MarkdownTooComplexError('blocks');
+  let inline = 0;
+  let pictures = 0;
+  for (const value of markedText(tokens)) {
+    if (count(value, EMPHASIS) > MAX_EMPHASIS) throw new MarkdownTooComplexError('emphasis');
+    const marks = count(value, INLINE_START);
+    if (marks > MAX_INLINE_IN_BLOCK) throw new MarkdownTooComplexError('inline');
+    inline += marks;
+    pictures += count(value, PICTURE_START);
+  }
+  if (pictures > MAX_PICTURES) throw new MarkdownTooComplexError('pictures');
+  if (inline > MAX_INLINE) throw new MarkdownTooComplexError('inline');
 }
 
 export interface ParsedMarkdownPost {
@@ -133,11 +160,11 @@ function plainText(node: EditorNode): string {
   return node.text ?? (node.content ?? []).map(plainText).join('');
 }
 
-function clean(node: EditorNode, html: readonly string[], counts: { links: number }, inCode: boolean): EditorNode | null {
+function clean(node: EditorNode, html: RegExp | null, counts: { links: number }, inCode: boolean): EditorNode | null {
   if (node.type === 'text') {
     const isCode = inCode || Boolean(node.marks?.some((mark) => mark.type === 'code'));
     let value = node.text ?? '';
-    if (!isCode && value.includes('<')) for (const raw of html) value = value.split(raw).join('');
+    if (html && !isCode && value.includes('<')) value = value.replace(html, '');
     if (!value.trim() && value !== node.text) return null;
     const marks = node.marks?.filter((mark) => {
       if (mark.type !== 'link') return true;
@@ -178,15 +205,17 @@ export function parseMarkdownPost(source: string, fileName: string): ParsedMarkd
     else publishedAt = date.toISOString();
   }
 
-  checkSize(body);
   const counts = { links: 0 };
   let blocks: EditorNode[];
   let htmlCount: number;
   try {
+    checkSize(body);
     const found = htmlTokens(body);
     htmlCount = found.length;
-    const html = [...new Set(found)].sort((left, right) => right.length - left.length);
-    if (html.length > MAX_HTML) throw new MarkdownTooComplexError('html');
+    const distinct = [...new Set(found)].sort((left, right) => right.length - left.length);
+    if (distinct.length > MAX_HTML) throw new MarkdownTooComplexError('html');
+    // One pass over each text, the longest tag first, rather than one search for each tag.
+    const html = distinct.length ? new RegExp(distinct.map((raw) => raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g') : null;
     // A round trip through JSON drops the `content: undefined` the parser leaves on an inline picture,
     // which the server's check refuses as not JSON.
     const parsed = JSON.parse(JSON.stringify(markdown.parse(body))) as EditorDocument;

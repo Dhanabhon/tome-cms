@@ -9,8 +9,8 @@ export const MAX_MARKDOWN_BYTES = 900_000;
 /** The words of a skipped picture's line, in the post's language, not the admin's. */
 export const MISSING_IMAGE = { th: 'รูปที่ขาด', en: 'Missing image' } as const;
 
-/** What a refused file ran over: too many blocks or lines, marks, pictures or tags, or too deep. */
-export type ImportLimit = 'blocks' | 'lines' | 'inline' | 'pictures' | 'html' | 'depth';
+/** What a refused file ran over: too many blocks or lines, marks, emphasis in one paragraph, pictures or tags, or too deep. */
+export type ImportLimit = 'blocks' | 'lines' | 'inline' | 'emphasis' | 'pictures' | 'html' | 'depth';
 
 export type PictureKind = 'local' | 'remote' | 'refused';
 
