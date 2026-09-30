@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { PutObjectCommand } from '@aws-sdk/client-s3';
@@ -42,7 +42,8 @@ test('a presigned URL carries the public host and the app calls the internal one
   assert.equal(url.origin, 'https://media.example.com');
   const server = await s3.config.endpoint?.();
   assert.equal(`${server?.protocol}//${server?.hostname}:${server?.port}`, 'http://storage.internal:8333');
-  assert.equal(await s3.config.forcePathStyle, await s3Presign.config.forcePathStyle);
+  assert.equal(s3.config.forcePathStyle, true);
+  assert.equal(s3Presign.config.forcePathStyle, true);
   assert.equal(await s3.config.region(), await s3Presign.config.region());
 });
 
@@ -50,4 +51,17 @@ test('the managed compose file gives the app the same internal address the code 
   const { storageEndpoints } = await import('../../src/server/media/storage');
   const { server } = storageEndpoints({ S3_ENDPOINT: 'https://m.example.com', S3_INTERNAL_ENDPOINT: undefined, TOME_CMS_UPDATE_MODE: 'managed' });
   assert.match(readFileSync('compose.managed.yaml', 'utf8'), new RegExp(`^ {6}S3_INTERNAL_ENDPOINT: ${server}$`, 'm'));
+});
+
+test('s3Presign appears in src only as the client handed to getSignedUrl', () => {
+  const files = readdirSync('src', { recursive: true, encoding: 'utf8' }).filter((f) => /\.(ts|tsx|astro|mjs)$/.test(f));
+  const uses = files.flatMap((f) =>
+    readFileSync(`src/${f}`, 'utf8').split('\n').map((line, i) => ({ f, line, i })).filter(({ line }) => /\bs3Presign\b/.test(line)));
+  // The definition, the import, and every call: nothing else may touch it.
+  const stray = uses.filter(({ f, line }) =>
+    !(f === 'server/media/storage.ts' && line.startsWith('export const s3Presign = ')) &&
+    !/^import .* from '\.\/storage';$/.test(line) &&
+    !/getSignedUrl\(s3Presign,/.test(line));
+  assert.deepEqual(stray, []);
+  assert.ok(uses.some(({ line }) => /getSignedUrl\(s3Presign,/.test(line)));
 });
