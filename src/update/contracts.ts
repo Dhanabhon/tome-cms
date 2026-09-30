@@ -165,7 +165,7 @@ function positiveInteger(value: unknown): value is number {
 
 function isReleaseNotesUrl(value: unknown, version: string): value is string {
   if (typeof value !== 'string') return false;
-  const expected = `https://github.com/Dhanabhon/tome-cms/releases/tag/v${version}`;
+  const expected = `${OFFICIAL_REPOSITORY_URL}/releases/tag/v${version}`;
   return value === expected;
 }
 

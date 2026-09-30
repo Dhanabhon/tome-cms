@@ -7,6 +7,7 @@ import { authClient } from '../../lib/auth-client';
 import { updateDurations, type UpdateTimeline } from '../../lib/update-timeline';
 import { describePasskeyException, describeReauthFailure } from '../../lib/passkey-failure';
 import { confirmUi } from '../../lib/ui-dialog';
+import { OFFICIAL_REPOSITORY_URL } from '../../update/contracts';
 import type { UpdaterStatus } from '../../server/update/updater-client';
 import type { UpdateUnavailableReason } from '../../server/update/service';
 import type { PublicUpdateJob } from '../../updater/state';
@@ -303,7 +304,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
   // Measured by the updater since 1.3.0; an older one gives nothing, and the card says nothing.
   const durations = currentJob ? updateDurations(currentJob, check?.timeline ?? null) : null;
   const releaseNotes = check?.latest && check.latest.manifest.releaseNotesUrl
-    === `https://github.com/Dhanabhon/tome-cms/releases/tag/v${check.latest.manifest.version}`
+    === `${OFFICIAL_REPOSITORY_URL}/releases/tag/v${check.latest.manifest.version}`
     ? check.latest.manifest.releaseNotesUrl : null;
 
   return (

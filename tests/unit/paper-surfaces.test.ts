@@ -23,10 +23,12 @@ test("the shared html and body rule still paints the cream other themes rely on"
 test("Paper's search field shows one focus line: its own border, not the site-wide outline as well", () => {
   const css = read('src/themes/paper/theme.css');
   const rule = /\.post-search input:focus-visible \{([^}]*)\}/.exec(css)?.[1] ?? '';
-  assert.match(rule, /outline: none;/, 'no outer ring on the field');
+  assert.match(rule, /outline: 2px solid transparent;/, 'no visible outer ring, but one forced-colors can paint');
   assert.match(rule, /border-color: var\(--color-accent\);/);
   // The border alone is one hairline; the inset line doubles it without moving the text.
   assert.match(rule, /box-shadow: inset 0 0 0 var\(--rule-hair\) var\(--color-accent\);/);
   // The button inside the field keeps the site-wide ring it has always had.
-  assert.doesNotMatch(css, /\.post-search__submit:focus-visible \{[^}]*outline: none/);
+  assert.doesNotMatch(css, /\.post-search__submit:focus-visible \{[^}]*outline: (none|2px solid transparent)/);
+  // It draws the site-wide ring, which is still there to draw.
+  assert.match(read('src/styles/global.css'), /\n:focus-visible \{\s*outline: 2px solid var\(--color-focus\);/);
 });

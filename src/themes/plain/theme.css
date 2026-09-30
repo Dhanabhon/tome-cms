@@ -103,8 +103,8 @@
 }
 .plain-search input::placeholder { color: var(--color-placeholder); opacity: 1; }
 .plain-search input:hover { border-color: var(--color-ink); }
-/* One line, as Paper's: the border turns accent and thickens inward; no ring outside it. */
-.plain-search input:focus-visible { border-color: var(--color-accent); outline: none; box-shadow: inset 0 0 0 var(--rule-hair) var(--color-accent); }
+/* One line, as Paper's: the border turns accent and thickens inward; the outline stays transparent so forced-colors can paint it. */
+.plain-search input:focus-visible { border-color: var(--color-accent); outline: 2px solid transparent; box-shadow: inset 0 0 0 var(--rule-hair) var(--color-accent); }
 .plain-search__submit {
   position: absolute;
   inset-block: var(--space-xs);

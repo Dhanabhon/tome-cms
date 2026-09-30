@@ -85,7 +85,7 @@ test('the file headers no longer say one column', () => {
 
 test("Plain's search field shows one focus line, as Paper's does, and its button keeps its ring", () => {
   const rule = /\.plain-search input:focus-visible \{([^}]*)\}/.exec(css)?.[1] ?? '';
-  assert.match(rule, /outline: none;/, 'no outer ring on the field');
+  assert.match(rule, /outline: 2px solid transparent;/, 'no visible outer ring, but one forced-colors can paint');
   assert.match(rule, /border-color: var\(--color-accent\);/);
   assert.match(rule, /box-shadow: inset 0 0 0 var\(--rule-hair\) var\(--color-accent\);/);
   assert.match(css, /\.plain-search__submit:focus-visible \{ outline: 2px solid var\(--color-focus\);/);
