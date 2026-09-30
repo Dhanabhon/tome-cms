@@ -2,6 +2,23 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.5.3 - 2026-09-30
+
+A PDF shows its first page in the File Manager, and a link in the editor can point at a file from it.
+
+### Added
+
+- The File Manager shows a PDF's first page on its card and in its details, drawn in the browser from a new owner-only route that reads the file in ranges.
+- The editor's link dialog can choose a file from the File Manager; the link points at `/media/<id>` and counts as a use, so the file is not deleted while a post links to it.
+- Paper's footer links the site's name to its home page and "TomeCMS" to the project's repository.
+
+### Changed
+
+- "Copy URL" copies a full address that works wherever it is pasted, and says "Copied" on the button itself.
+- The search field on Paper and Plain shows one focus line instead of two.
+
+Full notes: [docs/releases/1.5.3.md](docs/releases/1.5.3.md)
+
 ## 1.5.2 - 2026-09-30
 
 Uploads no longer fail at "Storage verification is temporarily unavailable" when the media address sits behind a CDN.
