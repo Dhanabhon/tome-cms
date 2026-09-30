@@ -26,9 +26,10 @@ for (const locale of ['en', 'th'] as const) {
     for (const line of lines) assert.notEqual(line, text.failed);
   });
 
-  test(`a busy server, a file over the size and an unknown failure each have a line (${locale})`, () => {
+  test(`a busy server, a file over the size, a signed-out owner and an unknown failure each have a line (${locale})`, () => {
     assert.equal(refusalText(text, { status: 429, warning: { code: 'busy' } }), text.busy);
     assert.equal(refusalText(text, { status: 413 }), text.tooLarge);
+    assert.equal(refusalText(text, { status: 401 }), text.signedOut);
     assert.equal(refusalText(text, { status: 500 }), text.failed);
     assert.equal(refusalText(text, undefined), text.failed);
   });

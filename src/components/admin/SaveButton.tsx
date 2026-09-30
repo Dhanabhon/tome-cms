@@ -2,6 +2,7 @@ import type { SaveState } from '../../lib/save-state';
 import Icon from '../Icon';
 
 interface SaveButtonProps {
+  describedBy?: string;
   disabled?: boolean;
   label: string;
   onClick?: () => void;
@@ -16,11 +17,12 @@ interface SaveButtonProps {
  * Both words sit in one grid cell so the button never changes width; the hidden one is
  * visibility: hidden and aria-hidden. A screen reader hears the change from the status beside it.
  */
-export default function SaveButton({ disabled = false, label, onClick, savedLabel, savingLabel, state, type = 'button' }: SaveButtonProps) {
+export default function SaveButton({ describedBy, disabled = false, label, onClick, savedLabel, savingLabel, state, type = 'button' }: SaveButtonProps) {
   return (
     <>
       <button
         aria-busy={state === 'saving'}
+        aria-describedby={describedBy}
         className="admin-button admin-button--primary admin-save-button"
         data-state={state}
         disabled={disabled || state !== 'dirty'}

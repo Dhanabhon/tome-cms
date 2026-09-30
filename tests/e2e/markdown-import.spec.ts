@@ -82,6 +82,7 @@ test.beforeAll(async () => {
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
     values (true, 'a1600000-0000-4000-8000-000000000001', 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
   await sql`insert into categories (owner_id, name, is_default) values ('a1600000-0000-4000-8000-000000000001', 'Uncategorized', true)`.execute(db);
+  await sql`insert into categories (owner_id, name) values ('a1600000-0000-4000-8000-000000000001', 'Notes')`.execute(db);
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env, stdio: 'pipe' });
   let output = '';
@@ -127,11 +128,19 @@ async function signIn(context: BrowserContext, page: Page) {
 
 // A 1x1 PNG: the library checks that an upload really is the picture it says.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+// The same picture written into the post twice, under two addresses: one file, uploaded once.
 const file = (title: string) => [
-  '---', `title: ${title}`, 'locale: en', '---', '',
-  '![one](./images/one.png)', '', 'Words between.', '', '![one again](./images/one.png)', '',
+  '---', `title: ${title}`, 'locale: en', 'categories: [Notes, Gardening]', '---', '',
+  '![one](./images/one.png)', '', 'Words between.', '', '![one again](one.png)', '',
   '![two](two.png)', '', '![three](./three.png)', '',
 ].join('\n');
+
+/** How many times the library holds a file of that name. */
+async function uploads(name: string): Promise<number> {
+  const { db } = await import('../../src/server/db/client');
+  const { sql } = await import('kysely');
+  return Number((await sql<{ count: string }>`select count(*) from media_items where original_name = ${name}`.execute(db)).rows[0]!.count);
+}
 
 /** Opens the sheet once its island has hydrated: a click before that lands on nothing. */
 async function openSheet(page: Page) {
@@ -156,28 +165,56 @@ test('a Markdown file with pictures becomes a draft, and a skipped picture leave
     const [chooser] = await Promise.all([page.waitForEvent('filechooser'), sheet.getByText('Choose a .md file').click()]);
     await chooser.setFiles({ name: `post-${width}.md`, mimeType: 'text/markdown', buffer: Buffer.from(file(title)) });
     await expect(sheet.getByText(title)).toBeVisible();
+    // What the import will make, before any picture is sent.
+    const summary = sheet.locator('.markdown-import-summary');
+    await expect(summary).toContainText('English');
+    await expect(summary).toContainText(`imported-at-${width}`);
+    await expect(summary).toContainText('Notes');
+    await expect(summary).not.toContainText('Gardening');
+    const before = { one: await uploads('one.png'), two: await uploads('TWO.png') };
     await sheet.getByTestId('markdown-pictures').setInputFiles([
       { name: 'one.png', mimeType: 'image/png', buffer: PNG },
       { name: 'TWO.png', mimeType: 'image/png', buffer: PNG },
     ]);
-    await expect(sheet.getByText('Matched with one.png')).toBeVisible();
+    await expect(sheet.getByText('Matched with one.png')).toHaveCount(2);
     await expect(sheet.getByText('Matched with TWO.png')).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Import as draft' })).toBeDisabled();
-    await expect(sheet.getByText('Choose or skip every picture that needs a file.')).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Import as draft' })).toHaveAccessibleDescription('Choose or skip every picture that needs a file.');
+    // The control that was pressed goes away; the focus goes to what replaces it, never to the page.
+    await sheet.getByRole('button', { name: 'Skip' }).click();
+    await expect(sheet.getByRole('button', { name: 'Undo' })).toBeFocused();
+    await sheet.getByRole('button', { name: 'Undo' }).click();
+    const rowChooser = sheet.getByRole('listitem').filter({ hasText: 'three.png' }).locator('input[type=file]');
+    await expect(rowChooser).toBeFocused();
     await sheet.getByRole('button', { name: 'Skip' }).click();
     await expect(sheet.getByRole('button', { name: 'Import as draft' })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await sheet.getByRole('button', { name: 'Import as draft' }).click();
     await expect(sheet.getByText('One picture was skipped. Search the post for "Missing image".')).toBeVisible();
-    await sheet.getByRole('link', { name: 'Open the draft' }).click();
+    await expect(sheet.getByText('These categories do not exist: Gardening.')).toBeVisible();
+    // One file under two addresses went up once.
+    expect(await uploads('one.png')).toBe(before.one + 1);
+    expect(await uploads('TWO.png')).toBe(before.two + 1);
+
+    // Closing the sheet brings the new draft into the list behind it.
+    await page.keyboard.press('Escape');
+    const card = page.locator('.admin-story-row', { hasText: title });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Notes');
+    await card.getByRole('link', { name: title }).first().click();
+    await expect(page.getByPlaceholder('Untitled post')).toHaveValue(title);
     const editor = page.locator('.ProseMirror');
-    await expect(editor.locator('img[src^="/media/"]')).toHaveCount(3);
+    await expect(editor).toContainText('Words between.');
     await expect(editor).toContainText('[Missing image: three.png]');
+    const sources = await editor.locator('img[src^="/media/"]').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    expect(sources).toHaveLength(3);
+    expect(sources[0]).toBe(sources[1]);
+    expect(new Set(sources).size).toBe(2);
   }
 });
 
-test('a file the server refuses says why, and the sheet closes on Escape and on a press outside', async ({ context, page }) => {
-  test.setTimeout(120_000);
+test('a file the server refuses says why, the sheet keeps its place while it saves, and an upload that fails says why', async ({ context, page }) => {
+  test.setTimeout(180_000);
   await signIn(context, page);
   await page.setViewportSize({ width: 1440, height: 900 });
   const { opener, sheet } = await openSheet(page);
@@ -189,25 +226,60 @@ test('a file the server refuses says why, and the sheet closes on Escape and on 
   await sheet.getByTestId('markdown-file').setInputFiles({ name: 'tags.md', mimeType: 'text/markdown', buffer: Buffer.from(tags) });
   await expect(sheet.getByRole('alert')).toContainText('too many kinds of HTML tag');
 
-  // A picture the library will not keep goes back to needing a file, and another file for it goes through.
-  await sheet.getByTestId('markdown-file').setInputFiles({ name: 'one.md', mimeType: 'text/markdown', buffer: Buffer.from('# One picture\n\n![one](one.png)\n') });
-  await sheet.getByTestId('markdown-pictures').setInputFiles({ name: 'one.png', mimeType: 'image/png', buffer: Buffer.from('not a picture') });
-  await sheet.getByRole('button', { name: 'Import as draft' }).click();
-  await expect(sheet.getByRole('alert')).toHaveText('one.png could not be uploaded. Choose another file, or skip the picture.');
-  await expect(sheet.getByText('Needs a file', { exact: true })).toBeVisible();
-  await expect(sheet.getByRole('button', { name: 'Import as draft' })).toBeDisabled();
-  await sheet.getByRole('listitem').locator('input[type=file]').setInputFiles({ name: 'better.png', mimeType: 'image/png', buffer: PNG });
-  await expect(sheet.getByText('Matched with better.png')).toBeVisible();
-  await sheet.getByRole('button', { name: 'Import as draft' }).click();
-  await expect(sheet.getByRole('link', { name: 'Open the draft' })).toBeVisible();
-
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
   await expect(opener).toBeFocused();
-
   await opener.click();
   await expect(sheet).toBeVisible();
   await page.mouse.click(4, 4);
   await expect(sheet).toBeHidden();
   await expect(opener).toBeFocused();
+  await opener.click();
+
+  // A picture the library will not keep goes back to needing a file, with the reason the library gave.
+  await sheet.getByTestId('markdown-file').setInputFiles({ name: 'one.md', mimeType: 'text/markdown', buffer: Buffer.from('# One picture\n\n![one](one.png)\n') });
+  await sheet.getByTestId('markdown-pictures').setInputFiles({ name: 'one.png', mimeType: 'image/png', buffer: Buffer.from('not a picture') });
+  await sheet.getByRole('button', { name: 'Import as draft' }).click();
+  await expect(sheet.getByRole('alert')).toHaveText('The uploaded object is not a valid supported image.');
+  await expect(sheet.getByText('Needs a file', { exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Import as draft' })).toBeDisabled();
+  await expect(sheet.getByRole('listitem').locator('input[type=file]')).toBeFocused();
+  await sheet.getByRole('listitem').locator('input[type=file]').setInputFiles({ name: 'better.png', mimeType: 'image/png', buffer: PNG });
+  await expect(sheet.getByText('Matched with better.png')).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Import as draft' })).toBeFocused();
+
+  // A failure that may pass keeps the file matched, and the row offers Retry.
+  let refused = false;
+  await page.route('**/api/admin/media/uploads', async (route) => {
+    if (refused || route.request().method() !== 'POST') return route.fallback();
+    refused = true;
+    return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'storage_unreachable', error: 'Storage is down.' }) });
+  });
+  await sheet.getByRole('button', { name: 'Import as draft' }).click();
+  await expect(sheet.getByText('The upload could not reach storage. Try again.')).toBeVisible();
+  await expect(sheet.getByText('Matched with better.png')).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Retry' })).toBeFocused();
+
+  // While the draft is being made the sheet cannot be left, and the close control says so.
+  await page.route('**/api/admin/posts/import', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
+    await route.fallback();
+  });
+  await sheet.getByRole('button', { name: 'Retry' }).click();
+  await expect(sheet.getByRole('button', { name: 'Close' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'Open the draft' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Close' })).toBeEnabled();
+
+  // The draft opens with its title, and an editor that is told a post is too long says so in words.
+  await sheet.getByRole('link', { name: 'Open the draft' }).click();
+  await expect(page.getByPlaceholder('Untitled post')).toHaveValue('One picture');
+  await page.route('**/api/admin/posts', async (route) => {
+    if (route.request().method() === 'GET') return route.fallback();
+    return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'content_too_large', error: 'The editor content is invalid.' }) });
+  });
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('More words');
+  await expect(page.getByRole('alert')).toContainText('This post is too long to save. Split it or remove some of it.');
 });

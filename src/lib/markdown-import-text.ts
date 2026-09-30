@@ -29,6 +29,7 @@ export function refusalText(text: Text, refusal: ImportRefusal | undefined): str
   const warning = refusal?.warning;
   if (warning?.code === 'too-complex') return text[LIMIT_LINES[warning.limit]];
   if (warning?.code === 'busy') return text.busy;
+  if (refusal?.status === 401) return text.signedOut;
   return refusal?.status === 413 ? text.tooLarge : text.failed;
 }
 

@@ -17,7 +17,7 @@ The owner decided each of these.
 - **One file makes one post.** There is no folder, no `.zip`, no batch, and no pairing of a Thai file
   with an English one. Each of those can come later if an owner asks for it.
 - **Pictures are matched by hand.**
-  - The owner drops the picture files.
+  - The owner chooses the picture files in the system's file chooser.
   - The screen matches each file to a picture in the post by its file name.
   - The server never downloads a picture from an address in the file. That would be a way in to
     addresses inside the server's network, and a large download is heavy on a 1 GB server.
@@ -95,7 +95,8 @@ sheet with three steps.
    - every picture: where it is (`body` or `cover`), its address as written, its file name, and its
      kind (`local`, `remote` or `refused`);
    - the warnings, in the words the report will use.
-2. **Match the pictures.** The sheet lists every picture:
+2. **Match the pictures.** The sheet shows the title, language, URL name and categories from step 1,
+   then lists every picture:
    - a picture from an address, such as `https://…`, is **kept as it is** and marked as coming from
      another site;
    - a picture from the computer, such as `./images/a.png` or `a.png`, **needs a file**;

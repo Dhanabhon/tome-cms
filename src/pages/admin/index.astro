@@ -131,7 +131,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
       </div>
       {!authRequired && !errorMessage && (
         <div class="admin-page__actions">
-          <MarkdownImport client:idle text={copy.markdownImport} editHref={adminHref(adminSettings, '/edit/__ID__')} />
+          <MarkdownImport client:idle mediaText={{ refusals: copy.media.refusals, storageRejected: copy.media.storageRejected, storageTimedOut: copy.media.storageTimedOut, storageUnreachable: copy.media.storageUnreachable, unavailable: copy.media.unavailable }} text={copy.markdownImport} editHref={adminHref(adminSettings, '/edit/__ID__')} />
           <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/categories')}>{copy.posts.manageCategories}</a>
           <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/new')}>{copy.posts.newPost} <span aria-hidden="true">+</span></a>
         </div>

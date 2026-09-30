@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { adminCopy } from '../../src/lib/admin-i18n';
 import { MediaFileError, uploadTimeoutMs } from '../../src/lib/media';
-import { bytesToBase64, MediaRequestError, precheck, stillUsedText, uploadFailureMessage, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
+import { bytesToBase64, isPermanentUploadFailure, MediaRequestError, precheck, stillUsedText, uploadFailureMessage, uploadFailureText, uploadFile, uploadImage } from '../../src/lib/media-client';
 
 test('browser checksum encoding handles the maximum upload size without a spread overflow', () => {
   const bytes = new Uint8Array(8 * 1024 * 1024).fill(0xab);
@@ -145,4 +145,17 @@ test('a stopped upload aborts the request to storage and never finalizes', { tim
   assert.deepEqual(calls, ['/api/admin/media/uploads'], 'no finalize was sent');
   await assert.rejects(uploadFile(new File(['x'], 'b.png', { type: 'image/png' }), { signal: controller.signal }), { name: 'AbortError' });
   assert.equal(calls.length, 1, 'an upload stopped before it began sends nothing');
+});
+
+test('a file the library will never take is told apart from a failure that may pass on a retry', () => {
+  assert.equal(isPermanentUploadFailure(new MediaFileError('imageTooLarge')), true);
+  // The server said this file is wrong: a document that is not what it says, or an image that is not one.
+  for (const [code, status] of [['media_macros', 400], ['media_text_encoding', 400], ['media_type_mismatch', 400], [undefined, 400], [undefined, 415]] as const) {
+    assert.equal(isPermanentUploadFailure(new MediaRequestError('No.', undefined, code, status)), true, `${code} ${status}`);
+  }
+  // Storage, a busy or failing server, and a timeout may pass on a second try.
+  for (const [code, status] of [['storage_unreachable', undefined], ['storage_timeout', undefined], ['storage_rejected', undefined], [undefined, 503], [undefined, 429], [undefined, 408], [undefined, undefined]] as const) {
+    assert.equal(isPermanentUploadFailure(new MediaRequestError('Later.', undefined, code, status)), false, `${code} ${status}`);
+  }
+  assert.equal(isPermanentUploadFailure(new TypeError('Failed to fetch')), false);
 });

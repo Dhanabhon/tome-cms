@@ -35,14 +35,31 @@ interface UploadReservation {
 }
 
 export class MediaRequestError extends Error {
-  constructor(message: string, readonly references?: MediaReferences, readonly code?: string) {
+  constructor(message: string, readonly references?: MediaReferences, readonly code?: string, readonly status?: number) {
     super(message);
     this.name = 'MediaRequestError';
   }
 }
 
+/** The words an upload failure is told in, so a screen that has no other use for the File Manager's copy can carry only these. */
+export interface UploadFailureCopy {
+  media: Pick<AdminCopy['media'], 'refusals' | 'storageRejected' | 'storageTimedOut' | 'storageUnreachable' | 'unavailable'>;
+}
+
+/**
+ * A file the library will never take, however often it is sent: the browser refused it, or the
+ * server answered that this request is wrong (a document that is not what it says, an image that
+ * is not one). A storage or server failure, a busy server and a network drop may pass on a second try.
+ */
+export function isPermanentUploadFailure(error: unknown): boolean {
+  if (error instanceof MediaFileError) return true;
+  if (!(error instanceof MediaRequestError)) return false;
+  const { status = 0 } = error;
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
 /** Why an upload failed, in its owner's language, when its cause is one the admin can name. */
-export function uploadFailureText(error: unknown, copy: AdminCopy): string | undefined {
+export function uploadFailureText(error: unknown, copy: UploadFailureCopy): string | undefined {
   if (error instanceof MediaFileError) return copy.media.refusals[error.refusal];
   if (!(error instanceof MediaRequestError)) return undefined;
   switch (error.code) {
@@ -57,7 +74,7 @@ export function uploadFailureText(error: unknown, copy: AdminCopy): string | und
 }
 
 /** What to tell the owner of a failed request: a known cause in their language, else what the server said, else the generic line. Only the server's curated words pass: a browser's raw "Failed to fetch" never does. */
-export function uploadFailureMessage(error: unknown, copy: AdminCopy): string {
+export function uploadFailureMessage(error: unknown, copy: UploadFailureCopy): string {
   const known = uploadFailureText(error, copy);
   if (known) return known;
   if (error instanceof MediaRequestError && error.message) return error.message;
@@ -87,7 +104,7 @@ function errorCode(payload: unknown): string | undefined {
 
 async function readJson<T>(response: Response): Promise<T> {
   const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new MediaRequestError(errorMessage(payload) ?? 'The request could not be completed.', errorReferences(payload), errorCode(payload));
+  if (!response.ok) throw new MediaRequestError(errorMessage(payload) ?? 'The request could not be completed.', errorReferences(payload), errorCode(payload), response.status);
   return payload as T;
 }
 

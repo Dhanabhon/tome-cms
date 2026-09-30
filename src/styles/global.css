@@ -850,6 +850,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .markdown-import-row .admin-field-error { grid-column: 1 / -1; }
 .markdown-import-lede { margin: 0 0 var(--space-sm); }
 .markdown-import-title { margin: 0; font-weight: 600; }
+.markdown-import-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3xs) var(--space-md); margin: var(--space-2xs) 0 0; font-size: var(--text-sm); }
+.markdown-import-summary > div { display: contents; }
+.markdown-import-summary dt { color: var(--color-muted); }
+.markdown-import-summary dd { margin: 0; overflow-wrap: anywhere; }
 .markdown-import-heading { margin: var(--space-md) 0 var(--space-2xs); font-size: var(--text-base); font-weight: 600; }
 .markdown-import-foot { margin-block-start: var(--space-md); }
 .media-upload-dialog > .admin-field-error { margin-block-start: var(--space-xs); }

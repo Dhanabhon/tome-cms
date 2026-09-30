@@ -23,12 +23,16 @@ interface Drawer {
  * the page behind a panel is a place to click to be done with it, which a modal dialog does
  * not give you for free.
  */
-export function useDrawer({ focus, onClose, open = true }: {
+export function useDrawer({ focus, locked = false, onClose, open = true }: {
   focus?: RefObject<HTMLElement | null>;
+  /** While true the panel will not close: Escape, a press outside and `close` do nothing. */
+  locked?: boolean;
   onClose: () => void;
   open?: boolean;
 }): Drawer {
   const dialog = useRef<HTMLDialogElement>(null);
+  const isLocked = useRef(locked);
+  isLocked.current = locked;
 
   useEffect(() => {
     const element = dialog.current;
@@ -43,6 +47,7 @@ export function useDrawer({ focus, onClose, open = true }: {
   }, [focus, open]);
 
   const close = useCallback((after?: () => void) => {
+    if (isLocked.current) return;
     const done = after ?? onClose;
     const element = dialog.current;
     if (!element) {
@@ -56,6 +61,10 @@ export function useDrawer({ focus, onClose, open = true }: {
   const cancel = useCallback((event: SyntheticEvent<HTMLDialogElement>) => {
     // A dialog opened over this one sends its own Escape.
     if (event.target !== event.currentTarget) return;
+    if (isLocked.current) {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     // Chromium lets a page hold Escape back only once the reader has done something on it.
     // Past that the dialog closes itself, unmarked, and plays its exit from CSS; the caller
     // is told at once.
@@ -73,6 +82,9 @@ export function useDrawer({ focus, onClose, open = true }: {
     // A dialog's own padding dispatches on the dialog as well, so where the click landed is
     // the question rather than what it landed on.
     const dismiss = (event: MouseEvent) => {
+      // A press on the backdrop or the padding lands on the dialog itself. A click on something
+      // inside, such as the one a label sends on to its file input, carries no place of its own.
+      if (event.target !== element) return;
       const box = element.getBoundingClientRect();
       const inside = event.clientX >= box.left && event.clientX <= box.right
         && event.clientY >= box.top && event.clientY <= box.bottom;
