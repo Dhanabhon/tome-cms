@@ -48,7 +48,7 @@ test('the built server reads a file in its worker, stops a slow one, and turns a
   context.after(() => { delete process.env.TOME_CMS_MARKDOWN_PARSE_LIMIT_MS; });
   const slowStart = performance.now();
   await assert.rejects(
-    previewMarkdownImport('owner-a', { fileName: 'slow.md', text: `${'## h\n'.repeat(3_900)}${'a b\n'.repeat(21_000)}` }),
+    previewMarkdownImport('owner-a', { fileName: 'slow.md', text: `${'## h\n'.repeat(3_900)}| a | b |\n| - | - |\n${'| 1 | 2 |\n'.repeat(21_000)}` }),
     refusal({ code: 'too-complex', limit: 'time' }, 413),
   );
   context.diagnostic(`a slow file stopped after ${Math.round(performance.now() - slowStart)} ms`);

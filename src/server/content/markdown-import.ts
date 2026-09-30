@@ -40,10 +40,14 @@ const KEPT_LINK = /^(?:https?:|\/(?![/\\])|#)/i;
  * words, 500 pictures, long listings) uses a fraction of each.
  */
 export const MAX_FRONTMATTER = 20_000;
-/** Top-level blocks; each makes the parser read the rest of the file again. */
+/** Blocks, nested ones too; each makes the parser read the rest of its part of the file again. */
 export const MAX_BLOCKS = 4_000;
 /** The same, per line: hard-wrapped text and listings are long but are few blocks. */
 export const MAX_LINES = 25_000;
+/** Lines in one paragraph, quote or list item: lines after the first are read again for each one. */
+export const MAX_BLOCK_LINES = 2_000;
+/** Link definitions, which the lexer takes out of the text and so counts as no block. */
+export const MAX_DEFINITIONS = 2_000;
 /** Characters that start a mark in text: emphasis, code, a link or tag, an escape, a bare address. */
 export const MAX_INLINE = 40_000;
 /** Marks in one paragraph, heading or cell: the lexer's cost grows with their square. */
@@ -59,6 +63,7 @@ export const MAX_HTML = 300;
 const INLINE_START = /[<[*_`~\\]|https?:|www\./gi;
 const EMPHASIS = /[*_~]/g;
 const PICTURE_START = /!\[/g;
+const DEFINITION = /^ {0,3}\[[^\]\n]+\]:/gm;
 
 /** What the worker sends back: the post, or why there is none. */
 export type ParseReply =
@@ -89,10 +94,36 @@ function* markedText(tokens: readonly Token[]): Generator<string> {
   }
 }
 
+const lineCount = (value: string): number => count(value, /\n/g);
+
+/** Blocks at any depth. A tight list's item text is not one: it costs no more than the item. */
+function countBlocks(tokens: readonly Token[]): number {
+  let blocks = 0;
+  for (const token of tokens) {
+    if (token.type === 'space' || token.type === 'text') continue;
+    blocks += 1;
+    if (token.type === 'blockquote') blocks += countBlocks(token.tokens ?? []);
+    else if (token.type === 'list') for (const item of token.items) blocks += countBlocks(item.tokens);
+  }
+  return blocks;
+}
+
+/** The longest run of lines in one paragraph, quote or list item; code, tables and HTML are read once. */
+function longestBlock(tokens: readonly Token[]): number {
+  let longest = 0;
+  for (const token of tokens) {
+    if (token.type === 'list') for (const item of token.items) longest = Math.max(longest, lineCount(item.raw));
+    else if (token.type === 'blockquote' || token.type === 'paragraph') longest = Math.max(longest, lineCount(token.raw));
+  }
+  return longest;
+}
+
 function checkSize(body: string): void {
-  if (count(body, /\n/g) > MAX_LINES) throw new MarkdownTooComplexError('lines');
+  if (lineCount(body) > MAX_LINES) throw new MarkdownTooComplexError('lines');
+  if (count(body, DEFINITION) > MAX_DEFINITIONS) throw new MarkdownTooComplexError('definitions');
   const tokens = new markdown.instance.Lexer(markdown.instance.getDefaults()).blockTokens(body);
-  if (tokens.filter((token) => token.type !== 'space').length > MAX_BLOCKS) throw new MarkdownTooComplexError('blocks');
+  if (longestBlock(tokens) > MAX_BLOCK_LINES) throw new MarkdownTooComplexError('block-lines');
+  if (countBlocks(tokens) > MAX_BLOCKS) throw new MarkdownTooComplexError('blocks');
   let inline = 0;
   let pictures = 0;
   for (const value of markedText(tokens)) {

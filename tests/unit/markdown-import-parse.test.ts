@@ -272,6 +272,17 @@ const wrapped = (words: number) => Array.from({ length: words / 40 }, (_, i) => 
 timed('100,000 words hard-wrapped at 80 columns, and a 3,000-line listing, are read whole', `${wrapped(100_000)}\n\n\`\`\`js\n${'const a = b; // one line of code\n'.repeat(3_000)}\`\`\`\n`, null);
 timed('a listing of 11,000 lines, with blank lines and comments in it, is read whole',
   `\`\`\`python\n${Array.from({ length: 11_000 }, (_, i) => (i % 4 === 0 ? '' : i % 4 === 1 ? '# a comment' : i % 4 === 2 ? '> x' : '---')).join('\n')}\n\`\`\``, null);
+// Shapes the first limits did not see: lines that belong to one block, blocks inside blocks, and
+// link definitions, which the lexer takes out of the text.
+timed('24,900 lazy lines in one list item are refused at once', `- a\n${'b\n'.repeat(24_900)}`, 'block-lines');
+timed('a list item with marks and 24,000 lines is refused at once', `- ${'*a '.repeat(1_400)}\n${'  b\n'.repeat(24_000)}`, 'block-lines');
+timed('12,000 paragraphs in one quote are refused at once', '> a *b*\n>\n'.repeat(12_000), 'block-lines');
+timed('a task item with 12,000 lazy lines is refused at once', `- [ ] a\n${'b\n'.repeat(12_000)}`, 'block-lines');
+timed('4,750 paragraphs in five quotes are counted as blocks, and refused at once', `${'> a\n>\n'.repeat(950)}\n`.repeat(5), 'blocks');
+timed('24,000 link definitions are refused at once', '[a]: http://x\n'.repeat(24_000), 'definitions');
+timed('12,000 footnote definitions are refused at once', '[^1]: a\n'.repeat(12_000), 'definitions');
+timed('a table of 24,000 rows is read whole', `| a | b |\n| - | - |\n${'| 1 | 2 |\n'.repeat(24_000)}`, null);
+timed('a list of 12,000 items is read whole', '- a\n'.repeat(12_000), null);
 timed('a listing over the line limit is refused for its lines, not its blocks', `\`\`\`\n${'\n'.repeat(26_000)}\`\`\``, 'lines');
 
 test('a file nested too deeply is refused with an error the service can show, never a stack overflow', () => {

@@ -5,7 +5,7 @@ import { MarkdownTooComplexError } from '../../src/server/content/markdown-impor
 import { MarkdownBusyError, readMarkdownPost } from '../../src/server/content/markdown-import-run';
 
 // A file that stays inside every limit and still takes seconds: the most the limits allow.
-const slow = `${'## h\n'.repeat(3_900)}${'a b\n'.repeat(21_000)}`;
+const slow = `${'## h\n'.repeat(3_900)}| a | b |\n| - | - |\n${'| 1 | 2 |\n'.repeat(21_000)}`;
 
 test('a normal file is read in a worker and comes back whole', async () => {
   const post = await readMarkdownPost('---\ntitle: Worker\n---\n\nBody *text*', 'w.md');
