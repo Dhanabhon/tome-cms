@@ -23,7 +23,7 @@ npm ci
 On a server you prepared another way, clone the release's tag there first:
 
 ```sh
-git clone --depth 1 --branch v1.4.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.5.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 ```
 
 Use the latest version from the [Releases page](https://github.com/Dhanabhon/tome-cms/releases), here and in the commands below. The installer works only from a clean checkout of that exact tag, and builds the updater with the packages `npm ci` installs. Keep the folder: the restore check on the [backups](/tome-cms/running/backups/) page runs from a checkout of the same release.
@@ -43,11 +43,11 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 Try it first with `--dry-run`, then install:
 
 ```sh
-./scripts/install-managed-vps.sh --dry-run --version 1.4.0
-./scripts/install-managed-vps.sh --version 1.4.0
+./scripts/install-managed-vps.sh --dry-run --version 1.5.0
+./scripts/install-managed-vps.sh --version 1.5.0
 ```
 
-From an ordinary account, keep the addresses through `sudo` with `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.4.0`.
+From an ordinary account, keep the addresses through `sudo` with `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.5.0`.
 
 The installer works through these steps and stops at the first one that fails:
 
@@ -66,7 +66,7 @@ The end of its output looks like this:
 ```text
 Installer: https://cms.example.com/install
 Installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
-Current version: 1.4.0
+Current version: 1.5.0
 Backups: /var/backups/tome-cms
 ```
 

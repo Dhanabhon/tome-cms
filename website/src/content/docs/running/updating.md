@@ -52,8 +52,8 @@ A release that needs a newer updater says so on "System" ("This version needs it
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.4.0
-git checkout --detach v1.4.0
+git fetch --depth 1 origin tag v1.5.0
+git checkout --detach v1.5.0
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -62,7 +62,7 @@ sudo npm run updater:upgrade
 A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
 
 ```sh
-git clone --depth 1 --branch v1.4.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.5.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -113,14 +113,15 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 0 | None |
-| 0.12.0 or 0.11.0 | 1 | `026_planned_dates` |
-| 0.10.0 | 3 | The one above, `024_site_maintenance` and `025_content_stats` |
-| 0.9.0 or 0.8.0 | 4 | The three above and `023_home_slides` |
-| 0.7.0 or 0.6.0 | 6 | The four above, `021_media_documents` and `022_navigation_new_tab` |
-| 0.5.0 or 0.4.0 | 7 | The six above and `020_site_brand` |
-| 0.3.0 | 10 | The seven above, `017_scheduled_publishing`, `018_thai_slugs` and `019_content_redirects` |
-| 0.2.0 | 19 | The ten above, and `008_update_rate_limit_actions` through `016_theme_settings` |
+| 1.5.0 | 0 | None |
+| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 1 | `027_post_show_cover` |
+| 0.12.0 or 0.11.0 | 2 | The one above and `026_planned_dates` |
+| 0.10.0 | 4 | The two above, `024_site_maintenance` and `025_content_stats` |
+| 0.9.0 or 0.8.0 | 5 | The four above and `023_home_slides` |
+| 0.7.0 or 0.6.0 | 7 | The five above, `021_media_documents` and `022_navigation_new_tab` |
+| 0.5.0 or 0.4.0 | 8 | The seven above and `020_site_brand` |
+| 0.3.0 | 11 | The eight above, `017_scheduled_publishing`, `018_thai_slugs` and `019_content_redirects` |
+| 0.2.0 | 20 | The eleven above, and `008_update_rate_limit_actions` through `016_theme_settings` |
 
 The counts follow each version's release notes. An install made from a checkout between two releases, or from before 0.2.0, can have a different number waiting. The admin's notice names them exactly.
 
