@@ -15,7 +15,7 @@ The backup and the restore check run on the server, from the checkout, with Node
 npm ci
 ```
 
-Both commands read `.env.local` from the checkout. The backup reaches PostgreSQL through Compose and the bucket through `S3_INTERNAL_ENDPOINT` when you set it and `S3_ENDPOINT` when you do not, so both services and the proxy of the media origin (or the internal address) have to be up.
+Both commands read `.env.local` from the checkout. The backup reaches PostgreSQL through Compose and the bucket through `S3_INTERNAL_ENDPOINT` when you set it and `S3_ENDPOINT` when you do not, so both services and the proxy of the media origin (or the internal address) have to be up. These commands run on the host, so an `S3_INTERNAL_ENDPOINT` in `.env.local` must be an address the host can reach, such as `http://127.0.0.1:9000`; `http://seaweedfs:8333` resolves only inside a managed install's Docker network.
 
 ## Making a backup
 
