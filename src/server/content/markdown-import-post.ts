@@ -8,7 +8,8 @@ import type { Post } from '../../types/cms';
 import { db } from '../db/client';
 import { HttpError } from '../http/errors';
 import { ValidationError } from './editor';
-import { MarkdownTooComplexError, parseMarkdownPost, placePictures, type ParsedMarkdownPost } from './markdown-import';
+import { MarkdownTooComplexError, placePictures, type ParsedMarkdownPost } from './markdown-import';
+import { MarkdownBusyError, readMarkdownPost } from './markdown-import-run';
 import { createPost } from './posts';
 
 export const markdownImportSchema = z.object({
@@ -40,12 +41,16 @@ interface Resolved {
   warnings: ImportWarning[];
 }
 
-/** The parser's refusals as the admin's errors: a file too complex carries its warning for the sheet to show. */
-function readFile(text: string, fileName: string): ParsedMarkdownPost {
+/**
+ * The parser's refusals as the admin's errors: a file too complex (or too slow) carries its warning
+ * for the sheet to show, and so does a second file read while one is being read.
+ */
+async function readFile(text: string, fileName: string): Promise<ParsedMarkdownPost> {
   try {
-    return parseMarkdownPost(text, fileName);
+    return await readMarkdownPost(text, fileName);
   } catch (error) {
     if (error instanceof MarkdownTooComplexError) throw new HttpError(413, error.message, { warning: error.warning });
+    if (error instanceof MarkdownBusyError) throw new HttpError(429, error.message, { warning: { code: 'busy' } satisfies ImportWarning });
     if (error instanceof ValidationError) throw new HttpError(400, error.message);
     throw error;
   }
@@ -53,7 +58,7 @@ function readFile(text: string, fileName: string): ParsedMarkdownPost {
 
 async function resolve(ownerId: string, input: MarkdownImportInput): Promise<Resolved> {
   if (new TextEncoder().encode(input.text).byteLength > MAX_MARKDOWN_BYTES) throw new HttpError(413, 'The file is too large.');
-  const parsed = readFile(input.text, input.fileName);
+  const parsed = await readFile(input.text, input.fileName);
   const settings = await db.selectFrom('site_settings').select('default_locale')
     .where('id', '=', true).where('owner_id', '=', ownerId).executeTakeFirst();
   if (!settings) throw new HttpError(503, 'Site settings are unavailable.');

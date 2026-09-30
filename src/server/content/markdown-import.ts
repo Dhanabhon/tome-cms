@@ -60,6 +60,12 @@ const INLINE_START = /[<[*_`~\\]|https?:|www\./gi;
 const EMPHASIS = /[*_~]/g;
 const PICTURE_START = /!\[/g;
 
+/** What the worker sends back: the post, or why there is none. */
+export type ParseReply =
+  | { kind: 'parsed'; post: ParsedMarkdownPost }
+  | { kind: 'too-complex'; limit: ImportLimit }
+  | { kind: 'invalid'; message: string };
+
 /** A file that is too big or too deep to read; `warning` says which limit, for the sheet to show. */
 export class MarkdownTooComplexError extends ValidationError {
   constructor(readonly limit: ImportLimit) {
