@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { publicCopy } from '../../src/lib/i18n';
-import { readingRail } from '../../src/lib/reading-rail';
+import { PAGE_IDS, readingRail } from '../../src/lib/reading-rail';
 import { manifest } from '../../src/themes/paper/theme';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -85,6 +85,10 @@ test('the current section comes from one IntersectionObserver, not a scroll list
   assert.match(script, /new IntersectionObserver\(/);
   assert.match(script, /aria-current/);
   assert.doesNotMatch(script, /addEventListener\(\s*'scroll'/);
+  // Worked out from where the headings are, not from the order entries arrive in.
+  assert.match(script, /getBoundingClientRect\(\)\.top <= window\.innerHeight \* 0\.4/);
+  assert.match(script, /if \(atEnd\) current = targets\.length - 1/);
+  assert.match(ARTICLE, /data-rail-end/);
 });
 
 test('the rail is a column of 2px ticks at the inline end, hidden where there is no room', () => {
@@ -102,4 +106,49 @@ test('the rail is a column of 2px ticks at the inline end, hidden where there is
   assert.match(PAPER, /\.reading-rail__link:is\(:hover, :focus-visible\) \.reading-rail__label/);
   assert.match(PAPER, /@media \(prefers-reduced-motion: no-preference\) \{[^@]*html:has\(\.reading-rail\) \{ scroll-behavior: smooth; \}/);
   assert.match(PAPER, /\.post-body :is\(h2, h3\) \{ scroll-margin-block-start:/);
+});
+
+test('an empty heading is not in the rail, and does not count toward the two it needs', () => {
+  const only = '<h2></h2><h2>A</h2><p>x</p>';
+  assert.deepEqual(readingRail(only), { headings: [], html: only });
+  const { headings, html } = readingRail('<h2></h2><h2>A</h2><h3>B</h3>');
+  assert.deepEqual(headings.map(({ text }) => text), ['A', 'B']);
+  assert.match(html, /^<h2><\/h2><h2 id="a">/, 'the empty one is left as it was');
+});
+
+test('a line break inside a heading is a space, not nothing', () => {
+  const { headings } = readingRail('<h2>First<br />line<br>two</h2><h2>B</h2>');
+  assert.equal(headings[0].text, 'First line two');
+  assert.equal(headings[0].id, 'first-line-two');
+});
+
+test('a numeric entity out of range does not stop the page', () => {
+  const { headings } = readingRail('<h2>Odd &#99999999; &#xFFFFFFFF; end</h2><h2>B</h2>');
+  assert.match(headings[0].text, /^Odd .* end$/u);
+});
+
+test('a heading never takes an id the page already uses outside the body', () => {
+  const { headings, html } = readingRail('<h2>Language switcher menu</h2><h2>Site popup heading</h2>');
+  assert.deepEqual(headings.map(({ id }) => id), ['language-switcher-menu-2', 'site-popup-heading-2']);
+  assert.doesNotMatch(html, /id="language-switcher-menu"/);
+});
+
+test('the ids a Paper page uses outside the body are all on the list', () => {
+  // Every literal id in what a Paper post page is made of: the layout, the shared components and
+  // the theme. A new one that is not in PAGE_IDS could be taken by a heading, and two elements
+  // would answer to it.
+  const files = ['src/layouts', 'src/components', 'src/themes/paper'].flatMap((directory) =>
+    readdirSync(new URL(`../../${directory}/`, import.meta.url), { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.astro') && !entry.parentPath.includes('/admin'))
+      .map((entry) => `${entry.parentPath}/${entry.name}`));
+  assert.ok(files.length > 10);
+  const found = new Set<string>();
+  for (const file of files) {
+    const source = readFileSync(file, 'utf8');
+    for (const [, id] of source.matchAll(/\sid="([^"{]+)"/g)) found.add(id);
+    // A toggle's panel is named from the toggle: `${name}-panel`.
+    for (const [, name] of source.matchAll(/<ThemeToggle[^>]*\sname="([^"]+)"/g)) found.add(`${name}-panel`);
+  }
+  assert.ok(found.has('language-switcher-menu') && found.has('tome-theme-site-panel'), 'the scan finds what it should');
+  for (const id of found) assert.ok(PAGE_IDS.includes(id), `${id} is used by the page and is not in PAGE_IDS`);
 });

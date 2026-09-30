@@ -75,38 +75,50 @@ const copy = publicCopy(post.locale);
     <img class="post-cover" src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />
   )}
   <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={bodyHtml} />
+  {headings.length > 0 && <div data-rail-end aria-hidden="true"></div>}
   {profile && <AuthorBlock linkStyle={authorLinks === 'icons' || authorLinks === 'both' ? authorLinks : 'text'} locale={post.locale} profile={profile} />}
 </article>
 
 <script>
   /*
-   * Marks the heading being read. One observer, no scroll listener: a heading counts as current
-   * from the moment it enters the top of the window until the next one does, and going back up
-   * past it hands the mark to the one before.
+   * Marks the heading being read: the last one whose top is above the line 40% down the window,
+   * the first while the reader is above all of them, and the last once the end of the body is
+   * on screen, which a short last section would never carry to the line.
+   *
+   * The observers are only the trigger. Every time one fires, the answer is worked out again
+   * from where the headings are, because the order in which entries arrive says nothing about
+   * which heading is nearer: an instant jump upward (reduced motion, Home, find-in-page) delivers
+   * the heading it lands on and the one it left in the same batch. No scroll listener; scrollend
+   * is one event when scrolling has stopped, and catches a jump that crossed the line without any
+   * heading being seen in the band.
    */
   const rail = document.querySelector<HTMLElement>('[data-reading-rail]');
   if (rail) {
     const links = [...rail.querySelectorAll<HTMLAnchorElement>('a')];
     const targets = links.map((link) => document.getElementById(link.getAttribute('href')!.slice(1)));
-    const inBand = new Set<Element>();
+    let atEnd = false;
     const mark = (index: number) => {
       links.forEach((link, at) => {
         if (at === index) link.setAttribute('aria-current', 'location');
         else link.removeAttribute('aria-current');
       });
     };
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        const index = targets.indexOf(entry.target as HTMLElement);
-        if (entry.isIntersecting) {
-          inBand.add(entry.target);
-          mark(index);
-        } else if (inBand.delete(entry.target) && entry.rootBounds && entry.boundingClientRect.top > entry.rootBounds.top) {
-          // It left through the bottom of the band, so the reader went back above it.
-          mark(index - 1);
-        }
-      }
-    }, { rootMargin: '0px 0px -60% 0px' });
-    for (const target of targets) if (target) observer.observe(target);
+    const update = () => {
+      let current = 0;
+      if (atEnd) current = targets.length - 1;
+      else targets.forEach((target, index) => { if (target && target.getBoundingClientRect().top <= window.innerHeight * 0.4) current = index; });
+      mark(current);
+    };
+    const headings = new IntersectionObserver(update, { rootMargin: '0px 0px -60% 0px' });
+    for (const target of targets) if (target) headings.observe(target);
+    const end = document.querySelector('[data-rail-end]');
+    if (end) {
+      new IntersectionObserver((entries) => {
+        atEnd = entries[entries.length - 1].isIntersecting;
+        update();
+      }).observe(end);
+    }
+    window.addEventListener('scrollend', update);
+    update();
   }
 </script>

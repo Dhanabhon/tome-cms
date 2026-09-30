@@ -451,7 +451,7 @@ test('the reading rail lists a post\'s headings at the side, and the bar takes i
 
   const heading = page.locator('.post-body h3');
   await expect(heading, 'the anchor and the link agree').toHaveAttribute('id', 'second-smaller');
-  await expect(page.locator('.reading-rail [aria-current]'), 'above the first heading nothing is being read yet').toHaveCount(0);
+  await expect(links.nth(0), 'above the first heading, the first is the one marked').toHaveAttribute('aria-current', 'location');
   await links.nth(1).hover();
   const label = links.nth(1).locator('.reading-rail__label');
   await expect(label, 'hovering names the heading').toHaveCSS('opacity', '1');
@@ -484,6 +484,39 @@ test('the reading rail lists a post\'s headings at the side, and the bar takes i
   await page.goto(article, { waitUntil: 'networkidle' });
   await expect(rail).toHaveCount(0);
   await expect(page.locator('.reading-progress')).toHaveCount(0);
+});
+
+test('the rail marks the heading the reader is at, after an instant jump up, and the last at the end', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { sql: query } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+  const filler = '<p>Body line to read past.</p>'.repeat(40);
+  // A short last section, which never reaches the line 40% down the window on its own, and an
+  // empty heading the rail must not list.
+  await query`update posts set content_html = ${`<h2>First part</h2>${filler}<h3>Second, smaller</h3>${filler}<h2></h2><h2>Third part</h2><p>Short end.</p>`} where slug = 'post-1'`.execute(db);
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'rail' } });
+  // No smooth scrolling: every jump is instant, which is where the order of observer entries used to decide.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}/en/blog/post-1`, { waitUntil: 'networkidle' });
+  const links = page.locator('nav.reading-rail').getByRole('link');
+  await expect(links, 'the empty heading has no link').toHaveCount(3);
+  const current = async () => links.evaluateAll((nodes) => nodes.findIndex((node) => node.getAttribute('aria-current') === 'location'));
+
+  await links.nth(1).click();
+  await expect.poll(current, { message: 'read the h3' }).toBe(1);
+  await links.nth(0).click();
+  await expect.poll(current, { message: 'and a jump back up to the first lands on the first, not the one before the one it left' }).toBe(0);
+  await links.nth(2).click();
+  await expect.poll(current).toBe(2);
+  await links.nth(0).click();
+  await expect.poll(current, { message: 'from the last to the first' }).toBe(0);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(current, { message: 'the bottom of the page marks the last' }).toBe(2);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(current, { message: 'and the top marks the first' }).toBe(0);
 });
 
 test('the header can be asked to stay in view', async ({ page }) => {
