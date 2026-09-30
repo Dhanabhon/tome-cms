@@ -109,6 +109,12 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     field?.focus();
   }
 
+  /** Typing a name ends the warning about its absence, and leaves any other message alone. */
+  function nameTyped() {
+    setMissingName(null);
+    setMessage((current) => current === copy.security.nameRequired ? '' : current);
+  }
+
   async function addPasskey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -226,7 +232,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                 <form className="security-key__edit" noValidate onSubmit={(event) => void renamePasskey(event, passkey.id)}>
                   <label className="admin-field">
                     {copy.security.passkeyName}
-                    <input aria-invalid={missingName === 'rename' || undefined} autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" onChange={() => setMissingName(null)} required />
+                    <input aria-invalid={missingName === 'rename' || undefined} autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" onChange={() => nameTyped()} required />
                   </label>
                   <button aria-busy={pressed(`rename:${passkey.id}`)} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.saveName}</button>
                   <button
@@ -269,7 +275,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         <form className="security-add" noValidate onSubmit={(event) => void addPasskey(event)}>
           <label className="admin-field" htmlFor="new-passkey-name">
             {copy.security.newPasskeyName}
-            <input aria-invalid={missingName === 'add' || undefined} className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => { setNewName(event.target.value); setMissingName(null); }} ref={addField} required value={newName} />
+            <input aria-invalid={missingName === 'add' || undefined} className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => { setNewName(event.target.value); nameTyped(); }} ref={addField} required value={newName} />
           </label>
           <button aria-busy={pressed('add')} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.addSpare}</button>
         </form>

@@ -219,6 +219,12 @@ test('a category row is handled with icons that keep their words', () => {
   }
 });
 
+test('the passkey name warning goes as soon as a name is typed, and no other message with it', () => {
+  const security = read('src/components/admin/SecurityManager.tsx');
+  assert.match(security, /setMessage\(\(current\) => current === copy\.security\.nameRequired \? '' : current\)/, 'typing leaves the warning up');
+  assert.equal(security.match(/onChange=\{[^}]*nameTyped\(\)/g)?.length, 2, 'the add and rename fields both clear it');
+});
+
 test('a passkey and an avatar are handled with the same icons as every other row', () => {
   const security = read('src/components/admin/SecurityManager.tsx');
   for (const name of ['pencil', 'trash']) {
