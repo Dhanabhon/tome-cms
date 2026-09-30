@@ -1,4 +1,9 @@
 import { apiErrorMessage } from './admin';
+import { isScheduled } from './local-datetime';
+import { promptUi } from './ui-dialog';
+
+/** How long a copied item says so before its menu closes. */
+const COPIED_MS = 1500;
 
 /**
  * Shared behaviour for the Posts and Pages lists.
@@ -21,6 +26,11 @@ interface StoryListOptions {
   confirm: (action: string, row: DOMStringMap) => Promise<boolean>;
   endpoint: string;
   entity: 'page' | 'post';
+}
+
+/** An edition has a public address once it is published and its moment has come. */
+export function isLive(status: string, publishedAt: string | null, now = Date.now()): boolean {
+  return status === 'published' && !isScheduled(status, publishedAt, now);
 }
 
 /**
@@ -47,7 +57,12 @@ export function readRecordId(payload: unknown, entity: string): string | null {
 
 interface StoryCopy {
   actionFailed: string;
+  close: string;
   contentRequired: string;
+  copied: string;
+  linkLabel: string;
+  linkManual: string;
+  linkTitle: string;
   draft: string;
   published: string;
   publishedAt: string;
@@ -88,6 +103,10 @@ function reconcile(row: HTMLElement, record: StoryRecord, entity: string, format
     toggle.dataset[`${entity}Action`] = published ? 'draft' : 'published';
     toggle.textContent = published ? copy.unpublish : copy.publish;
   }
+
+  // Whether there is an address to copy changes with the status.
+  const copyLink = row.querySelector<HTMLButtonElement>('button[data-copy-link]');
+  if (copyLink) copyLink.hidden = !isLive(record.status, record.published_at);
 }
 
 export default function wireStoryList({ confirm, endpoint, entity }: StoryListOptions) {
@@ -103,7 +122,12 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
   });
   const copy: StoryCopy = {
     actionFailed: data.copyActionFailed ?? 'The action could not be completed. Please try again.',
+    close: data.copyClose ?? 'Close',
     contentRequired: data.copyContentRequired ?? 'Add content before publishing.',
+    copied: data.copyCopied ?? 'Copied',
+    linkLabel: data.copyLinkLabel ?? 'Link',
+    linkManual: data.copyLinkManual ?? 'Select the link and copy it yourself.',
+    linkTitle: data.copyLinkTitle ?? 'Copy link',
     draft: data.copyDraft ?? 'draft',
     published: data.copyPublished ?? 'published',
     publishedAt: data.copyPublishedAt ?? 'Published',
@@ -112,7 +136,40 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     updatedAt: data.copyUpdatedAt ?? 'Updated',
   };
 
+  const status = container.querySelector<HTMLElement>('[data-copy-status]');
+
+  /** Puts the edition's address on the clipboard, says so on the item, and then closes the menu. */
+  const copyLink = async (button: HTMLButtonElement) => {
+    const url = button.dataset.copyLink;
+    if (!url || button.dataset.state === 'copied') return;
+    const menu = button.closest<HTMLDetailsElement>('details.admin-story-menu');
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // No clipboard here (an insecure page, or a refusal): show the address, selected, to copy by hand.
+      if (menu) {
+        menu.open = false;
+        menu.querySelector<HTMLElement>('summary')?.focus();
+      }
+      await promptUi({ cancelLabel: copy.close, confirmLabel: copy.close, label: copy.linkLabel, message: copy.linkManual, readOnly: true, title: copy.linkTitle, value: url });
+      return;
+    }
+    button.dataset.state = 'copied';
+    if (status) status.textContent = copy.copied;
+    setTimeout(() => {
+      delete button.dataset.state;
+      if (status) status.textContent = '';
+      if (!menu?.open) return;
+      // Focus goes back to the menu's button only if it was still in the menu.
+      const held = menu.contains(document.activeElement);
+      menu.open = false;
+      if (held) menu.querySelector<HTMLElement>('summary')?.focus();
+    }, COPIED_MS);
+  };
+
   container.addEventListener('click', async (event) => {
+    const copyButton = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-copy-link]') : null;
+    if (copyButton) return copyLink(copyButton);
     const button = event.target instanceof Element
       ? event.target.closest<HTMLButtonElement>(`button[data-${entity}-action]`)
       : null;

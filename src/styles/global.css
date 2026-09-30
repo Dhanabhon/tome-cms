@@ -1688,6 +1688,13 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-story-menu button[data-post-action="delete"],
 .admin-story-menu button[data-page-action="delete"] { margin-block-start: var(--space-2xs); border-block-start: var(--rule-hair) solid var(--color-rule); border-radius: 0 0 var(--radius-sm) var(--radius-sm); color: var(--color-error-ink); }
 .admin-story-menu button:disabled { opacity: 0.55; cursor: wait; }
+/* Copy link says Copied in the same cell, so the item keeps its width. */
+.admin-story-menu button[data-copy-link] { display: grid; }
+.admin-story-menu button[data-copy-link][hidden] { display: none; }
+.admin-story-menu button[data-copy-link] > span { display: inline-flex; grid-area: 1 / 1; gap: var(--space-2xs); align-items: center; }
+.admin-story-menu button[data-copy-link][data-state="copied"] > span:first-child,
+.admin-story-menu button[data-copy-link]:not([data-state="copied"]) > span:last-child { visibility: hidden; }
+.admin-story-menu button[data-copy-link] .icon { width: 1rem; height: 1rem; }
 .admin-post-tabs a:focus-visible,
 .admin-story-row a:focus-visible,
 .admin-story-menu button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }

@@ -1362,6 +1362,64 @@ test('a new part is added from the + menu, drawn as three dots, and published as
   expect(await dots('.post-body hr'), 'and the page draws it as dots, with no line').toEqual({ border: '0px', content: '"\u2022\u2022\u2022"' });
 });
 
+test('the row menu copies a published post\'s link, offers none for a draft, and offers it the moment one is published', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  await signIn(context, page);
+
+  const saved = () => page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  for (const [title, publish] of [['Linkable', true], ['Not out yet', false]] as const) {
+    await page.goto(`${origin}/admin/new`);
+    await page.locator('#post-title').fill(title);
+    await page.locator('.ProseMirror').click();
+    await page.keyboard.type('Some words.');
+    const written = saved();
+    if (publish) await page.getByRole('button', { name: /^Publish$/ }).click();
+    await written;
+  }
+
+  await page.goto(`${origin}/admin?status=all`);
+  const menu = (title: string) => page.locator('details.admin-story-menu', { has: page.locator(`summary[aria-label$="${title} (EN)"]`) });
+  const item = (title: string) => menu(title).locator('button[data-copy-link]');
+
+  await menu('Not out yet').locator('summary').click();
+  await expect(item('Not out yet'), 'a draft has no address to copy').toBeHidden();
+  await menu('Not out yet').locator('summary').click();
+
+  await menu('Linkable').locator('summary').click();
+  await expect(item('Linkable')).toHaveText('Copy link', { useInnerText: true });
+  const before = await item('Linkable').evaluate((node: HTMLElement) => node.offsetWidth);
+  await item('Linkable').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText()), 'the whole address, from the site\'s own origin').toBe(`${origin}/en/blog/linkable`);
+  await expect(item('Linkable'), 'it says so where it was pressed').toHaveText('Copied', { useInnerText: true });
+  expect(await item('Linkable').evaluate((node: HTMLElement) => node.offsetWidth), 'without changing its width').toBe(before);
+  await expect(page.locator('[data-copy-status]'), 'and tells a screen reader').toHaveText('Copied');
+  await expect(menu('Linkable'), 'then the menu closes').not.toHaveAttribute('open', '', { timeout: 5_000 });
+  await expect(page.locator('[data-copy-status]')).toHaveText('');
+
+  // Published in place, without a reload: the address is there to copy.
+  await menu('Not out yet').locator('summary').click();
+  await menu('Not out yet').getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(menu('Not out yet').locator('button[data-post-action="draft"]')).toBeAttached();
+  await menu('Not out yet').locator('summary').click();
+  await expect(item('Not out yet')).toBeVisible();
+  await item('Not out yet').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${origin}/en/blog/not-out-yet`);
+  await expect(menu('Not out yet')).not.toHaveAttribute('open', '', { timeout: 5_000 });
+
+  // A browser that will not copy: the address is shown, selected, for the owner to copy by hand.
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('refused')) } }));
+  await menu('Linkable').locator('summary').click();
+  await item('Linkable').click();
+  const dialog = page.getByRole('dialog', { name: 'Copy link' });
+  await expect(dialog.getByLabel('Link')).toHaveValue(`${origin}/en/blog/linkable`);
+  await expect(dialog.getByLabel('Link')).toHaveJSProperty('readOnly', true);
+  await expect(dialog.getByRole('button'), 'one way out, and it is Close').toHaveText('Close');
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+});
+
 /** Signs the owner in through a recovery enrollment, as a new device would. */
 /**
  * Selects the `count` characters before the last `skip` of the line, until the selection holds. Typing marks the

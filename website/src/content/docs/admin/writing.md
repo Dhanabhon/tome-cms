@@ -13,7 +13,7 @@ sidebar:
 
 The list opens on "Drafts". "Published" and "All" sit beside it, each with a count. "Language" narrows the list to "Thai" or "English" once you press "Apply filters", and "Search posts…" at the top of the admin finds a post by its title.
 
-Each card is one post. It shows every edition you have written, with its status, and a "Not written" line for a language you have not. Press a title to open that edition in the editor, or "Not written" to start the other language. The "..." beside an edition has "Edit", "Preview", "Duplicate", "Publish" or "Unpublish", and "Delete".
+Each card is one post. It shows every edition you have written, with its status, and a "Not written" line for a language you have not. Press a title to open that edition in the editor, or "Not written" to start the other language. The "..." beside an edition has "Edit", "Preview", "Copy link", "Duplicate", "Publish" or "Unpublish", and "Delete". "Copy link" is there once the edition is published, and puts its address on the clipboard; if the browser will not copy, the address is shown to copy by hand.
 
 "Duplicate" makes a new draft from that edition, in the same language, with "(copy)" after its title ("(สำเนา)" for a Thai edition) and the same categories. It is a post of its own, and does not become this post's other language. "Delete" removes that language edition only, and cannot be undone.
 

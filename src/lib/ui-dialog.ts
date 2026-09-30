@@ -12,6 +12,8 @@ interface DialogOptions {
 
 interface PromptOptions extends DialogOptions {
   label: string;
+  /** Something to read and copy, not to edit: the field is selected when it opens, and the one button closes it. */
+  readOnly?: boolean;
   /** A second way to answer, beside Cancel and the confirm button: it skips validation and says so in the answer. */
   secondary?: { label: string };
   validate?: (value: string) => string | null;
@@ -79,6 +81,7 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
     input = document.createElement('input');
     input.className = 'ui-dialog__input';
     input.value = promptOptions.value ?? '';
+    if (promptOptions.readOnly) input.readOnly = true;
     input.setAttribute('aria-describedby', `${id}-error`);
     inputError = document.createElement('p');
     inputError.className = 'ui-dialog__error';
@@ -108,7 +111,7 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
   const actions = document.createElement('div');
   actions.className = 'ui-dialog__actions';
   const tone = options.tone ?? 'default';
-  const cancel = kind === 'alert' ? null : button(options.cancelLabel ?? 'Cancel', 'cancel', tone);
+  const cancel = kind === 'alert' || (options as Partial<PromptOptions>).readOnly ? null : button(options.cancelLabel ?? 'Cancel', 'cancel', tone);
   const confirm = button(options.confirmLabel ?? (kind === 'alert' ? 'OK' : 'Confirm'), 'confirm', tone);
   const secondaryLabel = kind === 'prompt' ? (options as PromptOptions).secondary?.label : undefined;
   const secondary = secondaryLabel ? button(secondaryLabel, 'secondary', tone) : null;
@@ -168,6 +171,7 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
     });
     dialog.showModal();
     (input ?? cancel ?? confirm).focus();
+    if ((options as Partial<PromptOptions>).readOnly) input?.select();
   });
 }
 

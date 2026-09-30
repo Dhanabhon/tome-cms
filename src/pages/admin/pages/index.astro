@@ -5,6 +5,9 @@ import UiSelect from '../../../components/admin/UiSelect';
 import AdminShell from '../../../components/admin/AdminShell.astro';
 import { adminHref, adminLoginPath, adminPreviewHref } from '../../../lib/admin';
 import { adminCopy, adminDateFormat, fill, statusLabel } from '../../../lib/admin-i18n';
+import { isLive } from '../../../lib/admin-story-list';
+import { pagePath } from '../../../lib/i18n';
+import { getPublicSiteUrl } from '../../../lib/seo';
 import { filterAdminPages, type AdminPageFilters } from '../../../lib/pages';
 import { groupAdminStories } from '../../../lib/posts';
 import { requireInstalledOwner } from '../../../server/auth/session';
@@ -43,6 +46,7 @@ try {
 
 const adminPath = settings?.admin_path ?? '/admin';
 const adminSettings = { admin_path: adminPath };
+const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 
 const ownerLocale = settings?.default_locale ?? null;
 const copy = adminCopy(ownerLocale);
@@ -77,7 +81,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
           <div><p class="admin-eyebrow">{copy.nav.groupContent}</p><h1>{copy.pages.heading}</h1><p>{copy.pages.subheading}</p><p class="admin-page__note">{fill(copy.row.timezoneNote, { timezone: settings?.timezone ?? 'UTC' })}</p></div>
           <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.newPage} <span aria-hidden="true">+</span></a>
         </header>
-        <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-action-failed={copy.errors.actionFailed} data-copy-content-required={copy.editor.contentRequired} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-cancel={copy.shell.cancel} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage}>
+        <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-action-failed={copy.errors.actionFailed} data-copy-content-required={copy.editor.contentRequired} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-cancel={copy.shell.cancel} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage} data-copy-close={copy.shell.close} data-copy-copied={copy.media.urlCopiedShort} data-copy-link-label={copy.row.link} data-copy-link-manual={copy.row.copyLinkManual} data-copy-link-title={copy.row.copyLink}>
           <div class="admin-list-bar">
             <nav class="admin-post-tabs" aria-label={copy.pages.statusLabel}>
               {tabs.map((tab) => (
@@ -103,6 +107,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
             </form>
           </div>
           <p class="admin-alert" data-page-error role="alert" hidden></p>
+          <p class="sr-only" role="status" data-copy-status></p>
           <div class:list={['admin-story-list', stories.length && 'admin-story-panel admin-page-list']}>
             {stories.length > 0 && (
               <div class="admin-page-head" aria-hidden="true">
@@ -137,6 +142,7 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                             <div>
                               <a href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>{copy.row.edit}</a>
                               <a href={adminPreviewHref(adminSettings, 'page', edition.id)} target="_blank" rel="noopener noreferrer">{copy.row.preview}</a>
+                              <button type="button" data-copy-link={new URL(pagePath(edition), siteUrl).href} hidden={!isLive(edition.status, edition.published_at)}><span>{copy.row.copyLink}</span><span><Icon name="check" />{copy.media.urlCopiedShort}</span></button>
                               <button type="button" data-page-action="duplicate" data-page-id={edition.id} data-page-updated-at={edition.updated_at}>{copy.row.duplicate}</button>
                               <button type="button" data-page-action={edition.status === 'draft' ? 'published' : 'draft'} data-page-id={edition.id} data-page-updated-at={edition.updated_at} data-page-title={title} data-page-locale={edition.locale.toUpperCase()}>{edition.status === 'draft' ? copy.row.publish : copy.row.unpublish}</button>
                               <button type="button" data-page-action="delete" data-page-id={edition.id} data-page-updated-at={edition.updated_at} data-page-title={title} data-page-locale={edition.locale === 'th' ? copy.filters.thai : copy.filters.english} data-page-confirm={fill(copy.row.deleteConfirm, { language: edition.locale === 'th' ? copy.filters.thai : copy.filters.english, title })}>{copy.row.delete}</button>
