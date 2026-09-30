@@ -122,6 +122,14 @@ export default function wireStoryList({ confirm, endpoint, entity }: StoryListOp
     const id = button.dataset[`${entity}Id`];
     const updatedAt = button.dataset[`${entity}UpdatedAt`];
     if (!action || !id || !updatedAt) return;
+    // Choosing an item closes the menu before anything else opens. Left open behind a confirm
+    // dialog, it would take that dialog's first Escape. Focus goes to the menu's button so a
+    // cancelled prompt hands it back there.
+    const menu = button.closest<HTMLDetailsElement>('details.admin-story-menu');
+    if (menu) {
+      menu.open = false;
+      menu.querySelector<HTMLElement>('summary')?.focus();
+    }
     if (!(await confirm(action, button.dataset))) return;
 
     // A card holds every language edition of one story, so an action belongs to the

@@ -10,9 +10,15 @@ export function menusToClose<T extends MenuLike>(menus: readonly T[], target: un
   return menus.filter((menu) => menu.open && !menu.contains(target));
 }
 
-/** The menu Escape closes: the one holding focus, else the open one (Safari does not focus a summary on click). */
-export function menuToEscape<T extends MenuLike>(menus: readonly T[], active: unknown): T | undefined {
-  return menus.find((menu) => menu.open && menu.contains(active)) ?? menus.find((menu) => menu.open);
+/**
+ * The menu Escape closes: the one holding focus, else the open one when focus is on nothing
+ * (Safari does not focus a summary on click). Focus anywhere else, such as a confirm dialog or
+ * another open list, keeps its own Escape.
+ */
+export function menuToEscape<T extends MenuLike>(menus: readonly T[], active: unknown, body: unknown = null): T | undefined {
+  const held = menus.find((menu) => menu.open && menu.contains(active));
+  if (held) return held;
+  return active === null || active === body ? menus.find((menu) => menu.open) : undefined;
 }
 
 export function wireDetailsMenus(selector: string, doc: Document = document): () => void {
@@ -22,7 +28,7 @@ export function wireDetailsMenus(selector: string, doc: Document = document): ()
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return;
-    const menu = menuToEscape(menus(), doc.activeElement);
+    const menu = menuToEscape(menus(), doc.activeElement, doc.body);
     if (!menu) return;
     menu.open = false;
     menu.querySelector<HTMLElement>('summary')?.focus();

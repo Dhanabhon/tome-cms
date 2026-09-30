@@ -162,6 +162,17 @@ test('a row menu closes on a press outside and on Escape', async ({ context, pag
   await page.keyboard.press('Escape');
   await expect(menu).not.toHaveAttribute('open', '');
   await expect(menu.locator('summary')).toBeFocused();
+
+  // Choosing Delete closes the menu, so the first Escape belongs to the confirmation and cancels it.
+  await menu.locator('summary').click();
+  await menu.getByRole('button', { name: 'Delete' }).click();
+  const confirm = page.locator('dialog.ui-dialog[open]');
+  await expect(confirm).toBeVisible();
+  await expect(menu).not.toHaveAttribute('open', '');
+  await page.keyboard.press('Escape');
+  await expect(confirm, 'one Escape cancels the prompt').toHaveCount(0);
+  await expect(menu.locator('summary')).toBeFocused();
+  await expect(page.locator('.admin-story-row')).toHaveCount(1);
 });
 
 test('a publish date is chosen with the keyboard and saved with the draft', async ({ context, page }) => {
