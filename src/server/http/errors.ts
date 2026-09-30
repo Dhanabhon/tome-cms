@@ -1,6 +1,6 @@
 import { z, ZodError } from 'zod';
 
-export type AdminErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 429 | 503;
+export type AdminErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 416 | 429 | 503;
 
 export class HttpError extends Error {
   override name = 'HttpError';

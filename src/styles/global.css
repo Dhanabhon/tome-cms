@@ -868,6 +868,13 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .media-details__file { @apply mb-4 aspect-video rounded-md; }
 
+/* A PDF's first page stands in for the label in the frame an image preview uses, contained so a
+ * portrait page is not cropped. It arrives after the label, so it fades in -- when motion is wanted. */
+@keyframes media-page-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .media-page { animation: media-page-in var(--dur-short) var(--ease-out); }
+}
+
 .media-card strong { padding-inline: var(--space-sm); font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; }
 .media-card > span:not(.media-card-select) { padding: 0 var(--space-sm) var(--space-sm); }
 

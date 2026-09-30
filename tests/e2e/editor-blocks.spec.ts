@@ -3,6 +3,7 @@ import { createServer } from 'node:net';
 
 import type { BrowserContext, Page, Route } from '@playwright/test';
 
+import { onePagePdf } from '../helpers/pdf';
 import { expect, test } from './own-worker';
 
 /**
@@ -948,6 +949,54 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
   await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
   await expect(uploadDialog.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, "CSV UTF-8")');
+});
+
+test('a PDF shows its first page in the library and in its details, and a file pdf.js cannot open keeps its label', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  // pdf.js reads from a worker, so the context sees what the page does not.
+  const ranges: number[] = [];
+  context.on('response', (response) => { if (/\/api\/admin\/media\/[0-9a-f-]{36}\/content$/.test(response.url())) ranges.push(response.status()); });
+
+  await page.goto(`${origin}/admin/media`);
+  const upload = page.locator('.media-upload input[type="file"]');
+  const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
+  for (const file of [
+    { name: 'Guide.pdf', mimeType: 'application/pdf', buffer: onePagePdf('Guide', { padding: 300_000 }) },
+    { name: 'Broken.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') },
+  ]) {
+    await upload.setInputFiles(file);
+    await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
+    await expect(uploadDialog.locator('.media-upload-row')).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+    await uploadDialog.getByRole('button', { name: 'Done' }).click();
+    await expect(uploadDialog).toBeHidden();
+  }
+
+  const loaded = (image: import('@playwright/test').Locator) => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0);
+  const guide = page.getByRole('button', { name: /^Guide\.pdf, PDF,/ });
+  const broken = page.getByRole('button', { name: /^Broken\.pdf, PDF,/ });
+  // The card says what the file is until the page is drawn, and shows the page once it is.
+  await expect(guide.locator('img')).toHaveCount(1, { timeout: 30_000 });
+  await expect.poll(() => loaded(guide.locator('img'))).toBe(true);
+  await expect(guide.locator('img')).toHaveAttribute('src', /^blob:/);
+  await expect(guide.locator('img')).toHaveAttribute('alt', '');
+  await expect(guide.locator('.media-card__file')).toHaveCount(0);
+  // A file that is not a PDF, however it is named, is still the label it was.
+  await expect(broken.locator('.media-card__file')).toHaveText('PDF');
+  await expect(broken.locator('img')).toHaveCount(0);
+  expect(ranges, 'pdf.js read the file from the admin in ranges').toContain(206);
+
+  await guide.click();
+  const details = page.getByRole('dialog', { name: 'File details' });
+  await expect(details.locator('img.media-page')).toHaveCount(1);
+  await expect.poll(() => loaded(details.locator('img.media-page'))).toBe(true);
+  await expect(details.locator('.media-details__file')).toHaveCount(0);
+  await details.getByRole('button', { name: 'Close details' }).click();
+  await expect(details).toBeHidden();
+
+  await broken.click();
+  await expect(details.locator('.media-details__file')).toHaveText('PDF');
+  await expect(details.locator('img')).toHaveCount(0);
 });
 
 test('a file goes into an article from + or /, and a reader downloads it', async ({ context, page }) => {

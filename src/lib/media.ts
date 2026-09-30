@@ -188,3 +188,8 @@ export async function imageDimensions(file: File): Promise<{ height: number; wid
 export function isImageAsset(asset: MediaAsset): asset is MediaAsset & { height: number; mime_type: SupportedImageType; width: number } {
   return isImageType(asset.mime_type) && asset.width !== null && asset.height !== null;
 }
+
+/** A library item whose first page can be drawn as its preview. */
+export function isPdfAsset(asset: MediaAsset): boolean {
+  return asset.mime_type === 'application/pdf';
+}
