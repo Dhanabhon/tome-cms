@@ -198,6 +198,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       }
     }, { rootMargin: '200px' });
     thumbnailObserver.current.observe(node);
+    // A card that goes (a page or a filter changed) is not watched any longer.
+    return () => thumbnailObserver.current?.unobserve(node);
   }, [showThumbnail]);
 
   // The addresses belong to this library: they are revoked with it.

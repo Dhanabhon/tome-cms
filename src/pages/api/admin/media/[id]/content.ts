@@ -23,7 +23,7 @@ export const GET: APIRoute = async ({ params, request }) => {
     }
     const id = z.uuid().safeParse(params.id);
     if (!id.success) throw new HttpError(404, 'File not found.');
-    return await readPdf(current.user.id, id.data, request.headers.get('range'));
+    return await readPdf(current.user.id, id.data, request.headers.get('range'), { requestId, signal: request.signal });
   } catch (error) {
     return adminErrorResponse(error, requestId);
   }

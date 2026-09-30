@@ -1023,6 +1023,9 @@ test('a PDF shows its first page in the library and in its details, and a file p
   const ranges: number[] = [];
   context.on('response', (response) => { if (/\/api\/admin\/media\/[0-9a-f-]{36}\/content$/.test(response.url())) ranges.push(response.status()); });
 
+  // One pdf.js worker serves every render, the unreadable file's too.
+  const workers: unknown[] = [];
+  page.on('worker', (worker) => workers.push(worker));
   await page.goto(`${origin}/admin/media`);
   const upload = page.locator('.media-upload input[type="file"]');
   const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
@@ -1062,6 +1065,7 @@ test('a PDF shows its first page in the library and in its details, and a file p
   await unreadable.click();
   await expect(details.locator('.media-details__file')).toHaveText('PDF');
   await expect(details.locator('img')).toHaveCount(0);
+  expect(workers, 'one worker for both renders').toHaveLength(1);
 });
 
 test('Copy URL copies a full address, says so on its button for a moment, and leaves no ring after a click', async ({ context, page }) => {

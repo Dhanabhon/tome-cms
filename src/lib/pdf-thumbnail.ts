@@ -5,10 +5,14 @@ const MAX_PIXEL_RATIO = 2;
 const RANGE_CHUNK_BYTES = 65_536;
 const CONCURRENT_RENDERS = 2;
 
+/** One pdf.js worker for every render: a page of cards would otherwise start one each. */
+let sharedWorker: import('pdfjs-dist').PDFWorker | null = null;
+
 /** Draws a PDF's first page, from the admin's own copy of it, and answers a blob address. Null when it cannot. */
 async function renderFirstPage(id: string): Promise<string | null> {
   const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]);
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  if (!sharedWorker || sharedWorker.destroyed) sharedWorker = new pdfjs.PDFWorker();
   // Ranges only (no stream): the first page is a few chunks of the file, and a stream would start
   // the whole of a 25 MB document towards every card. pdf.js 6 has no eval and no scripting unless asked.
   const task = pdfjs.getDocument({
@@ -16,6 +20,7 @@ async function renderFirstPage(id: string): Promise<string | null> {
     disableStream: true,
     rangeChunkSize: RANGE_CHUNK_BYTES,
     url: `/api/admin/media/${id}/content`,
+    worker: sharedWorker,
     withCredentials: true,
   });
   try {
@@ -65,7 +70,8 @@ export function thumbnailLoader(
       const current = known;
       const existing = current.get(id);
       if (existing) return existing;
-      const pending = turn(() => render(id)).catch(() => null).then((url) => {
+      // A render still queued when the library is cleared never starts: nobody is left to show it.
+      const pending = turn(() => (known === current ? render(id) : Promise.resolve(null))).catch(() => null).then((url) => {
         if (!url) return null;
         // Cleared while it drew: nobody is left to show it, and nobody would revoke it.
         if (known !== current) { revoke(url); return null; }

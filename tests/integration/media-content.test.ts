@@ -42,17 +42,19 @@ test('a PDF is read back through the app: only its owner, only a ready PDF, by r
 
   // What storage answers: the whole object, or the one range asked for, with its Content-Range.
   const asked: Array<{ Key?: string; Range?: string }> = [];
+  const signals: Array<AbortSignal | undefined> = [];
   let failure: unknown = null;
   // What the SDK hands back: a Node stream that can also become a web stream.
   const body = (bytes: Buffer) => {
     const stream = Readable.from([bytes]);
     return Object.assign(stream, { transformToWebStream: () => Readable.toWeb(stream) });
   };
-  const transport = s3 as unknown as { send(command: object): Promise<object> };
+  const transport = s3 as unknown as { send(command: object, options?: object): Promise<object> };
   const originalSend = transport.send;
-  transport.send = async (command) => {
+  transport.send = async (command, options) => {
     if (!(command instanceof GetObjectCommand)) throw new Error('Unexpected storage command.');
     asked.push(command.input);
+    signals.push((options as { abortSignal?: AbortSignal } | undefined)?.abortSignal);
     if (failure) throw failure;
     const range = /^bytes=(\d+)-(\d*)$/.exec(command.input.Range ?? '');
     if (!range) return { Body: body(pdf), ContentLength: pdf.length };
@@ -87,10 +89,24 @@ test('a PDF is read back through the app: only its owner, only a ready PDF, by r
   assert.deepEqual(Buffer.from(await part.arrayBuffer()), pdf.subarray(0, 100));
   assert.equal(asked.at(-1)?.Range, 'bytes=0-99', 'the header goes to storage as it came');
 
-  for (const bad of ['bytes=9-2', 'pages=1-2', 'bytes=0-1,5-6', 'bytes=']) {
-    await assert.rejects(readPdf(ownerId, ready.id, bad), (error) => error instanceof HttpError && error.status === 416, bad);
-  }
-  await assert.rejects(readPdf(ownerId, ready.id, `bytes=${pdf.length + 10}-`), (error) => error instanceof HttpError && error.status === 416);
+  // A range that cannot be served is 416 with the file's size, as RFC 9110 has it, and never reaches storage if it is malformed.
+  const refusedAt = async (response: Response) => {
+    assert.equal(response.status, 416);
+    assert.equal(response.headers.get('content-range'), `bytes */${pdf.length}`);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal((await response.json() as { requestId: string }).requestId, 'req-416');
+  };
+  const beforeMalformed = asked.length;
+  for (const bad of ['bytes=9-2', 'pages=1-2', 'bytes=0-1,5-6', 'bytes=']) await refusedAt(await readPdf(ownerId, ready.id, bad, { requestId: 'req-416' }));
+  assert.equal(asked.length, beforeMalformed);
+  await refusedAt(await readPdf(ownerId, ready.id, `bytes=${pdf.length + 10}-`, { requestId: 'req-416' }));
+
+  // The answer is named by request, and storage is asked with the request's own abort signal: a reader that leaves stops the read.
+  const leaving_ = new AbortController();
+  const named = await readPdf(ownerId, ready.id, null, { requestId: 'req-200', signal: leaving_.signal });
+  assert.equal(named.headers.get('x-request-id'), 'req-200');
+  assert.equal(signals.at(-1), leaving_.signal);
+  await named.arrayBuffer();
 
   // Not this owner's, not ready, not a PDF, not there: one answer, and storage is never asked.
   const before = asked.length;
@@ -151,6 +167,7 @@ test('a PDF is read back through the app: only its owner, only a ready PDF, by r
   for (const headers of [{}, { Origin: 'http://localhost:4321' }] as Array<Record<string, string>>) {
     const answered = await signedIn(headers);
     assert.equal(answered.status, 200);
+    assert.ok(answered.headers.get('x-request-id'));
     assert.deepEqual(Buffer.from(await answered.arrayBuffer()), pdf);
   }
 });

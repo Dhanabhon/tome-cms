@@ -53,3 +53,19 @@ test('clearing revokes every address it made and forgets them', async () => {
   await loader.load('a');
   assert.equal(renders, 4, 'a file looked at again after a clear is rendered again');
 });
+
+test('clearing drops the renders still waiting, which resolve to nothing without being drawn', async () => {
+  let release: () => void = () => undefined;
+  const drawn: string[] = [];
+  const loader = thumbnailLoader(async (id) => {
+    drawn.push(id);
+    await new Promise<void>((resolve) => { release = resolve; });
+    return `blob:${id}`;
+  }, 1, () => undefined);
+  const loads = ['a', 'b', 'c'].map((id) => loader.load(id));
+  await tick();
+  loader.clear();
+  release();
+  assert.deepEqual(await Promise.all(loads), [null, null, null]);
+  assert.deepEqual(drawn, ['a'], 'b and c were waiting, and never started');
+});
