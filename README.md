@@ -1,8 +1,6 @@
 <h1 align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="public/brand/tomecms-logo-reverse.png">
-    <img alt="TomeCMS" src="public/brand/tomecms-logo-color.png" width="360">
-  </picture>
+  <img alt="TomeCMS" src="public/brand/tomecms-logo-color.png#gh-light-mode-only" width="360">
+  <img alt="TomeCMS" src="public/brand/tomecms-logo-reverse.png#gh-dark-mode-only" width="360">
 </h1>
 
 TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It ships a server-rendered blog and a React admin editor, and serves the same published content through a versioned headless REST API.
