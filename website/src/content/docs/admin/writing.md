@@ -1,6 +1,6 @@
 ---
 title: Writing
-description: Write a post in the editor, add images, files, tables and videos to it, and fill in its settings before it goes out.
+description: Write a post in the editor, add images, files, tables, code and videos to it, and fill in its settings before it goes out.
 sidebar:
   order: 1
 ---
@@ -42,6 +42,16 @@ Select some words and a bar appears over them: "Bold", "Italic", "Underline", "S
 "Text colour" opens a row of swatches under the bar: "Default", "Red", "Orange", "Green", "Blue", "Purple" and "Grey". A colour is saved by its name, and the theme gives each one a shade for light mode and another for dark mode, so coloured words stay readable when a reader's screen is dark. "Default" takes the colour off.
 
 "Link" opens "Add a link". Paste an `http` or `https` URL into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To link to a file instead, press "Choose from the File Manager" and pick a document or a picture; the link is the file's address on your site, and the File Manager will not delete the file while a post or page links to it. To take a link off, select the linked words and press "Link" again.
+
+## Code
+
+Choose "Code block" from the "+" menu or from `/`. The block has a picker in its top-left corner, "Language", and a new block starts at "None": the code is shown as typed, in a light box, with no colour. Open the picker to choose one of "Bash", "C", "C#", "C++", "CSS", "Dart", "Diff", "Go", "GraphQL", "HTML, XML", "Java", "JavaScript", "JSON", "Kotlin", "Markdown", "PHP", "Python", "Ruby", "Rust", "SQL", "Swift", "TOML, INI", "TypeScript" and "YAML". The code is coloured as you type.
+
+"Auto" lets the editor guess. Once you stop typing for a moment, the picker reads "Auto (TypeScript)", or whichever language it found. The guess is poorest on a line or two, and when it has nothing to go on the picker says only "Auto" and the code stays plain. If it guesses wrong, choose the language yourself.
+
+Press Tab to reach the picker like any other button, and Escape to close its list and go back to the code. Press the Down arrow at the end of a block that ends the post to start a new line below it.
+
+On the site, the code is coloured before the page is sent, so it needs nothing from the reader's browser. The language's name is written small in the block's top-left corner, except for "None" and for an "Auto" that found nothing. The block is light on a light page and dark on a dark one. A block of more than 20,000 characters is shown without colour. Posts written before a block had a language are "None", and stay as they were.
 
 ## Images
 
