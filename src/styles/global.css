@@ -1231,6 +1231,11 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 
 /* A save button's two words share one cell, so it keeps its width whichever it shows. */
+.admin-copy-button { display: inline-grid; }
+.admin-copy-button__label { display: inline-flex; grid-area: 1 / 1; gap: var(--space-2xs); align-items: center; justify-content: center; }
+.admin-copy-button[data-state="copied"] .admin-copy-button__label:not(.admin-copy-button__label--copied),
+.admin-copy-button:not([data-state="copied"]) .admin-copy-button__label--copied { visibility: hidden; }
+.admin-copy-button__label .icon { width: 1rem; height: 1rem; }
 .admin-save-button { display: inline-grid; }
 .admin-save-button__label { display: inline-flex; grid-area: 1 / 1; gap: var(--space-2xs); align-items: center; justify-content: center; }
 .admin-save-button[data-state="saved"] .admin-save-button__label:not(.admin-save-button__label--saved),

@@ -844,7 +844,7 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await expect(page).not.toHaveURL(/type=/);
   await guide.click();
   const details = page.getByRole('dialog', { name: 'File details' });
-  await expect(details.getByLabel('File URL')).toHaveValue(/^\/media\/[0-9a-f-]{36}$/);
+  await expect(details.getByLabel('File URL')).toHaveValue(new RegExp(`^${origin}/media/[0-9a-f-]{36}$`));
   await expect(details.getByLabel('Alt text')).toHaveCount(0);
   await details.getByRole('button', { name: 'Close details' }).click();
   // Gone once its exit has played; until then it is still the modal dialog, and the page
@@ -997,6 +997,53 @@ test('a PDF shows its first page in the library and in its details, and a file p
   await broken.click();
   await expect(details.locator('.media-details__file')).toHaveText('PDF');
   await expect(details.locator('img')).toHaveCount(0);
+});
+
+test('Copy URL copies a full address, says so on its button for a moment, and leaves no ring after a click', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+  await signIn(context, page);
+
+  await page.goto(`${origin}/admin/media`);
+  const uploadDialog = page.getByRole('dialog', { name: 'Upload files' });
+  await page.locator('.media-upload input[type="file"]').setInputFiles({ name: 'Plan.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%%EOF\n') });
+  await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
+  await expect(uploadDialog.locator('.media-upload-row')).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+  await uploadDialog.getByRole('button', { name: 'Done' }).click();
+  await expect(uploadDialog).toBeHidden();
+
+  await page.getByRole('button', { name: /^Plan\.pdf, PDF,/ }).click();
+  const details = page.getByRole('dialog', { name: 'File details' });
+  // The field shows the address a paste elsewhere needs, not one that means something only here.
+  await expect(details.getByLabel('File URL')).toHaveValue(new RegExp(`^${origin}/media/[0-9a-f-]{36}$`));
+
+  await expect(details.getByRole('button', { name: 'Copy URL' })).toBeVisible();
+  const copy = details.locator('.admin-copy-button');
+  // The layout width: the dialog is still scaling in, which a bounding box would count.
+  const width = () => copy.evaluate((node: HTMLElement) => node.offsetWidth);
+  const before = await width();
+  await copy.click();
+
+  // The state is on the button: its words change, its width does not, and no line of text appears.
+  await expect(copy).toHaveText('Copied', { useInnerText: true });
+  await expect(copy).toHaveAccessibleName('Copied');
+  expect(await width(), 'the button keeps its width').toBe(before);
+  await expect(details.locator('p[role="status"]'), 'no line of text under the actions').toHaveCount(0);
+  await expect(details.getByText('URL copied.')).toHaveCount(0);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(new RegExp(`^${origin}/media/[0-9a-f-]{36}$`));
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await details.getByLabel('File URL').inputValue());
+
+  // A mouse click leaves the button without a ring; the keyboard still gets one.
+  expect(await copy.evaluate((node) => node.matches(':focus-visible')), 'no ring after a click').toBe(false);
+  await expect.poll(() => copy.evaluate((node) => getComputedStyle(node).outlineColor)).toBe('rgba(0, 0, 0, 0)');
+
+  await expect(copy).toHaveText('Copy URL', { timeout: 5_000, useInnerText: true });
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  await expect(copy).toBeFocused();
+  expect(await copy.evaluate((node) => node.matches(':focus-visible')), 'a ring for the keyboard').toBe(true);
+  expect(await copy.evaluate((node) => getComputedStyle(node).outlineColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await copy.evaluate((node) => getComputedStyle(node).outlineWidth)).toBe('2px');
 });
 
 test('a file goes into an article from + or /, and a reader downloads it', async ({ context, page }) => {

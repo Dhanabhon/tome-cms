@@ -99,7 +99,7 @@ const en = {
     uploadUploaded: 'Uploaded',
     uploading: 'Uploading…',
     uploadingProgress: 'Uploading…',
-    urlCopied: 'URL copied.',
+    urlCopiedShort: 'Copied',
     urlSelected: 'URL selected. Copy it with your keyboard shortcut.',
   },
   nav: {
@@ -1081,7 +1081,7 @@ const th: typeof en = {
     uploadUploaded: 'อัปโหลดแล้ว',
     uploading: 'กำลังอัปโหลด…',
     uploadingProgress: 'กำลังอัปโหลด…',
-    urlCopied: 'คัดลอก URL แล้ว',
+    urlCopiedShort: 'คัดลอกแล้ว',
     urlSelected: 'เลือก URL ไว้แล้ว กดคัดลอกด้วยคีย์ลัดของคุณ',
   },
   nav: {

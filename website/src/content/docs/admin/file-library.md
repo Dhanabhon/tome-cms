@@ -42,9 +42,9 @@ A PDF's card and its details show the first page, which your browser draws from 
 
 - "Folder" moves the file to another folder.
 - "Alt text", for images only, says what the image shows, up to 300 characters. An image put into a post or page through the editor's "Image" takes this text with it, and a slide without a heading needs it.
-- "File URL" is the file's address on your site, `/media/` followed by the file's id. It keeps working for as long as the file is in the File Manager.
+- "File URL" is the file's full address on your site, your site's address followed by `/media/` and the file's id, so it works pasted anywhere. It keeps working for as long as the file is in the File Manager.
 
-Press "Save" to keep a change to the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
+Press "Save" to keep a change to the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address, and the button says "Copied" for two seconds. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
 
 ## Deleting a file
 
