@@ -1,7 +1,7 @@
 ---
 import SiteBrand from '../../components/SiteBrand.astro';
 import ThemeToggle from '../../components/ThemeToggle.astro';
-import { currentYear, localePath, publicCopy } from '../../lib/i18n';
+import { currentYear, localePath, poweredByText, publicCopy } from '../../lib/i18n';
 import { THEME_LABELS } from '../../lib/theme';
 import type { ThemeShellProps } from '../contract';
 
@@ -37,6 +37,6 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
       </nav>
     )}
     <p>&copy; {currentYear(locale)} {siteName}.</p>
-    {showPoweredBy && <p class="plain-foot__credit">{copy.poweredBy}</p>}
+    {showPoweredBy && <p class="plain-foot__credit">{poweredByText(copy)}</p>}
   </footer>
 </body>

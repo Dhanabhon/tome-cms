@@ -54,7 +54,7 @@ export function publicCopy(locale: PostLocale) {
       menu: 'เมนู',
       noResults: 'ไม่พบบทความที่ตรงกับ “{query}”',
       opensInNewTab: '(เปิดในแท็บใหม่)',
-      poweredBy: 'ขับเคลื่อนด้วย TomeCMS',
+      poweredBy: 'ขับเคลื่อนด้วย {tomecms}',
       lastSaved: 'บันทึกล่าสุด',
       maintenanceBack: 'กลับมาประมาณ {when}',
       maintenanceBar: 'เว็บปิดปรับปรุงอยู่ ผู้เข้าชมจะเห็นหน้าปิดปรับปรุง',
@@ -91,7 +91,7 @@ export function publicCopy(locale: PostLocale) {
       menu: 'Menu',
       noResults: 'No posts match “{query}”.',
       opensInNewTab: '(opens in a new tab)',
-      poweredBy: 'Powered by TomeCMS',
+      poweredBy: 'Powered by {tomecms}',
       lastSaved: 'Last saved',
       maintenanceBack: 'Back around {when}',
       maintenanceBar: 'The site is closed for maintenance. Visitors see the maintenance page.',
@@ -108,4 +108,9 @@ export function publicCopy(locale: PostLocale) {
       searchResults: 'Results for “{query}”',
       updated: 'Updated',
     };
+}
+
+/** The credit as plain words, for a theme that does not link the product's name. */
+export function poweredByText(copy: Pick<ReturnType<typeof publicCopy>, 'poweredBy'>): string {
+  return copy.poweredBy.replace('{tomecms}', 'TomeCMS');
 }

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { currentYear, publicCopy } from '../../src/lib/i18n';
+import { currentYear, poweredByText, publicCopy } from '../../src/lib/i18n';
+import { OFFICIAL_REPOSITORY_URL } from '../../src/update/contracts';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
@@ -57,12 +58,14 @@ test('the year in the footer is the year in the article', () => {
 test('the footer credits TomeCMS, and stops when the owner says so', () => {
   const footer = read('src/themes/paper/parts/Footer.astro');
   // Its own paragraph, shown only when the owner has not switched it off (paper-footer.test.ts covers where it sits).
-  assert.match(footer, /\{showPoweredBy && <p class="site-footer__credit">\{copy\.poweredBy\}<\/p>\}/);
-  assert.equal(publicCopy('en').poweredBy, 'Powered by TomeCMS');
-  // The product's name is a name in both languages; only the verb is translated.
-  assert.match(publicCopy('th').poweredBy, /TomeCMS$/);
-  // It is a credit, not a campaign: no link goes out from every page on the site.
-  assert.doesNotMatch(footer, /poweredBy[\s\S]{0,80}<a /);
+  assert.match(footer, /\{showPoweredBy && <p class="site-footer__credit">\{creditBefore\}<a href=\{OFFICIAL_REPOSITORY_URL\} rel="noopener noreferrer" target="_blank">TomeCMS/);
+  assert.equal(publicCopy('en').poweredBy, 'Powered by {tomecms}');
+  assert.equal(publicCopy('th').poweredBy, 'ขับเคลื่อนด้วย {tomecms}');
+  // The product's name is a name in both languages; only the verb is translated. It is the one word linked.
+  assert.equal(poweredByText(publicCopy('en')), 'Powered by TomeCMS');
+  assert.equal(poweredByText(publicCopy('th')), 'ขับเคลื่อนด้วย TomeCMS');
+  assert.deepEqual(publicCopy('en').poweredBy.split('{tomecms}'), ['Powered by ', '']);
+  assert.equal(OFFICIAL_REPOSITORY_URL, 'https://github.com/Dhanabhon/tome-cms');
   // The setting is read in core and travels through the theme's shell, which is what
   // renders the footer now: both hand-offs have to hold or the line is always shown.
   const layout = read('src/layouts/BaseLayout.astro');

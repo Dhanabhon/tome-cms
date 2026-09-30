@@ -70,7 +70,8 @@ test('search is first on a phone in sight and in tab order: it comes before the 
 
 test("the footer's credit is its own paragraph at the right, and wraps under the copyright on a phone", () => {
   const shell = read('Shell.astro');
-  assert.match(shell, /<p class="plain-foot__credit">\{copy\.poweredBy\}<\/p>/);
+  // Plain says it in plain text: the word Paper links is just the name here.
+  assert.match(shell, /<p class="plain-foot__credit">\{poweredByText\(copy\)\}<\/p>/);
   assert.doesNotMatch(shell, /\$\{copy\.poweredBy\}|` \$\{copy/);
   assert.match(css, /\.plain-foot__credit \{ margin-inline-start: auto; \}/);
   assert.match(css, /@media \(max-width: 39\.999rem\) \{[^}]*\.plain-foot__credit \{ flex-basis: 100%; margin-inline-start: 0; \}/);

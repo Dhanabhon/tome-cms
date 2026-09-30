@@ -1,4 +1,6 @@
 export const OFFICIAL_REPOSITORY = 'Dhanabhon/tome-cms' as const;
+/** Where the product lives, for the one place a site's pages link to it. */
+export const OFFICIAL_REPOSITORY_URL = `https://github.com/${OFFICIAL_REPOSITORY}` as const;
 export const OFFICIAL_IMAGE_REPOSITORY = 'ghcr.io/dhanabhon/tome-cms' as const;
 export const UPDATE_MANIFEST_ASSET = 'update-manifest.json' as const;
 export const UPDATE_MANIFEST_ATTESTATION_ASSET = 'update-manifest.attestation.json' as const;

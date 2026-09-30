@@ -1,6 +1,7 @@
 ---
 import type { PublicNavigationItem } from '../../../types/cms';
-import { currentYear, publicCopy } from '../../../lib/i18n';
+import { currentYear, localePath, publicCopy } from '../../../lib/i18n';
+import { OFFICIAL_REPOSITORY_URL } from '../../../update/contracts';
 import type { PostLocale } from '../../../types/cms';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
 
 const { locale, items = [], showPoweredBy = true, siteName = 'TomeCMS' } = Astro.props;
 const copy = publicCopy(locale);
+// The one word of the credit that is a link is where {tomecms} stands.
+const [creditBefore, creditAfter] = copy.poweredBy.split('{tomecms}');
 ---
 
 <footer class="site-footer mx-auto w-full max-w-7xl border-t border-line px-5 py-7 text-sm text-muted sm:px-7">
@@ -22,7 +25,7 @@ const copy = publicCopy(locale);
     </nav>
   )}
   <p>
-    &copy; {currentYear(locale)} {siteName}. {copy.allRightsReserved}
+    &copy; {currentYear(locale)} <a href={localePath(locale)}>{siteName}</a>. {copy.allRightsReserved}
   </p>
-  {showPoweredBy && <p class="site-footer__credit">{copy.poweredBy}</p>}
+  {showPoweredBy && <p class="site-footer__credit">{creditBefore}<a href={OFFICIAL_REPOSITORY_URL} rel="noopener noreferrer" target="_blank">TomeCMS<span class="sr-only"> {copy.opensInNewTab}</span></a>{creditAfter}</p>}
 </footer>

@@ -20,7 +20,7 @@ Open "Settings", then "General". The screen has three parts, and one "Save" butt
 | "Site name" | The site's name, in the header, the browser tab, search results and the footer. It is required, up to 120 characters. |
 | "Tagline" | A short line on the home page, under the headline, up to 120 characters. Left empty, the site shows a line of its own in the reader's language. |
 | "Site description" | Up to 160 characters, for search results and shared links on any page without a description of its own, and for the RSS feed. |
-| "Credit TomeCMS in the footer" | A plain line beside the copyright, which is not a link. It is on to begin with, and turning it off changes nothing else. |
+| "Credit TomeCMS in the footer" | A quiet line beside the copyright. On Paper the word "TomeCMS" in it links to TomeCMS's repository, in a new tab. It is on to begin with, and turning it off changes nothing else. |
 
 ### Logo and icon
 
