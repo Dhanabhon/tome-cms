@@ -38,9 +38,22 @@ export type CodeLanguage = CodeLanguageId | 'auto' | null;
 
 const IDS: ReadonlySet<string> = new Set(CODE_LANGUAGES.map((language) => language.id));
 
-/** A stored value made safe to use: a known id, `'auto'`, or `null` for anything else. */
+/** The short names fenced code usually carries, for the id each stands for. */
+const ALIASES: ReadonlyMap<string, CodeLanguageId> = new Map(Object.entries({
+  javascript: 'js jsx mjs cjs', typescript: 'ts tsx', bash: 'sh shell zsh console', python: 'py', ruby: 'rb', yaml: 'yml',
+  xml: 'html htm svg xhtml', cpp: 'c++ cc hpp cxx', csharp: 'cs c#', kotlin: 'kt kts', markdown: 'md', rust: 'rs', ini: 'toml',
+  go: 'golang', graphql: 'gql', diff: 'patch', c: 'h', json: 'jsonc',
+}).flatMap(([id, names]) => names.split(' ').map((name) => [name, id as CodeLanguageId] as const)));
+
+/**
+ * A stored value made safe to use: a known id, `'auto'`, or `null` for anything else. An id or a
+ * usual short name ("ts", "yml", "c++") in any case is taken for the id it stands for.
+ */
 export function normalizeCodeLanguage(value: unknown): CodeLanguage {
-  return value === 'auto' || (typeof value === 'string' && IDS.has(value)) ? (value as CodeLanguage) : null;
+  if (typeof value !== 'string') return null;
+  const name = value.trim().toLowerCase();
+  if (name === 'auto') return 'auto';
+  return IDS.has(name) ? (name as CodeLanguageId) : ALIASES.get(name) ?? null;
 }
 
 export function codeLanguageLabel(id: string | null | undefined): string | null {

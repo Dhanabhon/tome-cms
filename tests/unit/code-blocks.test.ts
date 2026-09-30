@@ -30,11 +30,27 @@ test('the language list has 24 entries, sorted by label, each registered with lo
 test('a stored language is None, Auto or a listed id, and anything else is None', () => {
   assert.equal(normalizeCodeLanguage('java'), 'java');
   assert.equal(normalizeCodeLanguage('auto'), 'auto');
-  for (const value of [undefined, null, '', 'klingon', 'Java', 7, {}, '__proto__', 'constructor']) assert.equal(normalizeCodeLanguage(value), null);
+  for (const value of [undefined, null, '', 'klingon', 7, {}, '__proto__', 'constructor', 'toString']) assert.equal(normalizeCodeLanguage(value), null);
+});
+
+test('the usual short names, in any case, are the list\'s ids', () => {
+  const aliases: Record<string, string> = {
+    javascript: 'js jsx mjs cjs', typescript: 'ts tsx', bash: 'sh shell zsh console', python: 'py', ruby: 'rb', yaml: 'yml',
+    xml: 'html htm svg xhtml', cpp: 'c++ cc hpp cxx', csharp: 'cs c#', kotlin: 'kt kts', markdown: 'md', rust: 'rs', ini: 'toml',
+    go: 'golang', graphql: 'gql', diff: 'patch', c: 'h', json: 'jsonc',
+  };
+  for (const [id, names] of Object.entries(aliases)) {
+    for (const name of names.split(' ')) {
+      assert.equal(normalizeCodeLanguage(name), id, name);
+      assert.equal(normalizeCodeLanguage(name.toUpperCase()), id, name.toUpperCase());
+    }
+  }
+  assert.equal(normalizeCodeLanguage('Java'), 'java');
+  assert.equal(normalizeCodeLanguage(' Auto '), 'auto');
 });
 
 test('saving turns an unknown language into None, and keeps a known one and Auto', () => {
-  for (const [given, stored] of [['klingon', null], [42, null], ['java', 'java'], ['auto', 'auto'], [null, null]] as const) {
+  for (const [given, stored] of [['klingon', null], [42, null], ['java', 'java'], ['ts', 'typescript'], ['auto', 'auto'], [null, null]] as const) {
     const content = prepareEditorContent({ contentJson: block('x', given) });
     assert.equal(content.contentJson.content?.[0]?.attrs?.language ?? null, stored, `${String(given)}`);
   }

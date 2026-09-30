@@ -1431,6 +1431,18 @@ test('a code block has a language, highlighted in the editor and on the publishe
     .not.toBe(await java.evaluate((node) => getComputedStyle(node).color));
 });
 
+test('typing ``` and a usual short name makes a code block of that language', async ({ context, page }) => {
+  test.setTimeout(60_000);
+  await signIn(context, page);
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('```ts ');
+  await expect(page.getByRole('combobox', { name: 'Language' }), '"ts" is TypeScript').toHaveText('TypeScript');
+  await page.keyboard.type('const x: number = 1;');
+  await expect(page.locator('.ProseMirror pre code .hljs-keyword').first()).toBeVisible();
+});
+
 test('the row menu copies a published post\'s link, offers none for a draft, and offers it the moment one is published', async ({ context, page }) => {
   test.setTimeout(120_000);
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });

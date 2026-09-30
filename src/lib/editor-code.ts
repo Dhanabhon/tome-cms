@@ -1,3 +1,4 @@
+import { textblockTypeInputRule } from '@tiptap/core';
 import { CodeBlockLowlight, type CodeBlockLowlightOptions } from '@tiptap/extension-code-block-lowlight';
 import type { DOMOutputSpec } from '@tiptap/pm/model';
 
@@ -37,6 +38,14 @@ export const codeBlock = CodeBlockLowlight.extend({
         rendered: false,
       },
     };
+  },
+  // The base rules store whatever follows the fence; "```ts " stores the id it stands for.
+  addInputRules() {
+    return [/^```([a-z]+)?[\s\n]$/, /^~~~([a-z]+)?[\s\n]$/].map((find) => textblockTypeInputRule({
+      find,
+      type: this.type,
+      getAttributes: (match) => ({ language: normalizeCodeLanguage(match[1]) }),
+    }));
   },
   renderHTML({ node }) {
     const { language, nodes } = highlightCode(normalizeCodeLanguage(node.attrs.language), node.textContent);
