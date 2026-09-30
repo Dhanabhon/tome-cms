@@ -2,6 +2,16 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.5.4 - 2026-10-01
+
+A link in the editor can point at a picture from the File Manager, as well as a document.
+
+### Changed
+
+- The link dialog's "Choose from the File Manager" opens on All, with pictures beside documents; a link to a picture keeps it from being deleted, as a link to a document does.
+
+Full notes: [docs/releases/1.5.4.md](docs/releases/1.5.4.md)
+
 ## 1.5.3 - 2026-09-30
 
 A PDF shows its first page in the File Manager, and a link in the editor can point at a file from it.
