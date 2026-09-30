@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 
 import Icon from '../Icon';
 import UiSelect from './UiSelect';
@@ -34,6 +34,8 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [missing, setMissing] = useState(false);
+  const slugField = useRef<HTMLInputElement>(null);
   const target = targets.find(({ id, kind }) => `${kind}:${id}` === targetKey);
   const since = new Intl.DateTimeFormat(ownerLocale ?? 'en', { dateStyle: 'medium' });
 
@@ -54,6 +56,12 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!target || busy) return;
+    if (!slug.trim()) {
+      setMissing(true);
+      setError(copy.redirects.oldAddressRequired);
+      slugField.current?.focus();
+      return;
+    }
     setBusy('add');
     try {
       await send('POST', { kind: target.kind, slug, targetId: target.id },
@@ -85,7 +93,7 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
       <p className="sr-only" role="status" aria-live="polite">{status}</p>
       {error && <p className="admin-alert" role="alert">{error}</p>}
 
-      <form className="admin-card redirect-add" onSubmit={add}>
+      <form className="admin-card redirect-add" noValidate onSubmit={add}>
         <h2>{copy.redirects.addHeading}</h2>
         <p>{copy.redirects.addHint}</p>
         <div className="admin-field">
@@ -105,7 +113,7 @@ export default function RedirectManager({ initialRedirects, ownerLocale, targets
           <span>{copy.redirects.oldAddress}</span>
           <div className="admin-control admin-control--prefixed">
             <span>{prefix(target)}</span>
-            <input onChange={(event) => setSlug(event.target.value)} required type="text" value={slug} />
+            <input aria-invalid={missing || undefined} onChange={(event) => { setSlug(event.target.value); if (missing) { setMissing(false); setError(''); } }} ref={slugField} required type="text" value={slug} />
           </div>
         </label>
         <button aria-busy={busy === 'add'} className="admin-button admin-button--primary" disabled={!target || busy === 'add'} type="submit">

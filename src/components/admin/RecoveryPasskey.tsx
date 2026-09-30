@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 
 import { normalizeAdminPath } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
@@ -37,6 +37,8 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
   const [context, setContext] = useState(initialContext);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [missing, setMissing] = useState(false);
+  const codeField = useRef<HTMLInputElement>(null);
 
   async function register(recoveryContext: string): Promise<boolean> {
     if (!webAuthnAvailable()) {
@@ -73,6 +75,12 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
   async function startRecovery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    if (!code.trim()) {
+      setMissing(true);
+      setError(copy.security.codeRequired);
+      codeField.current?.focus();
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -115,7 +123,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
         </section>
       )}
 
-      <form className="admin-card security-form" onSubmit={(event) => void startRecovery(event)}>
+      <form className="admin-card security-form" noValidate onSubmit={(event) => void startRecovery(event)}>
         <header className="admin-card__head">
           <h2>{copy.security.useRecoveryCode}</h2>
           <p>{copy.security.useRecoveryCodeHint}</p>
@@ -123,10 +131,12 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
         <label className="admin-field" htmlFor="recovery-code">
           {copy.security.codeLabel}
           <input
+            aria-invalid={missing || undefined}
             className="admin-control"
             id="recovery-code"
             maxLength={128}
-            onChange={(event) => setCode(event.target.value)}
+            onChange={(event) => { setCode(event.target.value); if (missing) { setMissing(false); setError(''); } }}
+            ref={codeField}
             required
             spellCheck={false}
             type="text"
@@ -134,7 +144,7 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
             autoComplete="one-time-code"
           />
         </label>
-        <button className="admin-button admin-button--primary" disabled={busy || !code.trim()} type="submit">
+        <button className="admin-button admin-button--primary" disabled={busy} type="submit">
           {busy ? copy.security.checkingCode : copy.security.continueSecurely}
         </button>
       </form>

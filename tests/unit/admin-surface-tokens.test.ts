@@ -558,6 +558,40 @@ test('no control opens a picker drawn by the operating system', () => {
   }
 });
 
+/** Every `<form ...>` opening tag in a source, read to its closing `>` past any `{...}` attribute value. */
+function formTags(source: string): string[] {
+  const tags: string[] = [];
+  for (const match of source.matchAll(/<form\b/g)) {
+    let depth = 0;
+    let end = match.index;
+    for (; end < source.length; end += 1) {
+      const char = source[end];
+      if (char === '{') depth += 1;
+      else if (char === '}') depth -= 1;
+      else if (char === '>' && depth === 0) break;
+    }
+    tags.push(source.slice(match.index, end + 1));
+  }
+  return tags;
+}
+
+test('no admin form lets the browser draw its own validation bubble', () => {
+  // The bubble is drawn by the operating system, so every admin form checks in the admin's own words.
+  // No exceptions: a form that submits nothing natively still takes the attribute.
+  const root = new URL('../../', import.meta.url).pathname;
+  let seen = 0;
+  for (const file of execSync('git ls-files src/components/admin src/pages/admin', { cwd: root, encoding: 'utf8' }).trim().split('\n')) {
+    const isTsx = /^src\/components\/admin\/[^/]+\.tsx$/.test(file);
+    if (!isTsx && !/\.astro$/.test(file)) continue;
+    const pattern = isTsx ? /\snoValidate\b/ : /\snovalidate\b/;
+    for (const tag of formTags(read(file))) {
+      seen += 1;
+      assert.match(tag, pattern, `${file}: ${tag.slice(0, 60)}`);
+    }
+  }
+  assert.ok(seen >= 19, `expected to find the admin's forms, found ${seen}`);
+});
+
 test('the date-time field clears to nothing and closes like a menu', () => {
   const field = read('src/components/admin/UiDateTime.tsx');
   assert.match(field, /onClick=\{\(\) => \{ if \(value\) onChange\(''\); close\(\); \}\}/, 'Clear hands the caller an empty value, and an empty field nothing');

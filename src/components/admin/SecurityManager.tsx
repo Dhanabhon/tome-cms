@@ -61,6 +61,8 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   const [message, setMessage] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const renameButtons = useRef(new Map<string, HTMLButtonElement>());
+  const [missingName, setMissingName] = useState<'add' | 'rename' | null>(null);
+  const addField = useRef<HTMLInputElement>(null);
 
   /** Renaming closes back onto the button that opened it, so the keyboard keeps its place. */
   const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
@@ -100,9 +102,17 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     }
   }
 
+  /** An empty name is told in the admin's words, beside the field, and the field takes focus. */
+  function nameMissing(form: 'add' | 'rename', field: HTMLInputElement | null) {
+    setMissingName(form);
+    setMessage(copy.security.nameRequired);
+    field?.focus();
+  }
+
   async function addPasskey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !newName.trim()) return;
+    if (busy) return;
+    if (!newName.trim()) return nameMissing('add', addField.current);
     setBusy('add');
     setMessage('');
     try {
@@ -126,7 +136,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     if (busy) return;
     const form = new FormData(event.currentTarget);
     const name = form.get('name');
-    if (typeof name !== 'string' || !name.trim()) return;
+    if (typeof name !== 'string' || !name.trim()) return nameMissing('rename', event.currentTarget.elements.namedItem('name') as HTMLInputElement | null);
     if (await mutatePasskey('PATCH', { id, name: name.trim() }, copy.security.passkeyRenamed, `rename:${id}`)) {
       setRenamingId(null);
       focusRename(id);
@@ -213,10 +223,10 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
           {passkeys.map((passkey) => (
             <div className="security-key" key={passkey.id}>
               {renamingId === passkey.id ? (
-                <form className="security-key__edit" onSubmit={(event) => void renamePasskey(event, passkey.id)}>
+                <form className="security-key__edit" noValidate onSubmit={(event) => void renamePasskey(event, passkey.id)}>
                   <label className="admin-field">
                     {copy.security.passkeyName}
-                    <input autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" required />
+                    <input aria-invalid={missingName === 'rename' || undefined} autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" onChange={() => setMissingName(null)} required />
                   </label>
                   <button aria-busy={pressed(`rename:${passkey.id}`)} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.saveName}</button>
                   <button
@@ -256,10 +266,10 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
             </div>
           ))}
         </div>
-        <form className="security-add" onSubmit={(event) => void addPasskey(event)}>
+        <form className="security-add" noValidate onSubmit={(event) => void addPasskey(event)}>
           <label className="admin-field" htmlFor="new-passkey-name">
             {copy.security.newPasskeyName}
-            <input className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => setNewName(event.target.value)} required value={newName} />
+            <input aria-invalid={missingName === 'add' || undefined} className="admin-control" id="new-passkey-name" maxLength={80} onChange={(event) => { setNewName(event.target.value); setMissingName(null); }} ref={addField} required value={newName} />
           </label>
           <button aria-busy={pressed('add')} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.addSpare}</button>
         </form>

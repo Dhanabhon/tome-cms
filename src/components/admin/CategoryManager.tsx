@@ -165,7 +165,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
       {error && <p className="admin-alert" role="alert">{error}</p>}
 
       <div className="category-frame">
-        <form className="category-create" onSubmit={createCategory}>
+        <form className="category-create" noValidate onSubmit={createCategory}>
           <label className="admin-field" htmlFor="category-name">
             <span>{copy.categories.nameLabel} <small>{copy.categories.nameHint}</small></span>
             <input
@@ -191,7 +191,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
             return (
               <li className="category-row" key={category.id}>
                 {edit?.id === category.id ? (
-                  <form className="category-edit" onSubmit={renameCategory}>
+                  <form className="category-edit" noValidate onSubmit={renameCategory}>
                     <label className="admin-field">
                       <span>{fill(copy.categories.renameNameLabel, { name: category.name })}</span>
                       <input

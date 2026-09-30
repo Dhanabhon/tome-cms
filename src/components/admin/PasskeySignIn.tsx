@@ -58,7 +58,7 @@ export default function PasskeySignIn({ adminPath = '/admin', ownerLocale, retur
   }
 
   return (
-    <form className="admin-auth__form" onSubmit={(event) => void signIn(event)} aria-busy={busy}>
+    <form className="admin-auth__form" noValidate onSubmit={(event) => void signIn(event)} aria-busy={busy}>
       <p>{copy.auth.passkeyHint}</p>
       {widget && (
         <div

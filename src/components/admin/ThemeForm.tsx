@@ -285,7 +285,7 @@ function ThemeCustomize({ copy, locale, manifest, onClose, onSaved, values }: Th
           <Icon name="close" />
         </button>
       </header>
-      <form className="plugin-setup" onSubmit={submit}>
+      <form className="plugin-setup" noValidate onSubmit={submit}>
         <fieldset disabled={busy}>
           {(manifest.settings ?? []).map((setting) => (
             setting.kind === 'text' ? (
