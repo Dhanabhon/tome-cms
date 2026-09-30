@@ -723,6 +723,7 @@ body.paper { background: var(--color-paper); }
 
 .post-body hr::before {
   content: '\2022\2022\2022';
+  content: '\2022\2022\2022' / '';
   letter-spacing: 1em;
   margin-inline-end: -1em;
 }
@@ -862,13 +863,14 @@ body.paper { background: var(--color-paper); }
 .reading-rail__link::before {
   content: '';
   block-size: 2px;
-  background: var(--color-rule);
+  /* The link's only visible mark, so it has to be one: --color-rule is a hairline's colour. */
+  background: var(--color-muted);
 }
 
 .reading-rail__link--h2::before { inline-size: 1.5rem; }
 .reading-rail__link--h3::before { inline-size: 1rem; }
 
-.reading-rail__link:is(:hover, :focus-visible)::before { background: var(--color-muted); }
+.reading-rail__link:is(:hover, :focus-visible)::before { background: var(--color-ink); }
 
 .reading-rail__link[aria-current="location"]::before { background: var(--color-ink); }
 

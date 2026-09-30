@@ -1348,7 +1348,7 @@ test('a new part is added from the + menu, drawn as three dots, and published as
     const node = document.querySelector(target);
     return node ? { content: getComputedStyle(node, '::before').content, border: getComputedStyle(node).borderTopWidth } : null;
   }, selector);
-  expect(await dots('.ProseMirror hr'), 'the editor draws what the reader will see').toEqual({ border: '0px', content: '"\u2022\u2022\u2022"' });
+  expect(await dots('.ProseMirror hr'), 'the editor draws what the reader will see').toMatchObject({ border: '0px', content: expect.stringMatching(/^"\u2022\u2022\u2022"( \/ "")?$/) });
 
   const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
     && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
@@ -1359,7 +1359,7 @@ test('a new part is added from the + menu, drawn as three dots, and published as
     .orderBy('created_at', 'desc').executeTakeFirstOrThrow();
   await page.goto(`${origin}/en/blog/${slug}`);
   await expect(page.locator('.post-body hr'), 'a break is an hr, which a screen reader hears as one').toHaveCount(1);
-  expect(await dots('.post-body hr'), 'and the page draws it as dots, with no line').toEqual({ border: '0px', content: '"\u2022\u2022\u2022"' });
+  expect(await dots('.post-body hr'), 'and the page draws it as dots, with no line').toMatchObject({ border: '0px', content: expect.stringMatching(/^"\u2022\u2022\u2022"( \/ "")?$/) });
 });
 
 test('the row menu copies a published post\'s link, offers none for a draft, and offers it the moment one is published', async ({ context, page }) => {

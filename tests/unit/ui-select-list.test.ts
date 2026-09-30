@@ -28,3 +28,7 @@ test('the language filter is not a tab: its focus is a ring, not the accent line
   assert.match(rule, /outline: 2px solid var\(--color-focus\)/);
   assert.doesNotMatch(rule, /border-block-end-color/);
 });
+
+test('the active option can be seen in forced-colors mode, where backgrounds are repainted', () => {
+  assert.match(CONTROLS, /@media \(forced-colors: active\) \{\s*\.ui-select__option\[data-active='true'\] \{ outline: 2px solid Highlight; outline-offset: -2px; \}/);
+});

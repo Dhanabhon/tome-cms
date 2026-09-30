@@ -644,6 +644,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
 .editor-content .ProseMirror hr::before {
   content: '\2022\2022\2022';
+  content: '\2022\2022\2022' / '';
   letter-spacing: 1em;
   margin-inline-end: -1em;
 }

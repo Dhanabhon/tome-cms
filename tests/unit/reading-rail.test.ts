@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { publicCopy } from '../../src/lib/i18n';
-import { PAGE_IDS, readingRail } from '../../src/lib/reading-rail';
+import { PAGE_IDS, RAIL_MAX_HEADINGS, readingRail } from '../../src/lib/reading-rail';
 import { manifest } from '../../src/themes/paper/theme';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -97,12 +97,13 @@ test('the rail is a column of 2px ticks at the inline end, hidden where there is
   assert.match(ruleBody(PAPER, '.reading-rail__link::before'), /block-size: 2px/);
   assert.match(ruleBody(PAPER, '.reading-rail__link--h2::before'), /inline-size: 1\.5rem/);
   assert.match(ruleBody(PAPER, '.reading-rail__link--h3::before'), /inline-size: 1rem/);
-  assert.match(ruleBody(PAPER, '.reading-rail__link::before'), /background: var\(--color-rule\)/);
+  assert.match(ruleBody(PAPER, '.reading-rail__link::before'), /background: var\(--color-muted\)/, 'a resting tick is a mark that can be seen');
   assert.match(ruleBody(PAPER, '.reading-rail__link[aria-current="location"]::before'), /background: var\(--color-ink\)/);
   assert.match(ruleBody(PAPER, '.reading-rail__link'), /min-block-size: 1\.5rem/);
   assert.match(PAPER, /@media \(pointer: coarse\) \{[^}]*\.reading-rail__link \{[^}]*min-block-size: 2\.75rem/);
   assert.match(PAPER, /@media \(max-width: 63\.999rem\) \{[^}]*\.reading-rail \{ display: none; \}/);
   assert.match(PAPER, /@media \(min-width: 64rem\) \{[^}]*\.reading-progress\[data-rail\] \{ display: none; \}/);
+  assert.match(ruleBody(PAPER, '.reading-rail__link:is(:hover, :focus-visible)::before'), /background: var\(--color-ink\)/);
   assert.match(PAPER, /\.reading-rail__link:is\(:hover, :focus-visible\) \.reading-rail__label/);
   assert.match(PAPER, /@media \(prefers-reduced-motion: no-preference\) \{[^@]*html:has\(\.reading-rail\) \{ scroll-behavior: smooth; \}/);
   assert.match(PAPER, /\.post-body :is\(h2, h3\) \{ scroll-margin-block-start:/);
@@ -151,4 +152,12 @@ test('the ids a Paper page uses outside the body are all on the list', () => {
   }
   assert.ok(found.has('language-switcher-menu') && found.has('tome-theme-site-panel'), 'the scan finds what it should');
   for (const id of found) assert.ok(PAGE_IDS.includes(id), `${id} is used by the page and is not in PAGE_IDS`);
+});
+
+test('a post with more headings than a column of ticks can hold gets the bar, not a rail that runs off the window', () => {
+  const many = (count: number) => Array.from({ length: count }, (_, n) => `<h2>Part ${n}</h2>`).join('');
+  assert.equal(readingRail(many(RAIL_MAX_HEADINGS)).headings.length, RAIL_MAX_HEADINGS);
+  assert.deepEqual(readingRail(many(RAIL_MAX_HEADINGS + 1)), { headings: [], html: many(RAIL_MAX_HEADINGS + 1) });
+  // Sixteen 44px targets still fit a landscape tablet.
+  assert.ok(RAIL_MAX_HEADINGS * 44 <= 768);
 });

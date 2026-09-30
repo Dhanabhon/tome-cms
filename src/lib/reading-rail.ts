@@ -6,6 +6,9 @@ export interface RailHeading {
   text: string;
 }
 
+/** More than this and the ticks would run off the top and bottom of a window; the bar is drawn instead. */
+export const RAIL_MAX_HEADINGS = 16;
+
 const HEADING = /<h([23])\b([^>]*)>([\s\S]*?)<\/h\1>/g;
 const ID = /\sid=(?:"([^"]*)"|'([^']*)')/;
 const ENTITIES: Record<string, string> = { amp: '&', gt: '>', lt: '<', quot: '"' };
@@ -42,13 +45,14 @@ function plainText(markup: string): string {
  * -2, -3 when a title repeats.
  *
  * A heading with no words (Tiptap saves an empty line as `<h2></h2>`) is neither listed nor
- * counted, and is left as it was. Fewer than two headings is not something to navigate: the body comes back untouched with no
- * headings, so a short article is neither given ids nobody asked for nor a rail of one tick.
+ * counted, and is left as it was. Fewer than two headings is not something to navigate, and more than RAIL_MAX_HEADINGS is more
+ * than a column of ticks holds on a screen: the body comes back untouched with no headings (the
+ * bar is drawn instead), so a short article is neither given ids nobody asked for nor a rail of one tick.
  * Only h2 and h3: the page's own title is the h1, and a section break is not a heading.
  */
 export function readingRail(html: string, reserved: readonly string[] = PAGE_IDS): { headings: RailHeading[]; html: string } {
   const found = [...html.matchAll(HEADING)].filter(([, , , inner]) => plainText(inner) !== '');
-  if (found.length < 2) return { headings: [], html };
+  if (found.length < 2 || found.length > RAIL_MAX_HEADINGS) return { headings: [], html };
 
   const taken = new Set<string>(reserved);
   for (const [, , attributes] of found) {

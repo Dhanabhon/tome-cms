@@ -190,6 +190,7 @@
 }
 .plain-body hr::before {
   content: '\2022\2022\2022';
+  content: '\2022\2022\2022' / '';
   letter-spacing: 1em;
   margin-inline-end: -1em;
 }

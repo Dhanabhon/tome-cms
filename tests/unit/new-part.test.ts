@@ -28,7 +28,11 @@ test('a section break is three dots in the editor, in Paper and in Plain', () =>
     assert.match(rule, /border: 0/, `${name}: no line`);
     assert.match(rule, /margin-block: var\(--space-xl\)/, `${name}: room above and below`);
     assert.match(rule, /color: var\(--color-muted\)/, `${name}: muted`);
-    assert.match(ruleBody(css, `${selector}::before`), /content: '\\2022\\2022\\2022'/, `${name}: three dots`);
+    const dots = ruleBody(css, `${selector}::before`);
+    assert.match(dots, /content: '\\2022\\2022\\2022';/, `${name}: three dots`);
+    // With empty alternative text, for an engine that speaks generated content; one that does not
+    // understand it drops this declaration and keeps the line above.
+    assert.match(dots, /content: '\\2022\\2022\\2022' \/ '';/, `${name}: silent`);
   }
 });
 
