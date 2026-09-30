@@ -199,7 +199,6 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     setSaving(true);
     setPressed(restoreFocus ? 'retry' : 'save');
     setSaveError('');
-    setStatus(copy.navigation.savingMenu);
     try {
       const response = await atLeast(fetch('/api/admin/navigation', {
         method: 'PUT', headers: { 'content-type': 'application/json' },

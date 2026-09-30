@@ -592,6 +592,12 @@ test('no admin form lets the browser draw its own validation bubble', () => {
   assert.ok(seen >= 19, `expected to find the admin's forms, found ${seen}`);
 });
 
+test('the menu screen leaves the words of saving to the Save button', () => {
+  // A status line set before the request stays on screen after it lands and says the wrong thing.
+  const navigation = read('src/components/admin/NavigationManager.tsx');
+  assert.doesNotMatch(navigation, /setStatus\(copy\.navigation\.saving/);
+});
+
 test('the date-time field clears to nothing and closes like a menu', () => {
   const field = read('src/components/admin/UiDateTime.tsx');
   assert.match(field, /onClick=\{\(\) => \{ if \(value\) onChange\(''\); close\(\); \}\}/, 'Clear hands the caller an empty value, and an empty field nothing');
