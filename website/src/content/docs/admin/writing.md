@@ -41,7 +41,7 @@ Select some words and a bar appears over them: "Bold", "Italic", "Underline", "S
 
 "Text colour" opens a row of swatches under the bar: "Default", "Red", "Orange", "Green", "Blue", "Purple" and "Grey". A colour is saved by its name, and the theme gives each one a shade for light mode and another for dark mode, so coloured words stay readable when a reader's screen is dark. "Default" takes the colour off.
 
-"Link" opens "Add a link". Paste an `http` or `https` URL into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To link to a file instead, press "Choose from the File Manager" and pick a document; the link is the file's address on your site, and the File Manager will not delete the file while a post or page links to it. To take a link off, select the linked words and press "Link" again.
+"Link" opens "Add a link". Paste an `http` or `https` URL into "URL" and press "Apply link". "Open in a new tab" is on to begin with; switch it off for a link that should open in the same tab. To link to a file instead, press "Choose from the File Manager" and pick a document or a picture; the link is the file's address on your site, and the File Manager will not delete the file while a post or page links to it. To take a link off, select the linked words and press "Link" again.
 
 ## Images
 
