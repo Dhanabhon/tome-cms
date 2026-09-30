@@ -96,6 +96,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [folderNameMissing, setFolderNameMissing] = useState(false);
   const [renaming, setRenaming] = useState<MediaFolder | null>(null);
   const [renameName, setRenameName] = useState('');
+  const [renameNameMissing, setRenameNameMissing] = useState(false);
   const [selected, setSelected] = useState<MediaAsset | null>(null);
   const [draft, setDraft] = useState<MediaDraft>({ altText: '', folderId: '' });
   // What the server has for the open file: the details are dirty when the draft differs from it.
@@ -122,6 +123,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const selectedId = useRef<string | null>(null);
   const urlInput = useRef<HTMLInputElement>(null);
   const folderField = useRef<HTMLInputElement>(null);
+  const renameField = useRef<HTMLInputElement>(null);
   const detailsDialog = useRef<HTMLDialogElement>(null);
   const detailsClose = useRef<HTMLButtonElement>(null);
   const detailsOpener = useRef<HTMLButtonElement | null>(null);
@@ -291,6 +293,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   async function handleRenameCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!renaming || working) return;
+    if (!renameName.trim()) {
+      setRenameNameMissing(true);
+      setCategoryError(copy.media.folderNameRequired);
+      renameField.current?.focus();
+      return;
+    }
     setWorking('rename-folder');
     setCategoryError(null);
     try {
@@ -298,11 +306,17 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       foldersRequest.current += 1;
       setFolders((current) => current.map((currentFolder) => (currentFolder.id === folder.id ? folder : currentFolder)).sort((left, right) => left.name.localeCompare(right.name)));
       setRenaming(null);
+      setRenameNameMissing(false);
     } catch (renameError) {
       setCategoryError(uploadFailureMessage(renameError, copy));
     } finally {
       setWorking(null);
     }
+  }
+
+  function cancelRename() {
+    if (renameNameMissing) { setRenameNameMissing(false); setCategoryError(null); }
+    setRenaming(null);
   }
 
   async function handleDeleteCategory(folder: MediaFolder) {
@@ -525,7 +539,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <nav aria-label={copy.media.folders}>{categoryButtons}</nav>
           <div className="media-category-select"><span aria-hidden="true" className="media-select-label">{copy.media.folders}</span><div className="media-category-select__row"><UiSelect ariaLabel={copy.media.folders} className="admin-control" id="media-category" onValueChange={(next) => selectCategory(next)} options={categoryOptions} value={selection} />{props.mode === 'manage' && selectedFolder && folderMenu(selectedFolder)}</div></div>
           {props.mode === 'manage' && <form className="media-category-form" noValidate onSubmit={handleCreateCategory}><label><span className="sr-only">{copy.media.folderName}</span><input aria-invalid={folderNameMissing || undefined} aria-label={copy.media.folderName} className="admin-control" maxLength={80} onChange={(event) => { setCategoryName(event.target.value); if (folderNameMissing) { setFolderNameMissing(false); setCategoryError(null); } }} placeholder={copy.media.folderName} ref={folderField} required value={categoryName} /></label><button aria-busy={pressed('create-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.createFolder}</button></form>}
-          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => setRenameName(event.target.value)} required value={renameName} /></label><button aria-busy={pressed('rename-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={() => setRenaming(null)} type="button">{copy.media.cancelRename}</button></form>}
+          {props.mode === 'manage' && renaming && <form className="media-category-form" noValidate onSubmit={handleRenameCategory}><label><span className="sr-only">{fill(copy.media.renameFolderLabel, { name: renaming.name })}</span><input aria-invalid={renameNameMissing || undefined} aria-label={fill(copy.media.renameFolderLabel, { name: renaming.name })} className="admin-control" maxLength={80} onChange={(event) => { setRenameName(event.target.value); if (renameNameMissing) { setRenameNameMissing(false); setCategoryError(null); } }} ref={renameField} required value={renameName} /></label><button aria-busy={pressed('rename-folder')} className="admin-button" disabled={working !== null} type="submit">{copy.media.saveFolderName}</button><button className="admin-button" onClick={cancelRename} type="button">{copy.media.cancelRename}</button></form>}
           {folderLoadError && <p className="media-category-error" role="alert">{folderLoadError} <button className="admin-button admin-button--ghost" onClick={() => void loadFolders()} type="button">{copy.media.retryFolders}</button></p>}
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>

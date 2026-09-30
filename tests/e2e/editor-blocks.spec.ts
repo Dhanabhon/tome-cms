@@ -876,6 +876,32 @@ test('a file joins the library, is found by its type, and the filter holds throu
   await expect(page.getByRole('alert').filter({ hasText: 'Enter a folder name.' })).toBeHidden();
   await folderName.fill('');
 
+  // Renaming to nothing is told the same way: the words, the field marked and focused, nothing sent,
+  // cleared as the owner types, and gone with the form on cancel.
+  await folders.locator('summary[aria-label="Actions for Plans"]').click();
+  await page.getByRole('button', { name: 'Rename', exact: true }).click();
+  const renameField = page.getByRole('textbox', { name: 'Rename Plans' });
+  await renameField.fill('');
+  let folderPuts = 0;
+  page.on('request', (request) => { if (request.method() === 'PUT' && request.url().includes('/api/admin/media/folders')) folderPuts += 1; });
+  await page.getByRole('button', { name: 'Save folder name' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Enter a folder name.' })).toBeVisible();
+  await expect(renameField).toHaveAttribute('aria-invalid', 'true');
+  await expect(renameField).toBeFocused();
+  expect(folderPuts).toBe(0);
+  await renameField.pressSequentially('P');
+  await expect(renameField).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('alert').filter({ hasText: 'Enter a folder name.' })).toBeHidden();
+  await renameField.fill('');
+  await page.getByRole('button', { name: 'Save folder name' }).click();
+  await expect(renameField).toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('button', { name: 'Cancel rename' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Enter a folder name.' })).toBeHidden();
+  await folders.locator('summary[aria-label="Actions for Plans"]').click();
+  await page.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Rename Plans' })).not.toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('button', { name: 'Cancel rename' }).click();
+
   await folders.getByRole('button', { name: 'Plans', exact: true }).click();
   await expect(page).toHaveURL(/[?&]folder=[0-9a-f-]{36}(&|$)/);
   await page.reload();
