@@ -116,12 +116,17 @@ export const manifest: ThemeManifest = {
     {
       fallback: 'off',
       hint: {
-        en: 'A hairline across the top of a post, filling as the reader goes down it. The browser draws it from the scroll position, so the page carries nothing to keep it moving.',
-        th: 'เส้นบางพาดบนสุดของบทความ เติมขึ้นตามที่อ่านลงไป เบราว์เซอร์คำนวณจากตำแหน่งที่เลื่อนหน้าอยู่เอง หน้าเว็บจึงไม่ต้องมีสคริปต์คอยขยับแถบนี้',
+        en: 'Where a reader is in a post. The bar is a hairline across the top, filling as they go down it. The rail is a column of ticks beside the text, one for each heading, with the current one darker; it needs a post with at least two headings and room at the side, and anywhere narrower the bar is shown instead. The browser draws the bar from the scroll position, so the page carries nothing to keep it moving.',
+        th: 'บอกผู้อ่านว่าอ่านถึงตรงไหนของบทความ แถบคือเส้นบางพาดบนสุดของหน้า เติมขึ้นตามที่อ่านลงไป ส่วนรางคือแถวขีดข้างเนื้อหา หนึ่งขีดต่อหนึ่งหัวข้อ และขีดของหัวข้อปัจจุบันจะเข้มกว่า ต้องมีหัวข้ออย่างน้อยสองหัวข้อและมีที่ว่างด้านข้าง ถ้าหน้าจอแคบกว่านั้นจะแสดงเป็นแถบแทน เบราว์เซอร์คำนวณแถบจากตำแหน่งที่เลื่อนหน้าอยู่เอง หน้าเว็บจึงไม่ต้องมีสคริปต์คอยขยับแถบนี้',
       },
       key: 'readingProgress',
-      kind: 'switch',
-      label: { en: 'Reading progress bar', th: 'แถบความคืบหน้าการอ่าน' },
+      kind: 'choice',
+      label: { en: 'Reading position', th: 'ตำแหน่งการอ่าน' },
+      options: [
+        { label: { en: 'Off', th: 'ปิด' }, value: 'off' },
+        { label: { en: 'Bar at the top', th: 'แถบด้านบน' }, value: 'on' },
+        { label: { en: 'Rail at the side', th: 'รางด้านข้าง' }, value: 'rail' },
+      ],
     },
     {
       fallback: 'text',

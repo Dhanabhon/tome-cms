@@ -422,6 +422,70 @@ test('the reading progress bar is drawn from the scroll position', async ({ page
     .toBeLessThan(viewport * 0.05);
 });
 
+test('the reading rail lists a post\'s headings at the side, and the bar takes its place where there is no room', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { sql: query } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const { writeThemeSettings } = await import('../../src/server/themes/store');
+  const filler = '<p>Body line to read past.</p>'.repeat(40);
+  await query`update posts set content_html = ${`<h2>First part</h2>${filler}<h3>Second, smaller</h3>${filler}<h2>Third part</h2>${filler}`} where slug = 'post-1'`.execute(db);
+  await query`update posts set content_html = ${`<h2>Only heading</h2>${filler}`} where slug = 'post-2'`.execute(db);
+  const article = `${origin}/en/blog/post-1`;
+  const rail = page.locator('nav.reading-rail');
+  const links = rail.getByRole('link');
+  const displayed = (selector: string) => page.evaluate((target) => {
+    const node = document.querySelector(target);
+    return node ? getComputedStyle(node).display : 'absent';
+  }, selector);
+
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'rail' } });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(article, { waitUntil: 'networkidle' });
+  await expect(rail).toHaveAttribute('aria-label', 'On this page');
+  await expect(links, 'a link for each heading').toHaveCount(3);
+  await expect(links.nth(1)).toHaveAccessibleName('Second, smaller');
+  expect(await displayed('.reading-progress'), 'the rail is drawn, so the bar gives way').toBe('none');
+
+  const widths = await links.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node, '::before').width));
+  expect(widths, 'an h2 is a longer tick than an h3').toEqual(['24px', '16px', '24px']);
+
+  const heading = page.locator('.post-body h3');
+  await expect(heading, 'the anchor and the link agree').toHaveAttribute('id', 'second-smaller');
+  await expect(page.locator('.reading-rail [aria-current]'), 'above the first heading nothing is being read yet').toHaveCount(0);
+  await links.nth(1).hover();
+  const label = links.nth(1).locator('.reading-rail__label');
+  await expect(label, 'hovering names the heading').toHaveCSS('opacity', '1');
+  await expect(label).toHaveText('Second, smaller');
+  await links.nth(1).click();
+  await expect(heading).toBeInViewport();
+  await expect(links.nth(1), 'and the reader is told where they are').toHaveAttribute('aria-current', 'location');
+  await expect(links.nth(0)).not.toHaveAttribute('aria-current', 'location');
+  await expect(page.locator('.reading-rail [aria-current]')).toHaveCount(1);
+
+  // No room: the rail is not drawn, and the bar is.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto(article, { waitUntil: 'networkidle' });
+  await expect(rail).toBeHidden();
+  expect(await displayed('.reading-progress'), 'a phone gets the bar').not.toBe('none');
+
+  // A post with one heading has nothing to navigate: no rail, and the bar on every width.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}/en/blog/post-2`, { waitUntil: 'networkidle' });
+  await expect(rail).toHaveCount(0);
+  expect(await displayed('.reading-progress')).not.toBe('none');
+  await expect(page.locator('.post-body h2'), 'and no id nobody needed').not.toHaveAttribute('id', /./);
+
+  // The bar is still the bar, and off is still nothing.
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'on' } });
+  await page.goto(article, { waitUntil: 'networkidle' });
+  await expect(rail).toHaveCount(0);
+  expect(await displayed('.reading-progress'), 'the bar, at every width').not.toBe('none');
+  await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'off' } });
+  await page.goto(article, { waitUntil: 'networkidle' });
+  await expect(rail).toHaveCount(0);
+  await expect(page.locator('.reading-progress')).toHaveCount(0);
+});
+
 test('the header can be asked to stay in view', async ({ page }) => {
   test.setTimeout(120_000);
   const { writeThemeSettings } = await import('../../src/server/themes/store');

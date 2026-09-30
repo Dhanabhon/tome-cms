@@ -186,7 +186,7 @@ test('a switch in Customize saves what it shows', async ({ context, page }) => {
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  const toggle = page.getByRole('checkbox', { name: /Reading progress bar/i });
+  const toggle = page.getByRole('checkbox', { name: /Keep the header in view/i });
   const openCustomize = async () => {
     await page.goto(`${origin}/admin/themes`);
     await page.getByRole('button', { name: /^Customize$/ }).first().click();

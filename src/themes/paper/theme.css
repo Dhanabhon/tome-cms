@@ -806,6 +806,90 @@ body.paper { background: var(--color-paper); }
 }
 
 /*
+ * The reading rail.
+ *
+ * The bar's other form: a column of ticks beside the text, one for each h2 and h3 of the post,
+ * the longer for the h2. It sits at the inline-end edge, where a post's column leaves room, and
+ * below 64rem there is none, so the rail is not drawn and the bar is (the bar carries
+ * data-rail only when a rail was drawn for it to give way to).
+ *
+ * Each tick is drawn inside its link, and the link is the target: 24px tall, 44px where a
+ * finger is the pointer. A heading's own words appear in a label beside its tick on hover and
+ * on keyboard focus, and are the link's name for a screen reader at all times.
+ */
+.reading-rail {
+  position: fixed;
+  inset-block-start: 50%;
+  inset-inline-end: var(--space-md);
+  z-index: var(--z-sticky-nav);
+  translate: 0 -50%;
+}
+
+.reading-rail ul { margin: 0; padding: 0; list-style: none; }
+
+.reading-rail__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-block-size: 1.5rem;
+  min-inline-size: 1.5rem;
+}
+
+@media (pointer: coarse) {
+  .reading-rail__link { min-block-size: 2.75rem; min-inline-size: 2.75rem; }
+}
+
+.reading-rail__link::before {
+  content: '';
+  block-size: 2px;
+  background: var(--color-rule);
+}
+
+.reading-rail__link--h2::before { inline-size: 1.5rem; }
+.reading-rail__link--h3::before { inline-size: 1rem; }
+
+.reading-rail__link:is(:hover, :focus-visible)::before { background: var(--color-muted); }
+
+.reading-rail__link[aria-current="location"]::before { background: var(--color-ink); }
+
+.reading-rail__label {
+  position: absolute;
+  inset-inline-end: calc(100% + var(--space-xs));
+  max-inline-size: 18rem;
+  overflow: hidden;
+  padding: var(--space-2xs) var(--space-xs);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.reading-rail__link:is(:hover, :focus-visible) .reading-rail__label { opacity: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .reading-rail__label { transition: opacity var(--dur-short) var(--ease-out); }
+  html:has(.reading-rail) { scroll-behavior: smooth; }
+}
+
+/* Clear of a header that stays in view. */
+.post-body :is(h2, h3) { scroll-margin-block-start: var(--space-3xl); }
+
+@media (max-width: 63.999rem) {
+  .reading-rail { display: none; }
+}
+
+@media (min-width: 64rem) {
+  .reading-progress[data-rail] { display: none; }
+}
+
+/*
  * A header that stays in view.
  *
  * Sticky rather than fixed, so the header keeps its place in the flow and nothing below it

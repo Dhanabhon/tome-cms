@@ -1,6 +1,7 @@
 ---
 import { dateLocale, localePath, publicCopy } from '../../../lib/i18n';
 import { articleCover } from '../../../lib/post-cover';
+import { readingRail } from '../../../lib/reading-rail';
 import type { Post, PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
 import AuthorBlock from './AuthorBlock.astro';
 import Icon from '../../../components/Icon.astro';
@@ -12,11 +13,16 @@ interface Props {
   categories?: PostCategoryBadge[];
   preview?: boolean;
   profile?: PublicAuthorProfile | null;
+  /** The theme's `readingProgress` setting: off, the bar across the top, or the rail at the side. */
+  readingPosition?: string;
   settings: Pick<SiteSettings, 'site_name' | 'timezone'>;
 }
 
-const { authorLinks, categories = [], post, preview = false, profile, settings } = Astro.props;
-const { cover, bodyHtml } = articleCover(post);
+const { authorLinks, categories = [], post, preview = false, profile, readingPosition, settings } = Astro.props;
+const { cover, bodyHtml: coverHtml } = articleCover(post);
+// The rail and the anchors it links to come from one pass over the body. A post it has nothing
+// to list comes back untouched, and is given the bar on every width instead.
+const { headings, html: bodyHtml } = readingPosition === 'rail' ? readingRail(coverHtml) : { headings: [], html: coverHtml };
 const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), {
   day: 'numeric',
   month: 'long',
@@ -29,6 +35,23 @@ const modifiedAt = post.updated_at;
 const showModifiedDate = !preview && new Date(modifiedAt).getTime() - new Date(publishedAt).getTime() > 60_000;
 const copy = publicCopy(post.locale);
 ---
+
+{(readingPosition === 'on' || readingPosition === 'rail') && (
+  <div class="reading-progress" data-rail={headings.length > 0 ? '' : undefined} aria-hidden="true"></div>
+)}
+{headings.length > 0 && (
+  <nav class="reading-rail" aria-label={copy.onThisPage} data-reading-rail>
+    <ul>
+      {headings.map(({ id, level, text }) => (
+        <li>
+          <a href={`#${id}`} class={`reading-rail__link reading-rail__link--h${level}`}>
+            <span class="reading-rail__label">{text}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}
 
 <article class="post-page">
   <a class="post-back" href={localePath(post.locale)}><Icon name="arrowLeft" />{copy.allPosts}</a>
@@ -54,3 +77,36 @@ const copy = publicCopy(post.locale);
   <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link prose-img:rounded-lg" set:html={bodyHtml} />
   {profile && <AuthorBlock linkStyle={authorLinks === 'icons' || authorLinks === 'both' ? authorLinks : 'text'} locale={post.locale} profile={profile} />}
 </article>
+
+<script>
+  /*
+   * Marks the heading being read. One observer, no scroll listener: a heading counts as current
+   * from the moment it enters the top of the window until the next one does, and going back up
+   * past it hands the mark to the one before.
+   */
+  const rail = document.querySelector<HTMLElement>('[data-reading-rail]');
+  if (rail) {
+    const links = [...rail.querySelectorAll<HTMLAnchorElement>('a')];
+    const targets = links.map((link) => document.getElementById(link.getAttribute('href')!.slice(1)));
+    const inBand = new Set<Element>();
+    const mark = (index: number) => {
+      links.forEach((link, at) => {
+        if (at === index) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+    };
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const index = targets.indexOf(entry.target as HTMLElement);
+        if (entry.isIntersecting) {
+          inBand.add(entry.target);
+          mark(index);
+        } else if (inBand.delete(entry.target) && entry.rootBounds && entry.boundingClientRect.top > entry.rootBounds.top) {
+          // It left through the bottom of the band, so the reader went back above it.
+          mark(index - 1);
+        }
+      }
+    }, { rootMargin: '0px 0px -60% 0px' });
+    for (const target of targets) if (target) observer.observe(target);
+  }
+</script>
