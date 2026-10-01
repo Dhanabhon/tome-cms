@@ -2,6 +2,29 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.8.0 - 2026-10-01
+
+An AI app and the owner take turns on a draft, and Claude and ChatGPT show their marks.
+
+### Added
+
+- The editor shows when an AI app read or changed the draft in the last few minutes, and offers to load the latest version when the draft changed elsewhere.
+- While you have a draft open, an AI app cannot change it. It is told to ask you to close it or to make a new draft. This includes a new draft, from its first save.
+- Claude's and OpenAI's marks on the consent screen and in the connections list. They are chosen only from the approval's address or the app's client document, never from the name the app gives.
+
+### Changed
+
+- An approval going back to your own computer reads "A program on this computer".
+- The connections list says when a connection reads only because writing is switched off.
+
+### Fixed
+
+- Put back keeps the current address if the old one was taken, and leaves out a deleted category or cover.
+- Old OAuth codes, tokens and unused apps are tidied, and the "too many apps" message says what to do.
+- App write and fault log lines carry a request id.
+
+Full notes: [docs/releases/1.8.0.md](docs/releases/1.8.0.md)
+
 ## 1.7.0 - 2026-10-01
 
 Claude or ChatGPT can read the site and write drafts, after the owner allows it with their passkey, and the owner can put back what the AI changed.
