@@ -12,7 +12,7 @@ import { expect, test } from './own-worker';
  * Inserting a picture far down a long post scrolled the page back to its top, whichever way the
  * picture came: uploaded in the picker or chosen from the File Manager. So this writes a post
  * long enough to scroll, puts the caret near its end, inserts a picture both ways, and measures
- * where the page is before and after.
+ * where the page is before and after. Replacing a picture is measured the same way.
  */
 
 test.use({ stack: 'editor-image-place' });
@@ -145,6 +145,93 @@ test('a picture goes in far down a long post, and the page stays where it went',
       await picker.getByRole('button', { name: /^Select Harbour\.png,/ }).click();
     });
   }
+});
+
+test('a picture is replaced from the File Manager, one undo puts it back, and the new one is saved', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await signIn(context, page);
+  await uploadToLibrary(page, ['Lake.png', 'Field.png']);
+  // The file a picture is replaced with has alt text of its own, which a picture with none takes.
+  const { db } = await import('../../src/server/db/client');
+  await db.updateTable('media_items').set({ alt_text: 'A field at noon' }).where('original_name', '=', 'Field.png').execute();
+
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('#post-title').fill('A replaced picture');
+  const canvas = page.locator('.ProseMirror');
+  await writeLongPost(canvas);
+  await insertNearTheEnd(page, canvas, 'Line 30', async (picker) => {
+    await picker.getByRole('button', { name: /^Select Lake\.png,/ }).click();
+  });
+  const image = canvas.locator('p:has-text("Line 30:") + img');
+  const lake = await image.getAttribute('src');
+  expect(lake).toMatch(/^\/media\/[0-9a-f-]{36}$/);
+  // The same picture higher up, which a replace further down must leave alone.
+  await canvas.evaluate((node, src) => {
+    const { editor } = node as unknown as { editor: Editor };
+    const afterLineTwo = editor.state.doc.child(0).nodeSize + editor.state.doc.child(1).nodeSize;
+    editor.commands.insertContentAt(afterLineTwo, { type: 'image', attrs: { alt: 'Lake.png', src, title: 'Lake.png' } });
+  }, lake);
+  const higher = canvas.locator('p:has-text("Line 2:") + img');
+  await expect(higher).toHaveAttribute('src', lake!);
+
+  // Chosen, the picture has a bar, and the keyboard reaches it from the picture.
+  await image.click();
+  const replace = page.getByRole('group', { name: 'Image' }).getByRole('button', { name: 'Replace picture' });
+  await expect(replace).toBeVisible();
+  const before = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press('Tab');
+  await expect(replace, 'one Tab from the picture').toBeFocused();
+  await page.keyboard.press('Enter');
+  const picker = page.locator('dialog.media-picker');
+  await expect(picker.getByText('Upload image'), 'the picker offers pictures').toBeVisible();
+  await picker.getByRole('button', { name: /^Select Field\.png,/ }).click();
+  await expect(picker).toBeHidden();
+
+  const field = await image.getAttribute('src');
+  expect(field).toMatch(/^\/media\/[0-9a-f-]{36}$/);
+  expect(field, 'the picture is the new file').not.toBe(lake);
+  await expect(image).toHaveAttribute('data-media-id', field!.split('/').pop()!);
+  await expect(image, 'it keeps the alt text it had').toHaveAttribute('alt', 'Lake.png');
+  await expect(image, 'and takes the new file\'s name').toHaveAttribute('title', 'Field.png');
+  await expect(canvas.locator('img'), 'in its place, not as another picture').toHaveCount(2);
+  await expect(higher, 'the picture higher up is untouched').toHaveAttribute('src', lake!);
+  const held = async () => Math.abs(await page.evaluate(() => window.scrollY) - before);
+  expect(await held(), 'the page stayed where it was').toBeLessThanOrEqual(HELD);
+
+  // One undo, and the old picture is back.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(image).toHaveAttribute('src', lake!);
+  await expect(image).toHaveAttribute('data-media-id', lake!.split('/').pop()!);
+  await expect(image).toHaveAttribute('title', 'Lake.png');
+  expect(await held(), 'and still where it was').toBeLessThanOrEqual(HELD);
+
+  // A picture with no alt text takes the new file's.
+  await canvas.evaluate((node) => {
+    const { editor } = node as unknown as { editor: Editor };
+    let at = -1;
+    editor.state.doc.descendants((child, position) => { if (child.type.name === 'image') at = position; });
+    editor.chain().setNodeSelection(at).updateAttributes('image', { alt: '' }).run();
+  });
+  await image.click();
+  await replace.click();
+  await picker.getByRole('button', { name: /^Select Field\.png,/ }).click();
+  await expect(picker).toBeHidden();
+  await expect(image).toHaveAttribute('src', field!);
+  await expect(image).toHaveAttribute('alt', 'A field at noon');
+
+  // Saved, and back after a reload: the new picture is the one stored, and it is drawn.
+  const written = page.waitForResponse((response) => response.url().includes('/api/admin/posts')
+    && ['POST', 'PUT'].includes(response.request().method()) && response.ok());
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await written;
+  const stored = await db.selectFrom('posts').select('content_html').where('title', '=', 'A replaced picture').executeTakeFirstOrThrow();
+  expect(stored.content_html.split(`src="${field}"`), 'the replaced picture is stored').toHaveLength(2);
+  expect(stored.content_html.split(`src="${lake}"`), 'and the old file only where it still is, higher up').toHaveLength(2);
+  await page.reload();
+  const saved = page.locator(`.ProseMirror img[src="${field}"]`);
+  await expect(saved).toBeVisible();
+  await expect.poll(() => saved.evaluate((node) => (node as HTMLImageElement).naturalWidth), 'the picture loads').toBeGreaterThan(0);
 });
 
 /** Signs the owner in through a recovery enrollment, as a new device would. */
