@@ -28,6 +28,8 @@ The file goes from your browser straight to the site's object storage. If storag
 
 The page's address keeps the type and the folder you chose, so a reload or a bookmark opens the same view.
 
+"Grid" and "List", beside the search, change how the files are drawn. "Grid" shows each file as a card, and is the layout to begin with. "List" shows one file to a row, with its name, type, size and date. The layout you choose is remembered in this browser. The File Manager that opens as a picker in the editor and in other screens has the same switch.
+
 ## Folders
 
 Type a name in "Folder name", up to 80 characters, and press "Create folder". Each folder has a "..." inside its chip, with "Rename" and "Delete". On a phone, where the folders are a list to choose from, the chosen folder's "..." sits beside that list. "Rename" opens a field with the name in it, and "Save folder name" keeps the new one. Deleting a folder keeps its files: they move to "Unsorted", as the admin warns before it goes ahead.
