@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
+import { EDITOR_SAVED_EVENT } from '../../lib/editing-poll';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PageSettingsDrawer from './PageSettingsDrawer';
@@ -137,6 +138,8 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
     const wasNew = !pageId.current;
     pageId.current = savedPage.id;
     updatedAt.current = savedPage.updated_at;
+    // The status bar above checks against the version this editor holds.
+    window.dispatchEvent(new CustomEvent(EDITOR_SAVED_EVENT, { detail: savedPage.updated_at }));
     pageStatusRef.current = savedPage.status;
     // Only when there is one. A draft comes back with its date as planned_at, which is the
     // value the ref already holds; taking the draft's empty published_at instead would make

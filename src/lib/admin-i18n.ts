@@ -353,6 +353,13 @@ const en = {
     putBack: 'Put back',
     stale: 'The draft changed again. Reload, then try.',
   },
+  editing: {
+    loadLatest: 'Load the latest',
+    newer: 'This draft was changed elsewhere.',
+    read: '{client} read this draft {when}.',
+    wrote: '{client} changed this draft {when}.',
+    youFirst: 'While you have it open, an AI cannot change it.',
+  },
   settings: {
     appearance: 'Appearance',
     defaultLanguage: 'Default language',
@@ -1448,6 +1455,13 @@ const th: typeof en = {
     failed: 'ทำไม่สำเร็จ ลองอีกครั้ง',
     putBack: 'ย้อนกลับ',
     stale: 'ฉบับร่างเปลี่ยนอีกแล้ว โหลดหน้าใหม่แล้วลองอีกครั้ง',
+  },
+  editing: {
+    loadLatest: 'โหลดฉบับล่าสุด',
+    newer: 'ฉบับร่างนี้ถูกแก้จากที่อื่น',
+    read: '{client} อ่านฉบับร่างนี้เมื่อ {when}',
+    wrote: '{client} แก้ฉบับร่างนี้เมื่อ {when}',
+    youFirst: 'ระหว่างที่คุณเปิดหน้านี้อยู่ AI จะแก้ฉบับร่างนี้ไม่ได้',
   },
   settings: {
     appearance: 'หน้าตาเว็บไซต์',

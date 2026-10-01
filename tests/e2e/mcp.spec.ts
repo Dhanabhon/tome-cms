@@ -9,7 +9,8 @@ import { expect, test } from './own-worker';
 /**
  * MCP end to end, as an AI app meets it: the owner switches it on, a client registers and asks,
  * the owner allows it with a passkey, the client writes a draft twice, the owner puts the draft
- * back from the editor, then revokes. One test and one sign-in: /recovery allows five per file.
+ * back from the editor, the client waits while the owner has the draft open, then the owner
+ * revokes. One test and one sign-in: /recovery allows five per file.
  */
 
 test.use({ stack: 'mcp' });
@@ -126,8 +127,10 @@ const CALLBACK = 'http://localhost:39999/callback';
 const WIDE = { width: 1440, height: 900 };
 const NARROW = { width: 390, height: 844 };
 
+type ToolResult = { isError?: boolean; content: { text: string }[] };
+
 /** What an AI app's server sends: no Origin, no cookie. */
-async function mcp(token: string, name: string, args: Record<string, unknown>) {
+async function callTool(token: string, name: string, args: Record<string, unknown>) {
   const response = await fetch(`${origin}/mcp`, {
     method: 'POST',
     headers: {
@@ -139,9 +142,14 @@ async function mcp(token: string, name: string, args: Record<string, unknown>) {
   if (!response.ok) return { status: response.status, result: null };
   // The SDK answers as one SSE event; its data line is the JSON-RPC reply.
   const data = (await response.text()).split('\n').find((line) => line.startsWith('data: '));
-  const result = JSON.parse(data!.slice(6)).result as { isError?: boolean; content: { text: string }[] };
+  return { status: response.status, result: JSON.parse(data!.slice(6)).result as ToolResult };
+}
+
+async function mcp(token: string, name: string, args: Record<string, unknown>) {
+  const { status, result } = await callTool(token, name, args);
+  if (!result) return { status, result: null };
   expect(result.isError, result.content[0]?.text).toBeFalsy();
-  return { status: response.status, result: JSON.parse(result.content[0]!.text.replace(/^[^\n]*\n/, '')) };
+  return { status, result: JSON.parse(result.content[0]!.text.replace(/^[^\n]*\n/, '')) };
 }
 
 async function shoot(page: Page, name: string, size: { width: number; height: number }) {
@@ -150,8 +158,9 @@ async function shoot(page: Page, name: string, size: { width: number; height: nu
   await page.screenshot({ fullPage: true, path: test.info().outputPath(`${name}-${size.width}.png`) });
 }
 
-test('an AI app connects with a passkey, writes a draft, is put back and is revoked', async ({ context, page }) => {
-  test.setTimeout(240_000);
+test('an AI app connects with a passkey, writes a draft, is put back, waits for the owner and is revoked', async ({ context, page }) => {
+  // One real wait of 50 s below: the server's clock cannot be moved from here.
+  test.setTimeout(360_000);
   await page.setViewportSize(WIDE);
   await signIn(context, page);
 
@@ -236,6 +245,27 @@ test('an AI app connects with a passkey, writes a draft, is put back and is revo
   await expect(page.getByText('The first version, by the AI.')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('The second version, by the AI.')).toHaveCount(0);
   await expect(bar).toHaveCount(0);
+
+  // The open editor shows the AI that read the draft, on its next check, and holds the draft.
+  // Claude Code on this computer earns no mark, so the bar has the computer icon.
+  const read = await mcp(token, 'get_post', { id });
+  const status = page.getByRole('status').filter({ hasText: 'Claude Code read this draft 1 minute ago. While you have it open, an AI cannot change it.' });
+  await expect(status).toBeVisible({ timeout: 20_000 });
+  await expect(status.locator('.editing-status__mark .icon')).toBeVisible();
+  await shoot(page, 'editing-status', NARROW);
+  await shoot(page, 'editing-status', WIDE);
+  const third = { kind: 'post', id, updatedAt: (read.result as { updatedAt: string }).updatedAt, body: 'The third version, by the AI.' };
+  const held = await callTool(token, 'update_draft', third);
+  expect(held.result?.isError).toBe(true);
+  expect(held.result?.content[0]?.text).toMatch(/open in the editor/);
+
+  // Closing the editor lets go of it: 45 s after its last check, the AI may write again.
+  await page.goto(`${origin}/admin`);
+  await page.waitForTimeout(50_000);
+  await mcp(token, 'update_draft', third);
+  await page.goto(`${origin}/admin/edit/${id}`);
+  await expect(page.getByText('The third version, by the AI.')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Claude Code changed this draft 1 minute ago.' })).toBeVisible({ timeout: 20_000 });
 
   // The card lists the connection; revoke it.
   await page.goto(`${origin}/admin/plugins`);

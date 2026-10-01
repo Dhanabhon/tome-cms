@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
+import { EDITOR_SAVED_EVENT } from '../../lib/editing-poll';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
 import PostSettingsDrawer from './PostSettingsDrawer';
@@ -133,6 +134,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     const wasNew = !postId.current;
     postId.current = savedPost.id;
     updatedAt.current = savedPost.updated_at;
+    // The status bar above checks against the version this editor holds.
+    window.dispatchEvent(new CustomEvent(EDITOR_SAVED_EVENT, { detail: savedPost.updated_at }));
     // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
     // Only when there is one. A draft comes back with its date as planned_at, which is the

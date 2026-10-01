@@ -2791,6 +2791,13 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Above a draft an AI changed, as the migrations notice sits above a screen: a rule at the start,
  * not a tinted box, because it reports something rather than warning of it. Its content lines up
  * with the editor bar's below, which is 80rem wide at most. */
-.ai-undo { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
-.ai-undo p { margin: 0; min-width: 0; }
+.ai-undo, .editing-status { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
+.ai-undo p, .editing-status p { margin: 0; min-width: 0; }
 .ai-undo .admin-form-error { flex-basis: 100%; }
+/* Who is at work on an open draft, in the same bar: the app's mark before the sentence, and a
+ * "changed elsewhere" line with its button at the end. */
+.editing-status { flex-direction: column; align-items: stretch; }
+.editing-status__ai { display: flex; gap: var(--space-xs); align-items: start; }
+.editing-status__newer { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; }
+.editing-status__mark { display: grid; flex: none; width: 1.25rem; height: 1.25rem; place-items: center; }
+.editing-status__mark .brand-mark, .editing-status__mark .icon { width: 1.25rem; height: 1.25rem; }
