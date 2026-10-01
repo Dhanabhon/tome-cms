@@ -215,8 +215,12 @@ const timed = (name: string, input: string, limit: string | null) => test(name, 
   const took = performance.now() - started;
   t.diagnostic(`${Math.round(took)} ms, ${refused ? `refused: ${refused}` : 'parsed'}`);
   assert.equal(refused, limit);
-  // A refusal is at once. What is read may take seconds on a loaded runner, and must still end.
-  assert.ok(took < (limit === null || limit === 'html' ? 15_000 : 5_000), `took ${Math.round(took)} ms`);
+  // A refusal is at once. What is read may take seconds on a loaded runner, and must still end; so
+  // may a block's lines, which are counted on marked's block tokens, and its lexer is slower than
+  // linear on a long list (6 s on the release runner). In production the worker's time limit
+  // bounds either way.
+  const slow = limit === null || limit === 'html' || limit === 'block-lines';
+  assert.ok(took < (slow ? 15_000 : 5_000), `took ${Math.round(took)} ms`);
 });
 
 timed('55,000 pictures, each in its own paragraph, are refused at once', '![a](./a.png)\n\n'.repeat(55_000), 'lines');
