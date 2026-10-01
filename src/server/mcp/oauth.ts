@@ -94,21 +94,26 @@ async function makeRoomForClient(ownerId: string): Promise<boolean> {
   return Number(count) < MAX_CLIENTS;
 }
 
+// Gemini asks to be a confidential client. RFC 7591 3.2.1 lets the answer differ from the request,
+// so it is registered as public (PKCE, no secret) and told so.
+const REGISTERS_AS_PUBLIC = new Set<unknown>([undefined, 'none', 'client_secret_basic', 'client_secret_post']);
+
 const allAllowed = (config: McpConfig, uris: readonly string[]) =>
   uris.length > 0 && uris.length <= MAX_REDIRECTS && uris.every((uri) => redirectAllowed(uri, config.extraRedirects));
 
 /**
- * DCR (RFC 7591). Public clients only. Every redirect must be allowed (redirects.ts). Old rows are
- * tidied first (makeRoomForClient); past MAX_CLIENTS it refuses. The id is `dcr:<uuid>`.
+ * DCR (RFC 7591). Public clients only: one that asks for a client secret gets none, and the answer
+ * says `none`. Every redirect must be allowed (redirects.ts). Old rows are tidied first
+ * (makeRoomForClient); past MAX_CLIENTS it refuses. The id is `dcr:<uuid>`.
  */
-export async function registerClient(config: McpConfig, body: unknown): Promise<{ client_id: string; client_name: string; redirect_uris: string[] }> {
+export async function registerClient(config: McpConfig, body: unknown): Promise<{ client_id: string; client_name: string; redirect_uris: string[]; token_endpoint_auth_method: 'none' }> {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) throw new OAuthRegistrationError('invalid_client_metadata', 'Client metadata is a JSON object.');
   const metadata = body as Record<string, unknown>;
   const uris = Array.isArray(metadata.redirect_uris) ? metadata.redirect_uris : [];
   if (!uris.every((uri): uri is string => typeof uri === 'string') || !allAllowed(config, uris)) {
     throw new OAuthRegistrationError('invalid_redirect_uri', 'Every redirect URI must be one this site allows.');
   }
-  if (metadata.token_endpoint_auth_method !== undefined && metadata.token_endpoint_auth_method !== 'none') {
+  if (!REGISTERS_AS_PUBLIC.has(metadata.token_endpoint_auth_method)) {
     throw new OAuthRegistrationError('invalid_client_metadata', 'Only public clients can register.');
   }
   const named = typeof metadata.client_name === 'string' ? metadata.client_name.trim().slice(0, 200) : '';
@@ -118,7 +123,7 @@ export async function registerClient(config: McpConfig, body: unknown): Promise<
   await db.insertInto('mcp_clients').values({
     id, owner_id: config.ownerId, kind: 'dcr', name, redirect_uris: sql<string[]>`${JSON.stringify(uris)}::jsonb`,
   }).execute();
-  return { client_id: id, client_name: name, redirect_uris: uris };
+  return { client_id: id, client_name: name, redirect_uris: uris, token_endpoint_auth_method: 'none' };
 }
 
 async function cimdMetadata(url: string): Promise<ClientMetadata> {
@@ -201,8 +206,8 @@ function single(params: URLSearchParams, key: string): string | null {
 /**
  * GET /oauth/authorize. Checks response_type=code, the client, redirect_uri (redirectMatches
  * against the client's), code_challenge with method S256, resource (when given) === config.resource,
- * and the scope (content:read implied; drafts:write only if asked). Stores the request and returns
- * its id. Any failure is an OAuthPageError: nothing is redirected for a request that is not right.
+ * and the scope (content:read implied; drafts:write only if asked; offline_access ignored). Stores
+ * the request and returns its id. Any failure is an OAuthPageError: nothing is redirected for a request that is not right.
  */
 export async function startAuthorization(config: McpConfig, params: URLSearchParams): Promise<{ requestId: string }> {
   const [responseType, clientId, redirectUri, challenge, method, resource, scope, state] =
@@ -212,7 +217,8 @@ export async function startAuthorization(config: McpConfig, params: URLSearchPar
   // S256 is 43 base64url characters; OAuth 2.1 has no plain, and no PKCE is no request.
   if (method !== 'S256' || !challenge || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) throw new OAuthPageError('PKCE with S256 is required.');
   if (resource !== null && resource !== config.resource) throw new OAuthPageError('The resource is not this site\'s MCP server.');
-  const scopes = (scope ?? '').split(' ').filter(Boolean);
+  // offline_access (Gemini adds it) asks for a refresh token, which every grant gets anyway.
+  const scopes = (scope ?? '').split(' ').filter((entry) => entry && entry !== 'offline_access');
   if (!scopes.every((entry) => (SCOPES as readonly string[]).includes(entry))) throw new OAuthPageError('An unknown scope was asked for.');
   const client = await clientFor(config, clientId);
   if (!redirectUri || !redirectMatches(client.redirectUris, redirectUri) || !redirectAllowed(redirectUri, config.extraRedirects)) {

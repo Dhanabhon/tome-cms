@@ -114,7 +114,7 @@ test('DCR registers a public client only for an allowed redirect', async () => {
 
   await assert.rejects(oauth.registerClient(config, { client_name: 'Evil', redirect_uris: ['https://evil.example/cb'] }), /redirect/);
   await assert.rejects(oauth.registerClient(config, { client_name: 'None', redirect_uris: [] }), /redirect/);
-  await assert.rejects(oauth.registerClient(config, { redirect_uris: [CLAUDE], token_endpoint_auth_method: 'client_secret_basic' }));
+  await assert.rejects(oauth.registerClient(config, { redirect_uris: [CLAUDE], token_endpoint_auth_method: 'private_key_jwt' }), /public/);
   await assert.rejects(oauth.registerClient(config, 'not an object'));
 });
 
@@ -407,6 +407,51 @@ test('a mark follows the client document host, so a loopback Codex is OpenAI and
   const lookalike = await oauth.registerClient(config, { client_name: 'Claude', redirect_uris: ['http://127.0.0.1:3118/callback'] });
   const asked = await oauth.startAuthorization(config, authorizeParams({ client_id: lookalike.client_id, redirect_uri: 'http://127.0.0.1:3118/callback' }));
   assert.equal(oauth.describeRequest(config, asked.requestId)?.brand, null);
+});
+
+test('Gemini connects: asked as a confidential client it registers as public, offline_access is ignored, the code goes to the relay', async () => {
+  const relay = 'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-abc123-localhost';
+  const { POST } = await import('../../src/pages/oauth/register');
+  const registered = await POST({
+    request: new Request(`${ORIGIN}/oauth/register`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        client_name: 'Gemini', redirect_uris: [relay], token_endpoint_auth_method: 'client_secret_basic', grant_types: ['authorization_code', 'refresh_token'],
+      }),
+    }),
+    clientAddress: '203.0.113.40',
+  } as unknown as Parameters<typeof POST>[0]);
+  assert.equal(registered.status, 201);
+  const gemini = await registered.json() as Record<string, unknown>;
+  assert.equal(gemini.token_endpoint_auth_method, 'none', 'told it is public, as RFC 7591 3.2.1 allows');
+  assert.equal('client_secret' in gemini, false, 'no secret is issued');
+  const geminiId = gemini.client_id as string;
+  const post = await oauth.registerClient(config, { redirect_uris: [relay], token_endpoint_auth_method: 'client_secret_post' });
+  assert.equal(post.token_endpoint_auth_method, 'none');
+
+  const { verifier, challenge } = pkce();
+  const { requestId } = await oauth.startAuthorization(config, authorizeParams({
+    client_id: geminiId, redirect_uri: relay, scope: 'content:read drafts:write offline_access',
+  }, challenge));
+  assert.equal(oauth.describeRequest(config, requestId)?.brand, 'gemini');
+  const { redirect } = await oauth.decide(config, OWNER, requestId, { allow: true, write: true });
+  const answer = new URL(redirect);
+  assert.equal(`${answer.origin}${answer.pathname}`, relay);
+  assert.equal(answer.searchParams.get('iss'), ORIGIN);
+  assert.equal(answer.searchParams.get('state'), 'xyz');
+
+  // A public client: no client_secret, and none needed.
+  const tokens = await oauth.exchange(config, new URLSearchParams({
+    grant_type: 'authorization_code', code: answer.searchParams.get('code')!, redirect_uri: relay, client_id: geminiId, code_verifier: verifier,
+  }));
+  assert.equal(tokens.scope, 'content:read drafts:write', 'offline_access grants nothing more');
+  assert.ok(tokens.refresh_token);
+  assert.equal((await oauth.verifyAccessToken(config, tokens.access_token))?.brand, 'gemini');
+
+  await assert.rejects(
+    oauth.startAuthorization(config, authorizeParams({ client_id: geminiId, redirect_uri: relay, scope: 'content:read bogus' })),
+    OAuthPageError,
+  );
 });
 
 test('the authorize endpoint is rate-limited per sender, with the same plain page', async () => {

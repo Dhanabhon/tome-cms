@@ -1,15 +1,19 @@
 import type { BrandName } from '../../lib/brand-marks';
 import { bareHost, isLoopbackHost } from './redirects';
 
-/** Where Claude's and ChatGPT's own approvals go. */
+/** Where Claude's, ChatGPT's and Gemini's own approvals go. */
 const BY_REDIRECT_HOST: ReadonlyMap<string, BrandName> = new Map([
   ['claude.ai', 'claude'],
   ['chatgpt.com', 'openai'],
+  // Google's relay. The host alone is enough: only Google receives there, and of its addresses
+  // redirects.ts allows only Gemini's own `/r/user_bound_custom-mcp-` ones (unless the owner adds another).
+  ['oauth-redirect.googleusercontent.com', 'gemini'],
 ]);
 
 /** Where their client documents (CIMD) are hosted, which covers Claude Code and Codex. */
 const BY_DOCUMENT_HOST: ReadonlyMap<string, BrandName> = new Map([
-  ...BY_REDIRECT_HOST,
+  ['claude.ai', 'claude'],
+  ['chatgpt.com', 'openai'],
   ['openai.com', 'openai'],
   ['platform.openai.com', 'openai'],
 ]);
