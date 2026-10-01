@@ -162,7 +162,11 @@ after(closeDatabase);
 test('the endpoint takes a bearer token and nothing else', async () => {
   const none = await rpc(null, 'tools/list');
   assert.equal(none.status, 401);
-  assert.equal(none.headers.get('www-authenticate'), `Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource"`);
+  assert.equal(
+    none.headers.get('www-authenticate'),
+    `Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource", scope="content:read drafts:write"`,
+    'the scope hint names writing too, so a client asks for it and the owner can tick it',
+  );
 
   const cookie = await rpc(null, 'tools/list', {}, { cookie: await ownerCookie() });
   assert.equal(cookie.status, 401, "the owner's cookie is not a way in");
@@ -176,6 +180,11 @@ test('the endpoint takes a bearer token and nothing else', async () => {
   const evil = await rpc(writer, 'tools/list', {}, { origin: 'https://evil.example' });
   assert.equal(evil.status, 403);
 
+  // An MCP token is for /mcp only: the admin API knows the owner's cookie and nothing else.
+  const { GET: adminPosts } = await import('../../src/pages/api/admin/posts/index');
+  const url = new URL('http://localhost:4321/api/admin/posts');
+  const admin = await adminPosts({ request: new Request(url, { headers: { authorization: `Bearer ${writer}` } }), url } as never);
+  assert.equal(admin.status, 401);
 });
 
 test('the tool list is the token’s scopes', async () => {

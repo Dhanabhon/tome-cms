@@ -27,6 +27,9 @@ const MAX_CLIENTS = 100;
 const MAX_PENDING = 100;
 const MAX_REDIRECTS = 10;
 const TOUCH_MS = 60 * 1000;
+// Connectors refresh in parallel when the hour runs out, so a refresh token presented again just
+// after it was rotated is a race, not a theft: refused, and the connection kept.
+const REFRESH_REUSE_GRACE_SECONDS = 30;
 // Generous for anything real, and short enough that a parameter is never a way to fill memory.
 const MAX_PARAM = 2048;
 
@@ -222,7 +225,8 @@ function redirectWith(uri: string, values: Record<string, string | null>): strin
 /**
  * The owner's answer. The request is consumed either way. Deny: redirect with
  * error=access_denied and state. Allow: mark the client approved; make a connection whose scopes
- * are content:read, plus drafts:write when asked, ticked and config.allowWrite; issue a code
+ * are content:read, plus drafts:write when the owner ticked it and config.allowWrite, whether or
+ * not the client asked (asking only ticks the box to begin with); issue a code
  * (hash stored, 60 s, bound to redirect_uri and challenge); redirect with code, state and iss.
  */
 export async function decide(config: McpConfig, ownerId: string, requestId: string, decision: { allow: boolean; write: boolean }): Promise<{ redirect: string }> {
@@ -234,7 +238,7 @@ export async function decide(config: McpConfig, ownerId: string, requestId: stri
   if (!decision.allow) {
     return { redirect: redirectWith(request.redirectUri, { error: 'access_denied', state: request.state, iss: config.issuer }) };
   }
-  const scopes = ['content:read', ...(request.wantsWrite && decision.write && config.allowWrite ? ['drafts:write'] : [])];
+  const scopes = ['content:read', ...(decision.write && config.allowWrite ? ['drafts:write'] : [])];
   if (request.unsaved && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError('This site has too many clients.');
   const code = newSecret();
   await db.transaction().execute(async (trx) => {
@@ -293,7 +297,7 @@ async function redeemCode(trx: Transaction<Database>, ownerId: string, code: str
     if (reused) await trx.updateTable('mcp_connections').set({ revoked_at: new Date() }).where('id', '=', reused.connection_id).where('owner_id', '=', ownerId).execute();
     return null;
   }
-  if ( spent.redirect_uri !== redirectUri || !pkceMatches(verifier, spent.code_challenge)) return null;
+  if (spent.redirect_uri !== redirectUri || !pkceMatches(verifier, spent.code_challenge)) return null;
   const connection = await trx.selectFrom('mcp_connections').select(['id', 'scopes'])
     .where('id', '=', spent.connection_id).where('owner_id', '=', ownerId).where('client_id', '=', clientId).where('revoked_at', 'is', null).executeTakeFirst();
   return connection ? issuePair(trx, connection) : null;
@@ -309,8 +313,11 @@ async function rotateRefresh(trx: Transaction<Database>, ownerId: string, token:
   const rotated = await trx.updateTable('mcp_tokens').set({ rotated_at: new Date() })
     .where('token_hash', '=', hash).where('rotated_at', 'is', null).returning('token_hash').executeTakeFirst();
   if (rotated) return issuePair(trx, found);
-  // Used before: whoever holds it now is not who it was given to, or not only them.
-  await trx.updateTable('mcp_connections').set({ revoked_at: new Date() }).where('id', '=', found.id).execute();
+  // Used before. Within the grace that is a client racing itself; after it, whoever holds the
+  // token now is not who it was given to, or not only them.
+  const stale = await trx.selectFrom('mcp_tokens').select('token_hash').where('token_hash', '=', hash)
+    .where('rotated_at', '<', new Date(Date.now() - REFRESH_REUSE_GRACE_SECONDS * 1000)).executeTakeFirst();
+  if (stale) await trx.updateTable('mcp_connections').set({ revoked_at: new Date() }).where('id', '=', found.id).execute();
   return null;
 }
 
@@ -318,10 +325,12 @@ async function rotateRefresh(trx: Transaction<Database>, ownerId: string, token:
  * POST /oauth/token.
  * authorization_code: the code exists, is unused and unexpired; its connection's client is
  * client_id; redirect_uri is the one it was issued for; pkceMatches(code_verifier,
- * code_challenge). Mark it used, then issue a pair.
+ * code_challenge). Mark it used, then issue a pair. A code presented again after it was used
+ * revokes its connection, always.
  * refresh_token: the token exists, is a refresh token and unexpired, and its connection is not
- * revoked. If it was already rotated, revoke the connection (reuse means theft) and refuse.
- * Otherwise set rotated_at and issue a new pair. Anything else: OAuthTokenError.
+ * revoked. If it was already rotated, refuse; and if that was more than
+ * REFRESH_REUSE_GRACE_SECONDS ago, revoke the connection too (reuse means theft). Otherwise set
+ * rotated_at and issue a new pair. Anything else: OAuthTokenError.
  */
 export async function exchange(config: McpConfig, form: URLSearchParams): Promise<TokenResponse> {
   const [grantType] = required(form, 'grant_type');

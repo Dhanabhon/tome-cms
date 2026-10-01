@@ -21,7 +21,8 @@ const handle: APIRoute = async ({ request }) => {
   if (!bearer || !token) {
     return new Response(null, { status: 401, headers: {
       'Cache-Control': 'no-store',
-      'WWW-Authenticate': `Bearer resource_metadata="${config.issuer}/.well-known/oauth-protected-resource"`,
+      // The scope names writing too, so a client asks for it and the owner's box starts ticked.
+      'WWW-Authenticate': `Bearer resource_metadata="${config.issuer}/.well-known/oauth-protected-resource", scope="content:read drafts:write"`,
     } });
   }
   const handler = createMcpHandler(() => buildMcpServer(config, token));

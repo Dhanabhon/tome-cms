@@ -185,6 +185,26 @@ test('with writing switched off, allowing grants reading only', async () => {
   assert.deepEqual(row.scopes, ['content:read']);
 });
 
+test("the owner's tick grants writing even when the client asked only to read, and only while writing is on", async () => {
+  const readOnly = authorizeParams({ scope: 'content:read' });
+  const scopesOf = async (redirect: string) => {
+    const hash = createHash('sha256').update(new URL(redirect).searchParams.get('code')!).digest('hex');
+    const row = await db.selectFrom('mcp_codes').innerJoin('mcp_connections', 'mcp_connections.id', 'mcp_codes.connection_id')
+      .select('scopes').where('code_hash', '=', hash).executeTakeFirstOrThrow();
+    return row.scopes;
+  };
+  const asked = await oauth.startAuthorization(config, readOnly);
+  assert.equal(oauth.describeRequest(config, asked.requestId)?.wantsWrite, false, 'the box is drawn, not ticked');
+  assert.deepEqual(await scopesOf((await oauth.decide(config, OWNER, asked.requestId, { allow: true, write: true })).redirect), ['content:read', 'drafts:write']);
+  await setWrite('off');
+  try {
+    const off = await oauth.startAuthorization(config, readOnly);
+    assert.deepEqual(await scopesOf((await oauth.decide(config, OWNER, off.requestId, { allow: true, write: true })).redirect), ['content:read']);
+  } finally {
+    await setWrite('on');
+  }
+});
+
 test('denying redirects with access_denied and connects nothing', async () => {
   const before = (await db.selectFrom('mcp_connections').select('id').execute()).length;
   const { requestId } = await oauth.startAuthorization(config, authorizeParams());
@@ -252,7 +272,7 @@ test('an access token verifies until its connection is revoked', async () => {
   await refuses(oauth.exchange(config, new URLSearchParams({ grant_type: 'refresh_token', refresh_token: doomed.refresh_token, client_id: clientId })), 'invalid_grant');
 });
 
-test('a refresh token rotates, and one used twice revokes the connection', async () => {
+test('a refresh token rotates, and one used again after a 30-second grace revokes the connection', async () => {
   const { code, verifier } = await approvedCode();
   const first = await oauth.exchange(config, codeForm(code, verifier));
   const refresh = (token: string, client = clientId) => oauth.exchange(config, new URLSearchParams({ grant_type: 'refresh_token', refresh_token: token, client_id: client }));
@@ -264,19 +284,24 @@ test('a refresh token rotates, and one used twice revokes the connection', async
   assert.equal(second.scope, 'content:read drafts:write');
   assert.ok(await oauth.verifyAccessToken(config, second.access_token));
 
+  // Within 30 seconds of its rotation, a used token is refused and nothing else happens.
   await refuses(refresh(first.refresh_token), 'invalid_grant');
-  assert.equal(await oauth.verifyAccessToken(config, second.access_token), null, 'reuse is theft: the whole connection goes');
+  assert.ok(await oauth.verifyAccessToken(config, second.access_token), 'reuse inside the grace leaves the connection');
+  // After that, reuse is theft: the whole connection goes.
+  await db.updateTable('mcp_tokens').set({ rotated_at: sql<Date>`rotated_at - interval '31 seconds'` })
+    .where('token_hash', '=', createHash('sha256').update(first.refresh_token).digest('hex')).execute();
+  await refuses(refresh(first.refresh_token), 'invalid_grant');
+  assert.equal(await oauth.verifyAccessToken(config, second.access_token), null, 'reuse after the grace revokes the connection');
   await refuses(refresh(second.refresh_token), 'invalid_grant');
 
-  // Two at once: one rotates, and the other finds the token already rotated -- which is reuse, so
-  // the connection is revoked and the winner's new pair dies with it. Strict on purpose: a client
-  // that refreshes twice in parallel is indistinguishable from a stolen token being raced.
+  // Two at once, as a connector does when the hour runs out: one rotates, the other is refused,
+  // and the winner's pair still works.
   const fresh = await approvedCode();
   const pair = await oauth.exchange(config, codeForm(fresh.code, fresh.verifier));
   const raced = await Promise.allSettled([refresh(pair.refresh_token), refresh(pair.refresh_token)]);
   const won = raced.filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof refresh>>> => result.status === 'fulfilled');
   assert.equal(won.length, 1);
-  assert.equal(await oauth.verifyAccessToken(config, won[0]!.value.access_token), null, 'the race revoked the connection');
+  assert.ok(await oauth.verifyAccessToken(config, won[0]!.value.access_token), 'the race left the connection alive');
   const parallel = await approvedCode();
   const both = await Promise.allSettled([1, 2].map(() => oauth.exchange(config, codeForm(parallel.code, parallel.verifier))));
   assert.equal(both.filter(({ status }) => status === 'fulfilled').length, 1, 'a code is spent once');
