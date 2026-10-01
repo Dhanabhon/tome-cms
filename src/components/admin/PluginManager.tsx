@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent, type SyntheticEvent } from 'react';
 
+import McpConnections from './McpConnections';
 import MediaPicker from './MediaPicker';
 import UiSelect from './UiSelect';
 import SaveButton from './SaveButton';
@@ -92,7 +93,7 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
                   {manifest.brand ? <BrandMark name={manifest.brand} /> : <Icon name={manifest.icon} />}
                 </span>
                 <div className="plugin-card__name">
-                  <strong>{manifest.name}</strong>
+                  <strong>{manifest.name}{manifest.official && <span className="plugin-card__official">{copy.plugins.official}</span>}</strong>
                   <p>{manifest.description[locale]}</p>
                 </div>
               </div>
@@ -128,6 +129,7 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
                   {copy.plugins.setUp}
                 </button>
               </footer>
+              {manifest.id === 'mcp' && enabled && <McpConnections copy={copy} locale={locale} />}
               {mine && report.error && <p className="admin-form-error" role="alert">{report.error}</p>}
               {mine && report.status && <p className="plugin-card__said" role="status">{report.status}</p>}
             </li>

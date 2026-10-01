@@ -6,6 +6,7 @@ import { db } from '../db/client';
 import { HttpError } from '../http/errors';
 import { isUuid } from '../media/keys';
 import { assertReadyMediaReferences } from '../media/service';
+import { clearMcpData } from '../mcp/connections';
 import { memoForRequest } from '../request-memo';
 import { isSealed, openSecret, sealSecret } from './secrets';
 
@@ -87,10 +88,10 @@ export async function writePluginSettings(ownerId: string, input: {
 }): Promise<void> {
   const manifest = pluginManifest(input.id);
   if (!manifest) throw new HttpError(404, 'Plugin not found.', { code: 'plugin_unknown' });
-  const existing = rowSettings(
-    (await db.selectFrom('plugin_settings').select('settings')
-      .where('owner_id', '=', ownerId).where('id', '=', input.id).executeTakeFirst())?.settings,
-  );
+  const row = await db.selectFrom('plugin_settings').select(['enabled', 'settings'])
+    .where('owner_id', '=', ownerId).where('id', '=', input.id).executeTakeFirst();
+  const existing = rowSettings(row?.settings);
+  const wasEnabled = row?.enabled ?? false;
 
   const settings: Record<string, string> = {};
   for (const setting of manifest.settings) {
@@ -130,6 +131,10 @@ export async function writePluginSettings(ownerId: string, input: {
   if (input.enabled && missing) {
     throw new HttpError(400, `${missing.label.en} is required to switch this on.`, { code: 'plugin_incomplete' });
   }
+
+  // Switching MCP on starts clean: whatever was connected before it was switched off (from here or
+  // from `plugin:disable`, which runs no app code) has to be allowed again.
+  if (input.id === 'mcp' && input.enabled && !wasEnabled) await clearMcpData(ownerId);
 
   await db.insertInto('plugin_settings')
     .values({ enabled: input.enabled, id: input.id, owner_id: ownerId, settings: JSON.stringify(settings) })

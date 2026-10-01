@@ -2767,3 +2767,17 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .drawer-suggestion__actions { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
 
+
+/* The MCP card: the address to give an AI app, then who is connected. It takes the grid's whole
+ * row, since a list of connections does not fit in one column. */
+.plugin-card:has(.mcp-connections) { grid-column: 1 / -1; }
+.plugin-card__official { margin-inline-start: var(--space-xs); padding: var(--space-3xs) var(--space-xs); border: var(--rule-hair) solid var(--color-focus); border-radius: var(--radius-input); color: var(--color-focus); font-family: var(--font-body); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0; vertical-align: middle; }
+.mcp-connections { display: grid; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
+.mcp-connections h3 { margin: 0; font-size: var(--text-sm); }
+.mcp-connections__address { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.mcp-connections__address input { flex: 1 1 14rem; min-width: 0; }
+.mcp-connections__none { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.mcp-connections__list { display: grid; gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
+.mcp-connections__list li { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding-block-end: var(--space-sm); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.mcp-connections__list li > div { display: grid; gap: var(--space-3xs); min-width: 0; }
+.mcp-connections__list small { color: var(--color-muted); }
