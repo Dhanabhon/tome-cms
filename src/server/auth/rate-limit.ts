@@ -6,7 +6,7 @@ import { db } from '../db/client';
 import { getServerEnv } from '../env';
 import { rateLimitKey, type SenderAddress } from '../http/sender-address';
 
-export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply';
+export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-token';
 
 const limits: Record<RateLimitAction, { attempts: number; windowSeconds: number }> = {
   install: { attempts: 8, windowSeconds: 15 * 60 },
@@ -14,6 +14,8 @@ const limits: Record<RateLimitAction, { attempts: number; windowSeconds: number 
   recovery: { attempts: 5, windowSeconds: 30 * 60 },
   'update-check': { attempts: 6, windowSeconds: 10 * 60 },
   'update-apply': { attempts: 3, windowSeconds: 30 * 60 },
+  'oauth-register': { attempts: 10, windowSeconds: 60 * 60 },
+  'oauth-token': { attempts: 60, windowSeconds: 10 * 60 },
 };
 
 export class RateLimitExceededError extends Error {
@@ -25,7 +27,7 @@ export class RateLimitExceededError extends Error {
   }
 }
 
-// A window is at most half an hour long, so a row from before that has nothing left to count.
+// A window is at most an hour long, so a row from before that has nothing left to count.
 // Sweeping them keeps the table to who has been here lately: with a count for every sender it
 // would otherwise grow with every address that ever asked.
 const KEEP_SECONDS = 2 * Math.max(...Object.values(limits).map(({ windowSeconds }) => windowSeconds));

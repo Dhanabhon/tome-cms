@@ -43,6 +43,12 @@ const PLAN: Readonly<Record<keyof Database, 'preserve' | 'truncate'>> = {
   // Forwarding addresses for articles a reset removes: nothing left for them to point at.
   content_redirects: 'truncate',
   content_stats_daily: 'truncate',
+  // MCP clients, approvals, codes, tokens and undo copies: gone with the owner.
+  mcp_clients: 'truncate',
+  mcp_connections: 'truncate',
+  mcp_codes: 'truncate',
+  mcp_tokens: 'truncate',
+  content_ai_snapshots: 'truncate',
 };
 
 /** One order for both the lock and the truncate, so a reset cannot deadlock itself. */

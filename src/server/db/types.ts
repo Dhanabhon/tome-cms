@@ -38,6 +38,11 @@ export interface Database {
   preview_tokens: PreviewTokenTable;
   content_redirects: ContentRedirectTable;
   content_stats_daily: ContentStatsDailyTable;
+  mcp_clients: McpClientTable;
+  mcp_connections: McpConnectionTable;
+  mcp_codes: McpCodeTable;
+  mcp_tokens: McpTokenTable;
+  content_ai_snapshots: ContentAiSnapshotTable;
 }
 
 export interface UserTable {
@@ -142,7 +147,7 @@ export interface PluginSettingsTable {
 
 export interface SecurityRateLimitTable {
   key_hash: string;
-  action: 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply';
+  action: 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-token';
   window_started_at: RequiredTimestamp;
   attempts: number;
 }
@@ -333,6 +338,54 @@ export interface MediaUploadReservationTable {
   expires_at: RequiredTimestamp;
   finalized_at: Timestamp | null;
   created_at: Timestamp;
+}
+
+export interface McpClientTable {
+  id: string;
+  owner_id: string;
+  kind: 'dcr' | 'cimd';
+  name: string;
+  redirect_uris: string[];
+  approved: Generated<boolean>;
+  fetched_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+export interface McpConnectionTable {
+  id: string;
+  owner_id: string;
+  client_id: string;
+  client_name: string;
+  redirect_host: string;
+  scopes: string[];
+  created_at: Generated<Timestamp>;
+  last_used_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+}
+export interface McpCodeTable {
+  code_hash: string;
+  connection_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  expires_at: Timestamp;
+  used_at: Timestamp | null;
+}
+export interface McpTokenTable {
+  token_hash: string;
+  connection_id: string;
+  kind: 'access' | 'refresh';
+  expires_at: Timestamp;
+  rotated_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+export interface ContentAiSnapshotTable {
+  id: string;
+  owner_id: string;
+  post_id: string | null;
+  page_id: string | null;
+  connection_id: string | null;
+  client_name: string;
+  fields: unknown;
+  ai_written_at: Timestamp;
 }
 
 export interface PreviewTokenTable {

@@ -113,15 +113,16 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 or 1.5.0 | 0 | None |
-| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 1 | `027_post_show_cover` |
-| 0.12.0 or 0.11.0 | 2 | The one above and `026_planned_dates` |
-| 0.10.0 | 4 | The two above, `024_site_maintenance` and `025_content_stats` |
-| 0.9.0 or 0.8.0 | 5 | The four above and `023_home_slides` |
-| 0.7.0 or 0.6.0 | 7 | The five above, `021_media_documents` and `022_navigation_new_tab` |
-| 0.5.0 or 0.4.0 | 8 | The seven above and `020_site_brand` |
-| 0.3.0 | 11 | The eight above, `017_scheduled_publishing`, `018_thai_slugs` and `019_content_redirects` |
-| 0.2.0 | 20 | The eleven above, and `008_update_rate_limit_actions` through `016_theme_settings` |
+| 1.7.0 | 0 | None |
+| 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 or 1.5.0 | 1 | `028_mcp` |
+| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 2 | The one above and `027_post_show_cover` |
+| 0.12.0 or 0.11.0 | 3 | The two above and `026_planned_dates` |
+| 0.10.0 | 5 | The three above, `024_site_maintenance` and `025_content_stats` |
+| 0.9.0 or 0.8.0 | 6 | The five above and `023_home_slides` |
+| 0.7.0 or 0.6.0 | 8 | The six above, `021_media_documents` and `022_navigation_new_tab` |
+| 0.5.0 or 0.4.0 | 9 | The eight above and `020_site_brand` |
+| 0.3.0 | 12 | The nine above, `017_scheduled_publishing`, `018_thai_slugs` and `019_content_redirects` |
+| 0.2.0 | 21 | The twelve above, and `008_update_rate_limit_actions` through `016_theme_settings` |
 
 The counts follow each version's release notes. An install made from a checkout between two releases, or from before 0.2.0, can have a different number waiting. The admin's notice names them exactly.
 
