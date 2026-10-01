@@ -65,3 +65,17 @@ test('a first heading of level one stays in the body', async () => {
   const { document } = await markdownToDocument('# ใหญ่\n\ntext', null);
   assert.deepEqual(document.content?.map((node) => node.type), ['heading', 'paragraph']);
 });
+
+test('a block line inside a list is refused, since the editor cannot hold a block there', async () => {
+  await assert.rejects(
+    markdownToDocument('- {{tome:block 1}}', source),
+    (error) => error instanceof McpInputError && error.message === 'Keep each {{tome:block N}} line on a line of its own, outside lists and quotes, and try again.',
+  );
+});
+
+test('a block line in a quote, and one on its own, give documents the editor can hold', async () => {
+  const quoted = await markdownToDocument('> {{tome:block 1}}', source);
+  assert.deepEqual(quoted.document.content?.[0]?.content?.[0], video);
+  const alone = await markdownToDocument('text\n\n{{tome:block 1}}', source);
+  assert.deepEqual(alone.document.content?.map((node) => node.type), ['paragraph', 'video']);
+});

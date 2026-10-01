@@ -16,6 +16,7 @@ import { HttpError } from '../http/errors';
 import { getBuildInfo } from '../update/current';
 import { isUpdateWriteBlocked } from '../update/maintenance';
 import { mcpConfig, type McpConfig } from './config';
+import { faultFrames } from './fault';
 import { getContent, listContent, listOwnerMedia, searchContent } from './content';
 import { markdownToDocument, McpInputError } from './markdown-in';
 import { documentToMarkdown } from './markdown-out';
@@ -48,7 +49,7 @@ async function guard(tool: string, run: () => Promise<ToolResult>): Promise<Tool
     const requestId = randomUUID();
     // The class, a database's code and where it was thrown; never the message, which can quote content.
     const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
-    const frames = error instanceof Error ? error.stack?.split('\n').filter((line) => line.trimStart().startsWith('at ')).map((line) => line.trim()) : undefined;
+    const frames = faultFrames(error);
     console.error(JSON.stringify({ event: 'mcp.error', tool, requestId, errorClass: error instanceof Error ? error.name : typeof error, code, frames }));
     throw new Error(`The site could not do that. Request ${requestId}.`);
   }

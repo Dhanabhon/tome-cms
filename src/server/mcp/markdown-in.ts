@@ -1,4 +1,8 @@
+import { getSchema } from '@tiptap/core';
+import { Node } from '@tiptap/pm/model';
+
 import type { EditorDocument, EditorNode } from '../../types/cms';
+import { extensions } from '../content/editor';
 import { readMarkdownPost } from '../content/markdown-import-run';
 import { isUuid } from '../media/keys';
 import { standsIn } from './markdown-out';
@@ -10,6 +14,9 @@ export class McpInputError extends Error {
 
 const BLOCK_LINE = /^\{\{tome:block (\d+)\}\}$/;
 const LIBRARY = /^\/media\/([^/?#]+)$/;
+// The editor's own schema: a block put back where the editor cannot hold it, such as a video in a
+// list item, is refused here rather than stored as a draft the editor cannot open.
+const schema = getSchema(extensions);
 
 /** The source draft's stood-in blocks, numbered as documentToMarkdown numbered them. */
 function sourceBlocks(source: EditorDocument | null): EditorNode[] {
@@ -54,6 +61,11 @@ export async function markdownToDocument(text: string, source: EditorDocument | 
   const document: EditorDocument = { type: 'doc', content: (parsed.document.content ?? []).map(place) };
   if (outside.length) {
     throw new McpInputError(`Pictures must come from this site's library: ${outside.slice(0, 5).join(', ')}. Find one with list_media and use its /media/<id> address.`);
+  }
+  try {
+    Node.fromJSON(schema, document).check();
+  } catch {
+    throw new McpInputError('Keep each {{tome:block N}} line on a line of its own, outside lists and quotes, and try again.');
   }
   const warnings = parsed.warnings.flatMap((warning) => {
     if (warning.code === 'html-removed') return [`HTML was removed (${warning.count}).`];
