@@ -149,6 +149,13 @@ test('a renamed file shows its new name at once, keeps its ending, and what uses
   await expect(name).toHaveValue('lake.webp');
   const save = details.getByRole('button', { name: 'Save' });
 
+  // A blank name is said so, not dropped: nothing is saved and the field is marked.
+  await name.fill('   ');
+  await save.click();
+  await expect(details.getByRole('alert').filter({ hasText: 'Enter a name for the file.' })).toBeVisible();
+  await expect(name).toHaveAttribute('aria-invalid', 'true');
+  expect(psql(`select original_name from media_items where id = '${PICTURE}'`).stdout).toContain('lake.webp');
+
   // Typed without its ending, the name is kept with the stored file's.
   await name.fill('Morning lake');
   await save.click();

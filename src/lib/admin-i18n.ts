@@ -55,6 +55,7 @@ const en = {
     maintenanceReference: 'The maintenance page',
     name: 'Name',
     nameHint: 'Only the name changes. The file type stays, and so does everything already using the file.',
+    nameRequired: 'Enter a name for the file.',
     profileAvatar: 'This image is the profile picture.',
     refusals: {
       documentTooLarge: 'Files must be 25 MB or smaller.',
@@ -1164,6 +1165,7 @@ const th: typeof en = {
     maintenanceReference: 'หน้าปิดปรับปรุง',
     name: 'ชื่อไฟล์',
     nameHint: 'เปลี่ยนแค่ชื่อ นามสกุลไฟล์ยังเหมือนเดิม และทุกที่ที่ใช้ไฟล์นี้อยู่ก็ไม่กระทบ',
+    nameRequired: 'กรอกชื่อไฟล์',
     profileAvatar: 'ภาพนี้ถูกใช้เป็นรูปโปรไฟล์',
     refusals: {
       documentTooLarge: 'ไฟล์ต้องมีขนาดไม่เกิน 25 MB',
