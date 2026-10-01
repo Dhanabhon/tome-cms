@@ -5,11 +5,11 @@ import { sql, type Transaction } from 'kysely';
 import type { BrandName } from '../../lib/brand-marks';
 import { db } from '../db/client';
 import type { Database } from '../db/types';
-import { clientBrand, isLoopbackHost } from './brand';
+import { clientBrand } from './brand';
 import { fetchClientMetadata } from './cimd';
 import type { McpConfig } from './config';
 import { hashSecret, newSecret, pkceMatches } from './oauth-crypto';
-import { isLoopback, redirectAllowed, redirectMatches } from './redirects';
+import { isLoopback, isLoopbackHost, redirectAllowed, redirectMatches } from './redirects';
 
 /**
  * The authorization server: clients, the owner's pending answers, codes and tokens.

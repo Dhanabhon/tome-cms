@@ -1,6 +1,7 @@
 import type { BrandName } from '../../lib/brand-marks';
 import { db } from '../db/client';
-import { clientBrand, isLoopbackHost } from './brand';
+import { clientBrand } from './brand';
+import { isLoopbackHost } from './redirects';
 
 /** What the owner sees of a connection. No token, code or hash is ever part of it. */
 export interface McpConnectionSummary {

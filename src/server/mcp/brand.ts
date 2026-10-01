@@ -1,31 +1,21 @@
 import type { BrandName } from '../../lib/brand-marks';
+import { bareHost, isLoopbackHost } from './redirects';
 
 /**
  * The mark an AI app has earned: read from the host its approval goes to, or from the host of the
  * client document it identified itself with (CIMD). Both are things the app cannot choose for
  * itself; the name it gives is, and so the name never decides.
  */
-const BY_HOST: Readonly<Record<string, BrandName>> = {
-  'claude.ai': 'claude',
-  'chatgpt.com': 'openai',
-  'openai.com': 'openai',
-};
+const BY_HOST: ReadonlyMap<string, BrandName> = new Map([
+  ['claude.ai', 'claude'],
+  ['chatgpt.com', 'openai'],
+  ['openai.com', 'openai'],
+  ['platform.openai.com', 'openai'],
+]);
 
-function bareHost(host: string): string {
-  return host.toLowerCase().replace(/:\d+$/, '');
-}
-
+/** Exact hosts only: a subdomain or a lookalike earns nothing. */
 function hostBrand(host: string): BrandName | null {
-  const bare = bareHost(host);
-  for (const [domain, brand] of Object.entries(BY_HOST)) {
-    if (bare === domain || bare.endsWith(`.${domain}`)) return brand;
-  }
-  return null;
-}
-
-export function isLoopbackHost(host: string): boolean {
-  const bare = bareHost(host);
-  return bare === '127.0.0.1' || bare === 'localhost' || bare === '[::1]';
+  return BY_HOST.get(bareHost(host)) ?? null;
 }
 
 export function clientBrand(clientId: string, redirectHost: string): BrandName | null {
