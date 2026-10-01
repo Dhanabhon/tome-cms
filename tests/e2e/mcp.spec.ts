@@ -265,7 +265,10 @@ test('an AI app connects with a passkey, writes a draft, is put back, waits for 
   await mcp(token, 'update_draft', third);
   await page.goto(`${origin}/admin/edit/${id}`);
   await expect(page.getByText('The third version, by the AI.')).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: 'Claude Code changed this draft 1 minute ago.' })).toBeVisible({ timeout: 20_000 });
+  // The undo bar tells of the write; the status bar says only that the owner comes first.
+  await expect(page.getByRole('status').filter({ hasText: /Claude Code changed this draft at/ })).toBeVisible();
+  await expect(page.locator('.editing-status__ai')).toHaveText('While you have it open, an AI cannot change it.', { timeout: 20_000 });
+  await expect(page.getByText('Claude Code changed this draft 1 minute ago.')).toHaveCount(0);
 
   // The card lists the connection; revoke it.
   await page.goto(`${origin}/admin/plugins`);

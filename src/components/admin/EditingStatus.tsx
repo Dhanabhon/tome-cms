@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 
 import { fill, type AdminCopy } from '../../lib/admin-i18n';
 import type { BrandName } from '../../lib/brand-marks';
-import { EDITING_POLL_MS, EDITOR_SAVED_EVENT, relativeTime, shouldBeat } from '../../lib/editing-poll';
+import { EDITING_POLL_MS, EDITOR_SAVED_EVENT, oneAtATime, relativeTime, shouldBeat } from '../../lib/editing-poll';
 import type { PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 
 interface EditingStatusProps {
+  /** The page shows the AI undo bar, which already says who changed the draft and when. */
+  hasUndo: boolean;
   id: string;
   kind: 'post' | 'page';
   locale: PostLocale | null | undefined;
@@ -25,14 +27,14 @@ interface Answer {
  * elsewhere. Each check is also the editor's heartbeat, which keeps an AI from writing the draft
  * while the owner has it open; a hidden tab stops checking, and so lets go of it.
  */
-export default function EditingStatus({ id, kind, locale, text, updatedAt }: EditingStatusProps) {
+export default function EditingStatus({ hasUndo, id, kind, locale, text, updatedAt }: EditingStatusProps) {
   // The version the editor holds, moved on by each save the editor makes.
   const held = useRef(updatedAt);
   const [answer, setAnswer] = useState<Answer & { now: number }>({ ai: null, newer: false, now: 0 });
 
   useEffect(() => {
     let stopped = false;
-    async function check() {
+    const check = oneAtATime(async () => {
       if (!shouldBeat(document.visibilityState)) return;
       const sent = held.current;
       try {
@@ -47,7 +49,7 @@ export default function EditingStatus({ id, kind, locale, text, updatedAt }: Edi
       } catch {
         // Offline for a moment: the next check tries again.
       }
-    }
+    });
     function saved(event: Event) {
       held.current = (event as CustomEvent<string>).detail;
       // The save went through the version check, so the editor now holds the latest.
@@ -69,6 +71,8 @@ export default function EditingStatus({ id, kind, locale, text, updatedAt }: Edi
   }, [id, kind]);
 
   const { ai, newer, now } = answer;
+  // A write the undo bar already tells of is not said twice: only that the owner comes first.
+  const told = ai?.action === 'write' && hasUndo;
   // The live region stays in the page while empty, so what appears in it is announced.
   return (
     <div role="status">
@@ -78,7 +82,7 @@ export default function EditingStatus({ id, kind, locale, text, updatedAt }: Edi
             <p className="editing-status__ai">
               <span aria-hidden="true" className="editing-status__mark">{ai.brand ? <BrandMark name={ai.brand} /> : <Icon name="system" />}</span>
               <span>
-                {fill(ai.action === 'read' ? text.read : text.wrote, { client: ai.clientName, when: relativeTime(ai.at, now, locale) })} {text.youFirst}
+                {told ? text.youFirst : `${fill(ai.action === 'read' ? text.read : text.wrote, { client: ai.clientName, when: relativeTime(ai.at, now, locale) })} ${text.youFirst}`}
               </span>
             </p>
           )}

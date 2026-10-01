@@ -12,6 +12,23 @@ export function shouldBeat(visibility: DocumentVisibilityState): boolean {
 }
 
 /**
+ * One check at a time. A visibility change and an interval tick can ask together; the second is
+ * skipped while the first is in flight, so an older answer never lands after a newer one.
+ */
+export function oneAtATime(run: () => Promise<void>): () => Promise<void> {
+  let busy = false;
+  return async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      await run();
+    } finally {
+      busy = false;
+    }
+  };
+}
+
+/**
  * "1 minute ago" / "1 นาทีที่ผ่านมา". A touch is shown for 3 minutes at most, so minutes are
  * enough; a touch seconds old, or one a skewed clock puts ahead, still reads as a minute.
  */
