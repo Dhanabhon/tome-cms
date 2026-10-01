@@ -24,7 +24,8 @@ const ACCESS_SECONDS = 60 * 60;
 const REFRESH_SECONDS = 30 * 24 * 60 * 60;
 const REQUEST_MS = 10 * 60 * 1000;
 const CIMD_CACHE_MS = 24 * 60 * 60 * 1000;
-const UNAPPROVED_SECONDS = 24 * 60 * 60;
+// How long an unapproved client, an orphaned one, or an expired code or token is kept before it is tidied.
+const TIDY_AFTER_SECONDS = 24 * 60 * 60;
 const MAX_CLIENTS = 100;
 const MAX_PENDING = 100;
 const MAX_REDIRECTS = 10;
@@ -63,10 +64,23 @@ export function setClientMetadataFetcherForTest(fetcher: typeof fetchClientMetad
 
 interface Client { id: string; name: string; redirectUris: string[]; /** A CIMD client not stored yet. */ unsaved?: ClientMetadata }
 
-/** Clients nobody approved within a day go, and then there has to be room for one more. */
+/**
+ * Tidies before counting: clients nobody approved within a day; codes and tokens a day past their
+ * expiry (a refresh token's own expiry covers its 30 days); and approved clients a day old with no
+ * connection left that is not revoked. Then there has to be room for one more.
+ */
 async function makeRoomForClient(ownerId: string): Promise<boolean> {
-  await db.deleteFrom('mcp_clients').where('owner_id', '=', ownerId).where('approved', '=', false)
-    .where(sql<boolean>`created_at < now() - (${UNAPPROVED_SECONDS} * interval '1 second')`).execute();
+  const dayAgo = sql<Date>`now() - (${TIDY_AFTER_SECONDS} * interval '1 second')`;
+  const owned = db.selectFrom('mcp_connections').select('id').where('owner_id', '=', ownerId);
+  await db.deleteFrom('mcp_codes').where('connection_id', 'in', owned).where('expires_at', '<', dayAgo).execute();
+  await db.deleteFrom('mcp_tokens').where('connection_id', 'in', owned).where('expires_at', '<', dayAgo).execute();
+  await db.deleteFrom('mcp_clients').where('owner_id', '=', ownerId).where(sql<boolean>`created_at < ${dayAgo}`)
+    .where((eb) => eb.or([
+      eb('approved', '=', false),
+      eb.not(eb.exists(eb.selectFrom('mcp_connections').select('id')
+        .whereRef('mcp_connections.client_id', '=', 'mcp_clients.id').where('revoked_at', 'is', null))),
+    ]))
+    .execute();
   const { count } = await db.selectFrom('mcp_clients').select((eb) => eb.fn.countAll<string>().as('count'))
     .where('owner_id', '=', ownerId).executeTakeFirstOrThrow();
   // ponytail: two registrations at once can both see room for one; the cap is a bound, not an exact count.
@@ -77,8 +91,8 @@ const allAllowed = (config: McpConfig, uris: readonly string[]) =>
   uris.length > 0 && uris.length <= MAX_REDIRECTS && uris.every((uri) => redirectAllowed(uri, config.extraRedirects));
 
 /**
- * DCR (RFC 7591). Public clients only. Every redirect must be allowed (redirects.ts). Clients never
- * approved for a day are deleted first; past MAX_CLIENTS it refuses. The id is `dcr:<uuid>`.
+ * DCR (RFC 7591). Public clients only. Every redirect must be allowed (redirects.ts). Old rows are
+ * tidied first (makeRoomForClient); past MAX_CLIENTS it refuses. The id is `dcr:<uuid>`.
  */
 export async function registerClient(config: McpConfig, body: unknown): Promise<{ client_id: string; client_name: string; redirect_uris: string[] }> {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) throw new OAuthRegistrationError('invalid_client_metadata', 'Client metadata is a JSON object.');
@@ -92,7 +106,7 @@ export async function registerClient(config: McpConfig, body: unknown): Promise<
   }
   const named = typeof metadata.client_name === 'string' ? metadata.client_name.trim().slice(0, 200) : '';
   const name = named || new URL(uris[0]!).host;
-  if (!(await makeRoomForClient(config.ownerId))) throw new OAuthRegistrationError('invalid_client_metadata', 'This site has too many clients waiting for approval.');
+  if (!(await makeRoomForClient(config.ownerId))) throw new OAuthRegistrationError('invalid_client_metadata', 'Too many apps are registered. Revoke ones you no longer use on the Plugins screen.');
   const id = `dcr:${randomUUID()}`;
   await db.insertInto('mcp_clients').values({
     id, owner_id: config.ownerId, kind: 'dcr', name, redirect_uris: sql<string[]>`${JSON.stringify(uris)}::jsonb`,

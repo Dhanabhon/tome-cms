@@ -458,6 +458,63 @@ test('the consent route: the owner, same origin, and a fresh passkey to allow', 
   assert.equal((await answer({ request: third.requestId, allow: false, write: false })).status, 200, 'denying needs no passkey');
 });
 
+test('registering sweeps codes and tokens a day expired and approved clients left with no connection; the cap names the cause', async () => {
+  const hash = () => randomBytes(32).toString('hex');
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
+  async function client(id: string, approved: boolean, createdHoursAgo: number) {
+    await db.insertInto('mcp_clients').values({
+      id, owner_id: OWNER, kind: 'dcr', name: id, redirect_uris: sql<string[]>`'[]'::jsonb`, approved,
+    }).execute();
+    await sql`update mcp_clients set created_at = now() - make_interval(hours => ${createdHoursAgo}) where id = ${id}`.execute(db);
+  }
+  async function connection(client: string, revoked: boolean): Promise<string> {
+    const id = crypto.randomUUID();
+    await db.insertInto('mcp_connections').values({
+      id, owner_id: OWNER, client_id: client, client_name: client, redirect_host: 'claude.ai', scopes: ['content:read'], revoked_at: revoked ? new Date() : null,
+    }).execute();
+    return id;
+  }
+  const token = async (connectionId: string, expiresHoursAgo: number) => {
+    const tokenHash = hash();
+    await db.insertInto('mcp_tokens').values({ token_hash: tokenHash, connection_id: connectionId, kind: 'refresh', expires_at: hoursAgo(expiresHoursAgo) }).execute();
+    return tokenHash;
+  };
+  const code = async (connectionId: string, expiresHoursAgo: number) => {
+    const codeHash = hash();
+    await db.insertInto('mcp_codes').values({ code_hash: codeHash, connection_id: connectionId, redirect_uri: CLAUDE, code_challenge: 'x', expires_at: hoursAgo(expiresHoursAgo) }).execute();
+    return codeHash;
+  };
+
+  await client('dcr:live', true, 48);
+  const live = await connection('dcr:live', false);
+  const [oldToken, recentToken, freshToken] = [await token(live, 25), await token(live, 1), await token(live, -24)];
+  const [oldCode, recentCode] = [await code(live, 25), await code(live, 1)];
+  await client('dcr:orphan', true, 25);
+  await connection('dcr:orphan', true);
+  await client('dcr:young', true, 1);
+
+  await oauth.registerClient(config, { client_name: 'Sweeper', redirect_uris: [CLAUDE] });
+  const tokens = (await db.selectFrom('mcp_tokens').select('token_hash').where('connection_id', '=', live).execute()).map(({ token_hash }) => token_hash);
+  assert.deepEqual(tokens.sort(), [recentToken, freshToken].sort(), 'a token expired over a day ago goes');
+  const codes = (await db.selectFrom('mcp_codes').select('code_hash').where('connection_id', '=', live).execute()).map(({ code_hash }) => code_hash);
+  assert.deepEqual(codes, [recentCode], 'a code expired over a day ago goes');
+  assert.ok(!tokens.includes(oldToken) && !codes.includes(oldCode));
+  const clients = (await db.selectFrom('mcp_clients').select('id').where('id', 'in', ['dcr:live', 'dcr:orphan', 'dcr:young']).execute()).map(({ id }) => id);
+  assert.deepEqual(clients.sort(), ['dcr:live', 'dcr:young'], 'an approved client a day old with no live connection goes');
+
+  // Full: the refusal says what to do about it.
+  const { count } = await db.selectFrom('mcp_clients').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
+  const filler = Array.from({ length: 100 - Number(count) }, (_, index) => `dcr:filler-${index}`);
+  await db.insertInto('mcp_clients').values(filler.map((id) => ({
+    id, owner_id: OWNER, kind: 'dcr', name: id, redirect_uris: sql<string[]>`'[]'::jsonb`,
+  }))).execute();
+  await assert.rejects(
+    oauth.registerClient(config, { client_name: 'One too many', redirect_uris: [CLAUDE] }),
+    /Too many apps are registered\. Revoke ones you no longer use on the Plugins screen\./,
+  );
+  await db.deleteFrom('mcp_clients').where('id', 'in', filler).execute();
+});
+
 test('every OAuth path is a 404 while the plugin is off', async () => {
   const { POST } = await import('../../src/pages/oauth/token');
   await writePluginSettings(OWNER, { enabled: false, id: 'mcp', values: {} });
