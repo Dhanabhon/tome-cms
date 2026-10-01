@@ -29,6 +29,53 @@ function sourceBlocks(source: EditorDocument | null): EditorNode[] {
   return found;
 }
 
+/** Words with the spaces, line ends and breaks taken off both ends. */
+function trimEdges(run: EditorNode[]): EditorNode[] {
+  const nodes = [...run];
+  // True when the end node went altogether, so the next one in is trimmed too.
+  const trim = (index: number, spaces: RegExp): boolean => {
+    const node = nodes[index];
+    if (node?.type === 'hardBreak') {
+      nodes.splice(index, 1);
+      return true;
+    }
+    if (node?.type !== 'text') return false;
+    const text = (node.text ?? '').replace(spaces, '');
+    if (text) nodes[index] = { ...node, text };
+    else nodes.splice(index, 1);
+    return !text;
+  };
+  while (nodes.length && trim(0, /^\s+/)) { /* trimmed */ }
+  while (nodes.length && trim(nodes.length - 1, /\s+$/)) { /* trimmed */ }
+  return nodes;
+}
+
+/**
+ * The editor holds a picture only as a block, but Markdown reads one on the line under some words
+ * as part of their paragraph. That is how a list item with words, a picture and more words is
+ * written out, so the paragraph is split around each picture rather than refused.
+ */
+function liftPictures(node: EditorNode): EditorNode[] {
+  if (node.type !== 'paragraph' || !node.content?.some((child) => child.type === 'image')) return [node];
+  const lifted: EditorNode[] = [];
+  let words: EditorNode[] = [];
+  const close = (): void => {
+    const kept = trimEdges(words);
+    if (kept.length) lifted.push({ ...node, content: kept });
+    words = [];
+  };
+  for (const child of node.content) {
+    if (child.type !== 'image') {
+      words.push(child);
+      continue;
+    }
+    close();
+    lifted.push(child);
+  }
+  close();
+  return lifted;
+}
+
 /**
  * Markdown from an AI as a draft's document. A leading `---` is a rule here, not frontmatter, and
  * a first `# heading` stays in the body: the reader gets a title line ahead of the text so it
@@ -56,9 +103,9 @@ export async function markdownToDocument(text: string, source: EditorDocument | 
       }
       return { ...node, attrs: { ...node.attrs, mediaId: id.toLowerCase(), src: `/media/${id.toLowerCase()}` } };
     }
-    return node.content ? { ...node, content: node.content.map(place) } : node;
+    return node.content ? { ...node, content: node.content.flatMap((child) => liftPictures(place(child))) } : node;
   };
-  const document: EditorDocument = { type: 'doc', content: (parsed.document.content ?? []).map(place) };
+  const document: EditorDocument = { type: 'doc', content: (parsed.document.content ?? []).flatMap((node) => liftPictures(place(node))) };
   if (outside.length) {
     throw new McpInputError(`Pictures must come from this site's library: ${outside.slice(0, 5).join(', ')}. Find one with list_media and use its /media/<id> address.`);
   }

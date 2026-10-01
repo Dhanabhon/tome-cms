@@ -8,6 +8,10 @@ Every release of TomeCMS, newest first. Each version links to its full release n
 
 - The release builds the arm64 image on an arm64 machine instead of emulating it, which failed with "Illegal instruction" on four of the last releases. The image index also carries its version as a tag, `ghcr.io/dhanabhon/tome-cms:X.Y.Z`; installs and updates still take it by digest.
 
+### Fixed
+
+- An AI app can write back a draft that has a picture inside a list item. The draft it read put the picture on the line under the item's words, which Markdown reads as part of their paragraph, and the write was refused with a message about `{{tome:block N}}` lines. A picture in a paragraph now stands on its own between the words before and after it.
+
 ## 1.8.1 - 2026-10-02
 
 Undoing an AI app's changes asks first, under a name that cannot be taken for going back a page.

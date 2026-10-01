@@ -79,3 +79,30 @@ test('a block line in a quote, and one on its own, give documents the editor can
   const alone = await markdownToDocument('text\n\n{{tome:block 1}}', source);
   assert.deepEqual(alone.document.content?.map((node) => node.type), ['paragraph', 'video']);
 });
+
+// The shape of a real post: a numbered item whose words are followed by a picture and more words.
+const listed = {
+  type: 'doc',
+  content: [{
+    type: 'orderedList', attrs: { start: 1 }, content: [
+      { type: 'listItem', content: [p('หัวข้อย่อย', [{ type: 'bold' }]), { type: 'image', attrs: { src: `/media/${MEDIA}`, alt: 'รูป', mediaId: MEDIA } }, p('ข้อความต่อจากรูป')] },
+      { type: 'listItem', content: [p('ข้อถัดไป')] },
+    ],
+  }],
+} as EditorDocument;
+
+test('a picture inside a list item comes back where it was when its draft is read and written again', async () => {
+  const { markdown } = documentToMarkdown(listed);
+  const { document } = await markdownToDocument(markdown, listed);
+  const item = document.content?.[0]?.content?.[0];
+  assert.deepEqual(item?.content?.map((node) => node.type), ['paragraph', 'image', 'paragraph']);
+  assert.equal(item?.content?.[1]?.attrs?.src, `/media/${MEDIA}`);
+  assert.equal(item?.content?.[0]?.content?.[0]?.text, 'หัวข้อย่อย', 'no line end is left behind the words');
+  assert.equal(item?.content?.[2]?.content?.[0]?.text, 'ข้อความต่อจากรูป');
+});
+
+test('a picture an AI writes inside a line of words stands on its own between them', async () => {
+  const { document } = await markdownToDocument(`ก่อนรูป ![a](/media/${MEDIA}) หลังรูป`, null);
+  assert.deepEqual(document.content?.map((node) => node.type), ['paragraph', 'image', 'paragraph']);
+  assert.deepEqual(document.content?.map((node) => node.content?.[0]?.text ?? null), ['ก่อนรูป', null, 'หลังรูป']);
+});
