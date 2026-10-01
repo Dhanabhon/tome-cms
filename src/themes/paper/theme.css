@@ -865,14 +865,36 @@ body.paper { background: var(--color-paper); }
   block-size: 2px;
   /* The link's only visible mark, so it has to be one: --color-rule is a hairline's colour. */
   background: var(--color-muted);
+  /* Ticks hang from the rail's inline-end edge (the links end-align them), so a tick that grows
+   * grows toward the text and every tick keeps one right edge. transform-origin has no logical
+   * keywords, hence the rtl line. */
+  transform-origin: right center;
+  transition: transform var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
 }
+
+:dir(rtl) .reading-rail__link::before { transform-origin: left center; }
 
 .reading-rail__link--h2::before { inline-size: 1.5rem; }
 .reading-rail__link--h3::before { inline-size: 1rem; }
 
+/* How far the current tick grows: h2 to 2.5rem and h3 to 1.75rem, from 1.5rem and 1rem. The
+ * reach is the same growth in length, which the label has to clear. */
+.reading-rail__link--h2 { --rail-grow: calc(2.5 / 1.5); --rail-reach: 1rem; }
+.reading-rail__link--h3 { --rail-grow: 1.75; --rail-reach: 0.25rem; }
+
 .reading-rail__link:is(:hover, :focus-visible)::before { background: var(--color-ink); }
 
-.reading-rail__link[aria-current="location"]::before { background: var(--color-ink); }
+/* Headings already read are ink, the ones ahead stay muted, and the one being read is the accent,
+ * longer and thicker. Last, so a hover on the current tick does not turn it back to ink. The
+ * grow is transform, which stays on the compositor; the 3px is not animated, and a link is 24px
+ * tall already, so it moves nothing. */
+.reading-rail__link[data-passed]::before { background: var(--color-ink); }
+
+.reading-rail__link[aria-current="location"]::before {
+  background: var(--color-accent);
+  block-size: 3px;
+  transform: scaleX(var(--rail-grow));
+}
 
 .reading-rail__label {
   position: absolute;
@@ -894,9 +916,21 @@ body.paper { background: var(--color-paper); }
 
 .reading-rail__link:is(:hover, :focus-visible) .reading-rail__label { opacity: 1; }
 
+/* The current tick is longer, so its label moves out by the growth rather than lie over it. A
+ * coarse pointer's link is wider than its tick already, and has the room. */
+@media (pointer: fine) {
+  .reading-rail__link[aria-current="location"] .reading-rail__label {
+    inset-inline-end: calc(100% + var(--space-xs) + var(--rail-reach));
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .reading-rail__label { transition: opacity var(--dur-short) var(--ease-out); }
   html:has(.reading-rail) { scroll-behavior: smooth; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reading-rail__link::before { transition: none; }
 }
 
 /* Clear of a header that stays in view. */

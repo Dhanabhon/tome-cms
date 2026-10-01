@@ -33,6 +33,7 @@ import {
   type SupportedImageType,
   type SupportedMediaType,
 } from '../../lib/media';
+import { keepExtension } from '../../lib/media-name';
 import type { MediaReferences } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database, MediaFolderTable, MediaItemTable } from '../db/types';
@@ -68,6 +69,8 @@ export const mediaFolderDeleteSchema = z.object({ id: z.uuid() }).strict();
 export const mediaMutationSchema = z.object({
   altText: z.string().trim().max(300),
   folderId: z.uuid().nullable(),
+  /** The new display name; the file keeps its extension (see keepExtension). Left out, the name stays. */
+  name: z.string().trim().min(1).max(255).optional(),
 }).strict();
 
 export type ReserveUploadInput = z.infer<typeof reserveUploadSchema>;
@@ -535,11 +538,20 @@ export async function deleteFolder(ownerId: string, id: string): Promise<void> {
   if (!row) throw new HttpError(404, 'Folder not found.');
 }
 
+/** The name a file was stored under: its extension is the one a rename keeps. */
+async function storedName(ownerId: string, id: string): Promise<string> {
+  const row = await db.selectFrom('media_items').select('original_name').where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
+  if (!row) throw new HttpError(404, 'Media not found.');
+  return row.original_name;
+}
+
+/** Alt text, folder and, when given, the display name. object_key is never touched, so nothing that uses the file moves. */
 export async function updateMedia(ownerId: string, id: string, input: MediaMutation): Promise<ReadyMedia> {
   await assertOwnedFolder(ownerId, input.folderId);
   const row = await db.updateTable('media_items').set({
     alt_text: input.altText || null,
     folder_id: input.folderId,
+    ...(input.name === undefined ? {} : { original_name: keepExtension(input.name, await storedName(ownerId, id)) }),
   }).where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'ready')
     .returningAll().executeTakeFirst()
     .catch((error: unknown) => {

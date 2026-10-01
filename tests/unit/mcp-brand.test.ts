@@ -34,6 +34,15 @@ test('a mark needs the exact host, not one that merely ends or starts like it', 
   }
 });
 
+test("Gemini's mark comes from Google's relay host, and only that host", () => {
+  assert.equal(clientBrand('dcr:1', 'oauth-redirect.googleusercontent.com'), 'gemini');
+  assert.equal(clientBrand('dcr:1', 'googleusercontent.com'), null);
+  assert.equal(clientBrand('dcr:1', 'evil.googleusercontent.com'), null);
+  assert.equal(clientBrand('dcr:1', 'oauth-redirect.googleusercontent.com.evil.example'), null);
+  // The relay is where an approval goes, not where a client document lives.
+  assert.equal(clientBrand('https://oauth-redirect.googleusercontent.com/meta.json', '127.0.0.1:1'), null);
+});
+
 test('loopback is this computer by any of its names', () => {
   for (const host of ['127.0.0.1:49205', 'localhost:3118', '[::1]:8080', '127.0.0.1', 'LOCALHOST:1']) assert.equal(isLoopbackHost(host), true, host);
   for (const host of ['claude.ai', 'chatgpt.com', '127.0.0.2:1', 'localhost.evil.example']) assert.equal(isLoopbackHost(host), false, host);

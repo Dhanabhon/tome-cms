@@ -1,6 +1,6 @@
 ---
 title: Connecting an AI app (MCP)
-description: Let Claude, ChatGPT or another AI app read your posts and pages and write drafts, after you allow it with your passkey.
+description: Let Claude, ChatGPT, Gemini or another AI app read your posts and pages and write drafts, after you allow it with your passkey.
 sidebar:
   order: 3
 ---
@@ -73,6 +73,28 @@ The app receives the approval on your own computer, so under **Your approval goe
 
 If you connect from ChatGPT on the web instead, under its connector or app settings, the approval goes back to `chatgpt.com`. ChatGPT renames these menus from time to time. If a name here does not match, look for the place where you add an MCP server or a connector by its address.
 
+## Connect Gemini
+
+Custom apps in the Gemini web app are only for personal Google accounts in the US, for people aged 18 and over, using Gemini in English. If your account does not meet all four, Gemini does not offer the option yet; the Antigravity CLI, below, still works.
+
+On gemini.google.com:
+
+1. Open **Settings**, then **Connected Apps**.
+2. Add a custom app.
+3. Paste `https://<your site>/mcp` and add it.
+4. Gemini opens your site's admin. Sign in if you need to.
+5. Check that the address under **Your approval goes back to** is `oauth-redirect.googleusercontent.com`, which is Google's own address for Gemini. Choose whether it may write drafts, then press **Allow with passkey** and use your passkey.
+
+Gemini asks you before each change it makes to your site.
+
+For the Antigravity CLI, which replaced the Gemini CLI, run:
+
+```sh
+agy mcp add tomecms https://<your site>/mcp
+```
+
+Then sign in when it asks. As with Claude Code, the approval goes back to a program on your computer, so the screen warns you of that: allow it only if you just started it. Google renames these menus from time to time. If a name here does not match, look for the place where you add a custom app or an MCP server by its address.
+
 ## What to ask it
 
 Once connected, you talk to the AI app as usual and it uses your site when the question needs it. Name the site, or say "my blog", so it knows where to look. Some examples:
@@ -116,7 +138,7 @@ Some habits help:
 
 ## See and revoke connections
 
-The MCP card on **Plugins** lists every connection: the app's name, where its approval went, whether it can write, when it was connected and when it was last used. The Claude or OpenAI mark appears there, and on the screen where you allow a connection, only when your site could check who the app is: its approval goes back to claude.ai or chatgpt.com, or it identified itself with a client document on claude.ai, chatgpt.com or openai.com, which covers Claude Code and Codex. Any other app shows a computer icon and the name it gave, and an approval sent to a program on your computer reads "A program on this computer". **Revoke** stops a connection at once. To connect that app again, you allow it again with your passkey.
+The MCP card on **Plugins** lists every connection: the app's name, where its approval went, whether it can write, when it was connected and when it was last used. The Claude, OpenAI or Gemini mark appears there, and on the screen where you allow a connection, only when your site could check who the app is: its approval goes back to claude.ai, chatgpt.com or Google's address for Gemini, or it identified itself with a client document on claude.ai, chatgpt.com or openai.com, which covers Claude Code and Codex. Any other app shows a computer icon and the name it gave, and an approval sent to a program on your computer reads "A program on this computer". **Revoke** stops a connection at once. To connect that app again, you allow it again with your passkey.
 
 Switching MCP off makes your site stop answering AI apps at once. Switching it on again starts clean: every earlier connection is gone, and each app has to be allowed again.
 
@@ -126,4 +148,4 @@ What a tool returns goes to the company that runs that AI app, and is handled un
 
 ## For other MCP clients
 
-TomeCMS accepts Claude, ChatGPT and programs on your own computer without any setup. Another AI app may send its approval somewhere else. If connecting it fails with a request that is not valid, add the address it uses to the plugin's **More redirect addresses** setting, under **Set up** on the MCP card. Separate several with commas. Each must be an `https` address, or one on this computer (`http://localhost` or `http://127.0.0.1`).
+TomeCMS accepts Claude, ChatGPT, Gemini and programs on your own computer without any setup. Another AI app may send its approval somewhere else. If connecting it fails with a request that is not valid, add the address it uses to the plugin's **More redirect addresses** setting, under **Set up** on the MCP card. Separate several with commas. Each must be an `https` address, or one on this computer (`http://localhost` or `http://127.0.0.1`).

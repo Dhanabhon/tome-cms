@@ -25,8 +25,8 @@ export const manifest: PluginManifest = {
       kind: 'text',
       label: { en: 'More redirect addresses', th: 'ที่อยู่ redirect เพิ่มเติม' },
       hint: {
-        en: 'Only for an AI app other than Claude or ChatGPT. Comma-separated, https or this computer only.',
-        th: 'สำหรับแอป AI อื่นนอกจาก Claude และ ChatGPT เท่านั้น คั่นด้วยจุลภาค ใช้ได้เฉพาะ https หรือเครื่องนี้',
+        en: 'Only for an AI app other than Claude, ChatGPT or Gemini. Comma-separated, https or this computer only.',
+        th: 'สำหรับแอป AI อื่นนอกจาก Claude, ChatGPT และ Gemini เท่านั้น คั่นด้วยจุลภาค ใช้ได้เฉพาะ https หรือเครื่องนี้',
       },
       required: false,
     },

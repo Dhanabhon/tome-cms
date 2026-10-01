@@ -22,7 +22,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     const client = await registerClient(config, await parseJson(request, z.unknown()));
     return Response.json({
       ...client,
-      token_endpoint_auth_method: 'none',
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
     }, { headers: NO_STORE, status: 201 });

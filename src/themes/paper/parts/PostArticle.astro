@@ -101,6 +101,7 @@ const copy = publicCopy(post.locale);
       links.forEach((link, at) => {
         if (at === index) link.setAttribute('aria-current', 'location');
         else link.removeAttribute('aria-current');
+        link.toggleAttribute('data-passed', at < index);
       });
     };
     const update = () => {

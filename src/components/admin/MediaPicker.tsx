@@ -40,7 +40,11 @@ export default function MediaPicker({ kind, onCancel, onSelect, ownerLocale, ret
     if (completed.current) return;
     completed.current = true;
     const done = () => {
-      focusTarget.current?.focus();
+      // Without moving the page: focusing the editor scrolled to its top, which put a writer far
+      // down a long post back at its title just as their picture went in. Nothing scrolls after
+      // this either: an editor focused here ignores the caller's focus(), so a caller that needs
+      // something brought into view must scroll to it itself.
+      focusTarget.current?.focus({ preventScroll: true });
       then();
     };
     if (played && dialog.current) void closeOverlay(dialog.current).then(done);

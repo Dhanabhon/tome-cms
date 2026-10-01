@@ -23,6 +23,7 @@ import { createCodeBlock } from './editor/CodeBlockView';
 import { handleImageDrop, handleImagePaste, imageUploadPlugin } from './editor/editor-image-upload';
 import { createSlashCommand } from './editor/slash-command';
 import { handleVideoPaste } from './editor/video-insert';
+import ImageBubble from './ImageBubble';
 import { createUploadFn } from './ImageUploader';
 import MediaPicker from './MediaPicker';
 import TableBubble from './TableBubble';
@@ -349,6 +350,7 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
         <EditorContent editor={editor} />
         <FormattingBubble copy={copy} ownerLocale={ownerLocale} />
         <TableBubble copy={copy} />
+        <ImageBubble copy={copy} ownerLocale={ownerLocale} />
         <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
       </div>
     </EditorContext.Provider>

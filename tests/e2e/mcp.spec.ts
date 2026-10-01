@@ -164,14 +164,38 @@ test('an AI app connects with a passkey, writes a draft, is put back, waits for 
   await page.setViewportSize(WIDE);
   await signIn(context, page);
 
-  // Switch it on.
+  // A plugin switch asks first. Cancel leaves it as it was, now and after a reload; Confirm
+  // switches it, and a reload shows that too.
   await page.goto(`${origin}/admin/plugins`);
+  const confirmDialog = page.getByRole('dialog');
+  const lightbox = page.locator('.plugin-card', { hasText: 'Image lightbox' });
+  await lightbox.getByRole('switch').click();
+  await expect(confirmDialog.getByText('Image lightbox starts working on your site.')).toBeVisible();
+  await confirmDialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirmDialog).toHaveCount(0);
+  await expect(lightbox.getByRole('switch')).not.toBeChecked();
+  await page.reload();
+  await expect(lightbox.getByRole('switch')).not.toBeChecked();
+  await lightbox.getByRole('switch').click();
+  await confirmDialog.getByRole('button', { name: 'Switch on' }).click();
+  await expect(lightbox.getByRole('switch')).toBeChecked();
+  await page.reload();
+  await expect(lightbox.getByRole('switch')).toBeChecked();
+
+  // Switch it on.
   const card = page.locator('.plugin-card').filter({ has: page.locator('strong', { hasText: /^MCP/ }) });
   // The switch is controlled: it moves once the server has answered, so a click, then a wait.
   await card.getByRole('switch').click();
+  await expect(confirmDialog.getByText('AI apps you allow can read the site and write drafts.')).toBeVisible();
+  await confirmDialog.getByRole('button', { name: 'Switch on' }).click();
   await expect(card.getByRole('switch')).toBeChecked();
   await expect(card.getByRole('heading', { name: /Connections/ })).toBeVisible();
   await expect(card.getByText('Nothing is connected yet.')).toBeVisible();
+  // Switching it off names what that costs, and Cancel keeps it on.
+  await card.getByRole('switch').click();
+  await expect(confirmDialog.getByText('Every connected app stops at once. Switching it on again disconnects all of them.')).toBeVisible();
+  await confirmDialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(card.getByRole('switch')).toBeChecked();
 
   // The dot-directory routes answer with the right names.
   const metadata = await (await fetch(`${origin}/.well-known/oauth-authorization-server`)).json() as { issuer: string };

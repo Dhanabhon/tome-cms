@@ -28,6 +28,8 @@ The file goes from your browser straight to the site's object storage. If storag
 
 The page's address keeps the type and the folder you chose, so a reload or a bookmark opens the same view.
 
+"Grid" and "List", the two buttons at the end of the type filters, change how the files are drawn. "Grid" shows each file as a card, and is the layout to begin with. "List" shows one file to a row, with its name, type, size and date. The layout you choose is remembered in this browser. The File Manager that opens as a picker in the editor and in other screens has the same switch.
+
 ## Folders
 
 Type a name in "Folder name", up to 80 characters, and press "Create folder". Each folder has a "..." inside its chip, with "Rename" and "Delete". On a phone, where the folders are a list to choose from, the chosen folder's "..." sits beside that list. "Rename" opens a field with the name in it, and "Save folder name" keeps the new one. Deleting a folder keeps its files: they move to "Unsorted", as the admin warns before it goes ahead.
@@ -40,11 +42,12 @@ Press a file to open its details. They show the image or the document's type, it
 
 A PDF's card and its details show the first page, which your browser draws from the file when the card comes into view. Until the page is ready, or if the file cannot be read, they show "PDF" as any other document does. Other documents show their type.
 
+- "Name" renames the file. The file keeps its ending, so `photo` on a `.webp` image becomes `photo.webp`. Only the name changes: pictures already placed in a post or page keep working, and a document's download name stays as it was uploaded.
 - "Folder" moves the file to another folder.
 - "Alt text", for images only, says what the image shows, up to 300 characters. An image put into a post or page through the editor's "Image" takes this text with it, and a slide without a heading needs it.
 - "File URL" is the file's full address on your site, your site's address followed by `/media/` and the file's id, so it works pasted anywhere. It keeps working for as long as the file is in the File Manager.
 
-Press "Save" to keep a change to the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address, and the button says "Copied" for two seconds. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
+Press "Save" to keep a change to the name, the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address, and the button says "Copied" for two seconds. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
 
 ## Deleting a file
 

@@ -22,6 +22,7 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
     listFolders,
     listMedia,
     mediaListInputSchema,
+    mediaMutationSchema,
     renameFolder,
     reserveUpload,
     reserveUploadSchema,
@@ -166,6 +167,29 @@ test('media uploads stay hidden until verified and invalid bytes are discarded',
   assert.equal(post.cover_media_id, item.id);
   assert.equal(post.content_json.content?.[0]?.attrs?.mediaId, item.id);
   assert.equal(contentPage.content_json.content?.[0]?.attrs?.mediaId, item.id);
+  // Renaming changes the name and nothing that uses the file: the post still points at /media/<id>.
+  const bodyBefore = (await db.selectFrom('posts').select('content_html').where('id', '=', post.id).executeTakeFirstOrThrow()).content_html;
+  const keyBefore = (await db.selectFrom('media_items').select('object_key').where('id', '=', item.id).executeTakeFirstOrThrow()).object_key;
+  assert.ok(bodyBefore.includes(`/media/${item.id}`));
+  const renamed = await updateMedia(ownerId, item.id, { altText: 'Green cover', folderId: null, name: '  Spring cover  ' });
+  assert.equal(renamed.original_name, 'Spring cover.png');
+  const after = await db.selectFrom('media_items').select(['object_key', 'original_name']).where('id', '=', item.id).executeTakeFirstOrThrow();
+  assert.deepEqual(after, { object_key: keyBefore, original_name: 'Spring cover.png' });
+  const postAfter = await db.selectFrom('posts').select(['content_html', 'cover_media_id']).where('id', '=', post.id).executeTakeFirstOrThrow();
+  assert.equal(postAfter.content_html, bodyBefore);
+  assert.equal(postAfter.cover_media_id, item.id);
+  // Without a name the name stays; another owner's file is not found.
+  assert.equal((await updateMedia(ownerId, item.id, { altText: 'Green cover', folderId: null })).original_name, 'Spring cover.png');
+  const strangerId = randomUUID();
+  await db.insertInto('user').values({
+    id: strangerId, name: 'Stranger', email: 'stranger@example.invalid', emailVerified: true, image: null, role: 'owner',
+  }).execute();
+  await assert.rejects(updateMedia(strangerId, item.id, { altText: '', folderId: null, name: 'Mine now' }),
+    (error: unknown) => error instanceof HttpError && error.status === 404);
+  assert.equal((await db.selectFrom('media_items').select('original_name').where('id', '=', item.id).executeTakeFirstOrThrow()).original_name, 'Spring cover.png');
+  assert.equal(mediaMutationSchema.safeParse({ altText: '', folderId: null, name: '   ' }).success, false);
+  assert.equal(mediaMutationSchema.safeParse({ altText: '', folderId: null, name: 'x'.repeat(256) }).success, false);
+
   await db.updateTable('site_settings').set({ author_avatar_media_id: item.id }).where('id', '=', true).execute();
   await assert.rejects(deleteMedia(ownerId, item.id), (error: unknown) => {
     if (!(error instanceof HttpError) || error.status !== 409) return false;

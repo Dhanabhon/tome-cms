@@ -462,6 +462,32 @@ test('the reading rail lists a post\'s headings at the side, and the bar takes i
   await expect(links.nth(0)).not.toHaveAttribute('aria-current', 'location');
   await expect(page.locator('.reading-rail [aria-current]')).toHaveCount(1);
 
+  // The tick of the heading being read stands out: longer, in the accent, and the ticks of the
+  // headings already read are told apart from those still ahead.
+  await expect(links.nth(0), 'read already').toHaveAttribute('data-passed', '');
+  await expect(links.nth(1), 'the current one is not passed').not.toHaveAttribute('data-passed', '');
+  await expect(links.nth(2), 'ahead').not.toHaveAttribute('data-passed', '');
+  const tick = (index: number) => links.nth(index).evaluate((node) => {
+    const style = getComputedStyle(node, '::before');
+    const probe = document.createElement('i');
+    document.body.append(probe);
+    const colour = (name: string) => { probe.style.background = `var(${name})`; return getComputedStyle(probe).backgroundColor; };
+    const answer = {
+      transform: style.transform, background: style.backgroundColor, height: style.height,
+      accent: colour('--color-accent'), ink: colour('--color-ink'), muted: colour('--color-muted'),
+    };
+    probe.remove();
+    return answer;
+  });
+  await expect.poll(async () => (await tick(1)).transform, { message: 'an h3 grows from 1rem to 1.75rem' }).toBe('matrix(1.75, 0, 0, 1, 0, 0)');
+  const [passed, current, ahead] = [await tick(0), await tick(1), await tick(2)];
+  expect(current.background, 'the current tick is the accent').toBe(current.accent);
+  expect(current.height, 'and thicker').toBe('3px');
+  expect(passed.background, 'a heading already read is ink').toBe(passed.ink);
+  expect(passed.transform, 'and does not grow').toBe('none');
+  expect(ahead.background, 'a heading ahead is muted').toBe(ahead.muted);
+  expect(ahead.height).toBe('2px');
+
   // No room: the rail is not drawn, and the bar is.
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto(article, { waitUntil: 'networkidle' });

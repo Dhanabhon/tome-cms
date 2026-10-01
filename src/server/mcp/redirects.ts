@@ -7,6 +7,17 @@ export const DEFAULT_REDIRECTS: readonly string[] = [
   'https://chatgpt.com/connector_platform_oauth_redirect',
 ];
 
+/**
+ * Gemini's custom apps send the owner to Google's own relay, at an address with an id per user and
+ * per connector, so it is a pattern on that host rather than a fixed string
+ * (docs/research/2026-10-02-gemini-mcp.md). The `user_bound_custom-mcp-` prefix matters: the relay
+ * forwards other `/r/<id>` paths to any Google Cloud project with that id. Anchored at both ends,
+ * so no port, userinfo, query, fragment or encoded character gets past it.
+ */
+const GEMINI_RELAY = /^https:\/\/oauth-redirect\.googleusercontent\.com\/r\/user_bound_custom-mcp-[A-Za-z0-9._-]+$/;
+
+const isGeminiRelay = (uri: string) => GEMINI_RELAY.test(uri);
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /** A host as compared: lower case, without its port. */
@@ -46,7 +57,7 @@ export function parseExtraRedirects(text: string): string[] {
 
 export function redirectAllowed(uri: string, extra: readonly string[]): boolean {
   if (isLoopback(uri)) return true;
-  return parse(uri) !== null && (DEFAULT_REDIRECTS.includes(uri) || extra.includes(uri));
+  return parse(uri) !== null && (DEFAULT_REDIRECTS.includes(uri) || isGeminiRelay(uri) || extra.includes(uri));
 }
 
 /** A requested redirect against a client's registered ones: exact, except a loopback's port. */

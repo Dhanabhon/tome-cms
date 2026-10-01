@@ -26,3 +26,21 @@ test('a scroll-driven animation survives the production minifier', () => {
   }
   assert.ok(timelines >= 2, 'the themes still have scroll-driven animations to check');
 });
+
+test('the reading rail keeps its grow, its transition and its reduced-motion rule through the minifier', () => {
+  const file = 'src/themes/paper/theme.css';
+  const source = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
+  const minified = transform({ filename: file, code: Buffer.from(source), minify: true }).code.toString();
+  const rules = [...minified.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => ({ selector, body }));
+  const rail = rules.filter(({ selector }) => selector.includes('reading-rail__link'));
+
+  const current = rail.filter(({ selector }) => /aria-current/.test(selector) && /before/.test(selector));
+  assert.ok(current.some(({ body }) => /transform:scaleX\(var\(--rail-grow\)\)/.test(body)), 'the current tick grows with transform: scaleX');
+  assert.ok(current.some(({ body }) => /background:var\(--color-accent\)/.test(body)), 'the current tick is the accent colour');
+  assert.ok(rail.some(({ selector, body }) => /before/.test(selector) && /transition:[^;]*transform/.test(body)), 'the tick transitions its transform');
+  assert.ok(rail.some(({ selector, body }) => /data-passed/.test(selector) && /color-ink/.test(body)), 'passed ticks are ink');
+  assert.ok(rail.some(({ body }) => /--rail-grow:/.test(body)), 'each level sets how far its tick grows');
+
+  const reduced = minified.match(/@media[^{]*prefers-reduced-motion:\s*reduce[^{]*\{(?:[^{}]*\{[^{}]*\})*\}/g) ?? [];
+  assert.ok(reduced.some((block) => /reading-rail__link/.test(block) && /transition:none/.test(block)), 'reduced motion switches the tick transition off');
+});

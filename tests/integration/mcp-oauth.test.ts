@@ -114,7 +114,7 @@ test('DCR registers a public client only for an allowed redirect', async () => {
 
   await assert.rejects(oauth.registerClient(config, { client_name: 'Evil', redirect_uris: ['https://evil.example/cb'] }), /redirect/);
   await assert.rejects(oauth.registerClient(config, { client_name: 'None', redirect_uris: [] }), /redirect/);
-  await assert.rejects(oauth.registerClient(config, { redirect_uris: [CLAUDE], token_endpoint_auth_method: 'client_secret_basic' }));
+  await assert.rejects(oauth.registerClient(config, { redirect_uris: [CLAUDE], token_endpoint_auth_method: 'private_key_jwt' }), /public/);
   await assert.rejects(oauth.registerClient(config, 'not an object'));
 });
 
@@ -407,6 +407,98 @@ test('a mark follows the client document host, so a loopback Codex is OpenAI and
   const lookalike = await oauth.registerClient(config, { client_name: 'Claude', redirect_uris: ['http://127.0.0.1:3118/callback'] });
   const asked = await oauth.startAuthorization(config, authorizeParams({ client_id: lookalike.client_id, redirect_uri: 'http://127.0.0.1:3118/callback' }));
   assert.equal(oauth.describeRequest(config, asked.requestId)?.brand, null);
+});
+
+test('Gemini connects: asked as a confidential client it registers as public, offline_access is ignored, the code goes to the relay', async () => {
+  const relay = 'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-abc123-localhost';
+  const { POST } = await import('../../src/pages/oauth/register');
+  const registered = await POST({
+    request: new Request(`${ORIGIN}/oauth/register`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        client_name: 'Gemini', redirect_uris: [relay], token_endpoint_auth_method: 'client_secret_basic', grant_types: ['authorization_code', 'refresh_token'],
+      }),
+    }),
+    clientAddress: '203.0.113.40',
+  } as unknown as Parameters<typeof POST>[0]);
+  assert.equal(registered.status, 201);
+  const gemini = await registered.json() as Record<string, unknown>;
+  assert.equal(gemini.token_endpoint_auth_method, 'none', 'told it is public, as RFC 7591 3.2.1 allows');
+  assert.equal('client_secret' in gemini, false, 'no secret is issued');
+  const geminiId = gemini.client_id as string;
+  const post = await oauth.registerClient(config, { redirect_uris: [relay], token_endpoint_auth_method: 'client_secret_post' });
+  assert.equal(post.token_endpoint_auth_method, 'none');
+
+  const { verifier, challenge } = pkce();
+  const { requestId } = await oauth.startAuthorization(config, authorizeParams({
+    client_id: geminiId, redirect_uri: relay, scope: 'content:read drafts:write offline_access',
+  }, challenge));
+  assert.equal(oauth.describeRequest(config, requestId)?.brand, 'gemini');
+  const { redirect } = await oauth.decide(config, OWNER, requestId, { allow: true, write: true });
+  const answer = new URL(redirect);
+  assert.equal(`${answer.origin}${answer.pathname}`, relay);
+  assert.equal(answer.searchParams.get('iss'), ORIGIN);
+  assert.equal(answer.searchParams.get('state'), 'xyz');
+
+  // A public client: no client_secret, and none needed.
+  const tokens = await oauth.exchange(config, new URLSearchParams({
+    grant_type: 'authorization_code', code: answer.searchParams.get('code')!, redirect_uri: relay, client_id: geminiId, code_verifier: verifier,
+  }));
+  assert.equal(tokens.scope, 'content:read drafts:write', 'offline_access grants nothing more');
+  assert.ok(tokens.refresh_token);
+  assert.equal((await oauth.verifyAccessToken(config, tokens.access_token))?.brand, 'gemini');
+
+  await assert.rejects(
+    oauth.startAuthorization(config, authorizeParams({ client_id: geminiId, redirect_uri: relay, scope: 'content:read bogus' })),
+    OAuthPageError,
+  );
+});
+
+test('a client that asked for client_secret_basic may send its client_id in HTTP Basic; the secret part is ignored', async () => {
+  const relay = 'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-basic-localhost';
+  const { client_id: id } = await oauth.registerClient(config, { redirect_uris: [relay], token_endpoint_auth_method: 'client_secret_basic' });
+  const { POST } = await import('../../src/pages/oauth/token');
+  const post = (form: Record<string, string>, authorization?: string) => POST({
+    request: new Request(`${ORIGIN}/oauth/token`, {
+      method: 'POST', body: new URLSearchParams(form).toString(),
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...(authorization ? { authorization } : {}) },
+    }),
+    clientAddress: '203.0.113.41',
+  } as unknown as Parameters<typeof POST>[0]);
+  const basic = (user: string, secret = '') => `Basic ${Buffer.from(`${user}:${secret}`).toString('base64')}`;
+  const codeGrant = async () => {
+    const { verifier, challenge } = pkce();
+    const { requestId } = await oauth.startAuthorization(config, authorizeParams({ client_id: id, redirect_uri: relay }, challenge));
+    const { redirect } = await oauth.decide(config, OWNER, requestId, { allow: true, write: false });
+    return { grant_type: 'authorization_code', code: new URL(redirect).searchParams.get('code')!, redirect_uri: relay, code_verifier: verifier };
+  };
+  const tokens = async (response: Response) => {
+    assert.equal(response.status, 200);
+    return await response.json() as { refresh_token: string };
+  };
+
+  // Header only, the id form-encoded as RFC 6749 2.3.1 says, with whatever secret it made up.
+  const first = await tokens(await post(await codeGrant(), basic(encodeURIComponent(id), 'made-up')));
+  // Header only, the id not encoded: the last colon still splits it right.
+  const second = await tokens(await post(await codeGrant(), basic(id)));
+  // Body only, as before.
+  await tokens(await post({ ...(await codeGrant()), client_id: id }));
+  // Both, matching; and the refresh grant takes the header the same way.
+  await tokens(await post({ ...(await codeGrant()), client_id: id }, basic(encodeURIComponent(id))));
+  await tokens(await post({ grant_type: 'refresh_token', refresh_token: first.refresh_token }, basic(encodeURIComponent(id))));
+  await tokens(await post({ grant_type: 'refresh_token', refresh_token: second.refresh_token, client_id: id }, basic(id)));
+
+  const refused = async (response: Response) => {
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'invalid_request' });
+  };
+  // Both, differing.
+  await refused(await post({ ...(await codeGrant()), client_id: id }, basic(encodeURIComponent('dcr:someone-else'))));
+  // Malformed: not base64, no colon, an empty id, a broken escape, and nothing at all.
+  for (const header of ['Basic !!!', `Basic ${Buffer.from('no-colon').toString('base64')}`, basic(''), basic('dcr%ZZ'), 'Basic ']) {
+    await refused(await post(await codeGrant(), header));
+  }
+  await refused(await post(await codeGrant()));
 });
 
 test('the authorize endpoint is rate-limited per sender, with the same plain page', async () => {

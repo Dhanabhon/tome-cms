@@ -98,7 +98,10 @@ test('the rail is a column of 2px ticks at the inline end, hidden where there is
   assert.match(ruleBody(PAPER, '.reading-rail__link--h2::before'), /inline-size: 1\.5rem/);
   assert.match(ruleBody(PAPER, '.reading-rail__link--h3::before'), /inline-size: 1rem/);
   assert.match(ruleBody(PAPER, '.reading-rail__link::before'), /background: var\(--color-muted\)/, 'a resting tick is a mark that can be seen');
-  assert.match(ruleBody(PAPER, '.reading-rail__link[aria-current="location"]::before'), /background: var\(--color-ink\)/);
+  assert.match(ruleBody(PAPER, '.reading-rail__link[data-passed]::before'), /background: var\(--color-ink\)/, 'a heading already read is ink');
+  assert.match(ruleBody(PAPER, '.reading-rail__link[aria-current="location"]::before'), /background: var\(--color-accent\)/, 'the current one is the accent');
+  assert.match(ruleBody(PAPER, '.reading-rail__link[aria-current="location"]::before'), /block-size: 3px/);
+  assert.match(ARTICLE, /toggleAttribute\('data-passed', at < index\)/);
   assert.match(ruleBody(PAPER, '.reading-rail__link'), /min-block-size: 1\.5rem/);
   assert.match(PAPER, /@media \(pointer: coarse\) \{[^}]*\.reading-rail__link \{[^}]*min-block-size: 2\.75rem/);
   assert.match(PAPER, /@media \(max-width: 63\.999rem\) \{[^}]*\.reading-rail \{ display: none; \}/);

@@ -14,6 +14,7 @@ import type { MediaAsset, PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
+import { confirmUi } from '../../lib/ui-dialog';
 import { normalizeHex } from '../../lib/hex-color';
 import { saveButtonState } from '../../lib/save-state';
 
@@ -75,6 +76,25 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
     }
   }
 
+  /**
+   * The switch is controlled, so a cancel needs no undoing: nothing changed until `write` does.
+   * Two plugins say what the switch costs in their own words; the rest say the generic thing.
+   */
+  async function switchPlugin(manifest: PluginManifest, next: boolean) {
+    const specific = manifest.id === 'mcp' ? (next ? copy.plugins.mcpOn : copy.plugins.mcpOff)
+      : manifest.id === 'turnstile' ? (next ? copy.plugins.turnstileOn : copy.plugins.turnstileOff)
+      : undefined;
+    const named = { plugin: manifest.name };
+    const confirmed = await confirmUi({
+      cancelLabel: copy.shell.cancel,
+      confirmLabel: next ? copy.plugins.confirmOnLabel : copy.plugins.confirmOffLabel,
+      message: specific ?? fill(next ? copy.plugins.confirmOnBody : copy.plugins.confirmOffBody, named),
+      title: fill(next ? copy.plugins.confirmOnTitle : copy.plugins.confirmOffTitle, named),
+      tone: next ? undefined : 'danger',
+    });
+    if (confirmed) await write(manifest.id, { enabled: next, values: {} }, '');
+  }
+
   const setUpManifest = PLUGIN_MANIFESTS.find((manifest) => manifest.id === setUpId) ?? null;
 
   return (
@@ -113,7 +133,7 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
                     aria-busy={busy}
                     checked={enabled}
                     disabled={Boolean(busyId) || (!enabled && !configured)}
-                    onChange={(event) => void write(manifest.id, { enabled: event.target.checked, values: {} }, '')}
+                    onChange={(event) => void switchPlugin(manifest, event.target.checked)}
                     role="switch"
                     type="checkbox"
                   />

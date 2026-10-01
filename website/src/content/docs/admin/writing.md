@@ -75,6 +75,8 @@ On the site, the code is coloured before the page is sent, so it needs nothing f
 
 Choose "Image" from the "+" menu. The "File Manager" opens as a picker: press an image to put it where the cursor was, or "Upload image" to add a new one and put it there. An image chosen this way carries the "Alt text" it has in the File Manager, or its file name when it has none.
 
+To swap a picture for another, select it and choose "Replace picture" in the small bar that appears over it, then pick a file in the File Manager. The new picture takes the old one's place, and takes the "Alt text" the chosen file has in the File Manager, or its file name when it has none. Ctrl/Cmd+Z puts the old picture back. The old file stays in the File Manager.
+
 You can also drop an image file onto the post, or paste one. It shows faintly while it uploads to the File Manager, then takes its place. The File Manager takes JPEG, PNG, WebP, GIF and AVIF, up to 8 MB. Anything else gets "Image upload failed" and the reason.
 
 An image copied from another website together with its text can keep its address on that site, and every reader's browser then fetches it from there. [What a reader's browser keeps](/tome-cms/running/privacy/) explains what that site gets to see. Upload the image instead.

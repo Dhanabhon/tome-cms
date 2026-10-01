@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
   const body = type === 'application/x-www-form-urlencoded' && !tooLong ? await request.text() : null;
   if (body === null || body.length > MAX_FORM_BYTES) return Response.json({ error: 'invalid_request' }, { headers: HEADERS, status: 400 });
   try {
-    return Response.json(await exchange(config, new URLSearchParams(body)), { headers: HEADERS });
+    return Response.json(await exchange(config, new URLSearchParams(body), request.headers.get('authorization')), { headers: HEADERS });
   } catch (error) {
     if (!(error instanceof OAuthTokenError)) throw error;
     return Response.json({ error: error.code }, { headers: HEADERS, status: error.status });

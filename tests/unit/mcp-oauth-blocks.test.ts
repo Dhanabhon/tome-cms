@@ -34,6 +34,32 @@ test('Claude, ChatGPT and loopback are allowed; anything else only when the owne
   assert.equal(redirectAllowed('https://cursor.example/cb', ['https://cursor.example/cb']), true);
 });
 
+test("Gemini's relay is allowed only as Google's per-connector address", () => {
+  const relay = 'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-abc123-tome.example';
+  assert.equal(redirectAllowed(relay, []), true);
+  for (const uri of [
+    'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-',
+    'https://oauth-redirect.googleusercontent.com/r/other-thing',
+    'https://oauth-redirect.googleusercontent.com.evil.example/r/user_bound_custom-mcp-a',
+    'https://evil.googleusercontent.com/r/user_bound_custom-mcp-a',
+    'http://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a',
+    'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a?x=1',
+    'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a?',
+    'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a#x',
+    'https://oauth-redirect.googleusercontent.com:8443/r/user_bound_custom-mcp-a',
+    'https://oauth-redirect.googleusercontent.com:443/r/user_bound_custom-mcp-a',
+    'https://evil@oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a',
+    'https://OAUTH-REDIRECT.googleusercontent.com/r/user_bound_custom-mcp-a',
+    'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a/../../x',
+    'https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-a%2Fb',
+  ]) {
+    assert.equal(redirectAllowed(uri, []), false, uri);
+  }
+  // A pattern decides what may be registered; a request still matches its registration exactly.
+  assert.equal(redirectMatches([relay], relay), true);
+  assert.equal(redirectMatches([relay], `${relay}x`), false);
+});
+
 test('a loopback redirect matches its registration on any port; everything else matches exactly', () => {
   assert.equal(redirectMatches(['http://localhost:3118/callback'], 'http://localhost:51000/callback'), true);
   assert.equal(redirectMatches(['http://127.0.0.1/callback'], 'http://127.0.0.1:8080/callback'), true);
