@@ -22,6 +22,10 @@ test('a mark needs the exact host, not one that merely ends or starts like it', 
   assert.equal(clientBrand('https://CLAUDE.AI/x', '127.0.0.1:1'), 'claude', 'a host is case-insensitive');
   assert.equal(clientBrand('dcr:1', 'CLAUDE.AI'), 'claude');
   assert.equal(clientBrand('https://openai.com/x.json', '127.0.0.1:1'), 'openai');
+  assert.equal(clientBrand('https://platform.openai.com/x.json', '127.0.0.1:1'), 'openai');
+  // OpenAI's approvals go to chatgpt.com: a redirect to openai.com is not one of its apps.
+  assert.equal(clientBrand('dcr:1', 'openai.com'), null);
+  assert.equal(clientBrand('dcr:1', 'platform.openai.com'), null);
   // The userinfo is not the host: this document is fetched from claude.ai, as before.
   assert.equal(clientBrand('https://evil.example@claude.ai/x', '127.0.0.1:1'), 'claude');
   for (const host of ['evilclaude.ai', 'claude.ai.evil.example', 'chatgpt.com.evil.example', 'xn--cude-9na.ai', 'sub.claude.ai', 'api.chatgpt.com']) {
