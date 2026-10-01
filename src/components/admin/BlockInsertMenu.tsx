@@ -211,7 +211,13 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
       chain.insertContent({
         type: 'image',
         attrs: { alt: asset.alt_text || asset.original_name, mediaId: asset.id, src: asset.publicUrl, title: asset.original_name },
-      }).run();
+      })
+        // A picture put in at the end of a line is left selected, and the next key would type over
+        // it. The writer goes on on a new line under it instead.
+        .command(({ commands, tr }) => !isNodeSelection(tr.selection) || commands.insertContentAt(tr.selection.to, { type: 'paragraph' }))
+        // The page stays where it was, moved only as far as it takes to show the new line.
+        .scrollIntoView()
+        .run();
     } else if (kind === 'document') {
       // These draw the card until it is saved; then the server fills it from the library.
       chain.insertContent({
