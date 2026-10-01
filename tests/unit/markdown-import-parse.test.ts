@@ -221,6 +221,7 @@ const timed = (name: string, input: string, limit: string | null) => test(name, 
 
 timed('55,000 pictures, each in its own paragraph, are refused at once', '![a](./a.png)\n\n'.repeat(55_000), 'lines');
 timed('2,500 pictures in one paragraph are refused at once', '![a](./a.png) '.repeat(2_500), 'pictures');
+timed('501 pictures are refused at once, before any could be uploaded', '![a](./a.png) '.repeat(501), 'pictures');
 timed('90,000 inline tags are refused at once', '<b>x</b>'.repeat(90_000), 'inline');
 timed('25,000 links in one paragraph are refused at once', '[a](https://a.com) '.repeat(25_000), 'inline');
 timed('100,000 headings are refused at once', '## h\n'.repeat(100_000), 'lines');
@@ -331,4 +332,17 @@ test('a document is measured as the database prints it: a space after each key a
   assert.equal(jsonbTextLength({ a: [1, 2], b: { c: 'ก\n' } }), new TextEncoder().encode('{"a": [1, 2], "b": {"c": "ก\\n"}}').byteLength);
   assert.equal(jsonbTextLength({ type: 'doc', content: [] }), '{"type": "doc", "content": []}'.length);
   assert.equal(jsonbTextLength({}), 2);
+});
+
+test('500 different pictures and a cover are one too many to match, and the same picture written often is one', () => {
+  const body = (count: number) => Array.from({ length: count }, (_, index) => `![p](./p${index}.png)`).join('\n\n');
+  assert.equal(parseMarkdownPost(body(500), 'a.md').pictures.length, 500);
+  assert.throws(() => parseMarkdownPost(`---\ncover: ./cover.png\n---\n${body(500)}`, 'a.md'),
+    (error) => error instanceof MarkdownTooComplexError && error.limit === 'pictures');
+  assert.equal(parseMarkdownPost('![p](./p.png)\n\n'.repeat(400), 'a.md').pictures.length, 1);
+});
+
+test('a file named .md or .markdown gives its name as the title without the extension', () => {
+  assert.equal(parseMarkdownPost('Some words.', 'field-notes.markdown').title, 'field-notes');
+  assert.equal(parseMarkdownPost('Some words.', 'Field-Notes.MD').title, 'Field-Notes');
 });

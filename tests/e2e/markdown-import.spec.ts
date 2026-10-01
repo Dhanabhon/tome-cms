@@ -283,3 +283,30 @@ test('a file the server refuses says why, the sheet keeps its place while it sav
   await page.keyboard.type('More words');
   await expect(page.getByRole('alert')).toContainText('This post is too long to save. Split it or remove some of it.');
 });
+
+test('a dialog the browser closes while the draft is being made leaves no dead sheet behind', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  await signIn(context, page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const { opener, sheet } = await openSheet(page);
+  await sheet.getByTestId('markdown-file').setInputFiles({ name: 'plain.md', mimeType: 'text/markdown', buffer: Buffer.from('# Closed by the browser\n\nJust words.\n') });
+  await expect(sheet.getByText('Closed by the browser')).toBeVisible();
+  // Held in flight, so the moment the browser closes the dialog is the one the lock covers.
+  await page.route('**/api/admin/posts/import', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    await route.fallback();
+  });
+  await sheet.getByRole('button', { name: 'Import as draft' }).click();
+  await expect(sheet.getByRole('button', { name: 'Close' })).toBeDisabled();
+  // What Chromium does on a second Escape with no click between: a cancel that cannot be held back, then a close.
+  await page.evaluate(() => {
+    const dialog = document.querySelector('dialog[open]') as HTMLDialogElement;
+    dialog.dispatchEvent(new Event('cancel', { cancelable: false }));
+    dialog.close();
+  });
+  await expect(page.locator('dialog[aria-labelledby="markdown-import-title"]')).toHaveCount(0);
+  // Once the answer is in, the list is fresh (the draft is in it) and the button opens the sheet again.
+  await expect(page.locator('.admin-story-row', { hasText: 'Closed by the browser' })).toBeVisible();
+  await opener.click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Import a post from Markdown' })).toBeVisible();
+});

@@ -55,7 +55,8 @@ export const MAX_INLINE = 40_000;
 export const MAX_INLINE_IN_BLOCK = 5_000;
 /** Emphasis marks in one of them: the dearest kind (1,500 cost a tenth of a second). */
 export const MAX_EMPHASIS = 1_500;
-export const MAX_PICTURES = 2_000;
+/** Pictures in a file, and the most the import's request takes matched (`markdownImportSchema`): more is refused at the preview, before anything is uploaded. */
+export const MAX_PICTURES = 500;
 /** Levels of lists, quotes and tables inside each other; the server's own check stops a little past this. */
 export const MAX_DEPTH = 40;
 /** Different tags a file may hold; they are searched for together, in every text that has a `<`. */
@@ -320,7 +321,7 @@ export function parseMarkdownPost(source: string, fileName: string): ParsedMarkd
       blocks = blocks.filter((_, index) => index !== first);
     }
   }
-  if (!title) title = fileName.replace(/\.md$/i, '').trim().slice(0, 200) || 'Untitled';
+  if (!title) title = fileName.replace(/\.(md|markdown)$/i, '').trim().slice(0, 200) || 'Untitled';
 
   const locale = text(fields.locale, 2).toLowerCase();
   const rawCategories = Array.isArray(fields.categories) ? fields.categories : fields.categories === undefined ? [] : [fields.categories];
@@ -341,6 +342,8 @@ export function parseMarkdownPost(source: string, fileName: string): ParsedMarkd
     node.content?.forEach(collect);
   };
   blocks.forEach(collect);
+  // The cover is one more to match, and a picture written twice is one.
+  if (pictures.length > MAX_PICTURES) throw new MarkdownTooComplexError('pictures');
 
   return {
     title,

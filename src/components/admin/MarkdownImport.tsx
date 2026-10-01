@@ -69,6 +69,9 @@ function ImportSheet({ editHref, mediaText, onClose, text }: Props & { onClose: 
   const errorLine = useRef<HTMLParagraphElement>(null);
   const foot = useRef<HTMLDivElement>(null);
   const controller = useRef(new AbortController());
+  // Set if the browser closes the dialog while the draft is being made; the sheet finishes that close once the answer is in.
+  const closedWhilePosting = useRef(false);
+  const postingNow = useRef(false);
   // A picture file is uploaded once however often it is tried, so a retry never doubles the File Manager.
   const uploaded = useRef(new Map<string, string>());
   const [source, setSource] = useState<Source | null>(null);
@@ -153,6 +156,7 @@ function ImportSheet({ editHref, mediaText, onClose, text }: Props & { onClose: 
 
   async function runImport() {
     if (!source || !preview || stillWaiting.length) return;
+    let made = false;
     setBusy(true);
     setError('');
     setRowErrors(new Map());
@@ -169,6 +173,7 @@ function ImportSheet({ editHref, mediaText, onClose, text }: Props & { onClose: 
       }
       const matches = Object.fromEntries([...files].map(([src, file]) => [src, uploaded.current.get(fileKey(file))!]));
       setPosting(true);
+      postingNow.current = true;
       // No signal: a request the server has taken makes its draft, so the sheet waits for the answer.
       const { post, warnings } = await send<{ post: Post; warnings: ImportWarning[] }>('/api/admin/posts/import', { ...source, pictures: matches });
       const unmatched = pictures.filter((picture) => !files.has(picture.src));
@@ -176,6 +181,7 @@ function ImportSheet({ editHref, mediaText, onClose, text }: Props & { onClose: 
       // A body picture with no file leaves a line in the post; a cover with none leaves the post without one.
       const missing = unmatched.filter((picture) => picture.where === 'body' && picture.kind !== 'remote').length;
       const noCover = unmatched.some((picture) => picture.where === 'cover');
+      made = true;
       setResult({
         post,
         report: [
@@ -188,8 +194,11 @@ function ImportSheet({ editHref, mediaText, onClose, text }: Props & { onClose: 
     } catch (cause) {
       if (!controller.current.signal.aborted) setError(refusalText(text, cause instanceof ImportRefused ? cause.refusal : undefined));
     } finally {
+      postingNow.current = false;
       setPosting(false);
       setBusy(false);
+      // The dialog is already closed, so nothing is left to show the report on: the list is refreshed, or the sheet goes.
+      if (closedWhilePosting.current) { if (made) window.location.reload(); else onClose(); }
     }
   }
 
@@ -227,7 +236,7 @@ function ImportSheet({ editHref, mediaText, onClose, text }: Props & { onClose: 
   const languages = { en: text.languageEn, th: text.languageTh };
   // On the body, not where the button is: the page head styles the paragraphs and buttons inside it.
   return createPortal(
-    <dialog aria-labelledby="markdown-import-title" className="media-upload-dialog" onCancel={cancel} ref={dialog}>
+    <dialog aria-labelledby="markdown-import-title" className="media-upload-dialog" onCancel={cancel} onClose={() => { if (postingNow.current) closedWhilePosting.current = true; }} ref={dialog}>
       <div className="media-upload-dialog__head">
         <h2 id="markdown-import-title" ref={heading} tabIndex={-1}>{result ? text.done : text.title}</h2>
         <button aria-disabled={posting} aria-label={text.close} className="admin-button admin-button--ghost admin-button--icon" disabled={posting} onClick={() => close()} ref={closeButton} type="button"><Icon name="close" /></button>

@@ -10,6 +10,7 @@ import {
   MAX_DOCUMENT_BYTES,
   sanitizedContentHtmlSchema,
 } from '../../lib/editor-content';
+import { withHighlightBudget } from '../../lib/code-highlight';
 import { normalizeCodeLanguage } from '../../lib/code-languages';
 import { textAlign } from '../../lib/editor-align';
 import { codeBlock } from '../../lib/editor-code';
@@ -258,7 +259,7 @@ function assertJsonBounds(value: unknown): void {
 export function renderEditorHtml(document: EditorDocument): string {
   let html: string;
   try {
-    html = documentHtml(document);
+    html = withHighlightBudget(() => documentHtml(document));
   } catch {
     throw new ValidationError('Content contains unsupported editor structure.');
   }

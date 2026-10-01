@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { codeLowlight, highlightCode } from '../../src/lib/code-highlight';
+import { AUTO_LIMIT, codeLowlight, HIGHLIGHT_BUDGET, highlightCode } from '../../src/lib/code-highlight';
 import { CODE_LANGUAGES, codeLanguageLabel, normalizeCodeLanguage } from '../../src/lib/code-languages';
 import { sanitizedContentHtmlSchema } from '../../src/lib/editor-content';
 import { prepareEditorContent } from '../../src/server/content/editor';
@@ -108,4 +108,37 @@ test('the sanitizer keeps a code block\'s own classes and labels and nothing els
   );
   assert.equal(sanitizedContentHtmlSchema.parse('<pre data-language="Java"><code>a</code></pre>'), '<pre data-language="Java"><code>a</code></pre>');
   assert.equal(sanitizedContentHtmlSchema.parse('<pre data-language="Fortran"><code>a</code></pre>'), '<pre><code>a</code></pre>');
+});
+
+test('an Auto block of one repeated letter saves in well under a second', () => {
+  // Detection is slower than linear: 20,000 of one letter took six seconds read whole.
+  const started = performance.now();
+  const { contentHtml } = prepareEditorContent({ contentJson: block('a'.repeat(20_000), 'auto') });
+  const took = performance.now() - started;
+  assert.ok(took < 1_000, `took ${Math.round(took)} ms`);
+  assert.match(contentHtml, /a{20000}/, 'the text is all there');
+});
+
+test('Auto names the language from the start of a long block, and colours all of it', () => {
+  const code = Array.from({ length: 80 }, (_, index) => `export async function load${index}(id: number, name: string): Promise<User[]> { const rows: Array<User> = await fetchUsers(id, name); return rows; }\ninterface Row${index} { id: number; name: string }`).join('\n');
+  assert.ok(code.length > AUTO_LIMIT * 4);
+  const { language, nodes } = highlightCode('auto', code);
+  assert.equal(language, 'typescript');
+  assert.equal(nodes?.map(function text(node): string { return node.value ?? (node.children ?? []).map(text).join(''); }).join(''), code);
+});
+
+test('a document has a budget of code to colour; the blocks past it are plain and keep a chosen label', () => {
+  const chunk = `int a = 1;\n`.repeat(Math.floor(15_000 / 'int a = 1;\n'.length));
+  const blocks = Math.ceil(HIGHLIGHT_BUDGET / chunk.length) + 2;
+  const { contentHtml } = prepareEditorContent({ contentJson: {
+    type: 'doc',
+    content: Array.from({ length: blocks }, () => ({ type: 'codeBlock', attrs: { language: 'java' }, content: [{ type: 'text', text: chunk }] })),
+  } });
+  const pres = contentHtml.split('<pre ').slice(1);
+  assert.equal(pres.length, blocks);
+  assert.match(pres[0]!, /hljs-/, 'the first blocks are coloured');
+  assert.doesNotMatch(pres[blocks - 1]!, /hljs-/, 'the last is plain');
+  for (const pre of pres) assert.match(pre, /data-language="Java"/, 'every block keeps its label');
+  // Each document has a budget of its own: the same document rendered again is the same.
+  assert.equal(prepareEditorContent({ contentJson: block(chunk, 'java') }).contentHtml.includes('hljs-'), true);
 });

@@ -41,7 +41,7 @@ The server does not download pictures. After you choose the file, the sheet says
 
 The chosen pictures go into the File Manager, in "Unsorted" with no folder, and stay there if you close the sheet partway. When the import is done the sheet lists what it changed on the way, then "Open the draft" opens it in the editor.
 
-Fenced code keeps its language, so a block written as ` ```ts ` opens as "TypeScript". Some things in a Markdown file have no place in a post and are left out, with a note in the report: HTML, the links of footnotes (their words stay), and the checkboxes of a task list. Headings deeper than level 3 become level 3.
+Fenced code keeps its language, so a block written as ` ```ts ` opens as "TypeScript". Some things in a Markdown file have no place in a post and are left out, with a note in the report: HTML, the links of footnotes and links to other files or to email addresses (their words stay), and the checkboxes of a task list. Headings deeper than level 3 become level 3.
 
 A file that is very long or very complex is refused, and the sheet says which part is too much and what to do: split the file, or simplify it. So is a second file sent while another is being read; try again in a moment.
 
@@ -69,7 +69,7 @@ Choose "Code block" from the "+" menu or from `/`. The block has a picker in its
 
 Press Tab to reach the picker like any other button, and Escape to close its list and go back to the code. Press the Down arrow at the end of a block that ends the post to start a new line below it.
 
-On the site, the code is coloured before the page is sent, so it needs nothing from the reader's browser. The language's name is written small in the block's top-left corner, except for "None" and for an "Auto" that found nothing. The block is light on a light page and dark on a dark one. A block of more than 20,000 characters is shown without colour. Posts written before a block had a language are "None", and stay as they were.
+On the site, the code is coloured before the page is sent, so it needs nothing from the reader's browser. The language's name is written small in the block's top-left corner, except for "None" and for an "Auto" that found nothing. The block is light on a light page and dark on a dark one. A block of more than 20,000 characters is shown without colour, "Auto" reads only the first 2,000 characters of a block to find its language, and one post colours 50,000 characters of code in all: blocks after that are shown plain and keep the language you chose. Posts written before a block had a language are "None", and stay as they were.
 
 ## Images
 
