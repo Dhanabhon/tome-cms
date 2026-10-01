@@ -2,6 +2,21 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.6.0 - 2026-10-01
+
+Code blocks have a language, coloured in the editor and on the page, and a Markdown file can become a draft post.
+
+### Added
+
+- A code block's language: None, Auto, or one of 24, chosen in the block's corner; the usual short names (js, py, sh…) are understood. The editor colours the code as it is written; the published page is coloured on the server, so readers load no script. A light block with its language in the corner, dark in dark mode, in both themes; syntax colours are tokens held to 4.5:1.
+- "Import Markdown" on Posts: one `.md` file becomes one draft — title, frontmatter fields, existing categories, headings, lists, tables, code with its language and `---` breaks — with each picture matched by its file name or skipped, and a summary of what was left out. Files are bounded (900 KB, 500 pictures) and read in a worker with a time and memory limit, one at a time.
+
+### Fixed
+
+- A post or page too long to store is refused with that reason, measured as the database stores it, instead of a generic error.
+
+Full notes: [docs/releases/1.6.0.md](docs/releases/1.6.0.md)
+
 ## 1.5.5 - 2026-10-01
 
 Paper can show a rail of a post's headings beside it, the editor adds a new part, and a published post or page has "Copy link".
