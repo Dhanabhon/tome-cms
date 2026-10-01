@@ -52,8 +52,8 @@ A release that needs a newer updater says so on "System" ("This version needs it
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.6.2
-git checkout --detach v1.6.2
+git fetch --depth 1 origin tag v1.7.0
+git checkout --detach v1.7.0
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -62,7 +62,7 @@ sudo npm run updater:upgrade
 A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
 
 ```sh
-git clone --depth 1 --branch v1.6.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.7.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 

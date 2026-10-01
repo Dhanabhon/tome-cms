@@ -2,6 +2,26 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.7.0 - 2026-10-01
+
+Claude or ChatGPT can read the site and write drafts, after the owner allows it with their passkey, and the owner can put back what the AI changed.
+
+### Added
+
+- MCP, an Official plugin, off by default. It covers:
+  - an OAuth 2.1 sign-in for AI apps (CIMD or DCR, PKCE, redirects only to Claude, ChatGPT, this computer or addresses the owner adds), with a passkey consent screen;
+  - ten tools that read posts, pages, categories and the media library and create or edit drafts, with no publishing, deleting or uploading;
+  - a connections list with Revoke;
+  - a switch that stops AI writing at once;
+  - "Put back" in the editor, for a draft an AI changed.
+
+### Changed
+
+- The cross-site form check compares with the site's public address, so it works behind the proxy and lets the OAuth token endpoint's server calls through.
+- One migration, `028_mcp`. A managed update takes a full backup.
+
+Full notes: [docs/releases/1.7.0.md](docs/releases/1.7.0.md)
+
 ## 1.6.2 - 2026-10-01
 
 A suggested excerpt or description can be swapped for another sentence.

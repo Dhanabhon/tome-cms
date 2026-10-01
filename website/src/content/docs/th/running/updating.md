@@ -52,8 +52,8 @@ sudo curl -s --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.6.2
-git checkout --detach v1.6.2
+git fetch --depth 1 origin tag v1.7.0
+git checkout --detach v1.7.0
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -62,7 +62,7 @@ sudo npm run updater:upgrade
 เซิร์ฟเวอร์ที่ติดตั้งก่อน 1.0.2 จะไม่มี `/opt/tome-cms-src` ให้ clone release มาไว้ที่นั่นแทนสามบรรทัดแรก
 
 ```sh
-git clone --depth 1 --branch v1.6.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.7.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
