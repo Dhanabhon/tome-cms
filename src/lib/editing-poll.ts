@@ -12,6 +12,14 @@ export function shouldBeat(visibility: DocumentVisibilityState): boolean {
 }
 
 /**
+ * The AI undo bar above the draft already says this write: it is one, and the bar names the same
+ * app. A different app's write since is still said.
+ */
+export function undoBarTellsOf(touch: { action: 'read' | 'write'; clientName: string } | null, undoClient: string | null): boolean {
+  return touch?.action === 'write' && touch.clientName === undoClient;
+}
+
+/**
  * One check at a time. A visibility change and an interval tick can ask together; the second is
  * skipped while the first is in flight, so an older answer never lands after a newer one.
  */

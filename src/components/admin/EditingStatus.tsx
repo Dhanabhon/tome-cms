@@ -2,18 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 
 import { fill, type AdminCopy } from '../../lib/admin-i18n';
 import type { BrandName } from '../../lib/brand-marks';
-import { EDITING_POLL_MS, EDITOR_SAVED_EVENT, oneAtATime, relativeTime, shouldBeat } from '../../lib/editing-poll';
+import { EDITING_POLL_MS, EDITOR_SAVED_EVENT, oneAtATime, relativeTime, shouldBeat, undoBarTellsOf } from '../../lib/editing-poll';
 import type { PostLocale } from '../../types/cms';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
 
 interface EditingStatusProps {
-  /** The page shows the AI undo bar, which already says who changed the draft and when. */
-  hasUndo: boolean;
   id: string;
   kind: 'post' | 'page';
   locale: PostLocale | null | undefined;
   text: AdminCopy['editing'];
+  /** The app the AI undo bar above names, when the page shows one. */
+  undoClient: string | null;
   updatedAt: string;
 }
 
@@ -27,7 +27,7 @@ interface Answer {
  * elsewhere. Each check is also the editor's heartbeat, which keeps an AI from writing the draft
  * while the owner has it open; a hidden tab stops checking, and so lets go of it.
  */
-export default function EditingStatus({ hasUndo, id, kind, locale, text, updatedAt }: EditingStatusProps) {
+export default function EditingStatus({ id, kind, locale, text, undoClient, updatedAt }: EditingStatusProps) {
   // The version the editor holds, moved on by each save the editor makes.
   const held = useRef(updatedAt);
   const [answer, setAnswer] = useState<Answer & { now: number }>({ ai: null, newer: false, now: 0 });
@@ -41,6 +41,8 @@ export default function EditingStatus({ hasUndo, id, kind, locale, text, updated
         const response = await fetch('/api/admin/editing', {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ kind, id, updatedAt: sent }),
+          // A hung request would hold the guard, and the draft would stop being held as the owner's.
+          signal: AbortSignal.timeout(EDITING_POLL_MS),
         });
         if (!response.ok || stopped) return;
         const next = await response.json() as Answer;
@@ -72,7 +74,7 @@ export default function EditingStatus({ hasUndo, id, kind, locale, text, updated
 
   const { ai, newer, now } = answer;
   // A write the undo bar already tells of is not said twice: only that the owner comes first.
-  const told = ai?.action === 'write' && hasUndo;
+  const told = undoBarTellsOf(ai, undoClient);
   // The live region stays in the page while empty, so what appears in it is announced.
   return (
     <div role="status">

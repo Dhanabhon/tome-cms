@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { oneAtATime, relativeTime, shouldBeat } from '../../src/lib/editing-poll';
+import { oneAtATime, relativeTime, shouldBeat, undoBarTellsOf } from '../../src/lib/editing-poll';
 
 test('the editor checks in only while its tab is visible', () => {
   assert.equal(shouldBeat('visible'), true);
@@ -40,4 +40,13 @@ test('one check at a time: a tick while one is in flight is skipped, so an older
   await assert.rejects(failing());
   await assert.rejects(failing(), 'a failed check does not leave it stuck');
   assert.equal(runs, 4);
+});
+
+test('the undo bar tells of a write only when it names the same app', () => {
+  const write = { action: 'write' as const, clientName: 'Claude' };
+  assert.equal(undoBarTellsOf(write, 'Claude'), true);
+  assert.equal(undoBarTellsOf(write, 'Codex'), false, 'a different app wrote since: say so');
+  assert.equal(undoBarTellsOf(write, null), false, 'no undo bar');
+  assert.equal(undoBarTellsOf({ action: 'read', clientName: 'Claude' }, 'Claude'), false, 'a read is not what the bar tells');
+  assert.equal(undoBarTellsOf(null, 'Claude'), false);
 });
