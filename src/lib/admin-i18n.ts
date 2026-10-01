@@ -53,6 +53,8 @@ const en = {
     loading: 'Loading…',
     loadingFiles: 'Loading files…',
     maintenanceReference: 'The maintenance page',
+    name: 'Name',
+    nameHint: 'Only the name changes. The file type stays, and so does everything already using the file.',
     profileAvatar: 'This image is the profile picture.',
     refusals: {
       documentTooLarge: 'Files must be 25 MB or smaller.',
@@ -66,6 +68,7 @@ const en = {
       unsupportedImage: 'Use a JPEG, PNG, WebP, GIF, or AVIF image.',
     },
     renameFolderLabel: 'Rename {name}',
+    renamed: 'Renamed',
     retry: 'Retry',
     retryFolders: 'Retry folders',
     save: 'Save',
@@ -1159,6 +1162,8 @@ const th: typeof en = {
     loading: 'กำลังโหลด…',
     loadingFiles: 'กำลังโหลดไฟล์…',
     maintenanceReference: 'หน้าปิดปรับปรุง',
+    name: 'ชื่อไฟล์',
+    nameHint: 'เปลี่ยนแค่ชื่อ นามสกุลไฟล์ยังเหมือนเดิม และทุกที่ที่ใช้ไฟล์นี้อยู่ก็ไม่กระทบ',
     profileAvatar: 'ภาพนี้ถูกใช้เป็นรูปโปรไฟล์',
     refusals: {
       documentTooLarge: 'ไฟล์ต้องมีขนาดไม่เกิน 25 MB',
@@ -1172,6 +1177,7 @@ const th: typeof en = {
       unsupportedImage: 'ใช้ภาพ JPEG, PNG, WebP, GIF หรือ AVIF',
     },
     renameFolderLabel: 'เปลี่ยนชื่อ {name}',
+    renamed: 'เปลี่ยนชื่อแล้ว',
     retry: 'ลองอีกครั้ง',
     retryFolders: 'โหลดโฟลเดอร์ใหม่',
     save: 'บันทึก',

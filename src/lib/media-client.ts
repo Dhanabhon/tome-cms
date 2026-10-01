@@ -24,6 +24,8 @@ export interface MediaPage {
 export interface MediaDraft {
   altText: string;
   folderId: string;
+  /** The display name; the file keeps its extension. */
+  name?: string;
 }
 
 interface UploadReservation {
@@ -177,6 +179,7 @@ export async function saveMediaDraft(id: string, draft: MediaDraft): Promise<Med
   return (await sendJson<{ item: MediaAsset }>(`/api/admin/media/${id}`, 'PUT', {
     altText: draft.altText,
     folderId: draft.folderId || null,
+    ...(draft.name === undefined ? {} : { name: draft.name }),
   })).item;
 }
 

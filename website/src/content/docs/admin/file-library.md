@@ -40,11 +40,12 @@ Press a file to open its details. They show the image or the document's type, it
 
 A PDF's card and its details show the first page, which your browser draws from the file when the card comes into view. Until the page is ready, or if the file cannot be read, they show "PDF" as any other document does. Other documents show their type.
 
+- "Name" renames the file. The file keeps its ending, so `photo` on a `.webp` image becomes `photo.webp`. Only the name changes: pictures already placed in a post or page keep working, and a document's download name stays as it was uploaded.
 - "Folder" moves the file to another folder.
 - "Alt text", for images only, says what the image shows, up to 300 characters. An image put into a post or page through the editor's "Image" takes this text with it, and a slide without a heading needs it.
 - "File URL" is the file's full address on your site, your site's address followed by `/media/` and the file's id, so it works pasted anywhere. It keeps working for as long as the file is in the File Manager.
 
-Press "Save" to keep a change to the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address, and the button says "Copied" for two seconds. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
+Press "Save" to keep a change to the name, the folder or the alt text, and the admin says "Saved." "Copy URL" copies the address, and the button says "Copied" for two seconds. Where the browser does not allow that, the address is selected for you to copy with your keyboard.
 
 ## Deleting a file
 
