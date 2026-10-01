@@ -193,8 +193,9 @@ export async function enrichPages(ownerId: string, pages: Page[]): Promise<Publi
 // cell ends a word; every other tag is nothing, because bold or a link inside a word does not,
 // and Thai, which has no spaces, is a phrase that runs straight across them. Then the few
 // entities the editor's HTML writes for a character are put back, `&amp;` last so that
-// `&amp;lt;` stays the four characters it shows.
-const READ_BODY = sql`replace(replace(replace(replace(replace(replace(
+// `&amp;lt;` stays the four characters it shows. It reads `post.content_html`: a query over pages
+// names its table `post` too.
+export const READABLE_TEXT = sql`replace(replace(replace(replace(replace(replace(
   regexp_replace(
     regexp_replace(
       post.content_html,
@@ -231,7 +232,7 @@ export async function listPublishedPosts(input: PublicPostListInput): Promise<Pu
     // The three fields are one text, so the body is read once however many words there are, and a
     // word found anywhere counts. A word holds no control character, so it cannot straddle a break.
     query = query.where(sql<boolean>`(
-      post.title || chr(10) || post.excerpt || chr(10) || ${READ_BODY}
+      post.title || chr(10) || post.excerpt || chr(10) || ${READABLE_TEXT}
     ) ilike all (${terms.map(likeContaining)}::text[])`);
   }
   if (cursor) {

@@ -200,7 +200,7 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
       if (!current) throw new HttpError(404, 'Page not found.');
       assertCurrentVersion(current.updated_at, input.updatedAt, 'page');
       await assertContentMedia(trx, ownerId, content.contentJson);
-      return trx.updateTable('pages').set({
+      const updated = await trx.updateTable('pages').set({
         title: input.title,
         slug: pageSlug({ id: input.id, requested: input.slug, title: input.title }),
         content_json: content.contentJson,
@@ -213,6 +213,9 @@ export async function updatePage(ownerId: string, input: UpdatePageInput): Promi
         ...(input.publishedAt ? { published_at: new Date(input.publishedAt) } : {}),
         ...plannedAtWrite(input),
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
+      // Published is accepted: the AI's undo copy has nothing left to undo.
+      if (input.status === 'published') await trx.deleteFrom('content_ai_snapshots').where('page_id', '=', input.id).execute();
+      return updated;
     });
     invalidatePublicNavigationCache();
     return pageFromRow(row);
@@ -233,7 +236,7 @@ export async function updatePageStatus(
     const content = input.status === 'published'
       ? await prepareContentWithFiles(trx, ownerId, { contentJson: current.content_json, status: input.status })
       : null;
-    return trx.updateTable('pages').set({
+    const updated = await trx.updateTable('pages').set({
       status: input.status,
       // Absent leaves it to the trigger, which stamps the moment for a first publish and
       // carries the existing date forward otherwise.
@@ -242,6 +245,9 @@ export async function updatePageStatus(
       ...(content ? { content_json: content.contentJson, content_html: content.contentHtml } : {}),
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
+    // Published is accepted: the AI's undo copy has nothing left to undo.
+    if (input.status === 'published') await trx.deleteFrom('content_ai_snapshots').where('page_id', '=', input.id).execute();
+    return updated;
   });
   invalidatePublicNavigationCache();
   return pageFromRow(row);

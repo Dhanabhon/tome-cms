@@ -264,6 +264,8 @@ export async function updatePost(ownerId: string, input: UpdatePostInput): Promi
         ...plannedAtWrite(input),
       }).where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
       await replacePostGroupCategories(trx, ownerId, current.translation_group_id, input.categoryIds);
+      // Published is accepted: the AI's undo copy has nothing left to undo.
+      if (input.status === 'published') await trx.deleteFrom('content_ai_snapshots').where('post_id', '=', input.id).execute();
       return updated;
     });
     return postFromRow(row);
@@ -284,7 +286,7 @@ export async function updatePostStatus(
     const content = input.status === 'published'
       ? await prepareContentWithFiles(trx, ownerId, { contentJson: current.content_json, status: input.status })
       : null;
-    return trx.updateTable('posts').set({
+    const updated = await trx.updateTable('posts').set({
       status: input.status,
       // Absent leaves it to the trigger, which stamps the moment for a first publish and
       // carries the existing date forward otherwise.
@@ -293,6 +295,9 @@ export async function updatePostStatus(
       ...(content ? { content_json: content.contentJson, content_html: content.contentHtml } : {}),
     })
       .where('id', '=', input.id).where('owner_id', '=', ownerId).returningAll().executeTakeFirstOrThrow();
+    // Published is accepted: the AI's undo copy has nothing left to undo.
+    if (input.status === 'published') await trx.deleteFrom('content_ai_snapshots').where('post_id', '=', input.id).execute();
+    return updated;
   });
   return postFromRow(row);
 }
