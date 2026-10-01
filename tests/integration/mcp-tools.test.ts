@@ -421,6 +421,27 @@ test('restoreSnapshot puts the original back; publishing and deleting end the un
   assert.ok(live);
 });
 
+test('restoreSnapshot keeps the slug another post took since, and leaves out a category and a cover that are gone', async () => {
+  const { categoryIdsForPost, createCategory, deleteCategory } = await import('../../src/server/content/categories');
+  const doomed = await createCategory(OWNER, `Soon gone ${randomUUID().slice(0, 8)}`);
+  const cover = await image(OWNER, 'Soon gone');
+  const slug = `before-${randomUUID()}`;
+  const later = `after-${randomUUID()}`;
+  const original = await createPost(OWNER, postInput('Put back', { type: 'doc', content: [paragraph('Before')] }, { slug, categoryIds: [doomed.id, notesId], coverMediaId: cover }));
+  const written = await ok(writer, 'update_draft', { kind: 'post', id: original.id, updatedAt: original.updated_at, title: 'AI title', slug: later, categories: [], coverMediaId: null });
+
+  await createPost(OWNER, postInput('Took the address', { type: 'doc', content: [paragraph('Mine now')] }, { slug }));
+  await deleteCategory(OWNER, doomed.id);
+  await db.updateTable('media_items').set({ state: 'deleting' }).where('id', '=', cover).execute();
+
+  const restored = await snapshots.restoreSnapshot(OWNER, 'post', original.id, written.updatedAt);
+  assert.equal(restored.title, 'Put back', 'the rest comes back');
+  assert.equal(restored.slug, later, 'the address another post took stays with it');
+  assert.equal((restored as { cover_media_id: string | null }).cover_media_id, null);
+  assert.deepEqual(await categoryIdsForPost(OWNER, original.id), [notesId]);
+  assert.equal(await snapshots.readSnapshot(OWNER, 'post', original.id), null);
+});
+
 test('search_content finds drafts by status, and lists carry a cursor', async () => {
   const drafts = await ok(reader, 'search_content', { query: 'เนื้อหา', status: 'draft' });
   assert.ok(drafts.items.some((item: { id: string }) => item.id === aiDraftId));

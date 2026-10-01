@@ -102,25 +102,57 @@ export async function readSnapshot(ownerId: string, kind: ContentKind, id: strin
   return { clientName: row.client_name, aiWrittenAt: aiWrittenAt.toISOString(), ownerEditedSince: instant(item.updated_at) > instant(aiWrittenAt) };
 }
 
-/** Puts the draft back as it was before the AI, with the usual version check, then forgets the copy. */
+/** The snapshot's slug, unless another item in the same language has taken it since: then the current one stays. */
+async function slugToRestore(ownerId: string, kind: ContentKind, id: string, slug: string): Promise<string> {
+  const table = kind === 'post' ? 'posts' : 'pages';
+  const current = await db.selectFrom(table).select(['slug', 'locale'])
+    .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
+  if (!current) throw new HttpError(404, kind === 'post' ? 'Post not found.' : 'Page not found.');
+  const taken = await db.selectFrom(table).select('id')
+    .where('locale', '=', current.locale).where('slug', '=', slug).where('id', '!=', id).executeTakeFirst();
+  return taken ? current.slug : slug;
+}
+
+/** The categories and cover the snapshot named that still exist: one deleted since is left out, not refused. */
+async function postFieldsToRestore(ownerId: string, fields: SnapshotFields): Promise<{ categoryIds: string[]; coverMediaId: string | null }> {
+  const named = fields.category_ids ?? [];
+  const categories = named.length
+    ? await db.selectFrom('categories').select('id').where('owner_id', '=', ownerId).where('id', 'in', named).execute()
+    : [];
+  const cover = fields.cover_media_id
+    ? await db.selectFrom('media_items').select('id')
+      .where('id', '=', fields.cover_media_id).where('owner_id', '=', ownerId).where('state', '=', 'ready').executeTakeFirst()
+    : undefined;
+  return { categoryIds: named.filter((categoryId) => categories.some((row) => row.id === categoryId)), coverMediaId: cover?.id ?? null };
+}
+
+/**
+ * Puts the draft back as it was before the AI, with the usual version check, then forgets the copy.
+ * What has gone since -- its address taken, a category or the cover deleted -- is left as it is now,
+ * so a 409 here only ever means the draft changed. A picture gone from the body still refuses (400).
+ */
 export async function restoreSnapshot(ownerId: string, kind: ContentKind, id: string, updatedAt: string): Promise<Post | Page> {
   const row = await db.selectFrom('content_ai_snapshots').select(['id', 'fields'])
     .where(column(kind), '=', id).where('owner_id', '=', ownerId).executeTakeFirst();
   if (!row) throw new HttpError(404, 'There is nothing to put back.');
   const fields = row.fields as SnapshotFields;
   const common = {
-    id, updatedAt, status: 'draft' as const, title: fields.title, slug: fields.slug, excerpt: fields.excerpt,
+    id, updatedAt, status: 'draft' as const, title: fields.title, slug: await slugToRestore(ownerId, kind, id, fields.slug), excerpt: fields.excerpt,
     metaTitle: fields.meta_title, metaDescription: fields.meta_description, contentJson: fields.content_json,
   };
-  const restored = kind === 'post'
-    ? await updatePost(ownerId, {
+  let restored: Post | Page;
+  if (kind === 'post') {
+    const kept = await postFieldsToRestore(ownerId, fields);
+    restored = await updatePost(ownerId, {
       ...common,
-      coverMediaId: fields.cover_media_id ?? null,
+      coverMediaId: kept.coverMediaId,
       showCover: fields.show_cover,
       // With an edition published, the group's categories are the owner's now: they stay as they are.
-      categoryIds: await groupIsAllDrafts(ownerId, id) ? fields.category_ids ?? [] : await categoryIdsForPost(ownerId, id),
-    })
-    : await updatePage(ownerId, common);
+      categoryIds: await groupIsAllDrafts(ownerId, id) ? kept.categoryIds : await categoryIdsForPost(ownerId, id),
+    });
+  } else {
+    restored = await updatePage(ownerId, common);
+  }
   await db.deleteFrom('content_ai_snapshots').where('id', '=', row.id).execute();
   return restored;
 }
