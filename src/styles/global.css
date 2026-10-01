@@ -1402,6 +1402,14 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Its focus is a ring, like any control's. It was a 2px accent line under the words, which is what
  * marks the current tab a few pixels to its left, and the filter is not a tab. */
 .admin-list-filter .admin-list-filter__select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); background-color: transparent; border-color: transparent; }
+/* .admin-control's hover fills its box and its press draws a border, which on this boxless select
+ * was a grey block with the words at its edge, and then a line like the current tab's. Its words
+ * darken instead. */
+.admin-list-filter .admin-list-filter__select[aria-expanded='true'] { color: var(--color-ink); }
+.admin-list-filter .admin-list-filter__select:active { border-color: transparent; }
+@media (hover: hover) and (pointer: fine) {
+  .admin-list-filter .admin-list-filter__select:hover { background-color: transparent; color: var(--color-ink); }
+}
 /* Posts read as cards: the cover leads, the title and its meta sit under it, and the
  * date shares a footer with the row menu. Pages keeps the row list this class started
  * as -- the two lists answer different questions and the reference separates them. */
