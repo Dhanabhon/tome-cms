@@ -12,7 +12,7 @@ import { mcpConfig } from '../../../../server/mcp/config';
 import { listConnections, revokeConnection } from '../../../../server/mcp/connections';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
-const revokeSchema = z.object({ id: z.string().min(1).max(100) }).strict();
+const revokeSchema = z.object({ id: z.string().uuid() }).strict();
 const headers = (requestId: string) => ({ 'Cache-Control': 'no-store', 'X-Request-ID': requestId });
 
 /** Both routes are a 404 while MCP is off, like everything else it serves. */

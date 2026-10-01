@@ -51,8 +51,10 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: connection.id }),
     });
-    if (response.ok) setConnections((current) => (current ?? []).filter(({ id }) => id !== connection.id));
-    else setFailed(true);
+    if (response.ok) {
+      setFailed(false);
+      setConnections((current) => (current ?? []).filter(({ id }) => id !== connection.id));
+    } else setFailed(true);
   }
 
   return (

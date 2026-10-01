@@ -25,6 +25,7 @@ export async function listConnections(ownerId: string): Promise<McpConnectionSum
     clientName: row.client_name,
     redirectHost: row.redirect_host,
     scopes: row.scopes,
+    // Cast: kysely types a Generated<Timestamp> select as the column wrapper, not the Date pg returns.
     createdAt: (row.created_at as unknown as Date).toISOString(),
     lastUsedAt: row.last_used_at?.toISOString() ?? null,
   }));

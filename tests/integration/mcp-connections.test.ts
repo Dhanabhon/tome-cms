@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { after, before, test } from 'node:test';
 
+import { runWithEndpointContext } from '@better-auth/core/context';
+import { makeSignature } from 'better-auth/crypto';
+
 import type { McpConfig } from '../../src/server/mcp/config';
 
 assert.equal(process.env.NODE_ENV, 'test');
@@ -18,6 +21,8 @@ const oauth = await import('../../src/server/mcp/oauth');
 const { listConnections, revokeConnection } = await import('../../src/server/mcp/connections');
 
 const OWNER = 'owner-a';
+const OTHER = 'owner-b';
+const ORIGIN = 'http://localhost:4321';
 const CLAUDE = 'https://claude.ai/api/mcp/auth_callback';
 let config: McpConfig;
 let clientId: string;
@@ -82,6 +87,14 @@ test('revoking one connection stops it and leaves the other, and drops it from t
   assert.deepEqual((await listConnections(OWNER)).map(({ id }) => id), [other!.id]);
 });
 
+test('another owner can neither see nor revoke a connection', async () => {
+  await db.insertInto('user').values({ id: OTHER, name: OTHER, email: `${OTHER}@example.invalid`, emailVerified: true, image: null, role: 'owner' }).execute();
+  const [mine] = await listConnections(OWNER);
+  assert.deepEqual(await listConnections(OTHER), []);
+  await revokeConnection(OTHER, mine!.id);
+  assert.deepEqual((await listConnections(OWNER)).map(({ id }) => id), [mine!.id], 'still live');
+});
+
 test('switching MCP off and on again starts clean; saving while it stays on does not', async () => {
   await writePluginSettings(OWNER, { enabled: true, id: 'mcp', values: { allowWrite: 'off' } });
   assert.equal((await listConnections(OWNER)).length, 1, 'a save while on clears nothing');
@@ -93,4 +106,42 @@ test('switching MCP off and on again starts clean; saving while it stays on does
   assert.equal((await db.selectFrom('mcp_clients').select('id').execute()).length, 0);
   assert.equal((await db.selectFrom('mcp_connections').select('id').execute()).length, 0);
   assert.equal((await db.selectFrom('mcp_tokens').select('token_hash').execute()).length, 0);
+});
+
+let cookie: string | undefined;
+/** A signed-in owner's session cookie, as a browser would hold it after a passkey. */
+async function ownerCookie(): Promise<string> {
+  if (cookie) return cookie;
+  await db.insertInto('passkey').values({
+    id: 'mcp-passkey', name: 'MCP', publicKey: 'mcp-key', userId: OWNER, credentialID: 'mcp-credential', counter: 0,
+    deviceType: 'singleDevice', backedUp: false, transports: '', aaguid: null,
+  }).execute();
+  const { auth } = await import('../../src/server/auth/config');
+  const authContext = await auth.$context;
+  const session = await runWithEndpointContext({
+    context: authContext as unknown as Parameters<typeof runWithEndpointContext>[0]['context'],
+    path: '/passkey/verify-authentication',
+    body: { response: { id: 'mcp-credential' } },
+  }, () => authContext.internalAdapter.createSession(OWNER));
+  cookie = `${authContext.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, authContext.secret)}`;
+  return cookie;
+}
+
+test('the connections route: a 404 while off, and DELETE only from this origin', async () => {
+  const { GET, DELETE } = await import('../../src/pages/api/admin/mcp/connections');
+  const owner = await ownerCookie();
+  const call = (handler: typeof GET, method: string, headers: Record<string, string> = {}) => handler({
+    request: new Request(`${ORIGIN}/api/admin/mcp/connections`, {
+      method, headers: { 'content-type': 'application/json', cookie: owner, origin: ORIGIN, ...headers },
+      ...(method === 'DELETE' ? { body: JSON.stringify({ id: crypto.randomUUID() }) } : {}),
+    }),
+  } as unknown as Parameters<typeof GET>[0]);
+
+  assert.equal((await call(GET, 'GET')).status, 200);
+  assert.equal((await call(DELETE, 'DELETE', { origin: 'https://evil.example' })).status, 403);
+  assert.equal((await call(DELETE, 'DELETE')).status, 200);
+
+  await writePluginSettings(OWNER, { enabled: false, id: 'mcp', values: {} });
+  assert.equal((await call(GET, 'GET')).status, 404);
+  assert.equal((await call(DELETE, 'DELETE')).status, 404);
 });
