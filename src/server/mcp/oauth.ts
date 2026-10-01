@@ -27,6 +27,7 @@ const CIMD_CACHE_MS = 24 * 60 * 60 * 1000;
 // How long an unapproved client, an orphaned one, or an expired code or token is kept before it is tidied.
 const TIDY_AFTER_SECONDS = 24 * 60 * 60;
 const MAX_CLIENTS = 100;
+const TOO_MANY_APPS = 'Too many apps are registered. Revoke ones you no longer use on the Plugins screen.';
 const MAX_PENDING = 100;
 const MAX_REDIRECTS = 10;
 const TOUCH_MS = 60 * 1000;
@@ -66,14 +67,20 @@ interface Client { id: string; name: string; redirectUris: string[]; /** A CIMD 
 
 /**
  * Tidies before counting: clients nobody approved within a day; codes and tokens a day past their
- * expiry (a refresh token's own expiry covers its 30 days); and approved clients a day old with no
- * connection left that is not revoked. Then there has to be room for one more.
+ * expiry (a refresh token's own expiry covers its 30 days); then connections a day old left with no
+ * token, which the Plugins screen no longer shows and nobody could revoke, are revoked; and last,
+ * clients a day old with no connection left that is not revoked. A connection is live, then, while
+ * it has a token or is under a day old (a consent being redeemed). There has to be room for one more.
  */
 async function makeRoomForClient(ownerId: string): Promise<boolean> {
   const dayAgo = sql<Date>`now() - (${TIDY_AFTER_SECONDS} * interval '1 second')`;
   const owned = db.selectFrom('mcp_connections').select('id').where('owner_id', '=', ownerId);
   await db.deleteFrom('mcp_codes').where('connection_id', 'in', owned).where('expires_at', '<', dayAgo).execute();
   await db.deleteFrom('mcp_tokens').where('connection_id', 'in', owned).where('expires_at', '<', dayAgo).execute();
+  await db.updateTable('mcp_connections').set({ revoked_at: new Date() })
+    .where('owner_id', '=', ownerId).where('revoked_at', 'is', null).where(sql<boolean>`created_at < ${dayAgo}`)
+    .where((eb) => eb.not(eb.exists(eb.selectFrom('mcp_tokens').select('token_hash').whereRef('mcp_tokens.connection_id', '=', 'mcp_connections.id'))))
+    .execute();
   await db.deleteFrom('mcp_clients').where('owner_id', '=', ownerId).where(sql<boolean>`created_at < ${dayAgo}`)
     .where((eb) => eb.or([
       eb('approved', '=', false),
@@ -106,7 +113,7 @@ export async function registerClient(config: McpConfig, body: unknown): Promise<
   }
   const named = typeof metadata.client_name === 'string' ? metadata.client_name.trim().slice(0, 200) : '';
   const name = named || new URL(uris[0]!).host;
-  if (!(await makeRoomForClient(config.ownerId))) throw new OAuthRegistrationError('invalid_client_metadata', 'Too many apps are registered. Revoke ones you no longer use on the Plugins screen.');
+  if (!(await makeRoomForClient(config.ownerId))) throw new OAuthRegistrationError('invalid_client_metadata', TOO_MANY_APPS);
   const id = `dcr:${randomUUID()}`;
   await db.insertInto('mcp_clients').values({
     id, owner_id: config.ownerId, kind: 'dcr', name, redirect_uris: sql<string[]>`${JSON.stringify(uris)}::jsonb`,
@@ -268,7 +275,7 @@ export async function decide(config: McpConfig, ownerId: string, requestId: stri
     return { redirect: redirectWith(request.redirectUri, { error: 'access_denied', state: request.state, iss: config.issuer }) };
   }
   const scopes = ['content:read', ...(decision.write && config.allowWrite ? ['drafts:write'] : [])];
-  if (request.unsaved && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError('This site has too many clients.');
+  if (request.unsaved && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError(TOO_MANY_APPS);
   const code = newSecret();
   await db.transaction().execute(async (trx) => {
     if (request.unsaved) {

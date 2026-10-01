@@ -467,11 +467,12 @@ test('registering sweeps codes and tokens a day expired and approved clients lef
     }).execute();
     await sql`update mcp_clients set created_at = now() - make_interval(hours => ${createdHoursAgo}) where id = ${id}`.execute(db);
   }
-  async function connection(client: string, revoked: boolean): Promise<string> {
+  async function connection(client: string, revoked: boolean, createdHoursAgo = 0): Promise<string> {
     const id = crypto.randomUUID();
     await db.insertInto('mcp_connections').values({
       id, owner_id: OWNER, client_id: client, client_name: client, redirect_host: 'claude.ai', scopes: ['content:read'], revoked_at: revoked ? new Date() : null,
     }).execute();
+    await sql`update mcp_connections set created_at = now() - make_interval(hours => ${createdHoursAgo}) where id = ${id}`.execute(db);
     return id;
   }
   const token = async (connectionId: string, expiresHoursAgo: number) => {
@@ -492,15 +493,28 @@ test('registering sweeps codes and tokens a day expired and approved clients lef
   await client('dcr:orphan', true, 25);
   await connection('dcr:orphan', true);
   await client('dcr:young', true, 1);
+  // Unused for 40 days: its last refresh token expired 10 days ago, so pruning leaves it no token.
+  const DAYS_40 = 40 * 24;
+  const dead = await connection('dcr:live', false, DAYS_40);
+  await token(dead, 10 * 24);
+  await client('dcr:stale', true, DAYS_40);
+  await token(await connection('dcr:stale', false, DAYS_40), 10 * 24);
+  // A consent being redeemed right now has no token yet, and is still live.
+  await client('dcr:redeeming', true, DAYS_40);
+  const redeeming = await connection('dcr:redeeming', false);
 
   await oauth.registerClient(config, { client_name: 'Sweeper', redirect_uris: [CLAUDE] });
+  const revokedAt = async (id: string) => (await db.selectFrom('mcp_connections').select('revoked_at').where('id', '=', id).executeTakeFirstOrThrow()).revoked_at;
+  assert.notEqual(await revokedAt(dead), null, 'a connection a day old with no token left is revoked');
+  assert.equal(await revokedAt(live), null);
+  assert.equal(await revokedAt(redeeming), null);
   const tokens = (await db.selectFrom('mcp_tokens').select('token_hash').where('connection_id', '=', live).execute()).map(({ token_hash }) => token_hash);
   assert.deepEqual(tokens.sort(), [recentToken, freshToken].sort(), 'a token expired over a day ago goes');
   const codes = (await db.selectFrom('mcp_codes').select('code_hash').where('connection_id', '=', live).execute()).map(({ code_hash }) => code_hash);
   assert.deepEqual(codes, [recentCode], 'a code expired over a day ago goes');
   assert.ok(!tokens.includes(oldToken) && !codes.includes(oldCode));
-  const clients = (await db.selectFrom('mcp_clients').select('id').where('id', 'in', ['dcr:live', 'dcr:orphan', 'dcr:young']).execute()).map(({ id }) => id);
-  assert.deepEqual(clients.sort(), ['dcr:live', 'dcr:young'], 'an approved client a day old with no live connection goes');
+  const clients = (await db.selectFrom('mcp_clients').select('id').where('id', 'in', ['dcr:live', 'dcr:orphan', 'dcr:young', 'dcr:stale', 'dcr:redeeming']).execute()).map(({ id }) => id);
+  assert.deepEqual(clients.sort(), ['dcr:live', 'dcr:redeeming', 'dcr:young'], 'an approved client a day old with no live connection goes');
 
   // Full: the refusal says what to do about it.
   const { count } = await db.selectFrom('mcp_clients').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
@@ -511,6 +525,13 @@ test('registering sweeps codes and tokens a day expired and approved clients lef
   await assert.rejects(
     oauth.registerClient(config, { client_name: 'One too many', redirect_uris: [CLAUDE] }),
     /Too many apps are registered\. Revoke ones you no longer use on the Plugins screen\./,
+  );
+  // A client document allowed while full says the same.
+  oauth.setClientMetadataFetcherForTest(async () => ({ name: 'Full', redirectUris: ['http://127.0.0.1/callback'] }));
+  const full = await oauth.startAuthorization(config, authorizeParams({ client_id: 'https://full.example/client.json', redirect_uri: 'http://127.0.0.1:53100/callback' }));
+  await assert.rejects(
+    oauth.decide(config, OWNER, full.requestId, { allow: true, write: false }),
+    (error) => error instanceof OAuthPageError && error.message === 'Too many apps are registered. Revoke ones you no longer use on the Plugins screen.',
   );
   await db.deleteFrom('mcp_clients').where('id', 'in', filler).execute();
 });
