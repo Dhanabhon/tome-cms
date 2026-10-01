@@ -29,6 +29,7 @@ import {
 } from '../../lib/media';
 import { copiedFlag } from '../../lib/copy-feedback';
 import { closeOverlay } from '../../lib/overlay-motion';
+import { readMediaView, writeMediaView, type MediaView } from '../../lib/media-view';
 import { pdfThumbnails } from '../../lib/pdf-thumbnail';
 import { wireDetailsMenus } from '../../lib/details-menu';
 import { confirmUi } from '../../lib/ui-dialog';
@@ -36,7 +37,9 @@ import type { MediaAsset, MediaFolder, MediaReferences, PostLocale } from '../..
 import Icon from '../Icon';
 import SaveButton from './SaveButton';
 import UiSelect from './UiSelect';
+import MediaListRow from './MediaListRow';
 import MediaTypes from './MediaTypes';
+import MediaViewSwitch from './MediaViewSwitch';
 import MediaUploadDialog from './MediaUploadDialog';
 import { atLeast } from '../../lib/busy';
 import { saveButtonState } from '../../lib/save-state';
@@ -82,6 +85,9 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [items, setItems] = useState<MediaAsset[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
   const [view] = useState(() => initialView(props));
+  // Grid or list is the browser's to remember, and the page's own (initialView reads the address the same way).
+  const [layout, setLayout] = useState<MediaView>(readMediaView);
+  const when = useMemo(() => new Intl.DateTimeFormat(props.ownerLocale === 'th' ? 'th-TH' : 'en', { dateStyle: 'medium' }), [props.ownerLocale]);
   const [selection, setSelection] = useState<CategorySelection>(view.selection);
   const [filter, setFilter] = useState<MediaTypeFilter | null>(view.filter);
   const [page, setPage] = useState(1);
@@ -540,6 +546,21 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     );
   }
 
+  /** What a file is called to a screen reader, as a card or as a row. */
+  function fileLabel(item: MediaAsset) {
+    const format = formatLabel(item.mime_type);
+    const size = formatBytes(item.size_bytes);
+    return isImageAsset(item)
+      ? fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: item.height, name: item.original_name, size, width: item.width })
+      : fill(props.mode === 'select' ? copy.media.selectFileLabel : copy.media.fileLabel, { format, name: item.original_name, size });
+  }
+
+  /** A picker hands the file back; the library page opens its details. */
+  function chooseFile(item: MediaAsset, opener: HTMLButtonElement) {
+    if (props.mode === 'select') props.onSelect(item);
+    else openDetails(item, opener);
+  }
+
   const selectedFolder = folders.find((folder) => folder.id === selection);
   const categoryOptions = [
     { label: copy.media.allFiles, value: 'all' },
@@ -583,9 +604,12 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           <Icon name="search" />
           <input className="admin-control" onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }} placeholder={copy.media.searchFiles} type="search" value={search} />
         </label>
-        {!(props.mode === 'select' && props.kind === 'image') && (
-          <MediaTypes copy={copy} filters={props.mode === 'select' && props.kind === 'document' ? FILE_FILTERS : LIBRARY_FILTERS} onChange={selectType} value={filter} />
-        )}
+        <div className="media-filters">
+          {!(props.mode === 'select' && props.kind === 'image') && (
+            <MediaTypes copy={copy} filters={props.mode === 'select' && props.kind === 'document' ? FILE_FILTERS : LIBRARY_FILTERS} onChange={selectType} value={filter} />
+          )}
+          <MediaViewSwitch copy={copy} onChange={(next) => { setLayout(next); writeMediaView(next); }} value={layout} />
+        </div>
         <div className="media-toolbar__end">
           <label aria-busy={uploading} className="admin-button admin-button--primary media-upload">
             <span>{props.mode === 'manage' ? copy.media.uploadTitle : props.kind === 'image' ? copy.media.uploadImage : copy.media.uploadFile}</span>
@@ -616,14 +640,13 @@ export default function MediaLibrary(props: MediaLibraryProps) {
               <p>{copy.media.emptyBody}</p>
             </div>
           )}
-          {items.length > 0 && <><div className="media-grid">{items.map((item) => {
+          {items.length > 0 && <>{layout === 'list' && <ul className="media-list">{items.map((item) => (
+            <MediaListRow item={item} key={item.id} label={fileLabel(item)} onChoose={(event) => chooseFile(item, event.currentTarget)} page={thumbnails.get(item.id)} watch={watchCard} when={when} />
+          ))}</ul>}{layout === 'grid' && <div className="media-grid">{items.map((item) => {
             const image = isImageAsset(item) ? item : null;
             const format = formatLabel(item.mime_type);
             const size = formatBytes(item.size_bytes);
-            const label = image
-              ? fill(props.mode === 'select' ? copy.media.selectLabel : copy.media.itemLabel, { format, height: image.height, name: item.original_name, size, width: image.width })
-              : fill(props.mode === 'select' ? copy.media.selectFileLabel : copy.media.fileLabel, { format, name: item.original_name, size });
-            return <button aria-label={label} className="media-card" key={item.id} onClick={(event) => props.mode === 'select' ? props.onSelect(item) : openDetails(item, event.currentTarget)} type="button">
+            return <button aria-label={fileLabel(item)} className="media-card" key={item.id} onClick={(event) => chooseFile(item, event.currentTarget)} type="button">
               {image
                 ? <img alt="" className="aspect-square w-full object-cover" height={image.height} loading="lazy" src={item.publicUrl} width={image.width} />
                 : thumbnails.has(item.id)
@@ -633,7 +656,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
               <span className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">{image && <span>{image.width} × {image.height}</span>}<span>{format}</span><span>{size}</span></span>
               {props.mode === 'select' && <span className="media-card-select">{copy.media.select}</span>}
             </button>;
-          })}</div>{hasMore && <div className="media-status"><button aria-busy={loading} className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection, filter)} type="button">{copy.media.loadMore}</button></div>}</>}
+          })}</div>}{hasMore && <div className="media-status"><button aria-busy={loading} className="admin-button" disabled={loading} onClick={() => void load(page + 1, true, currentQuery.current, selection, filter)} type="button">{copy.media.loadMore}</button></div>}</>}
         </div>
       </div>
 

@@ -105,6 +105,9 @@ const en = {
     uploadingProgress: 'Uploading…',
     urlCopiedShort: 'Copied',
     urlSelected: 'URL selected. Copy it with your keyboard shortcut.',
+    viewGrid: 'Grid',
+    viewLabel: 'File layout',
+    viewList: 'List',
   },
   nav: {
     appearance: 'Appearance',
@@ -1226,6 +1229,9 @@ const th: typeof en = {
     uploadingProgress: 'กำลังอัปโหลด…',
     urlCopiedShort: 'คัดลอกแล้ว',
     urlSelected: 'เลือก URL ไว้แล้ว กดคัดลอกด้วยคีย์ลัดของคุณ',
+    viewGrid: 'ตาราง',
+    viewLabel: 'รูปแบบการแสดงไฟล์',
+    viewList: 'รายการ',
   },
   nav: {
     appearance: 'หน้าตาเว็บไซต์',
