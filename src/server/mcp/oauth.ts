@@ -326,6 +326,33 @@ function required(form: URLSearchParams, ...keys: string[]): string[] {
 }
 
 /**
+ * The user name of an HTTP Basic header (RFC 6749 2.3.1: form-encoded, then base64), for a client
+ * that asked for client_secret_basic. Its secret is ignored: none was issued, and the code's
+ * verifier or the refresh token is the proof.
+ */
+function basicClientId(header: string): string {
+  const encoded = /^basic (\S*)$/i.exec(header.trim())?.[1] ?? '';
+  const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+  // Split at the last colon: a client that forgets to encode a `dcr:` id still splits right.
+  const colon = decoded.lastIndexOf(':');
+  if (!encoded || Buffer.from(decoded).toString('base64') !== encoded || colon < 1) throw new OAuthTokenError('invalid_request');
+  try {
+    const id = decodeURIComponent(decoded.slice(0, colon).replaceAll('+', ' '));
+    if (id && id.length <= MAX_PARAM) return id;
+  } catch { /* a broken escape */ }
+  throw new OAuthTokenError('invalid_request');
+}
+
+/** client_id from the form, from HTTP Basic, or from both when they agree. */
+function clientIdOf(form: URLSearchParams, authorization: string | null): string {
+  const fromHeader = authorization && /^basic\b/i.test(authorization.trim()) ? basicClientId(authorization) : null;
+  if (!form.has('client_id') && fromHeader !== null) return fromHeader;
+  const [fromForm] = required(form, 'client_id');
+  if (fromHeader !== null && fromHeader !== fromForm) throw new OAuthTokenError('invalid_request');
+  return fromForm!;
+}
+
+/**
  * A pair for a code, or null. The code is spent even when what follows refuses it, so it is never
  * tried twice; and a code presented after it was spent revokes whatever it issued (OAuth 2.1 4.1.3).
  */
@@ -373,16 +400,19 @@ async function rotateRefresh(trx: Transaction<Database>, ownerId: string, token:
  * revoked. If it was already rotated, refuse; and if that was more than
  * REFRESH_REUSE_GRACE_SECONDS ago, revoke the connection too (reuse means theft). Otherwise set
  * rotated_at and issue a new pair. Anything else: OAuthTokenError.
+ * Either grant takes client_id from the form or from an HTTP Basic `authorization` (clientIdOf).
  */
-export async function exchange(config: McpConfig, form: URLSearchParams): Promise<TokenResponse> {
+export async function exchange(config: McpConfig, form: URLSearchParams, authorization: string | null = null): Promise<TokenResponse> {
   const [grantType] = required(form, 'grant_type');
   let issue: (trx: Transaction<Database>) => Promise<TokenResponse | null>;
   if (grantType === 'authorization_code') {
-    const [code, redirectUri, clientId, verifier] = required(form, 'code', 'redirect_uri', 'client_id', 'code_verifier');
-    issue = (trx) => redeemCode(trx, config.ownerId, code!, clientId!, redirectUri!, verifier!);
+    const [code, redirectUri, verifier] = required(form, 'code', 'redirect_uri', 'code_verifier');
+    const clientId = clientIdOf(form, authorization);
+    issue = (trx) => redeemCode(trx, config.ownerId, code!, clientId, redirectUri!, verifier!);
   } else if (grantType === 'refresh_token') {
-    const [token, clientId] = required(form, 'refresh_token', 'client_id');
-    issue = (trx) => rotateRefresh(trx, config.ownerId, token!, clientId!);
+    const [token] = required(form, 'refresh_token');
+    const clientId = clientIdOf(form, authorization);
+    issue = (trx) => rotateRefresh(trx, config.ownerId, token!, clientId);
   } else {
     throw new OAuthTokenError('unsupported_grant_type');
   }
