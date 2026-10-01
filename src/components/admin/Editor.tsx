@@ -6,6 +6,7 @@ import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
+import EditingStatus from './EditingStatus';
 import PostSettingsDrawer from './PostSettingsDrawer';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
@@ -33,6 +34,8 @@ interface EditorProps {
   ownerLocale?: PostLocale | null;
   sourcePost?: EditorSourcePost;
   translations: PostTranslationSummary[];
+  /** The app the AI undo bar above names, when the page shows one. A new draft has none. */
+  undoClient?: string | null;
 }
 
 interface EditorDraft {
@@ -59,7 +62,7 @@ function readPost(payload: unknown): Post | null {
   return typeof post === 'object' && post !== null && 'id' in post ? (post as Post) : null;
 }
 
-export default function Editor({ canSuggest = false, adminPath, categories, initialCategoryIds, initialPost, locale, ownerLocale, sourcePost, translations }: EditorProps) {
+export default function Editor({ canSuggest = false, adminPath, categories, initialCategoryIds, initialPost, locale, ownerLocale, sourcePost, translations, undoClient = null }: EditorProps) {
   const copy = adminCopy(ownerLocale);
   const fallbackSlug = useRef(`post-${crypto.randomUUID().slice(0, 8)}`);
   const postId = useRef(initialPost?.id);
@@ -86,6 +89,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
   const [metaDescription, setMetaDescription] = useState(initialPost?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPost?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
   const [postStatus, setPostStatus] = useState<PostStatus>(initialPost?.status ?? 'draft');
+  // The saved draft the status bar holds for the owner: none until a new one is first saved.
+  const [held, setHeld] = useState(initialPost ? { id: initialPost.id, updatedAt: initialPost.updated_at } : null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [languageEditions, setLanguageEditions] = useState(translations);
@@ -133,6 +138,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
     const wasNew = !postId.current;
     postId.current = savedPost.id;
     updatedAt.current = savedPost.updated_at;
+    // The status bar checks against the version this editor holds; a new draft's first save draws it.
+    setHeld({ id: savedPost.id, updatedAt: savedPost.updated_at });
     // Content already persisted: retries must keep its identity and published status.
     postStatusRef.current = savedPost.status;
     // Only when there is one. A draft comes back with its date as planned_at, which is the
@@ -338,6 +345,8 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
 
   return (
     <div className="admin-editor">
+      {/* Drafts only: an AI cannot change anything else, so there is nothing to hold or tell. */}
+      {held && postStatus === 'draft' && <EditingStatus id={held.id} kind="post" locale={ownerLocale} text={copy.editing} undoClient={undoClient} updatedAt={held.updatedAt} />}
       <header className="admin-editor-bar">
         <div className="admin-editor-bar__inner">
           <div className="admin-editor-bar__start">

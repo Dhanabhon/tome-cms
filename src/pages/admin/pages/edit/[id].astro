@@ -71,7 +71,7 @@ const aiUndo = aiChange && settings ? {
   <main>
     {page && aiUndo && <AiUndoBar cancelLabel={copy.shell.cancel} client:load id={page.id} kind="page" snapshot={aiUndo} text={copy.aiUndo} updatedAt={page.updated_at} />}
     {page && editorPage ? (
-      <PageEditor canSuggest={canSuggest} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
+      <PageEditor canSuggest={canSuggest} undoClient={aiUndo?.clientName ?? null} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </PageEditor>
     ) : (

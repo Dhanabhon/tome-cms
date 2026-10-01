@@ -3,10 +3,12 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 
 import { runWithEndpointContext } from '@better-auth/core/context';
 import { makeSignature } from 'better-auth/crypto';
+import { sql } from 'kysely';
+import { Client } from 'pg';
 
 import type { McpConfig } from '../../src/server/mcp/config';
 import type { EditorDocument } from '../../src/types/cms';
@@ -26,6 +28,7 @@ const { createPost, updatePost, updatePostStatus, deletePost, getPost } = await 
 const { createPage, updatePageStatus } = await import('../../src/server/content/pages');
 const { HttpError } = await import('../../src/server/http/errors');
 const snapshots = await import('../../src/server/mcp/snapshots');
+const presence = await import('../../src/server/mcp/presence');
 const { setUpdateStatusPathForTest } = await import('../../src/server/mcp/tools');
 const { POST } = await import('../../src/pages/mcp');
 
@@ -158,6 +161,7 @@ before(async () => {
   reader = await accessToken(client.client_id, false);
 });
 after(closeDatabase);
+beforeEach(() => presence.resetPresenceForTest());
 
 test('the endpoint takes a bearer token and nothing else', async () => {
   const none = await rpc(null, 'tools/list');
@@ -310,6 +314,99 @@ test('update_draft refuses, and writes nothing', async () => {
   assert.ok(written.content_json.content?.some((node) => node.type === 'video'));
 });
 
+test('an AI waits while the owner has the draft open, and its reads and writes are remembered', async () => {
+  presence.resetPresenceForTest();
+  const draft = await createPost(OWNER, postInput('Held', { type: 'doc', content: [paragraph('Mine')] }));
+  const key = presence.itemKey('post', draft.id);
+  const update = (extra: Record<string, unknown>) => ({ kind: 'post', id: draft.id, updatedAt: draft.updated_at, ...extra });
+
+  presence.beat(key);
+  await refused(writer, 'update_draft', update({ title: 'AI title' }), /owner has this draft open/);
+  assert.equal(await updatedAt(draft.id), draft.updated_at, 'nothing was written');
+  assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', draft.id).executeTakeFirst(), undefined);
+  assert.equal(presence.lastTouch(key), null, 'a refused write leaves no touch');
+
+  // Reading and making new drafts go on while the owner is in the editor.
+  await ok(writer, 'get_post', { id: draft.id });
+  assert.deepEqual(
+    { action: presence.lastTouch(key)?.action, brand: presence.lastTouch(key)?.brand, name: presence.lastTouch(key)?.clientName },
+    { action: 'read', brand: 'claude', name: 'Claude' },
+  );
+  const made = await ok(writer, 'create_draft', { kind: 'post', locale: 'en', title: 'New while held', body: 'x' });
+  assert.equal(presence.lastTouch(presence.itemKey('post', made.id))?.action, 'write');
+
+  // A beat older than 45 seconds no longer holds the draft.
+  presence.resetPresenceForTest();
+  presence.beat(key, Date.now() - 46_000);
+  await ok(writer, 'update_draft', update({ title: 'AI title' }));
+  assert.equal(presence.lastTouch(key)?.action, 'write');
+  assert.equal(presence.lastTouch(key)?.brand, 'claude');
+
+  // Listing and searching are not a look at one draft.
+  presence.resetPresenceForTest();
+  await ok(writer, 'list_posts', {});
+  await ok(writer, 'search_content', { query: 'Held' });
+  assert.equal(presence.lastTouch(key), null);
+  assert.equal(presence.lastTouch(presence.itemKey('post', made.id)), null);
+});
+
+test('an owner who opens the draft while the write is under way still comes first', async () => {
+  presence.resetPresenceForTest();
+  const draft = await createPost(OWNER, postInput('Opened late', { type: 'doc', content: [paragraph('Mine')] }));
+  const key = presence.itemKey('post', draft.id);
+  // The write is past its first look at the owner and held at its read of the draft; the owner opens it then.
+  // The lock is taken on a connection of its own: the app's pool has one in this run.
+  const locker = new Client({ connectionString: process.env.DATABASE_URL });
+  await locker.connect();
+  let write: Promise<ToolResult>;
+  try {
+    await locker.query('begin');
+    await locker.query('lock table posts in access exclusive mode');
+    write = call(writer, 'update_draft', { kind: 'post', id: draft.id, updatedAt: draft.updated_at, title: 'AI title' });
+    for (let attempt = 0; ; attempt += 1) {
+      const { rows } = await locker.query<{ waiting: number }>(`select count(*)::int as waiting from pg_locks where not granted and relation = 'posts'::regclass`);
+      if (rows[0]!.waiting > 0) break;
+      assert.ok(attempt < 400, 'the write never reached the draft');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    presence.beat(key);
+    await locker.query('commit');
+  } finally {
+    await locker.end();
+  }
+  const result = await write;
+  assert.equal(result.isError, true, 'the write should be refused');
+  assert.match(result.content[0]!.text, /owner has this draft open/);
+  assert.equal(await updatedAt(draft.id), draft.updated_at, 'nothing was written');
+  assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', draft.id).executeTakeFirst(), undefined, 'no undo copy');
+});
+
+test('the owner-first rule holds for any spelling of the id, and for pages', async () => {
+  const draft = await createPost(OWNER, postInput('Shouted', { type: 'doc', content: [paragraph('Mine')] }));
+  presence.beat(presence.itemKey('post', draft.id));
+  await refused(writer, 'update_draft', { kind: 'post', id: draft.id.toUpperCase(), updatedAt: draft.updated_at, title: 'AI title' }, /owner has this draft open/);
+  assert.equal(await updatedAt(draft.id), draft.updated_at, 'nothing was written');
+  assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', draft.id).executeTakeFirst(), undefined);
+
+  const page = await createPage(OWNER, {
+    title: 'Held page', slug: `page-${randomUUID()}`, excerpt: '', metaTitle: null, metaDescription: null,
+    contentJson: { type: 'doc', content: [paragraph('Mine')] }, status: 'draft', locale: 'en',
+  } as never);
+  const update = { kind: 'page', id: page.id, updatedAt: page.updated_at, title: 'AI page title' };
+  presence.beat(presence.itemKey('post', page.id));
+  await ok(writer, 'get_page', { id: page.id });
+  assert.deepEqual(
+    { action: presence.lastTouch(presence.itemKey('page', page.id))?.action, brand: presence.lastTouch(presence.itemKey('page', page.id))?.brand },
+    { action: 'read', brand: 'claude' },
+  );
+  assert.equal(presence.lastTouch(presence.itemKey('post', page.id)), null, 'a post key is not a page key');
+  await ok(writer, 'update_draft', update);
+
+  const second = await db.selectFrom('pages').select('updated_at').where('id', '=', page.id).executeTakeFirstOrThrow();
+  presence.beat(presence.itemKey('page', page.id));
+  await refused(writer, 'update_draft', { ...update, updatedAt: new Date(second.updated_at).toISOString(), title: 'Again' }, /owner has this draft open/);
+});
+
 test('while an update installs, writes wait and reads go on', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'tome-mcp-'));
   const statusPath = join(root, 'status.json');
@@ -355,6 +452,56 @@ test('restoreSnapshot puts the original back; publishing and deleting end the un
   await deletePost(OWNER, doomed.id, doomedWrite.updatedAt);
   assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', doomed.id).executeTakeFirst(), undefined);
   assert.ok(live);
+});
+
+test('restoreSnapshot keeps the slug another post took since, and leaves out a category and a cover that are gone', async () => {
+  const { categoryIdsForPost, createCategory, deleteCategory } = await import('../../src/server/content/categories');
+  const doomed = await createCategory(OWNER, `Soon gone ${randomUUID().slice(0, 8)}`);
+  const cover = await image(OWNER, 'Soon gone');
+  const slug = `before-${randomUUID()}`;
+  const later = `after-${randomUUID()}`;
+  const original = await createPost(OWNER, postInput('Put back', { type: 'doc', content: [paragraph('Before')] }, { slug, categoryIds: [doomed.id, notesId], coverMediaId: cover }));
+  const written = await ok(writer, 'update_draft', { kind: 'post', id: original.id, updatedAt: original.updated_at, title: 'AI title', slug: later, categories: [], coverMediaId: null });
+
+  await createPost(OWNER, postInput('Took the address', { type: 'doc', content: [paragraph('Mine now')] }, { slug }));
+  await deleteCategory(OWNER, doomed.id);
+  await db.updateTable('media_items').set({ state: 'deleting' }).where('id', '=', cover).execute();
+
+  const restored = await snapshots.restoreSnapshot(OWNER, 'post', original.id, written.updatedAt);
+  assert.equal(restored.title, 'Put back', 'the rest comes back');
+  assert.equal(restored.slug, later, 'the address another post took stays with it');
+  assert.equal((restored as { cover_media_id: string | null }).cover_media_id, null);
+  assert.deepEqual(await categoryIdsForPost(OWNER, original.id), [notesId]);
+  assert.equal(await snapshots.readSnapshot(OWNER, 'post', original.id), null);
+});
+
+test('a write line and a fault line each carry the request id, and no content', async (t) => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const info = t.mock.method(console, 'info', () => {});
+  const error = t.mock.method(console, 'error', () => {});
+  const lines = (calls: { arguments: unknown[] }[], event: string) => calls
+    .map((entry) => { try { return JSON.parse(String(entry.arguments[0])); } catch { return null; } })
+    .filter((line) => line?.event === event);
+
+  const draft = await createPost(OWNER, postInput('Logged', { type: 'doc', content: [paragraph('Secret words')] }));
+  await ok(writer, 'update_draft', { kind: 'post', id: draft.id, updatedAt: draft.updated_at, title: 'Secret title' });
+  const [write] = lines(info.mock.calls, 'mcp.write');
+  assert.match(write?.requestId ?? '', UUID);
+  assert.equal(write.id, draft.id);
+  assert.ok(!JSON.stringify(write).includes('Secret'));
+
+  // A fault: the table is briefly elsewhere, so the query fails as no refusal would.
+  await sql`alter table categories rename to categories_away`.execute(db);
+  let answer;
+  try {
+    answer = await rpc(reader, 'tools/call', { name: 'list_categories', arguments: {} });
+  } finally {
+    await sql`alter table categories_away rename to categories`.execute(db);
+  }
+  const [fault] = lines(error.mock.calls, 'mcp.error');
+  assert.match(fault?.requestId ?? '', UUID);
+  assert.notEqual(fault.requestId, write.requestId, 'one id per request');
+  assert.ok(JSON.stringify(answer.body).includes(fault.requestId), 'the AI is given the same id');
 });
 
 test('search_content finds drafts by status, and lists carry a cursor', async () => {

@@ -1,10 +1,17 @@
+import type { BrandName } from '../../lib/brand-marks';
 import { db } from '../db/client';
+import { clientBrand } from './brand';
+import { isLoopbackHost } from './redirects';
 
 /** What the owner sees of a connection. No token, code or hash is ever part of it. */
 export interface McpConnectionSummary {
   id: string;
   clientName: string;
   redirectHost: string;
+  /** The mark the app has earned, never one it only asked for by name. */
+  brand: BrandName | null;
+  /** It sends the owner to this computer. */
+  loopback: boolean;
   scopes: string[];
   createdAt: string;
   lastUsedAt: string | null;
@@ -16,7 +23,7 @@ export interface McpConnectionSummary {
  */
 export async function listConnections(ownerId: string): Promise<McpConnectionSummary[]> {
   const rows = await db.selectFrom('mcp_connections')
-    .select(['id', 'client_name', 'redirect_host', 'scopes', 'created_at', 'last_used_at'])
+    .select(['id', 'client_id', 'client_name', 'redirect_host', 'scopes', 'created_at', 'last_used_at'])
     .where('owner_id', '=', ownerId).where('revoked_at', 'is', null)
     .where((eb) => eb.exists(eb.selectFrom('mcp_tokens').select('token_hash').whereRef('mcp_tokens.connection_id', '=', 'mcp_connections.id')))
     .orderBy('created_at', 'desc').execute();
@@ -24,6 +31,8 @@ export async function listConnections(ownerId: string): Promise<McpConnectionSum
     id: row.id,
     clientName: row.client_name,
     redirectHost: row.redirect_host,
+    brand: clientBrand(row.client_id, row.redirect_host),
+    loopback: isLoopbackHost(row.redirect_host),
     scopes: row.scopes,
     // Cast: kysely types a Generated<Timestamp> select as the column wrapper, not the Date pg returns.
     createdAt: (row.created_at as unknown as Date).toISOString(),

@@ -1950,6 +1950,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* The MCP consent screen: where the approval goes is the thing to read, so it is the largest. */
 .mcp-consent > .admin-auth-context { order: -2; } /* read before the buttons, on a phone too */
 .admin-auth-context .mcp-consent__host { margin: var(--space-xs) 0 0; color: var(--color-on-dark); font-size: var(--text-2xl); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
+.admin-auth-context .mcp-consent__address { margin: var(--space-2xs) 0 0; color: var(--color-on-dark-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.mcp-consent__mark { display: grid; width: 2rem; height: 2rem; place-items: center; }
+.mcp-consent__mark .brand-mark, .mcp-consent__mark .icon { width: 2rem; height: 2rem; }
+.admin-auth-panel > header .mcp-consent__given { max-width: none; font-size: var(--text-sm); }
 .mcp-consent__warning { margin: var(--space-md) 0 0; color: var(--color-on-dark); font-weight: 600; line-height: 1.5; }
 .mcp-consent__scopes { display: grid; gap: var(--space-sm); min-width: 0; margin: 0; padding: 0; border: 0; }
 .mcp-consent__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
@@ -2781,9 +2785,21 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .mcp-connections__list li { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding-block-end: var(--space-sm); border-block-end: var(--rule-hair) solid var(--color-rule); }
 .mcp-connections__list li > div { display: grid; gap: var(--space-3xs); min-width: 0; }
 .mcp-connections__list small { color: var(--color-muted); }
+.mcp-connections__mark { display: grid; flex: none; align-self: start; margin-block-start: var(--space-3xs); width: 1.25rem; height: 1.25rem; place-items: center; }
+.mcp-connections__mark .brand-mark, .mcp-connections__mark .icon { width: 1.25rem; height: 1.25rem; }
+.mcp-connections__list li > div { flex: 1 1 12rem; }
 /* Above a draft an AI changed, as the migrations notice sits above a screen: a rule at the start,
  * not a tinted box, because it reports something rather than warning of it. Its content lines up
  * with the editor bar's below, which is 80rem wide at most. */
-.ai-undo { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
-.ai-undo p { margin: 0; min-width: 0; }
+.ai-undo, .editing-status { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
+.ai-undo p, .editing-status p { margin: 0; min-width: 0; }
+/* An app names itself, and a long name must wrap rather than widen the page. */
+.editing-status p { overflow-wrap: anywhere; }
 .ai-undo .admin-form-error { flex-basis: 100%; }
+/* Who is at work on an open draft, in the same bar: the app's mark before the sentence, and a
+ * "changed elsewhere" line with its button at the end. */
+.editing-status { flex-direction: column; align-items: stretch; }
+.editing-status__ai { display: flex; gap: var(--space-xs); align-items: start; }
+.editing-status__newer { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; }
+.editing-status__mark { display: grid; flex: none; width: 1.25rem; height: 1.25rem; place-items: center; }
+.editing-status__mark .brand-mark, .editing-status__mark .icon { width: 1.25rem; height: 1.25rem; }

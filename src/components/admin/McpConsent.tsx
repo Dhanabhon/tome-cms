@@ -5,6 +5,8 @@ import { authClient } from '../../lib/auth-client';
 import { describeReauthFailure } from '../../lib/passkey-failure';
 import type { PendingSummary } from '../../server/mcp/oauth';
 import type { PostLocale } from '../../types/cms';
+import BrandMark from '../BrandMark';
+import Icon from '../Icon';
 
 interface McpConsentProps {
   ownerLocale?: PostLocale | null;
@@ -58,13 +60,18 @@ export default function McpConsent({ ownerLocale, requestId, summary }: McpConse
       <section className="admin-auth-context" aria-labelledby="mcp-consent-host">
         <div>
           <p>{text.sendsTo}</p>
-          <p className="mcp-consent__host" id="mcp-consent-host">{summary.redirectHost}</p>
+          <p className="mcp-consent__host" id="mcp-consent-host">{summary.redirectIsLoopback ? text.thisComputer : summary.redirectHost}</p>
+          {summary.redirectIsLoopback && <p className="mcp-consent__address">{summary.redirectHost}</p>}
           {summary.loopbackOnly && <p className="mcp-consent__warning">{text.loopbackWarning}</p>}
         </div>
       </section>
       <section className="admin-auth-panel" aria-labelledby="mcp-consent-title">
         <header>
+          <span aria-hidden="true" className="mcp-consent__mark">
+            {summary.brand ? <BrandMark name={summary.brand} /> : <Icon name="system" />}
+          </span>
           <h1 id="mcp-consent-title">{fill(text.title, { client: summary.clientName })}</h1>
+          {!summary.brand && <p className="mcp-consent__given">{text.nameGiven}</p>}
         </header>
         <fieldset className="mcp-consent__scopes" disabled={busy !== null}>
           <div className="admin-check">

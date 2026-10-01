@@ -9,6 +9,16 @@ export const DEFAULT_REDIRECTS: readonly string[] = [
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
+/** A host as compared: lower case, without its port. */
+export function bareHost(host: string): string {
+  return host.toLowerCase().replace(/:\d+$/, '');
+}
+
+/** This computer, by any of its names, on any port. */
+export function isLoopbackHost(host: string): boolean {
+  return LOOPBACK_HOSTS.has(bareHost(host));
+}
+
 function parse(uri: string): URL | null {
   try {
     const url = new URL(uri);
@@ -24,7 +34,7 @@ function parse(uri: string): URL | null {
 /** http to this machine: a native app's redirect (RFC 8252), on whatever port it got. */
 export function isLoopback(uri: string): boolean {
   const url = parse(uri);
-  return Boolean(url && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname) && !url.username && !url.password);
+  return Boolean(url && url.protocol === 'http:' && isLoopbackHost(url.hostname) && !url.username && !url.password);
 }
 
 export function parseExtraRedirects(text: string): string[] {

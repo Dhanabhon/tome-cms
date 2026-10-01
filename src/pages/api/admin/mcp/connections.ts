@@ -26,8 +26,9 @@ async function ownerConfig(request: Request) {
 export const GET: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    const { current } = await ownerConfig(request);
-    return Response.json({ connections: await listConnections(current.user.id) }, { headers: headers(requestId) });
+    const { config, current } = await ownerConfig(request);
+    // With writing switched off, a connection that may write only reads: the list says so.
+    return Response.json({ connections: await listConnections(current.user.id), writeAllowed: config.allowWrite }, { headers: headers(requestId) });
   } catch (error) {
     return adminErrorResponse(error, requestId);
   }

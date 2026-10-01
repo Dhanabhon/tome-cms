@@ -9,7 +9,8 @@ import { expect, test } from './own-worker';
 /**
  * MCP end to end, as an AI app meets it: the owner switches it on, a client registers and asks,
  * the owner allows it with a passkey, the client writes a draft twice, the owner puts the draft
- * back from the editor, then revokes. One test and one sign-in: /recovery allows five per file.
+ * back from the editor, the client waits while the owner has the draft open, then the owner
+ * revokes. One test and one sign-in: /recovery allows five per file.
  */
 
 test.use({ stack: 'mcp' });
@@ -126,8 +127,10 @@ const CALLBACK = 'http://localhost:39999/callback';
 const WIDE = { width: 1440, height: 900 };
 const NARROW = { width: 390, height: 844 };
 
+type ToolResult = { isError?: boolean; content: { text: string }[] };
+
 /** What an AI app's server sends: no Origin, no cookie. */
-async function mcp(token: string, name: string, args: Record<string, unknown>) {
+async function callTool(token: string, name: string, args: Record<string, unknown>) {
   const response = await fetch(`${origin}/mcp`, {
     method: 'POST',
     headers: {
@@ -139,9 +142,14 @@ async function mcp(token: string, name: string, args: Record<string, unknown>) {
   if (!response.ok) return { status: response.status, result: null };
   // The SDK answers as one SSE event; its data line is the JSON-RPC reply.
   const data = (await response.text()).split('\n').find((line) => line.startsWith('data: '));
-  const result = JSON.parse(data!.slice(6)).result as { isError?: boolean; content: { text: string }[] };
+  return { status: response.status, result: JSON.parse(data!.slice(6)).result as ToolResult };
+}
+
+async function mcp(token: string, name: string, args: Record<string, unknown>) {
+  const { status, result } = await callTool(token, name, args);
+  if (!result) return { status, result: null };
   expect(result.isError, result.content[0]?.text).toBeFalsy();
-  return { status: response.status, result: JSON.parse(result.content[0]!.text.replace(/^[^\n]*\n/, '')) };
+  return { status, result: JSON.parse(result.content[0]!.text.replace(/^[^\n]*\n/, '')) };
 }
 
 async function shoot(page: Page, name: string, size: { width: number; height: number }) {
@@ -150,8 +158,9 @@ async function shoot(page: Page, name: string, size: { width: number; height: nu
   await page.screenshot({ fullPage: true, path: test.info().outputPath(`${name}-${size.width}.png`) });
 }
 
-test('an AI app connects with a passkey, writes a draft, is put back and is revoked', async ({ context, page }) => {
-  test.setTimeout(240_000);
+test('an AI app connects with a passkey, writes a draft, is put back, waits for the owner and is revoked', async ({ context, page }) => {
+  // One real wait of 50 s below: the server's clock cannot be moved from here.
+  test.setTimeout(360_000);
   await page.setViewportSize(WIDE);
   await signIn(context, page);
 
@@ -189,6 +198,11 @@ test('an AI app connects with a passkey, writes a draft, is put back and is revo
   await expect(page).toHaveURL(/\/admin\/connect\?request=/);
   await expect(page.getByRole('heading', { name: 'Connect Claude Code to your site?' })).toBeVisible();
   await expect(page.getByText(/This is a program on this computer, not a website/)).toBeVisible();
+  // It only calls itself Claude Code, so it gets no mark and the name is said to be its own.
+  await expect(page.locator('.mcp-consent__host')).toHaveText('A program on this computer');
+  await expect(page.locator('.mcp-consent__address')).toHaveText(new URL(CALLBACK).host);
+  await expect(page.getByText('(the name it gave)')).toBeVisible();
+  await expect(page.locator('.mcp-consent__mark .brand-mark')).toHaveCount(0);
   await shoot(page, 'consent', WIDE);
   await shoot(page, 'consent', NARROW);
 
@@ -232,10 +246,59 @@ test('an AI app connects with a passkey, writes a draft, is put back and is revo
   await expect(page.getByText('The second version, by the AI.')).toHaveCount(0);
   await expect(bar).toHaveCount(0);
 
+  // The open editor shows the AI that read the draft, on its next check, and holds the draft.
+  // Claude Code on this computer earns no mark, so the bar has the computer icon.
+  const read = await mcp(token, 'get_post', { id });
+  const status = page.getByRole('status').filter({ hasText: 'Claude Code read this draft 1 minute ago. While you have it open, an AI cannot change it.' });
+  await expect(status).toBeVisible({ timeout: 20_000 });
+  await expect(status.locator('.editing-status__mark .icon')).toBeVisible();
+  await shoot(page, 'editing-status', NARROW);
+  await shoot(page, 'editing-status', WIDE);
+  const third = { kind: 'post', id, updatedAt: (read.result as { updatedAt: string }).updatedAt, body: 'The third version, by the AI.' };
+  const held = await callTool(token, 'update_draft', third);
+  expect(held.result?.isError).toBe(true);
+  expect(held.result?.content[0]?.text).toMatch(/open in the editor/);
+
+  // Closing the editor lets go of it: 45 s after its last check, the AI may write again.
+  await page.goto(`${origin}/admin`);
+  await page.waitForTimeout(50_000);
+  await mcp(token, 'update_draft', third);
+  await page.goto(`${origin}/admin/edit/${id}`);
+  await expect(page.getByText('The third version, by the AI.')).toBeVisible();
+  // The undo bar tells of the write; the status bar says only that the owner comes first.
+  await expect(page.getByRole('status').filter({ hasText: /Claude Code changed this draft at/ })).toBeVisible();
+  await expect(page.locator('.editing-status__ai')).toHaveText('While you have it open, an AI cannot change it.', { timeout: 20_000 });
+  await expect(page.getByText('Claude Code changed this draft 1 minute ago.')).toHaveCount(0);
+
+  // A new draft is the owner's from its first save, before the editor has ever been reloaded.
+  // The old draft's editor polls too, so a beat counts only if it names another draft.
+  const firstBeat = page.waitForResponse(
+    (response) => response.url().endsWith('/api/admin/editing') && response.ok() && !response.request().postData()?.includes(id),
+    { timeout: 20_000 },
+  );
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('textarea.admin-title-input').fill('Owner notes');
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Written by the owner.');
+  await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
+  await expect(page).toHaveURL(/\/admin\/edit\/[0-9a-f-]{36}$/);
+  const newId = new URL(page.url()).pathname.split('/').pop()!;
+  await firstBeat;
+  const fresh = await mcp(token, 'get_post', { id: newId });
+  const onNew = await callTool(token, 'update_draft', { kind: 'post', id: newId, updatedAt: (fresh.result as { updatedAt: string }).updatedAt, title: 'AI title' });
+  expect(onNew.result?.isError).toBe(true);
+  expect(onNew.result?.content[0]?.text).toMatch(/open in the editor/);
+  // One status bar, from the editor itself, which tells of the read on its next check.
+  await expect(page.locator('.editing-status')).toHaveCount(1, { timeout: 20_000 });
+  await shoot(page, 'new-draft-status', NARROW);
+  await page.setViewportSize(WIDE);
+
   // The card lists the connection; revoke it.
   await page.goto(`${origin}/admin/plugins`);
   await expect(card.getByText('Claude Code')).toBeVisible();
-  await expect(card.getByText(/Reads and writes drafts/)).toBeVisible();
+  // No mark, so the list says the name is the app's own, as the consent screen did.
+  await expect(card.getByText('(the name it gave)')).toBeVisible();
+  await expect(card.getByText(/A program on this computer · Reads and writes drafts/)).toBeVisible();
   await card.scrollIntoViewIfNeeded();
   await shoot(page, 'plugins-card', WIDE);
   await shoot(page, 'plugins-card', NARROW);

@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { adminDateFormat, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { McpConnectionSummary } from '../../server/mcp/connections';
+import BrandMark from '../BrandMark';
+import Icon from '../Icon';
 
 const DOCS = 'https://dhanabhon.github.io/tome-cms';
 
@@ -12,6 +14,7 @@ const DOCS = 'https://dhanabhon.github.io/tome-cms';
  */
 export default function McpConnections({ copy, locale }: { copy: AdminCopy; locale: 'en' | 'th' }) {
   const [connections, setConnections] = useState<McpConnectionSummary[] | null>(null);
+  const [writeAllowed, setWriteAllowed] = useState(true);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
   const address = `${typeof location === 'undefined' ? '' : location.origin}/mcp`;
@@ -21,8 +24,12 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
   useEffect(() => {
     let live = true;
     fetch('/api/admin/mcp/connections')
-      .then((response) => (response.ok ? response.json() as Promise<{ connections: McpConnectionSummary[] }> : Promise.reject(new Error())))
-      .then((payload) => { if (live) setConnections(payload.connections); })
+      .then((response) => (response.ok ? response.json() as Promise<{ connections: McpConnectionSummary[]; writeAllowed: boolean }> : Promise.reject(new Error())))
+      .then((payload) => {
+        if (!live) return;
+        setConnections(payload.connections);
+        setWriteAllowed(payload.writeAllowed);
+      })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
   }, []);
@@ -35,6 +42,11 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
     } catch {
       // The field is selectable; copying by hand still works.
     }
+  }
+
+  function access(connection: McpConnectionSummary): string {
+    if (!connection.scopes.includes('drafts:write')) return copy.mcp.readOnly;
+    return writeAllowed ? copy.mcp.canWrite : copy.mcp.writeOff;
   }
 
   async function revoke(connection: McpConnectionSummary) {
@@ -78,9 +90,13 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
         <ul className="mcp-connections__list">
           {connections.map((connection) => (
             <li key={connection.id}>
+              <span aria-hidden="true" className="mcp-connections__mark">
+                {connection.brand ? <BrandMark name={connection.brand} /> : <Icon name="system" />}
+              </span>
               <div>
-                <strong>{connection.clientName}</strong>
-                <small>{connection.redirectHost} · {connection.scopes.includes('drafts:write') ? copy.mcp.canWrite : copy.mcp.readOnly}</small>
+                {/* No mark: the name is only what the app called itself, as the consent screen said. */}
+                <span><strong>{connection.clientName}</strong>{!connection.brand && <> {copy.mcp.nameGiven}</>}</span>
+                <small>{connection.loopback ? copy.mcp.thisComputer : connection.redirectHost} · {access(connection)}</small>
                 <small>
                   {fill(copy.mcp.connected, { date: dates.format(new Date(connection.createdAt)) })} · {connection.lastUsedAt
                     ? fill(copy.mcp.lastUsed, { date: dates.format(new Date(connection.lastUsedAt)) })

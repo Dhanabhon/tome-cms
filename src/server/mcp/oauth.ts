@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { sql, type Transaction } from 'kysely';
 
+import type { BrandName } from '../../lib/brand-marks';
 import { db } from '../db/client';
 import type { Database } from '../db/types';
+import { clientBrand } from './brand';
 import { fetchClientMetadata } from './cimd';
 import type { McpConfig } from './config';
 import { hashSecret, newSecret, pkceMatches } from './oauth-crypto';
-import { isLoopback, redirectAllowed, redirectMatches } from './redirects';
+import { isLoopback, isLoopbackHost, redirectAllowed, redirectMatches } from './redirects';
 
 /**
  * The authorization server: clients, the owner's pending answers, codes and tokens.
@@ -22,8 +24,10 @@ const ACCESS_SECONDS = 60 * 60;
 const REFRESH_SECONDS = 30 * 24 * 60 * 60;
 const REQUEST_MS = 10 * 60 * 1000;
 const CIMD_CACHE_MS = 24 * 60 * 60 * 1000;
-const UNAPPROVED_SECONDS = 24 * 60 * 60;
+// How long an unapproved client, an orphaned one, or an expired code or token is kept before it is tidied.
+const TIDY_AFTER_SECONDS = 24 * 60 * 60;
 const MAX_CLIENTS = 100;
+const TOO_MANY_APPS = 'Too many apps are registered. Revoke ones you no longer use on the Plugins screen.';
 const MAX_PENDING = 100;
 const MAX_REDIRECTS = 10;
 const TOUCH_MS = 60 * 1000;
@@ -61,10 +65,29 @@ export function setClientMetadataFetcherForTest(fetcher: typeof fetchClientMetad
 
 interface Client { id: string; name: string; redirectUris: string[]; /** A CIMD client not stored yet. */ unsaved?: ClientMetadata }
 
-/** Clients nobody approved within a day go, and then there has to be room for one more. */
+/**
+ * Tidies before counting: clients nobody approved within a day; codes and tokens a day past their
+ * expiry (a refresh token's own expiry covers its 30 days); then connections a day old left with no
+ * token, which the Plugins screen no longer shows and nobody could revoke, are revoked; and last,
+ * clients a day old with no connection left that is not revoked. A connection is live, then, while
+ * it has a token or is under a day old (a consent being redeemed). There has to be room for one more.
+ */
 async function makeRoomForClient(ownerId: string): Promise<boolean> {
-  await db.deleteFrom('mcp_clients').where('owner_id', '=', ownerId).where('approved', '=', false)
-    .where(sql<boolean>`created_at < now() - (${UNAPPROVED_SECONDS} * interval '1 second')`).execute();
+  const dayAgo = sql<Date>`now() - (${TIDY_AFTER_SECONDS} * interval '1 second')`;
+  const owned = db.selectFrom('mcp_connections').select('id').where('owner_id', '=', ownerId);
+  await db.deleteFrom('mcp_codes').where('connection_id', 'in', owned).where('expires_at', '<', dayAgo).execute();
+  await db.deleteFrom('mcp_tokens').where('connection_id', 'in', owned).where('expires_at', '<', dayAgo).execute();
+  await db.updateTable('mcp_connections').set({ revoked_at: new Date() })
+    .where('owner_id', '=', ownerId).where('revoked_at', 'is', null).where(sql<boolean>`created_at < ${dayAgo}`)
+    .where((eb) => eb.not(eb.exists(eb.selectFrom('mcp_tokens').select('token_hash').whereRef('mcp_tokens.connection_id', '=', 'mcp_connections.id'))))
+    .execute();
+  await db.deleteFrom('mcp_clients').where('owner_id', '=', ownerId).where(sql<boolean>`created_at < ${dayAgo}`)
+    .where((eb) => eb.or([
+      eb('approved', '=', false),
+      eb.not(eb.exists(eb.selectFrom('mcp_connections').select('id')
+        .whereRef('mcp_connections.client_id', '=', 'mcp_clients.id').where('revoked_at', 'is', null))),
+    ]))
+    .execute();
   const { count } = await db.selectFrom('mcp_clients').select((eb) => eb.fn.countAll<string>().as('count'))
     .where('owner_id', '=', ownerId).executeTakeFirstOrThrow();
   // ponytail: two registrations at once can both see room for one; the cap is a bound, not an exact count.
@@ -75,8 +98,8 @@ const allAllowed = (config: McpConfig, uris: readonly string[]) =>
   uris.length > 0 && uris.length <= MAX_REDIRECTS && uris.every((uri) => redirectAllowed(uri, config.extraRedirects));
 
 /**
- * DCR (RFC 7591). Public clients only. Every redirect must be allowed (redirects.ts). Clients never
- * approved for a day are deleted first; past MAX_CLIENTS it refuses. The id is `dcr:<uuid>`.
+ * DCR (RFC 7591). Public clients only. Every redirect must be allowed (redirects.ts). Old rows are
+ * tidied first (makeRoomForClient); past MAX_CLIENTS it refuses. The id is `dcr:<uuid>`.
  */
 export async function registerClient(config: McpConfig, body: unknown): Promise<{ client_id: string; client_name: string; redirect_uris: string[] }> {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) throw new OAuthRegistrationError('invalid_client_metadata', 'Client metadata is a JSON object.');
@@ -90,7 +113,7 @@ export async function registerClient(config: McpConfig, body: unknown): Promise<
   }
   const named = typeof metadata.client_name === 'string' ? metadata.client_name.trim().slice(0, 200) : '';
   const name = named || new URL(uris[0]!).host;
-  if (!(await makeRoomForClient(config.ownerId))) throw new OAuthRegistrationError('invalid_client_metadata', 'This site has too many clients waiting for approval.');
+  if (!(await makeRoomForClient(config.ownerId))) throw new OAuthRegistrationError('invalid_client_metadata', TOO_MANY_APPS);
   const id = `dcr:${randomUUID()}`;
   await db.insertInto('mcp_clients').values({
     id, owner_id: config.ownerId, kind: 'dcr', name, redirect_uris: sql<string[]>`${JSON.stringify(uris)}::jsonb`,
@@ -206,12 +229,25 @@ export async function startAuthorization(config: McpConfig, params: URLSearchPar
   return { requestId };
 }
 
-export interface PendingSummary { clientName: string; redirectHost: string; loopbackOnly: boolean; wantsWrite: boolean; writeAllowed: boolean }
+export interface PendingSummary {
+  clientName: string;
+  redirectHost: string;
+  /** Every redirect this client registered is on this computer. */
+  loopbackOnly: boolean;
+  /** This approval goes back to this computer. */
+  redirectIsLoopback: boolean;
+  /** The mark the app has earned, from where it sends the owner and who its client document is, never its name. */
+  brand: BrandName | null;
+  wantsWrite: boolean;
+  writeAllowed: boolean;
+}
 export function describeRequest(config: McpConfig, requestId: string): PendingSummary | null {
   const found = livePending(requestId);
   if (!found) return null;
+  const redirectHost = new URL(found.redirectUri).host;
   return {
-    clientName: found.clientName, redirectHost: new URL(found.redirectUri).host, loopbackOnly: found.loopbackOnly,
+    clientName: found.clientName, redirectHost, loopbackOnly: found.loopbackOnly,
+    redirectIsLoopback: isLoopbackHost(redirectHost), brand: clientBrand(found.clientId, redirectHost),
     wantsWrite: found.wantsWrite, writeAllowed: config.allowWrite,
   };
 }
@@ -239,7 +275,7 @@ export async function decide(config: McpConfig, ownerId: string, requestId: stri
     return { redirect: redirectWith(request.redirectUri, { error: 'access_denied', state: request.state, iss: config.issuer }) };
   }
   const scopes = ['content:read', ...(decision.write && config.allowWrite ? ['drafts:write'] : [])];
-  if (request.unsaved && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError('This site has too many clients.');
+  if (request.unsaved && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError(TOO_MANY_APPS);
   const code = newSecret();
   await db.transaction().execute(async (trx) => {
     if (request.unsaved) {
@@ -350,7 +386,7 @@ export async function exchange(config: McpConfig, form: URLSearchParams): Promis
   return pair;
 }
 
-export interface VerifiedToken { connectionId: string; clientName: string; scopes: string[]; expiresAt: number }
+export interface VerifiedToken { connectionId: string; clientName: string; brand: BrandName | null; scopes: string[]; expiresAt: number }
 /**
  * An access token that is this site's: unexpired, and its connection not revoked. Touches
  * last_used_at at most once a minute.
@@ -358,12 +394,15 @@ export interface VerifiedToken { connectionId: string; clientName: string; scope
 export async function verifyAccessToken(config: McpConfig, bearer: string): Promise<VerifiedToken | null> {
   if (!bearer || bearer.length > MAX_PARAM) return null;
   const found = await db.selectFrom('mcp_tokens').innerJoin('mcp_connections', 'mcp_connections.id', 'mcp_tokens.connection_id')
-    .select(['mcp_connections.id', 'client_name', 'scopes', 'expires_at', 'last_used_at'])
+    .select(['mcp_connections.id', 'client_id', 'client_name', 'redirect_host', 'scopes', 'expires_at', 'last_used_at'])
     .where('token_hash', '=', hashSecret(bearer)).where('kind', '=', 'access').where('expires_at', '>', new Date())
     .where('owner_id', '=', config.ownerId).where('revoked_at', 'is', null).executeTakeFirst();
   if (!found) return null;
   if (!found.last_used_at || Date.now() - new Date(found.last_used_at).getTime() >= TOUCH_MS) {
     await db.updateTable('mcp_connections').set({ last_used_at: new Date() }).where('id', '=', found.id).execute();
   }
-  return { connectionId: found.id, clientName: found.client_name, scopes: found.scopes, expiresAt: new Date(found.expires_at).getTime() };
+  return {
+    connectionId: found.id, clientName: found.client_name, brand: clientBrand(found.client_id, found.redirect_host), scopes: found.scopes,
+    expiresAt: new Date(found.expires_at).getTime(),
+  };
 }

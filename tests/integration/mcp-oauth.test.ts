@@ -122,6 +122,7 @@ test('an authorization request is checked before anything is shown', async () =>
   const { requestId } = await oauth.startAuthorization(config, authorizeParams());
   assert.deepEqual(oauth.describeRequest(config, requestId), {
     clientName: 'Claude', redirectHost: 'claude.ai', loopbackOnly: false, wantsWrite: true, writeAllowed: true,
+    brand: 'claude', redirectIsLoopback: false,
   });
   assert.equal(oauth.describeRequest(config, 'no-such-request'), null);
 
@@ -361,6 +362,7 @@ test('a CIMD client is fetched once a day, stored only when allowed, and only wi
   const { requestId } = await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53100/callback' }));
   assert.deepEqual(oauth.describeRequest(config, requestId), {
     clientName: 'Example app', redirectHost: '127.0.0.1:53100', loopbackOnly: true, wantsWrite: true, writeAllowed: true,
+    brand: null, redirectIsLoopback: true,
   });
   assert.equal(await stored(), undefined, 'nothing is stored before the owner allows it');
   await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53101/callback' }));
@@ -391,6 +393,20 @@ test('a CIMD client is fetched once a day, stored only when allowed, and only wi
     await oauth.startAuthorization(config, authorizeParams({ client_id: `https://flood.example/${index}.json`, redirect_uri: 'http://127.0.0.1:1/callback' }));
   }
   assert.equal((await db.selectFrom('mcp_clients').select('id').execute()).length, before);
+});
+
+test('a mark follows the client document host, so a loopback Codex is OpenAI and a loopback stranger is nobody', async () => {
+  const codex = 'https://chatgpt.com/oauth/codex/client.json';
+  oauth.setClientMetadataFetcherForTest(async () => ({ name: 'Codex', redirectUris: ['http://127.0.0.1/callback'] }));
+  const { requestId } = await oauth.startAuthorization(config, authorizeParams({ client_id: codex, redirect_uri: 'http://127.0.0.1:49205/callback' }));
+  const summary = oauth.describeRequest(config, requestId);
+  assert.equal(summary?.brand, 'openai');
+  assert.equal(summary?.redirectIsLoopback, true);
+
+  // It only calls itself Claude: registered by DCR, approved on loopback, it earns nothing.
+  const lookalike = await oauth.registerClient(config, { client_name: 'Claude', redirect_uris: ['http://127.0.0.1:3118/callback'] });
+  const asked = await oauth.startAuthorization(config, authorizeParams({ client_id: lookalike.client_id, redirect_uri: 'http://127.0.0.1:3118/callback' }));
+  assert.equal(oauth.describeRequest(config, asked.requestId)?.brand, null);
 });
 
 test('the authorize endpoint is rate-limited per sender, with the same plain page', async () => {
@@ -440,6 +456,84 @@ test('the consent route: the owner, same origin, and a fresh passkey to allow', 
   assert.equal((await answer({ request: third.requestId, allow: true, write: true })).status, 403);
   assert.ok(oauth.describeRequest(config, third.requestId), 'still waiting for the passkey');
   assert.equal((await answer({ request: third.requestId, allow: false, write: false })).status, 200, 'denying needs no passkey');
+});
+
+test('registering sweeps codes and tokens a day expired and approved clients left with no connection; the cap names the cause', async () => {
+  const hash = () => randomBytes(32).toString('hex');
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
+  async function client(id: string, approved: boolean, createdHoursAgo: number) {
+    await db.insertInto('mcp_clients').values({
+      id, owner_id: OWNER, kind: 'dcr', name: id, redirect_uris: sql<string[]>`'[]'::jsonb`, approved,
+    }).execute();
+    await sql`update mcp_clients set created_at = now() - make_interval(hours => ${createdHoursAgo}) where id = ${id}`.execute(db);
+  }
+  async function connection(client: string, revoked: boolean, createdHoursAgo = 0): Promise<string> {
+    const id = crypto.randomUUID();
+    await db.insertInto('mcp_connections').values({
+      id, owner_id: OWNER, client_id: client, client_name: client, redirect_host: 'claude.ai', scopes: ['content:read'], revoked_at: revoked ? new Date() : null,
+    }).execute();
+    await sql`update mcp_connections set created_at = now() - make_interval(hours => ${createdHoursAgo}) where id = ${id}`.execute(db);
+    return id;
+  }
+  const token = async (connectionId: string, expiresHoursAgo: number) => {
+    const tokenHash = hash();
+    await db.insertInto('mcp_tokens').values({ token_hash: tokenHash, connection_id: connectionId, kind: 'refresh', expires_at: hoursAgo(expiresHoursAgo) }).execute();
+    return tokenHash;
+  };
+  const code = async (connectionId: string, expiresHoursAgo: number) => {
+    const codeHash = hash();
+    await db.insertInto('mcp_codes').values({ code_hash: codeHash, connection_id: connectionId, redirect_uri: CLAUDE, code_challenge: 'x', expires_at: hoursAgo(expiresHoursAgo) }).execute();
+    return codeHash;
+  };
+
+  await client('dcr:live', true, 48);
+  const live = await connection('dcr:live', false);
+  const [oldToken, recentToken, freshToken] = [await token(live, 25), await token(live, 1), await token(live, -24)];
+  const [oldCode, recentCode] = [await code(live, 25), await code(live, 1)];
+  await client('dcr:orphan', true, 25);
+  await connection('dcr:orphan', true);
+  await client('dcr:young', true, 1);
+  // Unused for 40 days: its last refresh token expired 10 days ago, so pruning leaves it no token.
+  const DAYS_40 = 40 * 24;
+  const dead = await connection('dcr:live', false, DAYS_40);
+  await token(dead, 10 * 24);
+  await client('dcr:stale', true, DAYS_40);
+  await token(await connection('dcr:stale', false, DAYS_40), 10 * 24);
+  // A consent being redeemed right now has no token yet, and is still live.
+  await client('dcr:redeeming', true, DAYS_40);
+  const redeeming = await connection('dcr:redeeming', false);
+
+  await oauth.registerClient(config, { client_name: 'Sweeper', redirect_uris: [CLAUDE] });
+  const revokedAt = async (id: string) => (await db.selectFrom('mcp_connections').select('revoked_at').where('id', '=', id).executeTakeFirstOrThrow()).revoked_at;
+  assert.notEqual(await revokedAt(dead), null, 'a connection a day old with no token left is revoked');
+  assert.equal(await revokedAt(live), null);
+  assert.equal(await revokedAt(redeeming), null);
+  const tokens = (await db.selectFrom('mcp_tokens').select('token_hash').where('connection_id', '=', live).execute()).map(({ token_hash }) => token_hash);
+  assert.deepEqual(tokens.sort(), [recentToken, freshToken].sort(), 'a token expired over a day ago goes');
+  const codes = (await db.selectFrom('mcp_codes').select('code_hash').where('connection_id', '=', live).execute()).map(({ code_hash }) => code_hash);
+  assert.deepEqual(codes, [recentCode], 'a code expired over a day ago goes');
+  assert.ok(!tokens.includes(oldToken) && !codes.includes(oldCode));
+  const clients = (await db.selectFrom('mcp_clients').select('id').where('id', 'in', ['dcr:live', 'dcr:orphan', 'dcr:young', 'dcr:stale', 'dcr:redeeming']).execute()).map(({ id }) => id);
+  assert.deepEqual(clients.sort(), ['dcr:live', 'dcr:redeeming', 'dcr:young'], 'an approved client a day old with no live connection goes');
+
+  // Full: the refusal says what to do about it.
+  const { count } = await db.selectFrom('mcp_clients').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
+  const filler = Array.from({ length: 100 - Number(count) }, (_, index) => `dcr:filler-${index}`);
+  await db.insertInto('mcp_clients').values(filler.map((id) => ({
+    id, owner_id: OWNER, kind: 'dcr', name: id, redirect_uris: sql<string[]>`'[]'::jsonb`,
+  }))).execute();
+  await assert.rejects(
+    oauth.registerClient(config, { client_name: 'One too many', redirect_uris: [CLAUDE] }),
+    /Too many apps are registered\. Revoke ones you no longer use on the Plugins screen\./,
+  );
+  // A client document allowed while full says the same.
+  oauth.setClientMetadataFetcherForTest(async () => ({ name: 'Full', redirectUris: ['http://127.0.0.1/callback'] }));
+  const full = await oauth.startAuthorization(config, authorizeParams({ client_id: 'https://full.example/client.json', redirect_uri: 'http://127.0.0.1:53100/callback' }));
+  await assert.rejects(
+    oauth.decide(config, OWNER, full.requestId, { allow: true, write: false }),
+    (error) => error instanceof OAuthPageError && error.message === 'Too many apps are registered. Revoke ones you no longer use on the Plugins screen.',
+  );
+  await db.deleteFrom('mcp_clients').where('id', 'in', filler).execute();
 });
 
 test('every OAuth path is a 404 while the plugin is off', async () => {

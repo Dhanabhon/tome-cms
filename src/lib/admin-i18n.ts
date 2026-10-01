@@ -330,6 +330,7 @@ const en = {
     invalidRequestTitle: 'This connection request is not valid',
     lastUsed: 'Last used {date}',
     loopbackWarning: 'This is a program on this computer, not a website. Allow it only if you just started it.',
+    nameGiven: '(the name it gave)',
     neverUsed: 'Not used yet',
     none: 'Nothing is connected yet.',
     offClears: 'Switching this off and on again disconnects everything.',
@@ -341,7 +342,9 @@ const en = {
     scopeWrite: 'Create and edit drafts',
     scopeWriteHint: 'Drafts only. It cannot publish, schedule or delete anything.',
     sendsTo: 'Your approval goes back to',
+    thisComputer: 'A program on this computer',
     title: 'Connect {client} to your site?',
+    writeOff: 'Reads only while writing is switched off',
   },
   aiUndo: {
     changedBy: '{client} changed this draft at {time}.',
@@ -350,6 +353,13 @@ const en = {
     failed: 'That did not work. Try again.',
     putBack: 'Put back',
     stale: 'The draft changed again. Reload, then try.',
+  },
+  editing: {
+    loadLatest: 'Load the latest',
+    newer: 'This draft was changed elsewhere.',
+    read: '{client} read this draft {when}.',
+    wrote: '{client} changed this draft {when}.',
+    youFirst: 'While you have it open, an AI cannot change it.',
   },
   settings: {
     appearance: 'Appearance',
@@ -1424,6 +1434,7 @@ const th: typeof en = {
     invalidRequestTitle: 'คำขอเชื่อมต่อนี้ไม่ถูกต้อง',
     lastUsed: 'ใช้ล่าสุด {date}',
     loopbackWarning: 'ปลายทางนี้คือโปรแกรมบนเครื่องนี้ ไม่ใช่เว็บไซต์ อนุญาตเฉพาะเมื่อคุณเพิ่งเปิดโปรแกรมนั้นเอง',
+    nameGiven: '(ชื่อที่โปรแกรมแจ้ง)',
     neverUsed: 'ยังไม่เคยใช้',
     none: 'ยังไม่มีการเชื่อมต่อ',
     offClears: 'ปิดแล้วเปิดใหม่จะตัดทุกการเชื่อมต่อ',
@@ -1435,7 +1446,9 @@ const th: typeof en = {
     scopeWrite: 'สร้างและแก้ไขฉบับร่าง',
     scopeWriteHint: 'เฉพาะฉบับร่าง เผยแพร่ ตั้งเวลา หรือลบอะไรไม่ได้',
     sendsTo: 'การอนุญาตจะถูกส่งกลับไปที่',
+    thisComputer: 'โปรแกรมบนเครื่องนี้',
     title: 'เชื่อม {client} กับเว็บของคุณไหม',
+    writeOff: 'อ่านอย่างเดียวระหว่างที่ปิดการเขียนไว้',
   },
   aiUndo: {
     changedBy: '{client} แก้ฉบับร่างนี้เมื่อ {time}',
@@ -1444,6 +1457,13 @@ const th: typeof en = {
     failed: 'ทำไม่สำเร็จ ลองอีกครั้ง',
     putBack: 'ย้อนกลับ',
     stale: 'ฉบับร่างเปลี่ยนอีกแล้ว โหลดหน้าใหม่แล้วลองอีกครั้ง',
+  },
+  editing: {
+    loadLatest: 'โหลดฉบับล่าสุด',
+    newer: 'ฉบับร่างนี้ถูกแก้จากที่อื่น',
+    read: '{client} อ่านฉบับร่างนี้เมื่อ {when}',
+    wrote: '{client} แก้ฉบับร่างนี้เมื่อ {when}',
+    youFirst: 'ระหว่างที่คุณเปิดหน้านี้อยู่ AI จะแก้ไม่ได้',
   },
   settings: {
     appearance: 'หน้าตาเว็บไซต์',
