@@ -54,7 +54,7 @@ export interface PluginSetting {
  * 'signIn' is the admin's sign-in. 'publicPage' is every page a reader sees, and is the
  * larger of the two: see the note on publicClient.
  */
-export type PluginHookId = 'editorSuggestions' | 'publicPage' | 'signIn';
+export type PluginHookId = 'editorSuggestions' | 'mcp' | 'publicPage' | 'signIn';
 
 export interface PluginManifest {
   description: { en: string; th: string };
@@ -67,6 +67,8 @@ export interface PluginManifest {
   icon: IconName;
   id: string;
   name: string;
+  /** The core serves this plugin's hook, and the plugin is only its switch. Only the core sets it. */
+  official?: boolean;
   /** A public address that shows this plugin at once, for the owner to look at. */
   previewHref?: string;
   settings: readonly PluginSetting[];

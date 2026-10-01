@@ -31,6 +31,11 @@ test('a manifest names a hook the plugin actually fills', async () => {
         );
         continue;
       }
+      if (hook === 'mcp') {
+        // The core serves MCP (src/pages/mcp.ts, src/server/mcp); the plugin is its switch.
+        assert.equal(manifest.official, true, `${manifest.id} claims mcp and is not the core's`);
+        continue;
+      }
       assert.equal(hook, 'publicPage', `${manifest.id} names a hook the core does not declare`);
       // Either half of it: a band of words, browser code, or both.
       assert.ok(

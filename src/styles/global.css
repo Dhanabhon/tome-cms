@@ -1947,6 +1947,12 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-auth-panel > header { display: grid; gap: var(--space-sm); }
 .admin-auth-panel h1 { font-size: var(--text-2xl); }
 .admin-auth-panel > header p { max-width: 38ch; margin: 0; color: var(--color-muted); line-height: 1.6; }
+/* The MCP consent screen: where the approval goes is the thing to read, so it is the largest. */
+.mcp-consent > .admin-auth-context { order: -2; } /* read before the buttons, on a phone too */
+.admin-auth-context .mcp-consent__host { margin: var(--space-xs) 0 0; color: var(--color-on-dark); font-size: var(--text-2xl); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
+.mcp-consent__warning { margin: var(--space-md) 0 0; color: var(--color-on-dark); font-weight: 600; line-height: 1.5; }
+.mcp-consent__scopes { display: grid; gap: var(--space-sm); min-width: 0; margin: 0; padding: 0; border: 0; }
+.mcp-consent__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .admin-auth__form { display: grid; gap: var(--space-sm); width: 100%; max-width: 28rem; }
 .admin-auth__form .admin-field,
 .admin-auth__form .admin-control { color: var(--color-auth-ink); }

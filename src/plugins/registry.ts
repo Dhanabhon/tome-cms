@@ -6,6 +6,7 @@ import type { Plugin } from './contract';
  */
 const PLUGINS = {
   lightbox: () => import('./lightbox'),
+  mcp: () => import('./mcp'),
   notice: () => import('./notice'),
   popup: () => import('./popup'),
   turnstile: () => import('./turnstile'),

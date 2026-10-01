@@ -1,0 +1,40 @@
+---
+import McpConsent from '../../components/admin/McpConsent';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminCopy } from '../../lib/admin-i18n';
+import { requireInstalledOwner } from '../../server/auth/session';
+import { getSiteSettings } from '../../server/content/site-settings';
+import { mcpConfig } from '../../server/mcp/config';
+import { describeRequest } from '../../server/mcp/oauth';
+
+// The middleware has already sent a signed-out owner to sign in and back here; this is the
+// page's own check that it is the owner, as every admin page makes one.
+const owner = await requireInstalledOwner(Astro.request.headers).catch(() => null);
+const config = owner ? await mcpConfig() : null;
+if (!config) {
+  return new Response('Not found.', { status: 404, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' } });
+}
+const settings = await getSiteSettings();
+const ownerLocale = settings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const requestId = Astro.url.searchParams.get('request') ?? '';
+const summary = requestId ? describeRequest(config, requestId) : null;
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<AdminLayout adminPath={config.adminPath} lang={ownerLocale ?? 'en'} title={copy.plugins.hookMcp}>
+  <main class="admin-auth-page">
+    <header class="admin-auth-nav">
+      <span class="admin-auth-brand">
+        <img class="tomecms-logo" src="/brand/tomecms-logo-color.png" alt="TomeCMS" width="2172" height="724" />
+      </span>
+    </header>
+    {summary
+      ? <McpConsent client:load ownerLocale={ownerLocale} requestId={requestId} summary={summary} />
+      : <p class="admin-alert admin-alert--page" role="alert">{copy.mcp.expired}</p>}
+    <footer class="admin-auth-footer">
+      <span>TomeCMS</span>
+      <span>{copy.auth.ownerAdministration}</span>
+    </footer>
+  </main>
+</AdminLayout>
