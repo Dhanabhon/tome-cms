@@ -37,17 +37,16 @@ const respond = (result: unknown): ToolResult => ({ content: [{ type: 'text', te
 const refuse = (sentence: string): ToolResult => ({ isError: true, content: [{ type: 'text', text: sentence }] });
 
 /**
- * Runs a tool. A refusal the AI can act on is said to it; anything else is a fault, logged with a
- * request id and no content, and the AI is given only that id. The SDK would otherwise hand the
+ * Runs a tool. A refusal the AI can act on is said to it; anything else is a fault, logged with the
+ * request's id and no content, and the AI is given only that id. The SDK would otherwise hand the
  * fault's own message, which can quote a row, back as the tool's answer.
  */
-async function guard(tool: string, run: () => Promise<ToolResult>): Promise<ToolResult> {
+async function guard(requestId: string, tool: string, run: () => Promise<ToolResult>): Promise<ToolResult> {
   try {
     return await run();
   } catch (error) {
     if (error instanceof McpInputError || error instanceof HttpError) return refuse(error.message);
     if (error instanceof MarkdownBusyError) return refuse('Another file is being read; try again in a moment.');
-    const requestId = randomUUID();
     // The class, a database's code and where it was thrown; never the message, which can quote content.
     const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
     const frames = faultFrames(error);
@@ -115,13 +114,13 @@ async function readOne(ownerId: string, kind: ContentKind, item: Post | Page, of
   };
 }
 
-function registerReadTools(server: McpServer, config: McpConfig, token: VerifiedToken): void {
+function registerReadTools(server: McpServer, config: McpConfig, token: VerifiedToken, requestId: string): void {
   const { ownerId } = config;
   server.registerTool('get_site', {
     description: "The site's name, its languages, its time zone and its public address.",
     inputSchema: z.object({}),
     annotations: read,
-  }, async () => guard('get_site', async () => {
+  }, async () => guard(requestId, 'get_site', async () => {
     const site = await getSiteSettings();
     if (!site) throw new HttpError(404, 'The site is not set up.');
     return respond({ name: site.site_name, languages: POST_LOCALES, defaultLanguage: site.default_locale, timeZone: site.timezone, url: config.issuer });
@@ -137,14 +136,14 @@ function registerReadTools(server: McpServer, config: McpConfig, token: Verified
       limit: limit.optional(),
     }),
     annotations: read,
-  }, async (args) => guard('search_content', async () => respond({ items: await searchContent(ownerId, args) })));
+  }, async (args) => guard(requestId, 'search_content', async () => respond({ items: await searchContent(ownerId, args) })));
 
   for (const kind of ['post', 'page'] as const) {
     server.registerTool(`list_${kind}s`, {
       description: `The site's ${kind}s, most recently changed first, drafts included. Pass nextCursor back as cursor for more.`,
       inputSchema: z.object({ locale: locale.optional(), status: status.optional(), cursor: cursor.optional(), limit: limit.optional() }),
       annotations: read,
-    }, async (args) => guard(`list_${kind}s`, async () => respond(await listContent(ownerId, kind, args))));
+    }, async (args) => guard(requestId, `list_${kind}s`, async () => respond(await listContent(ownerId, kind, args))));
 
     server.registerTool(`get_${kind}`, {
       description: `One ${kind}, by id or by locale and slug: its fields, its body as Markdown, and updatedAt, which update_draft needs. `
@@ -152,7 +151,7 @@ function registerReadTools(server: McpServer, config: McpConfig, token: Verified
         + `A body over ${PART} characters comes in parts: call again with offset set to nextOffset.`,
       inputSchema: z.object({ id: z.uuid().optional(), locale: locale.optional(), slug: z.string().max(200).optional(), offset: z.number().int().min(0).optional() }),
       annotations: read,
-    }, async ({ id, locale: language, slug, offset = 0 }) => guard(`get_${kind}`, async () => {
+    }, async ({ id, locale: language, slug, offset = 0 }) => guard(requestId, `get_${kind}`, async () => {
       const by = id ? { id } : language && slug ? { locale: language, slug } : null;
       if (!by) return refuse('Give an id, or a locale and a slug.');
       const item = await getContent(ownerId, kind, by);
@@ -167,7 +166,7 @@ function registerReadTools(server: McpServer, config: McpConfig, token: Verified
     description: "The site's categories. A draft can be put in these by name; new ones are made in the admin.",
     inputSchema: z.object({}),
     annotations: read,
-  }, async () => guard('list_categories', async () => respond({
+  }, async () => guard(requestId, 'list_categories', async () => respond({
     items: (await listCategories(ownerId)).map(({ id, name }) => ({ id, name })),
   })));
 
@@ -175,7 +174,7 @@ function registerReadTools(server: McpServer, config: McpConfig, token: Verified
     description: "Pictures in the site's library. Put one in a body as ![alt](url), or use its id as a cover. Pass nextCursor back as cursor for more.",
     inputSchema: z.object({ search: z.string().trim().max(100).optional(), cursor: z.string().max(10).optional() }),
     annotations: read,
-  }, async (args) => guard('list_media', async () => respond(await listOwnerMedia(ownerId, args))));
+  }, async (args) => guard(requestId, 'list_media', async () => respond(await listOwnerMedia(ownerId, args))));
 }
 
 /** Categories by name, ignoring case: only ones that exist, as in the Markdown import. */
@@ -203,11 +202,11 @@ function touched(token: VerifiedToken, kind: ContentKind, id: string, action: 'r
   recordTouch(itemKey(kind, id), { connectionId: token.connectionId, clientName: token.clientName, brand: token.brand, action });
 }
 
-function logWrite(tool: string, token: VerifiedToken, kind: ContentKind, id: string): void {
-  console.info(JSON.stringify({ event: 'mcp.write', tool, connection: token.connectionId, kind, id }));
+function logWrite(requestId: string, tool: string, token: VerifiedToken, kind: ContentKind, id: string): void {
+  console.info(JSON.stringify({ event: 'mcp.write', tool, requestId, connection: token.connectionId, kind, id }));
 }
 
-function registerWriteTools(server: McpServer, config: McpConfig, token: VerifiedToken): void {
+function registerWriteTools(server: McpServer, config: McpConfig, token: VerifiedToken, requestId: string): void {
   const { ownerId } = config;
   const optional = {
     slug: fieldSchemas.slug.optional(),
@@ -228,7 +227,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       kind: fieldSchemas.kind, locale, title: fieldSchemas.title, body: fieldSchemas.body, ...optional, translationOf: z.uuid().optional(),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  }, async (args) => guard('create_draft', async () => {
+  }, async (args) => guard(requestId, 'create_draft', async () => {
     const refusal = await writeRefusal() ?? postsOnly(args.kind, args);
     if (refusal) return refusal;
     if (args.translationOf && !(await getContent(ownerId, args.kind, { id: args.translationOf }))) {
@@ -250,7 +249,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       ? await createPost(ownerId, { ...common, categoryIds: categories.ids, coverMediaId: args.coverMediaId ?? null, sourcePostId: args.translationOf })
       : await createPage(ownerId, { ...common, sourcePageId: args.translationOf });
     touched(token, args.kind, created.id, 'write');
-    logWrite('create_draft', token, args.kind, created.id);
+    logWrite(requestId, 'create_draft', token, args.kind, created.id);
     return respond({ id: created.id, updatedAt: created.updated_at, warnings: [...warnings, ...categories.warnings] });
   }));
 
@@ -262,7 +261,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       title: fieldSchemas.title.optional(), body: fieldSchemas.body.optional(), ...optional,
     }),
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
-  }, async (args) => guard('update_draft', async () => {
+  }, async (args) => guard(requestId, 'update_draft', async () => {
     const refusal = await writeRefusal() ?? postsOnly(args.kind, args);
     if (refusal) return refusal;
     // The owner's own hands come first: while the draft is open in their editor, an AI's write would be lost or lose theirs.
@@ -296,7 +295,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       : await updatePage(ownerId, common);
     await markAiWritten(ownerId, args.kind, updated.id, updated.updated_at);
     touched(token, args.kind, updated.id, 'write');
-    logWrite('update_draft', token, args.kind, updated.id);
+    logWrite(requestId, 'update_draft', token, args.kind, updated.id);
     return respond({
       id: updated.id,
       updatedAt: updated.updated_at,
@@ -306,10 +305,13 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
   }));
 }
 
-/** A fresh server for one request,with the tools this token's scopes allow and no others. */
-export function buildMcpServer(config: McpConfig, token: VerifiedToken): McpServer {
+/**
+ * A fresh server for one request, with the tools this token's scopes allow and no others. The
+ * request's id goes in every write line and fault line it logs.
+ */
+export function buildMcpServer(config: McpConfig, token: VerifiedToken, requestId: string = randomUUID()): McpServer {
   const server = new McpServer({ name: 'tomecms', version: PACKAGE_VERSION });
-  registerReadTools(server, config, token);
-  if (token.scopes.includes('drafts:write')) registerWriteTools(server, config, token);
+  registerReadTools(server, config, token, requestId);
+  if (token.scopes.includes('drafts:write')) registerWriteTools(server, config, token, requestId);
   return server;
 }

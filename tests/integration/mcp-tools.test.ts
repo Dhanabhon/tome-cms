@@ -7,6 +7,7 @@ import { after, before, beforeEach, test } from 'node:test';
 
 import { runWithEndpointContext } from '@better-auth/core/context';
 import { makeSignature } from 'better-auth/crypto';
+import { sql } from 'kysely';
 
 import type { McpConfig } from '../../src/server/mcp/config';
 import type { EditorDocument } from '../../src/types/cms';
@@ -440,6 +441,35 @@ test('restoreSnapshot keeps the slug another post took since, and leaves out a c
   assert.equal((restored as { cover_media_id: string | null }).cover_media_id, null);
   assert.deepEqual(await categoryIdsForPost(OWNER, original.id), [notesId]);
   assert.equal(await snapshots.readSnapshot(OWNER, 'post', original.id), null);
+});
+
+test('a write line and a fault line each carry the request id, and no content', async (t) => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const info = t.mock.method(console, 'info', () => {});
+  const error = t.mock.method(console, 'error', () => {});
+  const lines = (calls: { arguments: unknown[] }[], event: string) => calls
+    .map((entry) => { try { return JSON.parse(String(entry.arguments[0])); } catch { return null; } })
+    .filter((line) => line?.event === event);
+
+  const draft = await createPost(OWNER, postInput('Logged', { type: 'doc', content: [paragraph('Secret words')] }));
+  await ok(writer, 'update_draft', { kind: 'post', id: draft.id, updatedAt: draft.updated_at, title: 'Secret title' });
+  const [write] = lines(info.mock.calls, 'mcp.write');
+  assert.match(write?.requestId ?? '', UUID);
+  assert.equal(write.id, draft.id);
+  assert.ok(!JSON.stringify(write).includes('Secret'));
+
+  // A fault: the table is briefly elsewhere, so the query fails as no refusal would.
+  await sql`alter table categories rename to categories_away`.execute(db);
+  let answer;
+  try {
+    answer = await rpc(reader, 'tools/call', { name: 'list_categories', arguments: {} });
+  } finally {
+    await sql`alter table categories_away rename to categories`.execute(db);
+  }
+  const [fault] = lines(error.mock.calls, 'mcp.error');
+  assert.match(fault?.requestId ?? '', UUID);
+  assert.notEqual(fault.requestId, write.requestId, 'one id per request');
+  assert.ok(JSON.stringify(answer.body).includes(fault.requestId), 'the AI is given the same id');
 });
 
 test('search_content finds drafts by status, and lists carry a cursor', async () => {

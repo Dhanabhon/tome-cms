@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { createMcpHandler, originValidationResponse } from '@modelcontextprotocol/server';
 import type { APIRoute } from 'astro';
 
@@ -25,7 +27,9 @@ const handle: APIRoute = async ({ request }) => {
       'WWW-Authenticate': `Bearer resource_metadata="${config.issuer}/.well-known/oauth-protected-resource", scope="content:read drafts:write"`,
     } });
   }
-  const handler = createMcpHandler(() => buildMcpServer(config, token));
+  // One id per request, in each write and fault line its tools log.
+  const requestId = randomUUID();
+  const handler = createMcpHandler(() => buildMcpServer(config, token, requestId));
   return handler.fetch(request, { authInfo: { token: bearer, clientId: token.connectionId, scopes: token.scopes, expiresAt: token.expiresAt, resource: new URL(config.resource) } });
 };
 
