@@ -179,6 +179,13 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
 
 /** Reads are remembered for the request (see server/request-memo); a request that may write reads fresh. */
 export const onRequest: MiddlewareHandler = async (context, next) => {
+  // Reads are never refused, so they do not wait on (or need) the runtime configuration the guard reads.
+  if (context.request.method !== 'GET' && context.request.method !== 'HEAD') {
+    const { getServerEnv } = await import('./server/env');
+    const { crossSiteRefusal } = await import('./server/http/origin-guard');
+    const refused = crossSiteRefusal(context.request, new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin);
+    if (refused) return refused;
+  }
   if (context.request.method !== 'GET' && context.request.method !== 'HEAD') return (await preparedHeadlessRequest(context, next)) as Response;
   const { withRequestMemo } = await import('./server/request-memo');
   return withRequestMemo(async () => (await preparedHeadlessRequest(context, next)) as Response);

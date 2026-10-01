@@ -9,6 +9,8 @@ const defaultViteCacheDir = `node_modules/.vite-${isDev ? 'dev' : isCheck ? 'che
 export default defineConfig({
   output: 'server',
   devToolbar: { enabled: false },
+  // Done again in src/server/http/origin-guard.ts against the public origin; see there.
+  security: { checkOrigin: false },
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
   vite: { cacheDir: process.env.TOME_CMS_VITE_CACHE_DIR ?? defaultViteCacheDir },
