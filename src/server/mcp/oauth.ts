@@ -41,11 +41,22 @@ export class OAuthTokenError extends Error {
   constructor(readonly code: 'invalid_request' | 'invalid_client' | 'invalid_grant' | 'unsupported_grant_type' | 'invalid_scope', readonly status = 400) { super(code); }
 }
 
+interface ClientMetadata { name: string; redirectUris: string[]; fetchedAt: number }
+
+// A client id document as last fetched, by URL, so a client nobody has allowed yet is fetched once a
+// day without being written anywhere: only the owner's Allow stores a client. At most MAX_CACHED,
+// the oldest dropped first; a restart forgets them and they are fetched again.
+const cimdCache = new Map<string, ClientMetadata>();
+const MAX_CACHED = 100;
+
 let fetchMetadata = fetchClientMetadata;
 /** Test seam: the CIMD fetch without the network. */
-export function setClientMetadataFetcherForTest(fetcher: typeof fetchClientMetadata): void { fetchMetadata = fetcher; }
+export function setClientMetadataFetcherForTest(fetcher: typeof fetchClientMetadata): void {
+  fetchMetadata = fetcher;
+  cimdCache.clear();
+}
 
-interface Client { id: string; name: string; redirectUris: string[] }
+interface Client { id: string; name: string; redirectUris: string[]; /** A CIMD client not stored yet. */ unsaved?: ClientMetadata }
 
 /** Clients nobody approved within a day go, and then there has to be room for one more. */
 async function makeRoomForClient(ownerId: string): Promise<boolean> {
@@ -84,38 +95,55 @@ export async function registerClient(config: McpConfig, body: unknown): Promise<
   return { client_id: id, client_name: name, redirect_uris: uris };
 }
 
+async function cimdMetadata(url: string): Promise<ClientMetadata> {
+  const cached = cimdCache.get(url);
+  if (cached && Date.now() - cached.fetchedAt < CIMD_CACHE_MS) return cached;
+  let fetched: Awaited<ReturnType<typeof fetchClientMetadata>>;
+  try {
+    fetched = await fetchMetadata(url);
+  } catch {
+    throw new OAuthPageError('The client could not be identified.');
+  }
+  cimdCache.delete(url);
+  while (cimdCache.size >= MAX_CACHED) cimdCache.delete(cimdCache.keys().next().value!);
+  const entry = { name: fetched.name, redirectUris: fetched.redirectUris, fetchedAt: Date.now() };
+  cimdCache.set(url, entry);
+  return entry;
+}
+
 /**
- * The client of a request: a stored DCR client, or a CIMD client fetched (or re-fetched after
- * 24 h) and upserted. Its redirect URIs must all be allowed.
+ * The client of a request: a stored DCR client, or a CIMD client -- its stored row while that is
+ * under a day old, otherwise its document (fetched at most once a day). A CIMD client nobody has
+ * allowed is not stored here; `decide` stores it. Its redirect URIs must all be allowed.
  */
 async function clientFor(config: McpConfig, clientId: string): Promise<Client> {
   const row = await db.selectFrom('mcp_clients').select(['id', 'kind', 'name', 'redirect_uris', 'fetched_at'])
     .where('id', '=', clientId).where('owner_id', '=', config.ownerId).executeTakeFirst();
-  let client: Client | null = row ? { id: row.id, name: row.name, redirectUris: row.redirect_uris } : null;
   const fresh = row?.fetched_at && Date.now() - new Date(row.fetched_at).getTime() < CIMD_CACHE_MS;
-  if (clientId.startsWith('https://') && (!row || (row.kind === 'cimd' && !fresh))) {
-    let fetched: Awaited<ReturnType<typeof fetchClientMetadata>>;
-    try {
-      fetched = await fetchMetadata(clientId);
-    } catch {
-      throw new OAuthPageError('The client could not be identified.');
-    }
-    if (!allAllowed(config, fetched.redirectUris)) throw new OAuthPageError('The client asks for a redirect this site does not allow.');
-    if (!row && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError('This site has too many clients waiting for approval.');
-    const redirects = sql<string[]>`${JSON.stringify(fetched.redirectUris)}::jsonb`;
-    await db.insertInto('mcp_clients').values({
-      id: clientId, owner_id: config.ownerId, kind: 'cimd', name: fetched.name, redirect_uris: redirects, fetched_at: new Date(),
-    }).onConflict((conflict) => conflict.column('id').doUpdateSet({ name: fetched.name, redirect_uris: redirects, fetched_at: new Date() })).execute();
-    client = { id: clientId, name: fetched.name, redirectUris: fetched.redirectUris };
+  let client: Client | null = row ? { id: row.id, name: row.name, redirectUris: row.redirect_uris } : null;
+  const refetch = clientId.startsWith('https://') && (!row || (row.kind === 'cimd' && !fresh));
+  if (refetch) {
+    // A stored client's row is the record of its last fetch; once that is a day old, so is any copy here.
+    if (row) cimdCache.delete(clientId);
+    const metadata = await cimdMetadata(clientId);
+    client = { id: clientId, name: metadata.name, redirectUris: metadata.redirectUris, ...(row ? {} : { unsaved: metadata }) };
   }
   if (!client) throw new OAuthPageError('The client is not registered.');
-  // Checked again on every use: the owner may have taken an extra redirect away since.
+  // Checked on every use: the owner may have taken an extra redirect away since.
   if (!allAllowed(config, client.redirectUris)) throw new OAuthPageError('The client asks for a redirect this site does not allow.');
+  if (refetch && row) {
+    // Already allowed once: its row follows its document.
+    await db.updateTable('mcp_clients').set({
+      name: client.name, redirect_uris: sql<string[]>`${JSON.stringify(client.redirectUris)}::jsonb`, fetched_at: new Date(),
+    }).where('id', '=', clientId).execute();
+  }
   return client;
 }
 
 interface Pending {
   clientId: string;
+  /** A CIMD client to store if the owner allows it. */
+  unsaved?: ClientMetadata;
   clientName: string;
   redirectUri: string;
   codeChallenge: string;
@@ -169,7 +197,7 @@ export async function startAuthorization(config: McpConfig, params: URLSearchPar
   while (pending.size >= MAX_PENDING) pending.delete(pending.keys().next().value!);
   const requestId = newSecret();
   pending.set(requestId, {
-    clientId: client.id, clientName: client.name, redirectUri, codeChallenge: challenge, state,
+    clientId: client.id, unsaved: client.unsaved, clientName: client.name, redirectUri, codeChallenge: challenge, state,
     wantsWrite: scopes.includes('drafts:write'), loopbackOnly: client.redirectUris.every(isLoopback), createdAt: Date.now(),
   });
   return { requestId };
@@ -207,8 +235,16 @@ export async function decide(config: McpConfig, ownerId: string, requestId: stri
     return { redirect: redirectWith(request.redirectUri, { error: 'access_denied', state: request.state, iss: config.issuer }) };
   }
   const scopes = ['content:read', ...(request.wantsWrite && decision.write && config.allowWrite ? ['drafts:write'] : [])];
+  if (request.unsaved && !(await makeRoomForClient(config.ownerId))) throw new OAuthPageError('This site has too many clients.');
   const code = newSecret();
   await db.transaction().execute(async (trx) => {
+    if (request.unsaved) {
+      const { name, redirectUris, fetchedAt } = request.unsaved;
+      const redirects = sql<string[]>`${JSON.stringify(redirectUris)}::jsonb`;
+      await trx.insertInto('mcp_clients').values({
+        id: request.clientId, owner_id: ownerId, kind: 'cimd', name, redirect_uris: redirects, approved: true, fetched_at: new Date(fetchedAt),
+      }).onConflict((conflict) => conflict.column('id').doUpdateSet({ name, redirect_uris: redirects, fetched_at: new Date(fetchedAt) })).execute();
+    }
     await trx.updateTable('mcp_clients').set({ approved: true }).where('id', '=', request.clientId).execute();
     const connectionId = randomUUID();
     await trx.insertInto('mcp_connections').values({
@@ -243,12 +279,21 @@ function required(form: URLSearchParams, ...keys: string[]): string[] {
   });
 }
 
-/** A spent code, or null. Spent even when what follows refuses it, so a code is never tried twice. */
+/**
+ * A pair for a code, or null. The code is spent even when what follows refuses it, so it is never
+ * tried twice; and a code presented after it was spent revokes whatever it issued (OAuth 2.1 4.1.3).
+ */
 async function redeemCode(trx: Transaction<Database>, ownerId: string, code: string, clientId: string, redirectUri: string, verifier: string) {
+  const hash = hashSecret(code);
   const spent = await trx.updateTable('mcp_codes').set({ used_at: new Date() })
-    .where('code_hash', '=', hashSecret(code)).where('used_at', 'is', null).where('expires_at', '>', new Date())
+    .where('code_hash', '=', hash).where('used_at', 'is', null).where('expires_at', '>', new Date())
     .returning(['connection_id', 'redirect_uri', 'code_challenge']).executeTakeFirst();
-  if (!spent || spent.redirect_uri !== redirectUri || !pkceMatches(verifier, spent.code_challenge)) return null;
+  if (!spent) {
+    const reused = await trx.selectFrom('mcp_codes').select('connection_id').where('code_hash', '=', hash).where('used_at', 'is not', null).executeTakeFirst();
+    if (reused) await trx.updateTable('mcp_connections').set({ revoked_at: new Date() }).where('id', '=', reused.connection_id).where('owner_id', '=', ownerId).execute();
+    return null;
+  }
+  if ( spent.redirect_uri !== redirectUri || !pkceMatches(verifier, spent.code_challenge)) return null;
   const connection = await trx.selectFrom('mcp_connections').select(['id', 'scopes'])
     .where('id', '=', spent.connection_id).where('owner_id', '=', ownerId).where('client_id', '=', clientId).where('revoked_at', 'is', null).executeTakeFirst();
   return connection ? issuePair(trx, connection) : null;

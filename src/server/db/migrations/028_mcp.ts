@@ -74,12 +74,12 @@ export async function up(db: Kysely<Database>): Promise<void> {
   `.execute(db);
   await db.schema.alterTable('security_rate_limits').dropConstraint('security_rate_limits_action').execute();
   await db.schema.alterTable('security_rate_limits')
-    .addCheckConstraint('security_rate_limits_action', sql`action in ('install', 'signin', 'recovery', 'update-check', 'update-apply', 'oauth-register', 'oauth-token')`)
+    .addCheckConstraint('security_rate_limits_action', sql`action in ('install', 'signin', 'recovery', 'update-check', 'update-apply', 'oauth-register', 'oauth-authorize', 'oauth-token')`)
     .execute();
 }
 
 export async function down(db: Kysely<Database>): Promise<void> {
-  await db.deleteFrom('security_rate_limits').where('action', 'in', ['oauth-register', 'oauth-token']).execute();
+  await db.deleteFrom('security_rate_limits').where('action', 'in', ['oauth-register', 'oauth-authorize', 'oauth-token']).execute();
   await db.schema.alterTable('security_rate_limits').dropConstraint('security_rate_limits_action').execute();
   await db.schema.alterTable('security_rate_limits')
     .addCheckConstraint('security_rate_limits_action', sql`action in ('install', 'signin', 'recovery', 'update-check', 'update-apply')`)

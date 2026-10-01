@@ -4,16 +4,14 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { adminCopy } from '../../lib/admin-i18n';
 import { requireInstalledOwner } from '../../server/auth/session';
 import { getSiteSettings } from '../../server/content/site-settings';
-import { mcpConfig } from '../../server/mcp/config';
+import { mcpConfig, notFound } from '../../server/mcp/config';
 import { describeRequest } from '../../server/mcp/oauth';
 
 // The middleware has already sent a signed-out owner to sign in and back here; this is the
 // page's own check that it is the owner, as every admin page makes one.
 const owner = await requireInstalledOwner(Astro.request.headers).catch(() => null);
 const config = owner ? await mcpConfig() : null;
-if (!config) {
-  return new Response('Not found.', { status: 404, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' } });
-}
+if (!config) return notFound();
 const settings = await getSiteSettings();
 const ownerLocale = settings?.default_locale ?? null;
 const copy = adminCopy(ownerLocale);

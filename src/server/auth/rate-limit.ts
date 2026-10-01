@@ -6,7 +6,7 @@ import { db } from '../db/client';
 import { getServerEnv } from '../env';
 import { rateLimitKey, type SenderAddress } from '../http/sender-address';
 
-export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-token';
+export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-authorize' | 'oauth-token';
 
 const limits: Record<RateLimitAction, { attempts: number; windowSeconds: number }> = {
   install: { attempts: 8, windowSeconds: 15 * 60 },
@@ -15,6 +15,7 @@ const limits: Record<RateLimitAction, { attempts: number; windowSeconds: number 
   'update-check': { attempts: 6, windowSeconds: 10 * 60 },
   'update-apply': { attempts: 3, windowSeconds: 30 * 60 },
   'oauth-register': { attempts: 10, windowSeconds: 60 * 60 },
+  'oauth-authorize': { attempts: 30, windowSeconds: 10 * 60 },
   'oauth-token': { attempts: 60, windowSeconds: 10 * 60 },
 };
 

@@ -23,7 +23,9 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     return Response.json({ error: 'too_many_requests' }, { headers: { ...HEADERS, 'Retry-After': String(error.retryAfter) }, status: 429 });
   }
   const type = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
-  const body = type === 'application/x-www-form-urlencoded' ? await request.text() : null;
+  // Refused on its declared length before a byte is read; the real length is checked after.
+  const tooLong = Number(request.headers.get('content-length')) > MAX_FORM_BYTES;
+  const body = type === 'application/x-www-form-urlencoded' && !tooLong ? await request.text() : null;
   if (body === null || body.length > MAX_FORM_BYTES) return Response.json({ error: 'invalid_request' }, { headers: HEADERS, status: 400 });
   try {
     return Response.json(await exchange(config, new URLSearchParams(body)), { headers: HEADERS });

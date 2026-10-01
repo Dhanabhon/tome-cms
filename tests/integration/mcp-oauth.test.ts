@@ -196,11 +196,9 @@ test('denying redirects with access_denied and connects nothing', async () => {
   assert.equal((await db.selectFrom('mcp_connections').select('id').execute()).length, before);
 });
 
-let tokens: Awaited<ReturnType<typeof oauth.exchange>>;
-
 test('a code is exchanged once, with its verifier, within 60 seconds', async () => {
   const { code, verifier } = await approvedCode();
-  tokens = await oauth.exchange(config, codeForm(code, verifier));
+  const tokens = await oauth.exchange(config, codeForm(code, verifier));
   assert.deepEqual(Object.keys(tokens).sort(), ['access_token', 'expires_in', 'refresh_token', 'scope', 'token_type']);
   assert.equal(tokens.token_type, 'Bearer');
   assert.equal(tokens.expires_in, 3600);
@@ -208,7 +206,9 @@ test('a code is exchanged once, with its verifier, within 60 seconds', async () 
   assert.match(tokens.access_token, /^[A-Za-z0-9_-]{43}$/);
   assert.notEqual(tokens.access_token, tokens.refresh_token);
 
+  assert.ok(await oauth.verifyAccessToken(config, tokens.access_token));
   await refuses(oauth.exchange(config, codeForm(code, verifier)), 'invalid_grant');
+  assert.equal(await oauth.verifyAccessToken(config, tokens.access_token), null, 'a code used twice revokes what it issued');
 
   const wrong = await approvedCode();
   await refuses(oauth.exchange(config, codeForm(wrong.code, pkce().verifier)), 'invalid_grant');
@@ -230,6 +230,8 @@ test('a code is exchanged once, with its verifier, within 60 seconds', async () 
 });
 
 test('an access token verifies until its connection is revoked', async () => {
+  const issued = await approvedCode();
+  const tokens = await oauth.exchange(config, codeForm(issued.code, issued.verifier));
   const verified = await oauth.verifyAccessToken(config, tokens.access_token);
   assert.ok(verified);
   assert.deepEqual(verified.scopes, ['content:read', 'drafts:write']);
@@ -266,11 +268,15 @@ test('a refresh token rotates, and one used twice revokes the connection', async
   assert.equal(await oauth.verifyAccessToken(config, second.access_token), null, 'reuse is theft: the whole connection goes');
   await refuses(refresh(second.refresh_token), 'invalid_grant');
 
-  // Two at once: exactly one wins.
+  // Two at once: one rotates, and the other finds the token already rotated -- which is reuse, so
+  // the connection is revoked and the winner's new pair dies with it. Strict on purpose: a client
+  // that refreshes twice in parallel is indistinguishable from a stolen token being raced.
   const fresh = await approvedCode();
   const pair = await oauth.exchange(config, codeForm(fresh.code, fresh.verifier));
   const raced = await Promise.allSettled([refresh(pair.refresh_token), refresh(pair.refresh_token)]);
-  assert.equal(raced.filter(({ status }) => status === 'fulfilled').length, 1);
+  const won = raced.filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof refresh>>> => result.status === 'fulfilled');
+  assert.equal(won.length, 1);
+  assert.equal(await oauth.verifyAccessToken(config, won[0]!.value.access_token), null, 'the race revoked the connection');
   const parallel = await approvedCode();
   const both = await Promise.allSettled([1, 2].map(() => oauth.exchange(config, codeForm(parallel.code, parallel.verifier))));
   assert.equal(both.filter(({ status }) => status === 'fulfilled').length, 1, 'a code is spent once');
@@ -294,6 +300,16 @@ test('the token endpoint over HTTP: no Origin, a form body, no cookie read', asy
   assert.equal(ok.headers.get('pragma'), 'no-cache');
   assert.equal((await ok.json() as { token_type: string }).token_type, 'Bearer');
 
+  const unread = new ReadableStream({ pull() { throw new Error('the body was read'); } });
+  const oversized = await POST({
+    request: new Request('http://127.0.0.1:4321/oauth/token', {
+      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'content-length': '999999' }, body: unread, duplex: 'half',
+    } as RequestInit),
+    clientAddress: '127.0.0.1',
+  } as unknown as Parameters<typeof POST>[0]);
+  assert.equal(oversized.status, 400, 'refused on its declared length, unread');
+  assert.equal((await post('a='.padEnd(17 * 1024, 'x'))).status, 400, 'and on its real length');
+
   const json = await post(JSON.stringify({ grant_type: 'authorization_code' }), { 'content-type': 'application/json' });
   assert.equal(json.status, 400);
   assert.deepEqual(await json.json(), { error: 'invalid_request' });
@@ -306,32 +322,65 @@ test('the token endpoint over HTTP: no Origin, a form body, no cookie read', asy
   assert.equal(withCookie.headers.get('cache-control'), 'no-store');
 });
 
-test('a CIMD client is fetched once a day, and only with allowed redirects', async () => {
+test('a CIMD client is fetched once a day, stored only when allowed, and only with allowed redirects', async () => {
   const url = 'https://app.example/client.json';
   const fetched: string[] = [];
   oauth.setClientMetadataFetcherForTest(async (id) => {
     fetched.push(id);
+    if (id.startsWith('https://flood.example/')) return { name: 'Flood', redirectUris: ['http://127.0.0.1/callback'] };
     return id === url
       ? { name: 'Example app', redirectUris: ['http://127.0.0.1/callback'] }
       : { name: 'Sneaky', redirectUris: [CLAUDE, 'https://evil.example/cb'] };
   });
+  const stored = () => db.selectFrom('mcp_clients').selectAll().where('id', '=', url).executeTakeFirst();
   const { requestId } = await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53100/callback' }));
   assert.deepEqual(oauth.describeRequest(config, requestId), {
     clientName: 'Example app', redirectHost: '127.0.0.1:53100', loopbackOnly: true, wantsWrite: true, writeAllowed: true,
   });
+  assert.equal(await stored(), undefined, 'nothing is stored before the owner allows it');
   await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53101/callback' }));
   assert.deepEqual(fetched, [url], 'cached for a day');
-  const row = await db.selectFrom('mcp_clients').selectAll().where('id', '=', url).executeTakeFirstOrThrow();
+
+  await oauth.decide(config, OWNER, requestId, { allow: true, write: false });
+  const row = await stored();
+  assert.ok(row, 'stored once allowed');
   assert.equal(row.kind, 'cimd');
+  assert.equal(row.approved, true);
+  assert.deepEqual(row.redirect_uris, ['http://127.0.0.1/callback']);
+  assert.ok(row.fetched_at);
+  await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53102/callback' }));
+  assert.equal(fetched.length, 1, 'the stored row is used while it is fresh');
 
   await db.updateTable('mcp_clients').set({ fetched_at: new Date(Date.now() - 25 * 60 * 60 * 1000) }).where('id', '=', url).execute();
-  await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53102/callback' }));
+  await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53103/callback' }));
   assert.equal(fetched.length, 2, 'fetched again after a day');
 
   const sneaky = 'https://sneaky.example/client.json';
   await assert.rejects(oauth.startAuthorization(config, authorizeParams({ client_id: sneaky })), OAuthPageError);
   assert.equal(await db.selectFrom('mcp_clients').select('id').where('id', '=', sneaky).executeTakeFirst(), undefined, 'not stored');
   await assert.rejects(oauth.startAuthorization(config, authorizeParams({ client_id: 'http://insecure.example/c.json' })), OAuthPageError);
+
+  // Never allowed, never stored: unknown clients cannot fill the table.
+  const before = (await db.selectFrom('mcp_clients').select('id').execute()).length;
+  for (let index = 0; index < 5; index += 1) {
+    await oauth.startAuthorization(config, authorizeParams({ client_id: `https://flood.example/${index}.json`, redirect_uri: 'http://127.0.0.1:1/callback' }));
+  }
+  assert.equal((await db.selectFrom('mcp_clients').select('id').execute()).length, before);
+});
+
+test('the authorize endpoint is rate-limited per sender, with the same plain page', async () => {
+  const { GET } = await import('../../src/pages/oauth/authorize');
+  const call = () => GET({
+    request: new Request(`${ORIGIN}/oauth/authorize?response_type=code`),
+    url: new URL(`${ORIGIN}/oauth/authorize?response_type=code`),
+    clientAddress: '203.0.113.9',
+  } as unknown as Parameters<typeof GET>[0]);
+  for (let index = 0; index < 30; index += 1) assert.equal((await call()).status, 400);
+  const limited = await call();
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) > 0);
+  assert.match(limited.headers.get('content-type') ?? '', /text\/html/);
+  assert.match(await limited.text(), /This connection request is not valid/);
 });
 
 test('the consent route: the owner, same origin, and a fresh passkey to allow', async () => {

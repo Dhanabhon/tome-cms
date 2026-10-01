@@ -10,6 +10,7 @@ import {
   adminSignInPath,
   matchAdminPath,
   normalizeAdminPath,
+  RESERVED_ADMIN_PATHS,
   safeAdminReturnTo,
 } from '../../src/lib/admin';
 
@@ -17,6 +18,11 @@ test('Admin path helpers normalize, match, and keep redirects on the configured 
   assert.equal(normalizeAdminPath(' Studio/ '), '/studio');
   for (const invalid of ['/api', '/install', '/recovery', '/a', '//evil.example', '/studio/path', '']) {
     assert.equal(normalizeAdminPath(invalid), '/admin');
+  }
+  // MCP's own routes: an admin there would shadow the OAuth server and the MCP endpoint.
+  for (const reserved of ['/oauth', '/mcp', '/.well-known']) {
+    assert.ok(RESERVED_ADMIN_PATHS.has(reserved), `${reserved} is reserved`);
+    assert.equal(normalizeAdminPath(reserved), '/admin');
   }
 
   assert.equal(adminHref({ admin_path: '/studio' }), '/studio');
