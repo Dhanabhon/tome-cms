@@ -116,16 +116,23 @@ A connection's mark is decided by something the app **cannot choose for itself**
 The rule is the same on the consent screen, where a borrowed logo would be phishing, and in the
 connections list.
 
-**Open: Codex.** In the owner's test, Codex reached the consent screen with a loopback redirect. If
-it identified itself by a CIMD `client_id` on an OpenAI host, it gets the mark by the rule above. If
-it registered by DCR, its name is only what it said, and it shows the computer icon. One query on
-daedalus settles it before planning:
+**Settled on daedalus (2026-10-01).** Both real clients identify themselves by CIMD:
+
+| kind | client_id | name |
+|---|---|---|
+| cimd | `https://claude.ai/oauth/mcp-oauth-client-metadata` | Claude |
+| cimd | `https://chatgpt.com/oauth/codex/client.json` | Codex |
+
+Claude on the web gets `claude` from both its redirect and its `client_id`. Codex, from the ChatGPT
+desktop app, uses a loopback redirect, but its `client_id` is on `chatgpt.com`, so it gets `openai`
+by the rule above. No exception is needed. The mark goes by the **host** of the `client_id`
+(`claude.ai`; `chatgpt.com` or `openai.com`), never by the name.
+
+The query that settled it:
 
 ```sh
-sudo docker compose -f /opt/tome-cms/compose.managed.yaml exec -T postgres psql -U tomecms -d tomecms -c "select kind, left(id, 80) as id, name from mcp_clients;"
+sudo docker exec -i $(sudo docker ps -qf name=postgres) psql -U tomecms -d tomecms -c "select kind, left(id, 80) as id, name from mcp_clients;"
 ```
-
-(Adjust the user and database names to the ones in `/opt/tome-cms/.env` if they differ.)
 
 ## 6. Loopback, named as such
 
