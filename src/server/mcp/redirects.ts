@@ -14,7 +14,8 @@ function parse(uri: string): URL | null {
     const url = new URL(uri);
     // A URL that normalizes to something else (dot segments, a different case) is not the one asked for.
     // A bare origin gains a trailing slash when parsed, which is the same address, so that is allowed.
-    return url.href === uri || url.href === `${uri}/` ? url : null;
+    // A fragment is never allowed in a redirect URI (RFC 6749 3.1.2).
+    return !url.hash && (url.href === uri || url.href === `${uri}/`) ? url : null;
   } catch {
     return null;
   }
@@ -23,7 +24,7 @@ function parse(uri: string): URL | null {
 /** http to this machine: a native app's redirect (RFC 8252), on whatever port it got. */
 export function isLoopback(uri: string): boolean {
   const url = parse(uri);
-  return Boolean(url && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname));
+  return Boolean(url && url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname) && !url.username && !url.password);
 }
 
 export function parseExtraRedirects(text: string): string[] {

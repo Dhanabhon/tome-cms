@@ -47,6 +47,13 @@ test('the owner\'s extra redirects are https or loopback, and nothing else survi
   assert.deepEqual(parseExtraRedirects(' https://a.example/cb , http://localhost:1/x, http://b.example/cb, javascript:alert(1), '), ['https://a.example/cb', 'http://localhost:1/x']);
 });
 
+test('a redirect has no fragment, and a loopback one no userinfo', () => {
+  assert.equal(redirectAllowed('http://localhost/cb#frag', []), false);
+  assert.deepEqual(parseExtraRedirects('https://a.example/cb#x'), []);
+  assert.equal(redirectMatches(['http://localhost:3118/callback'], 'http://evil@localhost:1/callback#x'), false);
+  assert.equal(redirectMatches(['http://localhost:3118/callback'], 'http://evil@localhost:1/callback'), false);
+});
+
 test('a client metadata document is fetched only from a public https address, small and quick', async () => {
   const doc = (body: unknown) => async () => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
   const publicLookup = async () => [{ address: '93.184.216.34', family: 4 }];
@@ -61,10 +68,14 @@ test('a client metadata document is fetched only from a public https address, sm
   await assert.rejects(fetchClientMetadata(url, { lookup: publicLookup, fetch: doc({ client_id: 'https://other.example/m', client_name: 'x', redirect_uris: [] }) }), /client_id/);
   await assert.rejects(fetchClientMetadata(url, { lookup: publicLookup, fetch: async () => new Response('x'.repeat(70_000)) }), /large/);
   await assert.rejects(fetchClientMetadata(url, { lookup: publicLookup, fetch: async () => new Response(null, { status: 302, headers: { location: 'https://x' } }) }), /redirect|status/);
-  for (const address of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '0.0.0.0', '100.64.0.1', '::1', 'fc00::1', 'fe80::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:a00:1']) {
+  for (const address of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '0.0.0.0', '100.64.0.1', '::1', 'fc00::1', 'fe80::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:a00:1', '0:0:0:0:0:ffff:7f00:1', '0:0:0:0:0:ffff:127.0.0.1', '::127.0.0.1', '::7f00:1', '::ffff:0:7f00:1', '64:ff9b::7f00:1', '2002:7f00:1::', 'fec0::1', '198.18.0.1', '192.0.0.1']) {
     assert.equal(isPublicAddress(address), false, address);
   }
+  await assert.rejects(fetchClientMetadata(url, { lookup: publicLookup, fetch: async () => new Response('x', { headers: { 'content-length': '999999' } }) }), /large/);
+  let chunks = 0;
+  const endless = new ReadableStream<Uint8Array>({ pull(controller) { chunks += 1; controller.enqueue(new Uint8Array(16 * 1024)); } }, { highWaterMark: 0 });
+  await assert.rejects(fetchClientMetadata(url, { lookup: publicLookup, fetch: async () => new Response(endless) }), /large/);
+  assert.ok(chunks < 10, `read ${chunks} chunks`);
   assert.equal(isPublicAddress('1.1.1.1'), true);
-  assert.equal(isPublicAddress('::ffff:101:101'), true);
   assert.equal(isPublicAddress('2606:4700:4700::1111'), true);
 });

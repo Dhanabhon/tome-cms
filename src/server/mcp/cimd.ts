@@ -1,5 +1,5 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
+import { BlockList, isIP } from 'node:net';
 
 /**
  * A Client ID Metadata Document: the client's id is an https URL, and the document there names it
@@ -15,27 +15,44 @@ const MAX_BYTES = 64 * 1024;
 
 type Lookup = (host: string) => Promise<{ address: string; family: number }[]>;
 
-function v4Private(address: string): boolean {
-  const [a = 0, b = 0] = address.split('.').map(Number);
-  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224;
+// Everything that is not a public unicast address, in every spelling: the list compares the bytes,
+// not the text, so a compressed, mapped or translated form of a private address is caught too.
+// Node checks an IPv4 address against IPv6 subnets as if it were mapped, so ::ffff:0:0/96 would block
+// every IPv4 address; hence one list per family.
+const NON_PUBLIC_V4 = new BlockList();
+const NON_PUBLIC_V6 = new BlockList();
+for (const [net, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['224.0.0.0', 3]] as const) {
+  NON_PUBLIC_V4.addSubnet(net, prefix, 'ipv4');
+}
+for (const [net, prefix] of [['::', 128], ['::1', 128], ['::ffff:0:0', 96], ['::', 96], ['::ffff:0:0:0', 96], ['64:ff9b::', 96], ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]] as const) {
+  NON_PUBLIC_V6.addSubnet(net, prefix, 'ipv6');
 }
 
 export function isPublicAddress(address: string): boolean {
   const version = isIP(address);
-  if (version === 4) return !v4Private(address);
-  if (version !== 6) return false;
-  const lower = address.toLowerCase();
-  // An IPv4-mapped address is the IPv4 address it wraps, written dotted or as two hex groups.
-  const dotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-  if (dotted) return !v4Private(dotted[1]!);
-  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(lower);
-  if (hex) {
-    const high = parseInt(hex[1]!, 16);
-    const low = parseInt(hex[2]!, 16);
-    return !v4Private(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+  if (version === 4) return !NON_PUBLIC_V4.check(address, 'ipv4');
+  return version === 6 && !NON_PUBLIC_V6.check(address, 'ipv6');
+}
+
+/** The body, read chunk by chunk so a host that streams without end is cut off at the cap. */
+async function readCapped(response: Response): Promise<string> {
+  const tooLarge = () => new Error('A client id document is too large.');
+  if (Number(response.headers.get('content-length')) > MAX_BYTES) throw tooLarge();
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BYTES) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    parts.push(value);
   }
-  return !(lower === '::' || lower === '::1' || /^f[cd]/.test(lower) || /^fe[89ab]/.test(lower) || /^ff/.test(lower));
+  return Buffer.concat(parts).toString('utf8');
 }
 
 export async function fetchClientMetadata(
@@ -51,8 +68,7 @@ export async function fetchClientMetadata(
   }
   const response = await (deps.fetch ?? fetch)(target, { redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept: 'application/json' } });
   if (response.status !== 200) throw new Error(`A client id document answered with status ${response.status}, or a redirect.`);
-  const text = await response.text();
-  if (Buffer.byteLength(text) > MAX_BYTES) throw new Error('A client id document is too large.');
+  const text = await readCapped(response);
   const document = JSON.parse(text) as { client_id?: unknown; client_name?: unknown; redirect_uris?: unknown };
   if (document.client_id !== url) throw new Error('A client id document must name itself as its client_id.');
   const redirectUris = Array.isArray(document.redirect_uris) ? document.redirect_uris.filter((uri): uri is string => typeof uri === 'string') : [];
