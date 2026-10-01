@@ -4,7 +4,8 @@ import { z } from 'zod';
 import AdminSkeleton from '../../../components/admin/AdminSkeleton.astro';
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { adminCopy } from '../../../lib/admin-i18n';
+import AiUndoBar from '../../../components/admin/AiUndoBar';
+import { adminCopy, adminDateFormat } from '../../../lib/admin-i18n';
 import { adminLoginPath } from '../../../lib/admin';
 import { requireInstalledOwner } from '../../../server/auth/session';
 import { categoryIdsForPost, listCategories } from '../../../server/content/categories';
@@ -13,6 +14,7 @@ import { getSiteSettings, type SiteSettings } from '../../../server/content/sett
 import { HttpError } from '../../../server/http/errors';
 import type { Post, PostCategory, PostTranslationSummary } from '../../../types/cms';
 import { suggestionsAvailable } from '../../../server/plugins/suggestions';
+import { readSnapshot } from '../../../server/mcp/snapshots';
 
 let post: Post | null = null;
 let editorPost: Omit<Post, 'translation_group_id'> | null = null;
@@ -62,10 +64,19 @@ const copy = adminCopy(settings?.default_locale);
 const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null);
 // Drawn only when the owner has switched on a plugin that can make suggestions.
 const canSuggest = settings ? await suggestionsAvailable(settings.owner_id) : false;
+// An AI changed this draft and its copy from before is kept: offer it back. Only on a draft,
+// because an AI never writes anything else and putting back keeps the status a draft.
+const aiChange = settings && post?.status === 'draft' ? await readSnapshot(settings.owner_id, 'post', post.id) : null;
+const aiUndo = aiChange && settings ? {
+  clientName: aiChange.clientName,
+  ownerEditedSince: aiChange.ownerEditedSince,
+  time: adminDateFormat(settings.default_locale, settings.timezone).format(new Date(aiChange.aiWrittenAt)),
+} : null;
 ---
 
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
+    {post && aiUndo && <AiUndoBar cancelLabel={copy.shell.cancel} client:load id={post.id} kind="post" snapshot={aiUndo} text={copy.aiUndo} updatedAt={post.updated_at} />}
     {post && editorPost ? (
       <Editor canSuggest={canSuggest} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />

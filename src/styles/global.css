@@ -2781,3 +2781,9 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .mcp-connections__list li { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; padding-block-end: var(--space-sm); border-block-end: var(--rule-hair) solid var(--color-rule); }
 .mcp-connections__list li > div { display: grid; gap: var(--space-3xs); min-width: 0; }
 .mcp-connections__list small { color: var(--color-muted); }
+/* Above a draft an AI changed, as the migrations notice sits above a screen: a rule at the start,
+ * not a tinted box, because it reports something rather than warning of it. Its content lines up
+ * with the editor bar's below, which is 80rem wide at most. */
+.ai-undo { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
+.ai-undo p { margin: 0; min-width: 0; }
+.ai-undo .admin-form-error { flex-basis: 100%; }

@@ -343,6 +343,14 @@ const en = {
     sendsTo: 'Your approval goes back to',
     title: 'Connect {client} to your site?',
   },
+  aiUndo: {
+    changedBy: '{client} changed this draft at {time}.',
+    confirmBody: 'You have edited it since. Those edits will be lost too.',
+    confirmTitle: 'Put back the draft from before the AI?',
+    failed: 'That did not work. Try again.',
+    putBack: 'Put back',
+    stale: 'The draft changed again. Reload, then try.',
+  },
   settings: {
     appearance: 'Appearance',
     defaultLanguage: 'Default language',
@@ -1428,6 +1436,14 @@ const th: typeof en = {
     scopeWriteHint: 'เฉพาะฉบับร่าง เผยแพร่ ตั้งเวลา หรือลบอะไรไม่ได้',
     sendsTo: 'การอนุญาตจะถูกส่งกลับไปที่',
     title: 'เชื่อม {client} กับเว็บของคุณไหม',
+  },
+  aiUndo: {
+    changedBy: '{client} แก้ฉบับร่างนี้เมื่อ {time}',
+    confirmBody: 'คุณแก้ต่อหลังจาก AI แล้ว สิ่งที่แก้หลังจากนั้นจะหายไปด้วย',
+    confirmTitle: 'ย้อนกลับไปฉบับก่อน AI แก้ไหม',
+    failed: 'ทำไม่สำเร็จ ลองอีกครั้ง',
+    putBack: 'ย้อนกลับ',
+    stale: 'ฉบับร่างเปลี่ยนอีกแล้ว โหลดหน้าใหม่แล้วลองอีกครั้ง',
   },
   settings: {
     appearance: 'หน้าตาเว็บไซต์',
