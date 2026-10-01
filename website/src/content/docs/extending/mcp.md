@@ -50,13 +50,20 @@ claude mcp add --transport http tomecms https://<your site>/mcp
 
 Then use `/mcp` in Claude Code to sign in. The approval goes back to a program on your computer, so the screen warns you of that: allow it only if you just started it.
 
-## Connect ChatGPT
+## Connect ChatGPT and Codex
 
-1. In ChatGPT, open **Settings**, then **Connectors**. On some plans you first turn on developer mode to add your own.
-2. Choose **Add**, or **Create**, and paste `https://<your site>/mcp`.
-3. Allow it on your site with your passkey, as above. The address under **Your approval goes back to** is `chatgpt.com`.
+In the ChatGPT desktop app, where Codex lives:
 
-ChatGPT renames these menus from time to time. If a name here does not match, look for the place in ChatGPT's settings where you add a connector or an app by its address.
+1. Open **Settings**, then **Plugins**, and the **MCPs** tab.
+2. Press **Add**, then **Add MCP server**.
+3. Give it a **Name**, such as your site's name, and choose **Streamable HTTP** as the **Type**.
+4. Put `https://<your site>/mcp` in **URL**. Leave **Bearer token env var** and both lists of headers empty: your site signs the app in by itself.
+5. Press **Save**. The server appears in the list with an **Authenticate** button. Press it.
+6. Your browser opens your site's admin. Sign in if you need to, then allow it with your passkey, as above.
+
+The app receives the approval on your own computer, so under **Your approval goes back to** the screen shows an address such as `127.0.0.1:49205` and warns that it is a program on this computer. That is expected for the desktop app: allow it if you just pressed **Authenticate**. The number after the colon changes each time.
+
+If you connect from ChatGPT on the web instead, under its connector or app settings, the approval goes back to `chatgpt.com`. ChatGPT renames these menus from time to time. If a name here does not match, look for the place where you add an MCP server or a connector by its address.
 
 ## What to ask it
 
