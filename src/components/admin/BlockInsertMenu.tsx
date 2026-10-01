@@ -213,8 +213,15 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
         attrs: { alt: asset.alt_text || asset.original_name, mediaId: asset.id, src: asset.publicUrl, title: asset.original_name },
       })
         // A picture put in at the end of a line is left selected, and the next key would type over
-        // it. The writer goes on on a new line under it instead.
-        .command(({ commands, tr }) => !isNodeSelection(tr.selection) || commands.insertContentAt(tr.selection.to, { type: 'paragraph' }))
+        // it. The caret goes on to the line after it instead, and only when there is none, or
+        // that is not a line of words, is one made: an empty one is stored and shows as a gap.
+        .command(({ commands, tr }) => {
+          if (!isNodeSelection(tr.selection)) return true;
+          const after = tr.selection.to;
+          return tr.doc.nodeAt(after)?.isTextblock
+            ? commands.setTextSelection(after + 1)
+            : commands.insertContentAt(after, { type: 'paragraph' });
+        })
         // The page stays where it was, moved only as far as it takes to show the new line.
         .scrollIntoView()
         .run();

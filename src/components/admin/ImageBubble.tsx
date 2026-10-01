@@ -38,6 +38,9 @@ export default function ImageBubble({ copy, ownerLocale }: { copy: AdminCopy; ow
       src: asset.publicUrl,
       // As an insert names it: the old file's name would be left on the new picture.
       title: asset.original_name,
+      // A size the old picture was given would draw a file of another shape at the old box.
+      height: null,
+      width: null,
     }).run();
   };
 

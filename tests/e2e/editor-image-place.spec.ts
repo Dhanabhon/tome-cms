@@ -137,11 +137,15 @@ test('a picture goes in far down a long post, and the page stays where it went',
     await writeLongPost(canvas);
 
     // Uploaded in the picker: the file joins the library and its picture goes in.
-    await insertNearTheEnd(page, canvas, 'Line 36', async (picker) => {
+    await insertNearTheEnd(page, canvas, 'Line 36', 'Line 37', async (picker) => {
       await picker.locator('input[type="file"]').setInputFiles({ name: upload, mimeType: 'image/png', buffer: await picture('#e76f51') });
     });
     // Chosen from the File Manager: a picture already there.
-    await insertNearTheEnd(page, canvas, 'Line 33', async (picker) => {
+    await insertNearTheEnd(page, canvas, 'Line 33', 'Line 34', async (picker) => {
+      await picker.getByRole('button', { name: /^Select Harbour\.png,/ }).click();
+    });
+    // After the last line, where there is no line to go on in.
+    await insertNearTheEnd(page, canvas, 'Line 40', null, async (picker) => {
       await picker.getByRole('button', { name: /^Select Harbour\.png,/ }).click();
     });
   }
@@ -160,7 +164,7 @@ test('a picture is replaced from the File Manager, one undo puts it back, and th
   await page.locator('#post-title').fill('A replaced picture');
   const canvas = page.locator('.ProseMirror');
   await writeLongPost(canvas);
-  await insertNearTheEnd(page, canvas, 'Line 30', async (picker) => {
+  await insertNearTheEnd(page, canvas, 'Line 30', 'Line 31', async (picker) => {
     await picker.getByRole('button', { name: /^Select Lake\.png,/ }).click();
   });
   const image = canvas.locator('p:has-text("Line 30:") + img');
@@ -206,17 +210,31 @@ test('a picture is replaced from the File Manager, one undo puts it back, and th
   await expect(image).toHaveAttribute('title', 'Lake.png');
   expect(await held(), 'and still where it was').toBeLessThanOrEqual(HELD);
 
-  // A picture with no alt text takes the new file's.
+  // A picture with no alt text takes the new file's. One pasted in with a size of its own drops
+  // the size: the new file may be another shape. Set outside the history, so the undo below
+  // is the replace's alone.
   await canvas.evaluate((node) => {
     const { editor } = node as unknown as { editor: Editor };
     let at = -1;
     editor.state.doc.descendants((child, position) => { if (child.type.name === 'image') at = position; });
-    editor.chain().setNodeSelection(at).updateAttributes('image', { alt: '' }).run();
+    editor.chain().setNodeSelection(at).updateAttributes('image', { alt: '', height: 90, width: 160 }).setMeta('addToHistory', false).run();
   });
+  await expect(image).toHaveAttribute('width', '160');
   await image.click();
   await replace.click();
   await picker.getByRole('button', { name: /^Select Field\.png,/ }).click();
   await expect(picker).toBeHidden();
+  await expect(image).toHaveAttribute('src', field!);
+  await expect(image).toHaveAttribute('alt', 'A field at noon');
+  await expect(image).not.toHaveAttribute('width');
+  await expect(image).not.toHaveAttribute('height');
+
+  // Undone, the alt text, the size and the file all come back; done again, the new picture returns.
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(image).toHaveAttribute('src', lake!);
+  await expect(image).toHaveAttribute('alt', '');
+  await expect(image).toHaveAttribute('width', '160');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
   await expect(image).toHaveAttribute('src', field!);
   await expect(image).toHaveAttribute('alt', 'A field at noon');
 
@@ -283,9 +301,13 @@ async function writeLongPost(canvas: Locator) {
   });
 }
 
-/** The caret at the end of `line`, a picture put in from +, and where the page and the picture are after. */
-async function insertNearTheEnd(page: Page, canvas: Locator, line: string, choose: (picker: Locator) => Promise<void>) {
+/**
+ * The caret at the end of `line`, a picture put in from +, and where the page, the picture and the
+ * caret are after. `following` is the line after `line`, or null when nothing follows it.
+ */
+async function insertNearTheEnd(page: Page, canvas: Locator, line: string, following: string | null, choose: (picker: Locator) => Promise<void>) {
   const pictures = await canvas.locator('img').count();
+  const blocksBefore = await blocks(canvas);
   // Mid-window, where a writer's eye is: a line at the window's very edge would have the picture land out of sight.
   const target = canvas.locator('p', { hasText: `${line}:` });
   await target.evaluate((node) => node.scrollIntoView({ block: 'center' }));
@@ -315,9 +337,12 @@ async function insertNearTheEnd(page: Page, canvas: Locator, line: string, choos
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
   const after = await page.evaluate(() => window.scrollY);
-  expect(Math.abs(after - before), `the page stayed where it was (${before} then ${after})`).toBeLessThanOrEqual(HELD);
   // The new picture is the one after the line the caret was on.
   const inserted = canvas.locator(`p:has-text("${line}:") + img`);
+  // The post's last line cannot be scrolled up to the middle of the window: it sits at the foot,
+  // and showing the picture under it takes the page down by the picture, as a line typed there would.
+  const room = following ? 0 : (await inserted.boundingBox())!.height;
+  expect(Math.abs(after - before), `the page stayed where it was (${before} then ${after})`).toBeLessThanOrEqual(HELD + room);
   await expect(inserted, 'the new picture is in view').toBeInViewport();
   // The caret is just after the picture, where the next words go.
   const caret = await canvas.evaluate((node) => {
@@ -327,4 +352,14 @@ async function insertNearTheEnd(page: Page, canvas: Locator, line: string, choos
     return { before: index > 0 ? state.doc.child(index - 1).type.name : null, empty, offset: $from.parentOffset, parent: $from.parent.type.name };
   });
   expect(caret, 'the caret is just after the picture').toEqual({ before: 'image', empty: true, offset: 0, parent: 'paragraph' });
+  // The line that followed still follows: a picture between two paragraphs adds itself and no
+  // empty line. Only a picture with nothing after it has a new line made for the caret.
+  expect(await blocks(canvas), following ? 'the picture, and nothing else' : 'the picture, and a line for the caret')
+    .toBe(blocksBefore + (following ? 1 : 2));
+  await expect(inserted.locator('xpath=following-sibling::*[1]')).toHaveText(following ? new RegExp(`^${following}:`) : '');
+}
+
+/** How many blocks the post has. */
+async function blocks(canvas: Locator): Promise<number> {
+  return canvas.evaluate((node) => (node as unknown as { editor: Editor }).editor.state.doc.childCount);
 }
