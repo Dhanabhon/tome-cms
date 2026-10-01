@@ -189,6 +189,11 @@ test('an AI app connects with a passkey, writes a draft, is put back and is revo
   await expect(page).toHaveURL(/\/admin\/connect\?request=/);
   await expect(page.getByRole('heading', { name: 'Connect Claude Code to your site?' })).toBeVisible();
   await expect(page.getByText(/This is a program on this computer, not a website/)).toBeVisible();
+  // It only calls itself Claude Code, so it gets no mark and the name is said to be its own.
+  await expect(page.locator('.mcp-consent__host')).toHaveText('A program on this computer');
+  await expect(page.locator('.mcp-consent__address')).toHaveText(new URL(CALLBACK).host);
+  await expect(page.getByText('(the name it gave)')).toBeVisible();
+  await expect(page.locator('.mcp-consent__mark .brand-mark')).toHaveCount(0);
   await shoot(page, 'consent', WIDE);
   await shoot(page, 'consent', NARROW);
 
@@ -235,7 +240,7 @@ test('an AI app connects with a passkey, writes a draft, is put back and is revo
   // The card lists the connection; revoke it.
   await page.goto(`${origin}/admin/plugins`);
   await expect(card.getByText('Claude Code')).toBeVisible();
-  await expect(card.getByText(/Reads and writes drafts/)).toBeVisible();
+  await expect(card.getByText(/A program on this computer · Reads and writes drafts/)).toBeVisible();
   await card.scrollIntoViewIfNeeded();
   await shoot(page, 'plugins-card', WIDE);
   await shoot(page, 'plugins-card', NARROW);

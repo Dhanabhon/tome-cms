@@ -330,6 +330,7 @@ const en = {
     invalidRequestTitle: 'This connection request is not valid',
     lastUsed: 'Last used {date}',
     loopbackWarning: 'This is a program on this computer, not a website. Allow it only if you just started it.',
+    nameGiven: '(the name it gave)',
     neverUsed: 'Not used yet',
     none: 'Nothing is connected yet.',
     offClears: 'Switching this off and on again disconnects everything.',
@@ -341,6 +342,7 @@ const en = {
     scopeWrite: 'Create and edit drafts',
     scopeWriteHint: 'Drafts only. It cannot publish, schedule or delete anything.',
     sendsTo: 'Your approval goes back to',
+    thisComputer: 'A program on this computer',
     title: 'Connect {client} to your site?',
   },
   aiUndo: {
@@ -1424,6 +1426,7 @@ const th: typeof en = {
     invalidRequestTitle: 'คำขอเชื่อมต่อนี้ไม่ถูกต้อง',
     lastUsed: 'ใช้ล่าสุด {date}',
     loopbackWarning: 'ปลายทางนี้คือโปรแกรมบนเครื่องนี้ ไม่ใช่เว็บไซต์ อนุญาตเฉพาะเมื่อคุณเพิ่งเปิดโปรแกรมนั้นเอง',
+    nameGiven: '(ชื่อที่โปรแกรมแจ้ง)',
     neverUsed: 'ยังไม่เคยใช้',
     none: 'ยังไม่มีการเชื่อมต่อ',
     offClears: 'ปิดแล้วเปิดใหม่จะตัดทุกการเชื่อมต่อ',
@@ -1435,6 +1438,7 @@ const th: typeof en = {
     scopeWrite: 'สร้างและแก้ไขฉบับร่าง',
     scopeWriteHint: 'เฉพาะฉบับร่าง เผยแพร่ ตั้งเวลา หรือลบอะไรไม่ได้',
     sendsTo: 'การอนุญาตจะถูกส่งกลับไปที่',
+    thisComputer: 'โปรแกรมบนเครื่องนี้',
     title: 'เชื่อม {client} กับเว็บของคุณไหม',
   },
   aiUndo: {

@@ -122,6 +122,7 @@ test('an authorization request is checked before anything is shown', async () =>
   const { requestId } = await oauth.startAuthorization(config, authorizeParams());
   assert.deepEqual(oauth.describeRequest(config, requestId), {
     clientName: 'Claude', redirectHost: 'claude.ai', loopbackOnly: false, wantsWrite: true, writeAllowed: true,
+    brand: 'claude', redirectIsLoopback: false,
   });
   assert.equal(oauth.describeRequest(config, 'no-such-request'), null);
 
@@ -361,6 +362,7 @@ test('a CIMD client is fetched once a day, stored only when allowed, and only wi
   const { requestId } = await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53100/callback' }));
   assert.deepEqual(oauth.describeRequest(config, requestId), {
     clientName: 'Example app', redirectHost: '127.0.0.1:53100', loopbackOnly: true, wantsWrite: true, writeAllowed: true,
+    brand: null, redirectIsLoopback: true,
   });
   assert.equal(await stored(), undefined, 'nothing is stored before the owner allows it');
   await oauth.startAuthorization(config, authorizeParams({ client_id: url, redirect_uri: 'http://127.0.0.1:53101/callback' }));
@@ -391,6 +393,20 @@ test('a CIMD client is fetched once a day, stored only when allowed, and only wi
     await oauth.startAuthorization(config, authorizeParams({ client_id: `https://flood.example/${index}.json`, redirect_uri: 'http://127.0.0.1:1/callback' }));
   }
   assert.equal((await db.selectFrom('mcp_clients').select('id').execute()).length, before);
+});
+
+test('a mark follows the client document host, so a loopback Codex is OpenAI and a loopback stranger is nobody', async () => {
+  const codex = 'https://chatgpt.com/oauth/codex/client.json';
+  oauth.setClientMetadataFetcherForTest(async () => ({ name: 'Codex', redirectUris: ['http://127.0.0.1/callback'] }));
+  const { requestId } = await oauth.startAuthorization(config, authorizeParams({ client_id: codex, redirect_uri: 'http://127.0.0.1:49205/callback' }));
+  const summary = oauth.describeRequest(config, requestId);
+  assert.equal(summary?.brand, 'openai');
+  assert.equal(summary?.redirectIsLoopback, true);
+
+  // It only calls itself Claude: registered by DCR, approved on loopback, it earns nothing.
+  const lookalike = await oauth.registerClient(config, { client_name: 'Claude', redirect_uris: ['http://127.0.0.1:3118/callback'] });
+  const asked = await oauth.startAuthorization(config, authorizeParams({ client_id: lookalike.client_id, redirect_uri: 'http://127.0.0.1:3118/callback' }));
+  assert.equal(oauth.describeRequest(config, asked.requestId)?.brand, null);
 });
 
 test('the authorize endpoint is rate-limited per sender, with the same plain page', async () => {

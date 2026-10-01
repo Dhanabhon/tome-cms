@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 
 import { sql, type Transaction } from 'kysely';
 
+import type { BrandName } from '../../lib/brand-marks';
 import { db } from '../db/client';
 import type { Database } from '../db/types';
+import { clientBrand, isLoopbackHost } from './brand';
 import { fetchClientMetadata } from './cimd';
 import type { McpConfig } from './config';
 import { hashSecret, newSecret, pkceMatches } from './oauth-crypto';
@@ -206,12 +208,25 @@ export async function startAuthorization(config: McpConfig, params: URLSearchPar
   return { requestId };
 }
 
-export interface PendingSummary { clientName: string; redirectHost: string; loopbackOnly: boolean; wantsWrite: boolean; writeAllowed: boolean }
+export interface PendingSummary {
+  clientName: string;
+  redirectHost: string;
+  /** Every redirect this client registered is on this computer. */
+  loopbackOnly: boolean;
+  /** This approval goes back to this computer. */
+  redirectIsLoopback: boolean;
+  /** The mark the app has earned, from where it sends the owner and who its client document is, never its name. */
+  brand: BrandName | null;
+  wantsWrite: boolean;
+  writeAllowed: boolean;
+}
 export function describeRequest(config: McpConfig, requestId: string): PendingSummary | null {
   const found = livePending(requestId);
   if (!found) return null;
+  const redirectHost = new URL(found.redirectUri).host;
   return {
-    clientName: found.clientName, redirectHost: new URL(found.redirectUri).host, loopbackOnly: found.loopbackOnly,
+    clientName: found.clientName, redirectHost, loopbackOnly: found.loopbackOnly,
+    redirectIsLoopback: isLoopbackHost(redirectHost), brand: clientBrand(found.clientId, redirectHost),
     wantsWrite: found.wantsWrite, writeAllowed: config.allowWrite,
   };
 }
@@ -350,7 +365,7 @@ export async function exchange(config: McpConfig, form: URLSearchParams): Promis
   return pair;
 }
 
-export interface VerifiedToken { connectionId: string; clientName: string; scopes: string[]; expiresAt: number }
+export interface VerifiedToken { connectionId: string; clientName: string; brand: BrandName | null; scopes: string[]; expiresAt: number }
 /**
  * An access token that is this site's: unexpired, and its connection not revoked. Touches
  * last_used_at at most once a minute.
@@ -358,12 +373,15 @@ export interface VerifiedToken { connectionId: string; clientName: string; scope
 export async function verifyAccessToken(config: McpConfig, bearer: string): Promise<VerifiedToken | null> {
   if (!bearer || bearer.length > MAX_PARAM) return null;
   const found = await db.selectFrom('mcp_tokens').innerJoin('mcp_connections', 'mcp_connections.id', 'mcp_tokens.connection_id')
-    .select(['mcp_connections.id', 'client_name', 'scopes', 'expires_at', 'last_used_at'])
+    .select(['mcp_connections.id', 'client_id', 'client_name', 'redirect_host', 'scopes', 'expires_at', 'last_used_at'])
     .where('token_hash', '=', hashSecret(bearer)).where('kind', '=', 'access').where('expires_at', '>', new Date())
     .where('owner_id', '=', config.ownerId).where('revoked_at', 'is', null).executeTakeFirst();
   if (!found) return null;
   if (!found.last_used_at || Date.now() - new Date(found.last_used_at).getTime() >= TOUCH_MS) {
     await db.updateTable('mcp_connections').set({ last_used_at: new Date() }).where('id', '=', found.id).execute();
   }
-  return { connectionId: found.id, clientName: found.client_name, scopes: found.scopes, expiresAt: new Date(found.expires_at).getTime() };
+  return {
+    connectionId: found.id, clientName: found.client_name, brand: clientBrand(found.client_id, found.redirect_host), scopes: found.scopes,
+    expiresAt: new Date(found.expires_at).getTime(),
+  };
 }

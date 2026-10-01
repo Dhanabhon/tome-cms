@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { adminDateFormat, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { confirmUi } from '../../lib/ui-dialog';
 import type { McpConnectionSummary } from '../../server/mcp/connections';
+import BrandMark from '../BrandMark';
+import Icon from '../Icon';
 
 const DOCS = 'https://dhanabhon.github.io/tome-cms';
 
@@ -78,9 +80,12 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
         <ul className="mcp-connections__list">
           {connections.map((connection) => (
             <li key={connection.id}>
+              <span aria-hidden="true" className="mcp-connections__mark">
+                {connection.brand ? <BrandMark name={connection.brand} /> : <Icon name="system" />}
+              </span>
               <div>
                 <strong>{connection.clientName}</strong>
-                <small>{connection.redirectHost} · {connection.scopes.includes('drafts:write') ? copy.mcp.canWrite : copy.mcp.readOnly}</small>
+                <small>{connection.loopback ? copy.mcp.thisComputer : connection.redirectHost} · {connection.scopes.includes('drafts:write') ? copy.mcp.canWrite : copy.mcp.readOnly}</small>
                 <small>
                   {fill(copy.mcp.connected, { date: dates.format(new Date(connection.createdAt)) })} · {connection.lastUsedAt
                     ? fill(copy.mcp.lastUsed, { date: dates.format(new Date(connection.lastUsedAt)) })

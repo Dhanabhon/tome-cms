@@ -64,6 +64,8 @@ test('connections are listed without any secret, and an abandoned consent is not
   for (const connection of listed) {
     assert.equal(connection.clientName, 'Claude');
     assert.equal(connection.redirectHost, 'claude.ai');
+    assert.equal(connection.brand, 'claude');
+    assert.equal(connection.loopback, false);
     assert.deepEqual(connection.scopes, ['content:read', 'drafts:write']);
     assert.ok(connection.createdAt);
     assert.ok(!JSON.stringify(connection).match(/"[0-9a-f]{64}"/), 'no hash comes back');
@@ -71,6 +73,7 @@ test('connections are listed without any secret, and an abandoned consent is not
   access.push(first.access, second.access);
   const seen = await Promise.all(access.map((token) => oauth.verifyAccessToken(config, token)));
   assert.ok(seen.every(Boolean));
+  assert.ok(seen.every((token) => token?.brand === 'claude'), 'a verified token carries the mark too');
   // Using a token is what makes a connection list; that touch is what lastUsedAt reports.
   assert.ok((await listConnections(OWNER)).every((connection) => connection.lastUsedAt));
 });
