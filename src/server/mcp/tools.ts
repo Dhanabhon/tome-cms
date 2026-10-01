@@ -21,6 +21,7 @@ import { getContent, listContent, listOwnerMedia, searchContent } from './conten
 import { markdownToDocument, McpInputError } from './markdown-in';
 import { documentToMarkdown } from './markdown-out';
 import type { VerifiedToken } from './oauth';
+import { itemKey, ownerIsEditing, recordTouch } from './presence';
 import { groupIsAllDrafts, markAiWritten, snapshotBeforeAiWrite, type ContentKind } from './snapshots';
 
 const PACKAGE_VERSION = getBuildInfo().version;
@@ -114,7 +115,7 @@ async function readOne(ownerId: string, kind: ContentKind, item: Post | Page, of
   };
 }
 
-function registerReadTools(server: McpServer, config: McpConfig): void {
+function registerReadTools(server: McpServer, config: McpConfig, token: VerifiedToken): void {
   const { ownerId } = config;
   server.registerTool('get_site', {
     description: "The site's name, its languages, its time zone and its public address.",
@@ -156,7 +157,9 @@ function registerReadTools(server: McpServer, config: McpConfig): void {
       if (!by) return refuse('Give an id, or a locale and a slug.');
       const item = await getContent(ownerId, kind, by);
       if (!item) return refuse(`No ${kind} was found. Find one with list_${kind}s or search_content.`);
-      return respond(await readOne(ownerId, kind, item, offset));
+      const result = await readOne(ownerId, kind, item, offset);
+      touched(token, kind, item.id, 'read');
+      return respond(result);
     }));
   }
 
@@ -193,6 +196,11 @@ async function writeRefusal(): Promise<ToolResult | null> {
   if (!(await mcpConfig())?.allowWrite) return refuse('Writing drafts is switched off on this site.');
   if (await isUpdateWriteBlocked(updateStatusPath)) return refuse('TomeCMS is installing an update. Try again in a minute.');
   return null;
+}
+
+/** The editor shows which AI last looked at or wrote an item. */
+function touched(token: VerifiedToken, kind: ContentKind, id: string, action: 'read' | 'write'): void {
+  recordTouch(itemKey(kind, id), { connectionId: token.connectionId, clientName: token.clientName, brand: token.brand, action });
 }
 
 function logWrite(tool: string, token: VerifiedToken, kind: ContentKind, id: string): void {
@@ -241,6 +249,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
     const created = args.kind === 'post'
       ? await createPost(ownerId, { ...common, categoryIds: categories.ids, coverMediaId: args.coverMediaId ?? null, sourcePostId: args.translationOf })
       : await createPage(ownerId, { ...common, sourcePageId: args.translationOf });
+    touched(token, args.kind, created.id, 'write');
     logWrite('create_draft', token, args.kind, created.id);
     return respond({ id: created.id, updatedAt: created.updated_at, warnings: [...warnings, ...categories.warnings] });
   }));
@@ -256,6 +265,10 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
   }, async (args) => guard('update_draft', async () => {
     const refusal = await writeRefusal() ?? postsOnly(args.kind, args);
     if (refusal) return refusal;
+    // The owner's own hands come first: while the draft is open in their editor, an AI's write would be lost or lose theirs.
+    if (ownerIsEditing(itemKey(args.kind, args.id))) {
+      return refuse('The owner has this draft open in the editor. Ask them to close it, or create a new draft instead.');
+    }
     const current = await getContent(ownerId, args.kind, { id: args.id });
     if (!current) return refuse(`There is no ${args.kind} ${args.id}. Find one with list_${args.kind}s.`);
     if (current.status !== 'draft') return refuse(`This ${args.kind} is published, and only drafts can be changed here. Ask the owner to change it in the admin.`);
@@ -282,6 +295,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       ? await updatePost(ownerId, { ...common, coverMediaId, categoryIds: categories?.ids ?? await categoryIdsForPost(ownerId, current.id) })
       : await updatePage(ownerId, common);
     await markAiWritten(ownerId, args.kind, updated.id, updated.updated_at);
+    touched(token, args.kind, updated.id, 'write');
     logWrite('update_draft', token, args.kind, updated.id);
     return respond({
       id: updated.id,
@@ -295,7 +309,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
 /** A fresh server for one request,with the tools this token's scopes allow and no others. */
 export function buildMcpServer(config: McpConfig, token: VerifiedToken): McpServer {
   const server = new McpServer({ name: 'tomecms', version: PACKAGE_VERSION });
-  registerReadTools(server, config);
+  registerReadTools(server, config, token);
   if (token.scopes.includes('drafts:write')) registerWriteTools(server, config, token);
   return server;
 }

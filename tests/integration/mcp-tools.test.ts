@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 
 import { runWithEndpointContext } from '@better-auth/core/context';
 import { makeSignature } from 'better-auth/crypto';
@@ -26,6 +26,7 @@ const { createPost, updatePost, updatePostStatus, deletePost, getPost } = await 
 const { createPage, updatePageStatus } = await import('../../src/server/content/pages');
 const { HttpError } = await import('../../src/server/http/errors');
 const snapshots = await import('../../src/server/mcp/snapshots');
+const presence = await import('../../src/server/mcp/presence');
 const { setUpdateStatusPathForTest } = await import('../../src/server/mcp/tools');
 const { POST } = await import('../../src/pages/mcp');
 
@@ -158,6 +159,7 @@ before(async () => {
   reader = await accessToken(client.client_id, false);
 });
 after(closeDatabase);
+beforeEach(() => presence.resetPresenceForTest());
 
 test('the endpoint takes a bearer token and nothing else', async () => {
   const none = await rpc(null, 'tools/list');
@@ -308,6 +310,42 @@ test('update_draft refuses, and writes nothing', async () => {
   assert.equal(written.updated_at, fine.updatedAt);
   assert.equal(written.cover_media_id, imageId);
   assert.ok(written.content_json.content?.some((node) => node.type === 'video'));
+});
+
+test('an AI waits while the owner has the draft open, and its reads and writes are remembered', async () => {
+  presence.resetPresenceForTest();
+  const draft = await createPost(OWNER, postInput('Held', { type: 'doc', content: [paragraph('Mine')] }));
+  const key = presence.itemKey('post', draft.id);
+  const update = (extra: Record<string, unknown>) => ({ kind: 'post', id: draft.id, updatedAt: draft.updated_at, ...extra });
+
+  presence.beat(key);
+  await refused(writer, 'update_draft', update({ title: 'AI title' }), /owner has this draft open/);
+  assert.equal(await updatedAt(draft.id), draft.updated_at, 'nothing was written');
+  assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', draft.id).executeTakeFirst(), undefined);
+  assert.equal(presence.lastTouch(key), null, 'a refused write leaves no touch');
+
+  // Reading and making new drafts go on while the owner is in the editor.
+  await ok(writer, 'get_post', { id: draft.id });
+  assert.deepEqual(
+    { action: presence.lastTouch(key)?.action, brand: presence.lastTouch(key)?.brand, name: presence.lastTouch(key)?.clientName },
+    { action: 'read', brand: 'claude', name: 'Claude' },
+  );
+  const made = await ok(writer, 'create_draft', { kind: 'post', locale: 'en', title: 'New while held', body: 'x' });
+  assert.equal(presence.lastTouch(presence.itemKey('post', made.id))?.action, 'write');
+
+  // A beat older than 45 seconds no longer holds the draft.
+  presence.resetPresenceForTest();
+  presence.beat(key, Date.now() - 46_000);
+  await ok(writer, 'update_draft', update({ title: 'AI title' }));
+  assert.equal(presence.lastTouch(key)?.action, 'write');
+  assert.equal(presence.lastTouch(key)?.brand, 'claude');
+
+  // Listing and searching are not a look at one draft.
+  presence.resetPresenceForTest();
+  await ok(writer, 'list_posts', {});
+  await ok(writer, 'search_content', { query: 'Held' });
+  assert.equal(presence.lastTouch(key), null);
+  assert.equal(presence.lastTouch(presence.itemKey('post', made.id)), null);
 });
 
 test('while an update installs, writes wait and reads go on', async (t) => {
