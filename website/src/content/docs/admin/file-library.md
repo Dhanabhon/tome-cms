@@ -28,7 +28,7 @@ The file goes from your browser straight to the site's object storage. If storag
 
 The page's address keeps the type and the folder you chose, so a reload or a bookmark opens the same view.
 
-"Grid" and "List", beside the search, change how the files are drawn. "Grid" shows each file as a card, and is the layout to begin with. "List" shows one file to a row, with its name, type, size and date. The layout you choose is remembered in this browser. The File Manager that opens as a picker in the editor and in other screens has the same switch.
+"Grid" and "List", the two buttons at the end of the type filters, change how the files are drawn. "Grid" shows each file as a card, and is the layout to begin with. "List" shows one file to a row, with its name, type, size and date. The layout you choose is remembered in this browser. The File Manager that opens as a picker in the editor and in other screens has the same switch.
 
 ## Folders
 

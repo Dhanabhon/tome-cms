@@ -880,7 +880,7 @@ body.paper { background: var(--color-paper); }
 /* How far the current tick grows: h2 to 2.5rem and h3 to 1.75rem, from 1.5rem and 1rem. The
  * reach is the same growth in length, which the label has to clear. */
 .reading-rail__link--h2 { --rail-grow: calc(2.5 / 1.5); --rail-reach: 1rem; }
-.reading-rail__link--h3 { --rail-grow: 1.75; --rail-reach: 0.75rem; }
+.reading-rail__link--h3 { --rail-grow: 1.75; --rail-reach: 0.25rem; }
 
 .reading-rail__link:is(:hover, :focus-visible)::before { background: var(--color-ink); }
 
