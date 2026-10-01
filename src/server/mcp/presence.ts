@@ -13,7 +13,8 @@ const MAX_ITEMS = 500;
 const touches = new Map<ItemKey, Touch>();
 const beats = new Map<ItemKey, number>();
 
-export const itemKey = (kind: 'post' | 'page', id: string): ItemKey => `${kind}:${id}`;
+/** A uuid is the same row in any case, so the key is lowercase: the editor's beat and an AI's id must agree. */
+export const itemKey = (kind: 'post' | 'page', id: string): ItemKey => `${kind}:${id.toLowerCase()}`;
 
 /** Sets a key as the newest entry: re-inserting moves it last, so the first key is always the oldest. */
 function remember<T>(store: Map<ItemKey, T>, key: ItemKey, value: T): void {

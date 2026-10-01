@@ -348,6 +348,32 @@ test('an AI waits while the owner has the draft open, and its reads and writes a
   assert.equal(presence.lastTouch(presence.itemKey('post', made.id)), null);
 });
 
+test('the owner-first rule holds for any spelling of the id, and for pages', async () => {
+  const draft = await createPost(OWNER, postInput('Shouted', { type: 'doc', content: [paragraph('Mine')] }));
+  presence.beat(presence.itemKey('post', draft.id));
+  await refused(writer, 'update_draft', { kind: 'post', id: draft.id.toUpperCase(), updatedAt: draft.updated_at, title: 'AI title' }, /owner has this draft open/);
+  assert.equal(await updatedAt(draft.id), draft.updated_at, 'nothing was written');
+  assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', draft.id).executeTakeFirst(), undefined);
+
+  const page = await createPage(OWNER, {
+    title: 'Held page', slug: `page-${randomUUID()}`, excerpt: '', metaTitle: null, metaDescription: null,
+    contentJson: { type: 'doc', content: [paragraph('Mine')] }, status: 'draft', locale: 'en',
+  } as never);
+  const update = { kind: 'page', id: page.id, updatedAt: page.updated_at, title: 'AI page title' };
+  presence.beat(presence.itemKey('post', page.id));
+  await ok(writer, 'get_page', { id: page.id });
+  assert.deepEqual(
+    { action: presence.lastTouch(presence.itemKey('page', page.id))?.action, brand: presence.lastTouch(presence.itemKey('page', page.id))?.brand },
+    { action: 'read', brand: 'claude' },
+  );
+  assert.equal(presence.lastTouch(presence.itemKey('post', page.id)), null, 'a post key is not a page key');
+  await ok(writer, 'update_draft', update);
+
+  const second = await db.selectFrom('pages').select('updated_at').where('id', '=', page.id).executeTakeFirstOrThrow();
+  presence.beat(presence.itemKey('page', page.id));
+  await refused(writer, 'update_draft', { ...update, updatedAt: new Date(second.updated_at).toISOString(), title: 'Again' }, /owner has this draft open/);
+});
+
 test('while an update installs, writes wait and reads go on', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'tome-mcp-'));
   const statusPath = join(root, 'status.json');
