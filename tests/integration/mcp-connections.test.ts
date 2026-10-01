@@ -140,7 +140,13 @@ test('the connections route: a 404 while off, and DELETE only from this origin',
     }),
   } as unknown as Parameters<typeof GET>[0]);
 
-  assert.equal((await call(GET, 'GET')).status, 200);
+  await writePluginSettings(OWNER, { enabled: true, id: 'mcp', values: { allowWrite: 'on' } });
+  const listed = await call(GET, 'GET');
+  assert.equal(listed.status, 200);
+  assert.equal((await listed.json()).writeAllowed, true);
+  // While writing is switched off, a connection that may write is said to read only.
+  await writePluginSettings(OWNER, { enabled: true, id: 'mcp', values: { allowWrite: 'off' } });
+  assert.equal((await (await call(GET, 'GET')).json()).writeAllowed, false);
   assert.equal((await call(DELETE, 'DELETE', { origin: 'https://evil.example' })).status, 403);
   assert.equal((await call(DELETE, 'DELETE')).status, 200);
 

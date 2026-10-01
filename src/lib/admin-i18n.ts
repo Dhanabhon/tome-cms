@@ -344,6 +344,7 @@ const en = {
     sendsTo: 'Your approval goes back to',
     thisComputer: 'A program on this computer',
     title: 'Connect {client} to your site?',
+    writeOff: 'Reads only while writing is switched off',
   },
   aiUndo: {
     changedBy: '{client} changed this draft at {time}.',
@@ -1447,6 +1448,7 @@ const th: typeof en = {
     sendsTo: 'การอนุญาตจะถูกส่งกลับไปที่',
     thisComputer: 'โปรแกรมบนเครื่องนี้',
     title: 'เชื่อม {client} กับเว็บของคุณไหม',
+    writeOff: 'อ่านอย่างเดียวระหว่างที่ปิดการเขียนอยู่',
   },
   aiUndo: {
     changedBy: '{client} แก้ฉบับร่างนี้เมื่อ {time}',

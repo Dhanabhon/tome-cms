@@ -14,6 +14,7 @@ const DOCS = 'https://dhanabhon.github.io/tome-cms';
  */
 export default function McpConnections({ copy, locale }: { copy: AdminCopy; locale: 'en' | 'th' }) {
   const [connections, setConnections] = useState<McpConnectionSummary[] | null>(null);
+  const [writeAllowed, setWriteAllowed] = useState(true);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
   const address = `${typeof location === 'undefined' ? '' : location.origin}/mcp`;
@@ -23,8 +24,12 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
   useEffect(() => {
     let live = true;
     fetch('/api/admin/mcp/connections')
-      .then((response) => (response.ok ? response.json() as Promise<{ connections: McpConnectionSummary[] }> : Promise.reject(new Error())))
-      .then((payload) => { if (live) setConnections(payload.connections); })
+      .then((response) => (response.ok ? response.json() as Promise<{ connections: McpConnectionSummary[]; writeAllowed: boolean }> : Promise.reject(new Error())))
+      .then((payload) => {
+        if (!live) return;
+        setConnections(payload.connections);
+        setWriteAllowed(payload.writeAllowed);
+      })
       .catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
   }, []);
@@ -37,6 +42,11 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
     } catch {
       // The field is selectable; copying by hand still works.
     }
+  }
+
+  function access(connection: McpConnectionSummary): string {
+    if (!connection.scopes.includes('drafts:write')) return copy.mcp.readOnly;
+    return writeAllowed ? copy.mcp.canWrite : copy.mcp.writeOff;
   }
 
   async function revoke(connection: McpConnectionSummary) {
@@ -85,7 +95,7 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
               </span>
               <div>
                 <strong>{connection.clientName}</strong>
-                <small>{connection.loopback ? copy.mcp.thisComputer : connection.redirectHost} · {connection.scopes.includes('drafts:write') ? copy.mcp.canWrite : copy.mcp.readOnly}</small>
+                <small>{connection.loopback ? copy.mcp.thisComputer : connection.redirectHost} · {access(connection)}</small>
                 <small>
                   {fill(copy.mcp.connected, { date: dates.format(new Date(connection.createdAt)) })} · {connection.lastUsedAt
                     ? fill(copy.mcp.lastUsed, { date: dates.format(new Date(connection.lastUsedAt)) })
