@@ -348,10 +348,11 @@ const en = {
   },
   aiUndo: {
     changedBy: '{client} changed this draft at {time}.',
-    confirmBody: 'You have edited it since. Those edits will be lost too.',
+    confirmBody: 'Everything {client} changed in this draft goes, and it cannot be brought back.',
+    confirmBodyEdited: 'Everything {client} changed in this draft goes, and so do your own edits since. It cannot be brought back.',
     confirmTitle: 'Put back the draft from before the AI?',
     failed: 'That did not work. Try again.',
-    putBack: 'Put back',
+    putBack: "Undo the AI's changes",
     stale: 'The draft changed again. Reload, then try.',
   },
   editing: {
@@ -1452,10 +1453,11 @@ const th: typeof en = {
   },
   aiUndo: {
     changedBy: '{client} แก้ฉบับร่างนี้เมื่อ {time}',
-    confirmBody: 'คุณแก้ต่อหลังจาก AI แล้ว สิ่งที่แก้หลังจากนั้นจะหายไปด้วย',
+    confirmBody: 'ทุกอย่างที่ {client} แก้ในฉบับร่างนี้จะหายไป และเอากลับคืนมาไม่ได้',
+    confirmBodyEdited: 'ทุกอย่างที่ {client} แก้ในฉบับร่างนี้จะหายไป รวมถึงที่คุณแก้ต่อหลังจากนั้นด้วย และเอากลับคืนมาไม่ได้',
     confirmTitle: 'ย้อนกลับไปฉบับก่อน AI แก้ไหม',
     failed: 'ทำไม่สำเร็จ ลองอีกครั้ง',
-    putBack: 'ย้อนกลับ',
+    putBack: 'ย้อนสิ่งที่ AI แก้',
     stale: 'ฉบับร่างเปลี่ยนอีกแล้ว โหลดหน้าใหม่แล้วลองอีกครั้ง',
   },
   editing: {

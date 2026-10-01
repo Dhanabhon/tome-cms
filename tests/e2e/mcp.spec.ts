@@ -241,7 +241,16 @@ test('an AI app connects with a passkey, writes a draft, is put back, waits for 
   await expect(page.getByText('The second version, by the AI.')).toBeVisible();
   await shoot(page, 'editor-bar', NARROW);
   await shoot(page, 'editor-bar', WIDE);
-  await bar.getByRole('button', { name: 'Put back' }).click();
+  // Put back asks first, every time: a stray press must not throw the AI's work away.
+  const ask = page.getByRole('dialog', { name: 'Put back the draft from before the AI?' });
+  await bar.getByRole('button', { name: "Undo the AI's changes" }).click();
+  await expect(ask.getByText('Everything Claude Code changed in this draft goes, and it cannot be brought back.')).toBeVisible();
+  await ask.getByRole('button', { name: 'Cancel' }).click();
+  await expect(ask).toHaveCount(0);
+  await expect(page.getByText('The second version, by the AI.')).toBeVisible();
+  await expect(bar).toBeVisible();
+  await bar.getByRole('button', { name: "Undo the AI's changes" }).click();
+  await ask.getByRole('button', { name: "Undo the AI's changes" }).click();
   await expect(page.getByText('The first version, by the AI.')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('The second version, by the AI.')).toHaveCount(0);
   await expect(bar).toHaveCount(0);

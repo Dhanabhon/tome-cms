@@ -22,9 +22,11 @@ export default function AiUndoBar({ cancelLabel, id, kind, snapshot, text, updat
 
   async function putBack() {
     if (busy) return;
-    // The owner's own edits since the AI go too; say so before, not after.
-    if (snapshot.ownerEditedSince && !(await confirmUi({
-      cancelLabel, confirmLabel: text.putBack, message: text.confirmBody, title: text.confirmTitle, tone: 'danger',
+    // Always asked: one stray press would throw the AI's work away for good, and the owner's own
+    // edits since it too; say which before, not after.
+    const message = fill(snapshot.ownerEditedSince ? text.confirmBodyEdited : text.confirmBody, { client: snapshot.clientName });
+    if (!(await confirmUi({
+      cancelLabel, confirmLabel: text.putBack, message, title: text.confirmTitle, tone: 'danger',
     }))) return;
     setBusy(true);
     setError('');
