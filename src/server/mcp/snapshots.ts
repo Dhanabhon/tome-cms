@@ -74,8 +74,22 @@ export async function snapshotBeforeAiWrite(
 }
 
 /** The AI's write is the draft's latest: an owner edit after it is one with a newer updated_at. */
-export async function markAiWritten(kind: ContentKind, id: string, updatedAt: string): Promise<void> {
-  await db.updateTable('content_ai_snapshots').set({ ai_written_at: new Date(updatedAt) }).where(column(kind), '=', id).execute();
+export async function markAiWritten(ownerId: string, kind: ContentKind, id: string, updatedAt: string): Promise<void> {
+  await db.updateTable('content_ai_snapshots').set({ ai_written_at: new Date(updatedAt) })
+    .where(column(kind), '=', id).where('owner_id', '=', ownerId).execute();
+}
+
+/**
+ * Categories belong to a post's translation group, so writing them writes every edition's. An AI
+ * may do that only while every edition is still a draft: "drafts only" covers the other language too.
+ */
+export async function groupIsAllDrafts(ownerId: string, postId: string): Promise<boolean> {
+  const live = await db.selectFrom('posts as post')
+    .innerJoin('posts as sibling', 'sibling.translation_group_id', 'post.translation_group_id')
+    .select('sibling.id')
+    .where('post.id', '=', postId).where('post.owner_id', '=', ownerId).where('sibling.status', '!=', 'draft')
+    .executeTakeFirst();
+  return !live;
 }
 
 export async function readSnapshot(ownerId: string, kind: ContentKind, id: string): Promise<{ clientName: string; aiWrittenAt: string; ownerEditedSince: boolean } | null> {
@@ -100,7 +114,11 @@ export async function restoreSnapshot(ownerId: string, kind: ContentKind, id: st
   };
   const restored = kind === 'post'
     ? await updatePost(ownerId, {
-      ...common, coverMediaId: fields.cover_media_id ?? null, showCover: fields.show_cover, categoryIds: fields.category_ids ?? [],
+      ...common,
+      coverMediaId: fields.cover_media_id ?? null,
+      showCover: fields.show_cover,
+      // With an edition published, the group's categories are the owner's now: they stay as they are.
+      categoryIds: await groupIsAllDrafts(ownerId, id) ? fields.category_ids ?? [] : await categoryIdsForPost(ownerId, id),
     })
     : await updatePage(ownerId, common);
   await db.deleteFrom('content_ai_snapshots').where('id', '=', row.id).execute();

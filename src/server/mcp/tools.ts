@@ -20,7 +20,7 @@ import { getContent, listContent, listOwnerMedia, searchContent } from './conten
 import { markdownToDocument, McpInputError } from './markdown-in';
 import { documentToMarkdown } from './markdown-out';
 import type { VerifiedToken } from './oauth';
-import { markAiWritten, snapshotBeforeAiWrite, type ContentKind } from './snapshots';
+import { groupIsAllDrafts, markAiWritten, snapshotBeforeAiWrite, type ContentKind } from './snapshots';
 
 const PACKAGE_VERSION = getBuildInfo().version;
 /** A body longer than this is read in parts, through `offset`. */
@@ -46,7 +46,10 @@ async function guard(tool: string, run: () => Promise<ToolResult>): Promise<Tool
     if (error instanceof McpInputError || error instanceof HttpError) return refuse(error.message);
     if (error instanceof MarkdownBusyError) return refuse('Another file is being read; try again in a moment.');
     const requestId = randomUUID();
-    console.error(JSON.stringify({ event: 'mcp.error', tool, requestId, errorClass: error instanceof Error ? error.name : typeof error }));
+    // The class, a database's code and where it was thrown; never the message, which can quote content.
+    const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
+    const frames = error instanceof Error ? error.stack?.split('\n').filter((line) => line.trimStart().startsWith('at ')).map((line) => line.trim()) : undefined;
+    console.error(JSON.stringify({ event: 'mcp.error', tool, requestId, errorClass: error instanceof Error ? error.name : typeof error, code, frames }));
     throw new Error(`The site could not do that. Request ${requestId}.`);
   }
 }
@@ -222,8 +225,14 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
     if (args.translationOf && !(await getContent(ownerId, args.kind, { id: args.translationOf }))) {
       return refuse(`There is no ${args.kind} ${args.translationOf} to translate.`);
     }
+    // Categories belong to the translation group: a new edition takes the group's, and writes none.
+    if (args.translationOf && args.categories !== undefined) {
+      return refuse('A translation shares its categories with the other edition; change them in the admin.');
+    }
     const { document, warnings } = await markdownToDocument(args.body, null);
-    const categories = await categoriesNamed(ownerId, args.categories ?? []);
+    const categories = args.translationOf && args.kind === 'post'
+      ? { ids: await categoryIdsForPost(ownerId, args.translationOf), warnings: [] }
+      : await categoriesNamed(ownerId, args.categories ?? []);
     const common = {
       title: args.title, slug: args.slug ?? '', excerpt: args.excerpt ?? '', metaTitle: args.metaTitle ?? null,
       metaDescription: args.metaDescription ?? null, contentJson: document, status: 'draft' as const, locale: args.locale,
@@ -252,6 +261,9 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
     if (new Date(current.updated_at).getTime() !== new Date(args.updatedAt).getTime()) {
       return refuse(`This ${args.kind} has changed since you read it. Read it again with get_${args.kind} and use its updatedAt.`);
     }
+    if (args.categories !== undefined && !(await groupIsAllDrafts(ownerId, current.id))) {
+      return refuse('Its other-language edition is published; change categories in the admin.');
+    }
     const body = args.body === undefined ? null : await markdownToDocument(args.body, current.content_json);
     const categories = args.categories ? await categoriesNamed(ownerId, args.categories) : null;
     const common = {
@@ -268,7 +280,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
     const updated = 'cover_media_id' in current
       ? await updatePost(ownerId, { ...common, coverMediaId, categoryIds: categories?.ids ?? await categoryIdsForPost(ownerId, current.id) })
       : await updatePage(ownerId, common);
-    await markAiWritten(args.kind, updated.id, updated.updated_at);
+    await markAiWritten(ownerId, args.kind, updated.id, updated.updated_at);
     logWrite('update_draft', token, args.kind, updated.id);
     return respond({
       id: updated.id,

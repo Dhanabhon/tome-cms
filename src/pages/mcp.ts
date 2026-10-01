@@ -15,7 +15,8 @@ const handle: APIRoute = async ({ request }) => {
   if (!config) return notFound();
   const badOrigin = originValidationResponse(request, [new URL(config.issuer).hostname]);
   if (badOrigin) return badOrigin;
-  const bearer = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') ?? '')?.[1];
+  // The scheme is case-insensitive (RFC 9110 11.1); the token is not.
+  const bearer = /^[Bb][Ee][Aa][Rr][Ee][Rr] ([A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization') ?? '')?.[1];
   const token = bearer ? await verifyAccessToken(config, bearer) : null;
   if (!bearer || !token) {
     return new Response(null, { status: 401, headers: {

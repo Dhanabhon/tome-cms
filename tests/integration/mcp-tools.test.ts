@@ -167,6 +167,9 @@ test('the endpoint takes a bearer token and nothing else', async () => {
   const cookie = await rpc(null, 'tools/list', {}, { cookie: await ownerCookie() });
   assert.equal(cookie.status, 401, "the owner's cookie is not a way in");
 
+  const lower = await rpc(null, 'tools/list', {}, { authorization: `bearer ${writer}` });
+  assert.equal(lower.status, 200, 'the scheme is case-insensitive');
+
   const wrong = await rpc('x'.repeat(43), 'tools/list');
   assert.equal(wrong.status, 401);
 
@@ -370,6 +373,54 @@ test('list_media gives an id, a name, alt text, a size and an address, and nothi
   assert.deepEqual(media.items, [{ id: imageId, name: 'Sunrise', alt: 'Sunrise alt', width: 640, height: 480, url: `/media/${imageId}` }]);
   const everything = await ok(reader, 'list_media', {});
   assert.ok(!everything.items.some((item: { id: string }) => item.id === otherImageId), 'only this owner’s library');
+});
+
+test('categories belong to the translation group, so an AI writes them only while every edition is a draft', async () => {
+  const { categoryIdsForPost } = await import('../../src/server/content/categories');
+  const english = await createPost(OWNER, postInput('Published in Notes', { type: 'doc', content: [paragraph('Live')] }, { locale: 'en', status: 'published', categoryIds: [notesId] }));
+  const before = await db.selectFrom('posts').select('id').execute();
+  await refused(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'แปล', body: 'แปล', translationOf: english.id, categories: [] }, /shares its categories/);
+  await refused(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'แปล', body: 'แปล', translationOf: english.id, categories: ['Notes'] }, /shares its categories/);
+  assert.equal((await db.selectFrom('posts').select('id').execute()).length, before.length, 'nothing created');
+
+  const thai = await ok(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'แปล', body: 'แปล', translationOf: english.id });
+  assert.deepEqual(await categoryIdsForPost(OWNER, english.id), [notesId], 'the published source keeps its categories');
+  assert.deepEqual(await categoryIdsForPost(OWNER, thai.id), [notesId]);
+
+  await refused(writer, 'update_draft', { kind: 'post', id: thai.id, updatedAt: thai.updatedAt, categories: [] }, /edition is published/);
+  assert.equal(await updatedAt(thai.id), thai.updatedAt);
+  assert.equal(await updatedAt(english.id), english.updated_at);
+  assert.deepEqual(await categoryIdsForPost(OWNER, english.id), [notesId]);
+  assert.equal(await snapshots.readSnapshot(OWNER, 'post', thai.id), null, 'refused before the undo copy');
+
+  // A snapshot taken while the group was all drafts, restored after the sibling went live, keeps the current categories.
+  const source = await createPost(OWNER, postInput('Draft source', { type: 'doc', content: [paragraph('Source')] }, { locale: 'en', categoryIds: [notesId] }));
+  const edition = await ok(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'ฉบับร่าง', body: 'ร่าง', translationOf: source.id });
+  const changed = await ok(writer, 'update_draft', { kind: 'post', id: edition.id, updatedAt: edition.updatedAt, title: 'AI title', categories: [] });
+  assert.deepEqual(await categoryIdsForPost(OWNER, source.id), [defaultCategoryId], 'all drafts: the AI may change them');
+  const sourceNow = (await getPost(OWNER, source.id))!;
+  const owner = await updatePost(OWNER, {
+    id: source.id, updatedAt: sourceNow.updated_at, title: sourceNow.title, slug: sourceNow.slug, contentJson: sourceNow.content_json,
+    metaTitle: null, metaDescription: null, status: 'published', excerpt: '', categoryIds: [notesId], coverMediaId: null,
+  });
+  assert.ok(owner);
+  const restored = await snapshots.restoreSnapshot(OWNER, 'post', edition.id, changed.updatedAt);
+  assert.equal(restored.title, 'ฉบับร่าง');
+  assert.deepEqual(await categoryIdsForPost(OWNER, source.id), [notesId], 'the published edition’s categories are left alone');
+
+  // Another owner's post, written directly: the site's settings are this owner's.
+  const foreign = await db.transaction().execute(async (trx) => {
+    const group = randomUUID();
+    const category = await trx.insertInto('categories').values({ owner_id: OTHER, name: 'Uncategorized', is_default: true }).returning('id').executeTakeFirstOrThrow();
+    await trx.insertInto('post_translation_groups').values({ id: group, owner_id: OTHER }).execute();
+    const post = await trx.insertInto('posts').values({
+      translation_group_id: group, locale: 'en', title: 'Theirs', slug: `theirs-${randomUUID()}`, content_json: { type: 'doc', content: [paragraph('x')] },
+      content_html: '<p>x</p>', meta_title: null, meta_description: null, status: 'draft', published_at: null, planned_at: null, owner_id: OTHER,
+    }).returning('id').executeTakeFirstOrThrow();
+    await trx.insertInto('post_category_assignments').values({ translation_group_id: group, category_id: category.id, owner_id: OTHER }).execute();
+    return post;
+  });
+  await refused(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'x', body: 'x', translationOf: foreign.id }, /no post/);
 });
 
 test('with the plugin off, there is no endpoint', async () => {
