@@ -52,8 +52,8 @@ sudo curl -s --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.8.2
-git checkout --detach v1.8.2
+git fetch --depth 1 origin tag v1.9.0
+git checkout --detach v1.9.0
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -62,7 +62,7 @@ sudo npm run updater:upgrade
 เซิร์ฟเวอร์ที่ติดตั้งก่อน 1.0.2 จะไม่มี `/opt/tome-cms-src` ให้ clone release มาไว้ที่นั่นแทนสามบรรทัดแรก
 
 ```sh
-git clone --depth 1 --branch v1.8.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.9.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -113,7 +113,7 @@ TomeCMS ไม่มีคำสั่งย้อน migration ถ้าจะ�
 
 | ติดตั้งจากเวอร์ชัน | ค้างอยู่ | ตัวไหนบ้าง |
 | --- | --- | --- |
-| 1.8.2, 1.8.1, 1.8.0 หรือ 1.7.0 | 0 | ไม่มี |
+| 1.9.0, 1.8.2, 1.8.1, 1.8.0 หรือ 1.7.0 | 0 | ไม่มี |
 | 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 หรือ 1.5.0 | 1 | `028_mcp` |
 | 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 หรือ 0.12.1 | 2 | ตัวข้างบน และ `027_post_show_cover` |
 | 0.12.0 หรือ 0.11.0 | 3 | สองตัวข้างบน และ `026_planned_dates` |

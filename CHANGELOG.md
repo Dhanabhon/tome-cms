@@ -2,6 +2,26 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.9.0 - 2026-10-02
+
+Gemini connects over MCP. The File Manager shows a list and renames files. Pictures in the editor stay where you put them, and can be replaced. Plugins ask before switching, and Paper's reading rail shows where you are.
+
+### Added
+
+- Gemini can connect over MCP from the Gemini web app (custom apps). The approval going to Google's relay is allowed, a client asking for a secret is registered as a public one, and `offline_access` is accepted. Its mark shows on the consent screen and in the connections list. The MCP page explains how to connect from the web app or the Antigravity CLI.
+- The File Manager, and the picker in the editor, show files as a grid or a list. The choice is remembered in this browser.
+- A file can be renamed in the File Manager. It keeps its type, and every post, page, cover and slide that uses it keeps working.
+- **Replace picture** on a selected picture in the editor picks another file from the File Manager. One undo brings the old one back.
+- Switching a plugin on or off asks first, and says what will change.
+
+### Changed
+
+- Paper's reading rail draws the current heading's tick longer, thicker and in the accent colour, with ticks already read in ink.
+
+### Fixed
+
+- Inserting a picture while writing no longer scrolls the page to the top, and no longer adds an empty line between two paragraphs.
+
 ## 1.8.2 - 2026-10-02
 
 An AI app can write back a draft with a picture in a list item, and the release no longer emulates arm64.
