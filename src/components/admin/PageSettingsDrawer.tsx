@@ -12,9 +12,9 @@ import UiDateTime from './UiDateTime';
 
 interface PageSettingsDrawerProps {
   /** Absent when this installation has no key for it. */
-  onSuggestExcerpt?: () => Promise<string | null>;
+  onSuggestExcerpt?: (exclude: readonly string[]) => Promise<string | null>;
   /** Absent on the same terms. */
-  onSuggestDescription?: () => Promise<string | null>;
+  onSuggestDescription?: (exclude: readonly string[]) => Promise<string | null>;
   publishedAt: string | null;
   onChangePublishedAt: (value: string | null) => void;
   copy: AdminCopy;

@@ -12,11 +12,15 @@ const LABELS = {
 
 interface ExcerptSuggestionProps {
   copy: AdminCopy;
-  onSuggest: () => Promise<string | null>;
+  /** Asks for a passage that is not one of `exclude`, the ones already shown. */
+  onSuggest: (exclude: readonly string[]) => Promise<string | null>;
   onUse: (excerpt: string) => void;
   /** Which field the passage is for; the card's excerpt unless it says otherwise. */
   purpose?: ExcerptPurpose;
 }
+
+/** As many shown passages as a request may name; the server refuses more. */
+const MAX_SHOWN = 20;
 
 /**
  * A passage from the article, offered for a field -- the excerpt, or the description -- and
@@ -25,6 +29,8 @@ interface ExcerptSuggestionProps {
  * Shown as a quotation with its own button, because it is the owner's own words and they
  * should be able to read it where it came from before it becomes the line on their card.
  * Offered even when the field already has something in it, and replaces it only on the press.
+ * "Another one" names every passage shown since the main button was pressed, so the server
+ * leaves them out and the next one is new; when none is left, the round ends and starts over.
  */
 export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'excerpt' }: ExcerptSuggestionProps) {
   const labels = LABELS[purpose];
@@ -33,6 +39,29 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'e
   const [found, setFound] = useState<string | null | undefined>(undefined);
   // Asked, and not answered -- which is not the same as being told there is nothing.
   const [failed, setFailed] = useState(false);
+  // Every passage shown in this round, for "another" to leave out.
+  const [shown, setShown] = useState<readonly string[]>([]);
+  // Asked for another, and every passage has been shown.
+  const [exhausted, setExhausted] = useState(false);
+
+  const ask = (exclude: readonly string[]) => {
+    setAsking(true);
+    setFound(undefined);
+    setFailed(false);
+    setExhausted(false);
+    void atLeast(onSuggest(exclude))
+      .then((passage) => {
+        if (passage === null && exclude.length) {
+          setShown([]);
+          setExhausted(true);
+          return;
+        }
+        setFound(passage);
+        setShown(passage ? [...exclude, passage].slice(-MAX_SHOWN) : []);
+      })
+      .catch(() => setFailed(true))
+      .finally(() => setAsking(false));
+  };
 
   return (
     <div className="drawer-suggest">
@@ -40,15 +69,7 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'e
         aria-busy={asking}
         className="admin-button admin-button--secondary"
         disabled={asking}
-        onClick={() => {
-          setAsking(true);
-          setFound(undefined);
-          setFailed(false);
-          void atLeast(onSuggest())
-            .then(setFound)
-            .catch(() => setFailed(true))
-            .finally(() => setAsking(false));
-        }}
+        onClick={() => ask([])}
         type="button"
       >
         {copy.drawer[labels.suggest]}
@@ -58,19 +79,25 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'e
       {found && (
         <figure className="drawer-suggestion">
           <blockquote>{found}</blockquote>
-          <button
-            className="admin-chip"
-            onClick={() => {
-              onUse(found);
-              setFound(undefined);
-            }}
-            type="button"
-          >
-            {copy.drawer[labels.use]}
-          </button>
+          <div className="drawer-suggestion__actions">
+            <button
+              className="admin-chip"
+              onClick={() => {
+                onUse(found);
+                setFound(undefined);
+              }}
+              type="button"
+            >
+              {copy.drawer[labels.use]}
+            </button>
+            <button className="admin-chip" disabled={asking} onClick={() => ask(shown)} type="button">
+              {copy.drawer.suggestAnother}
+            </button>
+          </div>
         </figure>
       )}
       {found === null && <small>{copy.drawer[labels.empty]}</small>}
+      {exhausted && <small role="status">{copy.drawer.suggestAnotherEmpty}</small>}
       {failed && <small role="status">{copy.drawer.suggestUnavailable}</small>}
     </div>
   );
@@ -80,11 +107,12 @@ export default function ExcerptSuggestion({ copy, onSuggest, onUse, purpose = 'e
 export async function requestExcerpt(
   draft: { contentJson: unknown; locale: string; title: string },
   purpose: ExcerptPurpose,
+  exclude: readonly string[] = [],
 ): Promise<string | null> {
   const response = await fetch('/api/admin/suggest-excerpt', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...draft, purpose }),
+    body: JSON.stringify({ ...draft, purpose, exclude }),
   });
   // A failed request is thrown, not returned as null: null means the article was read and
   // had nothing, and the screen says something different for each.

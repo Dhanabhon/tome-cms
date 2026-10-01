@@ -22,6 +22,8 @@ const askSchema = z.object({
   contentJson: editorDocumentSchema,
   locale: z.enum(['th', 'en']),
   purpose: z.enum(['excerpt', 'description']).default('excerpt'),
+  /** Passages already shown for this field, which "another" must not offer again. */
+  exclude: z.array(z.string().max(320)).max(20).default([]),
 }).strict();
 
 export const POST: APIRoute = async ({ request }) => {
@@ -34,8 +36,8 @@ export const POST: APIRoute = async ({ request }) => {
       throw new HttpError(403, 'Request origin is not allowed.');
     }
     // Null is the honest answer to "nothing works alone", to "no key" and to "no answer".
-    const { purpose, ...draft } = await parseJson(request, askSchema);
-    const excerpt = await suggestExcerpt(draft, current.user.id, purpose);
+    const { exclude, purpose, ...draft } = await parseJson(request, askSchema);
+    const excerpt = await suggestExcerpt(draft, current.user.id, purpose, exclude);
     return Response.json({ excerpt }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
     return adminErrorResponse(error, requestId);

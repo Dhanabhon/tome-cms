@@ -22,9 +22,9 @@ export interface CategorySuggestion {
 
 interface PostSettingsDrawerProps {
   /** Absent when this installation has no key for it. */
-  onSuggestExcerpt?: () => Promise<string | null>;
+  onSuggestExcerpt?: (exclude: readonly string[]) => Promise<string | null>;
   /** Absent on the same terms. */
-  onSuggestDescription?: () => Promise<string | null>;
+  onSuggestDescription?: (exclude: readonly string[]) => Promise<string | null>;
   /** Absent when this installation has no key for it, which is the usual case. */
   onSuggestCategories?: () => Promise<CategorySuggestion[]>;
   publishedAt: string | null;

@@ -332,9 +332,9 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
 
   // The draft as it stands when the button is pressed, saved or not. Absent without a
   // suggester, and then the drawers draw no button for it.
-  const suggestPassage = (purpose: ExcerptPurpose) => (canSuggest ? () => requestExcerpt({
+  const suggestPassage = (purpose: ExcerptPurpose) => (canSuggest ? (exclude: readonly string[]) => requestExcerpt({
     contentJson: draftRef.current.contentJson, locale, title: draftRef.current.title,
-  }, purpose) : undefined);
+  }, purpose, exclude) : undefined);
 
   return (
     <div className="admin-editor">

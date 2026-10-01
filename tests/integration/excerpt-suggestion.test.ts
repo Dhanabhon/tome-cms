@@ -78,4 +78,12 @@ test('a description is asked as a description, over passages a search result can
   assert.equal(asked[1]?.instructions, EXCERPT_INSTRUCTIONS, 'an excerpt is still asked as one');
   assert.ok(asked[1]?.options.every((option) => option === NONE || option.length <= PASSAGE_LENGTH.excerpt));
   assert.equal(excerpt, SENTENCES[1], 'the longest single sentence, since no two fit on a card');
+
+  // "Another one": what the owner was shown is not offered again, so the plugin cannot pick it.
+  const another = await suggestExcerpt(article, 'owner-s', 'excerpt', [SENTENCES[1]!]);
+  assert.ok(asked[2]?.options.every((option) => option !== SENTENCES[1]), 'the shown line is left out');
+  assert.equal(another, SENTENCES[2], 'and the next longest is picked, 64 characters to 63');
+  // Every passage shown: nothing is left, and nothing is asked.
+  assert.equal(await suggestExcerpt(article, 'owner-s', 'excerpt', SENTENCES), null);
+  assert.equal(asked.length, 3, 'no question with nothing to choose from');
 });

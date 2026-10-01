@@ -823,6 +823,29 @@ test('suggestions are offered, never applied, and a maybe reads as one', async (
   await drawer.getByRole('button', { name: /Suggest a line from the text/ }).click();
   await expect(drawer.locator('.drawer-suggestion blockquote')).toHaveText(line);
   await expect(field, 'a suggestion does not overwrite what is there').toHaveValue('What I had written.');
+
+  // Another one names what was shown, so the server can leave it out; with nothing left, the
+  // round ends and says so.
+  const other = 'A second line, for an owner who did not like the first.';
+  const asks: string[][] = [];
+  await page.unroute('**/api/admin/suggest-excerpt');
+  await page.route('**/api/admin/suggest-excerpt', (route) => {
+    const exclude = (route.request().postDataJSON()?.exclude ?? []) as string[];
+    asks.push(exclude);
+    return route.fulfill({ json: { excerpt: exclude.includes(other) ? null : exclude.includes(line) ? other : line } });
+  });
+  await drawer.getByRole('button', { name: 'Another one' }).click();
+  await expect(drawer.locator('.drawer-suggestion blockquote')).toHaveText(other);
+  expect(asks.at(-1)).toEqual([line]);
+  await drawer.getByRole('button', { name: 'Another one' }).click();
+  await expect(drawer.getByText('No other passage in the post works on its own. Ask again to start over.')).toBeVisible();
+  expect(asks.at(-1)).toEqual([line, other]);
+  await drawer.getByRole('button', { name: /Suggest a line from the text/ }).click();
+  await expect(drawer.locator('.drawer-suggestion blockquote')).toHaveText(line);
+  expect(asks.at(-1), 'the main button starts a new round').toEqual([]);
+  await page.unroute('**/api/admin/suggest-excerpt');
+  await page.route('**/api/admin/suggest-excerpt', answerByPurpose);
+
   await drawer.getByRole('button', { name: 'Use this line' }).click();
   await expect(field, 'until the owner asks it to').toHaveValue(line);
   void fallback;
