@@ -4,14 +4,14 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import { useEffect, useRef, useState } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
+import { pictureAttrs } from '../../lib/media';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
 
 /**
  * A chosen picture's own bar, over its top left corner as the table's is. Replace picture swaps
- * the file, and its name with it, and keeps the rest of the picture: where it is, and its alt text
- * unless it had none.
+ * the file, with its name and alt text as an insert gives them, and keeps where the picture is.
  */
 export default function ImageBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
   const { editor } = useCurrentEditor();
@@ -33,11 +33,9 @@ export default function ImageBubble({ copy, ownerLocale }: { copy: AdminCopy; ow
     if (at === null || picture?.type.name !== 'image') return;
     // One step, so one undo puts the old picture back.
     editor.chain().focus().setNodeSelection(at).updateAttributes('image', {
-      alt: picture.attrs.alt || asset.alt_text || '',
-      mediaId: asset.id,
-      src: asset.publicUrl,
-      // As an insert names it: the old file's name would be left on the new picture.
-      title: asset.original_name,
+      // Named as an insert names it: the editor cannot author alt text, so the old one
+      // describes the old picture, and its file name would be left on the new one.
+      ...pictureAttrs(asset),
       // A size the old picture was given would draw a file of another shape at the old box.
       height: null,
       width: null,

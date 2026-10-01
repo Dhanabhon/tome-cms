@@ -196,7 +196,7 @@ test('a picture is replaced from the File Manager, one undo puts it back, and th
   expect(field).toMatch(/^\/media\/[0-9a-f-]{36}$/);
   expect(field, 'the picture is the new file').not.toBe(lake);
   await expect(image).toHaveAttribute('data-media-id', field!.split('/').pop()!);
-  await expect(image, 'it keeps the alt text it had').toHaveAttribute('alt', 'Lake.png');
+  await expect(image, 'it takes the new file\'s alt text, not the old one\'s').toHaveAttribute('alt', 'A field at noon');
   await expect(image, 'and takes the new file\'s name').toHaveAttribute('title', 'Field.png');
   await expect(canvas.locator('img'), 'in its place, not as another picture').toHaveCount(2);
   await expect(higher, 'the picture higher up is untouched').toHaveAttribute('src', lake!);
@@ -210,7 +210,7 @@ test('a picture is replaced from the File Manager, one undo puts it back, and th
   await expect(image).toHaveAttribute('title', 'Lake.png');
   expect(await held(), 'and still where it was').toBeLessThanOrEqual(HELD);
 
-  // A picture with no alt text takes the new file's. One pasted in with a size of its own drops
+  // A picture with no alt text takes the new file's, as with any. One pasted in with a size of its own drops
   // the size: the new file may be another shape. Set outside the history, so the undo below
   // is the replace's alone.
   await canvas.evaluate((node) => {

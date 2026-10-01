@@ -189,6 +189,11 @@ export function isImageAsset(asset: MediaAsset): asset is MediaAsset & { height:
   return isImageType(asset.mime_type) && asset.width !== null && asset.height !== null;
 }
 
+/** What a picture from the library says about itself in the editor: its alt text, or failing that its file name. */
+export function pictureAttrs(asset: MediaAsset) {
+  return { alt: asset.alt_text || asset.original_name, mediaId: asset.id, src: asset.publicUrl, title: asset.original_name };
+}
+
 /**
  * The address a file can be pasted as anywhere: the library hands out `/media/<id>`, which means
  * nothing outside this site. The admin and the site share an origin.

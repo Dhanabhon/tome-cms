@@ -27,7 +27,7 @@ export default function MediaListRow({ item, label, onChoose, page, watch, when 
           : page
             ? <img alt="" className="media-row__tile media-row__tile--page media-page" src={page} />
             : <span aria-hidden="true" className="media-row__tile media-row__tile--file" data-pdf-id={isPdfAsset(item) ? item.id : undefined} ref={isPdfAsset(item) ? watch : undefined}>{format}</span>}
-        <strong className="media-row__name">{item.original_name}</strong>
+        <strong className="media-row__name" title={item.original_name}>{item.original_name}</strong>
         <span className="media-row__meta">
           {image && <span>{image.width} × {image.height}</span>}
           <span>{format}</span>

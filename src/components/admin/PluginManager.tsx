@@ -81,7 +81,9 @@ export default function PluginManager({ initialPlugins, ownerLocale }: PluginMan
    * Two plugins say what the switch costs in their own words; the rest say the generic thing.
    */
   async function switchPlugin(manifest: PluginManifest, next: boolean) {
-    const specific = { mcp: next ? copy.plugins.mcpOn : copy.plugins.mcpOff, turnstile: next ? copy.plugins.turnstileOn : copy.plugins.turnstileOff }[manifest.id];
+    const specific = manifest.id === 'mcp' ? (next ? copy.plugins.mcpOn : copy.plugins.mcpOff)
+      : manifest.id === 'turnstile' ? (next ? copy.plugins.turnstileOn : copy.plugins.turnstileOff)
+      : undefined;
     const named = { plugin: manifest.name };
     const confirmed = await confirmUi({
       cancelLabel: copy.shell.cancel,

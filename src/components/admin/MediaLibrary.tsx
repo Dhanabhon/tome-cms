@@ -427,7 +427,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     setWorking('save-details');
     setDetailsStatus(null);
     try {
-      const sent = draft;
+      // The name goes only when it changed, so saving alt text or a folder cannot rename the file.
+      const sent = draft.name?.trim() === selected.original_name ? { ...draft, name: undefined } : draft;
       const updated = await atLeast(saveMediaDraft(selected.id, sent));
       setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       if (selectedId.current === updated.id) {
