@@ -30,7 +30,7 @@ There is one step of undo. If the AI writes several times in a row, Put back goe
 
 ## While you edit
 
-You come first. While you have a draft open, the editor checks every 15 seconds whether an AI app has read or changed it in the last 3 minutes. If one has, a bar says so, for example "Claude read this draft 1 minute ago. While you have it open, an AI cannot change it."
+You come first. While you have a draft open, the editor checks every 15 seconds whether an AI app has read or changed it in the last 3 minutes. If one has, a bar says so, for example "Claude read this draft 1 minute ago. While you have it open, an AI cannot change it." When the **Put back** bar is already showing, this bar says only "While you have it open, an AI cannot change it.", because the other bar already names the app.
 
 While the draft is open, an AI's change to it is refused, and the AI is told to ask you to close the draft or to make a new draft instead. About 45 seconds after you close the draft, or switch to another tab, the AI can change it again. Reading a draft and creating new drafts are never blocked.
 
@@ -116,7 +116,7 @@ Some habits help:
 
 ## See and revoke connections
 
-The MCP card on **Plugins** lists every connection: the app's name, where its approval went, whether it can write, when it was connected and when it was last used. The Claude or OpenAI mark appears there, and on the screen where you allow a connection, only when your site could check who the app is: claude.ai, chatgpt.com, or the apps' own client documents, which covers Claude Code and Codex. Any other app shows a computer icon and the name it gave, and an approval sent to a program on your computer reads "A program on this computer". **Revoke** stops a connection at once. To connect that app again, you allow it again with your passkey.
+The MCP card on **Plugins** lists every connection: the app's name, where its approval went, whether it can write, when it was connected and when it was last used. The Claude or OpenAI mark appears there, and on the screen where you allow a connection, only when your site could check who the app is: its approval goes back to claude.ai or chatgpt.com, or it identified itself with a client document hosted on claude.ai or chatgpt.com, which covers Claude Code and Codex. Any other app shows a computer icon and the name it gave, and an approval sent to a program on your computer reads "A program on this computer". **Revoke** stops a connection at once. To connect that app again, you allow it again with your passkey.
 
 Switching MCP off makes your site stop answering AI apps at once. Switching it on again starts clean: every earlier connection is gone, and each app has to be allowed again.
 
