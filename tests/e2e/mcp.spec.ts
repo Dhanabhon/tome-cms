@@ -271,7 +271,11 @@ test('an AI app connects with a passkey, writes a draft, is put back, waits for 
   await expect(page.getByText('Claude Code changed this draft 1 minute ago.')).toHaveCount(0);
 
   // A new draft is the owner's from its first save, before the editor has ever been reloaded.
-  const firstBeat = page.waitForResponse((response) => response.url().endsWith('/api/admin/editing') && response.ok(), { timeout: 20_000 });
+  // The old draft's editor polls too, so a beat counts only if it names another draft.
+  const firstBeat = page.waitForResponse(
+    (response) => response.url().endsWith('/api/admin/editing') && response.ok() && !response.request().postData()?.includes(id),
+    { timeout: 20_000 },
+  );
   await page.goto(`${origin}/admin/new`);
   await page.locator('textarea.admin-title-input').fill('Owner notes');
   await page.locator('.ProseMirror').click();
