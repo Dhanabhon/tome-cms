@@ -270,9 +270,30 @@ test('an AI app connects with a passkey, writes a draft, is put back, waits for 
   await expect(page.locator('.editing-status__ai')).toHaveText('While you have it open, an AI cannot change it.', { timeout: 20_000 });
   await expect(page.getByText('Claude Code changed this draft 1 minute ago.')).toHaveCount(0);
 
+  // A new draft is the owner's from its first save, before the editor has ever been reloaded.
+  const firstBeat = page.waitForResponse((response) => response.url().endsWith('/api/admin/editing') && response.ok(), { timeout: 20_000 });
+  await page.goto(`${origin}/admin/new`);
+  await page.locator('textarea.admin-title-input').fill('Owner notes');
+  await page.locator('.ProseMirror').click();
+  await page.keyboard.type('Written by the owner.');
+  await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
+  await expect(page).toHaveURL(/\/admin\/edit\/[0-9a-f-]{36}$/);
+  const newId = new URL(page.url()).pathname.split('/').pop()!;
+  await firstBeat;
+  const fresh = await mcp(token, 'get_post', { id: newId });
+  const onNew = await callTool(token, 'update_draft', { kind: 'post', id: newId, updatedAt: (fresh.result as { updatedAt: string }).updatedAt, title: 'AI title' });
+  expect(onNew.result?.isError).toBe(true);
+  expect(onNew.result?.content[0]?.text).toMatch(/open in the editor/);
+  // One status bar, from the editor itself, which tells of the read on its next check.
+  await expect(page.locator('.editing-status')).toHaveCount(1, { timeout: 20_000 });
+  await shoot(page, 'new-draft-status', NARROW);
+  await page.setViewportSize(WIDE);
+
   // The card lists the connection; revoke it.
   await page.goto(`${origin}/admin/plugins`);
   await expect(card.getByText('Claude Code')).toBeVisible();
+  // No mark, so the list says the name is the app's own, as the consent screen did.
+  await expect(card.getByText('(the name it gave)')).toBeVisible();
   await expect(card.getByText(/A program on this computer · Reads and writes drafts/)).toBeVisible();
   await card.scrollIntoViewIfNeeded();
   await shoot(page, 'plugins-card', WIDE);

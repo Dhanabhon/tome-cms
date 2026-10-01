@@ -5,7 +5,6 @@ import AdminSkeleton from '../../../components/admin/AdminSkeleton.astro';
 import Editor from '../../../components/admin/Editor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import AiUndoBar from '../../../components/admin/AiUndoBar';
-import EditingStatus from '../../../components/admin/EditingStatus';
 import { adminCopy, adminDateFormat } from '../../../lib/admin-i18n';
 import { adminLoginPath } from '../../../lib/admin';
 import { requireInstalledOwner } from '../../../server/auth/session';
@@ -78,10 +77,8 @@ const aiUndo = aiChange && settings ? {
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={post?.title ?? 'Edit post'}>
   <main>
     {post && aiUndo && <AiUndoBar cancelLabel={copy.shell.cancel} client:load id={post.id} kind="post" snapshot={aiUndo} text={copy.aiUndo} updatedAt={post.updated_at} />}
-    {/* Drafts only: an AI cannot change anything else, so there is nothing to hold or tell. */}
-    {post?.status === 'draft' && <EditingStatus client:load id={post.id} kind="post" locale={settings?.default_locale} text={copy.editing} undoClient={aiUndo?.clientName ?? null} updatedAt={post.updated_at} />}
     {post && editorPost ? (
-      <Editor canSuggest={canSuggest} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
+      <Editor canSuggest={canSuggest} undoClient={aiUndo?.clientName ?? null} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" categories={categories} initialCategoryIds={initialCategoryIds} initialPost={editorPost} locale={post.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </Editor>
     ) : (

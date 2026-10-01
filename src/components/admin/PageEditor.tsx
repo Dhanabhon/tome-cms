@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
-import { EDITOR_SAVED_EVENT } from '../../lib/editing-poll';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
 import DocumentCanvas from './DocumentCanvas';
+import EditingStatus from './EditingStatus';
 import PageSettingsDrawer from './PageSettingsDrawer';
 import useAutoGrowTitle from './useAutoGrowTitle';
 import useEditorSaveQueue from './useEditorSaveQueue';
@@ -29,6 +29,8 @@ interface PageEditorProps {
   ownerLocale?: PageLocale | null;
   sourcePage?: EditorSourcePage;
   translations: PageTranslationSummary[];
+  /** The app the AI undo bar above names, when the page shows one. A new draft has none. */
+  undoClient?: string | null;
 }
 
 interface PageEditorDraft {
@@ -65,7 +67,7 @@ function readPage(payload: unknown): Page | null {
   return typeof page === 'object' && page !== null && 'id' in page ? (page as Page) : null;
 }
 
-export default function PageEditor({ adminPath, canSuggest = false, initialPage, locale, ownerLocale, sourcePage, translations }: PageEditorProps) {
+export default function PageEditor({ adminPath, canSuggest = false, initialPage, locale, ownerLocale, sourcePage, translations, undoClient = null }: PageEditorProps) {
   const copy = adminCopy(ownerLocale);
   const fallbackSlug = useRef(`page-${crypto.randomUUID().slice(0, 8)}`);
   const pageId = useRef(initialPage?.id);
@@ -88,6 +90,8 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
   const [metaDescription, setMetaDescription] = useState(initialPage?.meta_description ?? '');
   const [contentJson, setContentJson] = useState<JSONContent>(initialPage?.content_json ?? { type: 'doc', content: [{ type: 'paragraph' }] });
   const [pageStatus, setPageStatus] = useState<PageStatus>(initialPage?.status ?? 'draft');
+  // The saved draft the status bar holds for the owner: none until a new one is first saved.
+  const [held, setHeld] = useState(initialPage ? { id: initialPage.id, updatedAt: initialPage.updated_at } : null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [languageEditions, setLanguageEditions] = useState(translations);
@@ -138,8 +142,8 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
     const wasNew = !pageId.current;
     pageId.current = savedPage.id;
     updatedAt.current = savedPage.updated_at;
-    // The status bar above checks against the version this editor holds.
-    window.dispatchEvent(new CustomEvent(EDITOR_SAVED_EVENT, { detail: savedPage.updated_at }));
+    // The status bar checks against the version this editor holds; a new draft's first save draws it.
+    setHeld({ id: savedPage.id, updatedAt: savedPage.updated_at });
     pageStatusRef.current = savedPage.status;
     // Only when there is one. A draft comes back with its date as planned_at, which is the
     // value the ref already holds; taking the draft's empty published_at instead would make
@@ -338,6 +342,8 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
 
   return (
     <div className="admin-editor">
+      {/* Drafts only: an AI cannot change anything else, so there is nothing to hold or tell. */}
+      {held && pageStatus === 'draft' && <EditingStatus id={held.id} kind="page" locale={ownerLocale} text={copy.editing} undoClient={undoClient} updatedAt={held.updatedAt} />}
       <header className="admin-editor-bar">
         <div className="admin-editor-bar__inner">
           <div className="admin-editor-bar__start">

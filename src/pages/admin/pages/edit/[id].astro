@@ -5,7 +5,6 @@ import AdminSkeleton from '../../../../components/admin/AdminSkeleton.astro';
 import PageEditor from '../../../../components/admin/PageEditor';
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import AiUndoBar from '../../../../components/admin/AiUndoBar';
-import EditingStatus from '../../../../components/admin/EditingStatus';
 import { adminCopy, adminDateFormat } from '../../../../lib/admin-i18n';
 import { adminLoginPath } from '../../../../lib/admin';
 import { requireInstalledOwner } from '../../../../server/auth/session';
@@ -71,10 +70,8 @@ const aiUndo = aiChange && settings ? {
 <AdminLayout adminPath={settings?.admin_path ?? '/admin'} title={page?.title ?? 'Edit page'}>
   <main>
     {page && aiUndo && <AiUndoBar cancelLabel={copy.shell.cancel} client:load id={page.id} kind="page" snapshot={aiUndo} text={copy.aiUndo} updatedAt={page.updated_at} />}
-    {/* Drafts only: an AI cannot change anything else, so there is nothing to hold or tell. */}
-    {page?.status === 'draft' && <EditingStatus client:load id={page.id} kind="page" locale={settings?.default_locale} text={copy.editing} undoClient={aiUndo?.clientName ?? null} updatedAt={page.updated_at} />}
     {page && editorPage ? (
-      <PageEditor canSuggest={canSuggest} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
+      <PageEditor canSuggest={canSuggest} undoClient={aiUndo?.clientName ?? null} adminPath={settings?.admin_path ?? '/admin'} ownerLocale={settings?.default_locale} client:only="react" initialPage={editorPage} locale={page.locale} translations={translations}>
         <AdminSkeleton kind="editor" label={copy.preview.loadingEditor} slot="fallback" />
       </PageEditor>
     ) : (
