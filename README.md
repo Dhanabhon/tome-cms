@@ -7,6 +7,60 @@ TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It
 
 > **Status:** `1.7.0` is the current stable release. `1.0.0`, the first, could not finish a managed install, 1.0.1 could not finish an upload, and a server installed with 1.0.1 or 1.0.2 needs one manual step before it updates from the admin. A fresh VPS gets a managed install: the installer runs the release's official image, verified against its attestations, and the owner installs later releases from the admin. The production dependency audit reports no advisory at all, and CI runs the unit, integration, browser and managed-update gates on every change. The managed install's acceptance runs on real HTTPS servers, `amd64` and `arm64`, are recorded in the [1.0.0 notes](docs/releases/1.0.0.md#acceptance-on-real-servers) as they are done. [Releases and changes](https://dhanabhon.github.io/tome-cms/contributing/releases/) on the documentation site says where each version's notes are kept, and the [changelog](CHANGELOG.md) sums up every version in one place.
 
+## Key features
+
+**Writing**
+
+- A block editor with:
+  - headings, lists, quotes and tables;
+  - text colour and alignment;
+  - code blocks with a language, coloured on the server for 24 languages;
+  - pictures, file attachments, and YouTube or Vimeo videos that load nothing from the provider until the reader presses play.
+- Thai and English editions of one post, written separately and kept together.
+- Drafts, scheduled publishing, a cover picture, an excerpt, and the search title and description.
+- Importing a post from a Markdown file, with its pictures matched to files you choose.
+- Suggestions while writing, through the Jev (TypeSafe AI) plugin: categories, a line for the excerpt and a summary for search. A suggestion is never applied until you press it.
+
+**The site**
+
+- Two themes, Paper and Plain, each with its own settings, and a light and dark mode for readers.
+- Search that works in Thai, categories, pages, menus, home slides, redirects, and an RSS feed and sitemap.
+- Maintenance mode, which closes the site to readers while you keep working.
+- Reading statistics kept on your own server.
+
+**For developers**
+
+- A versioned, read-only REST API (`/api/v1`) with an OpenAPI description, for using TomeCMS headless.
+- Draft previews by short-lived link.
+- Plugins compiled into the release, each off until switched on:
+  - Cloudflare Turnstile;
+  - a sticky banner and a popup;
+  - an image lightbox;
+  - Jev;
+  - MCP.
+
+**AI apps (MCP)**
+
+- Connect Claude or ChatGPT (including Codex) to your own site over OAuth, after you allow it with your passkey.
+- The app can:
+  - read your posts and pages, drafts included;
+  - search them;
+  - create drafts and edit drafts.
+- It cannot publish, schedule, delete or upload.
+- One step of undo for anything an AI changed, and a list of connections you can revoke at any time.
+
+**Security and running it**
+
+- Sign-in with a passkey only, with recovery codes kept apart from it.
+- Rate limits per visitor, even behind a proxy.
+- A managed install on your own VPS:
+  - the installer runs the release's official image, verified against its attestations;
+  - later releases install from the admin, with a backup taken first. If the new version does not start, it rolls back to the previous image where the release says that is safe;
+  - an update with no database change backs up the database alone, and the admin shows how long the site was offline.
+- Content in PostgreSQL and files in S3-compatible storage.
+- Images for `amd64` and `arm64`.
+- A small personal site runs on a 1 GB server with swap.
+
 ## Architecture
 
 <img alt="How TomeCMS fits together: a visitor reads public pages that the chosen theme draws and the Astro server renders on every request; the site owner writes in the React admin, which calls the same server; the server keeps content in PostgreSQL and files in S3-compatible storage; Better Auth signs the owner in with a passkey; plugins can check a sign-in with Cloudflare Turnstile and suggest while writing through Jev (TypeSafe AI)." src="docs/tome-cms-overview.en.light.png#gh-light-mode-only">
