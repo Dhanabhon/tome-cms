@@ -20,8 +20,33 @@ test('publishes both attestation bundles with the immutable release', async () =
 
 interface Workflow {
   on: { push?: { branches?: string[] }; pull_request?: unknown };
-  jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+  jobs: Record<string, {
+    'runs-on'?: string;
+    needs?: string | string[];
+    strategy?: { matrix?: { include?: Record<string, string>[] } };
+    steps: { name?: string; run?: string; uses?: string }[];
+  }>;
 }
+
+test('each architecture of the image is built on its own machine, not emulated', async () => {
+  // QEMU's arm64 emulation died with "Illegal instruction" on 1.1.2, 1.7.0, 1.8.0 and twice on 1.8.1.
+  const release = await workflow('release.yml');
+  const steps = Object.values(release.jobs).flatMap((job) => job.steps);
+  assert.ok(!steps.some((step) => step.uses?.startsWith('docker/setup-qemu-action')), 'no emulation');
+
+  const [name, image] = Object.entries(release.jobs).find(([, job]) => job.strategy?.matrix?.include) ?? [];
+  assert.ok(name && image, 'a job per architecture');
+  assert.equal(image['runs-on'], '${{ matrix.runner }}');
+  assert.deepEqual(image.strategy?.matrix?.include, [
+    { platform: 'linux/amd64', runner: 'ubuntu-24.04' },
+    { platform: 'linux/arm64', runner: 'ubuntu-24.04-arm' },
+  ]);
+
+  // One index over both, made and attested only once both are built.
+  const publish = Object.values(release.jobs).find((job) => job.steps.some((step) => step.run?.includes('gh release create')));
+  assert.ok(publish && [publish.needs].flat().includes(name), 'the release waits for every architecture');
+  assert.ok(publish.steps.some((step) => step.run?.includes('docker buildx imagetools create')), 'both joined in one index');
+});
 
 async function workflow(name: string): Promise<Workflow> {
   return parse(await readFile(`.github/workflows/${name}`, 'utf8')) as Workflow;
