@@ -94,7 +94,8 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
                 {connection.brand ? <BrandMark name={connection.brand} /> : <Icon name="system" />}
               </span>
               <div>
-                <strong>{connection.clientName}</strong>
+                {/* No mark: the name is only what the app called itself, as the consent screen said. */}
+                <span><strong>{connection.clientName}</strong>{!connection.brand && <> {copy.mcp.nameGiven}</>}</span>
                 <small>{connection.loopback ? copy.mcp.thisComputer : connection.redirectHost} · {access(connection)}</small>
                 <small>
                   {fill(copy.mcp.connected, { date: dates.format(new Date(connection.createdAt)) })} · {connection.lastUsedAt

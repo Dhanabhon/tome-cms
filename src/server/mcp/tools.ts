@@ -24,6 +24,8 @@ import type { VerifiedToken } from './oauth';
 import { itemKey, ownerIsEditing, recordTouch } from './presence';
 import { groupIsAllDrafts, markAiWritten, snapshotBeforeAiWrite, type ContentKind } from './snapshots';
 
+const OWNER_EDITING = 'The owner has this draft open in the editor. Ask them to close it, or create a new draft instead.';
+
 const PACKAGE_VERSION = getBuildInfo().version;
 /** A body longer than this is read in parts, through `offset`. */
 const PART = 60_000;
@@ -266,7 +268,7 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
     if (refusal) return refusal;
     // The owner's own hands come first: while the draft is open in their editor, an AI's write would be lost or lose theirs.
     if (ownerIsEditing(itemKey(args.kind, args.id))) {
-      return refuse('The owner has this draft open in the editor. Ask them to close it, or create a new draft instead.');
+      return refuse(OWNER_EDITING);
     }
     const current = await getContent(ownerId, args.kind, { id: args.id });
     if (!current) return refuse(`There is no ${args.kind} ${args.id}. Find one with list_${args.kind}s.`);
@@ -289,6 +291,10 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
     const coverMediaId = 'cover_media_id' in current && args.coverMediaId === undefined ? current.cover_media_id : args.coverMediaId ?? null;
     // Checked before the undo copy is kept, so a picture from elsewhere leaves no copy behind.
     await assertContentMedia(db, ownerId, common.contentJson, coverMediaId ? [coverMediaId] : []);
+    // Asked again after the slow part: the owner may have opened the draft meanwhile.
+    if (ownerIsEditing(itemKey(args.kind, args.id))) {
+      return refuse(OWNER_EDITING);
+    }
     await snapshotBeforeAiWrite(db, ownerId, args.kind, current, { id: token.connectionId, clientName: token.clientName });
     const updated = 'cover_media_id' in current
       ? await updatePost(ownerId, { ...common, coverMediaId, categoryIds: categories?.ids ?? await categoryIdsForPost(ownerId, current.id) })

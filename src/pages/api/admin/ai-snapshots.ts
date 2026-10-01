@@ -8,6 +8,7 @@ import { requireInstalledOwner } from '../../../server/auth/session';
 import { getServerEnv } from '../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../server/http/errors';
 import { parseJson } from '../../../server/http/json';
+import { clearTouch, itemKey } from '../../../server/mcp/presence';
 import { restoreSnapshot } from '../../../server/mcp/snapshots';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
@@ -31,7 +32,9 @@ export const POST: APIRoute = async ({ request }) => {
       throw new HttpError(403, 'Request origin is not allowed.');
     }
     const { kind, id, updatedAt } = await parseJson(request, restoreSchema);
-    await restoreSnapshot(current.user.id, kind, id, updatedAt);
+    const restored = await restoreSnapshot(current.user.id, kind, id, updatedAt);
+    // Keyed by the stored id, as the editor's check is.
+    clearTouch(itemKey(kind, restored.id));
     return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
     return adminErrorResponse(error, requestId);

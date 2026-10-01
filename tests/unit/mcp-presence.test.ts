@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { beat, itemKey, lastTouch, ownerIsEditing, recordTouch, resetPresenceForTest } from '../../src/server/mcp/presence';
+import { beat, clearTouch, itemKey, lastTouch, ownerIsEditing, recordTouch, resetPresenceForTest } from '../../src/server/mcp/presence';
 
 const key = itemKey('post', '11111111-1111-4111-8111-111111111111');
 const touch = { connectionId: 'c1', clientName: 'Claude', brand: 'claude' as const, action: 'read' as const };
@@ -42,4 +42,16 @@ test('the touch store keeps at most 500 items, dropping the oldest', () => {
   for (let i = 0; i < 501; i += 1) recordTouch(itemKey('post', String(i)), touch, 0);
   assert.equal(lastTouch(itemKey('post', '0'), 1), null);
   assert.equal(lastTouch(itemKey('post', '500'), 1)?.clientName, 'Claude');
+});
+
+test('clearing a touch forgets that item only, and leaves the owner\'s hold alone', () => {
+  resetPresenceForTest();
+  const other = itemKey('post', '22222222-2222-4222-8222-222222222222');
+  recordTouch(key, { ...touch, action: 'write' }, 0);
+  recordTouch(other, touch, 0);
+  beat(key, 0);
+  clearTouch(itemKey('post', '11111111-1111-4111-8111-111111111111'.toUpperCase()));
+  assert.equal(lastTouch(key, 1), null);
+  assert.equal(lastTouch(other, 1)?.clientName, 'Claude');
+  assert.equal(ownerIsEditing(key, 1), true);
 });

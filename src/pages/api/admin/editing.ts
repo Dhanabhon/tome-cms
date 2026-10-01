@@ -5,8 +5,7 @@ import { z } from 'zod';
 
 import { assertSameOrigin } from '../../../server/auth/origin';
 import { requireInstalledOwner } from '../../../server/auth/session';
-import { getPage } from '../../../server/content/pages';
-import { getPost } from '../../../server/content/posts';
+import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../server/http/errors';
 import { parseJson } from '../../../server/http/json';
@@ -35,7 +34,9 @@ export const POST: APIRoute = async ({ request }) => {
       throw new HttpError(403, 'Request origin is not allowed.');
     }
     const { kind, id, updatedAt } = await parseJson(request, editingSchema);
-    const item = kind === 'post' ? await getPost(current.user.id, id) : await getPage(current.user.id, id);
+    // Every 15 s from each open editor: the id and version only, never the body.
+    const item = await db.selectFrom(kind === 'post' ? 'posts' : 'pages').select(['id', 'updated_at'])
+      .where('id', '=', id).where('owner_id', '=', current.user.id).executeTakeFirst();
     if (!item) throw new HttpError(404, kind === 'post' ? 'Post not found.' : 'Page not found.');
     // Keyed by the stored id, never the one the request spelled.
     const key = itemKey(kind, item.id);
@@ -43,7 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
     const touch = (await mcpConfig()) ? lastTouch(key) : null;
     // The connection id stays on the server: the editor needs only who, what and when.
     const ai = touch ? { clientName: touch.clientName, brand: touch.brand, action: touch.action, at: new Date(touch.at).toISOString() } : null;
-    const newer = Date.parse(item.updated_at) > Date.parse(updatedAt);
+    const newer = new Date(item.updated_at).getTime() > Date.parse(updatedAt);
     return Response.json({ ai, newer }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
     return adminErrorResponse(error, requestId);

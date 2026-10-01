@@ -32,6 +32,11 @@ export function lastTouch(key: ItemKey, now = Date.now()): Touch | null {
   return found && now - found.at <= TOUCH_MS ? found : null;
 }
 
+/** The owner put the draft back: what the AI did to it is undone, so it is not told of any more. */
+export function clearTouch(key: ItemKey): void {
+  touches.delete(key);
+}
+
 /** The owner's editor says the draft is open; any tab will do. */
 export function beat(key: ItemKey, now = Date.now()): void {
   remember(beats, key, now);

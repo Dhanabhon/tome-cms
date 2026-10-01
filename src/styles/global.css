@@ -2793,6 +2793,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
  * with the editor bar's below, which is 80rem wide at most. */
 .ai-undo, .editing-status { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
 .ai-undo p, .editing-status p { margin: 0; min-width: 0; }
+/* An app names itself, and a long name must wrap rather than widen the page. */
+.editing-status p { overflow-wrap: anywhere; }
 .ai-undo .admin-form-error { flex-basis: 100%; }
 /* Who is at work on an open draft, in the same bar: the app's mark before the sentence, and a
  * "changed elsewhere" line with its button at the end. */

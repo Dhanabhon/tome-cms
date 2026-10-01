@@ -8,6 +8,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { runWithEndpointContext } from '@better-auth/core/context';
 import { makeSignature } from 'better-auth/crypto';
 import { sql } from 'kysely';
+import { Client } from 'pg';
 
 import type { McpConfig } from '../../src/server/mcp/config';
 import type { EditorDocument } from '../../src/types/cms';
@@ -347,6 +348,37 @@ test('an AI waits while the owner has the draft open, and its reads and writes a
   await ok(writer, 'search_content', { query: 'Held' });
   assert.equal(presence.lastTouch(key), null);
   assert.equal(presence.lastTouch(presence.itemKey('post', made.id)), null);
+});
+
+test('an owner who opens the draft while the write is under way still comes first', async () => {
+  presence.resetPresenceForTest();
+  const draft = await createPost(OWNER, postInput('Opened late', { type: 'doc', content: [paragraph('Mine')] }));
+  const key = presence.itemKey('post', draft.id);
+  // The write is past its first look at the owner and held at its read of the draft; the owner opens it then.
+  // The lock is taken on a connection of its own: the app's pool has one in this run.
+  const locker = new Client({ connectionString: process.env.DATABASE_URL });
+  await locker.connect();
+  let write: Promise<ToolResult>;
+  try {
+    await locker.query('begin');
+    await locker.query('lock table posts in access exclusive mode');
+    write = call(writer, 'update_draft', { kind: 'post', id: draft.id, updatedAt: draft.updated_at, title: 'AI title' });
+    for (let attempt = 0; ; attempt += 1) {
+      const { rows } = await locker.query<{ waiting: number }>(`select count(*)::int as waiting from pg_locks where not granted and relation = 'posts'::regclass`);
+      if (rows[0]!.waiting > 0) break;
+      assert.ok(attempt < 400, 'the write never reached the draft');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    presence.beat(key);
+    await locker.query('commit');
+  } finally {
+    await locker.end();
+  }
+  const result = await write;
+  assert.equal(result.isError, true, 'the write should be refused');
+  assert.match(result.content[0]!.text, /owner has this draft open/);
+  assert.equal(await updatedAt(draft.id), draft.updated_at, 'nothing was written');
+  assert.equal(await db.selectFrom('content_ai_snapshots').select('id').where('post_id', '=', draft.id).executeTakeFirst(), undefined, 'no undo copy');
 });
 
 test('the owner-first rule holds for any spelling of the id, and for pages', async () => {

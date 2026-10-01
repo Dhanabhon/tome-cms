@@ -19,12 +19,14 @@ const { writePluginSettings } = await import('../../src/server/plugins/store');
 const { createPost, updatePost } = await import('../../src/server/content/posts');
 const { createPage } = await import('../../src/server/content/pages');
 const presence = await import('../../src/server/mcp/presence');
+const snapshots = await import('../../src/server/mcp/snapshots');
 
 const OWNER = 'owner-editing';
 const OTHER = 'owner-editing-other';
 const ORIGIN = 'http://localhost:4321';
 // Loaded after the migration: the auth module checks its tables when it first loads.
 let POST: typeof import('../../src/pages/api/admin/editing').POST;
+let PUT_BACK: typeof import('../../src/pages/api/admin/ai-snapshots').POST;
 let cookie: string;
 let categoryId: string;
 
@@ -45,6 +47,15 @@ async function editing(body: Record<string, unknown>, origin = ORIGIN) {
   return { status: response.status, headers: response.headers, body: await response.json() as any };
 }
 
+async function putBack(body: Record<string, unknown>) {
+  const response = await PUT_BACK({
+    request: new Request(`${ORIGIN}/api/admin/ai-snapshots`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie, origin: ORIGIN }, body: JSON.stringify(body),
+    }),
+  } as unknown as Parameters<typeof PUT_BACK>[0]);
+  return response.status;
+}
+
 before(async () => {
   await migrateToLatest();
   for (const id of [OWNER, OTHER]) {
@@ -61,6 +72,7 @@ before(async () => {
     deviceType: 'singleDevice', backedUp: false, transports: '', aaguid: null,
   }).execute();
   ({ POST } = await import('../../src/pages/api/admin/editing'));
+  ({ POST: PUT_BACK } = await import('../../src/pages/api/admin/ai-snapshots'));
   const { auth } = await import('../../src/server/auth/config');
   const authContext = await auth.$context;
   const session = await runWithEndpointContext({
@@ -148,4 +160,25 @@ test('newer is true once the stored draft is later than the editor\'s', async ()
   assert.ok(Date.parse(changed.updated_at) > Date.parse(post.updated_at));
   assert.equal((await editing({ kind: 'post', id: post.id, updatedAt: post.updated_at })).body.newer, true);
   assert.equal((await editing({ kind: 'post', id: post.id, updatedAt: changed.updated_at })).body.newer, false);
+});
+
+test('putting a draft back forgets the AI\'s touch, so the bar no longer says it changed the draft', async () => {
+  const post = await createPost(OWNER, postInput('Before the AI', categoryId));
+  const key = presence.itemKey('post', post.id);
+  // No connection row is needed for the copy; the column is let go when a connection goes.
+  await snapshots.snapshotBeforeAiWrite(db, OWNER, 'post', post, { id: null as unknown as string, clientName: 'Claude' });
+  const changed = await updatePost(OWNER, {
+    id: post.id, updatedAt: post.updated_at, title: 'By the AI', slug: post.slug, contentJson: post.content_json,
+    metaTitle: null, metaDescription: null, status: 'draft', excerpt: '', categoryIds: [categoryId], coverMediaId: null,
+  });
+  await snapshots.markAiWritten(OWNER, 'post', post.id, changed.updated_at);
+  presence.recordTouch(key, { connectionId: 'c', clientName: 'Claude', brand: 'claude', action: 'write' });
+
+  // A put back that does not happen leaves the touch as it was.
+  assert.equal(await putBack({ kind: 'post', id: post.id, updatedAt: post.updated_at }), 409);
+  assert.equal(presence.lastTouch(key)?.action, 'write');
+
+  assert.equal(await putBack({ kind: 'post', id: post.id.toUpperCase(), updatedAt: changed.updated_at }), 200);
+  assert.equal(presence.lastTouch(key), null);
+  assert.equal((await editing({ kind: 'post', id: post.id, updatedAt: changed.updated_at })).body.ai, null);
 });
