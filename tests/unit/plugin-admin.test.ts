@@ -82,7 +82,10 @@ test('the switch switches, and sends no fields doing it', () => {
   // The server keeps a setting it was not given, which is what makes this safe -- see
   // tests/integration/plugin-settings.test.ts, where reintroducing the old behaviour makes
   // a switch erase the site key beside it. This is the caller that relies on it.
-  assert.match(SOURCE, /\{ enabled: event\.target\.checked, values: \{\} \}/);
+  assert.match(SOURCE, /\{ enabled: next, values: \{\} \}/);
+  assert.match(SOURCE, /switchPlugin\(manifest, event\.target\.checked\)/);
+  // It asks first, and writes only on a yes.
+  assert.match(SOURCE, /if \(confirmed\) await write\(/);
   // And a save carries the fields without deciding whether the plugin is on.
   assert.match(SOURCE, /enabled: state\?\.enabled \?\? false, values/);
 });
