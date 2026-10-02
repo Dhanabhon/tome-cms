@@ -361,6 +361,23 @@ test('rows nest by dragging onto the middle of another, place by its edges, and 
     await page.setViewportSize({ width: 1440, height: 900 });
   }
 
+  // Every header row keeps the ⋯ slot, with a choice in it or not, so the columns line up.
+  const edges = await page.locator('.navigation-item:not([data-depth]) input.admin-control').evaluateAll((inputs) =>
+    inputs.map((input) => Math.round(input.getBoundingClientRect().right)));
+  expect(new Set(edges).size, `top-level label fields end at ${edges.join(', ')}`).toBe(1);
+
+  // A drag that has only just left its own row says nothing yet, and nothing in red.
+  await bringIntoView(page, await row(page, 'Contact'));
+  const own = await gripPoint(await row(page, 'Contact'));
+  await page.mouse.move(own.x, own.y);
+  await page.mouse.down();
+  await page.mouse.move(own.x + 20, own.y + 6, { steps: 4 });
+  await expect(page.locator('.navigation-ghost')).toHaveText('Contact');
+  await expect(live).toHaveText('');
+  await expect(hint).not.toHaveAttribute('data-refused', /.*/);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+
   // Escape cancels a drag: nothing moves and the hint goes back to how to drag.
   await dragOver(page, await row(page, 'Contact'), await row(page, 'About'), 0.5);
   await expect(live).toHaveText('Put under About');

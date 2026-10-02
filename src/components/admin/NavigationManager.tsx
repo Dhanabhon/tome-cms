@@ -63,6 +63,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   // The item being dragged and where it would land; null when nothing is dragged.
   const [drag, setDrag] = useState<{ id: string; action: DropAction | null } | null>(null);
   const hint = useRef<HTMLParagraphElement>(null);
+  // Ends the drag in progress, if any: one drag at a time, and none left running after the screen goes.
+  const endDrag = useRef<((drop: boolean) => void) | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const labelField = useRef<HTMLInputElement>(null);
   const urlField = useRef<HTMLInputElement>(null);
@@ -99,6 +101,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   useEffect(() => (dialog.current ? animateDismissals(dialog.current) : undefined), []);
   // A row's ⋯ menu closes on a press outside and on Escape, and only one is open at a time.
   useEffect(() => wireDetailsMenus('details.navigation-nest-menu'), []);
+  useEffect(() => () => endDrag.current?.(false), []);
 
   function closeDialog() {
     if (dialog.current) void closeOverlay(dialog.current);
@@ -235,7 +238,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
    * its edges. Release drops; Escape, or a cancelled pointer, puts everything back.
    */
   function startDrag(event: ReactPointerEvent<HTMLElement>, from: number) {
-    if (savingRef.current || event.button !== 0) return;
+    // A second finger or pen while one drag runs would drop onto a list the first has already changed.
+    if (savingRef.current || endDrag.current || event.button !== 0) return;
     event.preventDefault();
     const { pointerId, clientX: startX, clientY: startY } = event;
     event.currentTarget.setPointerCapture?.(pointerId);
@@ -280,6 +284,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
       locate();
     };
     const finish = (drop: boolean) => {
+      endDrag.current = null;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
@@ -302,6 +307,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
       key.stopPropagation();
       finish(false);
     };
+    endDrag.current = finish;
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
@@ -414,7 +420,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                 const emptyNote = empty.has(index) ? `navigation-empty-${item.id}` : undefined;
                 const nesting = location === 'header' && (canIndent(items, index, location) || canOutdent(items, index));
                 return <li className="navigation-item" data-depth={parent ? 1 : undefined} data-dragging={drag && (item.id === drag.id || item.parentId === drag.id) ? '' : undefined} data-drop={mark?.row === index ? mark.mark : undefined} data-item-id={item.id} key={item.id}>
-                  <span aria-hidden="true" className="navigation-grip" onPointerDown={(event) => startDrag(event, index)}><Icon name="grip" /></span>
+                  <span aria-hidden="true" className="navigation-grip navigation-grip--pointer" onPointerDown={(event) => startDrag(event, index)}><Icon name="grip" /></span>
                   <div className="navigation-item__content">
                     <label className="admin-field"><span className="sr-only">{fill(copy.navigation.itemLabel, { index: index + 1 })}{parent && ` ${fill(copy.navigation.subItemOf, { label: parent.label })}`}</span><input aria-describedby={emptyNote} aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
                     <p className="navigation-target">{summary}</p>
@@ -425,6 +431,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                   <div aria-label={fill(copy.navigation.actionsForItem, { index: index + 1 })} className="navigation-item__actions" role="group">
                     <button aria-label={copy.navigation.moveUp} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || sibling(items, index, -1) < 0} onClick={(event) => move(index, sibling(items, index, -1), event.currentTarget)} title={copy.navigation.moveUp} type="button"><Icon name="up" /></button>
                     <button aria-label={copy.navigation.moveDown} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || sibling(items, index, 1) < 0} onClick={(event) => move(index, sibling(items, index, 1), event.currentTarget)} title={copy.navigation.moveDown} type="button"><Icon name="down" /></button>
+                    {/* A row with no nesting choice keeps the ⋯ button's slot, so every row's columns line up. */}
+                    {location === 'header' && !nesting && <span aria-hidden="true" className="navigation-nest-slot" />}
                     {nesting && <details className="admin-story-menu navigation-nest-menu" name="navigation-nest-menu">
                       <summary aria-label={fill(copy.navigation.nestMenu, { index: index + 1 })} title={fill(copy.navigation.nestMenu, { index: index + 1 })}><Icon name="more" /></summary>
                       <div>

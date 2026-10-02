@@ -161,12 +161,12 @@ test('a parent with sub-items cannot go under anything: there is only one level'
   assert.equal(applyDrop(before, 3, dropAction(before, 3, 0, 0.5, 'header')), before, 'a refused drop changes nothing');
 });
 
-test('an item cannot be dropped onto itself or onto its own sub-items', () => {
+test('over its own row a drag says nothing yet; onto its own sub-items it is refused', () => {
   const before = menu();
   for (const fraction of [0.1, 0.5, 0.9]) {
-    assert.deepEqual(dropAction(before, 0, 0, fraction, 'header'), { refused: 'self' });
+    assert.equal(dropAction(before, 0, 0, fraction, 'header'), null, 'A over itself, where every drag starts');
+    assert.equal(dropAction(before, 5, 5, fraction, 'footer'), null);
     assert.deepEqual(dropAction(before, 0, 2, fraction, 'header'), { refused: 'self' }, 'A onto C, under A');
-    assert.deepEqual(dropAction(before, 5, 5, fraction, 'header'), { refused: 'self' });
   }
   assert.equal(applyDrop(before, 0, { refused: 'self' }), before);
 });
@@ -177,6 +177,9 @@ test('a group stays at the top level: it can be placed but not put under another
   assert.deepEqual(dropAction(lone, 1, 0, 0.5, 'header'), { refused: 'group' });
   assert.deepEqual(shape(drop(lone, 1, 0, 0.1)), ['G', 'A']);
   assert.deepEqual(dropAction(items, 1, 0, 0.5, 'header'), { refused: 'one-level' }, 'a group with an item under it is a parent first');
+  const beside = [item('A'), item('B', 'A'), item('G', null, { kind: 'group', url: null })];
+  assert.deepEqual(dropAction(beside, 2, 1, 0.2, 'header'), { refused: 'group' }, 'a lone group beside a sub-item');
+  assert.deepEqual(dropAction(beside, 2, 1, 0.8, 'header'), { refused: 'group' });
 });
 
 test('on the footer there is no "into": the upper half is before and the lower half after', () => {

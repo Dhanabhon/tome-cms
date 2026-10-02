@@ -71,12 +71,12 @@ On the "Header menu" tab, drag an item by the handle on its left. The line above
 
 Some drops are refused, and the line says why. An item that already holds sub-items, or a group, cannot go under another item, and an item cannot be dropped onto itself or its own sub-items. Letting go there changes nothing, and Escape cancels a drag. On a phone, drag with a finger on the handle; the rest of the row still scrolls the page. On the "Footer", dragging only places an item above or below another.
 
-The same choices are in the "..." button beside "Move up" and "Move down", for the keyboard and screen readers:
+Two of these choices are also in the ⋯ button beside "Move up" and "Move down", which a screen reader calls "Sub-menu options", for the keyboard and screen readers:
 
 - "Put under", followed by the name of the top-level item above, makes the item the last sub-item of that item. When the item just above is a sub-item, the item joins its parent.
 - "Move out to the main menu" is on a sub-item. It puts the item back at the top level, right after its parent's last sub-item.
 
-The "..." is there only when one of them applies, so not on the first item, a group, an item that already holds sub-items, or the "Footer".
+The ⋯ button is there only when one of them applies, so not on the first item, a group, an item that already holds sub-items, or the "Footer".
 
 A sub-item's row is drawn indented, with a line beside it, and a screen reader announces which item it is under. Moving a parent, with "Move up", "Move down" or by dragging, takes its sub-items with it. "Move up" and "Move down" keep a sub-item among the items under the same parent; dragging it, or "Move out to the main menu", takes it elsewhere. "Remove" on a parent takes out that item alone: its sub-items stay in the menu, at the top level.
 

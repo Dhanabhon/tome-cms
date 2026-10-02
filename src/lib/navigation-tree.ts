@@ -4,8 +4,9 @@ import type { NavigationItem, NavigationLocation, NavigationMutationItem, Naviga
  * The Navigation screen's rules for sub-items, on its flat draft list.
  *
  * The screen draws one list in menu order: a top-level item, then its sub-items, then the next.
- * Every rule here keeps that list one a server would accept: one level only, header only, and a
- * sub-item that leaves its parent only by being moved out.
+ * Every rule here keeps that list one a server would accept: one level only, header only, no group
+ * under another item, and a parent's sub-items always right after it. Up and down keep a sub-item
+ * among its siblings; a drag, or moving it out, takes it to another parent or the top level.
  */
 export interface NavigationDraftItem extends Omit<NavigationMutationItem, 'children'> {
   id: string;
@@ -100,12 +101,14 @@ const INTO_TO = 0.72;
  * What dropping the item at `dragged` onto the row at `target` does, with `fraction` the pointer's
  * height within that row (0 at its top edge, 1 at its bottom). Over a top-level row on the header
  * the middle band puts the item under it, the edges place it before or after; over a sub-item, or
- * anywhere on the footer, the upper half is before and the lower half after.
+ * anywhere on the footer, the upper half is before and the lower half after. Over its own row, where
+ * every drag starts, there is nothing to say yet: null.
  */
-export function dropAction(items: NavigationDraftItem[], dragged: number, target: number, fraction: number, location: NavigationLocation): DropAction {
+export function dropAction(items: NavigationDraftItem[], dragged: number, target: number, fraction: number, location: NavigationLocation): DropAction | null {
   const item = items[dragged];
   const onto = items[target];
-  if (!item || !onto || dragged === target || onto.parentId === item.id) return { refused: 'self' };
+  if (!item || !onto || dragged === target) return null;
+  if (onto.parentId === item.id) return { refused: 'self' };
   const into = location === 'header' && onto.parentId === null && fraction >= INTO_FROM && fraction <= INTO_TO;
   const edge = onto.parentId === null && location === 'header' ? (fraction < INTO_FROM ? 'before' : 'after') : (fraction < 0.5 ? 'before' : 'after');
   // Under a top-level row or beside a sub-item, the item becomes a sub-item: the rules of indent apply.
@@ -116,9 +119,9 @@ export function dropAction(items: NavigationDraftItem[], dragged: number, target
   return { kind: into ? 'into' : edge, target };
 }
 
-/** The menu after a drop; a refused drop, or one that changes nothing, returns `items` itself. */
-export function applyDrop(items: NavigationDraftItem[], dragged: number, action: DropAction): NavigationDraftItem[] {
-  if ('refused' in action) return items;
+/** The menu after a drop; no drop, a refused one, or one that changes nothing returns `items` itself. */
+export function applyDrop(items: NavigationDraftItem[], dragged: number, action: DropAction | null): NavigationDraftItem[] {
+  if (!action || 'refused' in action) return items;
   const item = items[dragged];
   const onto = items[action.target];
   const block = items.slice(dragged, dragged + (item.parentId ? 1 : blockLength(items, dragged)));

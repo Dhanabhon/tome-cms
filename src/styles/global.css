@@ -2612,8 +2612,13 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .navigation-item[data-depth="1"] { margin-inline-start: var(--space-lg); padding-inline-start: var(--space-md); border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
 /* The grip is a handle, so it takes the pointer that says so and the height of the field
  * it sits beside. */
-.navigation-grip { display: grid; align-self: start; place-items: center; min-inline-size: 44px; min-block-size: 44px; color: var(--color-muted); cursor: grab; touch-action: none; user-select: none; }
-.navigation-grip:hover { color: var(--color-ink); }
+.navigation-grip { display: grid; align-self: start; place-items: center; min-height: var(--control-height); color: var(--color-muted); cursor: grab; }
+/* On Navigation the grip is dragged by pointer, a finger included: a 44px target that takes the
+ * touch itself, so the rest of the row still scrolls the page. Home slides keeps its own grip. */
+.navigation-grip--pointer { min-inline-size: 44px; min-block-size: 44px; touch-action: none; user-select: none; }
+.navigation-grip--pointer:hover { color: var(--color-ink); }
+/* The ⋯ button's width, held on a header row that has no nesting choice. */
+.navigation-nest-slot { inline-size: var(--control-height); }
 /* While a row is dragged: the grabbed hand everywhere, the dragged block faded, and the drop
  * drawn where it will land -- a line between rows, or the whole row lit for "put under". */
 .navigation-items[data-dragging], .navigation-items[data-dragging] * { cursor: grabbing; }
