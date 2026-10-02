@@ -1,4 +1,5 @@
 ---
+import { demoteH1 } from '../../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../../lib/i18n';
 import { articleCover } from '../../../lib/post-cover';
 import { readingRail } from '../../../lib/reading-rail';
@@ -20,9 +21,11 @@ interface Props {
 
 const { authorLinks, categories = [], post, preview = false, profile, readingPosition, settings } = Astro.props;
 const { cover, bodyHtml: coverHtml } = articleCover(post);
+// The title is the page's one h1, whatever heading level the body was written in.
+const demotedHtml = demoteH1(coverHtml);
 // The rail and the anchors it links to come from one pass over the body. A post it has nothing
 // to list comes back untouched, and is given the bar on every width instead.
-const { headings, html: bodyHtml } = readingPosition === 'rail' ? readingRail(coverHtml) : { headings: [], html: coverHtml };
+const { headings, html: bodyHtml } = readingPosition === 'rail' ? readingRail(demotedHtml) : { headings: [], html: demotedHtml };
 const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), {
   day: 'numeric',
   month: 'long',

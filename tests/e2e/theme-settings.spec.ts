@@ -583,3 +583,21 @@ test('the header can be asked to stay in view', async ({ page }) => {
   expect(painted.ownsItsPixels, 'the header is what is drawn where the header is').toBe(true);
   expect(painted.background, 'and it has a background of its own').not.toBe('rgba(0, 0, 0, 0)');
 });
+
+test('a post keeps its title the one h1 in Paper and in Plain, aligned headings in the body included', async ({ page }) => {
+  const { sql: query } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  await query`update posts set content_html = ${'<h1 style="text-align: center">Centred part</h1><p>Text.</p><h1>Plain part</h1><p>More.</p>'} where slug = 'post-2'`.execute(db);
+  const { rows: [before] } = await query<{ theme_id: string | null }>`select theme_id from site_settings`.execute(db);
+  try {
+    for (const theme of ['paper', 'plain']) {
+      await query`update site_settings set theme_id = ${theme}`.execute(db);
+      await page.goto(`${origin}/en/blog/post-2`, { waitUntil: 'networkidle' });
+      await expect(page.locator('h1'), `${theme}: the title is the one h1`).toHaveCount(1);
+      await expect(page.getByRole('heading', { level: 2, name: 'Centred part' }), `${theme}: the aligned one is an h2`).toHaveCount(1);
+      await expect(page.getByRole('heading', { level: 2, name: 'Plain part' })).toHaveCount(1);
+    }
+  } finally {
+    await query`update site_settings set theme_id = ${before?.theme_id ?? null}`.execute(db);
+  }
+});

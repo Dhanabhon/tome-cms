@@ -72,7 +72,7 @@ test('the rail ignores a section break', () => {
 });
 
 test('the article draws the rail from those headings, in the reader\'s language, only when it has them', () => {
-  assert.match(ARTICLE, /readingRail\(coverHtml\)/);
+  assert.match(ARTICLE, /readingRail\(demotedHtml\)/, 'the rail is drawn from the body with its h1s demoted');
   assert.match(ARTICLE, /headings\.length > 0 && \(/);
   assert.match(ARTICLE, /<nav class="reading-rail" aria-label=\{copy\.onThisPage\} data-reading-rail>/);
   assert.match(ARTICLE, /<a href=\{`#\$\{id\}`\} class=\{`reading-rail__link reading-rail__link--h\$\{level\}`\}>/);

@@ -12,7 +12,8 @@ import { THEME_MANIFESTS } from '../../themes/manifests';
 import { homePageLimit } from '../../themes/page-size';
 import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../themes/registry';
 import { readThemeSettings } from '../../server/themes/store';
-import type { Post, PostAlternate, PostCategoryBadge, PublicHomeSlide } from '../../types/cms';
+import type { ThemeHomePost } from '../../themes/contract';
+import type { PostAlternate, PostCategoryBadge, PublicHomeSlide } from '../../types/cms';
 
 const localeValue = Astro.params.locale;
 if (!isPostLocale(localeValue)) {
@@ -32,7 +33,7 @@ if (query && !maySearch(Astro.request, Astro.clientAddress)) {
     status: 429,
   });
 }
-let posts: Post[] = [];
+let posts: ThemeHomePost[] = [];
 // Read whatever the theme will do with them: which hero it draws is its own setting, and the
 // read is five seconds of cache away. It never throws: a failure is a hero without slides.
 let slides: PublicHomeSlide[] = [];

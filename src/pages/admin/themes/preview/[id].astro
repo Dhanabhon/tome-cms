@@ -17,7 +17,8 @@ import { getPublicSlides } from '../../../../server/content/slides';
 import { getOwnerSettings, type SiteSettings } from '../../../../server/content/settings';
 import { HttpError } from '../../../../server/http/errors';
 import { isThemeId, resolveTheme } from '../../../../themes/registry';
-import type { Post, PostCategoryBadge } from '../../../../types/cms';
+import type { ThemeHomePost } from '../../../../themes/contract';
+import type { PostCategoryBadge } from '../../../../types/cms';
 
 const themeId = Astro.params.id;
 if (!isThemeId(themeId)) {
@@ -45,7 +46,7 @@ const profile = await getPublicAuthorProfile(settings, locale);
 // Read whatever the theme will do with them: which hero it draws is its own setting, and the
 // read is five seconds of cache away. It never throws: a failure is a hero without slides.
 const slides = await getPublicSlides(locale);
-let posts: Post[] = [];
+let posts: ThemeHomePost[] = [];
 let categories: PostCategoryBadge[] = [];
 try {
   const [page, published] = await Promise.all([

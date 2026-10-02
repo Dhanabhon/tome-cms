@@ -57,7 +57,7 @@ The registry returns a union of every theme's templates, so a template whose pro
 | Template | Props | What it is given |
 | --- | --- | --- |
 | `Shell` | `ThemeShellProps` | `themeSettings`, `allowVisitorTheme`, `alternates` (the same page in the other language), `brand`, the `header` and `footer` menus, `locale`, `showPoweredBy`, `siteName`, and `theme`, the light or dark choice the server rendered |
-| `Home` | `ThemeHomeProps` | `themeSettings`, `posts`, `categories`, `activeCategory`, `query`, what the reader searched for, `cursor` and `nextCursor` for moving between pages of posts, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` and `timezone` |
+| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (each a `ThemeHomePost`, which may carry its `categories`), `categories`, `activeCategory`, `query`, what the reader searched for, `cursor` and `nextCursor` for moving between pages of posts, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` and `timezone` |
 | `Post` | `ThemePostProps` | `themeSettings`, `post`, `categories`, `locale`, `profile`, `settings` (the site's name and time zone), and `preview`, set when the owner is looking at a draft |
 | `Page` | `ThemePageProps` | `page`, `locale` and `preview`. A page is not given the theme's settings. |
 

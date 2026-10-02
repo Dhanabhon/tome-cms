@@ -241,6 +241,10 @@ test('Almanac is the site: its hero, its pills, six cards, its serif, one h1', a
   });
   expect(serif.heading, 'headings are Trirong').toContain('Trirong');
   expect(serif.loaded.some((family) => family.includes('Trirong')), 'and it was fetched').toBe(true);
+
+  // A link inside the footer's line of text is underlined before any hover, so it reads as a link.
+  const siteLink = page.locator('.almanac-footer p').first().getByRole('link', { name: SITE });
+  await expect(siteLink).toHaveCSS('text-decoration-line', 'underline');
 });
 
 test('the cards: one link each, and a letter on a tone when there is no cover', async ({ page }) => {

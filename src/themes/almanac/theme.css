@@ -251,6 +251,11 @@
 .almanac-footer a:hover,
 .almanac-footer a[aria-current] { color: var(--color-ink); text-decoration: underline; }
 
+/* A link inside a line of text (the site's name, the credit) is underlined at rest, so it never reads as plain text. */
+.almanac-footer p a { text-decoration: underline; text-decoration-thickness: 1px; }
+
+.almanac-footer p a:hover { text-decoration-thickness: 2px; }
+
 .almanac-footer__credit { flex-basis: 100%; }
 
 @media (max-width: 39.999rem) {

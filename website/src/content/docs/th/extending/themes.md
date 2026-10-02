@@ -57,7 +57,7 @@ registry คืนค่าเป็น union ของ template จากทุ
 | Template | Props | ได้รับอะไร |
 | --- | --- | --- |
 | `Shell` | `ThemeShellProps` | `themeSettings`, `allowVisitorTheme`, `alternates` (หน้าเดียวกันในอีกภาษา), `brand`, เมนู `header` กับ `footer`, `locale`, `showPoweredBy`, `siteName` และ `theme` ซึ่งเป็นโหมดสว่างหรือมืดที่เซิร์ฟเวอร์วาดมา |
-| `Home` | `ThemeHomeProps` | `themeSettings`, `posts`, `categories`, `activeCategory`, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
+| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (แต่ละรายการเป็น `ThemeHomePost` ซึ่งอาจมี `categories` ของบทความนั้นมาด้วย), `categories`, `activeCategory`, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
 | `Post` | `ThemePostProps` | `themeSettings`, `post`, `categories`, `locale`, `profile`, `settings` (ชื่อเว็บและเขตเวลา) และ `preview` ซึ่งถูกตั้งไว้เมื่อเจ้าของเว็บกำลังดูฉบับร่าง |
 | `Page` | `ThemePageProps` | `page`, `locale` และ `preview` เพจไม่ได้รับการตั้งค่าของธีม |
 
