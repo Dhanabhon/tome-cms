@@ -28,7 +28,7 @@ const current = isCurrentSection(item, currentPath) ? 'true' : undefined;
   <details name="site-submenu" data-site-submenu>
     {isLink(item)
       ? <summary aria-label={copy.showMenu.replace('{label}', item.label)}><Icon name="down" /></summary>
-      : <summary aria-current={current}>{item.label}<Icon name="down" /></summary>}
+      : <summary aria-current={current}><span>{item.label}</span><Icon name="down" /></summary>}
     <ul class="site-submenu">
       {item.children.filter(isLink).map((child) => <li><SiteNavLink copy={copy} currentPath={currentPath} item={child} /></li>)}
     </ul>

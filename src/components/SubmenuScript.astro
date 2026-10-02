@@ -1,9 +1,9 @@
 ---
 /**
  * What a header sub-menu does beyond opening and closing, which `<details>` does on its own:
- * Escape closes it and puts focus back on its summary; a press outside it, or focus moving to
- * something outside it, closes it; and a panel that would pass the window's inline end is
- * anchored to its parent's end instead.
+ * Escape closes it, wherever focus is, and puts focus back on its summary; a press outside it,
+ * or focus moving to something outside it, closes it; and a panel that would pass the window's
+ * inline end is anchored to its parent's end instead.
  *
  * Focus moving to nothing does not count as leaving: Safari moves focus to nothing on a press of
  * a link it will not focus, and closing then would swallow the click. A press outside is caught
@@ -11,11 +11,13 @@
  */
 ---
 <script>
-  const OPEN = 'details[name="site-submenu"][open]';
+  const OPEN = '[data-site-submenu][open]';
   const EDGE = 8;
+  // Wherever focus is: a press on the panel's padding leaves it on the page, and Safari never
+  // focuses the summary that was clicked. The shared name means at most one is open.
   document.addEventListener('keydown', (event) => {
-    const open = event.key === 'Escape' && (event.target as Element).closest?.(OPEN);
-    if (!(open instanceof HTMLDetailsElement)) return;
+    const open = event.key === 'Escape' && document.querySelector<HTMLDetailsElement>(OPEN);
+    if (!open) return;
     open.open = false;
     open.querySelector('summary')?.focus();
   });

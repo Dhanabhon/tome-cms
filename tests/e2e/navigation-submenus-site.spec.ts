@@ -157,7 +157,7 @@ const primary = (page: Page) => page.getByRole('navigation', { name: 'Primary' }
 
 /** One parent in the header: its `<details>`, the summary that opens it and the panel. */
 function parent(page: Page, label: string) {
-  const item = primary(page).locator('.site-submenu-item').filter({ has: page.locator(`summary:text-is("${label}"), summary[aria-label="Show the ${label} menu"]`) });
+  const item = primary(page).locator('.site-submenu-item').filter({ has: page.locator(`summary:has(> span:text-is("${label}")), summary[aria-label="Show the ${label} menu"]`) });
   return { details: item.locator('details'), item, panel: item.locator('.site-submenu'), summary: item.locator('summary') };
 }
 
@@ -199,6 +199,15 @@ for (const theme of ['paper', 'plain'] as const) {
     // The gutter beside the frame: nothing there to click by accident.
     await page.mouse.click(4, 600);
     await expect(about.panel, 'a click outside closes it').toBeHidden();
+
+    // A press on the panel's own padding leaves focus on the page, outside the menu; Escape
+    // still closes it, and focus goes to the summary all the same.
+    await about.summary.click();
+    await about.panel.click({ position: { x: 2, y: 2 } });
+    await expect(about.panel, 'a press inside keeps it open').toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(about.panel).toBeHidden();
+    await expect(about.summary).toBeFocused();
   });
 
   test(`${theme}: the keyboard alone opens a sub-menu and walks its items, and leaving it closes it`, async ({ page }) => {
@@ -268,6 +277,24 @@ for (const theme of ['paper', 'plain'] as const) {
   });
 }
 
+test('with no script, a sub-menu still opens by click and only one is open', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  for (const theme of ['paper', 'plain'] as const) {
+    useTheme(theme);
+    await page.goto(`${origin}/en`);
+    const about = parent(page, 'About');
+    const company = parent(page, 'Company');
+    await about.summary.click();
+    await expect(about.panel, theme).toBeVisible();
+    await company.summary.click();
+    await expect(company.panel, theme).toBeVisible();
+    await expect(about.panel, `${theme}: the shared name closed the first`).toBeHidden();
+  }
+  await context.close();
+});
+
 test('paper: on a phone the sub-items are listed, indented, under their parent in the Menu', async ({ page }) => {
   test.setTimeout(120_000);
   useTheme('paper');
@@ -318,6 +345,8 @@ test('pictures of both themes, when asked for', async ({ page }) => {
         await page.goto(`${origin}/en/team`);
         if (width < 400 && theme === 'paper') await page.locator('.site-header__mobile > summary').click();
         else await parent(page, 'About').summary.click();
+        // Off the page, so the picture shows the menu and not a hover state.
+        await page.mouse.move(0, 0);
         await page.screenshot({ path: `${SHOTS}/task-4-${theme}-${width}-${scheme}.png` });
       }
     }

@@ -59,7 +59,7 @@ body.paper { background: var(--color-paper); }
 
 .public-navigation a { display: block; min-height: 44px; max-width: 100%; padding-block: var(--space-sm); overflow-x: auto; color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-underline-offset: var(--space-2xs); }
 
-.public-navigation a:hover, .public-navigation :is(a, summary)[aria-current] { text-decoration: underline; }
+.public-navigation a:hover, .public-navigation a[aria-current], .public-navigation summary[aria-current] > span { text-decoration: underline; }
 
 /* On a phone a parent takes its own row and its sub-items stack under it, indented and held by
  * a hairline, always shown: the Menu is already the one tap. A group is a small label. */
@@ -75,9 +75,17 @@ body.paper { background: var(--color-paper); }
 .site-submenu-item { position: relative; display: flex; align-items: center; gap: var(--space-3xs); }
 .site-submenu-item summary { display: flex; align-items: center; gap: var(--space-3xs); min-width: 44px; min-height: 44px; justify-content: center; border-radius: var(--radius-sm); color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-underline-offset: var(--space-2xs); list-style: none; cursor: pointer; }
 .site-submenu-item summary::-webkit-details-marker { display: none; }
-.site-submenu-item summary:hover { background: var(--color-paper-3); }
+/* A link parent's ▾ sits right after its label, as a group's does. Its 44 px target runs forward
+ * into the gap before the next item, never back over the label, which would steal the link's
+ * clicks; the next item paints over the few pixels the two share. */
+.site-submenu-item summary[aria-label] { justify-content: flex-start; margin-inline-end: calc(1rem - 44px); }
+/* Only a group's label underlines, and only where a pointer really hovers: a tap leaves :hover
+ * behind on a phone. */
+@media (hover: hover) {
+  .site-submenu-item summary:not([aria-label]):hover > span { text-decoration: underline; }
+}
 .site-submenu-item summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
-.site-submenu-item details[open] > summary .icon { transform: rotate(180deg); }
+.site-submenu-item [data-site-submenu][open] > summary .icon { transform: rotate(180deg); }
 
 .public-navigation .site-submenu {
   position: absolute;
@@ -101,7 +109,7 @@ body.paper { background: var(--color-paper); }
 }
 
 @starting-style {
-  .public-navigation details[open] > .site-submenu { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))); }
+  .public-navigation [data-site-submenu][open] > .site-submenu { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))); }
 }
 
 .public-navigation .site-submenu[data-align="end"] { inset-inline: auto 0; }

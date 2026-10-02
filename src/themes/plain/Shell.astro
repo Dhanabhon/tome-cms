@@ -44,7 +44,7 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
   <footer class="plain-foot">
     {links.length > 0 && (
       <nav aria-label={copy.footerNavigation}>
-        {links.map(({ href, label, newTab }) => <a href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a>)}
+        {links.map((item) => <SiteNavLink copy={copy} currentPath={currentPath} item={item} />)}
       </nav>
     )}
     <p>&copy; {currentYear(locale)} {siteName}.</p>

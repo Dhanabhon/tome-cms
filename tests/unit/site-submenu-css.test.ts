@@ -37,8 +37,8 @@ for (const theme of ['paper', 'plain']) {
     assert.match(moves.body, /opacity:1/, 'and it ends visible');
 
     const starting = css.match(/@starting-style\{((?:[^{}]*\{[^{}]*\})*)\}/g) ?? [];
-    const from = starting.find((block) => /details\[open\]>\.site-submenu/.test(block));
-    assert.ok(from, 'it arrives from a starting style while its details is open');
+    const from = starting.find((block) => /\[data-site-submenu\]\[open\]>\.site-submenu/.test(block));
+    assert.ok(from, 'it arrives from a starting style while its sub-menu is open');
     assert.match(from, /opacity:0/);
     assert.match(from, /transform:translateY\(/, 'a few pixels up');
   });
