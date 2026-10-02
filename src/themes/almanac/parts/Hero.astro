@@ -1,0 +1,37 @@
+---
+interface Button {
+  href: string | null;
+  label: string;
+}
+
+interface Props {
+  headline: string;
+  lead: string;
+  primary: Button;
+  secondary: Button;
+}
+
+/**
+ * The band above the posts: the page's one h1, a line under it, and up to two buttons. A button
+ * with no label or nowhere to go is left out rather than drawn empty or broken.
+ */
+const { headline, lead, primary, secondary } = Astro.props;
+const buttons = [
+  { ...primary, kind: 'primary' },
+  { ...secondary, kind: 'secondary' },
+].filter((button): button is typeof button & { href: string } => Boolean(button.label && button.href));
+---
+
+<section class="almanac-hero">
+  <div class="almanac-frame almanac-hero__inner">
+    <h1 class="almanac-hero__headline">{headline}</h1>
+    {lead && <p class="almanac-hero__lead">{lead}</p>}
+    {buttons.length > 0 && (
+      <p class="almanac-hero__actions">
+        {buttons.map(({ href, kind, label }) => (
+          <a class={`almanac-button almanac-button--${kind}`} href={href}>{label}</a>
+        ))}
+      </p>
+    )}
+  </div>
+</section>

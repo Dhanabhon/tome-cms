@@ -1,23 +1,89 @@
 ---
+import CategoryRow from './parts/CategoryRow.astro';
+import Hero from './parts/Hero.astro';
+import PostCard from './parts/PostCard.astro';
+import { heroLink } from './home';
 import { localePath, postPath, publicCopy } from '../../lib/i18n';
 import type { ThemeHomeProps } from '../contract';
 
-/** A stand-in until the hero, the pills and the card grid arrive: the posts, as a list of links. */
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, locale, nextCursor, posts, query, siteName, tagline } = Astro.props;
+const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, themeSettings, timezone } = Astro.props;
 const copy = publicCopy(locale);
 const home = localePath(locale);
+// The first page only, and not while searching: whoever typed a search wants its results first.
+const showHero = themeSettings.hero !== 'off' && !cursor && !query;
+const newest = posts[0];
+// The owner's words, or the theme's in the language the page is read in.
+const text = (key: string, fallback: string) => themeSettings[key]?.trim() || fallback;
+
 const olderHref = nextCursor
   ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
   : null;
+// The reader's words go into a sentence as text, whatever they contain.
+const saying = (template: string) => template.replace('{query}', () => query ?? '');
+// The category as the site names it, not as the address happened to spell it.
+const categoryName = activeCategory
+  && (categories.find(({ name }) => name.toLocaleLowerCase() === activeCategory.toLocaleLowerCase())?.name ?? activeCategory);
+// A search or a category says what the list is; the plain list is named for a screen reader only.
+const heading = query ? saying(copy.searchResults) : categoryName || copy.latestPosts;
 ---
 
-<div class="almanac-frame almanac-page">
-  <h1>{siteName}</h1>
-  {tagline && <p class="almanac-lead">{tagline}</p>}
-  <ul class="almanac-list">
-    {posts.map((post) => <li><a href={postPath(post)}>{post.title}</a></li>)}
-  </ul>
-  {olderHref && <p><a href={olderHref}>{copy.allPosts} →</a></p>}
-</div>
+{showHero ? (
+  <Hero
+    headline={text('heroHeadline', siteName)}
+    lead={text('heroLead', tagline)}
+    primary={{ href: heroLink(themeSettings.primaryLink, newest ? postPath(newest) : null), label: text('primaryLabel', copy.startReading) }}
+    secondary={{ href: heroLink(themeSettings.secondaryLink, `${home}#posts`), label: text('secondaryLabel', copy.allPosts) }}
+  />
+) : (
+  <h1 class="sr-only">{siteName}</h1>
+)}
+
+<section class="almanac-frame almanac-home" id="posts">
+  <CategoryRow activeCategory={activeCategory} categories={categories} locale={locale} query={query} />
+
+  <!-- Everything a pill changes, so a chosen one can swap it whole: the heading goes with it. -->
+  <div class="almanac-feed" data-post-feed>
+    <h2 class:list={['almanac-feed__heading', { 'sr-only': !query && !categoryName }]}>{heading}</h2>
+    {query && <p class="almanac-feed__clear"><a href={home}>{copy.clearSearch}</a></p>}
+
+    {posts.length > 0 ? (
+      <div class="almanac-grid">
+        {posts.map((post, index) => (
+          <PostCard eager={!showHero && !cursor && index < 3} locale={locale} post={post} siteName={siteName} timezone={timezone} />
+        ))}
+      </div>
+    ) : !loadError && (
+      <p class="almanac-feed__empty">{query ? saying(copy.noResults) : activeCategory ? copy.noPostsInCategory : copy.noPosts}</p>
+    )}
+
+    {olderHref && <p class="almanac-more"><a class="almanac-button almanac-button--secondary" href={olderHref}>{copy.morePosts} <span aria-hidden="true">→</span></a></p>}
+
+    {loadError && <p class="almanac-feed__empty" role="alert">{copy.postsUnavailable}</p>}
+  </div>
+</section>
+
+<script>
+  /* A cover fades in once it has arrived, and the stylesheet keeps it hidden until then only
+   * where scripting runs. Listening on the document catches the covers a pill swaps in too;
+   * it is wired before the feed code is fetched, so no cover arrives unheard. */
+  const arrived = (image: HTMLImageElement) => { image.dataset.loaded = ''; };
+  document.addEventListener('load', ({ target }) => {
+    if (target instanceof HTMLImageElement && target.closest('.almanac-card')) arrived(target);
+  }, true);
+  for (const image of document.querySelectorAll<HTMLImageElement>('.almanac-card img')) {
+    if (image.complete && image.naturalWidth) arrived(image);
+  }
+
+  /*
+   * The pills swap the list in place with the feed code Paper's row uses, imported only when
+   * there is a list to swap. The feed carries no "more" marker, so it adds no rows as the reader
+   * scrolls: "More posts" stays a link.
+   */
+  const feed = document.querySelector<HTMLElement>('[data-post-feed]');
+  if (feed) {
+    const { default: wirePostFeed } = await import('../../lib/post-feed');
+    wirePostFeed(feed, document.querySelector<HTMLElement>('[data-post-filter]'));
+  }
+</script>

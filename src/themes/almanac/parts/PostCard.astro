@@ -1,0 +1,47 @@
+---
+import { postPath } from '../../../lib/i18n';
+import { postExcerpt, postReadingMinutes } from '../../../lib/posts';
+import type { Post, PostLocale } from '../../../types/cms';
+import { cardMeta, cardPanel } from '../home';
+
+interface Props {
+  /** Whether the cover is asked for at once: only a card that can be in the first screenful. */
+  eager: boolean;
+  locale: PostLocale;
+  post: Post;
+  siteName: string;
+  timezone: string;
+}
+
+/**
+ * One post as one link. Its name is the title alone: the panel is decoration, and the excerpt
+ * and the meta line are read inside the link but are not what it is called.
+ */
+const { eager, locale, post, siteName, timezone } = Astro.props;
+const excerpt = postExcerpt(post, '');
+const published = post.published_at ?? post.created_at;
+const meta = cardMeta(postReadingMinutes(post), published, locale, timezone);
+const panel = post.cover_image ? null : cardPanel(post, siteName);
+const titleId = `card-${post.id}`;
+---
+
+<article class="almanac-card">
+  <a class="almanac-card__link" href={postPath(post)} aria-labelledby={titleId}>
+    <div
+      class="almanac-card__panel"
+      aria-hidden="true"
+      style={panel ? `--card-tone: var(--almanac-tone-${panel.tone}); --card-tone-ink: var(--almanac-tone-${panel.tone}-ink);` : undefined}
+    >
+      {post.cover_image
+        ? <img src={post.cover_image} alt="" width="800" height="450" decoding="async" loading={eager ? 'eager' : 'lazy'} />
+        : <span class="almanac-card__letter">{panel?.letter}</span>}
+    </div>
+    <div class="almanac-card__body">
+      <h3 class="almanac-card__title" id={titleId}>{post.title}</h3>
+      {excerpt && <p class="almanac-card__excerpt">{excerpt}</p>}
+      <p class="almanac-card__meta">
+        <span>{meta.reading}</span> <span aria-hidden="true">·</span> <time datetime={published}>{meta.date}</time>
+      </p>
+    </div>
+  </a>
+</article>

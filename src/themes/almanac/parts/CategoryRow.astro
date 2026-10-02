@@ -1,0 +1,42 @@
+---
+import Icon from '../../../components/Icon.astro';
+import { localePath, publicCopy } from '../../../lib/i18n';
+import type { PostCategoryBadge, PostLocale } from '../../../types/cms';
+
+interface Props {
+  activeCategory: string | undefined;
+  categories: PostCategoryBadge[];
+  locale: PostLocale;
+  query: string | undefined;
+}
+
+/**
+ * The pills and, at the row's end, a quiet search. The data attributes are the ones Paper's row
+ * carries, which is what lib/post-feed.ts looks for: a pill swaps the list in place with it, and
+ * is a plain link to the filtered home page without it. The search is a plain GET form.
+ */
+const { activeCategory, categories, locale, query } = Astro.props;
+const copy = publicCopy(locale);
+const home = localePath(locale);
+const categoryHref = (name: string) => `${home}?${new URLSearchParams({ category: name })}`;
+const isCurrent = (name: string) => activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase();
+---
+
+<div class="almanac-filters">
+  {categories.length > 0 && (
+    <nav class="almanac-pills" aria-label={copy.categories} data-post-filter data-announce={copy.showing}>
+      <ul>
+        <li><a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.allPosts}</a></li>
+        {categories.map(({ name }) => (
+          <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
+        ))}
+      </ul>
+      <p class="sr-only" role="status" data-post-filter-status></p>
+    </nav>
+  )}
+  <form class="almanac-search" role="search" method="get" action={home} data-post-search>
+    <label class="sr-only" for="almanac-search-q">{copy.searchLabel}</label>
+    <input id="almanac-search-q" name="q" type="search" value={query ?? ''} maxlength="100" placeholder={copy.searchLabel} autocomplete="off" enterkeyhint="search" />
+    <button class="almanac-search__submit" type="submit" aria-label={copy.search} title={copy.search}><Icon name="search" /></button>
+  </form>
+</div>
