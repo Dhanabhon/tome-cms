@@ -59,7 +59,54 @@ body.paper { background: var(--color-paper); }
 
 .public-navigation a { display: block; min-height: 44px; max-width: 100%; padding-block: var(--space-sm); overflow-x: auto; color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-underline-offset: var(--space-2xs); }
 
-.public-navigation a:hover, .public-navigation a[aria-current="page"] { text-decoration: underline; }
+.public-navigation a:hover, .public-navigation :is(a, summary)[aria-current] { text-decoration: underline; }
+
+/* On a phone a parent takes its own row and its sub-items stack under it, indented and held by
+ * a hairline, always shown: the Menu is already the one tap. A group is a small label. */
+.site-header__mobile li:has(> ul) { flex-basis: 100%; }
+.site-header__mobile li > ul { flex-direction: column; flex-wrap: nowrap; gap: 0; margin-inline-start: var(--space-2xs); padding-inline-start: var(--space-md); border-inline-start: var(--rule-hair) solid var(--color-rule); }
+.public-navigation__group { display: block; padding-block: var(--space-sm) var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* On a wide screen a sub-menu is a panel under its parent, opened by its summary: the ▾ beside
+ * a link parent, or a group's own label. It floats over the page, so it is a surface with the
+ * shadow overlays have, at least as wide as its parent, and SubmenuScript sets data-align when
+ * its inline end would pass the window's. It drops in a few pixels as it fades; leaving is
+ * instant, since a closed `<details>` hides its content at once. */
+.site-submenu-item { position: relative; display: flex; align-items: center; gap: var(--space-3xs); }
+.site-submenu-item summary { display: flex; align-items: center; gap: var(--space-3xs); min-width: 44px; min-height: 44px; justify-content: center; border-radius: var(--radius-sm); color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-underline-offset: var(--space-2xs); list-style: none; cursor: pointer; }
+.site-submenu-item summary::-webkit-details-marker { display: none; }
+.site-submenu-item summary:hover { background: var(--color-paper-3); }
+.site-submenu-item summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
+.site-submenu-item details[open] > summary .icon { transform: rotate(180deg); }
+
+.public-navigation .site-submenu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: var(--z-sticky-nav);
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  min-inline-size: 100%;
+  padding: var(--space-2xs);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-float);
+  opacity: 1;
+  transform: none;
+  transition-property: opacity, transform;
+  transition-duration: var(--dur-short);
+  transition-timing-function: var(--ease-out);
+}
+
+@starting-style {
+  .public-navigation details[open] > .site-submenu { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))); }
+}
+
+.public-navigation .site-submenu[data-align="end"] { inset-inline: auto 0; }
+.public-navigation .site-submenu a { padding-inline: var(--space-sm); border-radius: var(--radius-sm); }
+.public-navigation .site-submenu a:hover { background: var(--color-paper-2); }
 
 .site-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md) var(--space-xl); }
 

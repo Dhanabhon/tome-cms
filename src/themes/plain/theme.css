@@ -63,7 +63,58 @@
 .plain-nav a,
 .plain-foot a { color: inherit; text-decoration: none; border-block-end: var(--rule-hair) solid transparent; }
 .plain-nav a:hover,
-.plain-foot a:hover { border-block-end-color: currentColor; }
+.plain-foot a:hover,
+.plain-nav :is(a, summary)[aria-current] { border-block-end-color: currentColor; }
+.plain-nav ul { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; margin: 0; padding: 0; list-style: none; }
+
+/* A sub-menu: the ▾ beside a link parent, or a group's label, opens a ruled panel under it. It
+ * fades in a few pixels down and leaves at once. SubmenuScript anchors it to its parent's end
+ * when it would pass the window's. */
+.site-submenu-item { position: relative; display: flex; align-items: center; gap: var(--space-3xs); }
+.site-submenu-item summary { display: flex; align-items: center; gap: var(--space-3xs); min-width: var(--plain-field); min-height: var(--plain-field); justify-content: center; border-block-end: var(--rule-hair) solid transparent; list-style: none; cursor: pointer; }
+.site-submenu-item summary::-webkit-details-marker { display: none; }
+.site-submenu-item summary:hover { border-block-end-color: currentColor; }
+.site-submenu-item summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
+.site-submenu-item details[open] > summary .icon { transform: rotate(180deg); }
+.plain-nav .site-submenu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: var(--z-sticky-nav);
+  flex-direction: column;
+  flex-wrap: nowrap;
+  /* Each link as wide as its words, so the current one's rule is under it and not across the panel. */
+  align-items: flex-start;
+  gap: 0;
+  min-inline-size: 100%;
+  padding: var(--space-2xs) var(--space-sm);
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-float);
+  opacity: 1;
+  transform: none;
+  transition-property: opacity, transform;
+  transition-duration: var(--dur-short);
+  transition-timing-function: var(--ease-out);
+}
+@starting-style {
+  .plain-nav details[open] > .site-submenu { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))); }
+}
+.plain-nav .site-submenu[data-align="end"] { inset-inline: auto 0; }
+.plain-nav .site-submenu a { display: block; padding-block: var(--space-xs); white-space: nowrap; }
+
+/* A phone has no room to hang a panel off one word in a wrapped row: it spans the header,
+ * just under the parent it opened from. */
+@media (max-width: 39.999rem) {
+  .plain-head { position: relative; }
+  .plain-head .site-submenu-item { position: static; }
+  .plain-nav .site-submenu { inset-block-start: auto; inset-inline: 0; }
+  .plain-nav .site-submenu a { white-space: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plain-nav .site-submenu, .site-submenu-item summary .icon { transition: none; }
+}
 
 .plain-page { padding-block: var(--space-xl); }
 /* An article is a reading column, centred in the frame the rest of the page spans. */
