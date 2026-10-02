@@ -1,13 +1,14 @@
 import { isNodeSelection } from '@tiptap/core';
 import { useCurrentEditor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import { pictureAttrs } from '../../lib/media';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 import MediaPicker from './MediaPicker';
+import { useUntabbableBubble } from './useUntabbableBubble';
 
 /**
  * A chosen picture's own bar, over its top left corner as the table's is. Replace picture swaps
@@ -18,12 +19,7 @@ export default function ImageBubble({ copy, ownerLocale }: { copy: AdminCopy; ow
   // Where the picture is, kept while the File Manager is open: the selection may not survive it.
   const [replacing, setReplacing] = useState<number | null>(null);
   const bar = useRef<HTMLDivElement>(null);
-  // Tiptap makes the bar's own box a tab stop, with no name and nothing to press: Tab from the
-  // picture landed there, and only a second Tab reached Replace picture. This runs after the
-  // bar's plugin is set up, which is what sets it.
-  useEffect(() => {
-    if (bar.current) bar.current.tabIndex = -1;
-  }, [editor]);
+  useUntabbableBubble(bar);
   if (!editor) return null;
 
   const replace = (asset: MediaAsset) => {

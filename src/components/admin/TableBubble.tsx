@@ -2,11 +2,13 @@ import type { ChainedCommands, Editor } from '@tiptap/core';
 import { CellSelection } from '@tiptap/pm/tables';
 import { useCurrentEditor } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
+import { useRef } from 'react';
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import type { IconName } from '../../lib/icons';
 import Icon from '../Icon';
 import AlignButtons from './AlignButtons';
+import { useUntabbableBubble } from './useUntabbableBubble';
 
 export interface TableAction {
   hint: string;
@@ -44,6 +46,8 @@ function tableBox(editor: Editor): DOMRect {
  */
 export default function TableBubble({ copy }: { copy: AdminCopy }) {
   const { editor } = useCurrentEditor();
+  const bar = useRef<HTMLDivElement>(null);
+  useUntabbableBubble(bar);
   if (!editor) return null;
 
   return (
@@ -54,6 +58,7 @@ export default function TableBubble({ copy }: { copy: AdminCopy }) {
       getReferencedVirtualElement={() => ({ getBoundingClientRect: () => tableBox(editor) })}
       options={{ placement: 'top-start' }}
       pluginKey="tableBubble"
+      ref={bar}
       shouldShow={({ editor: instance, state }) => instance.isEditable && instance.isActive('table')
         && (state.selection.empty || state.selection instanceof CellSelection)}
     >

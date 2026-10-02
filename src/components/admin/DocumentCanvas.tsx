@@ -27,6 +27,7 @@ import ImageBubble from './ImageBubble';
 import { createUploadFn } from './ImageUploader';
 import MediaPicker from './MediaPicker';
 import TableBubble from './TableBubble';
+import { useUntabbableBubble } from './useUntabbableBubble';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 
 interface DocumentCanvasProps {
@@ -174,6 +175,8 @@ function FormattingBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?
   // The swatches open as a second row inside the bubble, which clips anything that pops out of it.
   const [colorsOpen, setColorsOpen] = useState(false);
   const [library, setLibrary] = useState<LinkFromLibrary | null>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  useUntabbableBubble(bar);
   if (!editor || !active) return null;
 
   /** The chosen file becomes the link: its site-relative address, and the file it is, so the library knows it is used. */
@@ -248,6 +251,7 @@ function FormattingBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?
       // focus left the next keys going nowhere, after B as much as after U.
       onMouseDown={(event) => { if ((event.target as Element).closest('button')) event.preventDefault(); }}
       options={{ onHide: () => setColorsOpen(false) }}
+      ref={bar}
     >
       <div className="flex">
       {actions.map((action) => (
