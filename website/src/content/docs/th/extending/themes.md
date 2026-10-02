@@ -7,7 +7,7 @@ sidebar:
 
 ธีมมีหน้าที่วาดหน้าเว็บสาธารณะ ธีมเป็นเจ้าของ template และสไตล์ชีตของตัวเอง และไม่มีอะไรมากกว่านั้น การจัดเส้นทาง การดึงข้อมูลจากฐานข้อมูล ส่วน `<head>` กับแท็กสำหรับเครื่องมือค้นหา ฟอนต์ และ design token อยู่ในแกนของระบบทั้งหมด ธีมจึงทำให้เว็บช้าหรือผิดไม่ได้
 
-ธีมมากับ repository เจ้าของเว็บเลือกธีมที่อยู่ในรุ่นนั้นได้จากหน้า[ธีม](/tome-cms/th/admin/themes/) และไม่มีทางติดตั้งธีมเพิ่มระหว่างที่เว็บทำงานอยู่ TomeCMS มีธีมสองแบบ คือ `paper` ซึ่งเป็นธีมตั้งต้น และ `plain` ธีมเรียบ ๆ ที่มีไว้เพื่อให้ข้อตกลงของธีมถูกใช้มากกว่าหนึ่งธีม วิธีเริ่มที่เร็วที่สุดคือคัดลอก `plain` ไปแก้
+ธีมมากับ repository เจ้าของเว็บเลือกธีมที่อยู่ในรุ่นนั้นได้จากหน้า[ธีม](/tome-cms/th/admin/themes/) และไม่มีทางติดตั้งธีมเพิ่มระหว่างที่เว็บทำงานอยู่ TomeCMS มีธีมสามแบบ คือ `paper` ซึ่งเป็นธีมตั้งต้น `plain` ธีมเรียบ ๆ ที่มีไว้เพื่อให้ข้อตกลงของธีมถูกใช้มากกว่าหนึ่งธีม และ `almanac` ธีมโทนอบอุ่นที่มีหัวข้อแบบตัวมีหัว แถบหัวเรื่อง แถวป้ายหมวดหมู่ และตารางการ์ด เป็นตัวอย่างของธีมที่มีฟอนต์ การตั้งค่า และแถบที่ขยับตามการเลื่อนหน้าเป็นของตัวเอง วิธีเริ่มที่เร็วที่สุดคือคัดลอก `plain` ไปแก้ และถ้าอยากดูธีมที่ทำได้มากกว่านั้นให้อ่าน `almanac`
 
 ## ธีมประกอบด้วยอะไร
 
@@ -57,7 +57,7 @@ registry คืนค่าเป็น union ของ template จากทุ
 | Template | Props | ได้รับอะไร |
 | --- | --- | --- |
 | `Shell` | `ThemeShellProps` | `themeSettings`, `allowVisitorTheme`, `alternates` (หน้าเดียวกันในอีกภาษา), `brand`, เมนู `header` กับ `footer`, `locale`, `showPoweredBy`, `siteName` และ `theme` ซึ่งเป็นโหมดสว่างหรือมืดที่เซิร์ฟเวอร์วาดมา |
-| `Home` | `ThemeHomeProps` | `themeSettings`, `posts`, `categories`, `activeCategory`, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
+| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (แต่ละรายการเป็น `ThemeHomePost` ซึ่งอาจมี `categories` ของบทความนั้นมาด้วย), `categories`, `activeCategory`, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
 | `Post` | `ThemePostProps` | `themeSettings`, `post`, `categories`, `locale`, `profile`, `settings` (ชื่อเว็บและเขตเวลา) และ `preview` ซึ่งถูกตั้งไว้เมื่อเจ้าของเว็บกำลังดูฉบับร่าง |
 | `Page` | `ThemePageProps` | `page`, `locale` และ `preview` เพจไม่ได้รับการตั้งค่าของธีม |
 
@@ -68,7 +68,7 @@ registry คืนค่าเป็น union ของ template จากทุ
 - ใส่ `q` ไว้ในลิงก์ไปบทความเก่ากว่า คู่กับ `category`
 - วาดผลลัพธ์ก่อน hero และบอกเมื่อไม่มีอะไรตรงกัน
 
-ธีมที่มากับระบบทั้งสองทำครบแล้ว ส่วนการส่ง `noindex, follow` สำหรับหน้าผลการค้นหา route ทำให้ template ไม่ต้องทำอะไร
+ธีมที่มากับระบบทั้งสามทำครบแล้ว ส่วนการส่ง `noindex, follow` สำหรับหน้าผลการค้นหา route ทำให้ template ไม่ต้องทำอะไร
 
 ทั้งหมดนี้คือข้อมูลที่ route มีอยู่แล้ว ธีมไม่มีทางดึงข้อมูลเพิ่มเอง และมีเทสต์ที่ล้มทันทีถ้าไฟล์ไหนในธีม import จาก `src/server/` หรือ `src/pages/`
 
@@ -111,7 +111,7 @@ const currentPath = Astro.url.pathname;
 {header.some(({ children }) => children.length) && <SubmenuScript />}
 ```
 
-ธีมนำส่วนของแกนระบบสามส่วนไปใช้ซ้ำได้ และธีมที่มากับระบบทั้งสองก็ใช้
+ธีมนำส่วนของแกนระบบสามส่วนไปใช้ซ้ำได้ และธีมที่มากับระบบทั้งสามก็ใช้
 
 - `SiteNavLink` วาดลิงก์หนึ่งรายการแบบที่ทุกธีมควรทำ คือใส่ `aria-current` ให้หน้าที่กำลังดูอยู่ และมีข้อความสำหรับโปรแกรมอ่านหน้าจอเมื่อลิงก์เปิดในแท็บใหม่
 - `SiteSubmenu` วาดรายการหลักหนึ่งรายการกับเมนูย่อยของมัน เป็น `<details>` ที่ใช้ `name` เดียวกันทั้งหมด เบราว์เซอร์จึงเปิดไว้ได้ทีละอัน โดยไม่ต้องมีสคริปต์เลย รายการหลักที่เป็นลิงก์จะมีปุ่ม ▾ อยู่ข้างลิงก์ ส่วนกลุ่มนั้นชื่อของมันคือปุ่ม ตกแต่ง `.site-submenu-item` กับ `.site-submenu` ในนั้น และ `summary` ด้วย token ของธีมเอง แผงจะมี `[data-align="end"]` เมื่อจะล้นขอบหน้าต่าง
@@ -213,6 +213,7 @@ const intro = themeSettings.intro || tagline;
    const THEMES = {
      paper: () => import('./paper'),
      plain: () => import('./plain'),
+     almanac: () => import('./almanac'),
      ledger: () => import('./ledger'),
    } as const;
    ```
@@ -222,7 +223,7 @@ const intro = themeSettings.intro || tagline;
    ```ts
    import { manifest as ledger } from './ledger/theme';
 
-   export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, ledger];
+   export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, almanac, ledger];
    ```
 
 5. รัน `npm run check` และ `npm run test:unit`

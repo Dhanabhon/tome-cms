@@ -9,7 +9,8 @@ import {
 } from '../../update/contracts.js';
 
 const GITHUB_API_VERSION = '2022-11-28';
-const LATEST_RELEASE_URL = `https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases/latest`;
+const RELEASES_URL = `https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases`;
+const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`;
 const MAX_RESPONSE_BYTES = 512 * 1024;
 
 export interface LatestRelease {
@@ -51,9 +52,23 @@ export class ReleaseUnreachableError extends Error {
 export async function fetchLatestRelease(
   options: FetchLatestReleaseOptions = {},
 ): Promise<LatestRelease> {
+  return fetchRelease(LATEST_RELEASE_URL, null, options);
+}
+
+/**
+ * One release by its version, with every check the latest one gets (`tome update 1.x.y`). GitHub's
+ * 404 for a version never released is `NoOfficialReleaseError`.
+ */
+export async function fetchTaggedRelease(version: string, options: FetchLatestReleaseOptions = {}): Promise<LatestRelease> {
+  const tag = `v${parseStableVersion(version).raw}`;
+  return fetchRelease(`${RELEASES_URL}/tags/${tag}`, tag, options);
+}
+
+async function fetchRelease(url: string, expectedTag: string | null, options: FetchLatestReleaseOptions): Promise<LatestRelease> {
   const fetcher = options.fetcher ?? fetch;
-  const releaseResponse = await fetchJson(fetcher, LATEST_RELEASE_URL, options.etag, true);
+  const releaseResponse = await fetchJson(fetcher, url, options.etag, true);
   const release = releaseDetails(releaseResponse.json);
+  if (expectedTag !== null && release.tagName !== expectedTag) throw new Error('Invalid official release');
   const version = parseStableVersion(release.tagName.slice(1)).raw;
   const releaseUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/${release.tagName}`;
   const manifestUrl = `https://github.com/${OFFICIAL_REPOSITORY}/releases/download/${release.tagName}/${UPDATE_MANIFEST_ASSET}`;
@@ -100,7 +115,7 @@ async function fetchBytes(fetcher: typeof fetch, url: string, etag?: string, all
     throw new ReleaseUnreachableError(error instanceof Error ? error.name : 'network');
   }
   if (allowNotModified && response.status === 304) throw new ReleaseNotModifiedError();
-  if (url === LATEST_RELEASE_URL && response.status === 404) throw new NoOfficialReleaseError();
+  if (url.startsWith(`${RELEASES_URL}/`) && response.status === 404) throw new NoOfficialReleaseError();
   if (!response.ok) throw new ReleaseUnreachableError(String(response.status));
   return { bytes: await boundedBytes(response), etag: response.headers.get('etag') };
 }

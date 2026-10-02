@@ -46,7 +46,7 @@ const fail = process.env.FAIL_STEP;
 if (fail && (name + ' ' + text).includes(fail)) {
   if (process.env.FAIL_PRIVATE_DETAILS) {
     const values = require('node:util').parseEnv(fs.readFileSync(path.join(process.env.INSTALL_FIXTURE_ROOT, 'etc/tome-cms/tome-cms.env'), 'utf8'));
-    const sensitive = Object.entries(values).filter(([key]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key)).map(([, value]) => value);
+    const sensitive = Object.entries(values).filter(([key]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && !/_KEY_ID$/.test(key)).map(([, value]) => value);
     const forms = sensitive.flatMap(value => {
       const base64 = Buffer.from(value).toString('base64');
       const base64Url = base64.replace(/\\+/g, '-').replace(/\\//g, '_');
@@ -159,7 +159,7 @@ async function fixture(t: TestContext) {
   const prefix = join(root, 'host');
   const bin = join(prefix, 'bin');
   await mkdir(bin, { recursive: true });
-  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'src/updater/version.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
+  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'src/updater/version.ts', 'src/cli/shim.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
   for (const file of files) {
     const target = join(source, file);
     await mkdir(dirname(target), { recursive: true });
@@ -225,6 +225,7 @@ test('dry-run verifies a matching release and prints a fixed plan without instal
     ['/var/log/tome-cms', '0700', 'tomecms-updater:tomecms-updater'],
     ['/run/tome-cms', '0750', 'tomecms-updater:tomecms-updater'],
     ['/etc/systemd/system/tomecms-updater.service', '0644', 'root:root'],
+    ['/usr/local/bin/tome', '0755', 'root:root'],
   ]);
   assert.equal(plan.destinations.find((item: { path: string }) => item.path === '/etc/tome-cms/tome-cms.env').mode, '0640');
   assert.deepEqual(plan.steps, ['build-updater', 'pull-image', 'create-account', 'install-files', 'start-infrastructure', 'migrate', 'start-app', 'readiness', 'start-updater', 'socket-status']);
@@ -596,6 +597,8 @@ test('installation writes private fixed state, then migrates before app and sock
   assert.equal(installed.imageDigest, digest);
   assert.equal((await stat(join(f.prefix, 'var/lib/tome-cms/updater/image.env'))).mode & 0o777, 0o600);
   assert.equal(await readFile(join(f.prefix, 'var/lib/tome-cms/updater/image.env'), 'utf8'), `TOME_CMS_APP_IMAGE='${image}'\n`);
+  assert.equal(await readFile(join(f.prefix, 'usr/local/bin/tome'), 'utf8'), '#!/bin/sh\n# tome — TomeCMS server command\nexec /usr/bin/node /opt/tome-cms/updater/cli/main.js "$@"\n');
+  assert.equal((await stat(join(f.prefix, 'usr/local/bin/tome'))).mode & 0o777, 0o755);
   await assert.rejects(access(join(f.source, '.env.local')));
   assert.ok(env.TOME_CMS_INSTALL_TOKEN);
   assert.doesNotMatch(result.stdout + result.stderr, new RegExp(env.TOME_CMS_INSTALL_TOKEN));
@@ -633,10 +636,10 @@ test('a failed migration cleans only its named one-shot container and retains re
   await access(join(f.prefix, 'etc/tome-cms/tome-cms.env'));
   const [diagnosticFile] = await readdir(join(f.prefix, 'var/log/tome-cms'));
   const diagnostic = JSON.parse(await readFile(join(f.prefix, 'var/log/tome-cms', diagnosticFile), 'utf8'));
-  assert.deepEqual(
-    [diagnostic.failures[0].args, diagnostic.failures[0].stdout, diagnostic.failures[0].stderr],
-    Array(3).fill('[omitted: unsafe secret patterns]'),
-  );
+  // A default install's secrets can all be hidden (its seven-byte access key ID is not one), so the
+  // diagnostic keeps what failed rather than omitting it.
+  assert.match(diagnostic.failures[0].args, /--name tomecms-install-migration-[0-9a-f-]{36} .*app npm run db:migrate$/);
+  assert.deepEqual([diagnostic.failures[0].stdout, diagnostic.failures[0].stderr], ['', '']);
   assert.match(result.stderr, /retained/);
 });
 
@@ -644,8 +647,7 @@ test('bounded private failure diagnostics survive cleanup and redact every share
   const f = await fixture(t);
   const sentinel = '<>&abcdefgh';
   const result = f.run([], {
-    FAIL_STEP: 'app npm run db:migrate', ORPHAN_MIGRATION: '1', FAIL_PRIVATE_DETAILS: '1',
-    S3_ACCESS_KEY_ID: 'tomecms-access-key', S3_SECRET_ACCESS_KEY: sentinel,
+    FAIL_STEP: 'app npm run db:migrate', ORPHAN_MIGRATION: '1', FAIL_PRIVATE_DETAILS: '1', S3_SECRET_ACCESS_KEY: sentinel,
   });
   assert.equal(result.status, 1);
   const files = await readdir(join(f.prefix, 'var/log/tome-cms'));
@@ -663,7 +665,8 @@ test('bounded private failure diagnostics survive cleanup and redact every share
   assert.match(diagnostic.failures[0].stderr, /SQLSTATE 23505: duplicate migration record/);
   const values = parseEnv(await readFile(join(f.prefix, 'etc/tome-cms/tome-cms.env'), 'utf8'));
   for (const [key, value] of Object.entries(values)) {
-    if (!/PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) || !value) continue;
+    // An access key ID names a key; it is not one (isSecretName), so it may show.
+    if (!/PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) || /_KEY_ID$/.test(key) || !value) continue;
     for (const secret of diagnosticRepresentations(value)) {
       assert.ok(!JSON.stringify(diagnostic.failures).includes(JSON.stringify(secret).slice(1, -1)), `${key} must be redacted`);
       assert.ok(!text.includes(secret), `${key} must not appear in the persisted diagnostic`);

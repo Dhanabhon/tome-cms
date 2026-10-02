@@ -151,3 +151,12 @@ test('accepts only canonical literal managed secret assignments', () => {
     "TOME_CMS_INSTALL_TOKEN='first-secret-value'\nTOME_CMS_INSTALL_TOKEN='second-secret-value'\n",
   ]) assert.throws(() => parseManagedDiagnosticSecrets(source, {}), /canonical managed environment/i);
 });
+
+test('an access key ID is an identifier, not a secret, and its secret key still is', () => {
+  // The installer writes S3_ACCESS_KEY_ID='tomecms': seven bytes, which no redaction can match safely.
+  const values = parseManagedDiagnosticSecrets(
+    "S3_ACCESS_KEY_ID='tomecms'\nS3_SECRET_ACCESS_KEY='secret-access-value'\nAWS_ACCESS_KEY_ID=tomecms\n",
+    { RUNTIME_KEY_ID: 'runtime-identifier' },
+  );
+  assert.deepEqual(values, ['secret-access-value']);
+});

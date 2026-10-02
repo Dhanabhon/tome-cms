@@ -1,4 +1,5 @@
 ---
+import { demoteH1 } from '../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import { articleCover } from '../../lib/post-cover';
 import type { ThemePostProps } from '../contract';
@@ -21,7 +22,7 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
   {cover && <img src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />}
-  <div class="plain-body" set:html={bodyHtml} />
+  <div class="plain-body" set:html={demoteH1(bodyHtml)} />
   {profile?.bio && (
     <footer class="plain-author">
       <h2>{copy.aboutTheAuthor}</h2>

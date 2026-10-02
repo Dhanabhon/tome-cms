@@ -96,6 +96,10 @@ export interface ThemeShellProps {
   theme: ThemeChoice;
 }
 
+/** A post on the home page: the route hands over the published read, which carries the post's
+ *  categories in the order they were given. Optional, so a post without them is still a post. */
+export type ThemeHomePost = Post & { categories?: PostCategoryBadge[] };
+
 export interface ThemeHomeProps {
   /** What this theme has been told, with its declared fallbacks already applied. */
   themeSettings: Readonly<Record<string, string>>;
@@ -111,7 +115,7 @@ export interface ThemeHomeProps {
   loadError: boolean;
   locale: PostLocale;
   nextCursor: string | null;
-  posts: Post[];
+  posts: ThemeHomePost[];
   profile: PublicAuthorProfile | null;
   /** The live home slides of this language, in order, at most five. A theme that draws no
    *  hero, or a hero of its own making, ignores them. */

@@ -23,7 +23,7 @@ TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It
 
 **The site**
 
-- Two themes, Paper and Plain, each with its own settings, and a light and dark mode for readers.
+- Three themes, Paper, Plain and Almanac, with settings for Paper and Almanac, and a light and dark mode for readers.
 - Search that works in Thai, categories, pages, menus, home slides, redirects, and an RSS feed and sitemap.
 - Maintenance mode, which closes the site to readers while you keep working.
 - Reading statistics kept on your own server.

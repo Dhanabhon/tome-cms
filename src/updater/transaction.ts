@@ -5,7 +5,8 @@ import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:p
 
 import { parseBackupManifest } from '../update/backup.js';
 import { compareStableVersions, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion } from '../update/contracts.js';
-import type { UpdaterConfig } from './config.js';
+import { composePrefix, type UpdaterConfig } from './config.js';
+import { directorySize, readManifestBytes } from './files.js';
 import { migrationInventoryArgs } from './inventory.js';
 import {
   parseManagedDiagnosticSecrets,
@@ -14,8 +15,8 @@ import {
   type CommandDiagnosticContext,
   type CommandDiagnosticStage,
 } from './process.js';
-import { pruneOldImages } from './prune.js';
-import type { BackupKind, InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
+import { pruneOldImages, type PruneResult } from './prune.js';
+import type { BackupJob, BackupKind, InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
 import { InsufficientDiskSpaceError, runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
 
 export interface UpdateDependencies {
@@ -54,9 +55,7 @@ type UpdateInput = {
 };
 
 export async function applyUpdate(input: UpdateInput): Promise<UpdateJob> {
-  if (active.has(input.state)) throw new Error('An update job is already active');
-  active.add(input.state);
-  try {
+  return exclusively(input.state, async () => {
     const version = parseStableVersion(input.version).raw;
     const current = await input.state.readJob();
     if (current?.phase === 'failed_manual_recovery') throw new Error('Manual recovery is required');
@@ -79,9 +78,18 @@ export async function applyUpdate(input: UpdateInput): Promise<UpdateJob> {
     const job = current && !terminal.has(current.phase) ? current : await input.state.createJob({
       targetVersion: version, requestId: input.requestId,
     });
-    return await transact(input, installed, job);
+    return transact(input, installed, job);
+  });
+}
+
+/** The one lock: an update, a backup and a prune never run at once. */
+async function exclusively<T>(state: UpdaterStateStore, work: () => Promise<T>): Promise<T> {
+  if (active.has(state)) throw new Error('An update job is already active');
+  active.add(state);
+  try {
+    return await work();
   } finally {
-    active.delete(input.state);
+    active.delete(state);
   }
 }
 
@@ -118,16 +126,10 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     // transitionJob must finish writing the public maintenance marker before drain/stop.
     await state.transitionJob(job.id, 'quiescing');
     quiesced = true;
-    await dependencies.sleep(2_000);
-    await command('quiesce.stop_app', [...compose, 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS);
-    await state.transitionJob(job.id, 'backing_up');
-    const output = await runOneShot(names.backup, [
-      ...compose, 'run', '--rm', '--name', names.backup, '--no-deps', '--user', identity,
-      '--volume', `${config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--',
-      '--offline', '--direct', '--json', '--output-root', '/backups',
-      ...(backupKind === 'database' ? ['--database-only'] : []),
-    ], 60 * 60_000, dependencies, diagnostics, 'backup.create');
-    const backup = await validateBackup(output, config, installed.version, backupKind);
+    const backup = await stopAndBackUp({
+      config, installed, kind: backupKind, name: names.backup, identity, dependencies, diagnostics,
+      backingUp: () => state.transitionJob(job.id, 'backing_up'),
+    });
     // Persist the recovery reference before image selection can change (including a crash here).
     await state.recordBackup(job.id, { ...backup, backupKind });
     await writeImageEnvironment(config.imageEnvironmentFile, verified.manifest.image.digest);
@@ -162,13 +164,7 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     try {
       await state.transitionJob(job.id, 'rolling_back', { errorCode });
       if (quiesced) {
-        // A stop that timed out can still be under way in Docker, and starting the app then fails.
-        // Stopping again waits for it. It is best effort: if it fails too, the start below decides.
-        await command('rollback.stop_app', [...compose, 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS)
-          .catch(() => undefined);
-        await writeImageEnvironment(config.imageEnvironmentFile, installed.imageDigest);
-        await startApp(config, dependencies, diagnostics, 'rollback.start_app');
-        await awaitReadiness(config, dependencies);
+        await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'rollback');
         // installed.json may have committed immediately before the final status write failed.
         if ((await state.readInstalled()).imageDigest !== installed.imageDigest) await state.writeInstalled(installed);
       }
@@ -227,6 +223,139 @@ export async function reconcileUpdate(input: {
     if (committed) return committed;
     return finishJob(input.state, job.id, () => input.state.reconcileJob(job.id, 'failed_manual_recovery'));
   }
+}
+
+type BackupInput = {
+  backup: BackupJob;
+  config: UpdaterConfig;
+  state: UpdaterStateStore;
+  dependencies?: UpdateDependencies;
+};
+
+/**
+ * A backup on request, with an update's own steps: the marker (written when the backup was
+ * created), the drain, the stop, the offline backup, then the installed app started again and
+ * ready. Once the app may have been stopped, it is always started again, whatever the backup did.
+ */
+export async function runBackup(input: BackupInput): Promise<BackupJob> {
+  return exclusively(input.state, () => takeBackup(input));
+}
+
+async function takeBackup({ backup, config, state, dependencies: given }: BackupInput): Promise<BackupJob> {
+  const dependencies = { ...defaults, ...given };
+  const installed = await state.readInstalled();
+  const diagnostics: CommandDiagnosticContext = { jobId: backup.id, targetVersion: installed.version, secrets: null };
+  // An app before 1.3.0 has no --database-only; everything is the safe answer.
+  const kind = compareStableVersions(installed.version, DATABASE_ONLY_SINCE) < 0 ? 'full' : backup.kind;
+  let identity: string;
+  try {
+    identity = updaterIdentity();
+    await localPreflight(config, installed, dependencies, diagnostics);
+  } catch {
+    // Nothing has been stopped; ending the backup clears the marker.
+    return state.transitionBackup(backup.id, 'failed', { errorCode: 'preflight_failed' });
+  }
+  let errorCode: string | null = 'backup_failed';
+  let taken: Pick<BackupJob, 'backupDirectory' | 'sizeBytes'> = { backupDirectory: null, sizeBytes: null };
+  try {
+    const { backupDirectory } = await stopAndBackUp({
+      config, installed, kind, name: oneShotNames(config.projectName, backup.id).backup, identity, dependencies, diagnostics,
+      backingUp: () => state.transitionBackup(backup.id, 'backing_up', { kind }),
+    });
+    taken = { backupDirectory, sizeBytes: null };
+    errorCode = null;
+  } catch { /* The app is started again below, and the backup ends failed. */ }
+  // The backup has been checked file by file; a size that cannot be read is only unknown.
+  if (taken.backupDirectory) taken = { ...taken, sizeBytes: await directorySize(taken.backupDirectory).catch(() => null) };
+  // A record that cannot be written must not keep the app down: it is started either way.
+  await state.transitionBackup(backup.id, 'restarting', taken).catch(() => undefined);
+  try {
+    await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'restart');
+  } catch {
+    errorCode = 'health_failed';
+  }
+  return state.transitionBackup(backup.id, errorCode ? 'failed' : 'succeeded', errorCode ? { errorCode } : {});
+}
+
+/**
+ * On boot, a backup the updater stopped in the middle of: its one-shot is removed, the app is
+ * started again if it is down, and the backup ends failed, which clears the marker.
+ *
+ * An app that is running is left alone. The backup may have been cut short before its stop, or
+ * the host may have rebooted and started it; a running app on another image is someone's
+ * deliberate change, which a backup's preflight does not touch either. Nothing here throws: a
+ * record that cannot be ended (a full disk) is journalled, the updater still starts, and the
+ * record, still active, keeps refusing updates and backups until it can be written.
+ */
+export async function reconcileBackup(input: Omit<BackupInput, 'backup'>): Promise<BackupJob | null> {
+  try {
+    const backup = await input.state.readBackup();
+    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return backup;
+    const dependencies = { ...defaults, ...input.dependencies };
+    const installed = await input.state.readInstalled();
+    const diagnostics: CommandDiagnosticContext = {
+      jobId: backup.id, targetVersion: installed.version,
+      secrets: await diagnosticSecrets(input.config.environmentFile).catch(() => null),
+    };
+    // A backup that is still writing reads the database; the app beside it does no harm.
+    await cleanOneShot(oneShotNames(input.config.projectName, backup.id).backup, dependencies, true, diagnostics).catch(() => undefined);
+    let errorCode = 'backup_failed';
+    if (!await appStillServing(input.config, installed, dependencies, diagnostics)) {
+      try {
+        await restoreInstalledApp(input.config, installed.imageDigest, dependencies, diagnostics, 'restart');
+      } catch {
+        errorCode = 'health_failed';
+      }
+    }
+    return await input.state.transitionBackup(backup.id, 'failed', { errorCode });
+  } catch {
+    try { console.error(JSON.stringify({ event: 'updater_backup_reconcile_failed' })); } catch { /* The updater still starts. */ }
+    return null;
+  }
+}
+
+/** True when the app runs another image, or the installed one and is ready: then it is not restarted. */
+async function appStillServing(
+  config: UpdaterConfig,
+  installed: InstalledState,
+  dependencies: UpdateDependencies,
+  diagnostics: CommandDiagnosticContext,
+): Promise<boolean> {
+  let image: string;
+  try {
+    image = await inspectRunningApp(config, dependencies, diagnostics, 'reconcile');
+  } catch {
+    return false;
+  }
+  if (image !== `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`) return true;
+  return awaitReadiness(config, dependencies).then(() => true, () => false);
+}
+
+/**
+ * The image clean-up on request, a dry run or not. It keeps what the clean-up after an update
+ * keeps: the installed image and the one before it. That one is known when the last update
+ * succeeded and is what is installed: its job says what ran before. Otherwise (no update since
+ * the install, a rollback, or an installed image the last job did not put there), the digests
+ * the last job names are kept, and prune.ts keeps the likely previous one by build date. When in
+ * doubt, more is kept.
+ */
+export async function runPrune(input: {
+  dryRun: boolean;
+  config: UpdaterConfig;
+  state: UpdaterStateStore;
+  dependencies?: UpdateDependencies;
+}): Promise<PruneResult | null> {
+  return exclusively(input.state, async () => {
+    const [installed, job] = await Promise.all([input.state.readInstalled(), input.state.readJob()]);
+    if (job?.phase === 'failed_manual_recovery') throw new Error('Manual recovery is required');
+    if (job && !terminal.has(job.phase)) throw new Error('An update job is already active');
+    const previousKnown = job?.phase === 'succeeded' && job.targetImageDigest === installed.imageDigest;
+    const keep = [installed.imageDigest, job?.previousImageDigest, job?.targetImageDigest].filter((value) => typeof value === 'string');
+    const diagnostics: CommandDiagnosticContext = { jobId: randomUUID(), targetVersion: installed.version, secrets: null };
+    return pruneOldImages(commandRunner({ ...defaults, ...input.dependencies }, diagnostics), keep, diagnostics, {
+      dryRun: input.dryRun, ...previousKnown ? {} : { previousUnknownFor: installed.imageDigest },
+    });
+  });
 }
 
 async function repairCommittedTerminal(state: UpdaterStateStore, id: string): Promise<UpdateJob | null> {
@@ -323,11 +452,6 @@ async function cleanOneShot(
     // A failed removal is safe only if a successful daemon query proves absence.
     throw new OneShotCleanupError();
   }
-}
-
-function composePrefix(config: UpdaterConfig): string[] {
-  return ['compose', '-p', config.projectName, '-f', config.composeFile,
-    '--env-file', config.environmentFile, '--env-file', config.imageEnvironmentFile];
 }
 
 function commandRunner(dependencies: UpdateDependencies, diagnostics: CommandDiagnosticContext) {
@@ -440,16 +564,7 @@ async function validateBackup(output: string, config: UpdaterConfig, application
   const directory = resolve(root, tail);
   if (relative(root, directory).startsWith(`..${sep}`) || await realpath(directory) !== directory ||
     !(await lstat(directory)).isDirectory()) throw new Error('Unsafe backup directory');
-  const file = await open(join(directory, 'manifest.json'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-  let bytes: Buffer;
-  try {
-    const metadata = await file.stat();
-    // ponytail: 32 MiB manifest ceiling; stream validation if object inventories exceed it.
-    if (!metadata.isFile() || metadata.size > 32 * 1024 ** 2) throw new Error('Invalid backup manifest');
-    bytes = await file.readFile();
-  } finally {
-    await file.close();
-  }
+  const bytes = await readManifestBytes(directory);
   if (createHash('sha256').update(bytes).digest('hex') !== receipt.manifestSha256) throw new Error('Backup manifest hash mismatch');
   const manifest = parseBackupManifest(JSON.parse(bytes.toString('utf8')));
   if (manifest.applicationVersion !== applicationVersion) throw new Error('Invalid backup manifest');
@@ -502,6 +617,57 @@ async function writeImageEnvironment(path: string, digest: string): Promise<void
   } finally {
     await unlink(temporary).catch(() => undefined);
   }
+}
+
+/**
+ * The first half of a maintenance window, the same for an update and a backup on request: drain,
+ * stop the app, take the offline backup in a one-shot container, and check what it wrote. The
+ * caller has already written the public maintenance marker (its job in `quiescing`), and starts
+ * the app again whatever this throws.
+ */
+async function stopAndBackUp(input: {
+  config: UpdaterConfig;
+  installed: InstalledState;
+  kind: BackupKind;
+  name: string;
+  identity: string;
+  backingUp: () => Promise<unknown>;
+  dependencies: UpdateDependencies;
+  diagnostics: CommandDiagnosticContext;
+}): Promise<{ backupDirectory: string; backupCreatedAt: string }> {
+  const { config, dependencies, diagnostics } = input;
+  const compose = composePrefix(config);
+  await dependencies.sleep(2_000);
+  await commandRunner(dependencies, diagnostics)('quiesce.stop_app',
+    [...compose, 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS);
+  await input.backingUp();
+  const output = await runOneShot(input.name, [
+    ...compose, 'run', '--rm', '--name', input.name, '--no-deps', '--user', input.identity,
+    '--volume', `${config.backupDirectory}:/backups`, 'app', 'npm', 'run', '--silent', 'backup', '--',
+    '--offline', '--direct', '--json', '--output-root', '/backups',
+    ...(input.kind === 'database' ? ['--database-only'] : []),
+  ], 60 * 60_000, dependencies, diagnostics, 'backup.create');
+  return validateBackup(output, config, input.installed.version, input.kind);
+}
+
+/**
+ * Starts the installed app again and waits until it is ready: an update's rollback, and the end of
+ * every backup on request, failed or not. A stop that timed out can still be under way in Docker,
+ * and starting the app then fails; stopping again waits for it. It is best effort: if it fails
+ * too, the start decides.
+ */
+async function restoreInstalledApp(
+  config: UpdaterConfig,
+  imageDigest: string,
+  dependencies: UpdateDependencies,
+  diagnostics: CommandDiagnosticContext,
+  stage: 'rollback' | 'restart',
+): Promise<void> {
+  await commandRunner(dependencies, diagnostics)(`${stage}.stop_app`,
+    [...composePrefix(config), 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS).catch(() => undefined);
+  await writeImageEnvironment(config.imageEnvironmentFile, imageDigest);
+  await startApp(config, dependencies, diagnostics, `${stage}.start_app`);
+  await awaitReadiness(config, dependencies);
 }
 
 async function startApp(

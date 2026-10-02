@@ -11,9 +11,10 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { assertPortsFree, makeEnvironment, publishedPorts, renderEnvironment } from './scripts/bootstrap-core.mjs';
 import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
-import { redactDiagnosticText } from './src/updater/process.ts';
+import { isSecretName, redactDiagnosticText } from './src/updater/process.ts';
 import { migrationInventoryArgs } from './src/updater/inventory.ts';
 import { UPDATER_VERSION } from './src/updater/version.ts';
+import { TOME_SHIM, TOME_SHIM_PATH } from './src/cli/shim.ts';
 
 const source = process.cwd();
 let dryRun = false;
@@ -58,6 +59,7 @@ const destinations = [
   ['/var/log/tome-cms', '0700', 'tomecms-updater:tomecms-updater', 'directory'],
   ['/run/tome-cms', '0750', 'tomecms-updater:tomecms-updater', 'directory'],
   ['/etc/systemd/system/tomecms-updater.service', '0644', 'root:root', 'file'],
+  [TOME_SHIM_PATH, '0755', 'root:root', 'file'],
 ].map(([path, mode, owner, kind]) => ({ path, mode, owner, kind }));
 const config = {
   configVersion: 1, projectName: 'tomecms', composeFile: '/opt/tome-cms/compose.managed.yaml',
@@ -136,7 +138,7 @@ function createServiceIdentity(kind, command, args) {
 }
 
 function rememberSecrets(values) {
-  const secrets = Object.entries(values).filter(([key, value]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && value).map(([, value]) => value);
+  const secrets = Object.entries(values).filter(([key, value]) => isSecretName(key) && value).map(([, value]) => value);
   const containerDatabase = new URL(values.DATABASE_URL);
   if (containerDatabase.password) secrets.push(containerDatabase.password, decodeURIComponent(containerDatabase.password));
   containerDatabase.hostname = 'postgres';
@@ -450,6 +452,9 @@ async function main() {
   await writeAtomic(config.environmentFile, renderEnvironment(values), '0640', 'root:tomecms-updater');
   await installTree(compiled, '/opt/tome-cms/updater');
   await writeAtomic('/opt/tome-cms/updater/package.json', '{"type":"module"}\n', '0644', 'root:root');
+  // `tome`, the server's short commands: the CLI was built beside the updater, and this runs it.
+  await ensureDirectory(dirname(at(TOME_SHIM_PATH)));
+  await writeAtomic(TOME_SHIM_PATH, TOME_SHIM, '0755', 'root:root');
   for (const [path, from] of [[config.composeFile, 'compose.managed.yaml'], ['/opt/tome-cms/config/seaweedfs-s3.json', 'config/seaweedfs-s3.json'], ['/etc/systemd/system/tomecms-updater.service', 'config/systemd/tomecms-updater.service']]) {
     await ensureDirectory(dirname(at(path)));
     await writeAtomic(path, await readFile(join(source, from)), '0644', 'root:root');

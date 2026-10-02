@@ -20,21 +20,31 @@
  * interface and the body. Only the weights each family is actually used at are
  * copied, which is why display ships two and the interface ships four.
  *
+ * A theme's own face is written into that theme's directory instead of fonts.css, and
+ * its stylesheet imports it: fonts.css is linked by every page, and a reader of one
+ * theme should not be handed the faces of another. Trirong, Almanac's headings, is the
+ * one there is.
+ *
+ * --check writes nothing and fails when what is on disk is not what a sync would write,
+ * so a stylesheet edited by hand or a package bumped without a sync is caught.
+ *
  * Usage: node scripts/sync-fonts.mjs [--check]
  */
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'public/fonts');
-const OUT_CSS = join(ROOT, 'public/fonts.css');
+const SHARED_CSS = 'public/fonts.css';
 const SUBSETS = ['latin', 'thai'];
 const FAMILIES = [
   // --font-display: 400 on the section and notice headings, 700 everywhere else.
-  { id: 'google-sans', family: 'Google Sans', weights: [400, 700] },
+  { id: 'google-sans', family: 'Google Sans', weights: [400, 700], css: SHARED_CSS },
   // --font-body: the interface runs the full range.
-  { id: 'ibm-plex-sans-thai', family: 'IBM Plex Sans Thai', weights: [400, 500, 600, 700] },
+  { id: 'ibm-plex-sans-thai', family: 'IBM Plex Sans Thai', weights: [400, 500, 600, 700], css: SHARED_CSS },
+  // Almanac's --font-display: 400 for the large headings, 600 for the card titles.
+  { id: 'trirong', family: 'Trirong', weights: [400, 600], css: 'src/themes/almanac/fonts.css' },
 ];
 
 /** Pulls the @font-face blocks for the wanted subsets out of a combined stylesheet. */
@@ -87,23 +97,43 @@ if (process.argv.includes('--self-test')) {
   assert(threw, 'a missing weight must fail rather than silently drop');
   console.log('sync-fonts self-test passed.');
 } else {
-  const faces = FAMILIES.flatMap(({ id, family, weights }) => {
+  const faces = FAMILIES.flatMap(({ css, id, family, weights }) => {
     const pkg = join(ROOT, 'node_modules/@fontsource', id);
     return weights.flatMap((weight) =>
       selectFaces(readFileSync(join(pkg, `${weight}.css`), 'utf8'), weight, SUBSETS, { family, id })
-        .map((face) => ({ ...face, pkg })));
+        .map((face) => ({ ...face, css, pkg })));
   });
+  const stylesheets = [...new Set(faces.map(({ css }) => css))]
+    .map((css) => ({ css, text: renderCss(faces.filter((face) => face.css === css)) }));
 
-  rmSync(OUT_DIR, { force: true, recursive: true });
-  mkdirSync(OUT_DIR, { recursive: true });
-  for (const { file, pkg } of faces) {
-    writeFileSync(join(OUT_DIR, file), readFileSync(join(pkg, 'files', file)));
+  if (process.argv.includes('--check')) {
+    const drift = [
+      ...stylesheets.filter(({ css, text }) => !existsSync(join(ROOT, css)) || readFileSync(join(ROOT, css), 'utf8') !== text)
+        .map(({ css }) => css),
+      ...faces.filter(({ file, pkg }) => !existsSync(join(OUT_DIR, file))
+        || !readFileSync(join(OUT_DIR, file)).equals(readFileSync(join(pkg, 'files', file))))
+        .map(({ file }) => `public/fonts/${file}`),
+      ...(existsSync(OUT_DIR) ? readdirSync(OUT_DIR) : [])
+        .filter((file) => !faces.some((face) => face.file === file))
+        .map((file) => `public/fonts/${file} (not synced)`),
+    ];
+    if (drift.length) {
+      console.error(`The fonts are not what a sync would write:\n${drift.map((path) => `  - ${path}`).join('\n')}\nRun npm run fonts:sync.`);
+      process.exit(1);
+    }
+    console.log(`The ${faces.length} font files and ${stylesheets.length} stylesheets match a sync.`);
+  } else {
+    rmSync(OUT_DIR, { force: true, recursive: true });
+    mkdirSync(OUT_DIR, { recursive: true });
+    for (const { file, pkg } of faces) {
+      writeFileSync(join(OUT_DIR, file), readFileSync(join(pkg, 'files', file)));
+    }
+    for (const { css, text } of stylesheets) writeFileSync(join(ROOT, css), text);
+
+    const copied = readdirSync(OUT_DIR).length;
+    if (copied !== faces.length) throw new Error(`Expected ${faces.length} font files, wrote ${copied}.`);
+    console.log(`Synced ${copied} font files and ${stylesheets.map(({ css }) => css).join(', ')}.`);
   }
-  writeFileSync(OUT_CSS, renderCss(faces));
-
-  const copied = readdirSync(OUT_DIR).length;
-  if (copied !== faces.length) throw new Error(`Expected ${faces.length} font files, wrote ${copied}.`);
-  console.log(`Synced ${copied} font files and public/fonts.css.`);
 }
 
 function assert(condition, message) {

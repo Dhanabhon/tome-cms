@@ -21,7 +21,7 @@ export type CommandExecutable = 'docker' | 'gh';
 export type CommandDiagnosticStage =
   | 'preflight.app.list' | 'preflight.app.inspect' | 'download.image'
   | 'verify.migration_inventory' | 'quiesce.stop_app' | 'backup.create'
-  | 'migration.apply' | 'restart.start_app' | 'rollback.stop_app' | 'rollback.start_app'
+  | 'migration.apply' | 'restart.stop_app' | 'restart.start_app' | 'rollback.stop_app' | 'rollback.start_app'
   | 'cleanup.one_shot.list' | 'cleanup.one_shot.remove'
   | 'cleanup.image.list' | 'cleanup.image.remove'
   | 'reconcile.app.list' | 'reconcile.app.inspect'
@@ -229,8 +229,11 @@ function addUrlSecrets(value: string, secrets: string[]): void {
   } catch { /* The complete malformed value is still redacted. */ }
 }
 
-function isSecretName(name: string): boolean {
-  return /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/i.test(name);
+// An access key ID (S3_ACCESS_KEY_ID, AWS_ACCESS_KEY_ID) names a key; it is not one. The installer
+// writes S3_ACCESS_KEY_ID='tomecms', seven bytes, which no redaction can match safely, so counting it
+// as a secret hid every diagnostic and every line of `tome logs`.
+export function isSecretName(name: string): boolean {
+  return /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/i.test(name) && !/_KEY_ID$/i.test(name);
 }
 
 function escapeRegularExpression(value: string): string {
