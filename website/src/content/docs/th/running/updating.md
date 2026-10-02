@@ -53,8 +53,8 @@ sudo curl -s --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.9.1
-git checkout --detach v1.9.1
+git fetch --depth 1 origin tag v1.10.0
+git checkout --detach v1.10.0
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -63,7 +63,7 @@ sudo npm run updater:upgrade
 เซิร์ฟเวอร์ที่ติดตั้งก่อน 1.0.2 จะไม่มี `/opt/tome-cms-src` ให้ clone release มาไว้ที่นั่นแทนสามบรรทัดแรก
 
 ```sh
-git clone --depth 1 --branch v1.9.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.10.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -114,16 +114,17 @@ TomeCMS ไม่มีคำสั่งย้อน migration ถ้าจะ�
 
 | ติดตั้งจากเวอร์ชัน | ค้างอยู่ | ตัวไหนบ้าง |
 | --- | --- | --- |
-| 1.9.1, 1.9.0, 1.8.2, 1.8.1, 1.8.0 หรือ 1.7.0 | 0 | ไม่มี |
-| 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 หรือ 1.5.0 | 1 | `028_mcp` |
-| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 หรือ 0.12.1 | 2 | ตัวข้างบน และ `027_post_show_cover` |
-| 0.12.0 หรือ 0.11.0 | 3 | สองตัวข้างบน และ `026_planned_dates` |
-| 0.10.0 | 5 | สามตัวข้างบน `024_site_maintenance` และ `025_content_stats` |
-| 0.9.0 หรือ 0.8.0 | 6 | ห้าตัวข้างบน และ `023_home_slides` |
-| 0.7.0 หรือ 0.6.0 | 8 | หกตัวข้างบน `021_media_documents` และ `022_navigation_new_tab` |
-| 0.5.0 หรือ 0.4.0 | 9 | แปดตัวข้างบน และ `020_site_brand` |
-| 0.3.0 | 12 | เก้าตัวข้างบน `017_scheduled_publishing`, `018_thai_slugs` และ `019_content_redirects` |
-| 0.2.0 | 21 | สิบสองตัวข้างบน และ `008_update_rate_limit_actions` ไปจนถึง `016_theme_settings` |
+| 1.10.0 | 0 | ไม่มี |
+| 1.9.1, 1.9.0, 1.8.2, 1.8.1, 1.8.0 หรือ 1.7.0 | 1 | `029_navigation_parent` |
+| 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 หรือ 1.5.0 | 2 | ตัวข้างบน และ `028_mcp` |
+| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 หรือ 0.12.1 | 3 | สองตัวข้างบน และ `027_post_show_cover` |
+| 0.12.0 หรือ 0.11.0 | 4 | สามตัวข้างบน และ `026_planned_dates` |
+| 0.10.0 | 6 | สี่ตัวข้างบน `024_site_maintenance` และ `025_content_stats` |
+| 0.9.0 หรือ 0.8.0 | 7 | หกตัวข้างบน และ `023_home_slides` |
+| 0.7.0 หรือ 0.6.0 | 9 | เจ็ดตัวข้างบน `021_media_documents` และ `022_navigation_new_tab` |
+| 0.5.0 หรือ 0.4.0 | 10 | เก้าตัวข้างบน และ `020_site_brand` |
+| 0.3.0 | 13 | สิบตัวข้างบน `017_scheduled_publishing`, `018_thai_slugs` และ `019_content_redirects` |
+| 0.2.0 | 22 | สิบสามตัวข้างบน และ `008_update_rate_limit_actions` ไปจนถึง `016_theme_settings` |
 
 ตัวเลขเหล่านี้นับตาม release notes ของแต่ละเวอร์ชัน ถ้าติดตั้งจากโค้ดที่อยู่ระหว่างสองรุ่น หรือจากโค้ดก่อน 0.2.0 จำนวนที่ค้างอาจไม่ตรงกับตาราง ประกาศในหน้าแอดมินจะบอกชื่อที่ค้างอยู่จริง
 
