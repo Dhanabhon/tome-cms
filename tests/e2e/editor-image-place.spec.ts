@@ -151,6 +151,38 @@ test('a picture goes in far down a long post, and the page stays where it went',
   }
 });
 
+test('a file put in at the end of a line is not left selected, so the next key does not type over it', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await signIn(context, page);
+  await uploadFiles(page, [{ name: 'Notes.txt', mimeType: 'text/plain', buffer: Buffer.from('Notes for the week.\n') }]);
+
+  await page.goto(`${origin}/admin/new`);
+  const canvas = page.locator('.ProseMirror');
+  await writeLongPost(canvas);
+
+  // Mid-post, at the end of a line: the card is one block more and the next line is still next.
+  const before = await shape(canvas);
+  await putFileAtEndOf(page, canvas, 'Line 12');
+  const mid = await shape(canvas);
+  expect(mid, 'the card, and nothing else').toHaveLength(before.length + 1);
+  expect(mid.slice(11, 14).map((block) => block.slice(0, 8)), 'the card sits between the two lines').toEqual(['Line 12:', 'attachme', 'Line 13:']);
+  // The caret is on the line after the card, so a key goes there and the card stays.
+  await page.keyboard.type('x');
+  const typed = await shape(canvas);
+  expect(typed.filter((block) => block === 'attachment'), 'the card is still there').toHaveLength(1);
+  expect(typed[13], 'the key went in the next line, not over the card').toMatch(/^xLine 13:/);
+  expect(typed, 'and nothing else changed').toHaveLength(mid.length);
+
+  // After the last line, where nothing follows: a line is made for the caret.
+  await putFileAtEndOf(page, canvas, 'Line 40');
+  const last = await shape(canvas);
+  expect(last, 'the card, and a line after it').toHaveLength(typed.length + 2);
+  expect(last.slice(-2), 'a new empty paragraph follows').toEqual(['attachment', '']);
+  await page.keyboard.type('y');
+  expect((await shape(canvas)).slice(-2), 'the key went in that line').toEqual(['attachment', 'y']);
+});
+
 test('a picture is replaced from the File Manager, one undo puts it back, and the new one is saved', async ({ context, page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -274,13 +306,16 @@ async function picture(background: string): Promise<Buffer> {
 
 /** Files put in the library the way an owner does: the File Manager's upload dialog. */
 async function uploadToLibrary(page: Page, names: string[]) {
-  await page.goto(`${origin}/admin/media`);
-  const files = await Promise.all(names.map(async (name, index) => ({
+  await uploadFiles(page, await Promise.all(names.map(async (name, index) => ({
     name, mimeType: 'image/png', buffer: await picture(['#264653', '#2a9d8f'][index % 2]!),
-  })));
+  }))));
+}
+
+async function uploadFiles(page: Page, files: { buffer: Buffer; mimeType: string; name: string }[]) {
+  await page.goto(`${origin}/admin/media`);
   await page.locator('.media-upload input[type="file"]').setInputFiles(files);
   const dialog = page.getByRole('dialog', { name: 'Upload files' });
-  await dialog.getByRole('button', { name: `Upload ${names.length} files` }).click();
+  await dialog.getByRole('button', { name: files.length === 1 ? 'Upload 1 file' : `Upload ${files.length} files` }).click();
   for (const row of await dialog.locator('.media-upload-row').all()) {
     await expect(row).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
   }
@@ -362,4 +397,33 @@ async function insertNearTheEnd(page: Page, canvas: Locator, line: string, follo
 /** How many blocks the post has. */
 async function blocks(canvas: Locator): Promise<number> {
   return canvas.evaluate((node) => (node as unknown as { editor: Editor }).editor.state.doc.childCount);
+}
+
+/** The post's blocks: a paragraph as its text, any other as its type. */
+async function shape(canvas: Locator): Promise<string[]> {
+  return canvas.evaluate((node) => {
+    const { doc } = (node as unknown as { editor: Editor }).editor.state;
+    return doc.children.map((block) => (block.type.name === 'paragraph' ? block.textContent : block.type.name));
+  });
+}
+
+/** The caret at the end of `line`, and Notes.txt put in from + as a file card. */
+async function putFileAtEndOf(page: Page, canvas: Locator, line: string) {
+  const target = canvas.locator('p', { hasText: `${line}:` });
+  await target.evaluate((node) => node.scrollIntoView({ block: 'center' }));
+  const box = (await target.boundingBox())!;
+  await target.click({ position: { x: box.width - 2, y: box.height / 2 } });
+  await expect.poll(() => canvas.evaluate((node) => {
+    const { $from } = (node as unknown as { editor: Editor }).editor.state.selection;
+    return $from.parentOffset === $from.parent.content.size ? $from.parent.textContent : null;
+  }), 'the caret is at the end of the line').toMatch(new RegExp(`^${line}:`));
+  const cards = await canvas.locator('.file-card').count();
+  // As a pointer would, where they are: see insertNearTheEnd.
+  await page.getByRole('button', { name: /Add block/i }).dispatchEvent('click');
+  await page.getByRole('menuitem', { name: 'File', exact: true }).dispatchEvent('click');
+  const picker = page.locator('dialog.media-picker');
+  await picker.waitFor();
+  await picker.getByRole('button', { name: /^Select Notes\.txt,/ }).click();
+  await expect(picker).toBeHidden();
+  await expect(canvas.locator('.file-card')).toHaveCount(cards + 1);
 }

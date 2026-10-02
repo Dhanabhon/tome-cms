@@ -1,4 +1,4 @@
-import { isNodeSelection } from '@tiptap/core';
+import { isNodeSelection, type CommandProps } from '@tiptap/core';
 import { useCurrentEditor, useEditorState } from '@tiptap/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
@@ -18,6 +18,19 @@ const GAP = 6;
 const MARGIN = 8;
 /** Held any shorter than this, a menu is a slot to scroll a list through. */
 const LEAST_ROOM = 128;
+
+/**
+ * A picture or a file card put in at the end of a line is left selected, and the next key would
+ * type over it. The caret goes on to the line after it instead, and only when there is none, or
+ * that is not a line of words, is one made: an empty one is stored and shows as a gap.
+ */
+function caretAfterCard({ commands, tr }: CommandProps): boolean {
+  if (!isNodeSelection(tr.selection)) return true;
+  const after = tr.selection.to;
+  return tr.doc.nodeAt(after)?.isTextblock
+    ? commands.setTextSelection(after + 1)
+    : commands.insertContentAt(after, { type: 'paragraph' });
+}
 
 export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
   const { editor } = useCurrentEditor();
@@ -206,29 +219,18 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
     const kind = picker;
     setPicker(null);
     const position = Math.min(savedPosition.current, editor.state.doc.content.size);
-    const chain = editor.chain().focus().setTextSelection(position);
-    if (kind === 'image' && isImageAsset(asset)) {
-      chain.insertContent({ type: 'image', attrs: pictureAttrs(asset) })
-        // A picture put in at the end of a line is left selected, and the next key would type over
-        // it. The caret goes on to the line after it instead, and only when there is none, or
-        // that is not a line of words, is one made: an empty one is stored and shows as a gap.
-        .command(({ commands, tr }) => {
-          if (!isNodeSelection(tr.selection)) return true;
-          const after = tr.selection.to;
-          return tr.doc.nodeAt(after)?.isTextblock
-            ? commands.setTextSelection(after + 1)
-            : commands.insertContentAt(after, { type: 'paragraph' });
-        })
-        // The page stays where it was, moved only as far as it takes to show the new line.
-        .scrollIntoView()
-        .run();
-    } else if (kind === 'document') {
-      // These draw the card until it is saved; then the server fills it from the library.
-      chain.insertContent({
-        type: 'attachment',
-        attrs: { href: asset.publicUrl, mediaId: asset.id, mimeType: asset.mime_type, name: asset.original_name, size: asset.size_bytes },
-      }).run();
-    }
+    // These draw the card until it is saved; then the server fills it from the library.
+    const card = kind === 'image' && isImageAsset(asset)
+      ? { type: 'image', attrs: pictureAttrs(asset) }
+      : kind === 'document'
+        ? { type: 'attachment', attrs: { href: asset.publicUrl, mediaId: asset.id, mimeType: asset.mime_type, name: asset.original_name, size: asset.size_bytes } }
+        : null;
+    if (!card) return;
+    editor.chain().focus().setTextSelection(position).insertContent(card)
+      .command(caretAfterCard)
+      // The page stays where it was, moved only as far as it takes to show the new line.
+      .scrollIntoView()
+      .run();
   };
 
   return (
