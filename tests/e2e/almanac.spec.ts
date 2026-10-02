@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { publicCopy } from '../../src/lib/i18n';
-import type { EditorDocument, EditorNode } from '../../src/types/cms';
+import { tone } from '../../src/themes/almanac/tone';
 import { expect, test } from './own-worker';
 
 /**
@@ -26,7 +26,9 @@ import { expect, test } from './own-worker';
  * light and dark. Without it no picture is taken.
  */
 
-test.use({ stack: 'almanac' });
+// Reduced motion unless a test is about motion: a layout is measured with nothing lifting, fading or
+// sliding under it. The motion test and the progress test turn it back on for themselves.
+test.use({ stack: 'almanac', reducedMotion: 'reduce' });
 test.skip(({ isMobile }) => Boolean(isMobile), 'The widths are set by the tests themselves; one browser is enough.');
 
 const PROJECT = 'tomecms-almanac';
@@ -69,8 +71,12 @@ async function freePort(): Promise<number> {
 let server: ChildProcess | undefined;
 let origin = '';
 let draftId = '';
+/** The category ids a card's tone comes from, by name. */
+const categoryIds: Record<string, string> = {};
 
 test.beforeAll(async () => {
+  // Seeding, a migrated schema and a cold dev server are more than the 30 s a test gets.
+  test.setTimeout(180_000);
   const port = await freePort();
   origin = `http://localhost:${port}`;
   const serverEnv = {
@@ -100,6 +106,9 @@ test.beforeAll(async () => {
   // A schema of its own, so this never reads or writes whatever the last suite left behind.
   psql('drop schema public cascade; create schema public;');
 
+  // The pool this opens stays open for the whole run, beside the dev server's own: the draft preview
+  // test signs in through a recovery enrollment, which needs the worker's own connection
+  // (public-plugins.spec.ts explains why a second pool is otherwise avoided; overlay-motion keeps one too).
   Object.assign(process.env, serverEnv);
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   await migrateToLatest();
@@ -114,63 +123,10 @@ test.beforeAll(async () => {
       values ('${OWNER}', null, 'seed/cover.webp', 'cover.webp', 'image/webp', 1000, 1600, 900,
         '${'a'.repeat(43)}=', 'A loaf on a board', 'ready');`);
 
-  const { sql } = await import('kysely');
-  const { db } = await import('../../src/server/db/client');
-  const cover = (await sql<{ id: string }>`select id from media_items limit 1`.execute(db)).rows[0].id;
-  const { createCategory } = await import('../../src/server/content/categories');
-  const [fieldNotes, recipes, thai] = await Promise.all(['Field Notes', 'Recipes', THAI_CATEGORY].map((name) => createCategory(OWNER, name)));
-
-  const text = (value: string): EditorNode => ({ type: 'text', text: value });
-  const paragraph = (value: string): EditorNode => ({ type: 'paragraph', content: [text(value)] });
-  const heading = (level: number, value: string): EditorNode => ({ type: 'heading', attrs: { level }, content: [text(value)] });
-  const body = (...blocks: EditorNode[]): EditorDocument => ({ type: 'doc', content: blocks });
-  const { createPost } = await import('../../src/server/content/posts');
-  // Newest first: the first one is what "Start reading" opens. Nine posts, so the list pages as six then three.
-  const posts = [
-    { slug: 'why-we-bake-at-night', title: 'Why we bake at night', categories: [fieldNotes.id], cover,
-      excerpt: 'The dough is calmer after dark, and so is the baker.',
-      // An h1 in the body must not become a second h1 on the page.
-      content: body(heading(1, 'A heading one in the body'), paragraph('The oven is already warm by the time the street goes quiet. '.repeat(8)), heading(2, 'The first hour'), paragraph('Flour, water and patience.')) },
-    { slug: 'sourdough-thai', title: 'ขนมปังซาวร์โดว์สำหรับมือใหม่', categories: [thai.id], cover: null,
-      excerpt: 'เริ่มจากแป้งสองถ้วยและความอดทน', content: body(paragraph('เริ่มจากแป้งสองถ้วย น้ำหนึ่งถ้วย และเวลาอีกสักหน่อย')) },
-    { slug: 'long-title', title: LONG_TITLE, categories: [fieldNotes.id], cover: null,
-      excerpt: 'A title with a word that will not break.', content: body(paragraph('The title is the point of this post.')) },
-    // No category chosen: the database gives it the default one, Uncategorized, which is where its card's letter comes from.
-    { slug: 'butter-and-patience', title: 'Zymurgy, butter and patience', categories: [], cover: null,
-      excerpt: 'A post filed under the default category.', content: body(paragraph('Butter keeps; patience does not. A zymurgy joke.')) },
-    ...[1, 2, 3, 4, 5].map((n) => ({ slug: `filler-${n}`, title: `Notes on the ${['first', 'second', 'third', 'fourth', 'fifth'][n - 1]} recipe`, categories: [recipes.id], cover: n === 1 ? cover : null,
-      excerpt: `Recipe number ${n}.`, content: body(paragraph(`A short note about recipe ${n}.`)) })),
-  ];
-  for (const [index, post] of posts.entries()) {
-    await createPost(OWNER, {
-      title: post.title, slug: post.slug, excerpt: post.excerpt, contentJson: post.content, categoryIds: post.categories,
-      coverMediaId: post.cover, metaTitle: null, metaDescription: null, status: 'published',
-      publishedAt: new Date(Date.now() - (index + 1) * 86_400_000).toISOString(),
-    });
-  }
-
-  const { createPage } = await import('../../src/server/content/pages');
-  const makePage = async (title: string, slug: string, blocks: EditorNode[]) => (await createPage(OWNER, {
-    excerpt: '', title, slug, metaTitle: null, metaDescription: null, status: 'published', contentJson: body(...blocks),
-  })).id;
-  const about = await makePage('About the bakery', 'about', [heading(1, 'A heading one in a page'), paragraph('A bakery on a quiet street.')]);
-  const team = await makePage('Team', 'team', [paragraph('Three bakers.')]);
-  const link = (label: string, url: string) => ({ kind: 'custom' as const, label, pageId: null, url, newTab: false });
-  const { replaceNavigation } = await import('../../src/server/content/navigation');
-  await replaceNavigation(OWNER, { locale: 'en', location: 'header', items: [
-    { kind: 'home', label: 'Home', pageId: null, url: null, newTab: false },
-    { kind: 'page', label: 'About', pageId: about, url: null, newTab: false, children: [
-      { kind: 'page', label: 'Team', pageId: team, url: null, newTab: false },
-      link('Contact', '/contact'),
-    ] },
-    link('Shop', '/shop'),
-  ] });
-  // The preview hands a theme no categories at all, whatever a draft is filed under: the only way a post reaches Almanac without one.
-  const draft = await createPost(OWNER, {
-    title: 'A draft in the making', slug: 'a-draft', excerpt: '', contentJson: body(paragraph('Not yet.')), categoryIds: [],
-    coverMediaId: null, metaTitle: null, metaDescription: null, status: 'draft',
-  });
-  draftId = draft.id;
+  const { seedAlmanac } = await import('../helpers/almanac-seed');
+  const seeded = await seedAlmanac(OWNER, THAI_CATEGORY, LONG_TITLE);
+  Object.assign(categoryIds, seeded.categoryIds);
+  draftId = seeded.draftId;
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
@@ -225,7 +181,11 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 
 async function open(page: Page, path: string, width = 1440) {
   await page.setViewportSize({ width, height: width > 400 ? 900 : 844 });
-  await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' });
+  await page.goto(`${origin}${path}`);
+  // A concrete element first, then quiet: the dev server can re-optimise and reload a page after
+  // it loads, and a read made in that gap is made against a page that is about to be replaced.
+  await expect(page.locator('h1').first()).toBeAttached();
+  await page.waitForLoadState('networkidle');
 }
 
 /** Tabs from wherever focus is until the locator holds it, so a path is the keyboard's own. */
@@ -310,10 +270,14 @@ test('the cards: one link each, and a letter on a tone when there is no cover', 
   await expect(first.getByRole('link'), 'a link is named by its title alone').toHaveAccessibleName('Why we bake at night');
   await expect(first.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}T/);
 
-  // The cover is the one tone-less panel; the others take one of the six, and a category keeps its own.
-  const tones = await page.locator('.almanac-card__panel[style*="--almanac-tone"]').evaluateAll((panels) => panels.map((panel) => (panel as HTMLElement).style.getPropertyValue('--card-tone')));
-  expect(new Set(tones).size, 'categories are told apart by tone').toBeGreaterThan(1);
-  expect(tones.every((tone) => /^var\(--almanac-tone-[0-5]\)$/.test(tone))).toBe(true);
+  // Each lettered panel wears the tone of its own category: the tone the id hashes to, whichever it is.
+  const toneOf = (title: string) => cardNamed(page, title).locator('.almanac-card__panel').evaluate((panel) => (panel as HTMLElement).style.getPropertyValue('--card-tone'));
+  const expected = (category: string) => `var(--almanac-tone-${tone(categoryIds[category])})`;
+  expect(await toneOf('ขนมปังซาวร์โดว์สำหรับมือใหม่'), 'a Thai category').toBe(expected(THAI_CATEGORY));
+  expect(await toneOf(LONG_TITLE), 'Field Notes').toBe(expected('Field Notes'));
+  expect(await toneOf('Zymurgy, butter and patience'), 'the default category').toBe(expected('Uncategorized'));
+  expect(await toneOf('Notes on the second recipe'), 'Recipes').toBe(expected('Recipes'));
+  await expect(cover.locator('.almanac-card__panel'), 'a cover has no tone').not.toHaveAttribute('style', /--almanac-tone/);
 });
 
 test('a very long title stays in its card, clamped to three lines, and in its post', async ({ page }) => {
@@ -384,6 +348,9 @@ test('an empty tagline falls back to the theme\'s, in the language of the page',
   useAlmanac({}, '');
   await open(page, '/en');
   await expect(page.locator('.almanac-hero__lead'), 'never an empty paragraph').toHaveText(copy.defaultTagline);
+  await open(page, '/en', 390);
+  await expect(page.locator('.almanac-hero__lead')).toHaveText(copy.defaultTagline);
+  expect(await overflow(page), 'and it fits a phone').toBeLessThanOrEqual(0);
   await open(page, '/th');
   await expect(page.locator('.almanac-hero__lead')).toHaveText(publicCopy('th').defaultTagline);
 });
@@ -558,6 +525,8 @@ test('a draft in the preview has no category, so it has neither a pill nor a "Mo
 test('the reading progress follows the scroll, and is gone when switched off', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
+  // The bar is drawn only for a reader who did not ask for less motion.
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await open(page, '/en/blog/why-we-bake-at-night');
   // A page long enough to scroll, so there is something to measure the bar against.
   await page.evaluate(() => {
@@ -598,7 +567,7 @@ test('a page is a title and a body: no pill, no meta, no bar, no "More in"', asy
   await expect(page.locator('body.almanac')).toHaveCount(1);
   await expect(page.locator('h1')).toHaveCount(1);
   await expect(page.locator('h1')).toHaveText('About the bakery');
-  await expect(page.locator('.almanac-prose h1'), 'a heading one in the body is a heading two').toHaveCount(0);
+  await expect(page.locator('.almanac-prose h1'), 'a heading one in the body, aligned or not, is a heading two').toHaveCount(0);
   await expect(page.locator('.almanac-prose')).toContainText('A bakery on a quiet street.');
   for (const absent of ['.almanac-article__pill', '.almanac-article__meta', '.almanac-progress', '.almanac-article__more', '.almanac-article__cover']) {
     await expect(page.locator(absent), absent).toHaveCount(0);
@@ -653,6 +622,8 @@ test('the header\'s sub-menu opens by click on a wide screen, and by the keyboar
   await expect(panel).toBeHidden();
   await expect(summary, 'focus goes back to what opened it').toBeFocused();
 
+  // A fresh page, so focus starts at the top and Tab has to get there.
+  await open(page, '/en');
   await page.mouse.move(0, 0);
   await tabTo(page, summary);
   expect(await focusRing(summary), 'a ring on the keyboard\'s focus').toBe(true);
@@ -687,6 +658,37 @@ test('on a phone the Menu lists the sub-items under their parent, and the row fi
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
+test('on a phone the site name is not cut short, and the language and theme are still there', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  await open(page, '/en', 390);
+  const brand = page.locator('.almanac-brand');
+  await expect(brand).toHaveText(SITE);
+  // Measured in the serif the name is set in, which is wider than the one it is first drawn in.
+  await page.evaluate(() => document.fonts.ready);
+  // The core's name span is the one that clips and ends in an ellipsis.
+  expect(await brand.locator('.site-brand__name').evaluate((element) => element.scrollWidth - element.clientWidth), 'the whole name is drawn, no ellipsis').toBeLessThanOrEqual(0);
+  await expect(page.locator('.almanac-header .language-switcher__trigger')).toBeVisible();
+  await expect(page.locator('.almanac-header [data-theme-toggle], .almanac-header .ui-theme__trigger').first()).toBeVisible();
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+});
+
+test('the body\'s rhythm reaches a code block and a second paragraph in a list item', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  await open(page, POST);
+  const gaps = await page.evaluate(() => {
+    const margin = (selector: string) => {
+      const { marginTop, marginBottom } = getComputedStyle(document.querySelector(selector)!);
+      return { marginTop, marginBottom };
+    };
+    return { pre: margin('.almanac-prose > pre'), item: margin('.almanac-prose li > p + p') };
+  });
+  // 1.25 of the article's 18 px, as a paragraph has, and none below: the next block brings its own.
+  expect(gaps.pre, 'core\'s own margins on a code block do not win').toEqual({ marginTop: '22.5px', marginBottom: '0px' });
+  expect(gaps.item.marginTop, 'a gap between paragraphs of one item').toBe('13.5px');
+});
+
 test('the keyboard alone reaches the pills, the search, the cards and "More posts", with a ring on each', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
@@ -696,8 +698,14 @@ test('the keyboard alone reaches the pills, the search, the cards and "More post
   await tabTo(page, pill);
   expect(await focusRing(pill), 'a pill').toBe(true);
 
+  // The field marks focus with its border and an inner line rather than an outline: not the same as resting.
+  const fieldLook = () => searchBox(page).evaluate((element) => {
+    const { borderColor, boxShadow } = getComputedStyle(element);
+    return { borderColor, boxShadow };
+  });
+  const resting = await fieldLook();
   await tabTo(page, searchBox(page));
-  expect(await focusRing(searchBox(page)) || await searchBox(page).evaluate((element) => getComputedStyle(element.closest('form')!).outlineStyle !== 'none' || getComputedStyle(element).boxShadow !== 'none'), 'the search field shows where it is').toBe(true);
+  expect(await fieldLook(), 'the search field shows where it is').not.toEqual(resting);
   await page.keyboard.type('zymurgy');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(`${origin}/en?q=zymurgy`);

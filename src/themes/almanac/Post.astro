@@ -1,4 +1,5 @@
 ---
+import { demoteH1 } from '../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import { articleCover } from '../../lib/post-cover';
 import { postReadingMinutes } from '../../lib/posts';
@@ -16,7 +17,7 @@ const { categories, post, preview, profile, settings, themeSettings } = Astro.pr
 const copy = publicCopy(post.locale);
 const { cover, bodyHtml } = articleCover(post);
 // The title is the page's one h1, whatever heading level the body was written in.
-const body = bodyHtml.replace(/<(\/?)h1>/g, '<$1h2>');
+const body = demoteH1(bodyHtml);
 const [category] = categories;
 const categoryHref = category && `${localePath(post.locale)}?${new URLSearchParams({ category: category.name })}`;
 const categoryTone = category && tone(category.id);

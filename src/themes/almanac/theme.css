@@ -221,6 +221,13 @@
 .almanac-nav .site-submenu a { padding-inline: var(--space-sm); border-radius: var(--radius-sm); }
 .almanac-nav .site-submenu a:hover { background: var(--color-paper-2); }
 
+/* On a phone the name keeps its room: the language button is as wide as its words, not its fixed
+ * 9.75rem, and the row's gaps close up. The component's own rule is scoped, so this names it twice. */
+@media (max-width: 47.999rem) {
+  .almanac-header__inner { column-gap: var(--space-xs); }
+  .almanac-header .language-switcher .language-switcher__trigger { width: auto; padding-inline: var(--space-sm) var(--space-xs); font-size: var(--text-sm); }
+}
+
 @media (min-width: 48rem) {
   .almanac-brand { flex: 0 1 auto; margin-inline-end: auto; }
   .almanac-header__desktop { display: block; flex: 0 0 auto; }
@@ -556,6 +563,14 @@
 
 .almanac-prose > :is(h2, h3) + * { margin-block-start: 0.5em; }
 
+/* Core gives a code block, a file card and a video their own block margins, on a type and a class,
+ * which out-rank the rule above. The same rhythm for them, at the least that wins: the margin is
+ * cleared, then the gap goes back where a block follows another, and after a heading. These blocks
+ * set their own font size, so the gap is written from the article's 1.125rem, not from an em. */
+.almanac-prose > :is(pre, p.file-card, figure.tome-video) { margin-block: 0; }
+.almanac-prose > * + :is(pre, p.file-card, figure.tome-video) { margin-block-start: calc(1.25 * 1.125rem); }
+.almanac-prose > :is(h2, h3) + :is(pre, p.file-card, figure.tome-video) { margin-block-start: calc(0.5 * 1.125rem); }
+
 .almanac-prose a { color: var(--color-link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
 
 .almanac-prose a:hover { text-decoration-thickness: 2px; }
@@ -570,6 +585,9 @@
 
 .almanac-prose li + li,
 .almanac-prose li > :is(ul, ol) { margin-block-start: 0.375em; }
+
+/* A list item of several paragraphs, as the editor writes one: a gap between them, not a wall. */
+.almanac-prose li > p + p { margin-block-start: 0.75em; }
 
 .almanac-prose li::marker { color: var(--color-accent); }
 

@@ -113,6 +113,15 @@ export const sanitizedContentHtmlSchema: z.ZodType<string> = z
   .pipe(z.string().max(MAX_DOCUMENT_BYTES));
 
 /**
+ * A heading one in a body, as a heading two: a theme draws the title as the page's one h1. The
+ * editor writes an aligned heading as `<h1 style="text-align: …">`, so the tag is matched up to
+ * the character after its name, never as the bare `<h1>`.
+ */
+export function demoteH1(html: string): string {
+  return html.replace(/<(\/?)h1(?=[\s>])/g, '<$1h2');
+}
+
+/**
  * An article that opens with a picture, with no cover drawn above it: that picture is what the
  * reader's screen is waiting on, so it is fetched first rather than lazily. Only an opening
  * picture qualifies, and a video's poster is one when the video opens the article. One further
