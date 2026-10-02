@@ -2608,6 +2608,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .navigation-items:empty { border-block-start: 0; }
 .navigation-items > :last-child { border-block-end: 0; }
 .navigation-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-sm); min-height: 3rem; padding-block: var(--space-md); border-block-end: var(--rule-hair) solid var(--color-rule); }
+/* A sub-item sits in from its parent, behind a thin rule on its leading edge. */
+.navigation-item[data-depth="1"] { margin-inline-start: var(--space-lg); padding-inline-start: var(--space-md); border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
 /* The grip is a handle, so it takes the pointer that says so and the height of the field
  * it sits beside. */
 .navigation-grip { display: grid; align-self: start; place-items: center; min-height: var(--control-height); color: var(--color-muted); cursor: grab; }
