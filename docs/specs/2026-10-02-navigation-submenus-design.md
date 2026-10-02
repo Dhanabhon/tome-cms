@@ -102,8 +102,10 @@ The theme contract adds to `PublicNavigationItem`:
 - **A parent whose page is not live but which still has live sub-items is shown as a group,** a
   label with no link.
 - **A group or such a parent with no live sub-items left is dropped.**
-- **Each parent carries `current: true`** when one of its sub-items is the page being viewed, so the
-  theme can mark the section.
+- **Deleting the page of a parent that holds sub-items turns the parent into a group,** keeping its
+  label and position, and keeps the sub-items. A menu item with no sub-items goes with its page.
+- **The theme works out the current section** from the request path, with `isCurrentSection`, so the
+  cached menu does not depend on the page being viewed.
 
 ### Desktop (Paper and Plain)
 
@@ -121,7 +123,7 @@ The theme contract adds to `PublicNavigationItem`:
   - a panel that would pass the window's inline-end edge is anchored to its parent's inline-end
     instead.
 - **Click to open, not hover.** Hover opens by accident and does not exist on touch or keyboard.
-- **The current section.** A parent with `current: true` gets `aria-current="true"` and the same
+- **The current section.** A parent for which `isCurrentSection` is true gets `aria-current="true"` and the same
   look as a current item.
 - **Motion.** The panel fades in and drops a few pixels, animated with opacity and transform only.
   It is instant under `prefers-reduced-motion`.
@@ -154,13 +156,13 @@ The theme contract adds to `PublicNavigationItem`:
   - the save schema: one level; header only; a group needs children; no group as a child; the
     duplicate check across levels; the 50 cap counting children;
   - the public tree builder: a dropped sub-item; a parent shown as a group when its page is gone; an
-    empty parent dropped; `current`;
+    empty parent dropped; `isCurrentSection`;
   - the API serializer.
 - **Integration:**
   - the migration up and down;
   - the database checks (no grandchild, no parent in the footer, no group in the footer);
   - saving and listing a menu with sub-items, in one transaction, rolled back on any refusal;
-  - a parent deleted with its page, taking its sub-items with it.
+  - a parent deleted with its page, which becomes a group and keeps its sub-items.
 - **Browser:**
   - **admin:** indent, outdent, move a parent with its children, add a group, the empty-group block,
     then save and reload;

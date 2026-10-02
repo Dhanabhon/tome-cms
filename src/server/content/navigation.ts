@@ -1,7 +1,7 @@
 import type { Selectable, Transaction } from 'kysely';
 import { z } from 'zod';
 
-import { localePath, pagePath } from '../../lib/i18n';
+import { pagePath } from '../../lib/i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import {
   POST_LOCALES,
@@ -14,6 +14,7 @@ import { db } from '../db/client';
 import type { Database, NavigationItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { live } from './live';
+import { buildPublicNavigation } from './public-navigation';
 
 const label = z.string().trim().min(1).max(80);
 const customUrl = z.string().trim().transform(normalizeNavigationUrl)
@@ -53,7 +54,7 @@ export const navigationMenuSchema = z.object({
   for (const [index, item] of items.entries()) {
     if (location === 'footer' && item.kind === 'group') issue('A group belongs in the header menu.', ['items', index]);
     else if (location === 'footer' && item.children?.length) issue('Only the header menu has sub-items.', ['items', index, 'children']);
-    if (item.kind === 'group' && !item.children?.length) issue('A group needs at least one sub-item.', ['items', index, 'children']);
+    else if (item.kind === 'group' && !item.children?.length) issue('A group needs at least one sub-item.', ['items', index, 'children']);
   }
   const targets = new Set<string>();
   for (const { item, path } of flat) {
@@ -173,10 +174,9 @@ export function invalidatePublicNavigationCache(): void {
 }
 
 async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigationSnapshot> {
-  const navigation: PublicNavigation = { footer: [], header: [] };
   const settings = await db.selectFrom('site_settings').select(['owner_id', 'updated_at'])
     .where('id', '=', true).executeTakeFirst();
-  if (!settings) return { lastModified: new Date(0), navigation };
+  if (!settings) return { lastModified: new Date(0), navigation: { footer: [], header: [] } };
   let modified = settings.updated_at.getTime();
   const items = await db.selectFrom('navigation_items').selectAll()
     .where('owner_id', '=', settings.owner_id)
@@ -198,15 +198,7 @@ async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigati
     }
   }
 
-  for (const item of items) {
-    const href = item.kind === 'home' ? localePath(locale)
-      : item.kind === 'page' ? pageUrls.get(item.page_id ?? '')
-        : normalizeNavigationUrl(item.url ?? '');
-    if (href && navigation[item.location].length < 50) {
-      navigation[item.location].push({ href, kind: item.kind, label: item.label, newTab: item.new_tab });
-    }
-  }
-  return { lastModified: new Date(modified), navigation };
+  return { lastModified: new Date(modified), navigation: buildPublicNavigation(items, pageUrls, locale) };
 }
 
 export async function getPublicNavigationSnapshot(locale: PageLocale): Promise<PublicNavigationSnapshot> {

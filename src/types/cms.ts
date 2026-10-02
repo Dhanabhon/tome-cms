@@ -180,23 +180,30 @@ export interface NavigationItem {
   updated_at: string;
 }
 
-export interface NavigationMutationItem {
-  kind: NavigationKind;
+export interface NavigationSubItem {
+  kind: Exclude<NavigationKind, 'group'>;
   label: string;
   pageId: string | null;
   url: string | null;
   /** Only a custom item may: the site's own pages open in place. */
   newTab: boolean;
-  /** Header only, one level: a sub-item holds none. A group needs at least one. */
-  children?: NavigationMutationItem[];
+}
+
+export interface NavigationMutationItem extends Omit<NavigationSubItem, 'kind'> {
+  kind: NavigationKind;
+  /** Header only, one level: a sub-item is never a group and holds none. A group needs at least one. */
+  children?: NavigationSubItem[];
 }
 
 export interface PublicNavigationItem {
-  href: string;
+  /** Null only for a group, which is a label with no link. */
+  href: string | null;
   kind: NavigationKind;
   label: string;
   /** The owner asked for this link to open in a new tab; a theme adds target and rel. */
   newTab: boolean;
+  /** The sub-items of a header item: always present, empty for a sub-item and in the footer. */
+  children: PublicNavigationItem[];
 }
 
 export interface PublicNavigation {
