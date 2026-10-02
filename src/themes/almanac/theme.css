@@ -135,14 +135,14 @@
 
 .almanac :is(h1, h2, h3) { font-family: var(--font-display); font-weight: 600; line-height: 1.25; text-wrap: balance; }
 
-/* The header: the brand holds the left, and everything a reader can act on gathers at the right. */
-.almanac-header { border-block-end: var(--rule-hair) solid var(--color-rule); }
+/* The header: the brand with the menu right after it, and the search at the row's end. */
+.almanac-header { position: relative; border-block-end: var(--rule-hair) solid var(--color-rule); }
 
 .almanac-header__inner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); padding-block: var(--space-md); }
 
 .almanac-brand {
   --site-logo-height: 2.25rem;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--color-ink);
@@ -157,9 +157,21 @@
 
 .almanac-header__desktop { display: none; }
 
-.almanac-header__mobile { flex-basis: 100%; min-width: 0; }
+.almanac-header__mobile { min-width: 0; }
 
 .almanac-header__mobile summary { min-height: var(--almanac-field); padding-block: var(--space-sm); color: var(--color-ink); cursor: pointer; font-size: var(--text-sm); font-weight: 500; }
+
+/* Open, the Menu is a panel the width of the header, under it and over the page. */
+.almanac-header__mobile > nav {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: var(--z-sticky-nav);
+  padding: var(--space-xs) var(--almanac-gutter) var(--space-md);
+  border-block-end: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-float);
+}
 
 .almanac-nav { min-width: 0; max-width: 100%; }
 
@@ -184,8 +196,8 @@
 .site-submenu-item summary::-webkit-details-marker { display: none; }
 /* A link parent's ▾ sits right after its label; its target runs forward into the gap, never back over the label. */
 .site-submenu-item summary[aria-label] { justify-content: flex-start; margin-inline-end: calc(1rem - var(--almanac-field)); }
-/* Positioned, so each item and control after it paints in order and keeps its own clicks. */
-.almanac-header__desktop > ul > li, .almanac-header .language-switcher, .almanac-header .ui-theme { position: relative; }
+/* Positioned, so each item and the search after it paint in order and keep their own clicks. */
+.almanac-header__desktop > ul > li { position: relative; }
 @media (hover: hover) {
   .site-submenu-item summary:not([aria-label]):hover > span { text-decoration: underline; text-decoration-color: var(--color-accent); }
 }
@@ -221,48 +233,127 @@
 .almanac-nav .site-submenu a { padding-inline: var(--space-sm); border-radius: var(--radius-sm); }
 .almanac-nav .site-submenu a:hover { background: var(--color-paper-2); }
 
-/* On a phone the name keeps its room: the language button is as wide as its words, not its fixed
- * 9.75rem, and the row's gaps close up. The component's own rule is scoped, so this names it twice. */
+/* The search: quiet, but its edge still holds 3:1 against the page, the only sign a field is there. */
+.almanac-search { position: relative; flex: 0 1 16rem; min-width: 0; margin-inline-start: auto; }
+
+/* 1rem, or iOS zooms in on focus. */
+.almanac-search input {
+  width: 100%;
+  min-height: var(--almanac-field);
+  padding-block: 0;
+  padding-inline: var(--space-md) calc(var(--almanac-field) + var(--space-2xs));
+  border: var(--rule-hair) solid var(--color-rule-strong);
+  border-radius: var(--radius-pill);
+  appearance: none;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.almanac-search input::placeholder { color: var(--color-muted); opacity: 1; }
+
+/* One ring, inside the edge: the outline stays for forced colours, which drop the shadow. */
+.almanac-search input:focus-visible { border-color: var(--color-accent); outline: 2px solid transparent; box-shadow: inset 0 0 0 var(--rule-hair) var(--color-accent); }
+
+.almanac-search__submit {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: grid;
+  place-items: center;
+  width: var(--almanac-field);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.almanac-search__submit:hover { background: var(--color-paper-3); color: var(--color-ink); }
+
+:is(.almanac-search__submit, .almanac-search-toggle) .icon { width: 1.125rem; height: 1.125rem; }
+
+/* The button a phone folds the search behind. The header's script shows it; a wide screen never does. */
+.almanac-search-toggle { display: none; }
+
+/* On a phone the brand and the Menu keep the left, the search button the row's end, and the gaps
+ * close up. The field, once the button has opened it, takes a row of its own under them. Without
+ * the script there is no button, and the field is simply that row. */
 @media (max-width: 47.999rem) {
   .almanac-header__inner { column-gap: var(--space-xs); }
-  .almanac-header .language-switcher .language-switcher__trigger { width: auto; padding-inline: var(--space-sm) var(--space-xs); font-size: var(--text-sm); }
+  .almanac-search { flex-basis: 100%; }
+  .almanac-search-toggle:not([hidden])[aria-expanded='false'] + .almanac-search { display: none; }
+
+  .almanac-search-toggle:not([hidden]) {
+    display: grid;
+    place-items: center;
+    width: var(--almanac-field);
+    height: var(--almanac-field);
+    margin-inline-start: auto;
+    padding: 0;
+    border: var(--rule-hair) solid var(--color-rule-strong);
+    border-radius: var(--radius-pill);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+
+  .almanac-search-toggle[aria-expanded='true'] { border-color: var(--color-focus); background: var(--color-paper-2); }
+}
+
+@media (max-width: 47.999rem) and (hover: hover) {
+  .almanac-search-toggle:hover { border-color: var(--color-ink-2); background: var(--color-paper-2); }
 }
 
 @media (min-width: 48rem) {
-  .almanac-brand { flex: 0 1 auto; margin-inline-end: auto; }
-  .almanac-header__desktop { display: block; flex: 0 0 auto; }
-  .almanac-header__desktop ul { justify-content: flex-end; }
+  .almanac-header__desktop { display: block; flex: 0 1 auto; }
   .almanac-header__mobile { display: none; }
 }
 
-/* The footer: one slim row, the credit at its end. */
+/* The footer: one slim row, the line at the left and the menu and the switches at the right. */
 .almanac-footer { margin-block-start: var(--space-2xl); border-block-start: var(--rule-hair) solid var(--color-rule); color: var(--color-muted); font-size: var(--text-sm); }
 
-.almanac-footer__inner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-lg); padding-block: var(--space-lg); }
+.almanac-footer__inner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-lg); padding-block: var(--space-lg); }
 
 .almanac-footer p { margin: 0; overflow-wrap: anywhere; }
 
-.almanac-footer__nav { margin-inline-start: auto; }
+.almanac-footer__dot { color: var(--color-muted); }
+
+.almanac-footer__end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); margin-inline-start: auto; }
 
 .almanac-footer__nav ul { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); margin: 0; padding: 0; list-style: none; }
 
-.almanac-footer a { color: inherit; text-decoration: none; text-underline-offset: var(--space-2xs); }
+/* Only the footer's own links: the language menu's are the component's to draw. */
+.almanac-footer p a, .almanac-footer__nav a { color: inherit; text-decoration: none; text-underline-offset: var(--space-2xs); }
 
-.almanac-footer a:hover,
-.almanac-footer a[aria-current] { color: var(--color-ink); text-decoration: underline; }
+.almanac-footer__nav a:hover,
+.almanac-footer__nav a[aria-current] { color: var(--color-ink); text-decoration: underline; }
 
 /* A link inside a line of text (the site's name, the credit) is underlined at rest, so it never reads as plain text. */
 .almanac-footer p a { text-decoration: underline; text-decoration-thickness: 1px; }
 
-.almanac-footer p a:hover { text-decoration-thickness: 2px; }
+.almanac-footer p a:hover { color: var(--color-ink); text-decoration-thickness: 2px; }
 
-.almanac-footer__credit { flex-basis: 100%; }
-
-@media (max-width: 39.999rem) {
-  .almanac-footer__nav { flex-basis: 100%; margin-inline-start: 0; }
+/* The language menu opens upward from the footer, lined up with its button, and downward only
+ * where there is no room above. The component's own rule is scoped, so this names it twice. */
+@supports (anchor-name: --language-trigger) {
+  .almanac-footer .language-switcher .language-switcher__menu {
+    inset: auto auto calc(anchor(top) + var(--space-xs)) anchor(left);
+    position-try-fallbacks: flip-block;
+  }
 }
 
-/* The home page: the band, then the pills and the search, then the cards. Its motion is declared
+@media (prefers-reduced-motion: no-preference) {
+  .almanac-footer .language-switcher .language-switcher__menu { --overlay-from: translateY(var(--space-2xs)); }
+}
+
+/* On a phone the switches go under the line, from its start. */
+@media (max-width: 39.999rem) {
+  .almanac-footer__end { flex-basis: 100%; margin-inline-start: 0; }
+}
+
+/* The home page: the band, then the pills, then the cards. Its motion is declared
  * only where motion was not argued against, so there is nothing to turn off again below. */
 
 /* The hero: a band a step darker than the page, a serif headline over a lead in sans. */
@@ -304,11 +395,8 @@
 
 .almanac-home { padding-block-start: var(--space-xl); }
 
-/* The pills on the left and the search at the row's end; under 40rem the search takes its own
- * row above the pills, where a thumb finds it first. */
-.almanac-filters { display: flex; flex-wrap: wrap-reverse; align-items: center; gap: var(--space-md) var(--space-lg); margin-block-end: var(--space-xl); }
-
-.almanac-pills { flex: 1 1 0; min-width: 0; }
+/* The pills, which wrap onto as many rows as they need. */
+.almanac-pills { margin-block-end: var(--space-xl); }
 
 .almanac-pills ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0; padding: 0; list-style: none; }
 
@@ -336,51 +424,6 @@
 .almanac-pills a:hover { border-color: var(--color-rule-strong); }
 
 .almanac-pills a[aria-current='page'] { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 600; }
-
-/* Quiet, but its edge still holds 3:1 against the page: it is the only sign a field is there. */
-.almanac-search { position: relative; flex: 0 1 16rem; min-width: 0; margin-inline-start: auto; }
-
-@media (max-width: 39.999rem) {
-  .almanac-search { flex-basis: 100%; }
-}
-
-/* 1rem, or iOS zooms in on focus. */
-.almanac-search input {
-  width: 100%;
-  min-height: var(--almanac-field);
-  padding-block: 0;
-  padding-inline: var(--space-md) calc(var(--almanac-field) + var(--space-2xs));
-  border: var(--rule-hair) solid var(--color-rule-strong);
-  border-radius: var(--radius-pill);
-  appearance: none;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font: inherit;
-  font-size: 1rem;
-}
-
-.almanac-search input::placeholder { color: var(--color-muted); opacity: 1; }
-
-/* One ring, inside the edge: the outline stays for forced colours, which drop the shadow. */
-.almanac-search input:focus-visible { border-color: var(--color-accent); outline: 2px solid transparent; box-shadow: inset 0 0 0 var(--rule-hair) var(--color-accent); }
-
-.almanac-search__submit {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 0;
-  display: grid;
-  place-items: center;
-  width: var(--almanac-field);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-}
-
-.almanac-search__submit:hover { background: var(--color-paper-3); color: var(--color-ink); }
-
-.almanac-search__submit .icon { width: 1.125rem; height: 1.125rem; }
 
 .almanac-feed__heading { margin: 0 0 var(--space-lg); font-size: var(--text-xl); overflow-wrap: anywhere; }
 

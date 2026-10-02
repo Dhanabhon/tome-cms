@@ -43,7 +43,7 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
 )}
 
 <section class="almanac-frame almanac-home" id="posts">
-  <CategoryRow activeCategory={activeCategory} categories={categories} locale={locale} query={query} />
+  <CategoryRow activeCategory={activeCategory} categories={categories} locale={locale} />
 
   <!-- Everything a pill changes, so a chosen one can swap it whole: the heading goes with it. -->
   <div class="almanac-feed" data-post-feed>

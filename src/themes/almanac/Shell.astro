@@ -14,17 +14,17 @@ const { allowVisitorTheme, alternates, brand, footer, header, locale, showPowere
 
 <body class="almanac">
   <slot name="above" />
-  <Header
-    allowVisitorTheme={allowVisitorTheme}
-    availableLocales={alternates}
-    brand={brand}
-    items={header}
-    locale={locale}
-    siteName={siteName}
-    theme={theme}
-  />
+  <Header brand={brand} items={header} locale={locale} siteName={siteName} />
   <main class="almanac-main">
     <slot />
   </main>
-  <Footer availableLocales={alternates} items={footer} locale={locale} showPoweredBy={showPoweredBy} siteName={siteName} />
+  <Footer
+    allowVisitorTheme={allowVisitorTheme}
+    availableLocales={alternates}
+    items={footer}
+    locale={locale}
+    showPoweredBy={showPoweredBy}
+    siteName={siteName}
+    theme={theme}
+  />
 </body>

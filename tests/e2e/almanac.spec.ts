@@ -5,6 +5,7 @@ import { createServer } from 'node:net';
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { publicCopy } from '../../src/lib/i18n';
+import { THEME_LABELS } from '../../src/lib/theme';
 import { tone } from '../../src/themes/almanac/tone';
 import { expect, test } from './own-worker';
 
@@ -23,7 +24,7 @@ import { expect, test } from './own-worker';
  * Only the draft preview needs the owner, and signs in once, through a recovery enrollment.
  *
  * ALMANAC_SHOTS=<dir> writes the home page, a post, a page and a search at 390, 768 and 1440 px,
- * light and dark. Without it no picture is taken.
+ * light and dark, and the phone's search opened. Without it no picture is taken.
  */
 
 // Reduced motion unless a test is about motion: a layout is measured with nothing lifting, fading or
@@ -662,7 +663,7 @@ test('on a phone the Menu lists the sub-items under their parent, and the row fi
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
-test('on a phone the site name is not cut short, and the language and theme are still there', async ({ page }) => {
+test('on a phone the site name is not cut short, beside the Menu and the search', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
   await open(page, '/en', 390);
@@ -672,9 +673,183 @@ test('on a phone the site name is not cut short, and the language and theme are 
   await page.evaluate(() => document.fonts.ready);
   // The core's name span is the one that clips and ends in an ellipsis.
   expect(await brand.locator('.site-brand__name').evaluate((element) => element.scrollWidth - element.clientWidth), 'the whole name is drawn, no ellipsis').toBeLessThanOrEqual(0);
-  await expect(page.locator('.almanac-header .language-switcher__trigger')).toBeVisible();
-  await expect(page.locator('.almanac-header [data-theme-toggle], .almanac-header .ui-theme__trigger').first()).toBeVisible();
+  await expect(page.locator('.almanac-header__mobile > summary')).toBeVisible();
+  await expect(page.locator('.almanac-header').getByRole('button', { name: copy.searchLabel })).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
+});
+
+test('the header: the brand and then the menu on the left, the search on the right, and no switches', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  await open(page, '/en');
+  const header = page.locator('.almanac-header');
+  const nav = header.getByRole('navigation', { name: 'Primary' }).filter({ has: page.locator('.site-submenu-item') });
+  await expect(nav).toBeVisible();
+  await expect(header.getByRole('search')).toBeVisible();
+  const [row, brand, menu, search] = await Promise.all([header.locator('.almanac-header__inner'), header.locator('.almanac-brand'), nav, header.getByRole('search')]
+    .map(async (part) => (await part.boundingBox())!));
+  expect(menu.x, 'the menu comes after the brand').toBeGreaterThanOrEqual(brand.x + brand.width);
+  expect(menu.x - (brand.x + brand.width), 'right after it, not pushed across the row').toBeLessThan(48);
+  expect(search.x, 'the search comes after the menu').toBeGreaterThan(menu.x + menu.width);
+  expect(row.x + row.width - (search.x + search.width), 'at the row\'s end').toBeLessThanOrEqual(1);
+  await expect(header.getByRole('button', { name: copy.searchLabel }), 'a wide screen has the field itself, not a button for it').toBeHidden();
+  await expect(header.locator('.language-switcher, [data-theme-toggle]'), 'the language and the theme are in the footer now').toHaveCount(0);
+  await expect(page.getByRole('search'), 'one search on the page, and the category row has none').toHaveCount(1);
+});
+
+test('the header\'s search finds a post from the home page and from a post, and lands on the results', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  for (const start of ['/en', POST]) {
+    await open(page, start);
+    await searchBox(page).fill('zymurgy');
+    await searchBox(page).press('Enter');
+    await expect(page, `from ${start}`).toHaveURL(`${origin}/en?q=zymurgy`);
+    await expect(feed(page).getByRole('heading', { level: 2 })).toHaveText('Results for “zymurgy”');
+    await expect(cards(page)).toHaveCount(1);
+    await expect(hero(page), 'the results come first').toHaveCount(0);
+    await expect(page.locator('h1')).toHaveCount(1);
+  }
+  // A Thai page searches the Thai posts.
+  await open(page, '/th');
+  const thai = page.getByRole('search').getByRole('searchbox', { name: publicCopy('th').searchLabel });
+  await thai.fill('zymurgy');
+  await thai.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`^${origin}/th/?\\?q=zymurgy$`));
+});
+
+test('on a phone the search is a button that opens the field in place, and Escape puts it away', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  await open(page, '/en', 390);
+  const header = page.locator('.almanac-header');
+  const button = header.getByRole('button', { name: copy.searchLabel });
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(searchBox(page), 'closed until asked for').toBeHidden();
+  const [brand, menu, toggle] = await Promise.all([header.locator('.almanac-brand'), header.locator('.almanac-header__mobile > summary'), button]
+    .map(async (part) => (await part.boundingBox())!));
+  expect(menu.x, 'the Menu follows the brand').toBeGreaterThanOrEqual(brand.x + brand.width);
+  expect(toggle.x, 'and the search is at the end').toBeGreaterThan(menu.x + menu.width);
+  expect(Math.abs(toggle.y + toggle.height / 2 - (menu.y + menu.height / 2)), 'on the same row').toBeLessThanOrEqual(2);
+  expect(toggle.width, 'a target a thumb can hit').toBeGreaterThanOrEqual(44);
+
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(searchBox(page)).toBeVisible();
+  await expect(searchBox(page), 'the field takes focus').toBeFocused();
+  expect(await overflow(page), 'open, it still fits').toBeLessThanOrEqual(0);
+  await page.keyboard.press('Escape');
+  await expect(searchBox(page)).toBeHidden();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await expect(button, 'focus goes back to the button').toBeFocused();
+  expect(await focusRing(button), 'with a ring on it').toBe(true);
+
+  // The keyboard alone: open it, type, search.
+  await page.keyboard.press('Enter');
+  await expect(searchBox(page)).toBeFocused();
+  await page.keyboard.type('zymurgy');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(`${origin}/en?q=zymurgy`);
+  await expect(cards(page)).toHaveCount(1);
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+
+  // A second press puts it away too.
+  await button.click();
+  await expect(searchBox(page)).toBeVisible();
+  await button.click();
+  await expect(searchBox(page)).toBeHidden();
+});
+
+/** What a colour token computes to on this page, in the scheme in force. */
+const token = (page: Page, name: string) => page.evaluate((property) => {
+  const probe = document.body.appendChild(document.createElement('span'));
+  probe.style.color = `var(${property})`;
+  const { color } = getComputedStyle(probe);
+  probe.remove();
+  return color;
+}, name);
+
+/** How far apart, in px, the tops of a line's first words and of each of its parts are: 0 on one line. */
+const spread = (target: Locator) => target.evaluate((element) => {
+  const first = document.createRange();
+  first.selectNodeContents(element.firstChild!);
+  const tops = [first, ...element.querySelectorAll(':scope > :not(.sr-only)')].map((part) => part.getBoundingClientRect().top);
+  return Math.max(...tops) - Math.min(...tops);
+});
+
+test('the footer\'s line: the year, the site, a dot and the credit on one line; no credit, no dot', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  const line = page.locator('.almanac-footer__line');
+  const credit = copy.poweredBy.replace('{tomecms}', 'TomeCMS');
+  try {
+    for (const width of [1440, 390]) {
+      await open(page, '/en', width);
+      await expect(line).toHaveText(new RegExp(`^© \\d{4} ${SITE} • ${credit}`));
+      expect(await spread(line), `${width}px: one line`).toBeLessThan(8);
+      const dot = line.locator('.almanac-footer__dot');
+      await expect(dot).toHaveText('•');
+      await expect(dot, 'the dot is muted').toHaveCSS('color', await token(page, '--color-muted'));
+      for (const name of [SITE, 'TomeCMS']) {
+        await expect(line.getByRole('link', { name: new RegExp(`^${name}`) }), `${name} is underlined at rest`).toHaveCSS('text-decoration-line', 'underline');
+      }
+    }
+    psql('update site_settings set show_powered_by = false');
+    await open(page, '/en');
+    await expect(line).toHaveText(new RegExp(`^© \\d{4} ${SITE}$`));
+    await expect(line.locator('.almanac-footer__dot'), 'no credit, no dot').toHaveCount(0);
+  } finally {
+    psql('update site_settings set show_powered_by = true');
+  }
+});
+
+test('the footer\'s end: the menu, the language, the theme; the theme turns dark, the language menu stays on screen', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  const footer = page.locator('.almanac-footer');
+  const trigger = footer.locator('.language-switcher__trigger');
+  const languages = page.locator('#language-switcher-menu');
+  const inView = (target: Locator) => target.evaluate((element) => {
+    const { top, right, bottom, left } = element.getBoundingClientRect();
+    return top >= 0 && left >= 0 && bottom <= innerHeight && right <= innerWidth;
+  });
+  for (const width of [1440, 390]) {
+    await open(page, '/en', width);
+    await expect(page.locator('.language-switcher'), 'one language switch on the page').toHaveCount(1);
+    await expect(page.locator('[data-theme-toggle]'), 'one theme switch on the page').toHaveCount(1);
+    await expect(footer.getByRole('navigation', { name: copy.footerNavigation }).getByRole('link')).toHaveText(['Privacy', 'Feed']);
+    const order = await footer.locator('.almanac-footer__nav, .language-switcher, [data-theme-toggle]')
+      .evaluateAll((parts) => parts.map((part) => part.className.split(' ')[0]));
+    expect(order, `${width}px: the menu, then the language, then the theme`).toEqual(['almanac-footer__nav', 'language-switcher', 'ui-theme']);
+    const [text, end] = await Promise.all([footer.locator('.almanac-footer__line'), footer.locator('.almanac-footer__end')]
+      .map(async (part) => (await part.boundingBox())!));
+    if (width > 400) {
+      expect(end.x, 'the group is to the right of the line').toBeGreaterThan(text.x + text.width);
+    } else {
+      expect(end.y, 'on a phone the group goes under the line').toBeGreaterThanOrEqual(text.y + text.height);
+      expect(Math.abs(end.x - text.x), 'lined up with its start').toBeLessThanOrEqual(1);
+    }
+
+    await trigger.click();
+    await expect(languages).toBeVisible();
+    await expect(languages.getByRole('link')).toHaveCount(2);
+    expect(await inView(languages), `${width}px: the language menu is on screen`).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(languages).toBeHidden();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  }
+
+  await open(page, '/en');
+  const paper = () => token(page, '--color-paper');
+  const light = await paper();
+  await footer.locator('.ui-theme__trigger').click();
+  const panel = footer.locator('.ui-theme__panel');
+  await expect(panel).toBeVisible();
+  expect(await inView(panel), 'the theme panel is on screen').toBe(true);
+  await panel.locator('.ui-theme__option', { hasText: THEME_LABELS.en.dark }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect.poll(paper, 'the page turned dark').not.toBe(light);
+  await expect(footer.locator('.ui-theme__trigger')).toHaveAccessibleName(`${THEME_LABELS.en.group}: ${THEME_LABELS.en.dark}`);
 });
 
 test('the body\'s rhythm reaches a code block and a second paragraph in a list item', async ({ page }) => {
@@ -693,14 +868,10 @@ test('the body\'s rhythm reaches a code block and a second paragraph in a list i
   expect(gaps.item.marginTop, 'a gap between paragraphs of one item').toBe('13.5px');
 });
 
-test('the keyboard alone reaches the pills, the search, the cards and "More posts", with a ring on each', async ({ page }) => {
+test('the keyboard alone reaches the search, the pills, the cards and "More posts", with a ring on each', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
   await open(page, '/en');
-
-  const pill = pills(page).getByRole('link', { name: 'Recipes' });
-  await tabTo(page, pill);
-  expect(await focusRing(pill), 'a pill').toBe(true);
 
   // The field marks focus with its border and an inner line rather than an outline: not the same as resting.
   const fieldLook = () => searchBox(page).evaluate((element) => {
@@ -710,6 +881,14 @@ test('the keyboard alone reaches the pills, the search, the cards and "More post
   const resting = await fieldLook();
   await tabTo(page, searchBox(page));
   expect(await fieldLook(), 'the search field shows where it is').not.toEqual(resting);
+
+  const pill = pills(page).getByRole('link', { name: 'Recipes' });
+  await tabTo(page, pill);
+  expect(await focusRing(pill), 'a pill').toBe(true);
+
+  // Back to the top of a fresh page, and search from the header.
+  await open(page, '/en');
+  await tabTo(page, searchBox(page));
   await page.keyboard.type('zymurgy');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(`${origin}/en?q=zymurgy`);
@@ -773,6 +952,11 @@ test('pictures of the home page, a post, a page and a search, when asked for', a
         await open(page, route, width);
         await page.evaluate(() => document.fonts.ready);
         await page.screenshot({ path: `${SHOTS}/almanac-${name}-${width}-${scheme}.png`, fullPage: true });
+      }
+      if (width === 390) {
+        await open(page, '/en', width);
+        await page.locator('.almanac-header').getByRole('button', { name: copy.searchLabel }).click();
+        await page.screenshot({ path: `${SHOTS}/almanac-search-open-${width}-${scheme}.png` });
       }
     }
   }

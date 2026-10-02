@@ -1,43 +1,40 @@
 ---
-import LanguageSwitcher from '../../../components/LanguageSwitcher.astro';
+import Icon from '../../../components/Icon.astro';
 import SiteBrand from '../../../components/SiteBrand.astro';
 import SiteNavLink from '../../../components/SiteNavLink.astro';
 import SiteSubmenu from '../../../components/SiteSubmenu.astro';
 import SubmenuScript from '../../../components/SubmenuScript.astro';
-import ThemeToggle from '../../../components/ThemeToggle.astro';
 import { localePath, publicCopy } from '../../../lib/i18n';
 import { isCurrentSection, isLink } from '../../../lib/navigation-current';
-import { THEME_LABELS, type ThemeChoice } from '../../../lib/theme';
-import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../../types/cms';
+import type { PostLocale, PublicNavigationItem } from '../../../types/cms';
 import type { ThemeBrand } from '../../contract';
 
 interface Props {
-  allowVisitorTheme: boolean;
-  availableLocales: PostAlternate[];
   brand: ThemeBrand;
   items: PublicNavigationItem[];
   locale: PostLocale;
   siteName: string;
-  /** What the server rendered, so the control is not briefly checked on the wrong option. */
-  theme: ThemeChoice;
 }
 
 /**
- * The brand on the left; the menu, the language and the theme gathered on the right. Paper's
- * arrangement, through the same shared pieces, so a sub-menu, the language menu and the theme
- * panel behave on an Almanac page exactly as they do on a Paper one.
+ * The brand with the menu right after it, and the search at the row's end. The language and the
+ * theme are the footer's. The menu is drawn by the same shared pieces as Paper's, so a sub-menu
+ * behaves on an Almanac page exactly as it does on a Paper one.
+ *
+ * The search is a plain GET form to the home page, which is what lib/post-feed.ts looks for. On a
+ * phone it folds behind a button once the script below has run; without it the field stays open.
  */
-const { allowVisitorTheme, availableLocales, brand, items, locale, siteName, theme } = Astro.props;
-const languageOptions = availableLocales
-  .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
-  .sort((left, right) => left.locale.localeCompare(right.locale));
+const { brand, items, locale, siteName } = Astro.props;
 const copy = publicCopy(locale);
+const home = localePath(locale);
 const currentPath = Astro.url.pathname;
+// What a results page was searched for stays in the box; only the home page is given a `q`.
+const query = Astro.url.searchParams.get('q') ?? '';
 ---
 
 <header class="almanac-header">
   <div class="almanac-header__inner almanac-frame">
-    <a class="almanac-brand" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
+    <a class="almanac-brand" href={home}><SiteBrand brand={brand} siteName={siteName} /></a>
     {items.length > 0 && (
       <nav aria-label={copy.primaryNavigation} class="almanac-nav almanac-header__desktop">
         <ul>{items.map((item) => item.children.length ? <SiteSubmenu copy={copy} currentPath={currentPath} item={item} />
@@ -45,8 +42,6 @@ const currentPath = Astro.url.pathname;
       </nav>
     )}
     {items.some(({ children }) => children.length) && <SubmenuScript />}
-    {languageOptions.length > 1 && <LanguageSwitcher currentLocale={locale} options={languageOptions} />}
-    {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     {items.length > 0 && (
       <details class="almanac-header__mobile">
         <summary>{copy.menu}</summary>
@@ -65,5 +60,39 @@ const currentPath = Astro.url.pathname;
         </nav>
       </details>
     )}
+    <button aria-controls="almanac-search" aria-expanded="false" aria-label={copy.searchLabel} class="almanac-search-toggle" hidden title={copy.searchLabel} type="button"><Icon name="search" /></button>
+    <form class="almanac-search" id="almanac-search" role="search" method="get" action={home} data-post-search>
+      <label class="sr-only" for="almanac-search-q">{copy.searchLabel}</label>
+      <input id="almanac-search-q" name="q" type="search" value={query} maxlength="100" placeholder={copy.searchLabel} autocomplete="off" enterkeyhint="search" />
+      <button class="almanac-search__submit" type="submit" aria-label={copy.search} title={copy.search}><Icon name="search" /></button>
+    </form>
   </div>
 </header>
+
+<script>
+  /*
+   * On a phone the search is a disclosure: the button shows the field and hands it focus, and a
+   * second press or Escape puts it away, with focus back on the button. The stylesheet hides the
+   * button on a wide screen, where the field is always there.
+   */
+  const toggle = document.querySelector<HTMLButtonElement>('.almanac-search-toggle');
+  const form = document.querySelector<HTMLFormElement>('#almanac-search');
+  if (toggle && form) {
+    const field = form.querySelector('input')!;
+    const show = (open: boolean) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      if (open) field.focus();
+    };
+    toggle.hidden = false;
+    toggle.addEventListener('click', () => show(toggle.getAttribute('aria-expanded') !== 'true'));
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || toggle.getAttribute('aria-expanded') !== 'true') return;
+      // Not the field's own Escape, which would empty it: the words are kept for the next time.
+      event.preventDefault();
+      show(false);
+      toggle.focus();
+    };
+    toggle.addEventListener('keydown', close);
+    form.addEventListener('keydown', close);
+  }
+</script>
