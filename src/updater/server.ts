@@ -3,12 +3,18 @@ import { lstat, unlink } from 'node:fs/promises';
 import { createConnection } from 'node:net';
 
 import { parseStableVersion } from '../update/contracts.js';
-import { toPublicUpdateJob, type UpdateJob, type UpdaterStateStore } from './state.js';
+import type { PruneResult } from './prune.js';
+import { toPublicUpdateJob, type BackupJob, type BackupKind, type UpdateJob, type UpdaterStateStore } from './state.js';
 import { UPDATER_VERSION } from './version.js';
 
 export interface ApplyRequest {
   version: string;
   requestId: string;
+}
+
+export interface BackupRequest {
+  requestId: string;
+  kind: BackupKind;
 }
 
 const bodyLimit = 4 * 1024;
@@ -42,7 +48,11 @@ export function createUpdaterServer(input: {
   state: UpdaterStateStore;
   apply: (request: ApplyRequest) => Promise<UpdateJob>;
   execute?: (request: ApplyRequest) => Promise<UpdateJob>;
+  /** Runs a backup created in `quiescing` to its end; it always starts the app again. */
+  backup?: (job: BackupJob) => Promise<unknown>;
+  prune?: (request: { dryRun: boolean }) => Promise<PruneResult | null>;
 }): ReturnType<typeof createServer> {
+  // The one lock: an update, a backup and a prune never overlap.
   let active = false;
   return createServer(async (request, response) => {
     try {
@@ -91,7 +101,48 @@ export function createUpdaterServer(input: {
           if (!dispatched) active = false;
         }
       }
-      if (request.url === '/v1/status' || request.url === '/v1/apply' || request.url === '/v1/timeline') {
+      if (request.url === '/v1/backup' && request.method === 'GET' && input.backup) {
+        // Its own route and state: /v1/status is the update's, and older apps parse it strictly.
+        const backup = await input.state.readBackup();
+        return backup ? json(response, 200, backup) : json(response, 404, { error: 'not_found' });
+      }
+      if (request.url === '/v1/backup' && request.method === 'POST' && input.backup) {
+        const backupRequest = parseBackupRequest(await readBody(request));
+        if (active) return json(response, 409, { error: 'update_in_progress' });
+        active = true;
+        let dispatched = false;
+        try {
+          // Refused, as a 409, while an update is active or waits for manual recovery.
+          const backup = await input.state.createBackup({ id: backupRequest.requestId, kind: backupRequest.kind });
+          json(response, 202, { id: backup.id, phase: backup.phase });
+          dispatched = true;
+          void Promise.resolve().then(() => input.backup!(backup)).catch(async () => {
+            // Only a record that could not be written reaches here; the app has been started again.
+            const latest = await input.state.readBackup();
+            if (latest?.id === backup.id && latest.phase !== 'succeeded' && latest.phase !== 'failed') {
+              await input.state.transitionBackup(backup.id, 'failed', { errorCode: 'backup_failed' });
+            } else {
+              await input.state.refreshStatus();
+            }
+          }).catch(() => { console.error('Updater backup state could not be persisted'); })
+            .finally(() => { active = false; });
+          return;
+        } finally {
+          if (!dispatched) active = false;
+        }
+      }
+      if (request.url === '/v1/prune' && request.method === 'POST' && input.prune) {
+        const pruneRequest = parsePruneRequest(await readBody(request));
+        if (active) return json(response, 409, { error: 'update_in_progress' });
+        active = true;
+        try {
+          const result = await input.prune(pruneRequest);
+          return result ? json(response, 200, result) : json(response, 503, { error: 'image_listing_unreadable' });
+        } finally {
+          active = false;
+        }
+      }
+      if (['/v1/status', '/v1/apply', '/v1/timeline', '/v1/backup', '/v1/prune'].includes(request.url ?? '')) {
         return json(response, 405, { error: 'method_not_allowed' });
       }
       return json(response, 404, { error: 'not_found' });
@@ -128,6 +179,19 @@ function parseApplyRequest(value: unknown): ApplyRequest {
   } catch {
     throw new RequestError(400, 'invalid_request');
   }
+}
+
+function parseBackupRequest(value: unknown): BackupRequest {
+  if (!isRecord(value) || !hasExactKeys(value, ['requestId', 'kind']) || !uuid(value.requestId) ||
+    (value.kind !== 'database' && value.kind !== 'full')) throw new RequestError(400, 'invalid_request');
+  return { requestId: value.requestId, kind: value.kind };
+}
+
+function parsePruneRequest(value: unknown): { dryRun: boolean } {
+  if (!isRecord(value) || !hasExactKeys(value, ['dryRun']) || typeof value.dryRun !== 'boolean') {
+    throw new RequestError(400, 'invalid_request');
+  }
+  return { dryRun: value.dryRun };
 }
 
 function readBody(request: IncomingMessage): Promise<unknown> {

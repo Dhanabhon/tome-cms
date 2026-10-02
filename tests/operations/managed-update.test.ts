@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdir, lstat, readFile, rm, statfs, writeFile } from 'node:fs/promises';
-import type { Server } from 'node:http';
+import { request as httpRequest, type Server } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -23,7 +23,7 @@ import type { UpdaterConfig } from '../../src/updater/config.js';
 import { runCommand as runProcess, type CommandResult } from '../../src/updater/process.js';
 import { createUpdaterServer } from '../../src/updater/server.js';
 import { createUpdaterStateStore, type InstalledState, type UpdateJob } from '../../src/updater/state.js';
-import { applyUpdate, type UpdateDependencies } from '../../src/updater/transaction.js';
+import { applyUpdate, runBackup, type UpdateDependencies } from '../../src/updater/transaction.js';
 import { runPreflight, verifyTargetRelease, type VerifyDependencies } from '../../src/updater/verify.js';
 
 const nonce = randomUUID().replaceAll('-', '').slice(0, 12);
@@ -163,6 +163,32 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
         assertManaged(status);
         assert.deepEqual(status.installed, { version: '1.0.0', imageDigest: fixture.images.previous.digest });
         assert.equal(status.job, null);
+      } finally { await closeScenario(scenario); }
+    });
+
+    await t.test('a backup on request stops the app, backs up 1.0.0 in full, and brings the same app back', async () => {
+      const scenario = await createScenario('success', fixture);
+      try {
+        const statusBefore = await getUpdaterStatus({ socketPath: scenario.config.socketPath });
+        const requestId = randomUUID();
+        // 1.0.0 has no --database-only, so the updater backs it all up instead.
+        assert.deepEqual(await socketJson(scenario.config.socketPath, 'POST', '/v1/backup', { requestId, kind: 'database' }),
+          { status: 202, json: { id: requestId, phase: 'quiescing' } });
+        let backup: Record<string, unknown> = {};
+        for (let attempt = 0; attempt < 2400 && !['succeeded', 'failed'].includes(backup.phase as string); attempt += 1) {
+          await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+          backup = (await socketJson(scenario.config.socketPath, 'GET', '/v1/backup')).json as Record<string, unknown>;
+        }
+        assert.equal(backup.phase, 'succeeded', `${JSON.stringify(backup)} ${scenario.errors.join('; ')}`);
+        assert.equal(backup.kind, 'full');
+        assert.ok(Number(backup.sizeBytes) > 0);
+        await assertCompleteBackup(backup as Pick<UpdateJob, 'backupDirectory'>, '1.0.0');
+        assert.equal(scenario.stopCount, 2, 'stopped for the backup, then once more before it starts');
+        assert.deepEqual(await getUpdaterStatus({ socketPath: scenario.config.socketPath }), statusBefore);
+        assert.deepEqual(JSON.parse(await readFile(scenario.config.statusPath, 'utf8')), statusBefore, 'the marker is cleared');
+        assert.equal(await runningAppImage(scenario.config, fixture.images.previous.id), fixture.images.previous.id);
+        assert.deepEqual(await infrastructureSnapshot(baseImageEnvironmentFile, fixture.images.previous.id), infrastructure);
+        assert.deepEqual(await publicContract(fixture.port), publicBefore);
       } finally { await closeScenario(scenario); }
     });
 
@@ -538,6 +564,7 @@ async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Sce
     state,
     apply: ({ requestId, version }) => state.createJob({ requestId, targetVersion: version }),
     execute: ({ requestId, version }) => applyUpdate({ config, dependencies, requestId, state, updaterVersion: '1.0.0', version }),
+    backup: (backup) => runBackup({ backup, config, dependencies, state }),
   });
   scenario.server = server;
   servers.add(server);
@@ -643,7 +670,7 @@ function assertCredentialFree(environment: NodeJS.ProcessEnv | undefined): void 
   assert.equal(environment.GH_PROMPT_DISABLED, '1');
 }
 
-async function assertCompleteBackup(job: UpdateJob, version: string): Promise<void> {
+async function assertCompleteBackup(job: Pick<UpdateJob, 'backupDirectory'>, version: string): Promise<void> {
   assert.ok(job.backupDirectory);
   assert.match(basename(job.backupDirectory), /^tomecms-test-backup-[0-9]+$/);
   const manifestBytes = await readFile(join(job.backupDirectory, 'manifest.json'));
@@ -912,6 +939,23 @@ function sha256(bytes: Uint8Array): string { return createHash('sha256').update(
 function lines(output: string): string[] { return output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).sort(); }
 function assertImageId(value: string): asserts value is `sha256:${string}` { assert.match(value, /^sha256:[0-9a-f]{64}$/); }
 function assertManaged(status: UpdaterStatus): asserts status is Exclude<UpdaterStatus, { managed: false }> { assert.equal(status.managed, true); }
+/** One JSON request to the updater's socket, as `tome` makes it. */
+function socketJson(socketPath: string, method: 'GET' | 'POST', path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  return new Promise((resolveRequest, reject) => {
+    const outgoing = httpRequest({ socketPath, method, path, headers: payload === undefined ? {} : {
+      'content-type': 'application/json', 'content-length': Buffer.byteLength(payload),
+    } }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('error', reject);
+      response.on('end', () => resolveRequest({ status: response.statusCode ?? 0, json: JSON.parse(Buffer.concat(chunks).toString('utf8')) }));
+    });
+    outgoing.on('error', reject);
+    outgoing.end(payload);
+  });
+}
+
 async function closeScenario(scenario: Scenario): Promise<void> { await closeServer(scenario.server); }
 async function closeServer(server: Server): Promise<void> {
   servers.delete(server);

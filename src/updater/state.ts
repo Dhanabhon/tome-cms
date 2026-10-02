@@ -44,6 +44,24 @@ export interface UpdateJob {
 
 export type BackupKind = 'full' | 'database';
 
+export type BackupPhase = 'quiescing' | 'backing_up' | 'restarting' | 'succeeded' | 'failed';
+
+/**
+ * A backup taken on request (`POST /v1/backup`), in its own `backup-job.json`. It is never the
+ * update job: apps since 1.0 parse /v1/status strictly, so a backup there would read as an update.
+ */
+export interface BackupJob {
+  /** The caller's request ID, so it knows what to follow before the answer arrives. */
+  id: string;
+  kind: BackupKind;
+  phase: BackupPhase;
+  startedAt: string;
+  finishedAt: string | null;
+  backupDirectory: string | null;
+  sizeBytes: number | null;
+  errorCode: string | null;
+}
+
 export type PublicUpdateJob = Pick<UpdateJob,
   | 'id' | 'targetVersion' | 'phase' | 'completedSteps' | 'totalSteps'
   | 'message' | 'startedAt' | 'finishedAt' | 'errorCode' | 'backupCreatedAt'
@@ -66,6 +84,12 @@ export interface UpdaterStateStore {
    * any migration or image switch, so the database and the running image are as they were.
    */
   clearUnstartedFailure(): Promise<UpdateJob>;
+  readBackup(): Promise<BackupJob | null>;
+  /** Starts a backup in `quiescing`, which writes the public maintenance marker before anything stops. */
+  createBackup(input: Pick<BackupJob, 'id' | 'kind'>): Promise<BackupJob>;
+  transitionBackup(id: string, phase: BackupPhase, patch?: Partial<Pick<BackupJob,
+    'kind' | 'backupDirectory' | 'sizeBytes' | 'errorCode'
+  >>): Promise<BackupJob>;
 }
 
 const phases: readonly UpdatePhase[] = [
@@ -125,10 +149,24 @@ const legacyJobKeys = [
 const jobKeys = [...legacyJobKeys, 'timeline', 'backupKind'] as const;
 const backupKinds = new Set(['full', 'database']);
 const patchKeys = ['targetImageDigest', 'finishedAt', 'errorCode', 'backupDirectory', 'backupCreatedAt'];
+const backupKeys = ['id', 'kind', 'phase', 'startedAt', 'finishedAt', 'backupDirectory', 'sizeBytes', 'errorCode'] as const;
+const backupPatchKeys = ['kind', 'backupDirectory', 'sizeBytes', 'errorCode'];
+const backupTerminal = new Set<BackupPhase>(['succeeded', 'failed']);
+// Checks that fail stop nothing, so `quiescing` may end at once. Once the app may be stopped, a
+// running backup always passes `restarting`, the step that starts it again; straight to `failed`
+// is for a boot that finds a backup cut short and has started the app itself.
+const backupTransitions: Record<BackupPhase, readonly BackupPhase[]> = {
+  quiescing: ['backing_up', 'restarting', 'failed'],
+  backing_up: ['restarting', 'failed'],
+  restarting: ['succeeded', 'failed'],
+  succeeded: [],
+  failed: [],
+};
 
 export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStore {
   const installedPath = join(config.stateDirectory, 'installed.json');
   const jobPath = join(config.stateDirectory, 'job.json');
+  const backupPath = join(config.stateDirectory, 'backup-job.json');
   let pending: Promise<void> = Promise.resolve();
 
   const exclusive = <T>(operation: () => Promise<T>): Promise<T> => {
@@ -146,14 +184,32 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
       throw error;
     }
   };
-  const writeStatus = async (installed: InstalledState, job: UpdateJob | null): Promise<void> => {
+  const readBackup = async (): Promise<BackupJob | null> => {
+    try {
+      return parseBackup(await readJson(backupPath));
+    } catch (error) {
+      if (hasCode(error, 'ENOENT')) return null;
+      throw error;
+    }
+  };
+  const writeStatus = async (installed: InstalledState, job: UpdateJob | null, given?: BackupJob): Promise<void> => {
+    // A backup record that cannot be read gives no marker: it must not stop an update writing its
+    // own, and the backup itself cannot move without reading it.
+    const backup = given ?? await readBackup().catch(() => null);
     await atomicJson(config.statusPath, {
       protocolVersion: 1,
       updaterVersion: UPDATER_VERSION,
       managed: true,
       installed: { version: installed.version, imageDigest: installed.imageDigest },
-      job: job ? toPublicUpdateJob(job) : null,
+      job: backup && !backupTerminal.has(backup.phase) ? backupMarker(backup, installed) : job ? toPublicUpdateJob(job) : null,
     }, 0o640);
+  };
+  const assertNoActiveJob = async (): Promise<void> => {
+    const job = await readJob();
+    if (job?.phase === 'failed_manual_recovery') throw new Error('Manual recovery is required');
+    if (job && !terminalPhases.has(job.phase)) throw new Error('An update job is already active');
+    const backup = await readBackup();
+    if (backup && !backupTerminal.has(backup.phase)) throw new Error('A backup job is already active');
   };
 
   return {
@@ -175,9 +231,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
     },
     createJob(input) {
       return exclusive(async () => {
-        const existing = await readJob();
-        if (existing?.phase === 'failed_manual_recovery') throw new Error('Manual recovery is required');
-        if (existing && !terminalPhases.has(existing.phase)) throw new Error('An update job is already active');
+        await assertNoActiveJob();
         parseStableVersion(input.targetVersion);
         if (!uuid(input.requestId)) throw new Error('Invalid update request ID');
         const installed = await readInstalled();
@@ -263,7 +317,68 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         return job;
       });
     },
+    readBackup,
+    createBackup(input) {
+      return exclusive(async () => {
+        await assertNoActiveJob();
+        const backup = parseBackup({
+          id: input.id, kind: input.kind, phase: 'quiescing', startedAt: new Date().toISOString(),
+          finishedAt: null, backupDirectory: null, sizeBytes: null, errorCode: null,
+        });
+        const [installed, job] = await Promise.all([readInstalled(), readJob()]);
+        await writeStatus(installed, job, backup);
+        try {
+          await atomicJson(backupPath, backup, 0o600);
+        } catch (error) {
+          // No record, no backup: the marker it would have held goes too.
+          await writeStatus(installed, job).catch(() => undefined);
+          throw error;
+        }
+        return backup;
+      });
+    },
+    transitionBackup(id, phase, patch = {}) {
+      return exclusive(async () => {
+        if (!isRecord(patch) || !hasExactSubset(patch, backupPatchKeys)) throw new Error('Invalid backup job patch');
+        const current = await readBackup();
+        if (!current || current.id !== id) throw new Error('Backup job not found');
+        if (!backupTransitions[current.phase].includes(phase)) throw new Error('Invalid backup job transition');
+        const backup = parseBackup({
+          ...current, ...patch, phase, finishedAt: backupTerminal.has(phase) ? new Date().toISOString() : null,
+        });
+        // The marker first: a backup that reads as finished has already let the app take writes.
+        await writeStatus(await readInstalled(), await readJob(), backup);
+        await atomicJson(backupPath, backup, 0o600);
+        return backup;
+      });
+    },
   };
+}
+
+/**
+ * The public maintenance marker for a backup: the very phase an update writes there, so the app
+ * refuses writes the same way, and in the update job's exact shape, which every app since 1.0
+ * parses. Only status.json carries it; /v1/status keeps answering with the last update.
+ */
+function backupMarker(backup: BackupJob, installed: InstalledState): PublicUpdateJob {
+  const phase = backup.phase as Exclude<BackupPhase, 'succeeded' | 'failed'>;
+  return {
+    id: backup.id, targetVersion: installed.version, phase, completedSteps: completedSteps[phase]!, totalSteps: 8,
+    message: messages[phase], startedAt: backup.startedAt, finishedAt: null, errorCode: null, backupCreatedAt: null,
+  };
+}
+
+function parseBackup(value: unknown): BackupJob {
+  if (!isRecord(value) || !hasExactKeys(value, backupKeys) || !uuid(value.id) ||
+    !backupKinds.has(value.kind as string) || typeof value.phase !== 'string' || !Object.hasOwn(backupTransitions, value.phase) ||
+    !isoDate(value.startedAt) || !(value.finishedAt === null || isoDate(value.finishedAt)) ||
+    backupTerminal.has(value.phase as BackupPhase) !== (value.finishedAt !== null) ||
+    !(value.backupDirectory === null || (typeof value.backupDirectory === 'string' && isAbsolute(value.backupDirectory))) ||
+    !(value.sizeBytes === null || (Number.isSafeInteger(value.sizeBytes) && (value.sizeBytes as number) >= 0)) ||
+    !(value.errorCode === null || (typeof value.errorCode === 'string' && /^[a-z][a-z0-9_]*$/.test(value.errorCode)))) {
+    throw new Error('Invalid backup job state');
+  }
+  return { ...value } as unknown as BackupJob;
 }
 
 export function toPublicUpdateJob(job: UpdateJob): PublicUpdateJob {

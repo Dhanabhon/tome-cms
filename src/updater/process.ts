@@ -21,7 +21,7 @@ export type CommandExecutable = 'docker' | 'gh';
 export type CommandDiagnosticStage =
   | 'preflight.app.list' | 'preflight.app.inspect' | 'download.image'
   | 'verify.migration_inventory' | 'quiesce.stop_app' | 'backup.create'
-  | 'migration.apply' | 'restart.start_app' | 'rollback.stop_app' | 'rollback.start_app'
+  | 'migration.apply' | 'restart.stop_app' | 'restart.start_app' | 'rollback.stop_app' | 'rollback.start_app'
   | 'cleanup.one_shot.list' | 'cleanup.one_shot.remove'
   | 'cleanup.image.list' | 'cleanup.image.remove'
   | 'reconcile.app.list' | 'reconcile.app.inspect'
