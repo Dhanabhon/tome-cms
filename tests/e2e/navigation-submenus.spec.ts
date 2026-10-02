@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 
-import type { Page } from '@playwright/test';
+import type { BrowserContext, CDPSession, Locator, Page } from '@playwright/test';
 
 import { expect, test } from './own-worker';
 
@@ -15,8 +15,12 @@ import { expect, test } from './own-worker';
  * out again. A group with nothing under it blocks Save, whether the owner emptied it or it was
  * saved that way and lost its sub-item since.
  *
+ * The second test drags rows by their grip: onto the middle of a row to put an item under it, onto
+ * an edge to place it, refused where the menu would go two levels deep, and by touch on a phone.
+ *
  * NAVIGATION_SHOTS=<dir> writes the screen with a group and its sub-item, light and dark, at
- * 1440 and 390 px. Without it no picture is taken.
+ * 1440 and 390 px, and a drag mid-way onto "put under" at the same sizes (nav1101-*.png).
+ * Without it no picture is taken.
  */
 
 test.use({ stack: 'navigation-submenus' });
@@ -145,6 +149,58 @@ async function outline(page: Page) {
   }));
 }
 
+/** The row now showing `label`, top-level or not. */
+async function row(page: Page, label: string) {
+  const index = (await outline(page)).findIndex((entry) => entry.trim() === label);
+  if (index < 0) throw new Error(`No row for ${label}.`);
+  return page.locator('.navigation-item').nth(index);
+}
+
+/** The middle of a row's grip, and a point `fraction` of the way down a row. */
+async function gripPoint(target: Locator) {
+  const box = (await target.locator('.navigation-grip').boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+async function rowPoint(target: Locator, fraction: number) {
+  const box = (await target.boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height * fraction };
+}
+
+/** Scrolls so both rows sit mid-window, clear of the edges where a drag scrolls the page. */
+async function bringIntoView(page: Page, ...rows: Locator[]) {
+  const boxes = await Promise.all(rows.map(async (entry) => (await entry.boundingBox())!));
+  const top = Math.min(...boxes.map((box) => box.y));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  await page.evaluate((by) => window.scrollBy(0, by), (top + bottom) / 2 - page.viewportSize()!.height / 2);
+}
+
+/** Presses `from`'s grip with the mouse and moves, in steps so pointermove fires, onto `onto`; the button stays down. */
+async function dragOver(page: Page, from: Locator, onto: Locator, fraction: number) {
+  await bringIntoView(page, from, onto);
+  const start = await gripPoint(from);
+  const end = await rowPoint(onto, fraction);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+}
+
+/** The owner, signed in through a recovery enrolment with a virtual passkey. */
+async function signIn(context: BrowserContext, page: Page): Promise<CDPSession> {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  return cdp;
+}
+
 /** Both themes at each width, written where NAVIGATION_SHOTS says. */
 async function shoot(page: Page) {
   if (!SHOTS) return;
@@ -164,18 +220,7 @@ async function shoot(page: Page) {
 
 test('a header item goes under a group, moves with it, saves, and an empty group blocks Save', async ({ context, page }) => {
   test.setTimeout(180_000);
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-  });
-  const { getSiteSettings } = await import('../../src/server/content/site-settings');
-  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
-  const settings = await getSiteSettings();
-  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
-  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
-  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
-  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  await signIn(context, page);
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.goto(`${origin}/admin/navigation`);
@@ -183,6 +228,8 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   const save = page.getByRole('button', { name: 'Save menu' });
   const emptyGroup = page.getByText('A group needs at least one item under it.');
   const actions = (item: number) => page.getByRole('group', { name: `Actions for item ${item}` });
+  // The ⋯ menu that holds the nesting choices; it is there only when one applies.
+  const nestMenu = (item: number) => actions(item).locator('summary');
   const add = async (kind: string, fill?: () => Promise<void>) => {
     await page.getByRole('button', { name: /Add item/i }).first().click();
     await dialog.waitFor({ state: 'visible' });
@@ -207,11 +254,22 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   expect(await outline(page)).toEqual(['Home', 'About', 'Company', 'Contact']);
   await expect(save, 'still blocked while the group is empty').toBeDisabled();
 
-  await expect(actions(1).getByRole('button', { name: 'Move under the item above' }), 'the first item has nothing above it').toBeDisabled();
-  await expect(actions(3).getByRole('button', { name: 'Move under the item above' }), 'a group is never a sub-item').toBeDisabled();
-  await actions(4).getByRole('button', { name: 'Move under the item above' }).click();
+  await expect(nestMenu(1), 'the first item has nothing above it to go under').toHaveCount(0);
+  await expect(nestMenu(3), 'a group is never a sub-item').toHaveCount(0);
+  // By keyboard alone: open the ⋯ menu, Escape closes it, open it again and choose.
+  await nestMenu(4).focus();
+  await page.keyboard.press('Enter');
+  await expect(actions(4).getByRole('button', { name: 'Put under Company' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(actions(4).getByRole('button', { name: 'Put under Company' })).toBeHidden();
+  await expect(nestMenu(4), 'Escape hands focus back to the ⋯ button').toBeFocused();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Tab');
+  await expect(actions(4).getByRole('button', { name: 'Put under Company' })).toBeFocused();
+  await page.keyboard.press('Enter');
   expect(await outline(page)).toEqual(['Home', 'About', 'Company', '  Contact']);
-  await expect(actions(4).getByRole('button', { name: 'Move out' }), 'focus goes to the way back').toBeFocused();
+  await expect(page.locator('.navigation-status'), 'the move is announced').toHaveText('Moved Contact under Company.');
+  await expect(nestMenu(4), 'focus stays on the moved row’s ⋯ button').toBeFocused();
   await expect(page.getByRole('textbox', { name: 'Item 4 label under Company' }), 'a screen reader hears where it sits').toHaveValue('Contact');
   await expect(emptyGroup).toHaveCount(0);
   await expect(save).toBeEnabled();
@@ -219,7 +277,7 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   // The group moves up past About and takes Contact with it.
   await actions(3).getByRole('button', { name: 'Move up' }).click();
   expect(await outline(page)).toEqual(['Home', 'Company', '  Contact', 'About']);
-  await expect(actions(2).getByRole('button', { name: 'Move under the item above' }), 'a parent cannot go under another').toBeDisabled();
+  await expect(nestMenu(2), 'a parent cannot go under another').toHaveCount(0);
   await expect(actions(3).getByRole('button', { name: 'Move up' }), 'a lone sub-item has no sibling to pass').toBeDisabled();
 
   await save.click();
@@ -228,9 +286,12 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   await expect.poll(() => outline(page), { message: 'the tree comes back as it was saved' }).toEqual(['Home', 'Company', '  Contact', 'About']);
   await shoot(page);
 
-  await actions(3).getByRole('button', { name: 'Move out' }).click();
+  await nestMenu(3).click();
+  await actions(3).getByRole('button', { name: 'Move out to the main menu' }).click();
   expect(await outline(page)).toEqual(['Home', 'Company', 'Contact', 'About']);
-  await expect(actions(3).getByRole('button', { name: 'Move under the item above' }), 'and back again').toBeFocused();
+  await expect(page.locator('.navigation-status')).toHaveText('Moved Contact out of Company.');
+  await expect(nestMenu(3), 'and the way back is on the same ⋯ button').toBeFocused();
+  await expect(actions(3).getByRole('button', { name: 'Put under Company', includeHidden: true })).toHaveCount(1);
   await expect(emptyGroup, 'taking out its last item empties the group again').toBeVisible();
   await expect(save).toBeDisabled();
 
@@ -245,8 +306,7 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   await page.getByRole('tab', { name: 'Footer' }).click();
   await add('Home');
   await expect(actions(1).getByRole('button'), 'up, down and remove only').toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Move under the item above' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Move out' })).toHaveCount(0);
+  await expect(page.locator('.navigation-nest-menu'), 'no ⋯ menu: the footer has no sub-items').toHaveCount(0);
   // Choosing Group and then another kind leaves the placement as the owner set it.
   await page.getByRole('tab', { name: 'Header' }).click();
   await page.getByRole('button', { name: /Add item/i }).first().click();
@@ -264,4 +324,127 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   await dialog.waitFor({ state: 'visible' });
   await expect(dialog.getByRole('radio')).toHaveCount(3);
   await expect(dialog.getByRole('radio', { name: 'Group (no link)' })).toHaveCount(0);
+});
+
+test('rows nest by dragging onto the middle of another, place by its edges, and refuse a second level', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  const cdp = await signIn(context, page);
+  const { replaceNavigation } = await import('../../src/server/content/navigation');
+  const link = (label: string, children?: { kind: 'custom'; label: string; pageId: null; url: string; newTab: false }[]) =>
+    ({ kind: 'custom' as const, label, pageId: null, url: `/${label.toLowerCase()}`, newTab: false as const, ...(children ? { children } : {}) });
+  await replaceNavigation('signin-test-owner', { locale: 'en', location: 'header', items: [
+    link('Home'), link('About', [link('Team')]), link('Blog'), link('Contact'),
+  ] });
+  await replaceNavigation('signin-test-owner', { locale: 'en', location: 'footer', items: [link('Privacy'), link('Terms')] });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}/admin/navigation`);
+  await expect.poll(() => outline(page)).toEqual(['Home', 'About', '  Team', 'Blog', 'Contact']);
+  const hint = page.locator('.navigation-hint');
+  const live = hint.locator('[aria-live="polite"]');
+  const save = page.getByRole('button', { name: 'Save menu' });
+
+  // Mid-drag onto "put under", in pictures; Escape then puts the row back.
+  if (SHOTS) {
+    mkdirSync(SHOTS, { recursive: true });
+    for (const [width, scheme] of [[1440, 'light'], [1440, 'dark'], [390, 'light'], [390, 'dark']] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(600);
+      // Team, a sub-item, over Home: the hint, the lit row and the ghost fit one window even at 390 px.
+      await dragOver(page, await row(page, 'Team'), await row(page, 'Home'), 0.5);
+      await expect(live).toHaveText('Put under Home');
+      await page.screenshot({ path: `${SHOTS}/nav1101-into-${width}-${scheme}.png` });
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+
+  // Escape cancels a drag: nothing moves and the hint goes back to how to drag.
+  await dragOver(page, await row(page, 'Contact'), await row(page, 'About'), 0.5);
+  await expect(live).toHaveText('Put under About');
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Home', 'About', '  Team', 'Blog', 'Contact']);
+  await expect(hint).toContainText('Drag a row by its handle');
+  await expect(page.locator('.navigation-ghost')).toHaveCount(0);
+
+  // Onto the middle of About: Blog becomes About's last sub-item, and About is lit while it waits.
+  await dragOver(page, await row(page, 'Blog'), await row(page, 'About'), 0.5);
+  await expect(live).toHaveText('Put under About');
+  await expect(await row(page, 'About')).toHaveAttribute('data-drop', 'into');
+  await expect(page.locator('.navigation-ghost')).toHaveText('Blog');
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Home', 'About', '  Team', '  Blog', 'Contact']);
+  await expect(page.locator('.navigation-status')).toHaveText('Moved Blog under About.');
+
+  // Over a sub-item, the halves place it in the same sub-menu.
+  await dragOver(page, await row(page, 'Contact'), await row(page, 'Blog'), 0.2);
+  await expect(live).toHaveText('In About’s sub-menu, above Blog');
+  await expect(await row(page, 'Blog')).toHaveAttribute('data-drop', 'before');
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+
+  // A sub-item onto a top-level row's top band: it leaves its parent, above that row.
+  await dragOver(page, await row(page, 'Team'), await row(page, 'Contact'), 0.1);
+  await expect(live).toHaveText('Above Contact, main menu');
+  await expect(await row(page, 'Contact')).toHaveAttribute('data-drop', 'before');
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Home', 'About', '  Blog', 'Team', 'Contact']);
+
+  // A parent with a sub-item onto another row's middle: refused, with the reason, and nothing moves.
+  await dragOver(page, await row(page, 'About'), await row(page, 'Contact'), 0.5);
+  await expect(live).toHaveText('Can’t go here: a sub-menu is one level deep, and this item has sub-items of its own.');
+  await expect(page.locator('.navigation-item[data-drop]')).toHaveCount(0);
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Home', 'About', '  Blog', 'Team', 'Contact']);
+  // And onto its own sub-item.
+  await dragOver(page, await row(page, 'About'), await row(page, 'Blog'), 0.5);
+  await expect(live).toHaveText('Can’t drop an item onto itself or its own sub-items.');
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Home', 'About', '  Blog', 'Team', 'Contact']);
+
+  // A parent dragged past another row's bottom band takes its sub-item along.
+  await dragOver(page, await row(page, 'About'), await row(page, 'Team'), 0.9);
+  await expect(live).toHaveText('Below Team, main menu');
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Home', 'Team', 'About', '  Blog', 'Contact']);
+
+  await save.click();
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
+  await page.reload();
+  await expect.poll(() => outline(page), { message: 'the dragged tree comes back as it was saved' }).toEqual(['Home', 'Team', 'About', '  Blog', 'Contact']);
+
+  // The footer has no "into": the middle of a row is its upper or lower half.
+  await page.getByRole('tab', { name: 'Footer' }).click();
+  await expect.poll(() => outline(page)).toEqual(['Privacy', 'Terms']);
+  await expect(hint).toHaveText('Drag a row by its handle to move it.');
+  await dragOver(page, await row(page, 'Terms'), await row(page, 'Privacy'), 0.4);
+  await expect(live).toHaveText('Above Privacy');
+  await expect(page.locator('.navigation-item[data-drop="into"]')).toHaveCount(0);
+  await expect(await row(page, 'Privacy')).toHaveAttribute('data-drop', 'before');
+  await page.mouse.up();
+  expect(await outline(page)).toEqual(['Terms', 'Privacy']);
+  await page.getByRole('tab', { name: 'Header' }).click();
+
+  // On a phone, by touch: the grip takes the finger, the rest of the row still scrolls the page.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.navigation-grip').first()).toHaveCSS('touch-action', 'none');
+  await expect(page.locator('.navigation-item__content').first()).not.toHaveCSS('touch-action', 'none');
+  const grip = (await page.locator('.navigation-grip').first().boundingBox())!;
+  expect(grip.width, 'a 44px target for a finger').toBeGreaterThanOrEqual(44);
+  expect(grip.height).toBeGreaterThanOrEqual(44);
+  await page.evaluate(() => window.addEventListener('pointerdown', (event) => { document.body.dataset.pointerType = event.pointerType; }, { once: true }));
+  await bringIntoView(page, await row(page, 'Contact'), await row(page, 'About'));
+  const from = await gripPoint(await row(page, 'Contact'));
+  const to = await rowPoint(await row(page, 'About'), 0.5);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
+  for (let step = 1; step <= 12; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * step / 12, y: from.y + (to.y - from.y) * step / 12 }] });
+  }
+  await expect(live).toHaveText('Put under About');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('body')).toHaveAttribute('data-pointer-type', 'touch');
+  expect(await outline(page)).toEqual(['Home', 'Team', 'About', '  Blog', '  Contact']);
 });

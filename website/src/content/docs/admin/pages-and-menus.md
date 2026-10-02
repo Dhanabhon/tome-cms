@@ -63,12 +63,22 @@ An item for a page stores the page itself, so it follows the page when its addre
 
 An item in the "Header menu" can hold a sub-menu. The "Footer" stays flat. A sub-menu goes one level deep: a sub-item cannot hold items of its own.
 
-On the "Header menu" tab each item has two arrow buttons beside "Move up" and "Move down":
+On the "Header menu" tab, drag an item by the handle on its left. The line above the list says what letting go will do:
 
-- "Move under the item above" makes the item the last sub-item of the top-level item above it. When the item above is itself a sub-item, the item joins that sub-item's parent. The first item has nothing above it, and a group, or an item that already holds sub-items, cannot be moved under another.
-- "Move out" is on a sub-item. It puts the item back at the top level, right after its parent's last sub-item.
+- Onto the middle of a top-level item, the item goes under it, as its last sub-item: "Put under About". The item you are over is outlined.
+- Onto the top or bottom edge of a top-level item, the item goes above it, or below it and its sub-items, at the top level: "Above Blog, main menu". A line shows where.
+- Onto a sub-item, the upper half places the item above that sub-item and the lower half below it, in the same sub-menu: "In About's sub-menu, below Team".
 
-A sub-item's row is drawn indented, with a line beside it, and a screen reader announces which item it is under. Moving a parent, with "Move up", "Move down" or the handle, takes its sub-items with it. A sub-item moves only among the items under the same parent, and leaves it only through "Move out". "Remove" on a parent takes out that item alone: its sub-items stay in the menu, at the top level.
+Some drops are refused, and the line says why. An item that already holds sub-items, or a group, cannot go under another item, and an item cannot be dropped onto itself or its own sub-items. Letting go there changes nothing, and Escape cancels a drag. On a phone, drag with a finger on the handle; the rest of the row still scrolls the page. On the "Footer", dragging only places an item above or below another.
+
+The same choices are in the "..." button beside "Move up" and "Move down", for the keyboard and screen readers:
+
+- "Put under", followed by the name of the top-level item above, makes the item the last sub-item of that item. When the item just above is a sub-item, the item joins its parent.
+- "Move out to the main menu" is on a sub-item. It puts the item back at the top level, right after its parent's last sub-item.
+
+The "..." is there only when one of them applies, so not on the first item, a group, an item that already holds sub-items, or the "Footer".
+
+A sub-item's row is drawn indented, with a line beside it, and a screen reader announces which item it is under. Moving a parent, with "Move up", "Move down" or by dragging, takes its sub-items with it. "Move up" and "Move down" keep a sub-item among the items under the same parent; dragging it, or "Move out to the main menu", takes it elsewhere. "Remove" on a parent takes out that item alone: its sub-items stay in the menu, at the top level.
 
 A parent can be a link, such as a page or "Home", or a group. A group is a label with no link, and all it does is open its sub-menu. Add one with "Add item", "Group (no link)" and a "Label". A new item always goes to the end of the menu at the top level, so add the group first, then move items under it. A group needs at least one item under it. Until it has one, its row says "A group needs at least one item under it." and "Save menu" stays unavailable.
 
