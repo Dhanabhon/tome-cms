@@ -10,6 +10,12 @@ Each entry starts with what you see, word for word, so you can search this page 
 On a managed install, this command shows the application's log. Several entries below use it:
 
 ```sh
+sudo tome logs app
+```
+
+That is [the `tome` command](/tome-cms/running/cli/), which arrives with `sudo npm run updater:upgrade` from 1.11.0. A server that does not have it yet shows the same log with the long form:
+
+```sh
 sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml \
   --env-file /etc/tome-cms/tome-cms.env \
   --env-file /var/lib/tome-cms/updater/image.env logs --tail 100 app
@@ -47,7 +53,7 @@ The 1.0.0 installer could not finish on any server: its check of the image's mig
 
 ### The update stops at "Prepare maintenance", and the site answers `502`
 
-On a server installed with 1.0.1 or 1.0.2, the application ignores the signal to stop. The updater gives up after 30 seconds, and the rollback fails as well, so the application stays stopped and "System" cannot start another update. Check it on the server:
+On a server installed with 1.0.1 or 1.0.2, the application ignores the signal to stop. The updater gives up after 30 seconds, and the rollback fails as well, so the application stays stopped and "System" cannot start another update. Check it on the server. `sudo tome status` shows the phase on its "Last update" line. The `"backupCreatedAt"` below is only in the updater's own status, which a server without `tome` also has to read this way:
 
 ```sh
 sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
@@ -99,14 +105,14 @@ The running version is the one that asks, so an update started from 1.1.0 or ear
 
 Only the application from 1.10.0 on, with updater 1.4.0 or later, shows this message. An earlier application, or an earlier updater, refuses in the same way but reports it as `release_unavailable`, and "System" says only that the previous version was restored. On a full disk, that is this entry.
 
-See what takes the space:
+See what takes the space. `sudo tome status` shows the free disk where backups go, and `sudo tome prune` lists the old application images that can go, with their sizes. [The `tome` command](/tome-cms/running/cli/#when-the-disk-is-full) walks through it. On a server without `tome`, these commands show the same:
 
 ```sh
 df -h /var/backups/tome-cms
 sudo docker system df
 ```
 
-Before updater 1.4.0, every update left the application image it replaced on the disk, about 750 MB each. Remove the images that no container uses:
+Before updater 1.4.0, every update left the application image it replaced on the disk, about 750 MB each. `sudo tome prune --yes` removes the old ones. Without `tome`, remove the images that no container uses:
 
 ```sh
 sudo docker image prune -a --filter "until=24h"
