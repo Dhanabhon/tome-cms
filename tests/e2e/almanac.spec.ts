@@ -710,6 +710,13 @@ test('the header\'s search finds a post from the home page and from a post, and 
     await expect(hero(page), 'the results come first').toHaveCount(0);
     await expect(page.locator('h1')).toHaveCount(1);
   }
+  // The box holds the words that were looked for, as the home page reads them.
+  await open(page, `/en?q=${encodeURIComponent('  zymurgy   butter ')}`);
+  await expect(searchBox(page)).toHaveValue('zymurgy butter');
+  await open(page, '/en?q=%20');
+  await expect(searchBox(page), 'spaces alone are no search').toHaveValue('');
+  await expect(hero(page)).toHaveCount(1);
+
   // A Thai page searches the Thai posts.
   await open(page, '/th');
   const thai = page.getByRole('search').getByRole('searchbox', { name: publicCopy('th').searchLabel });
@@ -758,6 +765,41 @@ test('on a phone the search is a button that opens the field in place, and Escap
   await expect(searchBox(page)).toBeVisible();
   await button.click();
   await expect(searchBox(page)).toBeHidden();
+
+  // A Thai page names the button in Thai.
+  await open(page, '/th', 390);
+  await expect(header.getByRole('button', { name: publicCopy('th').searchLabel })).toBeVisible();
+});
+
+test('on a phone the header has its height from the first paint: the folded field never shows first', async ({ browser, page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  // Measured the moment the parser has written the search, before any script on the page has run.
+  await page.addInitScript(() => {
+    new MutationObserver((_, observer) => {
+      if (!document.querySelector('.almanac-search__submit')) return;
+      observer.disconnect();
+      (window as unknown as { parsedHeader: number }).parsedHeader = document.querySelector('.almanac-header')!.getBoundingClientRect().height;
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await open(page, '/en', 390);
+  const parsed = await page.evaluate(() => (window as unknown as { parsedHeader?: number }).parsedHeader);
+  const settled = await page.locator('.almanac-header').evaluate((element) => element.getBoundingClientRect().height);
+  expect(parsed, 'measured while the page was parsed').toBeGreaterThan(0);
+  expect(Math.abs(settled - parsed!), 'the same height once the script has run').toBeLessThanOrEqual(2);
+  await expect(searchBox(page)).toBeHidden();
+
+  // Without scripting there is no button to open it, so the field is simply there.
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+  try {
+    const plain = await context.newPage();
+    await plain.goto(`${origin}/en`);
+    await expect(searchBox(plain)).toBeVisible();
+    await expect(plain.locator('.almanac-header').getByRole('button', { name: copy.searchLabel })).toBeHidden();
+    expect(await overflow(plain)).toBeLessThanOrEqual(0);
+  } finally {
+    await context.close();
+  }
 });
 
 /** What a colour token computes to on this page, in the scheme in force. */
@@ -794,6 +836,11 @@ test('the footer\'s line: the year, the site, a dot and the credit on one line; 
         await expect(line.getByRole('link', { name: new RegExp(`^${name}`) }), `${name} is underlined at rest`).toHaveCSS('text-decoration-line', 'underline');
       }
     }
+    // The credit in Thai: the verb is translated, the name is not.
+    await open(page, '/th', 390);
+    await expect(line).toHaveText(new RegExp(`^© \\d{4} ${SITE} • ${publicCopy('th').poweredBy.replace('{tomecms}', 'TomeCMS')}`));
+    expect(await spread(line), 'one line in Thai too').toBeLessThan(8);
+
     psql('update site_settings set show_powered_by = false');
     await open(page, '/en');
     await expect(line).toHaveText(new RegExp(`^© \\d{4} ${SITE}$`));

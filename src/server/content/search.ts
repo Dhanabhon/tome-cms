@@ -10,21 +10,8 @@
  * It is a substring, not a full-text search, because Thai is written without spaces between
  * words and a database's word splitter finds none in it.
  */
-const MAX_CHARACTERS = 100;
-const MAX_TERMS = 5;
-
-/** The words of a search: cut to a hundred characters, split at any space or control character, at most five. */
-export function searchTerms(input: string | undefined): string[] {
-  // By code point, so the cut never leaves half of a pair, which would be searched for as a
-  // replacement character and match nothing.
-  const text = [...(input ?? '')].slice(0, MAX_CHARACTERS).join('');
-  return text.split(/[\s\u0000-\u001f\u007f]+/u).filter(Boolean).slice(0, MAX_TERMS);
-}
-
-/** The search as the words that will be looked for, one space apart, or undefined when there are none. */
-export function searchQuery(input: string | null | undefined): string | undefined {
-  return searchTerms(input ?? undefined).join(' ') || undefined;
-}
+// What a box is turned into is the page's business too (the search box shows it), so it lives in lib.
+export { searchQuery, searchTerms } from '../../lib/search-query';
 
 /** A LIKE pattern that finds `term` anywhere. The backslash is the escape, so `%` and `_` are only themselves. */
 export function likeContaining(term: string): string {

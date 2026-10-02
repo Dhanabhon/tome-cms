@@ -274,18 +274,22 @@
 
 :is(.almanac-search__submit, .almanac-search-toggle) .icon { width: 1.125rem; height: 1.125rem; }
 
-/* The button a phone folds the search behind. The header's script shows it; a wide screen never does. */
+/* The button a phone folds the search behind. A wide screen never draws it. */
 .almanac-search-toggle { display: none; }
 
-/* On a phone the brand and the Menu keep the left, the search button the row's end, and the gaps
- * close up. The field, once the button has opened it, takes a row of its own under them. Without
- * the script there is no button, and the field is simply that row. */
+/* On a phone the brand and the Menu keep the left, and the gaps close up. The field takes a row of
+ * its own under them: always without scripting, and once the button has opened it with. */
 @media (max-width: 47.999rem) {
   .almanac-header__inner { column-gap: var(--space-xs); }
   .almanac-search { flex-basis: 100%; }
-  .almanac-search-toggle:not([hidden])[aria-expanded='false'] + .almanac-search { display: none; }
+}
 
-  .almanac-search-toggle:not([hidden]) {
+/* With scripting the field is folded from the first paint, so nothing moves when the script arrives.
+ * A browser that does not know this query keeps the open field and never draws the button. */
+@media (max-width: 47.999rem) and (scripting: enabled) {
+  .almanac-search-toggle[aria-expanded='false'] + .almanac-search { display: none; }
+
+  .almanac-search-toggle {
     display: grid;
     place-items: center;
     width: var(--almanac-field);
@@ -302,7 +306,7 @@
   .almanac-search-toggle[aria-expanded='true'] { border-color: var(--color-focus); background: var(--color-paper-2); }
 }
 
-@media (max-width: 47.999rem) and (hover: hover) {
+@media (max-width: 47.999rem) and (scripting: enabled) and (hover: hover) {
   .almanac-search-toggle:hover { border-color: var(--color-ink-2); background: var(--color-paper-2); }
 }
 
