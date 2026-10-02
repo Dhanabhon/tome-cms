@@ -11,6 +11,7 @@
  * utility word written in a comment ships that rule to every reader on the site.
  */
 const THEMES = {
+  almanac: () => import('./almanac'),
   paper: () => import('./paper'),
   plain: () => import('./plain'),
 } as const;

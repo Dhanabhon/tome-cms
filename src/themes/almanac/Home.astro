@@ -1,0 +1,23 @@
+---
+import { localePath, postPath, publicCopy } from '../../lib/i18n';
+import type { ThemeHomeProps } from '../contract';
+
+/** A stand-in until the hero, the pills and the card grid arrive: the posts, as a list of links. */
+interface Props extends ThemeHomeProps {}
+
+const { activeCategory, locale, nextCursor, posts, query, siteName, tagline } = Astro.props;
+const copy = publicCopy(locale);
+const home = localePath(locale);
+const olderHref = nextCursor
+  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
+  : null;
+---
+
+<div class="almanac-frame almanac-page">
+  <h1>{siteName}</h1>
+  {tagline && <p class="almanac-lead">{tagline}</p>}
+  <ul class="almanac-list">
+    {posts.map((post) => <li><a href={postPath(post)}>{post.title}</a></li>)}
+  </ul>
+  {olderHref && <p><a href={olderHref}>{copy.allPosts} →</a></p>}
+</div>

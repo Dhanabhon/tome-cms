@@ -1,0 +1,48 @@
+---
+import SiteNavLink from '../../../components/SiteNavLink.astro';
+import { currentYear, localePath, publicCopy } from '../../../lib/i18n';
+import { isLink } from '../../../lib/navigation-current';
+import { OFFICIAL_REPOSITORY_URL } from '../../../update/contracts';
+import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../../types/cms';
+
+interface Props {
+  availableLocales: PostAlternate[];
+  items: PublicNavigationItem[];
+  locale: PostLocale;
+  /** The owner can switch the credit off; a site that has never been asked shows it. */
+  showPoweredBy: boolean;
+  siteName: string;
+}
+
+/**
+ * One slim row: the year and the site on the left, the footer menu and the other language on
+ * the right, and the credit under them when the owner keeps it.
+ *
+ * The other language is a plain link rather than a second language menu: the header's menu
+ * and its panel have document-wide ids, and two of them on one page would fight over them.
+ */
+const { availableLocales, items, locale, showPoweredBy, siteName } = Astro.props;
+const copy = publicCopy(locale);
+// The footer is flat: the menu builder gives it links only, never a group or a sub-item.
+const links = items.filter(isLink);
+const languages = availableLocales.filter(({ locale: option }) => option !== locale && (option === 'en' || option === 'th'));
+// Each language by its own name, which is the same word whichever language the page is in.
+const LANGUAGE_NAMES: Record<PostLocale, string> = { en: 'English', th: 'ไทย' };
+// The one word of the credit that is a link is where {tomecms} stands.
+const [creditBefore, creditAfter] = copy.poweredBy.split('{tomecms}');
+---
+
+<footer class="almanac-footer">
+  <div class="almanac-footer__inner almanac-frame">
+    <p>&copy; {currentYear(locale)} <a href={localePath(locale)}>{siteName}</a></p>
+    {(links.length > 0 || languages.length > 0) && (
+      <nav aria-label={copy.footerNavigation} class="almanac-footer__nav">
+        <ul>
+          {links.map((item) => <li><SiteNavLink copy={copy} currentPath={Astro.url.pathname} item={item} /></li>)}
+          {languages.map(({ href, locale: option }) => <li><a href={href} hreflang={option} lang={option}>{LANGUAGE_NAMES[option]}</a></li>)}
+        </ul>
+      </nav>
+    )}
+    {showPoweredBy && <p class="almanac-footer__credit">{creditBefore}<a href={OFFICIAL_REPOSITORY_URL} rel="noopener noreferrer" target="_blank">TomeCMS<span class="sr-only"> {copy.opensInNewTab}</span></a>{creditAfter}</p>}
+  </div>
+</footer>

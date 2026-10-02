@@ -1,0 +1,30 @@
+---
+import Footer from './parts/Footer.astro';
+import Header from './parts/Header.astro';
+import type { ThemeShellProps } from '../contract';
+
+/**
+ * Everything inside `<body>`. The class is what the stylesheet keys Almanac's palette and face
+ * to, on the document as a whole, so a page is only ever drawn in them when this theme drew it.
+ */
+interface Props extends ThemeShellProps {}
+
+const { allowVisitorTheme, alternates, brand, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
+---
+
+<body class="almanac">
+  <slot name="above" />
+  <Header
+    allowVisitorTheme={allowVisitorTheme}
+    availableLocales={alternates}
+    brand={brand}
+    items={header}
+    locale={locale}
+    siteName={siteName}
+    theme={theme}
+  />
+  <main class="almanac-main">
+    <slot />
+  </main>
+  <Footer availableLocales={alternates} items={footer} locale={locale} showPoweredBy={showPoweredBy} siteName={siteName} />
+</body>

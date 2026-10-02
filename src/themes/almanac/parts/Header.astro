@@ -1,0 +1,69 @@
+---
+import LanguageSwitcher from '../../../components/LanguageSwitcher.astro';
+import SiteBrand from '../../../components/SiteBrand.astro';
+import SiteNavLink from '../../../components/SiteNavLink.astro';
+import SiteSubmenu from '../../../components/SiteSubmenu.astro';
+import SubmenuScript from '../../../components/SubmenuScript.astro';
+import ThemeToggle from '../../../components/ThemeToggle.astro';
+import { localePath, publicCopy } from '../../../lib/i18n';
+import { isCurrentSection, isLink } from '../../../lib/navigation-current';
+import { THEME_LABELS, type ThemeChoice } from '../../../lib/theme';
+import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../../types/cms';
+import type { ThemeBrand } from '../../contract';
+
+interface Props {
+  allowVisitorTheme: boolean;
+  availableLocales: PostAlternate[];
+  brand: ThemeBrand;
+  items: PublicNavigationItem[];
+  locale: PostLocale;
+  siteName: string;
+  /** What the server rendered, so the control is not briefly checked on the wrong option. */
+  theme: ThemeChoice;
+}
+
+/**
+ * The brand on the left; the menu, the language and the theme gathered on the right. Paper's
+ * arrangement, through the same shared pieces, so a sub-menu, the language menu and the theme
+ * panel behave on an Almanac page exactly as they do on a Paper one.
+ */
+const { allowVisitorTheme, availableLocales, brand, items, locale, siteName, theme } = Astro.props;
+const languageOptions = availableLocales
+  .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
+  .sort((left, right) => left.locale.localeCompare(right.locale));
+const copy = publicCopy(locale);
+const currentPath = Astro.url.pathname;
+---
+
+<header class="almanac-header">
+  <div class="almanac-header__inner almanac-frame">
+    <a class="almanac-brand" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
+    {items.length > 0 && (
+      <nav aria-label={copy.primaryNavigation} class="almanac-nav almanac-header__desktop">
+        <ul>{items.map((item) => item.children.length ? <SiteSubmenu copy={copy} currentPath={currentPath} item={item} />
+          : isLink(item) && <li><SiteNavLink copy={copy} currentPath={currentPath} item={item} /></li>)}</ul>
+      </nav>
+    )}
+    {items.some(({ children }) => children.length) && <SubmenuScript />}
+    {languageOptions.length > 1 && <LanguageSwitcher currentLocale={locale} options={languageOptions} />}
+    {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
+    {items.length > 0 && (
+      <details class="almanac-header__mobile">
+        <summary>{copy.menu}</summary>
+        <nav aria-label={copy.primaryNavigation} class="almanac-nav">
+          {/* A phone lists every sub-item under its parent: the Menu is already the one tap. */}
+          <ul>{items.map((item) => {
+            const section = isCurrentSection(item, currentPath);
+            return (
+              <li>
+                {isLink(item) ? <SiteNavLink copy={copy} currentPath={currentPath} item={item} section={section} />
+                  : <span aria-current={section ? 'true' : undefined} class="almanac-nav__group">{item.label}</span>}
+                {item.children.length > 0 && <ul>{item.children.filter(isLink).map((child) => <li><SiteNavLink copy={copy} currentPath={currentPath} item={child} /></li>)}</ul>}
+              </li>
+            );
+          })}</ul>
+        </nav>
+      </details>
+    )}
+  </div>
+</header>

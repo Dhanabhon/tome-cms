@@ -85,6 +85,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@fontsource/trirong": "^5.3.0",
     "@playwright/test": "1.63.0",
     "@types/node": "^26.0.0",
     "@types/pg": "^8.23.1",

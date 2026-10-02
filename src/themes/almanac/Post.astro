@@ -1,0 +1,22 @@
+---
+import { dateLocale, publicCopy } from '../../lib/i18n';
+import { articleCover } from '../../lib/post-cover';
+import type { ThemePostProps } from '../contract';
+
+/** A stand-in until the reading column arrives: the title, the date, the cover and the body. */
+interface Props extends ThemePostProps {}
+
+const { post, preview, settings } = Astro.props;
+const copy = publicCopy(post.locale);
+const { cover, bodyHtml } = articleCover(post);
+const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone });
+const when = preview ? post.updated_at : post.published_at ?? post.created_at;
+---
+
+<article class="almanac-frame almanac-page almanac-article">
+  {preview && <p class="almanac-muted">{copy.draftPreview}</p>}
+  <h1>{post.title}</h1>
+  <p class="almanac-muted">{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></p>
+  {cover && <img src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />}
+  <div class="almanac-body" set:html={bodyHtml} />
+</article>

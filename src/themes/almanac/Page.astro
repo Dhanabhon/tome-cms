@@ -1,0 +1,19 @@
+---
+import { sanitizedContentHtmlSchema, withLeadImage } from '../../lib/editor-content';
+import { publicCopy } from '../../lib/i18n';
+import type { ThemePageProps } from '../contract';
+
+/** A stand-in until the page shares the post's reading column. */
+interface Props extends ThemePageProps {}
+
+const { page, preview } = Astro.props;
+// Keep the document title as the only h1, including when the body contains heading blocks.
+const contentHtml = sanitizedContentHtmlSchema.parse(page.content_html).replace(/<(\/?)h1>/g, '<$1h2>');
+const copy = publicCopy(page.locale);
+---
+
+<article class="almanac-frame almanac-page almanac-article">
+  {preview && <p class="almanac-muted">{copy.draftPreview}</p>}
+  <h1>{page.title}</h1>
+  <div class="almanac-body" set:html={withLeadImage(contentHtml)} />
+</article>
