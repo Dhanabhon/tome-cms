@@ -14,8 +14,9 @@ import {
   type CommandDiagnosticContext,
   type CommandDiagnosticStage,
 } from './process.js';
+import { pruneOldImages } from './prune.js';
 import type { BackupKind, InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
-import { runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
+import { InsufficientDiskSpaceError, runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
 
 export interface UpdateDependencies {
   runCommand: typeof runCommand;
@@ -140,7 +141,9 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await awaitReadiness(config, dependencies);
     await state.writeInstalled({ ...installed, version: input.version,
       imageDigest: verified.manifest.image.digest, installedAt: dependencies.now().toISOString() });
-    return await finishJob(state, job.id, () => state.transitionJob(job.id, 'succeeded'));
+    const succeeded = await finishJob(state, job.id, () => state.transitionJob(job.id, 'succeeded'));
+    await pruneOldImages(command, [verified.manifest.image.digest, job.previousImageDigest]);
+    return succeeded;
   } catch (error) {
     const committed = await repairCommittedTerminal(state, job.id);
     if (committed) return committed;
@@ -148,6 +151,8 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
       compareStableVersions(installed.version, verified.manifest.compatibility.rollbackSafeFrom) < 0))) {
       return finishJob(state, job.id, () => state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' }));
     }
+    // The disk check runs while the release is verified; it is not the release that failed.
+    if (error instanceof InsufficientDiskSpaceError) errorCode = 'insufficient_disk_space';
     try {
       await state.transitionJob(job.id, 'rolling_back', { errorCode });
       if (quiesced) {

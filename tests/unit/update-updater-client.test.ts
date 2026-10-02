@@ -134,6 +134,12 @@ test('strictly rejects unknown keys, versions, phases, messages, dates, progress
   ]) assert.throws(() => parseUpdaterStatus(invalid));
 });
 
+test('knows a disk too full for the backup, which an updater from 1.4.0 reports', () => {
+  const failed = { ...job, phase: 'rolled_back', completedSteps: 1, message: 'The previous application version was restored.',
+    finishedAt: '2026-09-20T10:01:00.000Z', errorCode: 'insufficient_disk_space' };
+  assert.deepEqual(parseUpdaterStatus({ ...status, job: failed }).job, failed);
+});
+
 test('returns only safe errors from updater refusal', async (t) => {
   const socketPath = await socketServer(t, (_req, res) => {
     res.writeHead(409, { 'content-type': 'application/json' });

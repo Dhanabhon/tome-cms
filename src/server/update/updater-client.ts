@@ -37,7 +37,7 @@ const jobSchema = z.object({
   errorCode: z.enum([
     'release_unavailable', 'incompatible_update', 'backup_failed', 'migration_failed',
     'health_failed', 'rolled_back', 'manual_recovery_required', 'preflight_failed',
-    'verification_failed', 'download_failed', 'update_failed',
+    'verification_failed', 'download_failed', 'update_failed', 'insufficient_disk_space',
   ]).nullable(),
 }).strict().refine((job) => {
   const step = Object.keys(phaseMessages).indexOf(job.phase);

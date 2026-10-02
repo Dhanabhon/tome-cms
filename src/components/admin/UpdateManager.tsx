@@ -106,6 +106,24 @@ export function jobStatusMessage(copy: AdminCopy, job: Pick<PublicUpdateJob, 'ph
   return copy.updates.manualRecoveryRequired;
 }
 
+const DOCS = 'https://dhanabhon.github.io/tome-cms';
+const diskSpaceAnchors = {
+  en: 'running/troubleshooting/#not-enough-free-disk-space-for-the-backup-the-update-needs-5-gb-free',
+  th: 'th/running/troubleshooting/#พื้นที่ดิสก์ว่างไม่พอสำหรับสำรองข้อมูล-การอัปเดตต้องมีพื้นที่ว่าง-5-gb',
+};
+
+/** The troubleshooting entry for an update the disk was too full for, or null for any other outcome. */
+export function diskSpaceHelp(job: Pick<PublicUpdateJob, 'errorCode'>, locale?: PostLocale | null): { href: string } | null {
+  if (job.errorCode !== 'insufficient_disk_space') return null;
+  return { href: `${DOCS}/${diskSpaceAnchors[locale === 'th' ? 'th' : 'en']}` };
+}
+
+function DiskSpaceNote({ copy, job, locale }: { copy: AdminCopy; job: Pick<PublicUpdateJob, 'errorCode'>; locale?: PostLocale | null }) {
+  const help = diskSpaceHelp(job, locale);
+  if (!help) return null;
+  return <p>{copy.updates.insufficientDiskSpace} <a href={help.href} rel="noopener" target="_blank">{copy.updates.insufficientDiskSpaceHelp}</a></p>;
+}
+
 export function formatBackupTime(value: string, locale?: PostLocale | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -356,6 +374,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
         {job?.phase === 'succeeded' && <p>{fill(copy.updates.installed, { version: job.targetVersion })}</p>}
         {job?.backupCreatedAt && <p>{copy.updates.backupCreated} <time dateTime={job.backupCreatedAt}>{formatBackupTime(job.backupCreatedAt, ownerLocale)}</time>.</p>}
         {job?.phase === 'rolled_back' && <p>{copy.updates.rolledBack}</p>}
+        {job && <DiskSpaceNote copy={copy} job={job} locale={ownerLocale} />}
         {job?.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
       </section>}
 
@@ -374,6 +393,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
             { seconds: fill(copy.updates.durationSeconds, { count: String(durations.backupSeconds) }) },
           )}</dd></div>}
         </dl>
+        <DiskSpaceNote copy={copy} job={currentJob} locale={ownerLocale} />
         {currentJob.phase === 'failed_manual_recovery' && <p>{copy.updates.contactOperator}</p>}
       </section>}
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { upgradeRefusal } from '../../scripts/updater-upgrade';
+import { UPDATER_VERSION } from '../../src/updater/version';
 
 const ready = { root: true, tag: 'v1.3.0', packageVersion: '1.3.0', clean: true, jobPhase: 'succeeded' as string | null, running: '1.0.0' };
 
@@ -23,8 +24,9 @@ test('an upgrade never replaces the updater in the middle of an update', () => {
 });
 
 test('an upgrade does not go backwards', () => {
-  assert.match(upgradeRefusal({ ...ready, running: '1.4.0' }) ?? '', /newer/);
-  assert.equal(upgradeRefusal({ ...ready, running: '1.3.0' }), null, 'the same version again repairs a damaged install');
+  const [major, minor] = UPDATER_VERSION.split('.').map(Number);
+  assert.match(upgradeRefusal({ ...ready, running: `${major}.${minor! + 1}.0` }) ?? '', /newer/);
+  assert.equal(upgradeRefusal({ ...ready, running: UPDATER_VERSION }), null, 'the same version again repairs a damaged install');
 });
 
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';

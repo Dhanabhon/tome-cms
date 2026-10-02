@@ -43,6 +43,11 @@ export interface VerifiedRelease {
   imageReference: string;
 }
 
+/** The backup directory's disk has less free space than an update needs. */
+export class InsufficientDiskSpaceError extends Error {
+  constructor() { super('Insufficient backup disk space'); }
+}
+
 export interface VerifyDependencies {
   fetcher: typeof fetch;
   runCommand: typeof import('./process.js').runCommand;
@@ -172,7 +177,7 @@ export async function runPreflight(input: {
   const filesystem = await dependencies.statfs(input.config.backupDirectory);
   const availableBytes = filesystem.bsize * filesystem.bavail;
   if (!Number.isSafeInteger(availableBytes) || availableBytes < input.config.minimumFreeBytes) {
-    throw new Error('Insufficient backup disk space');
+    throw new InsufficientDiskSpaceError();
   }
 
   const platform = dependencies.hostPlatform?.() ?? currentPlatform();

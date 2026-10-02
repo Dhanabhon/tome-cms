@@ -14,6 +14,7 @@ import type { UpdaterConfig } from '../../src/updater/config.js';
 import { createUpdaterServer, removeStaleUpdaterSocket } from '../../src/updater/server.js';
 import { createUpdaterStateStore, toPublicUpdateJob, type InstalledState } from '../../src/updater/state.js';
 import { applyUpdate, reconcileUpdate, type UpdateDependencies } from '../../src/updater/transaction.js';
+import { InsufficientDiskSpaceError } from '../../src/updater/verify.js';
 
 const previous: InstalledState = {
   version: '1.0.0', imageDigest: `sha256:${'a'.repeat(64)}`, composeContract: 1,
@@ -130,6 +131,8 @@ async function fixture(context: { after: (fn: () => Promise<void>) => void }) {
     runCommand: async (executable, args, options) => {
       assert.equal(executable, 'docker');
       commands.push({ args, timeoutMs: options.timeoutMs });
+      // The old-image clean-up after a success; the tests about it give their own listing.
+      if (args[0] === 'image') return { code: 0, stdout: '', stderr: '' };
       if (args[0] === 'ps') {
         const filter = args[args.indexOf('--filter') + 1];
         const name = filter.slice('name=^/'.length, -1);
@@ -850,4 +853,74 @@ test('a backup that is not the kind asked for is refused before the image change
   const second = await applyUpdate(await fromVersion(g, '1.3.0', 'database'));
   assert.equal(second.phase, 'rolled_back');
   assert.equal((await g.state.readInstalled()).imageDigest, previous.imageDigest);
+});
+
+test('a disk too full for the backup says so, instead of calling the release unavailable', async (t) => {
+  const f = await fixture(t);
+  f.input.dependencies.verifyTargetRelease = async () => { throw new InsufficientDiskSpaceError(); };
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(job.errorCode, 'insufficient_disk_space');
+  assert.equal(f.events.includes('stop'), false);
+});
+
+const imageRow = (digest: string, id: string, repository: string = OFFICIAL_IMAGE_REPOSITORY) =>
+  JSON.stringify({ Containers: 'N/A', Digest: digest, ID: id, Repository: repository, Tag: '<none>' });
+const imageId = (character: string) => `sha256:${character.repeat(64)}`;
+
+test('after a successful update, old official images go, and the installed and previous ones stay', async (t) => {
+  const f = await fixture(t);
+  const run = f.input.dependencies.runCommand;
+  const listing = [
+    imageRow(targetDigest, imageId('1')),
+    imageRow(previous.imageDigest, imageId('2')),
+    imageRow(`sha256:${'d'.repeat(64)}`, imageId('3')),
+    imageRow(`sha256:${'e'.repeat(64)}`, imageId('4')),
+    imageRow('<none>', imageId('5')),
+    imageRow(`sha256:${'f'.repeat(64)}`, imageId('6'), 'postgres'),
+  ].join('\n');
+  const images: string[][] = [];
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    if (args[0] !== 'image') return run(executable, args, options);
+    images.push([...args]);
+    if (args[1] === 'ls') return { code: 0, stdout: `${listing}\n`, stderr: '' };
+    // A stopped container still uses this one, and Docker refuses.
+    if (args.at(-1) === imageId('4')) return { code: 1, stdout: '', stderr: 'image is being used by stopped container' };
+    return { code: 0, stdout: '', stderr: '' };
+  };
+  const messages: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { messages.push(String(message)); });
+
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'succeeded');
+  assert.equal((await f.state.readJob())?.phase, 'succeeded');
+  assert.deepEqual(images, [
+    ['image', 'ls', '--no-trunc', '--digests', '--format', '{{json .}}', OFFICIAL_IMAGE_REPOSITORY],
+    ['image', 'rm', imageId('3')],
+    ['image', 'rm', imageId('4')],
+  ]);
+  assert.equal(messages.length, 1, 'the refused removal is journalled');
+  assert.equal(JSON.parse(messages[0]!).stage, 'cleanup.image.remove');
+});
+
+test('an image listing that fails removes nothing and leaves the update succeeded', async (t) => {
+  const f = await fixture(t);
+  const run = f.input.dependencies.runCommand;
+  const images: string[][] = [];
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    if (args[0] !== 'image') return run(executable, args, options);
+    images.push([...args]);
+    return { code: 1, stdout: '', stderr: 'daemon busy' };
+  };
+  t.mock.method(console, 'error', () => undefined);
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'succeeded');
+  assert.deepEqual(images.map((args) => args[1]), ['ls']);
+});
+
+test('an update that rolls back removes no image', async (t) => {
+  const f = await fixture(t); f.fail('health');
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(f.commands.some(({ args }) => args[0] === 'image'), false);
 });

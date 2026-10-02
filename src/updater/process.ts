@@ -23,6 +23,7 @@ export type CommandDiagnosticStage =
   | 'verify.migration_inventory' | 'quiesce.stop_app' | 'backup.create'
   | 'migration.apply' | 'restart.start_app' | 'rollback.stop_app' | 'rollback.start_app'
   | 'cleanup.one_shot.list' | 'cleanup.one_shot.remove'
+  | 'cleanup.image.list' | 'cleanup.image.remove'
   | 'reconcile.app.list' | 'reconcile.app.inspect'
   | 'verify.docker_engine' | 'verify.compose_cli' | 'verify.gh_cli'
   | 'verify.manifest_attestation' | 'verify.image_attestation' | 'verify.compose_health';

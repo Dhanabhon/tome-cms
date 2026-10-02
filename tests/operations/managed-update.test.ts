@@ -236,6 +236,10 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
         assert.equal(await runningAppImage(scenario.config, fixture.images.target.id), fixture.images.target.id);
         assert.deepEqual(await infrastructureSnapshot(scenario.config.imageEnvironmentFile, fixture.images.target.id), infrastructure);
         assert.deepEqual(await publicContract(fixture.port), publicBefore);
+        assert.deepEqual(scenario.imageCommands, [
+          ['image', 'ls', '--no-trunc', '--digests', '--format', '{{json .}}', OFFICIAL_IMAGE_REPOSITORY],
+          ['image', 'rm', staleImageId],
+        ], 'only the image older than the previous one is removed');
       } finally { await closeScenario(scenario); }
     });
 
@@ -250,6 +254,7 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
         const job = await install(scenario);
         assert.equal(job.phase, 'rolled_back', scenario.errors.join('; '));
         assert.equal(job.errorCode, 'health_failed');
+        assert.deepEqual(scenario.imageCommands, [], 'a rollback removes no image');
         assert.equal(scenario.targetVersionObserved, '1.0.1');
         assert.ok(scenario.targetHealthFailures >= 1);
         assert.equal(await migrationCount(scenario.config, fixture.images.previous.id), migrationBefore + 1);
@@ -276,6 +281,7 @@ interface Scenario {
   attestations: AttestationCall[];
   config: UpdaterConfig;
   errors: string[];
+  imageCommands: string[][];
   mode: ScenarioMode;
   server: Server;
   state: ReturnType<typeof createUpdaterStateStore>;
@@ -433,7 +439,7 @@ async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Sce
   const state = createUpdaterStateStore(config);
   await state.writeInstalled(fixture.installed);
   const scenario: Scenario = {
-    attestations: [], config, errors: [], mode, server: undefined as unknown as Server,
+    attestations: [], config, errors: [], imageCommands: [], mode, server: undefined as unknown as Server,
     state, stopCount: 0, targetHealthFailures: 0, targetVersionObserved: null,
   };
   const manifest = releaseManifest(fixture.images.target.digest, mode);
@@ -461,6 +467,11 @@ async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Sce
     assert.ok(options.timeoutMs > 0);
     if (executable === 'gh') return ghBoundary(scenario, manifest, release, args, options);
     assert.equal(executable, 'docker');
+    if (args[0] === 'image') {
+      // The old-image clean-up after a success, answered here so no real image is ever removed.
+      scenario.imageCommands.push([...args]);
+      return commandResult(0, args[1] === 'ls' ? officialImageListing(fixture) : '');
+    }
     if (args[0] === 'pull') {
       assert.deepEqual(args, ['pull', `${OFFICIAL_IMAGE_REPOSITORY}@${fixture.images.target.digest}`]);
       return commandResult();
@@ -859,6 +870,17 @@ async function selectedDigest(path: string): Promise<string> {
 function imageEnvironment(digest: string): string {
   assert.match(digest, /^sha256:[0-9a-f]{64}$/);
   return `TOME_CMS_APP_IMAGE='${OFFICIAL_IMAGE_REPOSITORY}@${digest}'\n`;
+}
+
+const staleImageId = `sha256:${'f'.repeat(64)}`;
+
+/** What `docker image ls` shows on a server that has updated before: the two the fixture runs, and an older one. */
+function officialImageListing(fixture: Fixture): string {
+  return [
+    { Digest: fixture.images.previous.digest, ID: fixture.images.previous.id },
+    { Digest: fixture.images.target.digest, ID: fixture.images.target.id },
+    { Digest: `sha256:${'e'.repeat(64)}`, ID: staleImageId },
+  ].map((image) => JSON.stringify({ ...image, Repository: OFFICIAL_IMAGE_REPOSITORY, Tag: '<none>' })).join('\n');
 }
 
 function commandResult(code = 0, stdout = ''): CommandResult {
