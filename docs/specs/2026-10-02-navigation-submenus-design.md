@@ -171,6 +171,38 @@ The theme contract adds to `PublicNavigationItem`:
   - **mobile site:** the indented list; no overflow at 390 px;
   - screenshots at 390 and 1440, light and dark.
 
+## Also in 1.10.0: the updater and disk space
+
+The owner approved this on 2026-10-02, after 1.9.1 failed to install on daedalus.
+
+**What happened.**
+- The updater refuses to start with less than 5 GiB free (`minimumFreeBytes`). daedalus had
+  4.9 GB.
+- The failure was reported as `release_unavailable`, because the disk check runs inside the
+  release-verification step.
+- The disk had filled with 28 old application images (11 GB unused), because the updater never
+  removes an image it replaced.
+
+**1. Its own error.** A disk-space refusal gets the error code `insufficient_disk_space`.
+- **System shows** "Not enough free disk space for the backup: the update needs 5 GB free."
+  (th: "พื้นที่ดิสก์ว่างไม่พอสำหรับสำรองข้อมูล: การอัปเดตต้องมีพื้นที่ว่าง 5 GB"), with a link to
+  the troubleshooting entry.
+- **The troubleshooting page** gains that entry. It gives the safe prune command
+  `sudo docker image prune -a --filter "until=24h"` and explains what it removes.
+- **The app learns the code in 1.10.0.** An updater from before this change never sends it, so the
+  two stay compatible.
+
+**2. Old images are removed.**
+- **When:** after an update succeeds.
+- **What:** the updater removes the official application images
+  (`ghcr.io/dhanabhon/tome-cms`) other than the installed digest and the previous one, which
+  rollback needs.
+- **What it never touches:** the database or storage images, or anything else.
+- **On failure:** a removal that fails is logged and never fails the update.
+- **Its version:** this is updater code, so it arrives with `sudo npm run updater:upgrade`. The
+  1.10.0 notes say so. `UPDATER_VERSION` becomes `1.4.0`, and the release manifest's
+  `minimumUpdaterVersion` stays `1.0.0`, so 1.10.0 still installs through an older updater.
+
 ## Release
 
 - 1.10.0, with migration `029_navigation_parent`, so the updater takes a full backup.

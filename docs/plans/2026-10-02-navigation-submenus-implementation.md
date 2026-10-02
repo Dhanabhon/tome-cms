@@ -458,6 +458,53 @@ export async function up(db: Kysely<Database>): Promise<void> {
 
 ---
 
+### Task 6: The updater, disk space and old images
+
+Spec: "Also in 1.10.0: the updater and disk space".
+
+**Files:**
+- Modify:
+  - `src/updater/verify.ts`: the disk check, around lines 172–175, throws a typed error that the
+    transaction maps to `insufficient_disk_space`;
+  - `src/updater/transaction.ts`, where `errorCode` is set: the disk check's own code wins over
+    `release_unavailable`. Read how other typed errors are mapped, if any; otherwise add the
+    smallest typed error class;
+  - `src/server/update/updater-client.ts`: add `insufficient_disk_space` to the known codes;
+  - the System screen's error copy, in `src/lib/admin-i18n.ts` (find how `release_unavailable`
+    is shown, with `grep -rn "release_unavailable\|releaseUnavailable" src`), in en and th, with a
+    link to the troubleshooting entry;
+  - `src/updater/version.ts`: `UPDATER_VERSION = '1.4.0'`;
+  - after the job reaches `succeeded`, a best-effort pruning step:
+    1. `docker image ls --no-trunc --format '{{json .}}' ghcr.io/dhanabhon/tome-cms`;
+    2. remove (`docker image rm <ID>`) every image whose digest is neither the installed one nor
+       the previous one (`job.previousImageDigest`);
+    3. log each result through the existing command diagnostics;
+    4. never throw.
+
+    Put it where the success path ends in `transaction.ts`, or in a small `src/updater/prune.ts`
+    that `transaction.ts` calls. Never touch postgres or seaweedfs images.
+  - the docs, in en and th:
+    - `website/src/content/docs/running/troubleshooting.md` and its th twin get the
+      `insufficient_disk_space` entry, with `sudo docker image prune -a --filter "until=24h"`, what
+      it removes, and why the running image is safe;
+    - `running/updating.md` and its th twin get one line saying the updater removes old images from
+      updater 1.4.0 on, and that `sudo npm run updater:upgrade` brings it.
+- Test:
+  - unit tests in the existing updater test files (`grep -ln "verifyTargetRelease\|transaction" tests/unit`):
+    - too little disk gives `insufficient_disk_space`;
+    - the prune keeps the current and previous digests, removes the others, ignores non-official
+      images, and swallows a failed removal;
+  - `npm run test:operations:update` must pass. It is the managed-update harness, required for
+    updater changes.
+
+- [ ] **Step 1: Write the failing unit tests.**
+- [ ] **Step 2: Implement the error code and the prune.**
+- [ ] **Step 3: Add the System copy and docs.**
+- [ ] **Step 4: Run** `npm run check`, the unit tests and `npm run test:operations:update`.
+  Commit: `fix: the updater says when the disk is too full, and removes old images after an update`.
+
+---
+
 ## After the plan
 
 Release 1.10.0. It has a migration, so the updater takes a full backup:
