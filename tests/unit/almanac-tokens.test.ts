@@ -12,9 +12,10 @@ import { test } from 'node:test';
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const CSS = read('src/themes/almanac/theme.css');
 
-const LIGHT = ':root:has(> body.almanac) {';
-const DARK_SYSTEM = ":root:not([data-theme='light']):has(> body.almanac) {";
-const DARK_CHOSEN = ":root[data-theme='dark']:has(> body.almanac) {";
+// An Almanac page, or the admin's draft preview of an Almanac article, which has no Almanac body.
+const LIGHT = ':root:has(> body.almanac, .almanac-article) {';
+const DARK_SYSTEM = ":root:not([data-theme='light']):has(> body.almanac, .almanac-article) {";
+const DARK_CHOSEN = ":root[data-theme='dark']:has(> body.almanac, .almanac-article) {";
 
 type Rgb = readonly [number, number, number];
 
@@ -107,7 +108,7 @@ for (const [scheme, selector] of [['light', LIGHT], ['dark', DARK_CHOSEN]] as co
 }
 
 test('the dark palette is the same whether the system asks for it or the reader chooses it', () => {
-  assert.match(CSS, /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme='light'\]\):has\(> body\.almanac\) \{/);
+  assert.match(CSS, /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme='light'\]\):has\(> body\.almanac, \.almanac-article\) \{/);
   assert.deepEqual([...declarations(DARK_SYSTEM)], [...declarations(DARK_CHOSEN)]);
   // Dark repaints every colour light paints, so nothing is left behind in the light scheme.
   const lightNames = [...declarations(LIGHT).keys()].filter((name) => name.startsWith('--color-') || name.startsWith('--almanac-tone-'));

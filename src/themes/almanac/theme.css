@@ -4,7 +4,9 @@
  * written over the core's own token names, and only on a document whose body is Almanac's:
  * every shared piece on the page -- the menu, the language menu, the theme panel, the focus
  * ring, a plugin's notice -- reads those names, so it is drawn in Almanac's colours without
- * knowing this theme exists. The admin, which never renders Almanac's body, keeps its own.
+ * knowing this theme exists. The admin never renders Almanac's body and keeps its own, except
+ * on the draft preview, which links this stylesheet and draws an Almanac article: that page
+ * takes the palette too, preview bar and all, so the draft looks the way it will be read.
  *
  * Every colour is declared in the three token blocks below, and nowhere else in this file.
  * tests/unit/almanac-tokens.test.ts measures each pair a reader sees, in light and in dark.
@@ -13,7 +15,7 @@
 
 /* Light. paper is the cards and panels, paper-2 the page, paper-3 the band a step darker than
  * the page; the six tones are the panels of posts with no cover, each with its own ink. */
-:root:has(> body.almanac) {
+:root:has(> body.almanac, .almanac-article) {
   --font-display: 'Trirong', Georgia, 'Times New Roman', serif;
 
   --color-paper: oklch(99% 0.006 85);
@@ -51,7 +53,7 @@
  * query and the other does not. The page goes warm brown-black, the cards a step above it, the
  * moss lifts, and each tone dims to a darker version of itself with a light ink. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):has(> body.almanac) {
+  :root:not([data-theme='light']):has(> body.almanac, .almanac-article) {
     --color-paper: oklch(24.5% 0.011 70);
     --color-paper-2: oklch(20.5% 0.01 70);
     --color-paper-3: oklch(28.5% 0.012 70);
@@ -83,7 +85,7 @@
   }
 }
 
-:root[data-theme='dark']:has(> body.almanac) {
+:root[data-theme='dark']:has(> body.almanac, .almanac-article) {
   --color-paper: oklch(24.5% 0.011 70);
   --color-paper-2: oklch(20.5% 0.01 70);
   --color-paper-3: oklch(28.5% 0.012 70);
@@ -247,15 +249,6 @@
 @media (max-width: 39.999rem) {
   .almanac-footer__nav { flex-basis: 100%; margin-inline-start: 0; }
 }
-
-/* What a post and a page draw until their own templates arrive. */
-.almanac-page { padding-block: var(--space-xl); }
-.almanac-page h1 { margin: 0 0 var(--space-sm); font-size: var(--text-title); }
-.almanac-muted { color: var(--color-muted); font-size: var(--text-sm); }
-.almanac-page a { color: var(--color-link); }
-.almanac-article { max-inline-size: 68ch; }
-.almanac-article img { width: 100%; height: auto; border-radius: var(--radius-card); }
-.almanac-body { font-size: 1.125rem; line-height: 1.75; }
 
 /* The home page: the band, then the pills and the search, then the cards. Its motion is declared
  * only where motion was not argued against, so there is nothing to turn off again below. */
@@ -490,4 +483,205 @@
 @media (prefers-reduced-motion: reduce) {
   /* Not a popover: overlays.css leaves the language menu and the theme panel a short fade. */
   .almanac-header :not([popover]), .almanac-footer :not([popover]) { transition: none !important; animation: none !important; }
+}
+
+/* A post and a page: one column of reading, 68 characters of the body's 18 px, centred. The
+ * head and the end are sized from the root; only the body reads at 18 px. The gutter's fallback
+ * is for the admin's draft preview, which has no Almanac body to set it. */
+.almanac-article {
+  inline-size: min(100% - 2 * var(--almanac-gutter, 1.25rem), 68ch);
+  margin-inline: auto;
+  padding-block: var(--space-xl) var(--space-2xl);
+  color: var(--color-ink);
+  font-size: 1.125rem;
+  font-variant-numeric: normal;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+
+.almanac-article__head { display: grid; justify-items: start; gap: var(--space-sm); }
+
+.almanac-article__draft { margin: 0; color: var(--color-muted); font-size: var(--text-sm); font-weight: 500; }
+
+/* The category on its tone: the colour its cards wear when they have no cover. */
+.almanac-article__pill {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.375rem var(--space-sm);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--pill-tone, var(--color-paper-3));
+  color: var(--pill-tone-ink, var(--color-ink-2));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.almanac-article__pill:hover { text-decoration: underline; }
+
+.almanac-article__title { margin: 0; font-family: var(--font-display); font-size: var(--text-title); font-weight: 600; line-height: 1.25; text-wrap: balance; }
+
+.almanac-article__lead { margin: 0; color: var(--color-ink-2); font-size: var(--text-md); line-height: 1.6; }
+
+.almanac-article__meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-xs); margin: 0; color: var(--color-muted); font-size: var(--text-sm); line-height: 1.5; }
+
+.almanac-article__cover {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  margin-block-start: var(--space-lg);
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  background: var(--color-paper-3);
+  object-fit: cover;
+}
+
+/* The body. The editor's blocks are the ones every theme draws; their hooks (a table's wrapper,
+ * a file card, a video's figure, a code block's language) are core's, and only the look is
+ * Almanac's: serif headings, moss list marks, a quotation set in Trirong on a moss rule. */
+.almanac-prose { margin-block-start: var(--space-xl); }
+
+.almanac-prose > * + * { margin-block-start: 1.25em; }
+
+.almanac-prose :is(h2, h3) { font-family: var(--font-display); font-weight: 600; line-height: 1.3; text-wrap: balance; scroll-margin-block-start: var(--space-xl); }
+
+.almanac-prose h2 { font-size: 1.5em; }
+
+.almanac-prose h3 { font-size: 1.2em; }
+
+.almanac-prose > :is(h2, h3) { margin-block-start: 1.75em; }
+
+.almanac-prose > :is(h2, h3) + * { margin-block-start: 0.5em; }
+
+.almanac-prose a { color: var(--color-link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+
+.almanac-prose a:hover { text-decoration-thickness: 2px; }
+
+.almanac-prose strong { font-weight: 600; }
+
+.almanac-prose :is(ul, ol) { padding-inline-start: 1.5em; }
+
+.almanac-prose ul { list-style: disc; }
+
+.almanac-prose ol { list-style: decimal; }
+
+.almanac-prose li + li,
+.almanac-prose li > :is(ul, ol) { margin-block-start: 0.375em; }
+
+.almanac-prose li::marker { color: var(--color-accent); }
+
+.almanac-prose blockquote {
+  padding-inline-start: 1.25em;
+  border-inline-start: 3px solid var(--color-accent);
+  color: var(--color-ink-2);
+  font-family: var(--font-display);
+  font-size: 1.15em;
+  line-height: 1.6;
+}
+
+.almanac-prose blockquote > * + * { margin-block-start: 0.75em; }
+
+.almanac-prose :not(pre) > code { padding: 0.1em 0.35em; border-radius: var(--radius-sm); background: var(--color-paper-3); font-family: var(--font-mono); font-size: 0.875em; }
+
+/* A bare <pre> from before code blocks had a language is drawn the same as one with. */
+.almanac-prose :is(pre, pre.code-block) {
+  padding: var(--space-md);
+  overflow-x: auto;
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-code-surface);
+  color: var(--color-code-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+/* A new part: three asterisks in Trirong, the way a book marks one. Still an hr to a screen reader. */
+.almanac-prose hr {
+  height: auto;
+  margin-block: 2em;
+  border: 0;
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  line-height: 1;
+  text-align: center;
+}
+
+.almanac-prose hr::before {
+  content: '*\2003*\2003*';
+  content: '*\2003*\2003*' / '';
+}
+
+/* The editor puts a header row in <tbody> as <th>; it sits on the band's paper. */
+.almanac-prose table { inline-size: 100%; border-collapse: collapse; font-size: var(--text-base); line-height: 1.6; font-variant-numeric: tabular-nums; }
+
+.almanac-prose :is(th, td) { padding: var(--space-xs) var(--space-sm); border-block-end: var(--rule-hair) solid var(--color-rule); text-align: start; vertical-align: top; }
+
+.almanac-prose th { background: var(--color-paper-3); font-weight: 600; }
+
+.almanac-prose tr:has(> th) > * { border-block-end-color: var(--color-rule-strong); }
+
+.almanac-prose :is(th, td) > * + * { margin-block-start: var(--space-2xs); }
+
+/* A picture narrower than the column sits in its middle. A video's poster keeps core's frame. */
+.almanac-prose img { display: block; max-inline-size: 100%; block-size: auto; margin-inline: auto; border-radius: var(--radius-card); }
+
+.almanac-article__end { margin-block-start: var(--space-2xl); padding-block-start: var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
+
+.almanac-article__more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: var(--almanac-field, 44px);
+  color: var(--color-link);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.almanac-article__more:hover { text-decoration: underline; }
+
+.almanac-article__more span { display: inline-block; }
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .almanac-article__more span { transition: transform var(--dur-short) var(--ease-out); }
+  .almanac-article__more:hover span { transform: translateX(0.25em); }
+}
+
+/*
+ * The reading progress: a moss line across the top, drawn from the scroll position by the
+ * browser itself, with no script. Where a scroll timeline is not supported there is no bar at
+ * all, since one that never moves reads as broken. Paper keeps its bar under reduced motion;
+ * Almanac's spec hides it, so a reader who asked for less motion sees nothing slide at all.
+ */
+@supports (animation-timeline: scroll()) {
+  .almanac-progress {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: calc(var(--z-sticky-nav) + 1);
+    block-size: 0.1875rem;
+    background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    /* Longhands, never the shorthand: the minifier folds a timeline into `animation`, which
+     * Chrome then drops. tests/unit/almanac-css.test.ts checks the built form. */
+    animation-name: almanac-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+
+  @keyframes almanac-progress {
+    to { transform: scaleX(1); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almanac-progress { display: none; }
 }

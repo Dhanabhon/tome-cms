@@ -1,22 +1,53 @@
 ---
-import { dateLocale, publicCopy } from '../../lib/i18n';
+import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import { articleCover } from '../../lib/post-cover';
+import { postReadingMinutes } from '../../lib/posts';
 import type { ThemePostProps } from '../contract';
+import { tone } from './tone';
 
-/** A stand-in until the reading column arrives: the title, the date, the cover and the body. */
+/**
+ * One column of reading, 68 characters wide: the first category as a pill on its own tone, the
+ * title in Trirong, the lead, who wrote it and when, the cover, the body, and the way on to the
+ * rest of that category. The draft preview passes no categories, so it has no pill and no end.
+ */
 interface Props extends ThemePostProps {}
 
-const { post, preview, settings } = Astro.props;
+const { categories, post, preview, profile, settings, themeSettings } = Astro.props;
 const copy = publicCopy(post.locale);
 const { cover, bodyHtml } = articleCover(post);
-const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone });
+// The title is the page's one h1, whatever heading level the body was written in.
+const body = bodyHtml.replace(/<(\/?)h1>/g, '<$1h2>');
+const [category] = categories;
+const categoryHref = category && `${localePath(post.locale)}?${new URLSearchParams({ category: category.name })}`;
+const categoryTone = category && tone(category.id);
 const when = preview ? post.updated_at : post.published_at ?? post.created_at;
+const date = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone }).format(new Date(when));
+const lead = post.excerpt || post.meta_description;
 ---
 
-<article class="almanac-frame almanac-page almanac-article">
-  {preview && <p class="almanac-muted">{copy.draftPreview}</p>}
-  <h1>{post.title}</h1>
-  <p class="almanac-muted">{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></p>
-  {cover && <img src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />}
-  <div class="almanac-body" set:html={bodyHtml} />
+<article class="almanac-article">
+  {themeSettings.readingProgress === 'on' && <div class="almanac-progress" aria-hidden="true"></div>}
+  <header class="almanac-article__head">
+    {preview && <p class="almanac-article__draft">{copy.draftPreview}</p>}
+    {category && (
+      <a class="almanac-article__pill" href={categoryHref}
+        style={`--pill-tone: var(--almanac-tone-${categoryTone}); --pill-tone-ink: var(--almanac-tone-${categoryTone}-ink);`}>{category.name}</a>
+    )}
+    <h1 class="almanac-article__title">{post.title}</h1>
+    {lead && <p class="almanac-article__lead">{lead}</p>}
+    <p class="almanac-article__meta">
+      <span>{copy.by} {profile?.name || settings.site_name}</span>
+      <span aria-hidden="true">·</span>
+      <span>{preview && `${copy.lastSaved} `}<time datetime={when}>{date}</time></span>
+      <span aria-hidden="true">·</span>
+      <span>{copy.minutesRead.replace('{minutes}', String(postReadingMinutes(post)))}</span>
+    </p>
+  </header>
+  {cover && <img class="almanac-article__cover" src={cover} alt={post.title} width="1200" height="675" loading="eager" fetchpriority="high" />}
+  <div class="almanac-prose" set:html={body} />
+  {category && (
+    <footer class="almanac-article__end">
+      <a class="almanac-article__more" href={categoryHref}>{copy.moreIn.replace('{category}', () => category.name)} <span aria-hidden="true">→</span></a>
+    </footer>
+  )}
 </article>

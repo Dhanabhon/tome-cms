@@ -3,7 +3,8 @@ import { sanitizedContentHtmlSchema, withLeadImage } from '../../lib/editor-cont
 import { publicCopy } from '../../lib/i18n';
 import type { ThemePageProps } from '../contract';
 
-/** A stand-in until the page shares the post's reading column. */
+/** The post's reading column with only the title above the body: a page has no category, no
+ *  date to keep and no progress to show. */
 interface Props extends ThemePageProps {}
 
 const { page, preview } = Astro.props;
@@ -12,8 +13,10 @@ const contentHtml = sanitizedContentHtmlSchema.parse(page.content_html).replace(
 const copy = publicCopy(page.locale);
 ---
 
-<article class="almanac-frame almanac-page almanac-article">
-  {preview && <p class="almanac-muted">{copy.draftPreview}</p>}
-  <h1>{page.title}</h1>
-  <div class="almanac-body" set:html={withLeadImage(contentHtml)} />
+<article class="almanac-article">
+  <header class="almanac-article__head">
+    {preview && <p class="almanac-article__draft">{copy.draftPreview}</p>}
+    <h1 class="almanac-article__title">{page.title}</h1>
+  </header>
+  <div class="almanac-prose" set:html={withLeadImage(contentHtml)} />
 </article>
