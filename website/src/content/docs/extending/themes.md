@@ -7,7 +7,7 @@ sidebar:
 
 A theme draws the public site. It owns its templates and its stylesheet and nothing else. Routing, database queries, the `<head>` with its search engine tags, the fonts and the design tokens stay in the core, so a theme cannot make the site slow or wrong.
 
-Themes ship in the repository. The owner picks one of the themes a release contains on the [Themes](/tome-cms/admin/themes/) screen, and nothing installs a theme while the site runs. TomeCMS has two: `paper`, the default, and `plain`, a spare second that exists so the contract has more than one reader. Copying `plain` is the quickest way to start.
+Themes ship in the repository. The owner picks one of the themes a release contains on the [Themes](/tome-cms/admin/themes/) screen, and nothing installs a theme while the site runs. TomeCMS has three: `paper`, the default, `plain`, a spare second that exists so the contract has more than one reader, and `almanac`, a warm third with serif headings, a hero, a row of category pills and a grid of cards, which shows a theme with its own fonts, settings and scroll-driven bar. Copying `plain` is the quickest way to start, and `almanac` is the one to read when you want a theme that does more.
 
 ## What a theme is made of
 
@@ -68,7 +68,7 @@ When `query` is set, the route has already narrowed `posts` to the ones that mat
 - carry `q` on the link to older posts, next to `category`;
 - draw the results before any hero, and say when nothing matched.
 
-Both bundled themes do this. The route also sends `noindex, follow` for a page of results, and a template needs nothing for that.
+All three bundled themes do this. The route also sends `noindex, follow` for a page of results, and a template needs nothing for that.
 
 All of it is what the route already had in hand. A theme gets no way to fetch more, and a test fails any file in a theme that imports from `src/server/` or `src/pages/`.
 
@@ -111,7 +111,7 @@ const currentPath = Astro.url.pathname;
 {header.some(({ children }) => children.length) && <SubmenuScript />}
 ```
 
-A theme can reuse three pieces of the core, and both bundled themes do:
+A theme can reuse three pieces of the core, and all three bundled themes do:
 
 - `SiteNavLink` draws one link the way every theme should, with `aria-current` on the page being viewed and a note for screen readers on a link that opens a new tab.
 - `SiteSubmenu` draws one parent and its sub-menu. It is a `<details>` that all share one `name`, so the browser keeps only one open, with no script at all. For a link parent it puts a ▾ button beside the link, and for a group the label is the button. Style `.site-submenu-item`, `.site-submenu` inside it, and `summary`, with your tokens. The panel is placed by `[data-align="end"]` when it would run past the window.
@@ -213,6 +213,7 @@ const intro = themeSettings.intro || tagline;
    const THEMES = {
      paper: () => import('./paper'),
      plain: () => import('./plain'),
+     almanac: () => import('./almanac'),
      ledger: () => import('./ledger'),
    } as const;
    ```
@@ -222,7 +223,7 @@ const intro = themeSettings.intro || tagline;
    ```ts
    import { manifest as ledger } from './ledger/theme';
 
-   export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, ledger];
+   export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, almanac, ledger];
    ```
 
 5. Run `npm run check` and `npm run test:unit`.
