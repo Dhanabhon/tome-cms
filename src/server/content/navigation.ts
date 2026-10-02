@@ -20,21 +20,46 @@ const customUrl = z.string().trim().transform(normalizeNavigationUrl)
   .pipe(z.string().min(1).max(2_048));
 /** The site's own home and pages open in place; only a link the owner typed may open a new tab. */
 const inPlace = z.literal(false).default(false);
+const home = { kind: z.literal('home'), label, pageId: z.null(), url: z.null(), newTab: inPlace };
+const page = { kind: z.literal('page'), label, pageId: z.uuid().transform((id) => id.toLowerCase()), url: z.null(), newTab: inPlace };
+const custom = { kind: z.literal('custom'), label, pageId: z.null(), url: customUrl, newTab: z.boolean().default(false) };
+/** A group is a label with no link; it only opens its sub-items. */
+const group = { kind: z.literal('group'), label, pageId: z.null(), url: z.null(), newTab: inPlace };
+/** A sub-item is a link and holds no sub-items of its own: one level only. */
+const navigationSubItemSchema = z.discriminatedUnion('kind', [
+  z.object(home).strict(),
+  z.object(page).strict(),
+  z.object(custom).strict(),
+]);
+const children = z.array(navigationSubItemSchema).max(50).optional();
 const navigationMutationItemSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('home'), label, pageId: z.null(), url: z.null(), newTab: inPlace }).strict(),
-  z.object({ kind: z.literal('page'), label, pageId: z.uuid().transform((id) => id.toLowerCase()), url: z.null(), newTab: inPlace }).strict(),
-  z.object({ kind: z.literal('custom'), label, pageId: z.null(), url: customUrl, newTab: z.boolean().default(false) }).strict(),
+  z.object({ ...home, children }).strict(),
+  z.object({ ...page, children }).strict(),
+  z.object({ ...custom, children }).strict(),
+  z.object({ ...group, children }).strict(),
 ]);
 
 export const navigationMenuSchema = z.object({
   locale: z.enum(POST_LOCALES),
   location: z.enum(['header', 'footer']),
   items: z.array(navigationMutationItemSchema).max(50),
-}).strict().superRefine(({ items }, context) => {
-  const targets = new Set<string>();
+}).strict().superRefine(({ items, location }, context) => {
+  const issue = (message: string, path: PropertyKey[]) => context.addIssue({ code: 'custom', message, path });
+  const flat = items.flatMap((item, index) => [
+    { item, path: ['items', index] },
+    ...(item.children ?? []).map((child, childIndex) => ({ item: child, path: ['items', index, 'children', childIndex] })),
+  ]);
+  if (flat.length > 50) issue('A menu holds at most 50 items, sub-items included.', ['items']);
   for (const [index, item] of items.entries()) {
+    if (location === 'footer' && item.kind === 'group') issue('A group belongs in the header menu.', ['items', index]);
+    else if (location === 'footer' && item.children?.length) issue('Only the header menu has sub-items.', ['items', index, 'children']);
+    if (item.kind === 'group' && !item.children?.length) issue('A group needs at least one sub-item.', ['items', index, 'children']);
+  }
+  const targets = new Set<string>();
+  for (const { item, path } of flat) {
+    if (item.kind === 'group') continue;
     const target = `${item.kind}:${item.kind === 'page' ? item.pageId : item.kind === 'custom' ? item.url : ''}`;
-    if (targets.has(target)) context.addIssue({ code: 'custom', message: 'Duplicate navigation target.', path: ['items', index] });
+    if (targets.has(target)) issue('Duplicate navigation target.', path);
     targets.add(target);
   }
 });
@@ -79,7 +104,8 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
   try {
     const rows = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
-      const pageIds = input.items.flatMap((item) => item.kind === 'page' ? [item.pageId] : []);
+      const pageIds = input.items.flatMap((item) => [item, ...item.children ?? []])
+        .flatMap((item) => item.kind === 'page' ? [item.pageId] : []);
       if (pageIds.length) {
         const pages = await trx.selectFrom('pages').select('id')
           .where('owner_id', '=', ownerId)
@@ -95,8 +121,9 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
         .where('locale', '=', input.locale)
         .where('location', '=', input.location)
         .execute();
-      if (!input.items.length) return [];
-      return trx.insertInto('navigation_items').values(input.items.map((item, position) => ({
+      // One running order across the menu: a parent, then its sub-items, then the next parent.
+      let position = 0;
+      const row = (item: NavigationMenuMutation['items'][number], parentId: string | null) => ({
         owner_id: ownerId,
         locale: input.locale,
         location: input.location,
@@ -105,8 +132,19 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
         page_id: item.pageId,
         url: item.url,
         new_tab: item.newTab,
-        position,
-      }))).returningAll().execute();
+        parent_id: parentId,
+        position: position++,
+      });
+      const inserted: Selectable<NavigationItemTable>[] = [];
+      for (const item of input.items) {
+        const parent = await trx.insertInto('navigation_items').values(row(item, null)).returningAll().executeTakeFirstOrThrow();
+        inserted.push(parent);
+        if (item.children?.length) {
+          inserted.push(...await trx.insertInto('navigation_items')
+            .values(item.children.map((child) => row(child, parent.id))).returningAll().execute());
+        }
+      }
+      return inserted;
     });
     invalidatePublicNavigationCache();
     return rows.map(navigationItem);

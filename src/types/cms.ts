@@ -160,7 +160,8 @@ export interface PageMutationInput {
 }
 
 export type NavigationLocation = 'header' | 'footer';
-export type NavigationKind = 'home' | 'page' | 'custom';
+/** A group is a label with no link; it only opens its sub-items. */
+export type NavigationKind = 'home' | 'page' | 'custom' | 'group';
 
 export interface NavigationItem {
   id: string;
@@ -171,6 +172,8 @@ export interface NavigationItem {
   label: string;
   page_id: string | null;
   url: string | null;
+  /** The header item this sub-item sits under; null at the top level. */
+  parent_id: string | null;
   position: number;
   new_tab: boolean;
   created_at: string;
@@ -184,6 +187,8 @@ export interface NavigationMutationItem {
   url: string | null;
   /** Only a custom item may: the site's own pages open in place. */
   newTab: boolean;
+  /** Header only, one level: a sub-item holds none. A group needs at least one. */
+  children?: NavigationMutationItem[];
 }
 
 export interface PublicNavigationItem {
@@ -217,7 +222,7 @@ export interface HomeSlide {
   focus: HomeSlideFocus;
   heading: string | null;
   id: string;
-  link_kind: NavigationKind | null;
+  link_kind: Exclude<NavigationKind, 'group'> | null;
   locale: PostLocale;
   media_id: string;
   new_tab: boolean;

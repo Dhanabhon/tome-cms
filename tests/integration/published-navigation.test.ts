@@ -129,4 +129,38 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     id: publishedPage.id, status: 'draft', updatedAt: publishedPage.updated_at,
   });
   assert.equal((await getPublicNavigation('th')).header.some(({ kind }) => kind === 'page'), false);
+
+  // A header item may hold sub-items: one running order, each sub-item pointing at its parent.
+  const tree = await replaceNavigation('public-owner', navigationMenuSchema.parse({
+    locale: 'en', location: 'header', items: [
+      { kind: 'home', label: 'Home', pageId: null, url: null, children: [
+        { kind: 'page', label: 'About', pageId: englishPage.id, url: null },
+      ] },
+      { kind: 'group', label: 'Elsewhere', pageId: null, url: null, children: [
+        { kind: 'custom', label: 'Docs', pageId: null, url: 'https://example.com/docs', newTab: true },
+        { kind: 'custom', label: 'Blog', pageId: null, url: '/en/blog' },
+      ] },
+    ],
+  }));
+  const englishHeader = async () => (await listNavigation('public-owner')).items
+    .filter(({ locale, location }) => locale === 'en' && location === 'header');
+  const saved = await englishHeader();
+  assert.deepEqual(saved.map(({ label, position }) => [label, position]), [
+    ['Home', 0], ['About', 1], ['Elsewhere', 2], ['Docs', 3], ['Blog', 4],
+  ]);
+  assert.deepEqual(saved.map(({ parent_id }) => parent_id), [null, saved[0]?.id, null, saved[2]?.id, saved[2]?.id]);
+  assert.deepEqual(tree.map(({ id }) => id), saved.map(({ id }) => id), 'the save returns the rows it wrote, in order');
+
+  await assert.rejects(
+    replaceNavigation('public-owner', navigationMenuSchema.parse({
+      locale: 'en', location: 'header', items: [
+        { kind: 'group', label: 'Wrong', pageId: null, url: null, children: [
+          { kind: 'page', label: 'Thai page', pageId: publishedPage.id, url: null },
+        ] },
+      ],
+    })),
+    (error: unknown) => error instanceof HttpError && error.status === 400,
+    'a sub-item page is checked like any other',
+  );
+  assert.deepEqual(await englishHeader(), saved, 'a refused save keeps the tree');
 });
