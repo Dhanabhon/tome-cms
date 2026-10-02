@@ -13,7 +13,7 @@ sidebar:
 
 Each row is one page, with a line for every language edition you have written, its address, its status and its date in the site's time zone. The tabs "Drafts", "Published" and "All" work as they do for posts. "Search pages" finds a page by its title, and "Language" narrows the list once you press "Apply filters".
 
-The "..." beside an edition has "Edit", "Preview", "Copy link", "Duplicate", "Publish" or "Unpublish", and "Delete". "Copy link" is there once the edition is published, and puts its address on the clipboard. Deleting an edition takes it out of every menu too, and cannot be undone. "Not written" starts the page in the other language.
+The "..." beside an edition has "Edit", "Preview", "Copy link", "Duplicate", "Publish" or "Unpublish", and "Delete". "Copy link" is there once the edition is published, and puts its address on the clipboard. Deleting an edition takes it out of every menu too, except where it is a parent with sub-items, which stays as a group ([Sub-menus and groups](#sub-menus-and-groups)), and cannot be undone. "Not written" starts the page in the other language.
 
 ## Writing a page
 
@@ -61,23 +61,23 @@ An item for a page stores the page itself, so it follows the page when its addre
 
 ### Sub-menus and groups
 
-An item in the "Header menu" can hold a sub-menu. The "Footer" stays flat, and so does a sub-menu: it goes one level deep, and a sub-item cannot hold items of its own.
+An item in the "Header menu" can hold a sub-menu. The "Footer" stays flat. A sub-menu goes one level deep: a sub-item cannot hold items of its own.
 
 On the "Header menu" tab each item has two arrow buttons beside "Move up" and "Move down":
 
 - "Move under the item above" makes the item the last sub-item of the top-level item above it. When the item above is itself a sub-item, the item joins that sub-item's parent. The first item has nothing above it, and a group, or an item that already holds sub-items, cannot be moved under another.
 - "Move out" is on a sub-item. It puts the item back at the top level, right after its parent's last sub-item.
 
-A sub-item is drawn indented, with a line beside it, and its row says "under" and the parent's label. Moving a parent, with "Move up", "Move down" or the handle, takes its sub-items with it. A sub-item moves only among the items under the same parent, and leaves it only through "Move out". "Remove" on a parent takes out that item alone: its sub-items stay in the menu, at the top level.
+A sub-item's row is drawn indented, with a line beside it, and a screen reader announces which item it is under. Moving a parent, with "Move up", "Move down" or the handle, takes its sub-items with it. A sub-item moves only among the items under the same parent, and leaves it only through "Move out". "Remove" on a parent takes out that item alone: its sub-items stay in the menu, at the top level.
 
 A parent can be a link, such as a page or "Home", or a group. A group is a label with no link, and all it does is open its sub-menu. Add one with "Add item", "Group (no link)" and a "Label". A new item always goes to the end of the menu at the top level, so add the group first, then move items under it. A group needs at least one item under it. Until it has one, its row says "A group needs at least one item under it." and "Save menu" stays unavailable.
 
-A sub-item for a page that is not published is marked "Hidden: draft", and readers do not see it. A parent whose own page is not published is shown on the site as a group, with the same label, as long as one of its sub-items is shown. A group with no sub-item left to show is not shown at all. Deleting a page that is a parent with sub-items does not remove the item: it stays in the menu as a group, with its label and its place, and keeps its sub-items. An item with no sub-items goes with its page, as before.
+A sub-item for a page that is not published is marked "Hidden: draft", and readers do not see it. A parent whose own page is not published is marked "Hidden: draft" too, but readers still get it, as a group, with the same label, as long as one of its sub-items is shown. A group with no sub-item left to show is not shown at all. Deleting a page that is a parent with sub-items does not remove the item: it stays in the menu as a group, with its label and its place, and keeps its sub-items. An item with no sub-items goes with its page, as before.
 
 #### On the site
 
-On a wide screen, the parent opens a small panel under it. For a link parent, that is a ▾ button beside the link, named "Show the {label} menu" for a screen reader, so the link still goes to the page. For a group, the label itself is the button. A click opens the panel, never a hover. Another click on the button, a click anywhere else on the page, or Escape closes it, and Escape puts the focus back on the button. Only one panel is open at a time, and one that would run past the edge of the window opens against its parent's far edge instead. Opening and closing with the button works with scripts turned off too. A parent that holds the page being viewed looks like the current item.
+The parent opens a small panel under it: on a wide screen in "Paper", and at every width in "Plain". For a link parent, that is a ▾ button beside the link, named "Show the {label} menu" for a screen reader, so the link still goes to the page. For a group, the label itself is the button. A click or tap opens the panel, never a hover. Another click on the button, a click anywhere else on the page, or Escape closes it, and Escape puts the focus back on the button. Only one panel is open at a time, and one that would run past the edge of the window opens against its parent's far edge instead. Opening and closing with the button works with scripts turned off too. A parent that holds the page being viewed looks like the current item.
 
-On a phone, the sub-items are listed under their parent inside "Menu", indented and always shown, so there is no second tap. A link parent stays a link, and a group is a small label above its items.
+On a phone, "Paper" lists the sub-items under their parent inside "Menu", indented and always shown, so there is no second tap. A link parent stays a link, and a group is a small label above its items. "Plain" has no "Menu": the header keeps its row, and the panel opens from the ▾ or the group's label and spans the width of the header, just under it.
 
-Both themes that come with TomeCMS draw sub-menus this way. A theme of your own draws them as [Writing a theme](/tome-cms/extending/themes/#drawing-sub-menus) describes.
+A theme of your own draws sub-menus as [Writing a theme](/tome-cms/extending/themes/#drawing-sub-menus) describes.

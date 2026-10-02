@@ -86,7 +86,7 @@ curl -s 'https://cms.example.com/api/v1/content/navigation?locale=en' | jq '.dat
 ]
 ```
 
-`children` is new in 1.10.0, and so are `group` and a `null` `href`. A client written before then keeps working until the owner adds a group or a sub-item to a header menu, since until then every `children` is empty and every `href` is a string. After that, a client that ignores `children` sees only the top level, and a `null` `href` on each group. Read `children`, and treat a `null` `href` as a label, not a link.
+`children` is new in 1.10.0, and so are `group` and a `null` `href`. A client written before then, if it ignores fields it does not know, keeps working until the owner adds a group or a sub-item to a header menu, since until then every `children` is empty (a client that checks responses strictly against the old schema will reject the new key at once) and every `href` is a string. After that, a client that ignores `children` sees only the top level, and a `null` `href` on each group. Read `children`, and treat a `null` `href` as a label, not a link.
 
 ## The locale parameter
 
