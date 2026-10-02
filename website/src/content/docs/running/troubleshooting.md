@@ -112,7 +112,7 @@ Before updater 1.4.0, every update left the application image it replaced on the
 sudo docker image prune -a --filter "until=24h"
 ```
 
-It removes every image, from any repository, that was created more than 24 hours ago and that no container uses, running or stopped. The running application, PostgreSQL and SeaweedFS each have a container, so their images stay. The previous version's image goes if it is older than that, and Docker downloads it again should an update ever have to go back to it. The updater never deletes old backups either: copy those you want to keep off the server, then remove them from `/var/backups/tome-cms/`. Then update again from "System".
+It removes every image, from any repository, that was created more than 24 hours ago and that no container uses, running or stopped. The running application, PostgreSQL and SeaweedFS each have a container, so their images stay. The previous version's image goes if it is older than that. The updater never deletes old backups either: copy those you want to keep off the server, then remove them from `/var/backups/tome-cms/`. Then update again from "System".
 
 From updater 1.4.0, a successful update removes the older application images itself, as [Updating](/tome-cms/running/updating/) says.
 

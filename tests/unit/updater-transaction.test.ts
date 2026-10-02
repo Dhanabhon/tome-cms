@@ -7,7 +7,7 @@ import { mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from 'node:fs/
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
 import { OFFICIAL_IMAGE_REPOSITORY, type UpdateManifest } from '../../src/update/contracts.js';
 import type { UpdaterConfig } from '../../src/updater/config.js';
@@ -987,4 +987,34 @@ test('on the owner’s real listing (containerd store, 2026-10-02), all but the 
     return '';
   }, [installed, previousDigest], { jobId: randomUUID(), targetVersion: '1.10.0', secrets: null });
   assert.deepEqual(removed, ['sha256:4854e6fadff66aa479360044d7b3d7e6ce49159de167dbd8ff984c518b90b487', 'sha256:832318918883cea20713ec42ac4aaf02071e5f6556f380647072010e633b2edb', 'sha256:6ff5866ee4930730dc4c5680bbb45eb8b384030c426d24588098a55f72b053f5', 'sha256:1e522723a7a85c926002778e3082bdb22f8fa901f2f8f1c244a7253849921903', 'sha256:35c9435d5b9a1fa8fe4cb7b6f3564cb205238f0af59a783a33db9bd027008ca8']);
+});
+
+/** pruneOldImages on a given listing: what it removed and what it said on stderr. */
+async function prune(t: TestContext, listing: string, keep: string[] = []) {
+  const removed: string[] = [];
+  const errors: string[] = [];
+  t.mock.method(console, 'info', () => undefined);
+  t.mock.method(console, 'error', (message: unknown) => { errors.push(String(message)); });
+  await pruneOldImages(async (stage, args) => {
+    if (stage === 'cleanup.image.list') return listing;
+    removed.push(args.at(-1)!);
+    return '';
+  }, keep, { jobId: randomUUID(), targetVersion: '1.10.0', secrets: null });
+  return { errors, removed };
+}
+
+test('one unreadable line in the listing removes nothing, even next to a clean untagged row', async (t) => {
+  const { errors, removed } = await prune(t, `${imageRow(imageId('a'), imageId('a'))}\n{"Repository": truncated\n`);
+  assert.deepEqual(removed, []);
+  assert.deepEqual(errors.map((line) => JSON.parse(line).event), ['updater_image_listing_unreadable']);
+});
+
+test('one image ID with a tagged row and an untagged row is kept', async (t) => {
+  const { errors, removed } = await prune(t, [
+    imageRow(imageId('a'), imageId('b'), OFFICIAL_IMAGE_REPOSITORY, 'dev'),
+    imageRow(imageId('c'), imageId('b')),
+    imageRow(imageId('d'), imageId('e')),
+  ].join('\n'));
+  assert.deepEqual(removed, [imageId('e')]);
+  assert.deepEqual(errors, []);
 });

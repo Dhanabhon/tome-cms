@@ -23,8 +23,10 @@ export async function pruneOldImages(
     // Without --digests, `Digest` is empty: an image pulled by digest has no tag to tell it by.
     const listing = await command('cleanup.image.list',
       ['image', 'ls', '--no-trunc', '--digests', '--format', '{{json .}}', OFFICIAL_IMAGE_REPOSITORY], 30_000);
-    const rows = listing.split('\n').flatMap(imageRow);
-    if (rows.length === 0 && listing.trim()) journal('updater_image_listing_unreadable', 'cleanup.image.list', diagnostics);
+    const parsed = listing.split('\n').filter((line) => line.trim()).map(imageRow);
+    // One line that cannot be read means the listing cannot be trusted: it may be the very row that says keep.
+    if (parsed.includes(null)) return journal('updater_image_listing_unreadable', 'cleanup.image.list', diagnostics);
+    const rows = parsed.flatMap((row) => row ?? []).filter((row) => row.repository === OFFICIAL_IMAGE_REPOSITORY && digest.test(row.id));
     // Kept: an image under a kept digest (one image can carry several), and any tagged one.
     const kept = new Set(rows.filter((row) => keep.includes(row.digest) || row.tag !== '<none>' || !digest.test(row.digest))
       .map((row) => row.id));
@@ -37,15 +39,16 @@ export async function pruneOldImages(
   } catch { /* The update has succeeded; a clean-up that cannot run waits for the next one. */ }
 }
 
-function imageRow(line: string): Array<{ digest: string; id: string; tag: unknown }> {
+/** One listing line, or null when it is not a JSON object with the fields Docker always writes. */
+function imageRow(line: string): { digest: string; id: string; repository: string; tag: unknown } | null {
   try {
     const row: unknown = JSON.parse(line);
-    if (!row || typeof row !== 'object') return [];
+    if (!row || typeof row !== 'object') return null;
     const { Repository, Digest, ID, Tag } = row as Record<string, unknown>;
-    return Repository === OFFICIAL_IMAGE_REPOSITORY && typeof Digest === 'string' &&
-      typeof ID === 'string' && digest.test(ID) ? [{ digest: Digest, id: ID, tag: Tag }] : [];
+    return typeof Repository === 'string' && typeof Digest === 'string' && typeof ID === 'string'
+      ? { digest: Digest, id: ID, repository: Repository, tag: Tag } : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
