@@ -12,5 +12,5 @@
     "declaration": false,
     "noEmitOnError": true
   },
-  "include": ["src/update/**/*.ts", "src/updater/**/*.ts"]
+  "include": ["src/update/**/*.ts", "src/updater/**/*.ts", "src/cli/**/*.ts"]
 }

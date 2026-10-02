@@ -159,7 +159,7 @@ async function fixture(t: TestContext) {
   const prefix = join(root, 'host');
   const bin = join(prefix, 'bin');
   await mkdir(bin, { recursive: true });
-  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'src/updater/version.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
+  const files = ['scripts/install-managed-vps.sh', 'scripts/bootstrap-core.mjs', 'scripts/deploy-vps.sh', 'src/update/contracts.ts', 'src/updater/process.ts', 'src/updater/inventory.ts', 'src/updater/version.ts', 'src/cli/shim.ts', 'compose.managed.yaml', 'config/systemd/tomecms-updater.service', 'config/seaweedfs-s3.json'];
   for (const file of files) {
     const target = join(source, file);
     await mkdir(dirname(target), { recursive: true });
@@ -225,6 +225,7 @@ test('dry-run verifies a matching release and prints a fixed plan without instal
     ['/var/log/tome-cms', '0700', 'tomecms-updater:tomecms-updater'],
     ['/run/tome-cms', '0750', 'tomecms-updater:tomecms-updater'],
     ['/etc/systemd/system/tomecms-updater.service', '0644', 'root:root'],
+    ['/usr/local/bin/tome', '0755', 'root:root'],
   ]);
   assert.equal(plan.destinations.find((item: { path: string }) => item.path === '/etc/tome-cms/tome-cms.env').mode, '0640');
   assert.deepEqual(plan.steps, ['build-updater', 'pull-image', 'create-account', 'install-files', 'start-infrastructure', 'migrate', 'start-app', 'readiness', 'start-updater', 'socket-status']);
@@ -596,6 +597,8 @@ test('installation writes private fixed state, then migrates before app and sock
   assert.equal(installed.imageDigest, digest);
   assert.equal((await stat(join(f.prefix, 'var/lib/tome-cms/updater/image.env'))).mode & 0o777, 0o600);
   assert.equal(await readFile(join(f.prefix, 'var/lib/tome-cms/updater/image.env'), 'utf8'), `TOME_CMS_APP_IMAGE='${image}'\n`);
+  assert.equal(await readFile(join(f.prefix, 'usr/local/bin/tome'), 'utf8'), '#!/bin/sh\nexec /usr/bin/node /opt/tome-cms/updater/cli/main.js "$@"\n');
+  assert.equal((await stat(join(f.prefix, 'usr/local/bin/tome'))).mode & 0o777, 0o755);
   await assert.rejects(access(join(f.source, '.env.local')));
   assert.ok(env.TOME_CMS_INSTALL_TOKEN);
   assert.doesNotMatch(result.stdout + result.stderr, new RegExp(env.TOME_CMS_INSTALL_TOKEN));

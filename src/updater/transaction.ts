@@ -358,7 +358,7 @@ export async function runPrune(input: {
 }
 
 /** The bytes in a backup's files, as written; links are not followed. */
-async function directorySize(path: string): Promise<number> {
+export async function directorySize(path: string): Promise<number> {
   let total = 0;
   for (const entry of await readdir(path, { recursive: true, withFileTypes: true })) {
     if (entry.isFile()) total += (await lstat(join(entry.parentPath, entry.name))).size;
@@ -462,7 +462,7 @@ async function cleanOneShot(
   }
 }
 
-function composePrefix(config: UpdaterConfig): string[] {
+export function composePrefix(config: UpdaterConfig): string[] {
   return ['compose', '-p', config.projectName, '-f', config.composeFile,
     '--env-file', config.environmentFile, '--env-file', config.imageEnvironmentFile];
 }
