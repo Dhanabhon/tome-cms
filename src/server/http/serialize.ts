@@ -1,4 +1,4 @@
-import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicHomeSlide, PublicMedia, PublicNavigation, PublicPage, PublicPost, PublicSite } from '../../types/cms';
+import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicHomeSlide, PublicMedia, PublicNavigation, PublicNavigationItem, PublicPage, PublicPost, PublicSite } from '../../types/cms';
 import type { PublishedPage, PublishedPost } from '../content/published';
 import type { SiteBrand } from '../../lib/site-brand';
 import type { SiteSettings } from '../content/settings';
@@ -95,10 +95,10 @@ export function serializePublicSite(row: SiteSettings, avatar: ReadyImage | null
 }
 
 export function serializePublicNavigation(row: PublicNavigation): PublicNavigation {
-  return publicNavigationSchema.parse({
-    footer: row.footer.map(({ href, kind, label, newTab }) => ({ href, kind, label, newTab })),
-    header: row.header.map(({ href, kind, label, newTab }) => ({ href, kind, label, newTab })),
-  });
+  const item = ({ children, href, kind, label, newTab }: PublicNavigationItem): PublicNavigationItem => (
+    { href, kind, label, newTab, children: children.map(item) }
+  );
+  return publicNavigationSchema.parse({ footer: row.footer.map(item), header: row.header.map(item) });
 }
 
 /** Each field named, so a field added to the row never reaches a reader by accident. */

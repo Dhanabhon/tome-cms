@@ -1,0 +1,41 @@
+---
+/**
+ * What a header sub-menu does beyond opening and closing, which `<details>` does on its own:
+ * Escape closes it, wherever focus is, and puts focus back on its summary; a press outside it,
+ * or focus moving to something outside it, closes it; and a panel that would pass the window's
+ * inline end is anchored to its parent's end instead.
+ *
+ * Focus moving to nothing does not count as leaving: Safari moves focus to nothing on a press of
+ * a link it will not focus, and closing then would swallow the click. A press outside is caught
+ * by `pointerdown` anyway.
+ */
+---
+<script>
+  const OPEN = '[data-site-submenu][open]';
+  const EDGE = 8;
+  // Wherever focus is: a press on the panel's padding leaves it on the page, and Safari never
+  // focuses the summary that was clicked. The shared name means at most one is open.
+  document.addEventListener('keydown', (event) => {
+    const open = event.key === 'Escape' && document.querySelector<HTMLDetailsElement>(OPEN);
+    if (!open) return;
+    open.open = false;
+    open.querySelector('summary')?.focus();
+  });
+  document.addEventListener('pointerdown', (event) => {
+    for (const open of document.querySelectorAll<HTMLDetailsElement>(OPEN)) if (!open.contains(event.target as Node)) open.open = false;
+  });
+  document.addEventListener('focusout', (event) => {
+    const open = (event.target as Element).closest?.(OPEN);
+    if (open instanceof HTMLDetailsElement && event.relatedTarget && !open.contains(event.relatedTarget as Node)) open.open = false;
+  });
+  // `toggle` does not bubble, so it is heard on the way down.
+  document.addEventListener('toggle', (event) => {
+    const details = event.target as HTMLElement;
+    const panel = details.matches?.(OPEN) && details.querySelector<HTMLElement>('.site-submenu');
+    if (!panel) return;
+    delete panel.dataset.align;
+    const { left, right } = panel.getBoundingClientRect();
+    const past = getComputedStyle(panel).direction === 'rtl' ? left < EDGE : right > window.innerWidth - EDGE;
+    if (past) panel.dataset.align = 'end';
+  }, true);
+</script>

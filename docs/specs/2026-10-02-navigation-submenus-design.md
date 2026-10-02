@@ -97,13 +97,15 @@ The theme contract adds to `PublicNavigationItem`:
 - `children: PublicNavigationItem[]`, empty for a plain item;
 - `kind: 'group'`, with `href: null`.
 
-`getPublicNavigation` builds the tree:
+`buildPublicNavigation` in `public-navigation.ts` builds the tree:
 - **A sub-item whose page is not live is dropped,** as a flat item is today.
 - **A parent whose page is not live but which still has live sub-items is shown as a group,** a
   label with no link.
 - **A group or such a parent with no live sub-items left is dropped.**
-- **Each parent carries `current: true`** when one of its sub-items is the page being viewed, so the
-  theme can mark the section.
+- **Deleting the page of a parent that holds sub-items turns the parent into a group,** keeping its
+  label and position, and keeps the sub-items. A menu item with no sub-items goes with its page.
+- **The theme works out the current section** from the request path, with `isCurrentSection`, so the
+  cached menu does not depend on the page being viewed.
 
 ### Desktop (Paper and Plain)
 
@@ -121,7 +123,7 @@ The theme contract adds to `PublicNavigationItem`:
   - a panel that would pass the window's inline-end edge is anchored to its parent's inline-end
     instead.
 - **Click to open, not hover.** Hover opens by accident and does not exist on touch or keyboard.
-- **The current section.** A parent with `current: true` gets `aria-current="true"` and the same
+- **The current section.** A parent for which `isCurrentSection` is true gets `aria-current="true"` and the same
   look as a current item.
 - **Motion.** The panel fades in and drops a few pixels, animated with opacity and transform only.
   It is instant under `prefers-reduced-motion`.
@@ -154,13 +156,13 @@ The theme contract adds to `PublicNavigationItem`:
   - the save schema: one level; header only; a group needs children; no group as a child; the
     duplicate check across levels; the 50 cap counting children;
   - the public tree builder: a dropped sub-item; a parent shown as a group when its page is gone; an
-    empty parent dropped; `current`;
+    empty parent dropped; `isCurrentSection`;
   - the API serializer.
 - **Integration:**
   - the migration up and down;
   - the database checks (no grandchild, no parent in the footer, no group in the footer);
   - saving and listing a menu with sub-items, in one transaction, rolled back on any refusal;
-  - a parent deleted with its page, taking its sub-items with it.
+  - a parent deleted with its page, which becomes a group and keeps its sub-items.
 - **Browser:**
   - **admin:** indent, outdent, move a parent with its children, add a group, the empty-group block,
     then save and reload;
@@ -168,6 +170,38 @@ The theme contract adds to `PublicNavigationItem`:
     only one open; the edge flip; keyboard only;
   - **mobile site:** the indented list; no overflow at 390 px;
   - screenshots at 390 and 1440, light and dark.
+
+## Also in 1.10.0: the updater and disk space
+
+The owner approved this on 2026-10-02, after 1.9.1 failed to install on daedalus.
+
+**What happened.**
+- The updater refuses to start with less than 5 GiB free (`minimumFreeBytes`). daedalus had
+  4.9 GB.
+- The failure was reported as `release_unavailable`, because the disk check runs inside the
+  release-verification step.
+- The disk had filled with 28 old application images (11 GB unused), because the updater never
+  removes an image it replaced.
+
+**1. Its own error.** A disk-space refusal gets the error code `insufficient_disk_space`.
+- **System shows** "Not enough free disk space for the backup: the update needs 5 GB free."
+  (th: "พื้นที่ดิสก์ว่างไม่พอสำหรับสำรองข้อมูล: การอัปเดตต้องมีพื้นที่ว่าง 5 GB"), with a link to
+  the troubleshooting entry.
+- **The troubleshooting page** gains that entry. It gives the safe prune command
+  `sudo docker image prune -a --filter "until=24h"` and explains what it removes.
+- **The app learns the code in 1.10.0.** An updater from before this change never sends it, so the
+  two stay compatible.
+
+**2. Old images are removed.**
+- **When:** after an update succeeds.
+- **What:** the updater removes the official application images
+  (`ghcr.io/dhanabhon/tome-cms`) other than the installed digest and the previous one, which
+  rollback needs.
+- **What it never touches:** the database or storage images, or anything else.
+- **On failure:** a removal that fails is logged and never fails the update.
+- **Its version:** this is updater code, so it arrives with `sudo npm run updater:upgrade`. The
+  1.10.0 notes say so. `UPDATER_VERSION` becomes `1.4.0`, and the release manifest's
+  `minimumUpdaterVersion` stays `1.0.0`, so 1.10.0 still installs through an older updater.
 
 ## Release
 

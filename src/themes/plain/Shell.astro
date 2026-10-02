@@ -1,7 +1,11 @@
 ---
 import SiteBrand from '../../components/SiteBrand.astro';
+import SiteNavLink from '../../components/SiteNavLink.astro';
+import SiteSubmenu from '../../components/SiteSubmenu.astro';
+import SubmenuScript from '../../components/SubmenuScript.astro';
 import ThemeToggle from '../../components/ThemeToggle.astro';
 import { currentYear, localePath, poweredByText, publicCopy } from '../../lib/i18n';
+import { isLink } from '../../lib/navigation-current';
 import { THEME_LABELS } from '../../lib/theme';
 import type { ThemeShellProps } from '../contract';
 
@@ -14,6 +18,9 @@ interface Props extends ThemeShellProps {}
 
 const { allowVisitorTheme, alternates, brand, footer, header, locale, showPoweredBy, siteName, theme } = Astro.props;
 const copy = publicCopy(locale);
+// The footer is flat: the menu builder gives it links only, never a group or a sub-item.
+const links = footer.filter(isLink);
+const currentPath = Astro.url.pathname;
 const languages = alternates.filter(({ locale: option }) => option !== locale);
 ---
 
@@ -22,18 +29,22 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
   <header class="plain-head">
     <a class="plain-wordmark" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
     <nav class="plain-nav" aria-label={copy.primaryNavigation}>
-      {header.map(({ href, label, newTab }) => <a href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a>)}
+      {header.length > 0 && (
+        <ul>{header.map((item) => item.children.length ? <SiteSubmenu copy={copy} currentPath={currentPath} item={item} />
+          : isLink(item) && <li><SiteNavLink copy={copy} currentPath={currentPath} item={item} /></li>)}</ul>
+      )}
       {languages.map(({ href, locale: option }) => <a href={href} lang={option}>{option.toUpperCase()}</a>)}
       {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     </nav>
+    {header.some(({ children }) => children.length) && <SubmenuScript />}
   </header>
   <main>
     <slot />
   </main>
   <footer class="plain-foot">
-    {footer.length > 0 && (
+    {links.length > 0 && (
       <nav aria-label={copy.footerNavigation}>
-        {footer.map(({ href, label, newTab }) => <a href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a>)}
+        {links.map((item) => <SiteNavLink copy={copy} currentPath={currentPath} item={item} />)}
       </nav>
     )}
     <p>&copy; {currentYear(locale)} {siteName}.</p>

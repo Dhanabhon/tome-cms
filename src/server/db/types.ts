@@ -247,10 +247,11 @@ export interface NavigationItemTable {
   owner_id: string;
   locale: 'th' | 'en';
   location: 'header' | 'footer';
-  kind: 'home' | 'page' | 'custom';
+  kind: 'home' | 'page' | 'custom' | 'group';
   label: string;
   page_id: string | null;
   url: string | null;
+  parent_id: string | null;
   position: number;
   new_tab: Generated<boolean>;
   created_at: Timestamp;

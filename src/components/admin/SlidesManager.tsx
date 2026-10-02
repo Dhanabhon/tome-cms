@@ -45,7 +45,7 @@ interface LocalSlide {
   focus: HomeSlideFocus;
   heading: string;
   id: string;
-  linkKind: NavigationKind;
+  linkKind: Exclude<NavigationKind, 'group'>;
   mediaId: string;
   newTab: boolean;
   overlay: HomeSlideOverlay;

@@ -1,0 +1,20 @@
+---
+import type { publicCopy } from '../lib/i18n';
+import type { PublicNavigationItem } from '../types/cms';
+
+interface Props {
+  copy: Pick<ReturnType<typeof publicCopy>, 'opensInNewTab'>;
+  currentPath: string;
+  item: PublicNavigationItem & { href: string };
+  /** The page being viewed is one of this link's sub-items. */
+  section?: boolean;
+}
+
+/**
+ * One header or footer link as every theme draws it: the page itself is `aria-current="page"`,
+ * the parent of that page `"true"`, and a link that opens a new tab says so to a screen reader.
+ */
+const { copy, currentPath, item: { href, label, newTab }, section = false } = Astro.props;
+---
+
+<a aria-current={href === currentPath ? 'page' : section ? 'true' : undefined} href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a>

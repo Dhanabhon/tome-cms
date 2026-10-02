@@ -1,7 +1,7 @@
 import type { Selectable, Transaction } from 'kysely';
 import { z } from 'zod';
 
-import { localePath, pagePath } from '../../lib/i18n';
+import { pagePath } from '../../lib/i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import {
   POST_LOCALES,
@@ -14,27 +14,53 @@ import { db } from '../db/client';
 import type { Database, NavigationItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { live } from './live';
+import { buildPublicNavigation } from './public-navigation';
 
 const label = z.string().trim().min(1).max(80);
 const customUrl = z.string().trim().transform(normalizeNavigationUrl)
   .pipe(z.string().min(1).max(2_048));
 /** The site's own home and pages open in place; only a link the owner typed may open a new tab. */
 const inPlace = z.literal(false).default(false);
+const home = { kind: z.literal('home'), label, pageId: z.null(), url: z.null(), newTab: inPlace };
+const page = { kind: z.literal('page'), label, pageId: z.uuid().transform((id) => id.toLowerCase()), url: z.null(), newTab: inPlace };
+const custom = { kind: z.literal('custom'), label, pageId: z.null(), url: customUrl, newTab: z.boolean().default(false) };
+/** A group is a label with no link; it only opens its sub-items. */
+const group = { kind: z.literal('group'), label, pageId: z.null(), url: z.null(), newTab: inPlace };
+/** A sub-item is a link and holds no sub-items of its own: one level only. */
+const navigationSubItemSchema = z.discriminatedUnion('kind', [
+  z.object(home).strict(),
+  z.object(page).strict(),
+  z.object(custom).strict(),
+]);
+const children = z.array(navigationSubItemSchema).max(50).optional();
 const navigationMutationItemSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('home'), label, pageId: z.null(), url: z.null(), newTab: inPlace }).strict(),
-  z.object({ kind: z.literal('page'), label, pageId: z.uuid().transform((id) => id.toLowerCase()), url: z.null(), newTab: inPlace }).strict(),
-  z.object({ kind: z.literal('custom'), label, pageId: z.null(), url: customUrl, newTab: z.boolean().default(false) }).strict(),
+  z.object({ ...home, children }).strict(),
+  z.object({ ...page, children }).strict(),
+  z.object({ ...custom, children }).strict(),
+  z.object({ ...group, children }).strict(),
 ]);
 
 export const navigationMenuSchema = z.object({
   locale: z.enum(POST_LOCALES),
   location: z.enum(['header', 'footer']),
   items: z.array(navigationMutationItemSchema).max(50),
-}).strict().superRefine(({ items }, context) => {
-  const targets = new Set<string>();
+}).strict().superRefine(({ items, location }, context) => {
+  const issue = (message: string, path: PropertyKey[]) => context.addIssue({ code: 'custom', message, path });
+  const flat = items.flatMap((item, index) => [
+    { item, path: ['items', index] },
+    ...(item.children ?? []).map((child, childIndex) => ({ item: child, path: ['items', index, 'children', childIndex] })),
+  ]);
+  if (flat.length > 50) issue('A menu holds at most 50 items, sub-items included.', ['items']);
   for (const [index, item] of items.entries()) {
+    if (location === 'footer' && item.kind === 'group') issue('A group belongs in the header menu.', ['items', index]);
+    else if (location === 'footer' && item.children?.length) issue('Only the header menu has sub-items.', ['items', index, 'children']);
+    else if (item.kind === 'group' && !item.children?.length) issue('A group needs at least one sub-item.', ['items', index, 'children']);
+  }
+  const targets = new Set<string>();
+  for (const { item, path } of flat) {
+    if (item.kind === 'group') continue;
     const target = `${item.kind}:${item.kind === 'page' ? item.pageId : item.kind === 'custom' ? item.url : ''}`;
-    if (targets.has(target)) context.addIssue({ code: 'custom', message: 'Duplicate navigation target.', path: ['items', index] });
+    if (targets.has(target)) issue('Duplicate navigation target.', path);
     targets.add(target);
   }
 });
@@ -56,7 +82,8 @@ function postgresCode(error: unknown): string | null {
     : null;
 }
 
-async function lockOwner(trx: Transaction<Database>, ownerId: string): Promise<void> {
+/** Serialises the owner's menu writes: a save, and a page delete that converts a parent. */
+export async function lockOwner(trx: Transaction<Database>, ownerId: string): Promise<void> {
   const owner = await trx.selectFrom('user').select('id').where('id', '=', ownerId).forUpdate().executeTakeFirst();
   if (!owner) throw new HttpError(404, 'Owner not found.');
 }
@@ -79,7 +106,8 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
   try {
     const rows = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
-      const pageIds = input.items.flatMap((item) => item.kind === 'page' ? [item.pageId] : []);
+      const pageIds = input.items.flatMap((item) => [item, ...item.children ?? []])
+        .flatMap((item) => item.kind === 'page' ? [item.pageId] : []);
       if (pageIds.length) {
         const pages = await trx.selectFrom('pages').select('id')
           .where('owner_id', '=', ownerId)
@@ -95,8 +123,9 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
         .where('locale', '=', input.locale)
         .where('location', '=', input.location)
         .execute();
-      if (!input.items.length) return [];
-      return trx.insertInto('navigation_items').values(input.items.map((item, position) => ({
+      // One running order across the menu: a parent, then its sub-items, then the next parent.
+      let position = 0;
+      const row = (item: NavigationMenuMutation['items'][number], parentId: string | null) => ({
         owner_id: ownerId,
         locale: input.locale,
         location: input.location,
@@ -105,8 +134,19 @@ export async function replaceNavigation(ownerId: string, input: NavigationMenuMu
         page_id: item.pageId,
         url: item.url,
         new_tab: item.newTab,
-        position,
-      }))).returningAll().execute();
+        parent_id: parentId,
+        position: position++,
+      });
+      const inserted: Selectable<NavigationItemTable>[] = [];
+      for (const item of input.items) {
+        const parent = await trx.insertInto('navigation_items').values(row(item, null)).returningAll().executeTakeFirstOrThrow();
+        inserted.push(parent);
+        if (item.children?.length) {
+          inserted.push(...await trx.insertInto('navigation_items')
+            .values(item.children.map((child) => row(child, parent.id))).returningAll().execute());
+        }
+      }
+      return inserted;
     });
     invalidatePublicNavigationCache();
     return rows.map(navigationItem);
@@ -135,10 +175,9 @@ export function invalidatePublicNavigationCache(): void {
 }
 
 async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigationSnapshot> {
-  const navigation: PublicNavigation = { footer: [], header: [] };
   const settings = await db.selectFrom('site_settings').select(['owner_id', 'updated_at'])
     .where('id', '=', true).executeTakeFirst();
-  if (!settings) return { lastModified: new Date(0), navigation };
+  if (!settings) return { lastModified: new Date(0), navigation: { footer: [], header: [] } };
   let modified = settings.updated_at.getTime();
   const items = await db.selectFrom('navigation_items').selectAll()
     .where('owner_id', '=', settings.owner_id)
@@ -160,15 +199,7 @@ async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigati
     }
   }
 
-  for (const item of items) {
-    const href = item.kind === 'home' ? localePath(locale)
-      : item.kind === 'page' ? pageUrls.get(item.page_id ?? '')
-        : normalizeNavigationUrl(item.url ?? '');
-    if (href && navigation[item.location].length < 50) {
-      navigation[item.location].push({ href, kind: item.kind, label: item.label, newTab: item.new_tab });
-    }
-  }
-  return { lastModified: new Date(modified), navigation };
+  return { lastModified: new Date(modified), navigation: buildPublicNavigation(items, pageUrls, locale) };
 }
 
 export async function getPublicNavigationSnapshot(locale: PageLocale): Promise<PublicNavigationSnapshot> {

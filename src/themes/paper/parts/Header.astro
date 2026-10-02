@@ -1,8 +1,12 @@
 ---
 import LanguageSwitcher from '../../../components/LanguageSwitcher.astro';
 import SiteBrand from '../../../components/SiteBrand.astro';
+import SiteNavLink from '../../../components/SiteNavLink.astro';
+import SiteSubmenu from '../../../components/SiteSubmenu.astro';
+import SubmenuScript from '../../../components/SubmenuScript.astro';
 import ThemeToggle from '../../../components/ThemeToggle.astro';
 import { localePath, publicCopy } from '../../../lib/i18n';
+import { isCurrentSection, isLink } from '../../../lib/navigation-current';
 import { THEME_LABELS, type ThemeChoice } from '../../../lib/theme';
 import type { PostAlternate, PostLocale, PublicNavigationItem } from '../../../types/cms';
 import type { ThemeBrand } from '../../contract';
@@ -25,6 +29,7 @@ const languageOptions = availableLocales
   .filter(({ locale: optionLocale }) => optionLocale === 'en' || optionLocale === 'th')
   .sort((left, right) => left.locale.localeCompare(right.locale));
 const copy = publicCopy(locale);
+const currentPath = Astro.url.pathname;
 ---
 
 <header class="site-header border-b border-line" data-sticky={sticky ? "" : undefined}>
@@ -32,9 +37,11 @@ const copy = publicCopy(locale);
     <a class="site-wordmark min-w-0 flex-1 truncate text-ink" href={localePath(locale)}><SiteBrand brand={brand} siteName={siteName} /></a>
     {items.length > 0 && (
       <nav aria-label={copy.primaryNavigation} class="public-navigation site-header__desktop">
-        <ul>{items.map(({ href, label, newTab }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a></li>)}</ul>
+        <ul>{items.map((item) => item.children.length ? <SiteSubmenu copy={copy} currentPath={currentPath} item={item} />
+          : isLink(item) && <li><SiteNavLink copy={copy} currentPath={currentPath} item={item} /></li>)}</ul>
       </nav>
     )}
+    {items.some(({ children }) => children.length) && <SubmenuScript />}
     {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     {languageOptions.length > 1 && (
       <LanguageSwitcher currentLocale={locale} options={languageOptions} />
@@ -43,7 +50,17 @@ const copy = publicCopy(locale);
       <details class="site-header__mobile">
         <summary>{copy.menu}</summary>
         <nav aria-label={copy.primaryNavigation} class="public-navigation">
-          <ul>{items.map(({ href, label, newTab }) => <li><a aria-current={href === Astro.url.pathname ? 'page' : undefined} href={href} rel={newTab ? 'noopener noreferrer' : undefined} target={newTab ? '_blank' : undefined}>{label}{newTab && <span class="sr-only"> {copy.opensInNewTab}</span>}</a></li>)}</ul>
+          {/* A phone lists every sub-item under its parent: the Menu is already the one tap. */}
+          <ul>{items.map((item) => {
+            const section = isCurrentSection(item, currentPath);
+            return (
+              <li>
+                {isLink(item) ? <SiteNavLink copy={copy} currentPath={currentPath} item={item} section={section} />
+                  : <span aria-current={section ? 'true' : undefined} class="public-navigation__group">{item.label}</span>}
+                {item.children.length > 0 && <ul>{item.children.filter(isLink).map((child) => <li><SiteNavLink copy={copy} currentPath={currentPath} item={child} /></li>)}</ul>}
+              </li>
+            );
+          })}</ul>
         </nav>
       </details>
     )}

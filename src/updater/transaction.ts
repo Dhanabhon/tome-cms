@@ -14,8 +14,9 @@ import {
   type CommandDiagnosticContext,
   type CommandDiagnosticStage,
 } from './process.js';
+import { pruneOldImages } from './prune.js';
 import type { BackupKind, InstalledState, UpdateJob, UpdaterStateStore } from './state.js';
-import { runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
+import { InsufficientDiskSpaceError, runPreflight, verifyTargetRelease, type VerifiedRelease } from './verify.js';
 
 export interface UpdateDependencies {
   runCommand: typeof runCommand;
@@ -40,6 +41,8 @@ const STOP_COMMAND_MS = (STOP_GRACE_SECONDS + 30) * 1_000;
 // The first release whose backup script takes --database-only. The backup runs in the installed
 // image, so an older one would refuse the flag and fail the update.
 const DATABASE_ONLY_SINCE = '1.3.0';
+// The first release whose app knows `insufficient_disk_space`.
+const DISK_SPACE_CODE_SINCE = '1.10.0';
 
 type UpdateInput = {
   version: string;
@@ -140,7 +143,11 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
     await awaitReadiness(config, dependencies);
     await state.writeInstalled({ ...installed, version: input.version,
       imageDigest: verified.manifest.image.digest, installedAt: dependencies.now().toISOString() });
-    return await finishJob(state, job.id, () => state.transitionJob(job.id, 'succeeded'));
+    const succeeded = await finishJob(state, job.id, () => state.transitionJob(job.id, 'succeeded'));
+    if (succeeded.phase === 'succeeded') {
+      await pruneOldImages(command, [verified.manifest.image.digest, job.previousImageDigest], diagnostics).catch(() => undefined);
+    }
+    return succeeded;
   } catch (error) {
     const committed = await repairCommittedTerminal(state, job.id);
     if (committed) return committed;
@@ -148,6 +155,10 @@ async function transact(input: UpdateInput, installed: InstalledState, job: Upda
       compareStableVersions(installed.version, verified.manifest.compatibility.rollbackSafeFrom) < 0))) {
       return finishJob(state, job.id, () => state.transitionJob(job.id, 'failed_manual_recovery', { errorCode: 'manual_recovery_required' }));
     }
+    // The disk check runs while the release is verified; it is not the release that failed. An app
+    // before 1.10.0 refuses a status with a code it does not know, so it is told the old one.
+    if (error instanceof InsufficientDiskSpaceError &&
+      compareStableVersions(installed.version, DISK_SPACE_CODE_SINCE) >= 0) errorCode = 'insufficient_disk_space';
     try {
       await state.transitionJob(job.id, 'rolling_back', { errorCode });
       if (quiesced) {

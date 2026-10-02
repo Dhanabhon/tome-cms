@@ -211,10 +211,10 @@ test('Published query services paginate, enrich, and isolate the installed site'
   ]);
   const navigation = await getPublicNavigationSnapshot('th');
   assert.deepEqual(navigation.navigation, {
-    footer: [{ href: 'https://example.com/', kind: 'custom', label: 'External', newTab: false }],
+    footer: [{ href: 'https://example.com/', kind: 'custom', label: 'External', newTab: false, children: [] }],
     header: [
-      { href: '/th', kind: 'home', label: 'Home', newTab: false },
-      { href: '/th/about', kind: 'page', label: 'About', newTab: false },
+      { href: '/th', kind: 'home', label: 'Home', newTab: false, children: [] },
+      { href: '/th/about', kind: 'page', label: 'About', newTab: false, children: [] },
     ],
   });
   const site = await getPublishedSite();
@@ -302,8 +302,22 @@ test('Published query services paginate, enrich, and isolate the installed site'
       (await categories.json() as { data: Array<{ name: string }> }).data.map(({ name }) => name),
       ['Uncategorized', 'Updates'],
     );
+    // The server answers from its own five-second menu cache, so the group is saved before its first read.
+    const [group] = await db.insertInto('navigation_items').values({
+      owner_id: 'owner-a', locale: 'th', location: 'header', kind: 'group', label: 'More', page_id: null, url: null, position: 3,
+    }).returning('id').execute();
+    await db.insertInto('navigation_items').values({
+      owner_id: 'owner-a', locale: 'th', location: 'header', kind: 'custom', label: 'Docs', page_id: null, url: 'https://example.com/docs', position: 4, parent_id: group!.id,
+    }).execute();
     const menu = await request('/api/v1/content/navigation?locale=th');
-    assert.equal((await menu.json() as { data: { header: Array<{ label: string }> } }).data.header[0]?.label, 'Start');
+    type MenuItem = { children: MenuItem[]; href: string | null; kind: string; label: string; newTab: boolean };
+    const header = (await menu.json() as { data: { header: MenuItem[] } }).data.header;
+    assert.equal(header[0]?.label, 'Start');
+    assert.deepEqual(header.slice(0, -1).map(({ children }) => children), [[], []], 'an item with no sub-items has an empty children list');
+    assert.deepEqual(header.at(-1), {
+      href: null, kind: 'group', label: 'More', newTab: false,
+      children: [{ href: 'https://example.com/docs', kind: 'custom', label: 'Docs', newTab: false, children: [] }],
+    });
 
     for (const path of [
       '/api/v1/content/posts?locale=th&locale=en',

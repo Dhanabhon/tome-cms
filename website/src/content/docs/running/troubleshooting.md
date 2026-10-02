@@ -93,6 +93,29 @@ The running version is the one that asks, so an update started from 1.1.0 or ear
 2. Install the update from "System", as [Updating](/tome-cms/running/updating/) describes.
 3. Switch "Cloudflare Turnstile" on again.
 
+### `Not enough free disk space for the backup: the update needs 5 GB free.`
+
+"System" shows this when an update stopped at "Verify the official update". Before it changes anything, the updater checks that the disk holding `/var/backups/tome-cms/` has 5 GB free, and it found less. Nothing changed, and the site kept running.
+
+Only the application from 1.10.0 on, with updater 1.4.0 or later, shows this message. An earlier application, or an earlier updater, refuses in the same way but reports it as `release_unavailable`, and "System" says only that the previous version was restored. On a full disk, that is this entry.
+
+See what takes the space:
+
+```sh
+df -h /var/backups/tome-cms
+sudo docker system df
+```
+
+Before updater 1.4.0, every update left the application image it replaced on the disk, about 750 MB each. Remove the images that no container uses:
+
+```sh
+sudo docker image prune -a --filter "until=24h"
+```
+
+It removes every image, from any repository, that was created more than 24 hours ago and that no container uses, running or stopped. The running application, PostgreSQL and SeaweedFS each have a container, so their images stay. The previous version's image goes if it is older than that. The updater never deletes old backups either: copy those you want to keep off the server, then remove them from `/var/backups/tome-cms/`. Then update again from "System".
+
+From updater 1.4.0, a successful update removes the older application images itself, as [Updating](/tome-cms/running/updating/) says.
+
 ## Connecting to the server
 
 ### `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`

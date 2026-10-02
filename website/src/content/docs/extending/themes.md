@@ -74,6 +74,51 @@ All of it is what the route already had in hand. A theme gets no way to fetch mo
 
 `Shell` renders two slots. `<slot name="above" />` comes before anything the theme draws, and the core puts there what is not the theme's, such as the band a plugin supplies words for and the points a plugin's browser code attaches to. The default `<slot />` is the page itself, usually inside `<main>`. The logo is drawn with the core's `SiteBrand` component, given `brand` and `siteName`, as `plain`'s `Shell.astro` does.
 
+## Drawing sub-menus
+
+The `header` and `footer` menus a `Shell` is given are lists of `PublicNavigationItem`, from `src/types/cms.ts`. `children` is new in 1.10.0, and `href` and `kind` now allow a group:
+
+| Field | What it holds |
+| --- | --- |
+| `href` | The link, or `null` for a group. Only a group has no link. |
+| `kind` | `home`, `page`, `custom`, or `group` |
+| `label` | The words readers see |
+| `newTab` | The owner asked for the link to open in a new tab. A theme adds `target` and `rel`. |
+| `children` | The item's sub-items. It is always there: an empty list for a plain item, for a sub-item, and for everything in the footer. |
+
+An item in `header` with something under it has `children` filled in. It is one level deep, so a child's own `children` is empty and a child is never a `group`. The `footer` stays flat: its items are links, with empty `children`. A group is only ever in `header`, and has at least one child, because the core drops the ones left with none. A parent whose page is not published reaches the theme as a group, `href: null`, as long as a child is live, so a template cannot assume a parent has a link.
+
+The menu is cached and does not depend on the page being viewed, so the theme works out the current section from its own path. `isCurrentSection(item, pathname)` and `isLink(item)` are in `src/lib/navigation-current.ts`. A header template draws a plain item as a link and one with children as a sub-menu:
+
+```astro
+---
+import SiteNavLink from '../../components/SiteNavLink.astro';
+import SiteSubmenu from '../../components/SiteSubmenu.astro';
+import SubmenuScript from '../../components/SubmenuScript.astro';
+import { publicCopy } from '../../lib/i18n';
+import { isLink } from '../../lib/navigation-current';
+
+const { header, locale } = Astro.props;
+const copy = publicCopy(locale);
+const currentPath = Astro.url.pathname;
+---
+
+<ul>
+  {header.map((item) => item.children.length
+    ? <SiteSubmenu copy={copy} currentPath={currentPath} item={item} />
+    : isLink(item) && <li><SiteNavLink copy={copy} currentPath={currentPath} item={item} /></li>)}
+</ul>
+{header.some(({ children }) => children.length) && <SubmenuScript />}
+```
+
+A theme can reuse three pieces of the core, and both bundled themes do:
+
+- `SiteNavLink` draws one link the way every theme should, with `aria-current` on the page being viewed and a note for screen readers on a link that opens a new tab.
+- `SiteSubmenu` draws one parent and its sub-menu. It is a `<details>` that all share one `name`, so the browser keeps only one open, with no script at all. For a link parent it puts a ▾ button beside the link, and for a group the label is the button. Style `.site-submenu-item`, `.site-submenu` inside it, and `summary`, with your tokens. The panel is placed by `[data-align="end"]` when it would run past the window.
+- `SubmenuScript` is the one script, and the page needs it once. It closes the open sub-menu on Escape, on a press outside and when focus leaves it, and sets `data-align="end"` on a panel that would pass the window's edge. Without it the sub-menus still open and close.
+
+A theme that draws its own markup keeps those behaviours: a sub-menu opened by a click, never a hover, with a button whose name says which menu it opens. The words for that name are `showMenu` in `publicCopy`, "Show the {label} menu". For a phone, list the children under their parent inside the theme's own Menu, as `paper`'s `Header.astro` does, and draw a group as a label rather than a link.
+
 ## A theme's settings
 
 A theme can ask the admin to offer settings for it by listing them in its manifest. The core draws the form under "Customize" on the Themes screen, stores the answers for that theme, and hands them to the templates as `themeSettings`. The screen offering the settings never loads the theme to learn what they are, which is why the manifest lives in `theme.ts`, apart from the templates. A theme with no `settings` has nothing to customize.

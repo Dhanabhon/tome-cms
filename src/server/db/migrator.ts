@@ -28,6 +28,7 @@ import * as contentStats from './migrations/025_content_stats';
 import * as plannedDates from './migrations/026_planned_dates';
 import * as postShowCover from './migrations/027_post_show_cover';
 import * as mcp from './migrations/028_mcp';
+import * as navigationParent from './migrations/029_navigation_parent';
 
 export const migrations = {
   '001_system': system,
@@ -58,6 +59,7 @@ export const migrations = {
   '026_planned_dates': plannedDates,
   '027_post_show_cover': postShowCover,
   '028_mcp': mcp,
+  '029_navigation_parent': navigationParent,
 } as const;
 
 const provider: MigrationProvider = {

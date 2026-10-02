@@ -1,0 +1,36 @@
+---
+import Icon from './Icon.astro';
+import SiteNavLink from './SiteNavLink.astro';
+import { isCurrentSection, isLink } from '../lib/navigation-current';
+import type { publicCopy } from '../lib/i18n';
+import type { PublicNavigationItem } from '../types/cms';
+
+interface Props {
+  copy: Pick<ReturnType<typeof publicCopy>, 'opensInNewTab' | 'showMenu'>;
+  currentPath: string;
+  item: PublicNavigationItem;
+}
+
+/**
+ * A header parent and its sub-menu, on a screen wide enough for the header's own row.
+ *
+ * The sub-menu is a `<details>`, opened by a click and never a hover, and every one in the header
+ * shares a `name`, so the browser keeps only one open with no script at all. SubmenuScript adds
+ * the closing a reader expects of a menu, and keeps the panel inside the window. A link parent
+ * stays a link, with the ▾ beside it; a group has no link, so its label is what opens it.
+ */
+const { copy, currentPath, item } = Astro.props;
+const current = isCurrentSection(item, currentPath) ? 'true' : undefined;
+---
+
+<li class="site-submenu-item">
+  {isLink(item) && <SiteNavLink copy={copy} currentPath={currentPath} item={item} section={Boolean(current)} />}
+  <details name="site-submenu" data-site-submenu>
+    {isLink(item)
+      ? <summary aria-label={copy.showMenu.replace('{label}', () => item.label)}><Icon name="down" /></summary>
+      : <summary aria-current={current}><span>{item.label}</span><Icon name="down" /></summary>}
+    <ul class="site-submenu">
+      {item.children.filter(isLink).map((child) => <li><SiteNavLink copy={copy} currentPath={currentPath} item={child} /></li>)}
+    </ul>
+  </details>
+</li>

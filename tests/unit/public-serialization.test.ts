@@ -182,16 +182,28 @@ test('public contracts validate queries and serialize only explicit fields', () 
   const navigationWithInternalField = {
     footer: [],
     header: [
-      { href: '/th', kind: 'home' as const, label: 'Home', newTab: false, owner_id: 'private-owner' },
-      { href: 'https://example.com/', kind: 'custom' as const, label: 'Elsewhere', newTab: true },
+      { href: '/th', kind: 'home' as const, label: 'Home', newTab: false, children: [], owner_id: 'private-owner' },
+      { href: 'https://example.com/', kind: 'custom' as const, label: 'Elsewhere', newTab: true, children: [] },
+      {
+        href: null, kind: 'group' as const, label: 'More', newTab: false, children: [
+          { href: '/th/about', kind: 'page' as const, label: 'About', newTab: false, children: [] as [], owner_id: 'private-owner' },
+        ],
+      },
     ],
   };
   assert.deepEqual(serializePublicNavigation(navigationWithInternalField), {
     footer: [], header: [
-      { href: '/th', kind: 'home', label: 'Home', newTab: false },
-      { href: 'https://example.com/', kind: 'custom', label: 'Elsewhere', newTab: true },
+      { href: '/th', kind: 'home', label: 'Home', newTab: false, children: [] },
+      { href: 'https://example.com/', kind: 'custom', label: 'Elsewhere', newTab: true, children: [] },
+      { href: null, kind: 'group', label: 'More', newTab: false, children: [{ href: '/th/about', kind: 'page', label: 'About', newTab: false, children: [] }] },
     ],
   });
+  assert.throws(() => serializePublicNavigation({
+    footer: [], header: [{ href: null, kind: 'page', label: 'Broken', newTab: false, children: [] }],
+  }), 'a null href belongs to a group only');
+  assert.throws(() => serializePublicNavigation({
+    footer: [], header: [{ href: '/th', kind: 'group', label: 'Broken', newTab: false, children: [] }],
+  }), 'a group has no href');
 
   const serialized = JSON.stringify({ publicPage, publicPost, publicSite });
   for (const secret of ['private-owner', '/private-admin', 'private/object.webp', 'private-original.webp', 'private-checksum', 'private-script']) {

@@ -20,7 +20,7 @@ import {
   normalizedContentSlug,
   plannedAtWrite,
 } from './mutations';
-import { invalidatePublicNavigationCache } from './navigation';
+import { invalidatePublicNavigationCache, lockOwner } from './navigation';
 
 /** The same bound a post's carries, and for the same reason: see 014_post_excerpt. */
 const excerptSchema = z.string().trim().max(120);
@@ -255,12 +255,21 @@ export async function updatePageStatus(
 
 export async function deletePage(ownerId: string, id: string, updatedAt: string): Promise<void> {
   await db.transaction().execute(async (trx) => {
+    // The lock a menu save takes, so the conversion below cannot miss a parent saved at that moment.
+    await lockOwner(trx, ownerId);
     const current = await trx.selectFrom('pages').select(['translation_group_id', 'updated_at'])
       .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
     if (!current) throw new HttpError(404, 'Page not found.');
     assertCurrentVersion(current.updated_at, updatedAt, 'page');
     await trx.selectFrom('page_translation_groups').select('id')
       .where('id', '=', current.translation_group_id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
+    // A header parent that still holds sub-items becomes a group, so deleting its page does not
+    // take them along; a menu item with none is removed with the page, as before.
+    await trx.updateTable('navigation_items')
+      .set({ kind: 'group', page_id: null, new_tab: false })
+      .where('owner_id', '=', ownerId).where('page_id', '=', id)
+      .where('id', 'in', trx.selectFrom('navigation_items').select('parent_id').where('parent_id', 'is not', null))
+      .execute();
     await trx.deleteFrom('pages').where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirstOrThrow();
     const sibling = await trx.selectFrom('pages').select('id')
       .where('translation_group_id', '=', current.translation_group_id).executeTakeFirst();

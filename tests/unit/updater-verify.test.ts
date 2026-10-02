@@ -15,7 +15,7 @@ import {
 import type { UpdaterConfig } from '../../src/updater/config.js';
 import type { CommandDiagnosticContext, CommandResult } from '../../src/updater/process.js';
 import type { InstalledState } from '../../src/updater/state.js';
-import { runPreflight, verifyTargetRelease, type VerifyDependencies } from '../../src/updater/verify.js';
+import { InsufficientDiskSpaceError, runPreflight, verifyTargetRelease, type VerifyDependencies } from '../../src/updater/verify.js';
 
 const installed: InstalledState = {
   version: '1.0.0',
@@ -435,6 +435,23 @@ test('preflight rejects unsupported platforms and insufficient disk without muta
       }), /platform|disk/i);
       assert.equal(commands.some((command) => ['pull', 'stop', 'up', 'run'].some((word) => command.includes(word))), false);
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('a disk too full for the backup is its own error, so the job can say so', async () => {
+  const { root, config } = await hostFixture();
+  try {
+    await assert.rejects(runPreflight({
+      installed, target: manifest, updaterVersion: '1.0.0', config,
+      dependencies: dependencies({ availableBytes: config.minimumFreeBytes - 1 }),
+    }), InsufficientDiskSpaceError);
+    // Free space that cannot be read is not a full disk: it stays a plain failure.
+    await assert.rejects(runPreflight({
+      installed, target: manifest, updaterVersion: '1.0.0', config,
+      dependencies: dependencies({ availableBytes: Number.NaN }),
+    }), (error) => error instanceof Error && !(error instanceof InsufficientDiskSpaceError));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

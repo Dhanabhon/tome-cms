@@ -129,9 +129,22 @@ test('strictly rejects unknown keys, versions, phases, messages, dates, progress
     ...[
       { phase: 'unknown' }, { message: 'secret child output' }, { completedSteps: 9 },
       { totalSteps: 9 }, { completedSteps: 1 }, { startedAt: 'yesterday' },
-      { finishedAt: job.startedAt }, { errorCode: 'raw_output' }, { backupDirectory: '/secret' },
+      { finishedAt: job.startedAt }, { errorCode: 'Raw output: /secret' }, { errorCode: 7 }, { backupDirectory: '/secret' },
     ].map((patch) => ({ ...status, job: { ...job, ...patch } })),
   ]) assert.throws(() => parseUpdaterStatus(invalid));
+});
+
+test('knows a disk too full for the backup, which an updater from 1.4.0 reports', () => {
+  const failed = { ...job, phase: 'rolled_back', completedSteps: 1, message: 'The previous application version was restored.',
+    finishedAt: '2026-09-20T10:01:00.000Z', errorCode: 'insufficient_disk_space' };
+  assert.deepEqual(parseUpdaterStatus({ ...status, job: failed }).job, failed);
+});
+
+test('a code a newer updater invented reads as a failed update, never as its own words', () => {
+  // A strict enum here once made a whole status unreadable, and System then offered no update.
+  const failed = { ...job, phase: 'rolled_back', completedSteps: 1, message: 'The previous application version was restored.',
+    finishedAt: '2026-09-20T10:01:00.000Z', errorCode: 'raw_output' };
+  assert.equal(parseUpdaterStatus({ ...status, job: failed }).job?.errorCode, 'update_failed');
 });
 
 test('returns only safe errors from updater refusal', async (t) => {

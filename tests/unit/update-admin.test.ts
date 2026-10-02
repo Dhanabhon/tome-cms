@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatBackupTime, formatPublishedAt, progressVisible, installabilityReason, jobStatusMessage, updateCheckFailureMessage, updateCheckMessage, updateModeLabel } from '../../src/components/admin/UpdateManager.tsx';
+import { diskSpaceHelp, formatBackupTime, formatPublishedAt, progressVisible, installabilityReason, jobStatusMessage, updateCheckFailureMessage, updateCheckMessage, updateModeLabel } from '../../src/components/admin/UpdateManager.tsx';
 import { adminCopy, fill } from '../../src/lib/admin-i18n.js';
 import { getUpdateInstallability, updateActionSchema } from '../../src/server/update/admin.js';
 
@@ -114,4 +114,18 @@ test('the progress card shows while an update runs; a finished one leaves only a
     assert.equal(progressVisible(false, { phase } as never), false, phase);
     assert.equal(progressVisible(true, { phase } as never), true, `${phase}, while the owner watches it finish`);
   }
+});
+
+test('an update the disk was too full for says so, with the way out, in the owner’s language', () => {
+  const failed = { errorCode: 'insufficient_disk_space' };
+  assert.deepEqual(diskSpaceHelp(failed, 'en'), {
+    href: 'https://dhanabhon.github.io/tome-cms/running/troubleshooting/#not-enough-free-disk-space-for-the-backup-the-update-needs-5-gb-free',
+  });
+  assert.deepEqual(diskSpaceHelp(failed, 'th'), {
+    href: 'https://dhanabhon.github.io/tome-cms/th/running/troubleshooting/#พื้นที่ดิสก์ว่างไม่พอสำหรับสำรองข้อมูล-การอัปเดตต้องมีพื้นที่ว่าง-5-gb',
+  });
+  assert.equal(diskSpaceHelp({ errorCode: 'release_unavailable' }, 'en'), null);
+  assert.equal(diskSpaceHelp({ errorCode: null }, 'en'), null);
+  assert.equal(adminCopy('en').updates.insufficientDiskSpace, 'Not enough free disk space for the backup: the update needs 5 GB free.');
+  assert.equal(adminCopy('th').updates.insufficientDiskSpace, 'พื้นที่ดิสก์ว่างไม่พอสำหรับสำรองข้อมูล: การอัปเดตต้องมีพื้นที่ว่าง 5 GB');
 });

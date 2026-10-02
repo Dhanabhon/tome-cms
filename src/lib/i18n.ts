@@ -70,6 +70,7 @@ export function publicCopy(locale: PostLocale) {
       search: 'ค้นหา',
       searchLabel: 'ค้นหาบทความ',
       searchResults: 'ผลการค้นหา “{query}”',
+      showMenu: 'แสดงเมนู {label}',
       updated: 'แก้ไขเมื่อ',
     }
     : {
@@ -108,6 +109,7 @@ export function publicCopy(locale: PostLocale) {
       search: 'Search',
       searchLabel: 'Search posts',
       searchResults: 'Results for “{query}”',
+      showMenu: 'Show the {label} menu',
       updated: 'Updated',
     };
 }

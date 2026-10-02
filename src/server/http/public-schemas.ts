@@ -144,12 +144,23 @@ export const publicSiteSchema: z.ZodType<PublicSite> = z.object({
   updatedAt: timestampSchema,
 }).strict();
 
-const publicNavigationItemSchema = z.object({
+const publicNavigationSubItemSchema = z.object({
   href: publicUrlSchema,
   kind: z.enum(['home', 'page', 'custom']),
   label: z.string().min(1).max(80),
   newTab: z.boolean(),
+  children: z.tuple([]).describe('Always present and empty: sub-items go one level only.'),
 }).strict();
+
+/** A group has no link, and only a group: a null href on any other item is a server bug. */
+const publicNavigationItemSchema = z.object({
+  href: z.union([publicUrlSchema, z.null().describe('Only for kind "group": a label with no link, which opens its sub-items.')]),
+  kind: z.enum(['home', 'page', 'custom', 'group']),
+  label: z.string().min(1).max(80),
+  newTab: z.boolean(),
+  children: z.array(publicNavigationSubItemSchema).max(50)
+    .describe('Always present. The sub-items of a header item, one level only; empty for a footer item.'),
+}).strict().refine(({ href, kind }) => (href === null) === (kind === 'group'), 'Only a group has no href.');
 
 export const publicNavigationSchema: z.ZodType<PublicNavigation> = z.object({
   footer: z.array(publicNavigationItemSchema).max(50),

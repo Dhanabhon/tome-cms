@@ -13,7 +13,7 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const { createPost } = await import('../../src/server/content/posts');
-  const { createPage, updatePageStatus } = await import('../../src/server/content/pages');
+  const { createPage, deletePage, updatePageStatus } = await import('../../src/server/content/pages');
   const {
     getPublicNavigation,
     listNavigation,
@@ -103,9 +103,9 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
   });
   await replaceNavigation('public-owner', menu);
   assert.deepEqual((await getPublicNavigation('th')).header, [
-    { href: '/th', kind: 'home', label: 'Home', newTab: false },
-    { href: '/th/about', kind: 'page', label: 'About', newTab: false },
-    { href: 'https://example.com/', kind: 'custom', label: 'External', newTab: true },
+    { href: '/th', kind: 'home', label: 'Home', newTab: false, children: [] },
+    { href: '/th/about', kind: 'page', label: 'About', newTab: false, children: [] },
+    { href: 'https://example.com/', kind: 'custom', label: 'External', newTab: true, children: [] },
   ]);
   assert.equal((await listNavigation('public-owner')).items.find(({ kind }) => kind === 'custom')?.new_tab, true);
 
@@ -129,4 +129,102 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     id: publishedPage.id, status: 'draft', updatedAt: publishedPage.updated_at,
   });
   assert.equal((await getPublicNavigation('th')).header.some(({ kind }) => kind === 'page'), false);
+
+  // A header item may hold sub-items: one running order, each sub-item pointing at its parent.
+  const tree = await replaceNavigation('public-owner', navigationMenuSchema.parse({
+    locale: 'en', location: 'header', items: [
+      { kind: 'home', label: 'Home', pageId: null, url: null, children: [
+        { kind: 'page', label: 'About', pageId: englishPage.id, url: null },
+      ] },
+      { kind: 'group', label: 'Elsewhere', pageId: null, url: null, children: [
+        { kind: 'custom', label: 'Docs', pageId: null, url: 'https://example.com/docs', newTab: true },
+        { kind: 'custom', label: 'Blog', pageId: null, url: '/en/blog' },
+      ] },
+    ],
+  }));
+  const englishHeader = async () => (await listNavigation('public-owner')).items
+    .filter(({ locale, location }) => locale === 'en' && location === 'header');
+  const saved = await englishHeader();
+  assert.deepEqual(saved.map(({ label, position }) => [label, position]), [
+    ['Home', 0], ['About', 1], ['Elsewhere', 2], ['Docs', 3], ['Blog', 4],
+  ]);
+  assert.deepEqual(saved.map(({ parent_id }) => parent_id), [null, saved[0]?.id, null, saved[2]?.id, saved[2]?.id]);
+  assert.deepEqual(tree.map(({ id }) => id), saved.map(({ id }) => id), 'the save returns the rows it wrote, in order');
+  assert.deepEqual((await getPublicNavigation('en')).header, [
+    {
+      href: '/en', kind: 'home', label: 'Home', newTab: false,
+      children: [{ href: '/en/about-en', kind: 'page', label: 'About', newTab: false, children: [] }],
+    },
+    {
+      href: null, kind: 'group', label: 'Elsewhere', newTab: false,
+      children: [
+        { href: 'https://example.com/docs', kind: 'custom', label: 'Docs', newTab: true, children: [] },
+        { href: '/en/blog', kind: 'custom', label: 'Blog', newTab: false, children: [] },
+      ],
+    },
+  ], 'the public menu nests each sub-item under its parent');
+
+  await assert.rejects(
+    replaceNavigation('public-owner', navigationMenuSchema.parse({
+      locale: 'en', location: 'header', items: [
+        { kind: 'group', label: 'Wrong', pageId: null, url: null, children: [
+          { kind: 'page', label: 'Thai page', pageId: publishedPage.id, url: null },
+        ] },
+      ],
+    })),
+    (error: unknown) => error instanceof HttpError && error.status === 400,
+    'a sub-item page is checked like any other',
+  );
+  assert.deepEqual(await englishHeader(), saved, 'a refused save keeps the tree');
+
+  // Deleting a parent's page keeps its sub-items: the parent becomes a group. An item with none goes with the page.
+  const thaiContact = await createPage('public-owner', {
+    contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'contact', status: 'published', title: 'Contact',
+  });
+  const contactPage = await createPage('public-owner', {
+    contentJson: content, excerpt: '', locale: 'en', metaDescription: null, metaTitle: null, slug: 'contact-en',
+    sourcePageId: thaiContact.id, status: 'published', title: 'Contact EN',
+  });
+  await replaceNavigation('public-owner', navigationMenuSchema.parse({
+    locale: 'en', location: 'header', items: [
+      { kind: 'page', label: 'Company', pageId: englishPage.id, url: null, children: [
+        { kind: 'custom', label: 'Docs', pageId: null, url: 'https://example.com/docs' },
+      ] },
+      { kind: 'page', label: 'Contact', pageId: contactPage.id, url: null },
+    ],
+  }));
+  await deletePage('public-owner', englishPage.id, englishPage.updated_at);
+  await deletePage('public-owner', contactPage.id, contactPage.updated_at);
+  const afterDelete = await englishHeader();
+  assert.deepEqual(
+    afterDelete.map(({ label, kind, page_id, parent_id, new_tab }) => [label, kind, page_id, parent_id === null ? null : 'child', new_tab]),
+    [['Company', 'group', null, null, false], ['Docs', 'custom', null, 'child', false]],
+    'the parent stays as a group with its sub-item; the item with none left with its page',
+  );
+  assert.equal(afterDelete[1]?.parent_id, afterDelete[0]?.id);
+  assert.deepEqual((await getPublicNavigation('en')).header, [{
+    href: null, kind: 'group', label: 'Company', newTab: false,
+    children: [{ href: 'https://example.com/docs', kind: 'custom', label: 'Docs', newTab: false, children: [] }],
+  }]);
+
+  // A page that is a sub-item goes with its page, and a parent left with nothing under it is not shown.
+  const thaiTeam = await createPage('public-owner', {
+    contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'team', status: 'published', title: 'Team',
+  });
+  const teamPage = await createPage('public-owner', {
+    contentJson: content, excerpt: '', locale: 'en', metaDescription: null, metaTitle: null, slug: 'team-en',
+    sourcePageId: thaiTeam.id, status: 'published', title: 'Team EN',
+  });
+  await replaceNavigation('public-owner', navigationMenuSchema.parse({
+    locale: 'en', location: 'header', items: [
+      { kind: 'group', label: 'Company', pageId: null, url: null, children: [
+        { kind: 'page', label: 'Team', pageId: teamPage.id, url: null },
+      ] },
+    ],
+  }));
+  assert.equal((await getPublicNavigation('en')).header[0]?.children.length, 1);
+  await deletePage('public-owner', teamPage.id, teamPage.updated_at);
+  assert.deepEqual((await englishHeader()).map(({ label, kind }) => [label, kind]), [['Company', 'group']],
+    'the sub-item left with its page and the group stayed');
+  assert.deepEqual((await getPublicNavigation('en')).header, [], 'a group with nothing under it is not shown');
 });
