@@ -269,6 +269,12 @@ test('the formatting bar is whole, wherever the words it formats begin', async (
     return [box.left + 1, box.right - 1].some((x) => !button.contains(document.elementFromPoint(x, middle)));
   }));
   await expect.poll(cut, { message: 'every button on the bar can be pressed, end to end' }).toEqual([]);
+
+  // The keyboard reaches the bar in one Tab from the words. Tiptap makes the bar's own box a
+  // tab stop with no name, which took the first Tab and left Bold for the second. (Here and not
+  // in a test of its own: a spec file signs in through /recovery only so many times.)
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Bold' }), 'one Tab from the selection').toBeFocused();
 });
 
 test('the formatting bar keeps the cursor, and underlines, strikes and colours what is chosen', async ({ context, page }) => {
@@ -523,6 +529,14 @@ test('a table is written, grown and trimmed in the editor, and scrolls on a phon
   const bold = page.getByRole('button', { name: 'Bold' });
   await expect(tableBar).toBeVisible();
   await expect(bold).toBeHidden();
+  // Tab inside a table walks the cells and never leaves it, so the bar is entered from its first
+  // button, not reached from the words: Shift+Tab from there goes back to the page, not to the
+  // bar's own box, which Tiptap makes a tab stop with no name. (Here and not in a test of its
+  // own: a spec file signs in through /recovery only so many times.)
+  await tableBar.getByRole('button').first().focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(canvas, 'one Shift+Tab from the first button').toBeFocused();
+  await expect(tableBar).toBeVisible();
   await page.keyboard.press('Shift+ArrowLeft');
   await expect(bold).toBeVisible();
   await expect(tableBar).toBeHidden();
