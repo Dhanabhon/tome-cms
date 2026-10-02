@@ -1,6 +1,6 @@
 {
   "name": "tome-cms",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "packageManager": "npm@11.19.1",
   "private": true,
   "type": "module",

@@ -18,7 +18,7 @@ write_files:
       # The media origin, which serves uploads and images.
       S3_ENDPOINT=https://media.example.com
       # The TomeCMS release to install. Each release updates this line.
-      TOMECMS_VERSION=v1.9.0
+      TOMECMS_VERSION=v1.9.1
 
   - path: /usr/local/sbin/tomecms-first-boot
     permissions: "0700"

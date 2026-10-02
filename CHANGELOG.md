@@ -2,6 +2,15 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.9.1 - 2026-10-02
+
+Two small fixes in the editor, left over from 1.9.0.
+
+### Fixed
+
+- A file put in at the end of a line no longer stays selected, so the next key no longer types over it. The caret moves to the next line, as it does after a picture.
+- One Tab reaches the first button on the table bar and the formatting bar, instead of first landing on the bar's own box.
+
 ## 1.9.0 - 2026-10-02
 
 Gemini connects over MCP. The File Manager shows a list and renames files. Pictures in the editor stay where you put them, and can be replaced. Plugins ask before switching, and Paper's reading rail shows where you are.

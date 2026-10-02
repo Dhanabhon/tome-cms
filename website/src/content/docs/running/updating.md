@@ -52,8 +52,8 @@ A release that needs a newer updater says so on "System" ("This version needs it
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.9.0
-git checkout --detach v1.9.0
+git fetch --depth 1 origin tag v1.9.1
+git checkout --detach v1.9.1
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -62,7 +62,7 @@ sudo npm run updater:upgrade
 A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
 
 ```sh
-git clone --depth 1 --branch v1.9.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.9.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -113,7 +113,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.9.0, 1.8.2, 1.8.1, 1.8.0 or 1.7.0 | 0 | None |
+| 1.9.1, 1.9.0, 1.8.2, 1.8.1, 1.8.0 or 1.7.0 | 0 | None |
 | 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 or 1.5.0 | 1 | `028_mcp` |
 | 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 2 | The one above and `027_post_show_cover` |
 | 0.12.0 or 0.11.0 | 3 | The two above and `026_planned_dates` |
