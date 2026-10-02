@@ -82,7 +82,8 @@ function postgresCode(error: unknown): string | null {
     : null;
 }
 
-async function lockOwner(trx: Transaction<Database>, ownerId: string): Promise<void> {
+/** Serialises the owner's menu writes: a save, and a page delete that converts a parent. */
+export async function lockOwner(trx: Transaction<Database>, ownerId: string): Promise<void> {
   const owner = await trx.selectFrom('user').select('id').where('id', '=', ownerId).forUpdate().executeTakeFirst();
   if (!owner) throw new HttpError(404, 'Owner not found.');
 }

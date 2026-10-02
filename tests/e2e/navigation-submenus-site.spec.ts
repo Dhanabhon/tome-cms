@@ -122,7 +122,8 @@ test.beforeAll(async () => {
       { kind: 'page', label: 'History', pageId: history, url: null, newTab: false },
       link('Press', '/press'),
     ] },
-    { ...link('Resources', '/resources'), children: [
+    // A `$&` in the label: the ▾'s name is found by it in parent(), so a replacement that read it as a pattern fails here.
+    { ...link('Resources $&', '/resources'), children: [
       link('Guides for writing well in any language', '/guides'),
       link('Everything else we have put together', '/more'),
     ] },
@@ -265,7 +266,7 @@ for (const theme of ['paper', 'plain'] as const) {
     useTheme(theme);
     await page.setViewportSize({ width: 1024, height: 800 });
     await page.goto(`${origin}/en`);
-    const resources = parent(page, 'Resources');
+    const resources = parent(page, 'Resources $&');
     await resources.summary.click();
     await expect(resources.panel).toBeVisible();
     // Past the entry movement, which is vertical only, so the edges are already where they end.
@@ -333,7 +334,7 @@ test('plain: on a phone an open panel fits the screen', async ({ page }) => {
   useTheme('plain');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${origin}/en`);
-  for (const label of ['About', 'Resources']) {
+  for (const label of ['About', 'Resources $&']) {
     const { panel, summary } = parent(page, label);
     await summary.click();
     await expect(panel).toBeVisible();

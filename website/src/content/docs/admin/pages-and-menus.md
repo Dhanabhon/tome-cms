@@ -13,7 +13,7 @@ sidebar:
 
 Each row is one page, with a line for every language edition you have written, its address, its status and its date in the site's time zone. The tabs "Drafts", "Published" and "All" work as they do for posts. "Search pages" finds a page by its title, and "Language" narrows the list once you press "Apply filters".
 
-The "..." beside an edition has "Edit", "Preview", "Copy link", "Duplicate", "Publish" or "Unpublish", and "Delete". "Copy link" is there once the edition is published, and puts its address on the clipboard. Deleting an edition takes it out of every menu too, except where it is a parent with sub-items, which stays as a group ([Sub-menus and groups](#sub-menus-and-groups)), and cannot be undone. "Not written" starts the page in the other language.
+The "..." beside an edition has "Edit", "Preview", "Copy link", "Duplicate", "Publish" or "Unpublish", and "Delete". "Copy link" is there once the edition is published, and puts its address on the clipboard. Deleting an edition cannot be undone, and takes it out of every menu too. The exception is a parent with sub-items, which stays in the menu as a group ([Sub-menus and groups](#sub-menus-and-groups)). "Not written" starts the page in the other language.
 
 ## Writing a page
 

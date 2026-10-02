@@ -131,8 +131,6 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     setAddError('');
     setAddInvalid(null);
     setLabel(next === 'home' ? homeLabel : next === 'page' ? availablePages.find((page) => page.id === pageId)?.title ?? '' : '');
-    // A group has no link, and only the header holds sub-items for it.
-    if (next === 'group') setPlacement('header');
   }
 
   function add(event: FormEvent<HTMLFormElement>) {
@@ -156,6 +154,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
       return;
     }
     const item: NavigationMutationItem = { kind, label: label.trim(), pageId: kind === 'page' ? pageId : null, url: normalizedUrl, newTab: kind === 'custom' && newTab };
+    // A group goes in the header whatever the placement says, so choosing one leaves the placement as it was.
     const keys: MenuKey[] = kind === 'group' ? [`header:${locale}`] : placement === 'both' ? [`header:${locale}`, `footer:${locale}`] : [`${placement}:${locale}`];
     if (keys.some((destination) => target(item) && menus[destination].some((entry) => target(entry) === target(item)))) {
       setAddError(copy.navigation.targetInUse);
@@ -196,7 +195,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     keepFocus(button);
   }
 
-  function nest(index: number, button: HTMLButtonElement) {
+  function nest(index: number) {
     if (savingRef.current) return;
     const item = items[index];
     const next = item.parentId ? outdent(items, index) : indent(items, index);
@@ -205,7 +204,12 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     const parent = items.find((entry) => entry.id === parentId)!;
     edit(next);
     setStatus(fill(item.parentId ? copy.navigation.outdented : copy.navigation.indented, { label: item.label, parent: parent.label }));
-    keepFocus(button);
+    // The row now offers the way back, so focus goes to that button; its label stays if it cannot go.
+    requestAnimationFrame(() => {
+      const row = list.current?.querySelector(`li[data-item-id="${item.id}"]`);
+      const back = row?.querySelector<HTMLButtonElement>(`[data-nest="${item.parentId ? 'indent' : 'outdent'}"]`);
+      (back && !back.disabled ? back : row?.querySelector('input'))?.focus();
+    });
   }
 
   function remove(index: number) {
@@ -285,7 +289,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                 const summary = item.kind === 'home' ? fill(copy.navigation.homeTarget, { locale }) : item.kind === 'custom' ? item.url : item.kind === 'group' ? copy.navigation.group : page?.title ?? copy.navigation.pageUnavailable;
                 const parent = item.parentId ? items.find((entry) => entry.id === item.parentId) : undefined;
                 const emptyNote = empty.has(index) ? `navigation-empty-${item.id}` : undefined;
-                return <li className="navigation-item" data-depth={parent ? 1 : undefined} draggable={!saving} key={item.id} onDragStart={(event) => { dragged.current = item.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', item.id); }} onDragEnd={() => { dragged.current = null; }} onDragOver={(event) => { if (dragged.current && !saving) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={(event) => { event.preventDefault(); move(items.findIndex((entry) => entry.id === dragged.current), index); dragged.current = null; }}>
+                return <li className="navigation-item" data-item-id={item.id} data-depth={parent ? 1 : undefined} draggable={!saving} key={item.id} onDragStart={(event) => { dragged.current = item.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', item.id); }} onDragEnd={() => { dragged.current = null; }} onDragOver={(event) => { if (dragged.current && !saving) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={(event) => { event.preventDefault(); move(items.findIndex((entry) => entry.id === dragged.current), index); dragged.current = null; }}>
                   <span aria-hidden="true" className="navigation-grip"><Icon name="grip" /></span>
                   <div className="navigation-item__content">
                     <label className="admin-field"><span className="sr-only">{fill(copy.navigation.itemLabel, { index: index + 1 })}{parent && ` ${fill(copy.navigation.subItemOf, { label: parent.label })}`}</span><input aria-describedby={emptyNote} aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
@@ -298,8 +302,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                     <button aria-label={copy.navigation.moveUp} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || sibling(items, index, -1) < 0} onClick={(event) => move(index, sibling(items, index, -1), event.currentTarget)} title={copy.navigation.moveUp} type="button"><Icon name="up" /></button>
                     <button aria-label={copy.navigation.moveDown} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || sibling(items, index, 1) < 0} onClick={(event) => move(index, sibling(items, index, 1), event.currentTarget)} title={copy.navigation.moveDown} type="button"><Icon name="down" /></button>
                     {location === 'header' && <>
-                      <button aria-label={copy.navigation.outdent} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || !canOutdent(items, index)} onClick={(event) => nest(index, event.currentTarget)} title={copy.navigation.outdent} type="button"><Icon name="arrowLeft" /></button>
-                      <button aria-label={copy.navigation.indent} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || !canIndent(items, index, location)} onClick={(event) => nest(index, event.currentTarget)} title={copy.navigation.indent} type="button"><Icon name="arrowRight" /></button>
+                      <button aria-label={copy.navigation.outdent} data-nest="outdent" className="admin-button admin-button--ghost admin-button--icon" disabled={saving || !canOutdent(items, index)} onClick={() => nest(index)} title={copy.navigation.outdent} type="button"><Icon name="arrowLeft" /></button>
+                      <button aria-label={copy.navigation.indent} data-nest="indent" className="admin-button admin-button--ghost admin-button--icon" disabled={saving || !canIndent(items, index, location)} onClick={() => nest(index)} title={copy.navigation.indent} type="button"><Icon name="arrowRight" /></button>
                     </>}
                     <button aria-label={copy.navigation.remove} className="admin-button admin-button--ghost admin-button--icon navigation-remove" disabled={saving} onClick={() => remove(index)} title={copy.navigation.remove} type="button"><Icon name="trash" /></button>
                   </div>

@@ -97,7 +97,7 @@ The theme contract adds to `PublicNavigationItem`:
 - `children: PublicNavigationItem[]`, empty for a plain item;
 - `kind: 'group'`, with `href: null`.
 
-`getPublicNavigation` builds the tree:
+`buildPublicNavigation` in `public-navigation.ts` builds the tree:
 - **A sub-item whose page is not live is dropped,** as a flat item is today.
 - **A parent whose page is not live but which still has live sub-items is shown as a group,** a
   label with no link.

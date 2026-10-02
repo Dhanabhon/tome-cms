@@ -206,4 +206,25 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     href: null, kind: 'group', label: 'Company', newTab: false,
     children: [{ href: 'https://example.com/docs', kind: 'custom', label: 'Docs', newTab: false, children: [] }],
   }]);
+
+  // A page that is a sub-item goes with its page, and a parent left with nothing under it is not shown.
+  const thaiTeam = await createPage('public-owner', {
+    contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'team', status: 'published', title: 'Team',
+  });
+  const teamPage = await createPage('public-owner', {
+    contentJson: content, excerpt: '', locale: 'en', metaDescription: null, metaTitle: null, slug: 'team-en',
+    sourcePageId: thaiTeam.id, status: 'published', title: 'Team EN',
+  });
+  await replaceNavigation('public-owner', navigationMenuSchema.parse({
+    locale: 'en', location: 'header', items: [
+      { kind: 'group', label: 'Company', pageId: null, url: null, children: [
+        { kind: 'page', label: 'Team', pageId: teamPage.id, url: null },
+      ] },
+    ],
+  }));
+  assert.equal((await getPublicNavigation('en')).header[0]?.children.length, 1);
+  await deletePage('public-owner', teamPage.id, teamPage.updated_at);
+  assert.deepEqual((await englishHeader()).map(({ label, kind }) => [label, kind]), [['Company', 'group']],
+    'the sub-item left with its page and the group stayed');
+  assert.deepEqual((await getPublicNavigation('en')).header, [], 'a group with nothing under it is not shown');
 });

@@ -67,6 +67,13 @@ test('the footer has no sub-items and no groups', () => {
   refused(menu([group([link(1)])], 'footer'), 'A group belongs in the header menu.', ['items', 0]);
 });
 
+test('a footer group is refused once, for the footer, whether or not it has sub-items', () => {
+  for (const body of [group([link(1)]), group([])]) {
+    const result = navigationMenuSchema.safeParse(menu([body], 'footer'));
+    assert.deepEqual(result.error?.issues.map((issue) => issue.message), ['A group belongs in the header menu.']);
+  }
+});
+
 test('a group needs at least one sub-item', () => {
   refused(menu([group([])]), 'A group needs at least one sub-item.', ['items', 0, 'children']);
   refused(menu([{ kind: 'group', label: 'Empty', pageId: null, url: null }]), 'A group needs at least one sub-item.', ['items', 0, 'children']);

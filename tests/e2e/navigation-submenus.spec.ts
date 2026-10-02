@@ -211,6 +211,7 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   await expect(actions(3).getByRole('button', { name: 'Move under the item above' }), 'a group is never a sub-item').toBeDisabled();
   await actions(4).getByRole('button', { name: 'Move under the item above' }).click();
   expect(await outline(page)).toEqual(['Home', 'About', 'Company', '  Contact']);
+  await expect(actions(4).getByRole('button', { name: 'Move out' }), 'focus goes to the way back').toBeFocused();
   await expect(page.getByRole('textbox', { name: 'Item 4 label under Company' }), 'a screen reader hears where it sits').toHaveValue('Contact');
   await expect(emptyGroup).toHaveCount(0);
   await expect(save).toBeEnabled();
@@ -229,6 +230,7 @@ test('a header item goes under a group, moves with it, saves, and an empty group
 
   await actions(3).getByRole('button', { name: 'Move out' }).click();
   expect(await outline(page)).toEqual(['Home', 'Company', 'Contact', 'About']);
+  await expect(actions(3).getByRole('button', { name: 'Move under the item above' }), 'and back again').toBeFocused();
   await expect(emptyGroup, 'taking out its last item empties the group again').toBeVisible();
   await expect(save).toBeDisabled();
 
@@ -245,6 +247,19 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   await expect(actions(1).getByRole('button'), 'up, down and remove only').toHaveCount(3);
   await expect(page.getByRole('button', { name: 'Move under the item above' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Move out' })).toHaveCount(0);
+  // Choosing Group and then another kind leaves the placement as the owner set it.
+  await page.getByRole('tab', { name: 'Header' }).click();
+  await page.getByRole('button', { name: /Add item/i }).first().click();
+  await dialog.waitFor({ state: 'visible' });
+  await dialog.locator('#navigation-placement').click();
+  await page.locator('.ui-select__option').last().click();
+  await dialog.getByRole('radio', { name: 'Group (no link)' }).check();
+  await dialog.getByRole('radio', { name: 'Home' }).check();
+  await expect(dialog.locator('#navigation-placement .ui-select__label')).toHaveText('Both');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  await page.getByRole('tab', { name: 'Footer' }).click();
+
   await page.getByRole('button', { name: /Add item/i }).first().click();
   await dialog.waitFor({ state: 'visible' });
   await expect(dialog.getByRole('radio')).toHaveCount(3);

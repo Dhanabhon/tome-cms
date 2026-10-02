@@ -20,7 +20,7 @@ import {
   normalizedContentSlug,
   plannedAtWrite,
 } from './mutations';
-import { invalidatePublicNavigationCache } from './navigation';
+import { invalidatePublicNavigationCache, lockOwner } from './navigation';
 
 /** The same bound a post's carries, and for the same reason: see 014_post_excerpt. */
 const excerptSchema = z.string().trim().max(120);
@@ -255,6 +255,8 @@ export async function updatePageStatus(
 
 export async function deletePage(ownerId: string, id: string, updatedAt: string): Promise<void> {
   await db.transaction().execute(async (trx) => {
+    // The lock a menu save takes, so the conversion below cannot miss a parent saved at that moment.
+    await lockOwner(trx, ownerId);
     const current = await trx.selectFrom('pages').select(['translation_group_id', 'updated_at'])
       .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
     if (!current) throw new HttpError(404, 'Page not found.');

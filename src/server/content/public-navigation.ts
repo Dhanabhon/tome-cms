@@ -27,8 +27,9 @@ export function buildPublicNavigation(
         : null;
   const subItems = new Map<string, PublicNavigationItem[]>();
   for (const row of rows) {
-    const href = row.parent_id ? hrefOf(row) : null;
-    if (!row.parent_id || !href) continue;
+    if (!row.parent_id) continue;
+    const href = hrefOf(row);
+    if (!href) continue;
     const siblings = subItems.get(row.parent_id) ?? [];
     siblings.push({ href, kind: row.kind, label: row.label, newTab: row.new_tab, children: [] });
     subItems.set(row.parent_id, siblings);
