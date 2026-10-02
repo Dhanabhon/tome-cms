@@ -2,6 +2,22 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.11.0 - 2026-10-03
+
+Almanac, a warm and literary theme, and `tome`, short commands for looking after the server, with updater 1.5.0.
+
+### Added
+
+- Almanac, a third theme: serif headings (Trirong) on warm paper, a hero with two buttons, the category pills and search, and a grid of post cards. A card shows the post's cover, or its category's tone and first letter. Posts and pages have a reading column, "More in {category}", and a reading progress bar that can be switched off.
+- `tome`, installed on the server by `sudo npm run updater:upgrade`: `tome status`, `tome logs`, `tome backup`, `tome update` and `tome prune`. Run with `sudo`.
+- Updater 1.5.0 takes a backup or removes old images on request (`/v1/backup`, `/v1/prune`, `/v1/busy`), one job at a time, without changing what `/v1/status` tells an installed application.
+- Each post a theme's home page receives may carry its `categories` (`ThemeHomePost`).
+
+### Fixed
+
+- An h1 inside a post or page body, aligned or not, is shown as h2 in every theme, so a page keeps one h1.
+- The updater's and the installer's failure diagnostics are shown on a default install. `S3_ACCESS_KEY_ID` is an identifier, not a secret.
+
 ## 1.10.1 - 2026-10-02
 
 Header sub-menus are arranged by dragging.
