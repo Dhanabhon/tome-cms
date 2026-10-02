@@ -2,6 +2,15 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.10.1 - 2026-10-02
+
+Header sub-menus are arranged by dragging.
+
+### Changed
+
+- On the Navigation screen, drag a row by its grip onto the middle of a main-menu item to put it in that item's sub-menu, or onto an item's top or bottom edge to place it above or below. A line above the list says what the drop will do, or why it can't. It works with a mouse, a finger or a pen.
+- The ← → buttons are replaced by a ⋯ button ("Sub-menu options") on each header row, with "Put under …" and "Move out to the main menu", for the keyboard and screen readers.
+
 ## 1.10.0 - 2026-10-02
 
 Header sub-menus and groups, and an updater that says when the disk is full and clears old images.
