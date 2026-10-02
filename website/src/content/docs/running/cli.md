@@ -35,6 +35,13 @@ sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
 ```
 
+A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
+
+```sh
+git clone --depth 1 --branch v1.11.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+cd /opt/tome-cms-src
+```
+
 That one command brings updater 1.5.0 and `tome`, which it installs as `/usr/local/bin/tome`. The updater needs 1.5.0 because `tome backup` and `tome prune` use two requests that earlier updaters do not have. At its end it prints `tome is installed at /usr/local/bin/tome. Try: sudo tome status`. [Upgrading the updater](/tome-cms/running/updating/#upgrading-the-updater) explains the rest, including what `--dry-run` does.
 
 If `/usr/local/bin/tome` already exists and is not TomeCMS's own, the upgrade refuses before it stops anything and says to move that file aside.
@@ -45,7 +52,7 @@ Shows the server on one screen and changes nothing:
 
 ```text
 $ sudo tome status
-TomeCMS 1.10.1, updater 1.5.0
+TomeCMS 1.11.0, updater 1.5.0
 Site: ready (migrations: ready)
 Containers:
   app        running, healthy
@@ -64,7 +71,7 @@ Below the disk line, a warning appears when less than 5 GiB is free, which is th
 | --- | --- |
 | `--json` | Prints the same as one JSON object, for scripts. |
 
-It exits 1 only when the updater does not answer. Everything else it could read is still shown.
+It exits 1 only when the updater cannot be read: it does not answer, or it answers with something unexpected. Everything else it could read is still shown.
 
 ## tome logs
 
@@ -97,7 +104,7 @@ Back up the database? The site is in maintenance while it runs, about 3 minutes 
 Backup saved to /var/backups/tome-cms/tomecms-20261002T110000000Z (12.0 MiB).
 ```
 
-**The site is offline for a short while.** The updater puts up the maintenance page, stops the application, takes the backup, starts the application again and waits until it is ready, the same steps as the backup in an update. It always starts the application again, even when the backup fails. The prompt says how long the last backup took, or "for a few minutes" the first time.
+**The site is offline for a short while.** The updater puts up the maintenance page, stops the application, takes the backup, starts the application again and waits until it is ready, the same steps as the backup in an update. It always starts the application again, even when the backup fails. The prompt says how long the last backup of the same kind took. Without one it says "for a few minutes", and with `--full` that it may take longer, since it copies the media too.
 
 By default the backup holds the database only, which is quick. With `--full` it holds the media bucket too, and the site stays offline longer. [Backups and restore](/tome-cms/running/backups/) explains why you still want your own copies of the media.
 
@@ -106,7 +113,7 @@ By default the backup holds the database only, which is quick. With `--full` it 
 | `--full` | Backs up the media too, not only the database. |
 | `-y`, `--yes` | Does not ask first. |
 
-It refuses, and exits 1, while an update or another backup is running, when less than 5 GiB is free where backups go, and when the last update needs manual recovery. If you decline the prompt it prints `Nothing was done.` and exits 1.
+It refuses, and exits 1, while an update, another backup or an image clean-up is running, when less than 5 GiB is free where backups go, and when the last update needs manual recovery. If you decline the prompt it prints `Nothing was done.` and exits 1.
 
 ## tome update
 
@@ -129,10 +136,10 @@ Answer `y` and it follows the update to its end, one line per step, with the nam
 
 | Argument or option | What it does |
 | --- | --- |
-| `version` | An exact release such as `1.11.0`. It must be newer than the installed one. |
+| `version` | An exact release such as `1.11.0`. The installed version is reported up to date, with exit code 0, and only an older one is refused. |
 | `-y`, `--yes` | Does not ask first. |
 
-It exits 1 when you decline, when the release is not one this server can take directly, when the server's updater is too old for it (the message names `sudo npm run updater:upgrade`), when GitHub cannot be reached, and when an update or a backup is already running.
+It exits 1 when you decline, when the release is not one this server can take directly, when the server's updater is too old for it (the message names `sudo npm run updater:upgrade`), when GitHub cannot be reached, and when an update, a backup or an image clean-up is already running.
 
 ## tome prune
 
@@ -154,7 +161,7 @@ Remove them with: sudo tome prune --yes
 - always keeping the installed image and the one before it, which a rollback needs;
 - nothing at all when Docker's list of images cannot be read in full. It says so and exits 1.
 
-An image a stopped container still uses cannot be removed. `tome` says how many it left. With nothing to remove it says `No old application images to remove.` and exits 0. It refuses while an update or a backup is running.
+An image a stopped container still uses cannot be removed. `tome` says how many it left. With nothing to remove it says `No old application images to remove.` and exits 0. It refuses while an update, a backup or another clean-up is running.
 
 | Option | What it does |
 | --- | --- |

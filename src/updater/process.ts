@@ -232,7 +232,7 @@ function addUrlSecrets(value: string, secrets: string[]): void {
 // An access key ID (S3_ACCESS_KEY_ID, AWS_ACCESS_KEY_ID) names a key; it is not one. The installer
 // writes S3_ACCESS_KEY_ID='tomecms', seven bytes, which no redaction can match safely, so counting it
 // as a secret hid every diagnostic and every line of `tome logs`.
-function isSecretName(name: string): boolean {
+export function isSecretName(name: string): boolean {
   return /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/i.test(name) && !/_KEY_ID$/i.test(name);
 }
 

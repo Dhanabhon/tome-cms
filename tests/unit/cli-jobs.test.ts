@@ -35,7 +35,21 @@ test('backup --full --yes backs up everything without asking; the first backup h
   assert.deepEqual(posts(f, '/v1/backup')[0]!.body, { requestId, kind: 'full' });
   const g = fakeContext({ routes: { 'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }] }, overrides: { confirm: async (question) => { g.prompts.push(question); return false; } } });
   await run(g, ['backup', '--full']);
-  assert.match(g.prompts[0]!, /^Back up the database and media\? The site is in maintenance while it runs, for a few minutes\. \[y\/N\] $/);
+  assert.match(g.prompts[0]!, /^Back up the database and media\? The site is in maintenance while it runs, for a few minutes or longer, since it copies the media too\. \[y\/N\] $/);
+});
+
+test('the estimate comes only from a backup of the same kind', async () => {
+  const ask = async (last: string, argv: string[]) => {
+    const f = fakeContext({
+      routes: { 'GET /v1/backup': [{ status: 200, body: backupRecord('succeeded', { kind: last }) }] },
+      overrides: { confirm: async (question) => { f.prompts.push(question); return false; } },
+    });
+    await run(f, argv);
+    return f.prompts[0]!;
+  };
+  assert.match(await ask('database', ['backup', '--full']), /while it runs, for a few minutes or longer, since it copies the media too\. /);
+  assert.match(await ask('full', ['backup']), /while it runs, for a few minutes\. /);
+  assert.match(await ask('full', ['backup', '--full']), /while it runs, about 3 minutes last time\. /);
 });
 
 test('backup follows the job step by step, then prints where the backup went and its size', async () => {
@@ -128,7 +142,19 @@ test('a 409 while an update runs is reported as busy, without retrying', async (
   });
   assert.equal(await run(f, ['backup', '--yes']), 1);
   assert.equal(posts(f, '/v1/backup').length, 1);
-  assert.match(f.err(), /An update or a backup is running\. Wait for it to finish/);
+  assert.equal(f.err(), 'An update, a backup or an image clean-up is running. Wait for it to finish, then try again; sudo tome status shows it.');
+});
+
+test('a 409 that no record explains is an image clean-up, which tome status does not show', async () => {
+  const f = fakeContext({
+    routes: {
+      'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
+      'GET /v1/status': [statusAnswer(updateJob('succeeded'))],
+      'POST /v1/backup': [{ status: 409, body: { error: 'update_in_progress' } }],
+    },
+  });
+  assert.equal(await run(f, ['backup', '--yes']), 1);
+  assert.equal(f.err(), 'An update, a backup or an image clean-up is running. Wait for it to finish, then try again.');
 });
 
 test('a backup whose record stops with no job running is reported as stuck, with the way out', async () => {
@@ -143,6 +169,31 @@ test('a backup whose record stops with no job running is reported as stuck, with
   assert.equal(await run(f, ['backup', '--yes']), 1);
   assert.match(f.err(), /stuck.*free some space.*sudo systemctl restart tomecms-updater/is);
   assert.equal(posts(f, '/v1/apply').length, 0, 'nothing is sent that could start a job');
+});
+
+test('a backup that ends between its read and the lock check is not taken for stuck', async () => {
+  const f = fakeContext({
+    routes: {
+      // Read at "restarting"; by the time /v1/busy answers, it has ended and let go of the lock.
+      'GET /v1/backup': [{ status: 200, body: backupRecord('restarting') }, { status: 200, body: backupRecord('succeeded') }],
+      'POST /v1/backup': [{ status: 202, body: { id: requestId, phase: 'quiescing' } }],
+      'GET /v1/busy': [{ status: 200, body: { busy: false } }],
+    },
+  });
+  assert.equal(await run(f, ['backup', '--yes']), 0);
+  assert.equal(f.err(), '');
+  assert.match(f.out(), /^Backup saved to /m);
+});
+
+test('control characters in the backup directory the updater reports are never printed', async () => {
+  const f = fakeContext({
+    routes: {
+      'GET /v1/backup': [{ status: 200, body: backupRecord('succeeded', { backupDirectory: '/var/backups/tome-cms/tomecms-1\u001b[2J\u009b31m' }) }],
+      'POST /v1/backup': [{ status: 202, body: { id: requestId, phase: 'quiescing' } }],
+    },
+  });
+  assert.equal(await run(f, ['backup', '--yes']), 0);
+  assert.equal(f.out(), 'Backup saved to /var/backups/tome-cms/tomecms-1[2J31m (12.0 MiB).');
 });
 
 test('a backup refused for manual recovery says so', async () => {
@@ -290,7 +341,7 @@ test('update refused because an update is running reports busy', async () => {
     overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
-  assert.match(f.err(), /An update or a backup is running/);
+  assert.match(f.err(), /An update, a backup or an image clean-up is running\..*sudo tome status shows it/);
 });
 
 test('update refuses a release whose contracts this server does not have, newest or named', async () => {
@@ -388,5 +439,5 @@ test('prune with nothing to remove, an unreadable listing, and a busy updater', 
     },
   });
   assert.equal(await run(busy, ['prune']), 1);
-  assert.match(busy.err(), /An update or a backup is running/);
+  assert.match(busy.err(), /An update, a backup or an image clean-up is running\..*sudo tome status shows it/);
 });

@@ -212,3 +212,15 @@ test('the newest backup is the one its manifest says was made last, and an unsaf
   assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
   assert.equal(JSON.parse(f.printed[0]!).newestBackup.path, newest);
 });
+
+test('a directory not named as a backup is passed over, so its name never reaches the terminal', async (t) => {
+  const { root, newest } = await backups(t);
+  // Planted by the app's container, newer than any backup, with an escape sequence in its name.
+  for (const name of ['tomecms-20261002T113000000Z\u001b]0;owned\u0007', 'not-a-backup']) {
+    await mkdir(join(root, name));
+    await writeFile(join(root, name, 'manifest.json'), manifest('2026-10-02T11:30:00.000Z', false));
+  }
+  const f = healthy(root);
+  assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
+  assert.equal(JSON.parse(f.printed[0]!).newestBackup.path, newest);
+});

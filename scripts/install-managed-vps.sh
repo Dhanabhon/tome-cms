@@ -11,7 +11,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { assertPortsFree, makeEnvironment, publishedPorts, renderEnvironment } from './scripts/bootstrap-core.mjs';
 import { compareStableVersions, OFFICIAL_REPOSITORY, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion, parseUpdateManifest, UPDATE_MANIFEST_ASSET, UPDATE_MANIFEST_ATTESTATION_ASSET, UPDATE_IMAGE_ATTESTATION_ASSET } from './src/update/contracts.ts';
-import { redactDiagnosticText } from './src/updater/process.ts';
+import { isSecretName, redactDiagnosticText } from './src/updater/process.ts';
 import { migrationInventoryArgs } from './src/updater/inventory.ts';
 import { UPDATER_VERSION } from './src/updater/version.ts';
 import { TOME_SHIM, TOME_SHIM_PATH } from './src/cli/shim.ts';
@@ -138,7 +138,7 @@ function createServiceIdentity(kind, command, args) {
 }
 
 function rememberSecrets(values) {
-  const secrets = Object.entries(values).filter(([key, value]) => /PASSWORD|TOKEN|SECRET|KEY|PEPPER|DATABASE_URL/.test(key) && value).map(([, value]) => value);
+  const secrets = Object.entries(values).filter(([key, value]) => isSecretName(key) && value).map(([, value]) => value);
   const containerDatabase = new URL(values.DATABASE_URL);
   if (containerDatabase.password) secrets.push(containerDatabase.password, decodeURIComponent(containerDatabase.password));
   containerDatabase.hostname = 'postgres';

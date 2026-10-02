@@ -158,9 +158,12 @@ export async function readBusy(socket: SocketClient): Promise<boolean | null> {
 /**
  * A backup record that is not at its end while nothing holds the lock: its last write failed, most
  * likely on a full disk, and the record keeps refusing other jobs until the updater starts again.
+ * The record is read again once the lock is seen free, since a backup that just ended lets go of it.
  */
 export async function isBackupStuck(socket: SocketClient, backup: BackupJob | null): Promise<boolean> {
-  return isBackupRunning(backup) && await readBusy(socket) === false;
+  if (!isBackupRunning(backup) || await readBusy(socket) !== false) return false;
+  const again = await readBackup(socket);
+  return again?.id === backup!.id && isBackupRunning(again);
 }
 
 export function stuckBackupAdvice(phase: string): string {
@@ -174,7 +177,10 @@ export async function refusal(socket: SocketClient, answer: SocketAnswer): Promi
   if (code === 'update_in_progress') {
     const backup = await readBackup(socket).catch(() => null);
     if (await isBackupStuck(socket, backup).catch(() => false)) return stuckBackupAdvice(backup!.phase);
-    return 'An update or a backup is running. Wait for it to finish, then try again; sudo tome status shows it.';
+    // A prune holds the lock too, and leaves no record; tome status shows only an update or a backup.
+    const job = await readStatus(socket).then((status) => status.job, () => null);
+    const shown = isUpdateRunning(job) || isBackupRunning(backup) ? '; sudo tome status shows it' : '';
+    return `An update, a backup or an image clean-up is running. Wait for it to finish, then try again${shown}.`;
   }
   if (code === 'manual_recovery_required') {
     return 'The last update needs manual recovery before anything else can run. Follow "Troubleshooting" in the TomeCMS documentation.';

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { stopStreams, streamCommand } from '../../src/cli/main.js';
 import { exitQuietlyOnClosedPipe, socketTimeouts, unixSocketClient, UpdaterUnreachableError } from '../../src/cli/socket.js';
 
 test('a prune may take minutes to answer; every other request gives up after its short timeout', async (t) => {
@@ -41,4 +42,12 @@ test('a closed pipe ends tome quietly; any other output error is not hidden', ()
   handlers[0]!(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
   assert.deepEqual(exits, [0]);
   assert.throws(() => handlers[0]!(Object.assign(new Error('write EIO'), { code: 'EIO' })), /EIO/);
+});
+
+test('when the pipe closes, the logs -f it was following are stopped, not left running', async () => {
+  // A follower that never ends on its own, as docker compose logs -f and journalctl --follow do.
+  const following = streamCommand(process.execPath, ['-e', 'console.log("ready"); setInterval(() => {}, 1000)'], () => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  stopStreams();
+  assert.equal(await following, 1);
 });

@@ -6,7 +6,7 @@
 //   sudo npm run updater:upgrade
 // It leaves the site running. It refuses while an update or a backup is in progress, keeps the
 // previous updater beside the new one, and puts it back if the new one does not answer. It brings
-// `tome` too: the CLI is built with the updater, and its two-line shim goes on the PATH.
+// `tome` too: the CLI is built with the updater, and its shim goes on the PATH.
 import { spawnSync } from 'node:child_process';
 import { chmod, cp, lstat, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { request } from 'node:http';
 import { fileURLToPath } from 'node:url';
 
-import { TOME_SHIM, TOME_SHIM_PATH, UPDATER_INSTALL_DIRECTORY } from '../src/cli/shim.ts';
+import { TOME_SHIM, TOME_SHIM_MARKER, TOME_SHIM_PATH, UPDATER_INSTALL_DIRECTORY } from '../src/cli/shim.ts';
 import { compareStableVersions } from '../src/update/contracts.ts';
 import { parseUpdaterConfig } from '../src/updater/config.ts';
 import { createUpdaterStateStore } from '../src/updater/state.ts';
@@ -143,9 +143,13 @@ async function main(): Promise<void> {
   }
 }
 
+// The shim as the 1.11.0 development builds wrote it, before it carried the marker line.
+const UNMARKED_TOME_SHIM = `#!/bin/sh\nexec /usr/bin/node ${UPDATER_INSTALL_DIRECTORY}/cli/main.js "$@"\n`;
+
 /**
- * The `tome` already at `path`: null when there is none, and TomeCMS's shim when it is that. Anything
- * else there (another program, a link, a binary) is refused and left as it is.
+ * The `tome` already at `path`: null when there is none, and its text when it is TomeCMS's, which
+ * says so with the marker line. Anything else there (another program, a link, a binary) is refused
+ * and left as it is.
  */
 export async function existingShim(path: string): Promise<string | null> {
   const metadata = await lstat(path).catch((error: NodeJS.ErrnoException) => {
@@ -153,7 +157,10 @@ export async function existingShim(path: string): Promise<string | null> {
     throw error;
   });
   if (!metadata) return null;
-  if (metadata.isFile() && metadata.size === Buffer.byteLength(TOME_SHIM) && await readFile(path, 'utf8') === TOME_SHIM) return TOME_SHIM;
+  if (metadata.isFile() && metadata.size <= 4096) {
+    const text = await readFile(path, 'utf8');
+    if (text.split('\n').includes(TOME_SHIM_MARKER) || text === UNMARKED_TOME_SHIM) return text;
+  }
   throw new Error(`${path} is not TomeCMS's tome command, so it is left alone. Move it aside, then run this again.`);
 }
 

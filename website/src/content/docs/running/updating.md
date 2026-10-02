@@ -71,7 +71,7 @@ cd /opt/tome-cms-src
 
 Updater 1.5.0 and the `tome` command come with `sudo npm run updater:upgrade` from 1.11.0, as [The tome command](/tome-cms/running/cli/#installing) describes.
 
-It refuses to run while an update is in progress, from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
+It refuses to run while an update or a backup is in progress, when `/usr/local/bin/tome` is a program that is not TomeCMS's (it leaves that file alone), from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
 
 A 0.x install cannot become a managed one in place. The move to 1.0.0 needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
 

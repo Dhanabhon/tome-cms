@@ -771,7 +771,7 @@ function assertCredentialFree(environment: NodeJS.ProcessEnv | undefined): void 
 
 async function assertCompleteBackup(job: Pick<UpdateJob, 'backupDirectory'>, version: string): Promise<void> {
   assert.ok(job.backupDirectory);
-  assert.match(basename(job.backupDirectory), /^tomecms-test-backup-[0-9]+$/);
+  assert.match(basename(job.backupDirectory), /^tomecms-\d{8}T\d{9}Z$/);
   const manifestBytes = await readFile(join(job.backupDirectory, 'manifest.json'));
   const manifest = parseBackupManifest(JSON.parse(manifestBytes.toString('utf8')));
   assert.equal(manifest.applicationVersion, version);
@@ -1167,7 +1167,8 @@ func readCount() int {
 }
 
 func backup() {
-  name := fmt.Sprintf("tomecms-test-backup-%d", time.Now().UnixNano())
+  // Named as scripts/backup.ts names a backup: tomecms-<its ISO time without - : .>.
+  name := "tomecms-" + strings.ReplaceAll(time.Now().UTC().Format("20060102T150405.000Z"), ".", "")
   root := filepath.Join("/backups", name)
   objectKey := filepath.Join("owners", "123e4567-e89b-42d3-a456-426614174000", "2026", "09", "123e4567-e89b-42d3-a456-426614174001.webp")
   if err := os.MkdirAll(filepath.Join(root, "objects", filepath.Dir(objectKey)), 0700); err != nil { panic(err) }

@@ -5,7 +5,7 @@ import { parseBackupManifest } from '../../update/backup.js';
 import { composePrefix } from '../../updater/config.js';
 import { directorySize, readManifestBytes } from '../../updater/files.js';
 import type { CliContext } from '../main.js';
-import { formatAge, formatBytes, localTime } from '../output.js';
+import { formatAge, formatBytes, localTime, printable } from '../output.js';
 import { isBackupStuck, readBackup, readStatus, stuckBackupAdvice, UnexpectedAnswerError, UpdaterUnreachableError, type UpdaterStatus } from '../socket.js';
 
 export interface StatusReport {
@@ -21,8 +21,10 @@ export interface StatusReport {
 }
 
 const services = ['app', 'postgres', 'seaweedfs'];
+// The name scripts/backup.ts gives each backup: tomecms-<its ISO time without - : .>. Nothing else there is read.
+const backupNamePattern = /^tomecms-\d{8}T\d{9}Z$/;
 
-/** One screen, read-only. It fails (exit 1) only when the updater does not answer. */
+/** One screen, read-only. It fails (exit 1) only when the updater cannot be read. */
 export async function status(context: CliContext, options: { json: boolean }): Promise<number> {
   const [updater, site, containers, disk, newestBackup] = await Promise.all([
     readUpdater(context), readSite(context), readContainers(context), readDisk(context), readNewestBackup(context.config.backupDirectory),
@@ -109,7 +111,7 @@ async function readDisk(context: CliContext): Promise<StatusReport['disk']> {
 async function readNewestBackup(root: string): Promise<StatusReport['newestBackup']> {
   const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
   // ponytail: every manifest is read to compare dates; keep an index if servers hold hundreds of backups.
-  const backups = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
+  const backups = await Promise.all(entries.filter((entry) => entry.isDirectory() && backupNamePattern.test(entry.name)).map(async (entry) => {
     const path = join(root, entry.name);
     try {
       return { path, manifest: parseBackupManifest(JSON.parse((await readManifestBytes(path)).toString('utf8'))) };
@@ -162,6 +164,6 @@ function printReport(context: CliContext, report: StatusReport): void {
 
   const backup = report.newestBackup;
   print(backup
-    ? `Newest backup: ${backup.kind}, ${formatBytes(backup.sizeBytes)}, ${formatAge(backup.createdAt, context.now())} (${backup.path})`
+    ? `Newest backup: ${backup.kind}, ${formatBytes(backup.sizeBytes)}, ${formatAge(backup.createdAt, context.now())} (${printable(backup.path)})`
     : 'Newest backup: none');
 }

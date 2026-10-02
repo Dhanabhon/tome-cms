@@ -1,15 +1,17 @@
 import type { BackupJob } from '../../updater/state.js';
 import type { CliContext } from '../main.js';
-import { backupStep, explainError, formatBytes, formatMinutes } from '../output.js';
+import { backupStep, explainError, formatBytes, formatMinutes, printable } from '../output.js';
 import { errorCodeOf, follow, isBackupRunning, isBackupStuck, postJob, readBackup, refusal, stuckBackupAdvice } from '../socket.js';
 
 /** Asks the updater for a backup and follows it to its end. The site is in maintenance meanwhile. */
 export async function backup(context: CliContext, options: { full: boolean; yes: boolean }): Promise<number> {
   const kind = options.full ? 'full' : 'database';
   if (!options.yes) {
+    // Only a backup of the same kind says how long this one takes: copying the media can take far longer.
     const last = await readBackup(context.socket);
-    const took = last?.phase === 'succeeded' && last.finishedAt
-      ? `, about ${formatMinutes(Date.parse(last.finishedAt) - Date.parse(last.startedAt))} last time` : ', for a few minutes';
+    const took = last?.phase === 'succeeded' && last.kind === kind && last.finishedAt
+      ? `, about ${formatMinutes(Date.parse(last.finishedAt) - Date.parse(last.startedAt))} last time`
+      : options.full ? ', for a few minutes or longer, since it copies the media too' : ', for a few minutes';
     const what = options.full ? 'the database and media' : 'the database';
     if (!await context.confirm(`Back up ${what}? The site is in maintenance while it runs${took}. [y/N] `)) {
       context.print('Nothing was done.');
@@ -46,6 +48,6 @@ function report(context: CliContext, record: BackupJob, asked: 'database' | 'ful
   }
   if (record.kind !== asked) context.print('This app is older than 1.3.0 and cannot back up the database alone, so the updater backed up everything.');
   const size = record.sizeBytes === null ? 'size unknown' : formatBytes(record.sizeBytes);
-  context.print(`Backup saved to ${record.backupDirectory} (${size}).`);
+  context.print(`Backup saved to ${printable(record.backupDirectory ?? '')} (${size}).`);
   return 0;
 }

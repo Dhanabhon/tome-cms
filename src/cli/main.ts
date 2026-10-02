@@ -1,7 +1,7 @@
 // `tome`: short commands for looking after a managed TomeCMS server. Installed as /usr/local/bin/tome,
 // it runs as root, reads every path from the updater's configuration, and changes the server only
 // through the updater's socket. Exit codes: 0 success, 1 failure or refusal, 2 wrong usage.
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { readFile, statfs } from 'node:fs/promises';
@@ -109,14 +109,22 @@ async function loadContext(): Promise<CliContext> {
   };
 }
 
-function streamCommand(executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void): Promise<number> {
+const streams = new Set<ChildProcess>();
+
+export function streamCommand(executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+    streams.add(child);
     createInterface({ input: child.stdout }).on('line', (line) => onLine(line, 'stdout'));
     createInterface({ input: child.stderr }).on('line', (line) => onLine(line, 'stderr'));
-    child.once('error', reject);
-    child.once('close', (code) => resolve(code ?? 1));
+    child.once('error', (error) => { streams.delete(child); reject(error); });
+    child.once('close', (code) => { streams.delete(child); resolve(code ?? 1); });
   });
+}
+
+/** Stops every command still streaming: `logs -f` would otherwise outlive a tome whose reader has gone. */
+export function stopStreams(): void {
+  for (const child of streams) child.kill();
 }
 
 async function confirm(question: string): Promise<boolean> {
@@ -134,7 +142,10 @@ async function confirm(question: string): Promise<boolean> {
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  for (const stream of [process.stdout, process.stderr]) exitQuietlyOnClosedPipe(stream, (code) => process.exit(code));
+  for (const stream of [process.stdout, process.stderr]) exitQuietlyOnClosedPipe(stream, (code) => {
+    stopStreams();
+    process.exit(code);
+  });
   process.exitCode = await tome(process.argv.slice(2), {
     uid: process.getuid?.() ?? -1,
     load: loadContext,

@@ -43,7 +43,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { swapUpdater, type SwapOperations } from '../../scripts/updater-upgrade';
-import { TOME_SHIM, UPDATER_INSTALL_DIRECTORY } from '../../src/cli/shim';
+import { TOME_SHIM, TOME_SHIM_MARKER, UPDATER_INSTALL_DIRECTORY } from '../../src/cli/shim';
 
 async function server(options: { jobAfterStop?: string | null; backupAfterStop?: string | null; answers?: boolean; failing?: string; shim?: string } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'tomecms-swap-'));
@@ -96,7 +96,7 @@ test('a swap installs tome: the CLI beside the updater, and the shim on the PATH
   await swapUpdater(s.paths, 'STAMP', s.operations);
   assert.equal(await s.read(join(s.paths.install, 'cli', 'main.js')), 'new cli');
   assert.equal(await s.read(s.paths.shim), TOME_SHIM);
-  assert.equal(TOME_SHIM, '#!/bin/sh\nexec /usr/bin/node /opt/tome-cms/updater/cli/main.js "$@"\n');
+  assert.equal(TOME_SHIM, '#!/bin/sh\n# tome — TomeCMS server command\nexec /usr/bin/node /opt/tome-cms/updater/cli/main.js "$@"\n');
   assert.equal((await stat(s.paths.shim)).mode & 0o777, 0o755);
   assert.ok(s.calls.includes(`chown root:root ${s.paths.shim}.pending-STAMP`), 'owned by root before it is renamed into place');
   assert.deepEqual((await readdir(join(s.root, 'usr', 'local', 'bin'))), ['tome'], 'nothing else is left on the PATH');
@@ -151,5 +151,24 @@ test('a tome on the PATH that is not TomeCMS\'s is left alone, and nothing is re
 });
 
 test('the shim runs the CLI where the updater is installed', () => {
-  assert.equal(TOME_SHIM, `#!/bin/sh\nexec /usr/bin/node ${UPDATER_INSTALL_DIRECTORY}/cli/main.js "$@"\n`);
+  assert.equal(TOME_SHIM, `#!/bin/sh\n${TOME_SHIM_MARKER}\nexec /usr/bin/node ${UPDATER_INSTALL_DIRECTORY}/cli/main.js "$@"\n`);
+});
+
+test('a tome is TomeCMS\'s by its marker line, so any of its shims is replaced, and put back as it was on a failure', async () => {
+  const unmarked = '#!/bin/sh\nexec /usr/bin/node /opt/tome-cms/updater/cli/main.js "$@"\n';
+  const otherMarked = `#!/bin/sh\n${TOME_SHIM_MARKER}\nexec /usr/bin/node /somewhere/else/main.js "$@"\n`;
+  for (const previous of [unmarked, otherMarked]) {
+    const s = await server({ shim: previous });
+    await swapUpdater(s.paths, 'STAMP', s.operations);
+    assert.equal(await s.read(s.paths.shim), TOME_SHIM);
+    const t = await server({ answers: false, shim: previous });
+    await assert.rejects(swapUpdater(t.paths, 'STAMP', t.operations), /did not answer/);
+    assert.equal(await t.read(t.paths.shim), previous, 'the one that was there comes back');
+  }
+  // The marker counts only as a line of its own, and the unmarked text only exactly.
+  for (const foreign of [`#!/bin/sh\necho "${TOME_SHIM_MARKER}"\n`, `${unmarked}echo more\n`]) {
+    const s = await server({ shim: foreign });
+    await assert.rejects(swapUpdater(s.paths, 'STAMP', s.operations), /not TomeCMS's tome command/);
+    assert.equal(await s.read(s.paths.shim), foreign);
+  }
 });

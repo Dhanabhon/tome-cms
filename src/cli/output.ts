@@ -13,6 +13,11 @@ export function formatBytes(bytes: number): string {
   return `${value < 100 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
+/** A value read from somewhere tome does not trust, with its C0 and C1 control characters (escape sequences) taken out. */
+export function printable(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f-\u009f]/gu, '');
+}
+
 /** How long ago, in the largest whole unit: "3 minutes ago", "2 days ago". */
 export function formatAge(iso: string, now: Date): string {
   const minutes = Math.max(0, Math.floor((now.getTime() - Date.parse(iso)) / 60_000));
