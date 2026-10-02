@@ -5,6 +5,7 @@ import { createConnection } from 'node:net';
 import { parseStableVersion } from '../update/contracts.js';
 import type { PruneResult } from './prune.js';
 import { toPublicUpdateJob, type BackupJob, type BackupKind, type UpdateJob, type UpdaterStateStore } from './state.js';
+import { InsufficientDiskSpaceError } from './verify.js';
 import { UPDATER_VERSION } from './version.js';
 
 export interface ApplyRequest {
@@ -48,8 +49,12 @@ export function createUpdaterServer(input: {
   state: UpdaterStateStore;
   apply: (request: ApplyRequest) => Promise<UpdateJob>;
   execute?: (request: ApplyRequest) => Promise<UpdateJob>;
-  /** Runs a backup created in `quiescing` to its end; it always starts the app again. */
-  backup?: (job: BackupJob) => Promise<unknown>;
+  backup?: {
+    /** Refuses before anything starts, as the update preflight does: a disk below the minimum. */
+    check: () => Promise<void>;
+    /** Runs a backup created in `quiescing` to its end; it always starts the app again. */
+    run: (job: BackupJob) => Promise<unknown>;
+  };
   prune?: (request: { dryRun: boolean }) => Promise<PruneResult | null>;
 }): ReturnType<typeof createServer> {
   // The one lock: an update, a backup and a prune never overlap.
@@ -108,16 +113,30 @@ export function createUpdaterServer(input: {
       }
       if (request.url === '/v1/backup' && request.method === 'POST' && input.backup) {
         const backupRequest = parseBackupRequest(await readBody(request));
+        // A request sent again is answered from its record and starts nothing: 202 while it runs,
+        // and the record, as GET gives it, once it has ended.
+        const known = await input.state.readBackup();
+        if (known?.id === backupRequest.requestId) {
+          return known.phase === 'succeeded' || known.phase === 'failed'
+            ? json(response, 200, known) : json(response, 202, { id: known.id, phase: known.phase });
+        }
         if (active) return json(response, 409, { error: 'update_in_progress' });
         active = true;
         let dispatched = false;
         try {
+          try {
+            await input.backup.check();
+          } catch (error) {
+            if (error instanceof InsufficientDiskSpaceError) return json(response, 409, { error: 'insufficient_disk_space' });
+            throw error;
+          }
           // Refused, as a 409, while an update is active or waits for manual recovery.
           const backup = await input.state.createBackup({ id: backupRequest.requestId, kind: backupRequest.kind });
           json(response, 202, { id: backup.id, phase: backup.phase });
           dispatched = true;
-          void Promise.resolve().then(() => input.backup!(backup)).catch(async () => {
+          void Promise.resolve().then(() => input.backup!.run(backup)).catch(async () => {
             // Only a record that could not be written reaches here; the app has been started again.
+            // If ending it fails too, the record stays active and keeps refusing other jobs.
             const latest = await input.state.readBackup();
             if (latest?.id === backup.id && latest.phase !== 'succeeded' && latest.phase !== 'failed') {
               await input.state.transitionBackup(backup.id, 'failed', { errorCode: 'backup_failed' });

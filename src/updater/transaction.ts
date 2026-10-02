@@ -261,9 +261,11 @@ async function takeBackup({ backup, config, state, dependencies: given }: Backup
       config, installed, kind, name: oneShotNames(config.projectName, backup.id).backup, identity, dependencies, diagnostics,
       backingUp: () => state.transitionBackup(backup.id, 'backing_up', { kind }),
     });
-    taken = { backupDirectory, sizeBytes: await directorySize(backupDirectory) };
+    taken = { backupDirectory, sizeBytes: null };
     errorCode = null;
   } catch { /* The app is started again below, and the backup ends failed. */ }
+  // The backup has been checked file by file; a size that cannot be read is only unknown.
+  if (taken.backupDirectory) taken = { ...taken, sizeBytes: await directorySize(taken.backupDirectory).catch(() => null) };
   // A record that cannot be written must not keep the app down: it is started either way.
   await state.transitionBackup(backup.id, 'restarting', taken).catch(() => undefined);
   try {
@@ -275,27 +277,57 @@ async function takeBackup({ backup, config, state, dependencies: given }: Backup
 }
 
 /**
- * On boot, a backup the updater stopped in the middle of: its one-shot is removed, the installed
- * app is started again, and the backup ends failed, which clears the marker.
+ * On boot, a backup the updater stopped in the middle of: its one-shot is removed, the app is
+ * started again if it is down, and the backup ends failed, which clears the marker.
+ *
+ * An app that is running is left alone. The backup may have been cut short before its stop, or
+ * the host may have rebooted and started it; a running app on another image is someone's
+ * deliberate change, which a backup's preflight does not touch either. Nothing here throws: a
+ * record that cannot be ended (a full disk) is journalled, the updater still starts, and the
+ * record, still active, keeps refusing updates and backups until it can be written.
  */
 export async function reconcileBackup(input: Omit<BackupInput, 'backup'>): Promise<BackupJob | null> {
-  const backup = await input.state.readBackup();
-  if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return backup;
-  const dependencies = { ...defaults, ...input.dependencies };
-  const installed = await input.state.readInstalled();
-  const diagnostics: CommandDiagnosticContext = {
-    jobId: backup.id, targetVersion: installed.version,
-    secrets: await diagnosticSecrets(input.config.environmentFile).catch(() => null),
-  };
-  // A backup that is still writing reads the database; the app beside it does no harm.
-  await cleanOneShot(oneShotNames(input.config.projectName, backup.id).backup, dependencies, true, diagnostics).catch(() => undefined);
-  let errorCode = 'backup_failed';
   try {
-    await restoreInstalledApp(input.config, installed.imageDigest, dependencies, diagnostics, 'restart');
+    const backup = await input.state.readBackup();
+    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return backup;
+    const dependencies = { ...defaults, ...input.dependencies };
+    const installed = await input.state.readInstalled();
+    const diagnostics: CommandDiagnosticContext = {
+      jobId: backup.id, targetVersion: installed.version,
+      secrets: await diagnosticSecrets(input.config.environmentFile).catch(() => null),
+    };
+    // A backup that is still writing reads the database; the app beside it does no harm.
+    await cleanOneShot(oneShotNames(input.config.projectName, backup.id).backup, dependencies, true, diagnostics).catch(() => undefined);
+    let errorCode = 'backup_failed';
+    if (!await appStillServing(input.config, installed, dependencies, diagnostics)) {
+      try {
+        await restoreInstalledApp(input.config, installed.imageDigest, dependencies, diagnostics, 'restart');
+      } catch {
+        errorCode = 'health_failed';
+      }
+    }
+    return await input.state.transitionBackup(backup.id, 'failed', { errorCode });
   } catch {
-    errorCode = 'health_failed';
+    try { console.error(JSON.stringify({ event: 'updater_backup_reconcile_failed' })); } catch { /* The updater still starts. */ }
+    return null;
   }
-  return input.state.transitionBackup(backup.id, 'failed', { errorCode });
+}
+
+/** True when the app runs another image, or the installed one and is ready: then it is not restarted. */
+async function appStillServing(
+  config: UpdaterConfig,
+  installed: InstalledState,
+  dependencies: UpdateDependencies,
+  diagnostics: CommandDiagnosticContext,
+): Promise<boolean> {
+  let image: string;
+  try {
+    image = await inspectRunningApp(config, dependencies, diagnostics, 'reconcile');
+  } catch {
+    return false;
+  }
+  if (image !== `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`) return true;
+  return awaitReadiness(config, dependencies).then(() => true, () => false);
 }
 
 /**

@@ -48,6 +48,20 @@ export class InsufficientDiskSpaceError extends Error {
   constructor() { super('Insufficient backup disk space'); }
 }
 
+/**
+ * Refuses when the disk the backups go to has less free space than the configured minimum. An
+ * update checks it before it verifies a release, and a backup on request before it starts.
+ */
+export async function assertBackupSpace(
+  config: Pick<UpdaterConfig, 'backupDirectory' | 'minimumFreeBytes'>,
+  readFilesystem: VerifyDependencies['statfs'] = statfs,
+): Promise<void> {
+  const filesystem = await readFilesystem(config.backupDirectory);
+  const availableBytes = filesystem.bsize * filesystem.bavail;
+  if (!Number.isSafeInteger(availableBytes)) throw new Error('Backup disk space is unreadable');
+  if (availableBytes < config.minimumFreeBytes) throw new InsufficientDiskSpaceError();
+}
+
 export interface VerifyDependencies {
   fetcher: typeof fetch;
   runCommand: typeof import('./process.js').runCommand;
@@ -174,10 +188,7 @@ export async function runPreflight(input: {
   });
   if (!readiness.ok) throw new Error('Application health preflight failed');
 
-  const filesystem = await dependencies.statfs(input.config.backupDirectory);
-  const availableBytes = filesystem.bsize * filesystem.bavail;
-  if (!Number.isSafeInteger(availableBytes)) throw new Error('Backup disk space is unreadable');
-  if (availableBytes < input.config.minimumFreeBytes) throw new InsufficientDiskSpaceError();
+  await assertBackupSpace(input.config, dependencies.statfs);
 
   const platform = dependencies.hostPlatform?.() ?? currentPlatform();
   if (!input.target.image.platforms.includes(platform as 'linux/amd64' | 'linux/arm64')) {

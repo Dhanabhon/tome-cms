@@ -7,6 +7,7 @@ import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 
 import { parseBackupManifest } from '../../src/update/backup.js';
 import { getUpdateInstallability } from '../../src/server/update/admin.js';
@@ -24,7 +25,7 @@ import { runCommand as runProcess, type CommandResult } from '../../src/updater/
 import { createUpdaterServer } from '../../src/updater/server.js';
 import { createUpdaterStateStore, type InstalledState, type UpdateJob } from '../../src/updater/state.js';
 import { applyUpdate, runBackup, type UpdateDependencies } from '../../src/updater/transaction.js';
-import { runPreflight, verifyTargetRelease, type VerifyDependencies } from '../../src/updater/verify.js';
+import { assertBackupSpace, runPreflight, verifyTargetRelease, type VerifyDependencies } from '../../src/updater/verify.js';
 
 const nonce = randomUUID().replaceAll('-', '').slice(0, 12);
 const projectName = `tomecms-test-${nonce}` as const;
@@ -185,7 +186,15 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
         await assertCompleteBackup(backup as Pick<UpdateJob, 'backupDirectory'>, '1.0.0');
         assert.equal(scenario.stopCount, 2, 'stopped for the backup, then once more before it starts');
         assert.deepEqual(await getUpdaterStatus({ socketPath: scenario.config.socketPath }), statusBefore);
-        assert.deepEqual(JSON.parse(await readFile(scenario.config.statusPath, 'utf8')), statusBefore, 'the marker is cleared');
+        // The record ends first, then the marker is cleared, so a record that cannot be written leaves it set.
+        let marker: unknown;
+        for (let attempt = 0; attempt < 200; attempt += 1) {
+          marker = JSON.parse(await readFile(scenario.config.statusPath, 'utf8'));
+          if (isDeepStrictEqual(marker, statusBefore)) break;
+          await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+        }
+        assert.deepEqual(marker, statusBefore, 'the marker is cleared');
+        assert.equal((await fetch(`http://127.0.0.1:${fixture.port}/health/ready`)).ok, true, 'the site is ready again');
         assert.equal(await runningAppImage(scenario.config, fixture.images.previous.id), fixture.images.previous.id);
         assert.deepEqual(await infrastructureSnapshot(baseImageEnvironmentFile, fixture.images.previous.id), infrastructure);
         assert.deepEqual(await publicContract(fixture.port), publicBefore);
@@ -564,7 +573,7 @@ async function createScenario(mode: ScenarioMode, fixture: Fixture): Promise<Sce
     state,
     apply: ({ requestId, version }) => state.createJob({ requestId, targetVersion: version }),
     execute: ({ requestId, version }) => applyUpdate({ config, dependencies, requestId, state, updaterVersion: '1.0.0', version }),
-    backup: (backup) => runBackup({ backup, config, dependencies, state }),
+    backup: { check: () => assertBackupSpace(config, statfs), run: (backup) => runBackup({ backup, config, dependencies, state }) },
   });
   scenario.server = server;
   servers.add(server);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +14,7 @@ import type { UpdaterConfig } from '../../src/updater/config.js';
 import { createUpdaterServer } from '../../src/updater/server.js';
 import { createUpdaterStateStore, type InstalledState, type UpdateJob } from '../../src/updater/state.js';
 import { reconcileBackup, runBackup, runPrune, type UpdateDependencies } from '../../src/updater/transaction.js';
+import { assertBackupSpace, type VerifyDependencies } from '../../src/updater/verify.js';
 import { UPDATER_VERSION } from '../../src/updater/version.js';
 import { releasedStatusSchemas } from '../helpers/released-updater-status.js';
 
@@ -28,7 +29,6 @@ const terminal = ['succeeded', 'failed'];
 
 async function fixture(t: TestContext, version = '1.10.0') {
   const root = await mkdtemp(join(tmpdir(), 'tomecms-backup-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
   const config = {
     configVersion: 1, projectName: 'tomecms',
     stateDirectory: join(root, 'state'), statusPath: join(root, 'status.json'),
@@ -36,6 +36,8 @@ async function fixture(t: TestContext, version = '1.10.0') {
     composeFile: join(root, 'compose.yaml'), environmentFile: join(root, 'app.env'),
     socketPath: join(root, 'u.sock'), appHealthUrl: 'http://127.0.0.1:4321/health/ready', minimumFreeBytes: 1,
   } as UpdaterConfig;
+  // A test may leave the state directory read-only, as a full disk would.
+  t.after(async () => { await chmod(config.stateDirectory, 0o700).catch(() => undefined); await rm(root, { recursive: true, force: true }); });
   const installed = installedState(version);
   await mkdir(config.backupDirectory);
   await writeFile(config.composeFile, 'services: {}');
@@ -64,6 +66,8 @@ async function fixture(t: TestContext, version = '1.10.0') {
 
   let failure = '';
   let ready = true;
+  let appRunning = true;
+  let freeBytes = 10 * 1024 ** 3;
   let runningDigest = installed.imageDigest;
   let listing = '';
   let gate: Promise<void> = Promise.resolve();
@@ -89,9 +93,9 @@ async function fixture(t: TestContext, version = '1.10.0') {
       if (args[0] === 'ps') return { code: 0, stdout: '', stderr: '' };
       if (args[0] === 'rm') { events.push(`rm:${args.at(-1)}`); return { code: 0, stdout: '', stderr: '' }; }
       if (args[0] === 'inspect') {
-        return { code: 0, stdout: JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: { Running: true } }]), stderr: '' };
+        return { code: 0, stdout: JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: { Running: appRunning } }]), stderr: '' };
       }
-      if (args.includes('ps')) return { code: 0, stdout: `${'c'.repeat(64)}\n`, stderr: '' };
+      if (args.includes('ps')) return { code: 0, stdout: appRunning ? `${'c'.repeat(64)}\n` : '', stderr: '' };
       const event = args.includes('stop') ? 'stop' : args.includes('backup') ? 'backup' : args.includes('up') ? 'up' : '';
       if (!event) throw new Error(`Unexpected command ${args.join(' ')}`);
       events.push(event);
@@ -99,6 +103,8 @@ async function fixture(t: TestContext, version = '1.10.0') {
       if (event === 'stop') await gate;
       if (event === 'backup') { backupArgs.push([...args]); await duringBackup(); }
       if (failure === event) return { code: 1, stdout: '', stderr: 'private failure' };
+      if (event === 'stop') appRunning = false;
+      if (event === 'up') appRunning = true;
       return { code: 0, stdout: event === 'backup' ? receipt : '', stderr: '' };
     },
     fetcher: async () => {
@@ -112,7 +118,10 @@ async function fixture(t: TestContext, version = '1.10.0') {
   const server = createUpdaterServer({
     state,
     apply: ({ version: target, requestId }) => state.createJob({ targetVersion: target, requestId }),
-    backup: (job) => runBackup({ backup: job, config, state, dependencies }),
+    backup: {
+      check: () => assertBackupSpace(config, (async () => ({ bsize: 1, bavail: freeBytes })) as unknown as VerifyDependencies['statfs']),
+      run: (job) => runBackup({ backup: job, config, state, dependencies }),
+    },
     prune: ({ dryRun }) => runPrune({ dryRun, config, state, dependencies }),
   });
   server.listen(config.socketPath);
@@ -124,6 +133,9 @@ async function fixture(t: TestContext, version = '1.10.0') {
     fail: (event: string) => { failure = event; },
     unready: () => { ready = false; },
     running: (value: string) => { runningDigest = value; },
+    appDown: () => { appRunning = false; },
+    isAppRunning: () => appRunning,
+    diskFree: (value: number) => { freeBytes = value; },
     listing: (value: string) => { listing = value; },
     hold: () => { let release!: () => void; gate = new Promise((resolve) => { release = resolve; }); return release; },
     duringBackup: (hook: () => Promise<void>) => { duringBackup = hook; },
@@ -145,14 +157,30 @@ async function lastUpdate(f: Awaited<ReturnType<typeof fixture>>): Promise<Updat
   return job;
 }
 
-async function follow(socketPath: string): Promise<Record<string, unknown>> {
+/** Follows GET /v1/backup to its end, then waits for the marker, which is cleared just after the record ends. */
+async function follow(socketPath: string, statusPath: string): Promise<Record<string, unknown>> {
   for (let attempt = 0; attempt < 400; attempt++) {
     const answer = await unixRequest(socketPath, 'GET', '/v1/backup');
     const record = answer.json as Record<string, unknown>;
-    if (answer.status === 200 && terminal.includes(record.phase as string)) return record;
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    if (answer.status === 200 && terminal.includes(record.phase as string)) {
+      for (let wait = 0; wait < 400 && await isUpdateWriteBlocked(statusPath); wait++) await pause();
+      return record;
+    }
+    await pause();
   }
   throw new Error('The backup did not finish');
+}
+
+const pause = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+/** The server lets go of its lock just after a job's last write, as after an update; a request then is retried. */
+async function onceUnlocked(send: () => Promise<{ status: number; json: unknown }>): Promise<{ status: number; json: unknown }> {
+  let answer = await send();
+  for (let attempt = 0; attempt < 400 && answer.status === 409; attempt++) {
+    await pause();
+    answer = await send();
+  }
+  return answer;
 }
 
 const backupBody = (kind = 'database') => ({ requestId: randomUUID(), kind });
@@ -178,7 +206,7 @@ test('a backup on request answers 202, then goes through quiescing, backing up a
   assert.equal(accepted.status, 202);
   assert.deepEqual(accepted.json, { id: body.requestId, phase: 'quiescing' });
 
-  const record = await follow(f.socketPath);
+  const record = await follow(f.socketPath, f.config.statusPath);
   assert.deepEqual(Object.keys(record).sort(),
     ['backupDirectory', 'errorCode', 'finishedAt', 'id', 'kind', 'phase', 'sizeBytes', 'startedAt']);
   const dumpSize = Buffer.byteLength('postgres custom-format backup fixture');
@@ -212,7 +240,7 @@ test('/v1/status and the marker stay readable by older apps during and after a b
     blockedDuring = await isUpdateWriteBlocked(f.config.statusPath);
   });
   assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
-  assert.equal((await follow(f.socketPath)).phase, 'succeeded');
+  assert.equal((await follow(f.socketPath, f.config.statusPath)).phase, 'succeeded');
   const statusAfter = (await unixRequest(f.socketPath, 'GET', '/v1/status')).json;
   const markerAfter = await readStatusFile(f.config.statusPath);
 
@@ -232,7 +260,7 @@ test('a failed backup still starts the app, clears the marker and ends failed wi
   f.fail('backup');
   t.mock.method(console, 'error', () => undefined);
   assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
-  const record = await follow(f.socketPath);
+  const record = await follow(f.socketPath, f.config.statusPath);
   assert.equal(record.phase, 'failed');
   assert.equal(record.errorCode, 'backup_failed');
   assert.equal(record.backupDirectory, null);
@@ -247,7 +275,7 @@ test('an app that does not come back ends the backup failed with health_failed, 
   f.unready();
   const record = await (async () => {
     assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
-    return follow(f.socketPath);
+    return follow(f.socketPath, f.config.statusPath);
   })();
   assert.equal(record.phase, 'failed');
   assert.equal(record.errorCode, 'health_failed');
@@ -259,7 +287,7 @@ test('a backup that fails its checks stops nothing and starts nothing', async (t
   const f = await fixture(t);
   f.running(digest('d'));
   assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
-  const record = await follow(f.socketPath);
+  const record = await follow(f.socketPath, f.config.statusPath);
   assert.equal(record.phase, 'failed');
   assert.equal(record.errorCode, 'preflight_failed');
   assert.deepEqual(f.events, []);
@@ -269,7 +297,7 @@ test('a backup that fails its checks stops nothing and starts nothing', async (t
 test('an app before 1.3.0 cannot back up its database alone, so it backs up everything', async (t) => {
   const f = await fixture(t, '1.2.0');
   assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody('database'))).status, 202);
-  const record = await follow(f.socketPath);
+  const record = await follow(f.socketPath, f.config.statusPath);
   assert.equal(record.phase, 'succeeded');
   assert.equal(record.kind, 'full');
   assert.equal(f.backupArgs[0]!.includes('--database-only'), false);
@@ -294,17 +322,13 @@ test('one job at a time: a backup is refused during an update, and an update, a 
   // The lock holds on disk too, not only in the server: an update job cannot be created beside it.
   await assert.rejects(f.state.createJob({ targetVersion: '1.11.0', requestId: randomUUID() }), /already active/);
   release();
-  assert.equal((await follow(f.socketPath)).phase, 'succeeded');
+  assert.equal((await follow(f.socketPath, f.config.statusPath)).phase, 'succeeded');
   assert.equal(f.events.filter((event) => event === 'backup').length, 1);
 
   // The server lets go of the lock just after the backup's last write, as it does after an update.
-  let applied = 0;
-  for (let attempt = 0; attempt < 400 && applied !== 202; attempt++) {
-    applied = (await unixRequest(f.socketPath, 'POST', '/v1/apply', { version: '1.11.0', requestId: randomUUID() })).status;
-    if (applied !== 202) await new Promise((resolve) => setTimeout(resolve, 5));
-  }
+  const applied = await onceUnlocked(() => unixRequest(f.socketPath, 'POST', '/v1/apply', { version: '1.11.0', requestId: randomUUID() }));
   // An update that has started, here one that has not moved past its first step, refuses a backup and a prune.
-  assert.equal(applied, 202);
+  assert.equal(applied.status, 202);
   assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody()), { status: 409, json: { error: 'update_in_progress' } });
   assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/prune', { dryRun: true }), { status: 409, json: { error: 'update_in_progress' } });
 });
@@ -412,22 +436,180 @@ test('a listing that cannot be read in full, or dates that cannot be placed, rem
   assert.equal(f.events.some((event) => event.startsWith('image-rm')), false);
 });
 
-test('an updater that stopped in the middle of a backup starts the app on boot and ends the backup failed', async (t) => {
-  const f = await fixture(t);
-  const before = await readStatusFile(f.config.statusPath);
+/** A backup cut short in `phase`, as an updater that died there leaves it. */
+async function cutShort(f: Awaited<ReturnType<typeof fixture>>, phase: 'quiescing' | 'backing_up' | 'restarting'): Promise<string> {
   const id = randomUUID();
   await f.state.createBackup({ id, kind: 'database' });
-  await f.state.transitionBackup(id, 'backing_up');
+  if (phase !== 'quiescing') await f.state.transitionBackup(id, 'backing_up');
+  if (phase === 'restarting') await f.state.transitionBackup(id, 'restarting');
   assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true);
+  return id;
+}
 
+/**
+ * A state directory that takes no new file once a backup reaches one of `phases`, as on a full
+ * disk: backup-job.json cannot be written, while status.json, elsewhere, still can. `once` gives
+ * the directory back after that one write.
+ */
+function failEndingWrites(f: Awaited<ReturnType<typeof fixture>>, phases = ['succeeded', 'failed'], once = false): void {
+  const transition = f.state.transitionBackup.bind(f.state);
+  f.state.transitionBackup = async (id, phase, patch) => {
+    if (!phases.includes(phase)) return transition(id, phase, patch);
+    await chmod(f.config.stateDirectory, 0o500);
+    try {
+      return await transition(id, phase, patch);
+    } finally {
+      if (once) await chmod(f.config.stateDirectory, 0o700);
+    }
+  };
+}
+
+for (const phase of ['backing_up', 'restarting'] as const) {
+  test(`on boot, a backup cut short in ${phase} with the app down starts it again and ends failed`, async (t) => {
+    const f = await fixture(t);
+    const before = await readStatusFile(f.config.statusPath);
+    const id = await cutShort(f, phase);
+    f.appDown();
+
+    const record = await reconcileBackup({ config: f.config, state: f.state, dependencies: f.dependencies });
+    assert.equal(record?.phase, 'failed');
+    assert.equal(record?.errorCode, 'backup_failed');
+    assert.deepEqual(f.events, [`rm:tomecms-update-${id}-backup`, 'stop', 'up', 'health']);
+    assert.equal(f.isAppRunning(), true);
+    assert.deepEqual(await readStatusFile(f.config.statusPath), before);
+    // Nothing to do on the next boot.
+    assert.deepEqual(await reconcileBackup({ config: f.config, state: f.state, dependencies: f.dependencies }), record);
+    assert.equal(f.events.length, 4);
+  });
+}
+
+test('on boot, a backup cut short before its stop leaves the running, ready app alone', async (t) => {
+  const f = await fixture(t);
+  const before = await readStatusFile(f.config.statusPath);
+  const id = await cutShort(f, 'quiescing');
   const record = await reconcileBackup({ config: f.config, state: f.state, dependencies: f.dependencies });
   assert.equal(record?.phase, 'failed');
-  assert.equal(record?.errorCode, 'backup_failed');
-  assert.deepEqual(f.events, [`rm:tomecms-update-${id}-backup`, 'stop', 'up', 'health']);
+  assert.deepEqual(f.events, [`rm:tomecms-update-${id}-backup`, 'health'], 'probed, never stopped or started');
   assert.deepEqual(await readStatusFile(f.config.statusPath), before);
-  // Nothing to do on the next boot.
-  assert.deepEqual(await reconcileBackup({ config: f.config, state: f.state, dependencies: f.dependencies }), record);
-  assert.equal(f.events.length, 4);
+});
+
+test('on boot, an app running another image is not recreated, as a backup preflight would not', async (t) => {
+  const f = await fixture(t);
+  await cutShort(f, 'backing_up');
+  f.running(digest('d'));
+  const record = await reconcileBackup({ config: f.config, state: f.state, dependencies: f.dependencies });
+  assert.equal(record?.phase, 'failed');
+  assert.equal(f.events.some((event) => event === 'stop' || event === 'up'), false);
+});
+
+test('on boot, a backup record that cannot be ended is journalled, the updater comes up and the healthy app is left alone', async (t) => {
+  const f = await fixture(t);
+  await cutShort(f, 'backing_up');
+  failEndingWrites(f);
+  const errors: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { errors.push(String(message)); });
+
+  assert.equal(await reconcileBackup({ config: f.config, state: f.state, dependencies: f.dependencies }), null);
+  assert.equal(f.events.some((event) => event === 'stop' || event === 'up'), false);
+  assert.deepEqual(errors.map((line) => JSON.parse(line).event), ['updater_backup_reconcile_failed']);
+  // Still active on disk: the marker tells the truth, and other jobs stay refused.
+  assert.equal((await f.state.readBackup())?.phase, 'backing_up');
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true);
+  assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/apply', { version: '1.11.0', requestId: randomUUID() }),
+    { status: 409, json: { error: 'update_in_progress' } });
+  assert.equal((await unixRequest(f.socketPath, 'GET', '/v1/status')).status, 200);
+});
+
+test('a backup whose last record write fails starts the app once, keeps refusing jobs and lets go of the lock', async (t) => {
+  const f = await fixture(t);
+  failEndingWrites(f);
+  const errors: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { errors.push(String(message)); });
+  assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
+  for (let attempt = 0; !errors.includes('Updater backup state could not be persisted'); attempt++) {
+    assert.ok(attempt < 400, 'the server journals the record it cannot write');
+    await pause();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual(f.events, ['drain', 'stop', 'backup', 'stop', 'up', 'health'], 'started once, never bounced again');
+  assert.equal(f.isAppRunning(), true);
+  assert.equal((await f.state.readBackup())?.phase, 'restarting');
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true, 'the marker still tells the truth');
+  // The server's lock is free; the record on disk is what refuses.
+  for (const [path, body] of [['/v1/backup', backupBody()], ['/v1/apply', { version: '1.11.0', requestId: randomUUID() }]] as const) {
+    assert.deepEqual(await unixRequest(f.socketPath, 'POST', path, body), { status: 409, json: { error: 'update_in_progress' } }, path);
+  }
+  assert.equal(f.events.length, 6);
+});
+
+test('a restarting write that fails still starts the app, and the server ends the backup failed', async (t) => {
+  const f = await fixture(t);
+  failEndingWrites(f, ['restarting'], true);
+  assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
+  const record = await follow(f.socketPath, f.config.statusPath);
+  // backing_up to succeeded is refused as a transition; the server's recovery ends it failed instead.
+  assert.equal(record.phase, 'failed');
+  assert.equal(record.errorCode, 'backup_failed');
+  assert.deepEqual(f.events.slice(-3), ['stop', 'up', 'health']);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
+  f.listing(listingRow(digest('a'), '2026-10-02 05:59:08 +0000 UTC'));
+  assert.deepEqual(await onceUnlocked(() => unixRequest(f.socketPath, 'POST', '/v1/prune', { dryRun: true })),
+    { status: 200, json: { candidates: [], removed: [] } }, 'the lock is free');
+});
+
+test('a stop that fails still ends with the app started and the backup failed', async (t) => {
+  const f = await fixture(t);
+  f.fail('stop');
+  t.mock.method(console, 'error', () => undefined);
+  assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
+  const record = await follow(f.socketPath, f.config.statusPath);
+  assert.equal(record.phase, 'failed');
+  assert.equal(record.errorCode, 'backup_failed');
+  assert.deepEqual(f.events, ['drain', 'stop', 'stop', 'up', 'health']);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
+});
+
+test('a backup whose size cannot be read is kept, with its size unknown', async (t) => {
+  const f = await fixture(t);
+  const locked = join(f.backupDirectory, 'locked');
+  await mkdir(locked);
+  await chmod(locked, 0o000);
+  try {
+    assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
+    const record = await follow(f.socketPath, f.config.statusPath);
+    assert.equal(record.phase, 'succeeded');
+    assert.equal(record.backupDirectory, f.backupDirectory);
+    assert.equal(record.sizeBytes, null);
+  } finally {
+    await chmod(locked, 0o700);
+  }
+});
+
+test('a backup is refused, with nothing stopped, when the backup disk is below the minimum', async (t) => {
+  const f = await fixture(t);
+  f.diskFree(0);
+  assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody()),
+    { status: 409, json: { error: 'insufficient_disk_space' } });
+  assert.deepEqual(f.events, []);
+  assert.equal((await unixRequest(f.socketPath, 'GET', '/v1/backup')).status, 404);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
+  f.listing(listingRow(digest('a'), '2026-10-02 05:59:08 +0000 UTC'));
+  assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/prune', { dryRun: true }),
+    { status: 200, json: { candidates: [], removed: [] } }, 'the lock was let go');
+});
+
+test('a request sent again is answered from its backup and starts nothing', async (t) => {
+  const f = await fixture(t);
+  const release = f.hold();
+  t.after(release);
+  const body = backupBody();
+  assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', body)).status, 202);
+  assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/backup', body),
+    { status: 202, json: { id: body.requestId, phase: 'quiescing' } });
+  release();
+  const record = await follow(f.socketPath, f.config.statusPath);
+  assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/backup', body), { status: 200, json: record });
+  assert.equal(f.events.filter((event) => event === 'backup').length, 1);
 });
 
 async function unixRequest(socketPath: string, method: string, path: string, body?: unknown): Promise<{ status: number; json: unknown }> {

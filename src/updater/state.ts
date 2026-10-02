@@ -346,9 +346,16 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         const backup = parseBackup({
           ...current, ...patch, phase, finishedAt: backupTerminal.has(phase) ? new Date().toISOString() : null,
         });
-        // The marker first: a backup that reads as finished has already let the app take writes.
-        await writeStatus(await readInstalled(), await readJob(), backup);
-        await atomicJson(backupPath, backup, 0o600);
+        const [installed, job] = await Promise.all([readInstalled(), readJob()]);
+        // The marker is set before the record moves on, and cleared only after the record has ended:
+        // a record that cannot be written leaves a marker that still tells the truth.
+        if (backupTerminal.has(phase)) {
+          await atomicJson(backupPath, backup, 0o600);
+          await writeStatus(installed, job, backup);
+        } else {
+          await writeStatus(installed, job, backup);
+          await atomicJson(backupPath, backup, 0o600);
+        }
         return backup;
       });
     },

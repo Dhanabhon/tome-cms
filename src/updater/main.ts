@@ -4,6 +4,7 @@ import { parseUpdaterConfig } from './config.js';
 import { createUpdaterServer, removeStaleUpdaterSocket } from './server.js';
 import { createUpdaterStateStore } from './state.js';
 import { applyUpdate, reconcileBackup, reconcileUpdate, runBackup, runPrune } from './transaction.js';
+import { assertBackupSpace } from './verify.js';
 import { UPDATER_VERSION } from './version.js';
 
 const configPath = process.argv[2] ?? '/etc/tome-cms/updater.json';
@@ -16,7 +17,7 @@ const server = createUpdaterServer({
   state,
   apply: ({ version, requestId }) => state.createJob({ targetVersion: version, requestId }),
   execute: ({ version, requestId }) => applyUpdate({ version, requestId, updaterVersion: UPDATER_VERSION, config, state }),
-  backup: (backup) => runBackup({ backup, config, state }),
+  backup: { check: () => assertBackupSpace(config), run: (backup) => runBackup({ backup, config, state }) },
   prune: ({ dryRun }) => runPrune({ dryRun, config, state }),
 });
 
