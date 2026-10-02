@@ -10,9 +10,10 @@ export interface AlmanacSeed {
 /**
  * The site Almanac's browser suite reads, written through the functions the admin uses: nine
  * published posts (the first with a cover and a body of every shape the theme styles, one with a
- * long unbreakable title, one in a Thai category, one in the default category), a draft, two pages
- * and a header menu with a sub-menu. The owner, the site's settings, the default category and one
- * media row are already there. The server's environment must be set before it is called.
+ * long unbreakable title, one in a Thai category, one in the default category), a draft, two pages,
+ * a header menu with a sub-menu and a footer menu of two links. The owner, the site's settings,
+ * the default category and one media row are already there. The server's environment must be set
+ * before it is called.
  */
 export async function seedAlmanac(owner: string, thaiCategory: string, longTitle: string): Promise<AlmanacSeed> {
   const { sql } = await import('kysely');
@@ -73,6 +74,7 @@ export async function seedAlmanac(owner: string, thaiCategory: string, longTitle
     ] },
     link('Shop', '/shop'),
   ] });
+  await replaceNavigation(owner, { locale: 'en', location: 'footer', items: [link('Privacy', '/privacy'), link('Feed', '/feed')] });
   // The preview hands a theme no categories at all, whatever a draft is filed under: the only way a post reaches Almanac without one.
   const draft = await createPost(owner, {
     title: 'A draft in the making', slug: 'a-draft', excerpt: '', contentJson: body(paragraph('Not yet.')), categoryIds: [],
