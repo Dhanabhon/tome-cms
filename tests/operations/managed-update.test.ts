@@ -12,7 +12,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { swapUpdater } from '../../scripts/updater-upgrade.js';
 import { tome, type CliContext } from '../../src/cli/main.js';
-import { TOME_SHIM } from '../../src/cli/shim.js';
+import { TOME_SHIM, UPDATER_INSTALL_DIRECTORY } from '../../src/cli/shim.js';
 import { unixSocketClient } from '../../src/cli/socket.js';
 import { parseBackupManifest } from '../../src/update/backup.js';
 import { getUpdateInstallability } from '../../src/server/update/admin.js';
@@ -376,6 +376,12 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
       });
       assert.equal(await readFile(paths.shim, 'utf8'), TOME_SHIM);
       assert.equal((await stat(paths.shim)).mode & 0o777, 0o755);
+      // The shim is a valid script, and runs the CLI where this very build was installed.
+      const syntax = spawnSync('sh', ['-n', paths.shim], { encoding: 'utf8' });
+      assert.equal(syntax.status, 0, syntax.stderr);
+      const target = /^exec \/usr\/bin\/node (\S+) "\$@"$/m.exec(TOME_SHIM)?.[1];
+      assert.equal(target, `${UPDATER_INSTALL_DIRECTORY}/cli/main.js`);
+      await stat(join(paths.install, relative(UPDATER_INSTALL_DIRECTORY, target!)));
       assert.ok(commands.includes(`chown root:root ${paths.shim}.pending-HARNESS`));
       assert.equal(await readFile(join(`${paths.install}.previous-HARNESS`, 'updater', 'main.js'), 'utf8'), 'previous');
       // The installed CLI loads every module it needs on its own; run as anyone but root, it says to use sudo.
@@ -1062,7 +1068,7 @@ async function runTome(scenario: Scenario, fixture: Fixture, argv: string[]): Pr
     },
     streamCommand: async () => { throw new Error('The harness reads no logs'); },
     fetch,
-    latestRelease: async () => { throw new Error('The harness checks no release'); },
+    release: async () => { throw new Error('The harness checks no release'); },
     statfs,
     confirm: async () => { throw new Error('tome asked although --yes was given'); },
     print: (line) => { out.push(line); },

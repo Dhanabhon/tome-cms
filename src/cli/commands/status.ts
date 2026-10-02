@@ -1,14 +1,17 @@
-import { lstat, readFile, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { parseBackupManifest } from '../../update/backup.js';
-import { composePrefix, directorySize } from '../../updater/transaction.js';
+import { composePrefix } from '../../updater/config.js';
+import { directorySize, readManifestBytes } from '../../updater/files.js';
 import type { CliContext } from '../main.js';
 import { formatAge, formatBytes, localTime } from '../output.js';
-import { isBackupStuck, readBackup, readStatus, stuckBackupAdvice, UpdaterUnreachableError, type UpdaterStatus } from '../socket.js';
+import { isBackupStuck, readBackup, readStatus, stuckBackupAdvice, UnexpectedAnswerError, UpdaterUnreachableError, type UpdaterStatus } from '../socket.js';
 
 export interface StatusReport {
   versions: { app: string; updater: string } | null;
+  /** Why the updater could not be read, when it could not. */
+  updaterError: string | null;
   site: { ready: boolean; status: string; migrations: string | null };
   containers: Array<{ service: string; state: string; health: string | null }> | null;
   disk: { path: string; freeBytes: number | null; minimumFreeBytes: number; low: boolean };
@@ -24,30 +27,36 @@ export async function status(context: CliContext, options: { json: boolean }): P
   const [updater, site, containers, disk, newestBackup] = await Promise.all([
     readUpdater(context), readSite(context), readContainers(context), readDisk(context), readNewestBackup(context.config.backupDirectory),
   ]);
+  const read = 'error' in updater ? null : updater;
   const report: StatusReport = {
-    versions: updater && { app: updater.status.installed.version, updater: updater.status.updaterVersion },
+    versions: read && { app: read.status.installed.version, updater: read.status.updaterVersion },
+    updaterError: 'error' in updater ? updater.error : null,
     site, containers, disk,
-    lastUpdate: updater?.status.job ? {
-      version: updater.status.job.targetVersion, phase: updater.status.job.phase,
-      errorCode: updater.status.job.errorCode, finishedAt: updater.status.job.finishedAt,
+    lastUpdate: read?.status.job ? {
+      version: read.status.job.targetVersion, phase: read.status.job.phase,
+      errorCode: read.status.job.errorCode, finishedAt: read.status.job.finishedAt,
     } : null,
     newestBackup,
-    runningBackup: updater?.runningBackup ?? null,
+    runningBackup: read?.runningBackup ?? null,
   };
   if (options.json) context.print(JSON.stringify(report));
   else printReport(context, report);
-  return updater ? 0 : 1;
+  return read ? 0 : 1;
 }
 
-async function readUpdater(context: CliContext): Promise<{ status: UpdaterStatus; runningBackup: StatusReport['runningBackup'] } | null> {
+/** The updater's side, or why it could not be read: this is the screen for a sick server, so nothing here stops it. */
+async function readUpdater(context: CliContext): Promise<{ status: UpdaterStatus; runningBackup: StatusReport['runningBackup'] } | { error: string }> {
   try {
     const [status, backup] = await Promise.all([readStatus(context.socket), readBackup(context.socket)]);
     if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null };
     const stuck = await isBackupStuck(context.socket, backup);
     return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck } };
   } catch (error) {
-    if (error instanceof UpdaterUnreachableError) return null;
-    throw error;
+    if (error instanceof UpdaterUnreachableError) {
+      return { error: `did not answer at ${context.config.socketPath}. Check it with: sudo systemctl status tomecms-updater` };
+    }
+    const reason = error instanceof UnexpectedAnswerError ? error.message : `could not be read (${error instanceof Error ? error.message : String(error)})`;
+    return { error: `${reason}. Check it with: sudo tome logs updater` };
   }
 }
 
@@ -92,28 +101,34 @@ async function readDisk(context: CliContext): Promise<StatusReport['disk']> {
   return { path, freeBytes, minimumFreeBytes, low: freeBytes !== null && freeBytes < minimumFreeBytes };
 }
 
-/** The most recently written backup with a manifest that reads; one still being written has none yet. */
+/**
+ * The backup whose manifest says it was made last. A directory with no manifest that reads (one still
+ * being written, one that has gone, or a manifest that is a link) is passed over. The manifests are
+ * read as the updater reads them: no links, regular files, 32 MiB at most.
+ */
 async function readNewestBackup(root: string): Promise<StatusReport['newestBackup']> {
   const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
-  const directories = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
+  // ponytail: every manifest is read to compare dates; keep an index if servers hold hundreds of backups.
+  const backups = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
     const path = join(root, entry.name);
-    return { path, modified: (await lstat(path)).mtimeMs };
-  }));
-  for (const { path } of directories.sort((left, right) => right.modified - left.modified)) {
     try {
-      const manifest = parseBackupManifest(JSON.parse(await readFile(join(path, 'manifest.json'), 'utf8')));
-      return { path, kind: manifest.scope === 'database' ? 'database' : 'full', sizeBytes: await directorySize(path), createdAt: manifest.createdAt };
+      return { path, manifest: parseBackupManifest(JSON.parse((await readManifestBytes(path)).toString('utf8'))) };
     } catch {
-      // Not a finished backup; try the one before.
+      return null;
     }
-  }
-  return null;
+  }));
+  const newest = backups.filter((backup) => backup !== null)
+    .sort((left, right) => Date.parse(right.manifest.createdAt) - Date.parse(left.manifest.createdAt))[0];
+  if (!newest) return null;
+  const sizeBytes = await directorySize(newest.path).catch(() => null);
+  if (sizeBytes === null) return null;
+  return { path: newest.path, kind: newest.manifest.scope === 'database' ? 'database' : 'full', sizeBytes, createdAt: newest.manifest.createdAt };
 }
 
 function printReport(context: CliContext, report: StatusReport): void {
   const { print } = context;
   if (report.versions) print(`TomeCMS ${report.versions.app}, updater ${report.versions.updater}`);
-  else print(`Updater: did not answer at ${context.config.socketPath}. Check it with: sudo systemctl status tomecms-updater`);
+  else print(`Updater: ${report.updaterError}`);
 
   const { site } = report;
   print(`Site: ${site.status}${site.migrations ? ` (migrations: ${site.migrations})` : ''}`);

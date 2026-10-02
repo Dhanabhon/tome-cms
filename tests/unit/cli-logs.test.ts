@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
+import { makeEnvironment, renderEnvironment } from '../../scripts/bootstrap-core.mjs';
 import { tome } from '../../src/cli/main.js';
 import { fakeContext } from '../helpers/cli-context.js';
 
@@ -68,12 +69,46 @@ test('logs of the updater come from its journal', async (t) => {
   assert.deepEqual(f.printed, ['{"event":"x","stdout":"[redacted]"}']);
 });
 
-test('logs fail closed: no secrets to hide means no logs, and a failed command is a failure', async (t) => {
+test('logs on a server the installer set up: lines show, and every secret the installer wrote is hidden', async (t) => {
+  // The env exactly as the managed installer writes it, so this cannot drift from real servers.
+  const values = makeEnvironment({ TOME_CMS_PUBLIC_URL: 'https://cms.example.com', S3_ENDPOINT: 'https://media.example.com' }, true, {}, true);
+  const root = await mkdtemp(join(tmpdir(), 'tome-cli-logs-installed-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const path = join(root, 'tome-cms.env');
+  await writeFile(path, renderEnvironment(values));
+  const f = logging(path, [
+    ['app-1  | Listening on http://0.0.0.0:4321', 'stdout'],
+    [`app-1  | token ${values.TOME_CMS_INSTALL_TOKEN} secret ${values.S3_SECRET_ACCESS_KEY} key id ${values.S3_ACCESS_KEY_ID}`, 'stdout'],
+  ]);
+  assert.equal(await run(f, ['logs']), 0, f.err());
+  assert.deepEqual(f.printed, ['app-1  | Listening on http://0.0.0.0:4321', 'app-1  | token [redacted] secret [redacted] key id tomecms']);
+});
+
+test('logs fail closed, and say why once: an env that cannot be read, is not in the managed format, or has a secret too short to hide', async (t) => {
   const missing = logging(join(tmpdir(), 'tome-cli-no-such-dir', 'tome-cms.env'), [['anything', 'stdout']]);
   assert.equal(await run(missing, ['logs']), 1);
   assert.equal(missing.commands.length, 0);
   assert.match(missing.err(), /could not be read/);
-  const path = await environmentFile(t);
-  const failing = logging(path, [], 1);
+
+  const root = await mkdtemp(join(tmpdir(), 'tome-cli-logs-refused-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cases: Array<[string, string, RegExp]> = [
+    ['unquoted', 'BETTER_AUTH_SECRET=a-very-secret-auth-value-123\n', /not in the managed format/],
+    ['short', "BETTER_AUTH_SECRET='short'\n", /shorter than 8 bytes/],
+    ['many', Array.from({ length: 65 }, (_, index) => `SECRET_${index}='secret-value-number-${index}'`).join('\n') + '\n', /more than 64 secrets/],
+  ];
+  for (const [name, text, reason] of cases) {
+    const path = join(root, `${name}.env`);
+    await writeFile(path, text);
+    const f = logging(path, [['one', 'stdout'], ['two', 'stdout']]);
+    assert.equal(await run(f, ['logs']), 1, name);
+    assert.equal(f.commands.length, 0, `${name}: nothing is run`);
+    assert.deepEqual(f.printed, [], name);
+    assert.equal(f.warned.length, 1, `${name}: said once`);
+    assert.match(f.warned[0]!, reason, name);
+    assert.doesNotMatch(f.warned[0]!, /could not be read/, name);
+  }
+
+  const failing = logging(await environmentFile(t), [], 1);
   assert.equal(await run(failing, ['logs', 'seaweedfs']), 1);
 });

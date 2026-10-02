@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { tome } from '../../src/cli/main.js';
+import { NoOfficialReleaseError, ReleaseUnreachableError } from '../../src/server/update/releases.js';
 import { backupRecord, fakeContext, requestId, statusAnswer, updateJob } from '../helpers/cli-context.js';
 
 type Fake = ReturnType<typeof fakeContext>;
@@ -45,9 +46,8 @@ test('backup follows the job step by step, then prints where the backup went and
         { status: 200, body: backupRecord('succeeded') },
       ],
       'POST /v1/backup': [{ status: 202, body: { id: requestId, phase: 'quiescing' } }],
-      // While it runs, the lock probe finds the lock held: not stuck.
-      'GET /v1/status': [statusAnswer(updateJob('succeeded'))],
-      'POST /v1/apply': [{ status: 409, body: { error: 'update_in_progress' } }],
+      // While it runs, the updater says its lock is held: not stuck.
+      'GET /v1/busy': [{ status: 200, body: { busy: true } }],
     },
   });
   assert.equal(await run(f, ['backup', '--yes']), 0);
@@ -124,7 +124,6 @@ test('a 409 while an update runs is reported as busy, without retrying', async (
       'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
       'GET /v1/status': [statusAnswer(updateJob('migrating'))],
       'POST /v1/backup': [{ status: 409, body: { error: 'update_in_progress' } }],
-      'POST /v1/apply': [{ status: 409, body: { error: 'update_in_progress' } }],
     },
   });
   assert.equal(await run(f, ['backup', '--yes']), 1);
@@ -138,11 +137,12 @@ test('a backup whose record stops with no job running is reported as stuck, with
       'GET /v1/backup': [{ status: 200, body: backupRecord('restarting') }],
       'GET /v1/status': [statusAnswer(updateJob('succeeded'))],
       'POST /v1/backup': [{ status: 202, body: { id: requestId, phase: 'quiescing' } }],
-      'POST /v1/apply': [{ status: 200, body: statusAnswer(updateJob('succeeded')).body }],
+      'GET /v1/busy': [{ status: 200, body: { busy: false } }],
     },
   });
   assert.equal(await run(f, ['backup', '--yes']), 1);
   assert.match(f.err(), /stuck.*free some space.*sudo systemctl restart tomecms-updater/is);
+  assert.equal(posts(f, '/v1/apply').length, 0, 'nothing is sent that could start a job');
 });
 
 test('a backup refused for manual recovery says so', async () => {
@@ -158,18 +158,22 @@ test('a backup refused for manual recovery says so', async () => {
 
 // --- update -------------------------------------------------------------------------------------
 
-const release = (version: string, minimumUpdaterVersion = '1.0.0') => async () => ({
-  manifest: {
-    version, releaseNotesUrl: `https://github.com/Dhanabhon/tome-cms/releases/tag/v${version}`,
-    compatibility: {
-      minimumDirectUpgradeFrom: '1.0.0', minimumUpdaterVersion, targetMigration: '017_x', rollbackSafeFrom: '1.0.0',
-      composeContract: 1, environmentContract: 1, updaterProtocol: 1,
+/** The release check: the newest is `latest`; a named version is that one. Both carry `compatibility`. */
+const release = (latest: string, compatibility: Record<string, unknown> = {}) => async (asked: string | null) => {
+  const version = asked ?? latest;
+  return {
+    manifest: {
+      version, releaseNotesUrl: `https://github.com/Dhanabhon/tome-cms/releases/tag/v${version}`,
+      compatibility: {
+        minimumDirectUpgradeFrom: '1.0.0', minimumUpdaterVersion: '1.0.0', targetMigration: '017_x', rollbackSafeFrom: '1.0.0',
+        composeContract: 1, environmentContract: 1, updaterProtocol: 1, ...compatibility,
+      },
     },
-  },
-});
+  };
+};
 
 test('update says so when TomeCMS is up to date, and changes nothing', async () => {
-  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null, '1.11.0')] }, overrides: { latestRelease: release('1.11.0') } });
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null, '1.11.0')] }, overrides: { release: release('1.11.0') } });
   assert.equal(await run(f, ['update']), 0);
   assert.match(f.out(), /TomeCMS 1\.11\.0 is up to date\./);
   assert.equal(f.prompts.length, 0);
@@ -179,7 +183,7 @@ test('update says so when TomeCMS is up to date, and changes nothing', async () 
 test('update shows the newest release and asks before installing it', async () => {
   const f = fakeContext({
     routes: { 'GET /v1/status': [statusAnswer(updateJob('succeeded', { targetVersion: '1.10.1' }))] },
-    overrides: { latestRelease: release('1.11.0'), confirm: async (question) => { f.prompts.push(question); return false; } },
+    overrides: { release: release('1.11.0'), confirm: async (question) => { f.prompts.push(question); return false; } },
   });
   assert.equal(await run(f, ['update']), 1);
   assert.match(f.out(), /^Installed: 1\.10\.1$/m);
@@ -200,7 +204,7 @@ test('update installs with a fresh request id and follows the job to success, on
       ],
       'POST /v1/apply': [{ status: 202, body: updateJob('preflight') }],
     },
-    overrides: { latestRelease: release('1.11.0') },
+    overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '--yes']), 0);
   assert.deepEqual(posts(f, '/v1/apply')[0]!.body, { version: '1.11.0', requestId });
@@ -221,6 +225,7 @@ test('an update that rolls back says the previous version runs again, and why', 
       ],
       'POST /v1/apply': [{ status: 202, body: updateJob('preflight') }],
     },
+    overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
   assert.match(f.out(), /Restoring the previous version/);
@@ -234,6 +239,7 @@ test('an update stopped by a full disk names tome prune', async () => {
       'GET /v1/status': [statusAnswer(null), statusAnswer(updateJob('rolled_back', { errorCode: 'insufficient_disk_space', completedSteps: 0 }))],
       'POST /v1/apply': [{ status: 202, body: updateJob('preflight') }],
     },
+    overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
   assert.match(f.err(), /Not enough free disk space.*sudo tome prune/s);
@@ -245,6 +251,7 @@ test('an update that needs manual recovery says so', async () => {
       'GET /v1/status': [statusAnswer(null), statusAnswer(updateJob('failed_manual_recovery', { errorCode: 'manual_recovery_required' }))],
       'POST /v1/apply': [{ status: 202, body: updateJob('preflight') }],
     },
+    overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
   assert.match(f.err(), /manual recovery/);
@@ -261,16 +268,16 @@ test('update with a version uses it, and never installs an older one', async () 
 });
 
 test('update refuses a release that needs a newer updater, and says how to get one', async () => {
-  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { latestRelease: release('1.12.0', '1.6.0') } });
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: release('1.12.0', { minimumUpdaterVersion: '1.6.0' }) } });
   assert.equal(await run(f, ['update', '--yes']), 1);
   assert.match(f.err(), /needs updater 1\.6\.0.*sudo npm run updater:upgrade/s);
   assert.equal(posts(f, '/v1/apply').length, 0);
 });
 
-test('update without GitHub says to name the version', async () => {
-  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { latestRelease: async () => { throw new Error('Official release request failed (TimeoutError)'); } } });
+test('update without GitHub says to check the network', async () => {
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async () => { throw new ReleaseUnreachableError('TimeoutError'); } } });
   assert.equal(await run(f, ['update']), 1);
-  assert.match(f.err(), /Could not check GitHub.*sudo tome update 1\.x\.y/s);
+  assert.match(f.err(), /Could not reach GitHub.*network/s);
 });
 
 test('update refused because an update is running reports busy', async () => {
@@ -280,9 +287,56 @@ test('update refused because an update is running reports busy', async () => {
       'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
       'POST /v1/apply': [{ status: 409, body: { error: 'update_in_progress' } }],
     },
+    overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
   assert.match(f.err(), /An update or a backup is running/);
+});
+
+test('update refuses a release whose contracts this server does not have, newest or named', async () => {
+  for (const contract of ['updaterProtocol', 'composeContract', 'environmentContract']) {
+    const newest = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: release('1.12.0', { [contract]: 2 }) } });
+    assert.equal(await run(newest, ['update', '--yes']), 1, contract);
+    assert.match(newest.err(), /needs a manual upgrade of this server.*release notes/s, contract);
+    const named = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: release('1.12.0', { [contract]: 2 }) } });
+    assert.equal(await run(named, ['update', '1.11.0', '--yes']), 1, contract);
+    assert.match(named.err(), /needs a manual upgrade of this server/, contract);
+    assert.equal(posts(named, '/v1/apply').length, 0);
+  }
+});
+
+test('a named version is checked the same way, and one never released is said plainly', async () => {
+  const asked: Array<string | null> = [];
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async (version) => { asked.push(version); return release('1.12.0', { minimumUpdaterVersion: '1.6.0' })(version); } } });
+  assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
+  assert.deepEqual(asked, ['1.11.0']);
+  assert.match(f.err(), /needs updater 1\.6\.0/);
+  const missing = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async () => { throw new NoOfficialReleaseError(); } } });
+  assert.equal(await run(missing, ['update', '1.11.0', '--yes']), 1);
+  assert.match(missing.err(), /There is no TomeCMS release 1\.11\.0\./);
+  const none = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async () => { throw new NoOfficialReleaseError(); } } });
+  assert.equal(await run(none, ['update']), 0);
+  assert.match(none.out(), /No TomeCMS release has been published yet/);
+});
+
+test('only an unreachable GitHub is a network problem; a release that fails its checks is not', async () => {
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async () => { throw new Error('Official release asset digest mismatch'); } } });
+  assert.equal(await run(f, ['update']), 1);
+  assert.match(f.err(), /could not be verified/);
+  assert.doesNotMatch(f.err(), /network/);
+});
+
+test('an update that could not fetch the release on a full disk names tome prune, as the disk is the likely cause', async () => {
+  const routes = () => ({
+    'GET /v1/status': [statusAnswer(null), statusAnswer(updateJob('rolled_back', { errorCode: 'release_unavailable', completedSteps: 1 }))],
+    'POST /v1/apply': [{ status: 202, body: updateJob('preflight') }],
+  });
+  const low = fakeContext({ routes: routes(), overrides: { release: release('1.11.0'), statfs: async () => ({ bsize: 4096, bavail: 1024 }) } });
+  assert.equal(await run(low, ['update', '1.11.0', '--yes']), 1);
+  assert.match(low.err(), /could not be fetched.*Not enough free disk space.*sudo tome prune/s);
+  const roomy = fakeContext({ routes: routes(), overrides: { release: release('1.11.0') } });
+  assert.equal(await run(roomy, ['update', '1.11.0', '--yes']), 1);
+  assert.doesNotMatch(roomy.err(), /tome prune/);
 });
 
 // --- prune --------------------------------------------------------------------------------------

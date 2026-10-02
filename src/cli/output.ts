@@ -92,10 +92,22 @@ export function explainError(code: string | null, job: 'update' | 'backup', disk
 }
 
 /**
+ * Why the updater's redaction can never hide these secrets, or null when it can. Its limits: at most
+ * 64 secrets, each of 8 to 4096 bytes, none that "[redacted]" itself contains.
+ */
+export function redactionProblem(secrets: readonly string[]): string | null {
+  if (secrets.length > 64) return 'more than 64 secrets';
+  if (secrets.some((secret) => Buffer.byteLength(secret) < 8)) return 'a secret shorter than 8 bytes';
+  if (secrets.some((secret) => Buffer.byteLength(secret) > 4096)) return 'a secret longer than 4096 bytes';
+  if (secrets.length && redactDiagnosticText('', secrets) === null) return 'a secret that cannot be matched safely';
+  return null;
+}
+
+/**
  * A line of logs with every secret replaced by "[redacted]", through the updater's own redaction.
- * A line it cannot check (too long, or a secret it cannot match safely) is hidden whole.
+ * Only a line too long to check (32 KiB or more) is hidden whole.
  */
 export function redactLine(line: string, secrets: readonly string[]): string {
   if (secrets.length === 0) return line;
-  return redactDiagnosticText(line, secrets, 64 * 1024) ?? '[line hidden: it could not be checked for secrets]';
+  return redactDiagnosticText(line, secrets, 64 * 1024) ?? '[line hidden: too long to check for secrets]';
 }

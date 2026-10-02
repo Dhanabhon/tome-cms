@@ -8,19 +8,19 @@
 // previous updater beside the new one, and puts it back if the new one does not answer. It brings
 // `tome` too: the CLI is built with the updater, and its two-line shim goes on the PATH.
 import { spawnSync } from 'node:child_process';
-import { chmod, cp, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, lstat, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request } from 'node:http';
 import { fileURLToPath } from 'node:url';
 
-import { TOME_SHIM, TOME_SHIM_PATH } from '../src/cli/shim.ts';
+import { TOME_SHIM, TOME_SHIM_PATH, UPDATER_INSTALL_DIRECTORY } from '../src/cli/shim.ts';
 import { compareStableVersions } from '../src/update/contracts.ts';
 import { parseUpdaterConfig } from '../src/updater/config.ts';
 import { createUpdaterStateStore } from '../src/updater/state.ts';
 import { UPDATER_VERSION } from '../src/updater/version.ts';
 
-const INSTALL_DIRECTORY = '/opt/tome-cms/updater';
+const INSTALL_DIRECTORY = UPDATER_INSTALL_DIRECTORY;
 const SERVICE_FILE = '/etc/systemd/system/tomecms-updater.service';
 const TERMINAL = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery']);
 const BACKUP_TERMINAL = new Set(['succeeded', 'failed']);
@@ -111,6 +111,7 @@ async function main(): Promise<void> {
     running,
   });
   if (refusal) throw new Error(refusal);
+  await existingShim(TOME_SHIM_PATH);
   console.log(`The updater is ${running}. This checkout's is ${UPDATER_VERSION}.`);
   if (dryRun) {
     console.log(`Would build the updater and tome, replace ${INSTALL_DIRECTORY}, ${SERVICE_FILE} and ${config.composeFile}, install ${TOME_SHIM_PATH}, and restart tomecms-updater.`);
@@ -140,6 +141,20 @@ async function main(): Promise<void> {
   } finally {
     await rm(staging, { recursive: true, force: true });
   }
+}
+
+/**
+ * The `tome` already at `path`: null when there is none, and TomeCMS's shim when it is that. Anything
+ * else there (another program, a link, a binary) is refused and left as it is.
+ */
+export async function existingShim(path: string): Promise<string | null> {
+  const metadata = await lstat(path).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (!metadata) return null;
+  if (metadata.isFile() && metadata.size === Buffer.byteLength(TOME_SHIM) && await readFile(path, 'utf8') === TOME_SHIM) return TOME_SHIM;
+  throw new Error(`${path} is not TomeCMS's tome command, so it is left alone. Move it aside, then run this again.`);
 }
 
 export interface SwapPaths {
@@ -176,7 +191,8 @@ export async function swapUpdater(paths: SwapPaths, stamp: string, ops: SwapOper
   const previousService = `${paths.service}.previous-${stamp}`;
   const previousCompose = `${paths.compose}.previous-${stamp}`;
   const composeChanged = (await readFile(paths.compose, 'utf8').catch(() => '')) !== await readFile(paths.releaseCompose, 'utf8');
-  const previousShim = await readFile(paths.shim, 'utf8').catch(() => null);
+  // Checked before anything stops: a `tome` that is not ours is never overwritten.
+  const previousShim = await existingShim(paths.shim);
 
   ops.run('systemctl', ['stop', 'tomecms-updater']);
   // Checked before a build that takes a while; an update may have started since. A stopped updater

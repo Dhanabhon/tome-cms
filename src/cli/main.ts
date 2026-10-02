@@ -8,7 +8,7 @@ import { readFile, statfs } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
-import { fetchLatestRelease } from '../server/update/releases.js';
+import { fetchLatestRelease, fetchTaggedRelease } from '../server/update/releases.js';
 import type { UpdateManifest } from '../update/contracts.js';
 import { parseUpdaterConfig, type UpdaterConfig } from '../updater/config.js';
 import { runCommand } from '../updater/process.js';
@@ -18,7 +18,7 @@ import { logs } from './commands/logs.js';
 import { prune } from './commands/prune.js';
 import { status } from './commands/status.js';
 import { update } from './commands/update.js';
-import { unixSocketClient, UpdaterUnreachableError, type SocketClient } from './socket.js';
+import { exitQuietlyOnClosedPipe, unixSocketClient, UpdaterUnreachableError, type SocketClient } from './socket.js';
 
 const CONFIG_PATH = '/etc/tome-cms/updater.json';
 
@@ -31,8 +31,8 @@ export interface CliContext {
   /** Runs a command and hands over each line of output as it comes (the logs). Its exit code. */
   streamCommand: (executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void) => Promise<number>;
   fetch: typeof fetch;
-  /** The newest stable release, checked as System checks it. */
-  latestRelease: () => Promise<{ manifest: Pick<UpdateManifest, 'version' | 'compatibility' | 'releaseNotesUrl'> }>;
+  /** The newest stable release (null), or the one named, checked as System checks it. */
+  release: (version: string | null) => Promise<{ manifest: Pick<UpdateManifest, 'version' | 'compatibility' | 'releaseNotesUrl'> }>;
   statfs: (path: string) => Promise<{ bsize: number; bavail: number }>;
   /** Asks a y/N question; anything but yes is no. */
   confirm: (question: string) => Promise<boolean>;
@@ -98,7 +98,7 @@ async function loadContext(): Promise<CliContext> {
     runCommand,
     streamCommand,
     fetch,
-    latestRelease: () => fetchLatestRelease(),
+    release: (version) => version === null ? fetchLatestRelease() : fetchTaggedRelease(version),
     statfs,
     confirm,
     print: (line) => { process.stdout.write(`${line}\n`); },
@@ -134,6 +134,7 @@ async function confirm(question: string): Promise<boolean> {
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  for (const stream of [process.stdout, process.stderr]) exitQuietlyOnClosedPipe(stream, (code) => process.exit(code));
   process.exitCode = await tome(process.argv.slice(2), {
     uid: process.getuid?.() ?? -1,
     load: loadContext,

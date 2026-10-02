@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -100,6 +100,7 @@ test('status --json prints the same as one object, for scripts', async (t) => {
   const report = JSON.parse(f.printed[0]!);
   assert.deepEqual(report, {
     versions: { app: '1.10.1', updater: '1.5.0' },
+    updaterError: null,
     site: { ready: true, status: 'ready', migrations: 'ready' },
     containers: [
       { service: 'app', state: 'running', health: 'healthy' },
@@ -128,23 +129,31 @@ test('status warns below the disk minimum and names tome prune, and still shows 
 
 test('status flags a backup stuck with no job running, and says to free space and restart the updater', async (t) => {
   const { root } = await backups(t);
-  // The lock probe: asking for the installed version answers 200 only when nothing holds the lock.
+  // The record says it runs, and the updater's read-only /v1/busy says nothing holds the lock.
   const f = healthy(root, {
     'GET /v1/backup': [{ status: 200, body: backupRecord('restarting') }],
-    'POST /v1/apply': [statusAnswer(updateJob('succeeded'))],
+    'GET /v1/busy': [{ status: 200, body: { busy: false } }],
   });
   assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
   assert.match(f.out(), /^Warning: a backup is stuck at "restarting" with no job running.*free some space.*sudo systemctl restart tomecms-updater/im);
-  const probe = f.calls.find((call) => call.method === 'POST');
-  assert.deepEqual(Object.keys(probe?.body as object), ['version', 'requestId']);
-  assert.equal((probe?.body as { version: string }).version, '1.10.1', 'the probe names the installed version, so nothing starts');
+  assert.deepEqual(f.calls.filter((call) => call.method === 'POST'), [], 'status sends nothing that could start a job');
+});
+
+test('an updater too old for /v1/busy never makes a backup read as stuck', async (t) => {
+  const { root } = await backups(t);
+  const f = healthy(root, {
+    'GET /v1/backup': [{ status: 200, body: backupRecord('backing_up') }],
+    'GET /v1/busy': [{ status: 404, body: { error: 'not_found' } }],
+  });
+  assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
+  assert.match(f.out(), /^Backup running: database, at "backing_up"/m);
 });
 
 test('status shows a backup that is running as running, not stuck', async (t) => {
   const { root } = await backups(t);
   const f = healthy(root, {
     'GET /v1/backup': [{ status: 200, body: backupRecord('backing_up') }],
-    'POST /v1/apply': [{ status: 409, body: { error: 'update_in_progress' } }],
+    'GET /v1/busy': [{ status: 200, body: { busy: true } }],
   });
   f.context.fetch = async () => new Response(null, { status: 503 });
   assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
@@ -161,6 +170,7 @@ test('status without an answering updater still shows the rest, and fails', asyn
   assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 1);
   const out = f.out();
   assert.match(out, /^Updater: did not answer at \/run\/tome-cms\/updater\.sock/m);
+  assert.match(out, /^Free disk where backups go: /m);
   assert.match(out, /^Site: unreachable$/m);
   assert.match(out, /^Containers: could not be listed/m);
   assert.match(out, /^Newest backup: database/m);
@@ -174,4 +184,31 @@ test('status with no backups yet says so', async (t) => {
   assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
   assert.match(f.out(), /^Last update: none$/m);
   assert.match(f.out(), /^Newest backup: none$/m);
+});
+
+test('an updater that answers with an error is one line, and the rest of the screen still shows', async (t) => {
+  const { root } = await backups(t);
+  const f = healthy(root, { 'GET /v1/status': [{ status: 500, body: { error: 'updater_unavailable' } }] });
+  assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 1);
+  const out = f.out();
+  assert.match(out, /^Updater: it answered \/v1\/status with 500 \(updater_unavailable\)\. Check it with: sudo tome logs updater$/m);
+  assert.match(out, /^Containers:$/m);
+  assert.match(out, /^Free disk where backups go: 10\.0 GiB/m);
+  assert.match(out, /^Newest backup: database/m);
+  assert.equal(f.err(), '');
+});
+
+test('the newest backup is the one its manifest says was made last, and an unsafe manifest is passed over', async (t) => {
+  const { root, newest } = await backups(t);
+  // An older backup touched later is still older.
+  const older = join(root, 'tomecms-20261001T100000000Z');
+  await utimes(older, new Date('2026-10-02T11:30:00.000Z'), new Date('2026-10-02T11:30:00.000Z'));
+  // A backup whose manifest is a link is never read, however new it claims to be.
+  const linked = join(root, 'tomecms-20261002T113000000Z');
+  await mkdir(linked);
+  await writeFile(join(root, 'elsewhere.json'), manifest('2026-10-02T11:30:00.000Z', false));
+  await symlink(join(root, 'elsewhere.json'), join(linked, 'manifest.json'));
+  const f = healthy(root);
+  assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
+  assert.equal(JSON.parse(f.printed[0]!).newestBackup.path, newest);
 });

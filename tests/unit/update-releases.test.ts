@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { fetchLatestRelease } from '../../src/server/update/releases.js';
+import { fetchLatestRelease, fetchTaggedRelease, NoOfficialReleaseError } from '../../src/server/update/releases.js';
 import { getUpdateStatus, refreshUpdateStatus, type UpdateCache } from '../../src/server/update/service.js';
 import { OFFICIAL_IMAGE_REPOSITORY, OFFICIAL_REPOSITORY } from '../../src/update/contracts.js';
 
@@ -59,6 +59,22 @@ test('loads one immutable stable release and verifies asset metadata', async () 
   assert.equal(result.manifestAssetDigest, validRelease.assets[0].digest);
   assert.equal(result.etag, '"release-1"');
   assert.equal(calls.length, 2);
+});
+
+test('a release named by its version is fetched by its tag and checked the same way', async () => {
+  const calls: string[] = [];
+  const tagged: typeof fetch = async (input) => {
+    const url = String(input); calls.push(url);
+    if (url.endsWith('/releases/tags/v1.0.1')) return Response.json(validRelease);
+    if (url.includes('/releases/tags/')) return new Response('{"message":"Not Found"}', { status: 404 });
+    return Response.json(validManifest);
+  };
+  assert.equal((await fetchTaggedRelease('1.0.1', { fetcher: tagged })).manifest.version, '1.0.1');
+  assert.equal(calls[0], `https://api.github.com/repos/${OFFICIAL_REPOSITORY}/releases/tags/v1.0.1`);
+  await assert.rejects(fetchTaggedRelease('1.0.9', { fetcher: tagged }), NoOfficialReleaseError);
+  // GitHub answering another tag than the one asked for is refused, as a draft is.
+  await assert.rejects(fetchTaggedRelease('1.0.2', { fetcher: async (input) => String(input).includes('/tags/') ? Response.json(validRelease) : Response.json(validManifest) }), /Invalid official release/);
+  await assert.rejects(fetchTaggedRelease('1.0.1', { fetcher: async (input) => String(input).includes('/tags/') ? Response.json({ ...validRelease, prerelease: true }) : Response.json(validManifest) }));
 });
 
 test('rejects downloaded manifest bytes that do not match the release asset digest', async () => {

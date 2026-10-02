@@ -39,7 +39,7 @@ export function fakeContext(input: {
     runCommand: async () => { throw new Error('Unexpected command'); },
     streamCommand: async () => { throw new Error('Unexpected command'); },
     fetch: async () => { throw new Error('Unexpected fetch'); },
-    latestRelease: async () => { throw new Error('Unexpected release check'); },
+    release: async () => { throw new Error('Unexpected release check'); },
     statfs: async () => ({ bsize: 4096, bavail: 10 * 1024 ** 3 / 4096 }),
     confirm: async (question) => { prompts.push(question); return true; },
     print: (line) => { printed.push(line); },

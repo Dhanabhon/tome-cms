@@ -40,6 +40,12 @@ const pathRoots = {
   statusPath: '/run/tome-cms',
 } as const;
 
+/** The start of every `docker compose` command for the managed project: its name, file and env files. */
+export function composePrefix(config: UpdaterConfig): string[] {
+  return ['compose', '-p', config.projectName, '-f', config.composeFile,
+    '--env-file', config.environmentFile, '--env-file', config.imageEnvironmentFile];
+}
+
 type PathInspector = (path: string) => { isSymbolicLink(): boolean };
 
 export function parseUpdaterConfig(value: unknown, inspectPath: PathInspector = lstatSync): UpdaterConfig {

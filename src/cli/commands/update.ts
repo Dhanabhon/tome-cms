@@ -1,9 +1,11 @@
-import { NoOfficialReleaseError } from '../../server/update/releases.js';
-import { compareStableVersions } from '../../update/contracts.js';
+import { NoOfficialReleaseError, ReleaseUnreachableError } from '../../server/update/releases.js';
+import { compareStableVersions, type UpdateManifest } from '../../update/contracts.js';
 import type { PublicUpdateJob } from '../../updater/state.js';
 import type { CliContext } from '../main.js';
 import { explainError, updateStep } from '../output.js';
-import { errorCodeOf, follow, isUpdateRunning, postJob, readStatus, refusal } from '../socket.js';
+import { errorCodeOf, follow, isUpdateRunning, postJob, readStatus, refusal, type UpdaterStatus } from '../socket.js';
+
+type Release = Pick<UpdateManifest, 'version' | 'compatibility' | 'releaseNotesUrl'>;
 
 /**
  * Installs the newest stable release, or the one named, through the updater's own `/v1/apply`, the
@@ -13,41 +15,35 @@ export async function update(context: CliContext, options: { version: string | n
   const status = await readStatus(context.socket);
   const installed = status.installed.version;
   context.print(`Installed: ${installed}`);
-  let target = options.version;
-  if (target === null) {
-    let latest;
-    try {
-      latest = (await context.latestRelease()).manifest;
-    } catch (error) {
-      if (error instanceof NoOfficialReleaseError) {
-        context.print('No TomeCMS release has been published yet.');
-        return 0;
-      }
-      context.warn('Could not check GitHub for the newest release. Check the server\'s network, or name the version: sudo tome update 1.x.y');
-      return 1;
+  if (options.version !== null && compareStableVersions(options.version, installed) <= 0) {
+    if (options.version === installed) context.print(`TomeCMS ${installed} is up to date.`);
+    else context.warn(`${options.version} is older than the installed ${installed}. TomeCMS does not install an older version.`);
+    return options.version === installed ? 0 : 1;
+  }
+
+  let release: Release;
+  try {
+    release = (await context.release(options.version)).manifest;
+  } catch (error) {
+    if (error instanceof NoOfficialReleaseError) {
+      if (options.version === null) context.print('No TomeCMS release has been published yet.');
+      else context.warn(`There is no TomeCMS release ${options.version}.`);
+      return options.version === null ? 0 : 1;
     }
-    target = latest.version;
-    context.print(`Newest: ${target} (${latest.releaseNotesUrl})`);
-    if (compareStableVersions(target, installed) <= 0) {
-      context.print(`TomeCMS ${installed} is up to date.`);
-      return 0;
-    }
-    // The same checks System makes before it offers a release.
-    const { minimumUpdaterVersion, minimumDirectUpgradeFrom, rollbackSafeFrom } = latest.compatibility;
-    if (compareStableVersions(status.updaterVersion, minimumUpdaterVersion) < 0) {
-      context.warn(`TomeCMS ${target} needs updater ${minimumUpdaterVersion} or newer; this server has ${status.updaterVersion}. ` +
-        `Upgrade it first: from a checkout of v${target}, run: sudo npm run updater:upgrade`);
-      return 1;
-    }
-    if (compareStableVersions(installed, minimumDirectUpgradeFrom) < 0 || compareStableVersions(installed, rollbackSafeFrom) < 0) {
-      context.warn(`TomeCMS ${target} cannot be installed directly from ${installed}. Its release notes say how: ${latest.releaseNotesUrl}`);
-      return 1;
-    }
-  } else if (compareStableVersions(target, installed) === 0) {
+    context.warn(error instanceof ReleaseUnreachableError
+      ? 'Could not reach GitHub to check the release. Check the server\'s network, or try again later.'
+      : 'The official release could not be verified, so nothing was installed. Try again later, and report it if it repeats.');
+    return 1;
+  }
+  const target = release.version;
+  if (options.version === null) context.print(`Newest: ${target} (${release.releaseNotesUrl})`);
+  if (compareStableVersions(target, installed) <= 0) {
     context.print(`TomeCMS ${installed} is up to date.`);
     return 0;
-  } else if (compareStableVersions(target, installed) < 0) {
-    context.warn(`${target} is older than the installed ${installed}. TomeCMS does not install an older version.`);
+  }
+  const incompatible = incompatibility(release, status);
+  if (incompatible) {
+    context.warn(incompatible);
     return 1;
   }
 
@@ -81,5 +77,31 @@ export async function update(context: CliContext, options: { version: string | n
     ? `The update did not complete. TomeCMS ${installed} is running again.`
     : 'The update stopped and needs manual recovery.');
   context.warn(explainError(job.errorCode, 'update', context.config));
+  // An app before 1.10.0 is told of a full disk as `release_unavailable`, a code it knows.
+  if (job.errorCode === 'release_unavailable' && await diskIsLow(context)) {
+    context.warn(explainError('insufficient_disk_space', 'update', context.config));
+  }
   return 1;
+}
+
+/** Why this server cannot take the release as it is, with System's own checks; null when it can. */
+function incompatibility(release: Release, status: UpdaterStatus): string | null {
+  const { version, compatibility, releaseNotesUrl } = release;
+  const installed = status.installed.version;
+  if (compareStableVersions(status.updaterVersion, compatibility.minimumUpdaterVersion) < 0) {
+    return `TomeCMS ${version} needs updater ${compatibility.minimumUpdaterVersion} or newer; this server has ${status.updaterVersion}. ` +
+      `Upgrade it first: from a checkout of v${version}, run: sudo npm run updater:upgrade`;
+  }
+  if (compatibility.updaterProtocol !== 1 || compatibility.composeContract !== 1 || compatibility.environmentContract !== 1) {
+    return `TomeCMS ${version} needs a manual upgrade of this server first. Its release notes say how: ${releaseNotesUrl}`;
+  }
+  if (compareStableVersions(installed, compatibility.minimumDirectUpgradeFrom) < 0 || compareStableVersions(installed, compatibility.rollbackSafeFrom) < 0) {
+    return `TomeCMS ${version} cannot be installed directly from ${installed}. Its release notes say how: ${releaseNotesUrl}`;
+  }
+  return null;
+}
+
+async function diskIsLow(context: CliContext): Promise<boolean> {
+  const filesystem = await context.statfs(context.config.backupDirectory).catch(() => null);
+  return filesystem !== null && filesystem.bsize * filesystem.bavail < context.config.minimumFreeBytes;
 }

@@ -1,11 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, open, readdir, readFile, realpath, rename, unlink } from 'node:fs/promises';
+import { lstat, open, readFile, realpath, rename, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
 import { parseBackupManifest } from '../update/backup.js';
 import { compareStableVersions, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion } from '../update/contracts.js';
-import type { UpdaterConfig } from './config.js';
+import { composePrefix, type UpdaterConfig } from './config.js';
+import { directorySize, readManifestBytes } from './files.js';
 import { migrationInventoryArgs } from './inventory.js';
 import {
   parseManagedDiagnosticSecrets,
@@ -357,15 +358,6 @@ export async function runPrune(input: {
   });
 }
 
-/** The bytes in a backup's files, as written; links are not followed. */
-export async function directorySize(path: string): Promise<number> {
-  let total = 0;
-  for (const entry of await readdir(path, { recursive: true, withFileTypes: true })) {
-    if (entry.isFile()) total += (await lstat(join(entry.parentPath, entry.name))).size;
-  }
-  return total;
-}
-
 async function repairCommittedTerminal(state: UpdaterStateStore, id: string): Promise<UpdateJob | null> {
   const durable = await state.readJob();
   if (!durable || durable.id !== id || !terminal.has(durable.phase)) return null;
@@ -460,11 +452,6 @@ async function cleanOneShot(
     // A failed removal is safe only if a successful daemon query proves absence.
     throw new OneShotCleanupError();
   }
-}
-
-export function composePrefix(config: UpdaterConfig): string[] {
-  return ['compose', '-p', config.projectName, '-f', config.composeFile,
-    '--env-file', config.environmentFile, '--env-file', config.imageEnvironmentFile];
 }
 
 function commandRunner(dependencies: UpdateDependencies, diagnostics: CommandDiagnosticContext) {
@@ -577,16 +564,7 @@ async function validateBackup(output: string, config: UpdaterConfig, application
   const directory = resolve(root, tail);
   if (relative(root, directory).startsWith(`..${sep}`) || await realpath(directory) !== directory ||
     !(await lstat(directory)).isDirectory()) throw new Error('Unsafe backup directory');
-  const file = await open(join(directory, 'manifest.json'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-  let bytes: Buffer;
-  try {
-    const metadata = await file.stat();
-    // ponytail: 32 MiB manifest ceiling; stream validation if object inventories exceed it.
-    if (!metadata.isFile() || metadata.size > 32 * 1024 ** 2) throw new Error('Invalid backup manifest');
-    bytes = await file.readFile();
-  } finally {
-    await file.close();
-  }
+  const bytes = await readManifestBytes(directory);
   if (createHash('sha256').update(bytes).digest('hex') !== receipt.manifestSha256) throw new Error('Backup manifest hash mismatch');
   const manifest = parseBackupManifest(JSON.parse(bytes.toString('utf8')));
   if (manifest.applicationVersion !== applicationVersion) throw new Error('Invalid backup manifest');

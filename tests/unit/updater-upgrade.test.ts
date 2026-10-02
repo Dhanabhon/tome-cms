@@ -43,7 +43,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { swapUpdater, type SwapOperations } from '../../scripts/updater-upgrade';
-import { TOME_SHIM } from '../../src/cli/shim';
+import { TOME_SHIM, UPDATER_INSTALL_DIRECTORY } from '../../src/cli/shim';
 
 async function server(options: { jobAfterStop?: string | null; backupAfterStop?: string | null; answers?: boolean; failing?: string; shim?: string } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'tomecms-swap-'));
@@ -127,9 +127,9 @@ test('a new updater that does not answer is replaced by the old one, unit and co
   assert.equal(await s.read(s.paths.compose), 'old compose');
   await assert.rejects(access(s.paths.shim), 'a server that had no tome gets none');
   assert.ok(s.running());
-  const t = await server({ answers: false, shim: 'previous shim' });
+  const t = await server({ answers: false, shim: TOME_SHIM });
   await assert.rejects(swapUpdater(t.paths, 'STAMP', t.operations), /did not answer/);
-  assert.equal(await t.read(t.paths.shim), 'previous shim', 'the previous shim is put back');
+  assert.equal(await t.read(t.paths.shim), TOME_SHIM, 'a server that had tome keeps it');
 });
 
 test('a step of the restore that fails does not stop the rest, and the updater is always started last', async () => {
@@ -138,4 +138,18 @@ test('a step of the restore that fails does not stop the rest, and the updater i
   assert.equal(await s.read(join(s.paths.install, 'updater', 'main.js')), 'old', 'the old tree is back');
   assert.equal(s.calls.at(-1), 'systemctl start tomecms-updater');
   assert.ok(s.running());
+});
+
+test('a tome on the PATH that is not TomeCMS\'s is left alone, and nothing is replaced', async () => {
+  for (const foreign of ['#!/bin/sh\necho another tool\n', '\u0000\u0001binary']) {
+    const s = await server({ shim: foreign });
+    await assert.rejects(swapUpdater(s.paths, 'STAMP', s.operations), /not TomeCMS's tome command.*left alone/);
+    assert.equal(await s.read(s.paths.shim), foreign);
+    assert.deepEqual(s.calls, [], 'not even the updater was stopped');
+    assert.equal(await s.read(join(s.paths.install, 'updater', 'main.js')), 'old');
+  }
+});
+
+test('the shim runs the CLI where the updater is installed', () => {
+  assert.equal(TOME_SHIM, `#!/bin/sh\nexec /usr/bin/node ${UPDATER_INSTALL_DIRECTORY}/cli/main.js "$@"\n`);
 });

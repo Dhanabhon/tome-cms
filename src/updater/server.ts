@@ -64,6 +64,10 @@ export function createUpdaterServer(input: {
       if (request.url === '/v1/status' && request.method === 'GET') {
         return json(response, 200, await publicStatus(input.state));
       }
+      if (request.url === '/v1/busy' && request.method === 'GET') {
+        // Whether an update, a backup or a prune holds the lock. It only reads the flag.
+        return json(response, 200, { busy: active });
+      }
       if (request.url === '/v1/timeline' && request.method === 'GET') {
         // Kept off /v1/status on purpose: an app from before 1.3.0 parses that strictly.
         const job = await input.state.readJob();
@@ -161,7 +165,7 @@ export function createUpdaterServer(input: {
           active = false;
         }
       }
-      if (['/v1/status', '/v1/apply', '/v1/timeline', '/v1/backup', '/v1/prune'].includes(request.url ?? '')) {
+      if (['/v1/status', '/v1/apply', '/v1/timeline', '/v1/busy', '/v1/backup', '/v1/prune'].includes(request.url ?? '')) {
         return json(response, 405, { error: 'method_not_allowed' });
       }
       return json(response, 404, { error: 'not_found' });

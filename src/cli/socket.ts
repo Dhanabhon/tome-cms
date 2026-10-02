@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { request } from 'node:http';
 
 import type { BackupJob, PublicUpdateJob } from '../updater/state.js';
@@ -15,21 +14,36 @@ export class UpdaterUnreachableError extends Error {
   constructor() { super('The updater did not answer'); }
 }
 
+/** The updater answered, but not with what was asked for: "it answered /v1/status with 500 (updater_unavailable)". */
+export class UnexpectedAnswerError extends Error {
+  constructor(path: string, answer: SocketAnswer) {
+    const code = errorCodeOf(answer);
+    super(`it answered ${path} with ${answer.status}${code ? ` (${code})` : ''}`);
+  }
+}
+
 export interface UpdaterStatus {
   updaterVersion: string;
   installed: { version: string };
   job: PublicUpdateJob | null;
 }
 
+/**
+ * How long a request may go without an answer. A prune answers only once Docker has listed and
+ * removed every image (30 seconds, then up to a minute each), so it gets far longer.
+ */
+export const socketTimeouts = { timeoutMs: 10_000, pruneTimeoutMs: 600_000 } as const;
+
 const responseLimit = 64 * 1024;
 const updateTerminal = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery']);
 const backupTerminal = new Set(['succeeded', 'failed']);
 
-export function unixSocketClient(socketPath: string, timeoutMs = 10_000): SocketClient {
+export function unixSocketClient(socketPath: string, timeouts: { timeoutMs: number; pruneTimeoutMs: number } = socketTimeouts): SocketClient {
   return (method, path, body) => new Promise((resolve, reject) => {
     const payload = body === undefined ? undefined : JSON.stringify(body);
+    const timeout = method === 'POST' && path === '/v1/prune' ? timeouts.pruneTimeoutMs : timeouts.timeoutMs;
     const outgoing = request({
-      socketPath, path, method, agent: false, timeout: timeoutMs,
+      socketPath, path, method, agent: false, timeout,
       headers: payload === undefined ? { accept: 'application/json' } : {
         accept: 'application/json', 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload),
       },
@@ -57,7 +71,7 @@ export async function readStatus(socket: SocketClient): Promise<UpdaterStatus> {
   const answer = await socket('GET', '/v1/status');
   const body = answer.body as Partial<UpdaterStatus> | null;
   if (answer.status !== 200 || typeof body?.updaterVersion !== 'string' || typeof body.installed?.version !== 'string') {
-    throw new Error('The updater answered /v1/status with something unexpected');
+    throw new UnexpectedAnswerError('/v1/status', answer);
   }
   return body as UpdaterStatus;
 }
@@ -68,7 +82,7 @@ export async function readBackup(socket: SocketClient): Promise<BackupJob | null
   if (answer.status === 404) return null;
   const body = answer.body as Partial<BackupJob> | null;
   if (answer.status !== 200 || typeof body?.id !== 'string' || typeof body.phase !== 'string') {
-    throw new Error('The updater answered /v1/backup with something unexpected');
+    throw new UnexpectedAnswerError('/v1/backup', answer);
   }
   return body as BackupJob;
 }
@@ -132,13 +146,13 @@ export async function follow<T>(
 }
 
 /**
- * Whether the updater's lock is free. It asks to install the version already installed: the updater
- * checks its lock first, answers 409 while it is held, and otherwise answers with its status and
- * starts nothing.
+ * Whether an update, a backup or a prune holds the updater's lock, from its read-only `/v1/busy`.
+ * Null when it cannot say: an updater before 1.5.0 has no such route.
  */
-export async function lockIsFree(socket: SocketClient, installedVersion: string): Promise<boolean> {
-  const answer = await socket('POST', '/v1/apply', { version: installedVersion, requestId: randomUUID() });
-  return answer.status === 200;
+export async function readBusy(socket: SocketClient): Promise<boolean | null> {
+  const answer = await socket('GET', '/v1/busy');
+  const busy = (answer.body as { busy?: unknown } | null)?.busy;
+  return answer.status === 200 && typeof busy === 'boolean' ? busy : null;
 }
 
 /**
@@ -146,8 +160,7 @@ export async function lockIsFree(socket: SocketClient, installedVersion: string)
  * likely on a full disk, and the record keeps refusing other jobs until the updater starts again.
  */
 export async function isBackupStuck(socket: SocketClient, backup: BackupJob | null): Promise<boolean> {
-  if (!isBackupRunning(backup)) return false;
-  return lockIsFree(socket, (await readStatus(socket)).installed.version);
+  return isBackupRunning(backup) && await readBusy(socket) === false;
 }
 
 export function stuckBackupAdvice(phase: string): string {
@@ -171,4 +184,15 @@ export async function refusal(socket: SocketClient, answer: SocketAnswer): Promi
 
 function isConnectionError(error: Error): boolean {
   return 'code' in error && ['ENOENT', 'ECONNREFUSED', 'EACCES', 'ECONNRESET'].includes(String(error.code));
+}
+
+/** `tome logs -f | head`: once the reader has gone, there is nobody to tell, so tome ends quietly. */
+export function exitQuietlyOnClosedPipe(
+  stream: { on(event: 'error', handler: (error: NodeJS.ErrnoException) => void): unknown },
+  exit: (code: number) => void,
+): void {
+  stream.on('error', (error) => {
+    if (error.code !== 'EPIPE') throw error;
+    exit(0);
+  });
 }
