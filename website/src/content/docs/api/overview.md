@@ -60,6 +60,34 @@ In `contentHtml` a video is a `figure.tome-video`. Its link, `a.tome-video__play
 
 The poster is in the item's `media`, with its address and size, as an image in the text is. Shown as it is, a video is an image that links to the clip. To play it in the page, add your own click handler, or build a player from `contentJson`. The bundled site loads its player only when the reader presses play, from `https://www.youtube-nocookie.com/embed/<videoId>?autoplay=1` or `https://player.vimeo.com/video/<videoId>?dnt=1&autoplay=1`. [What a reader's browser keeps](/tome-cms/running/privacy/) explains why.
 
+## The navigation menus
+
+`/api/v1/content/navigation` returns `header` and `footer`, each a list of items. An item has `href`, `kind`, `label`, `newTab` and `children`. `kind` is `home`, `page`, `custom` or `group`.
+
+`children` is on every item, and is an empty list when there is nothing under it. Only the header has sub-items, one level deep, and a sub-item's own `children` is empty. A group is a label with no link, so its `kind` is `group` and its `href` is `null`. It is never in the footer, and it always has at least one child. A parent whose page is not published comes back as a group while any of its children is live, and a sub-item whose page is not published is left out.
+
+```sh
+curl -s 'https://cms.example.com/api/v1/content/navigation?locale=en' | jq '.data.header'
+```
+
+```json
+[
+  { "href": "/en", "kind": "home", "label": "Home", "newTab": false, "children": [] },
+  {
+    "href": null,
+    "kind": "group",
+    "label": "Company",
+    "newTab": false,
+    "children": [
+      { "href": "/en/about", "kind": "page", "label": "About", "newTab": false, "children": [] },
+      { "href": "/en/contact", "kind": "page", "label": "Contact", "newTab": false, "children": [] }
+    ]
+  }
+]
+```
+
+`children` is new in 1.10.0, and so are `group` and a `null` `href`. A client written before then keeps working until the owner adds a group or a sub-item to a header menu, since until then every `children` is empty and every `href` is a string. After that, a client that ignores `children` sees only the top level, and a `null` `href` on each group. Read `children`, and treat a `null` `href` as a label, not a link.
+
 ## The locale parameter
 
 `locale` is `th` or `en`. Every route whose content is in one language needs it: posts, pages, categories, navigation and slides. Without it the answer is `400`.

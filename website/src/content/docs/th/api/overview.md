@@ -60,6 +60,34 @@ node นี้ไม่เก็บที่อยู่ URL ไว้ ถ้า
 
 ภาพปกอยู่ใน `media` ของบทความหรือเพจนั้น พร้อมที่อยู่และขนาด เหมือนภาพในเนื้อหา ถ้าแสดง `contentHtml` ตามที่ได้มา วิดีโอจะเป็นภาพที่ลิงก์ไปที่คลิป ถ้าอยากให้เล่นในหน้าเลย ให้เขียนตัวจัดการการคลิกเอง หรือสร้างตัวเล่นจาก `contentJson` เว็บแบบ bundled โหลดตัวเล่นเฉพาะตอนที่ผู้อ่านกดเล่น จาก `https://www.youtube-nocookie.com/embed/<videoId>?autoplay=1` หรือ `https://player.vimeo.com/video/<videoId>?dnt=1&autoplay=1` หน้า[สิ่งที่เบราว์เซอร์ของผู้อ่านเก็บไว้](/tome-cms/th/running/privacy/) อธิบายเหตุผลไว้
 
+## เมนูนำทาง
+
+`/api/v1/content/navigation` คืน `header` กับ `footer` ซึ่งแต่ละอย่างเป็นรายการของ item แต่ละ item มี `href`, `kind`, `label`, `newTab` และ `children` โดย `kind` เป็น `home`, `page`, `custom` หรือ `group`
+
+`children` มีอยู่ในทุก item และเป็นรายการว่างเมื่อไม่มีอะไรอยู่ข้างใต้ เฉพาะเมนูส่วนหัวเท่านั้นที่มีรายการย่อย ลึกได้ชั้นเดียว และ `children` ของรายการย่อยจะว่างเสมอ กลุ่มคือชื่อหัวข้อที่ไม่มีลิงก์ จึงมี `kind` เป็น `group` และ `href` เป็น `null` กลุ่มไม่มีในส่วนท้าย และมี children อย่างน้อยหนึ่งรายการเสมอ รายการหลักที่เพจของตัวเองยังไม่เผยแพร่จะกลับมาเป็นกลุ่มตราบที่ยังมี children ที่แสดงอยู่ ส่วนรายการย่อยที่ชี้ไปเพจซึ่งยังไม่เผยแพร่จะไม่อยู่ในผลลัพธ์
+
+```sh
+curl -s 'https://cms.example.com/api/v1/content/navigation?locale=th' | jq '.data.header'
+```
+
+```json
+[
+  { "href": "/th", "kind": "home", "label": "หน้าแรก", "newTab": false, "children": [] },
+  {
+    "href": null,
+    "kind": "group",
+    "label": "เกี่ยวกับเรา",
+    "newTab": false,
+    "children": [
+      { "href": "/th/ทีมงาน", "kind": "page", "label": "ทีมงาน", "newTab": false, "children": [] },
+      { "href": "/th/ติดต่อ", "kind": "page", "label": "ติดต่อ", "newTab": false, "children": [] }
+    ]
+  }
+]
+```
+
+`children` เพิ่มเข้ามาใน 1.10.0 พร้อมกับ `group` และ `href` ที่เป็น `null` ได้ client ที่เขียนไว้ก่อนหน้านั้นยังใช้งานได้ต่อไปจนกว่าเจ้าของเว็บจะเพิ่มกลุ่มหรือรายการย่อยในเมนูส่วนหัว เพราะจนถึงตอนนั้นทุก `children` ว่าง และทุก `href` เป็นสตริง หลังจากนั้น client ที่ไม่อ่าน `children` จะเห็นแค่ระดับบน และเห็น `href` เป็น `null` ที่กลุ่มแต่ละกลุ่ม ควรอ่าน `children` และถือว่า `href` ที่เป็น `null` คือชื่อหัวข้อ ไม่ใช่ลิงก์
+
 ## พารามิเตอร์ locale
 
 `locale` มีค่าเป็น `th` หรือ `en` ทุก route ที่เนื้อหาแยกตามภาษาต้องส่งค่านี้ ได้แก่ posts, pages, categories, navigation และ slides ถ้าไม่ส่งจะได้ `400`
