@@ -3,10 +3,11 @@ import { test } from 'node:test';
 
 import { cardMeta, cardPanel, heroLink } from '../../src/themes/almanac/home';
 import { tone } from '../../src/themes/almanac/tone';
-import type { Post, PostCategoryBadge } from '../../src/types/cms';
+import type { ThemeHomePost } from '../../src/themes/contract';
+import type { PostCategoryBadge } from '../../src/types/cms';
 
 /** A post as the home route hands it over: the route's posts carry their categories. */
-const post = (categories?: PostCategoryBadge[]) => ({ categories, id: 'p1', title: 'A title' }) as unknown as Post;
+const post = (categories?: PostCategoryBadge[]) => ({ categories, id: 'p1', title: 'A title' }) as unknown as ThemeHomePost;
 
 test('a card with no cover takes its letter and tone from the first category', () => {
   const design = { id: '6f1c2a90-3d4b-4e5f-8a7b-1c2d3e4f5a6b', name: 'design notes' };
@@ -18,6 +19,18 @@ test('a Thai category gives its first letter with the marks it carries, and a le
   assert.equal(cardPanel(post([{ id: 'c', name: 'ข่าว' }]), 'Tome').letter, 'ข่');
   assert.equal(cardPanel(post([{ id: 'c', name: 'เทคโนโลยี' }]), 'Tome').letter, 'เท');
   assert.equal(cardPanel(post([{ id: 'c', name: '  ไทย' }]), 'Tome').letter, 'ไท');
+});
+
+test('the letter is capitalised the same on every server, and never turns into two letters', () => {
+  const letter = (name: string) => cardPanel(post([{ id: 'c', name }]), 'Tome').letter;
+  // Not the host's locale: a Turkish server would make "i" a dotted capital.
+  assert.equal(letter('indigo'), 'I');
+  assert.equal(letter('écrits'), 'É');
+  assert.equal(letter('e\u0301crits'), 'E\u0301', 'a letter with a combining accent keeps the accent');
+  // "ß" capitalises to "SS", and a ligature to its two letters: one circle holds one letter.
+  assert.equal(letter('ßeta'), 'ß');
+  assert.equal(letter('\uFB01eld'), '\uFB01');
+  assert.equal(letter('ข่าว'), 'ข่');
 });
 
 test('a post with no category falls back to the site name, in one tone for all of them', () => {

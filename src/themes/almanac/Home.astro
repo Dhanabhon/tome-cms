@@ -14,6 +14,8 @@ const home = localePath(locale);
 // The first page only, and not while searching: whoever typed a search wants its results first.
 const showHero = themeSettings.hero !== 'off' && !cursor && !query;
 const newest = posts[0];
+// Never an empty h1: a site with no name yet is called what the route calls it.
+const name = siteName.trim() || 'TomeCMS';
 // The owner's words, or the theme's in the language the page is read in.
 const text = (key: string, fallback: string) => themeSettings[key]?.trim() || fallback;
 
@@ -31,13 +33,13 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
 
 {showHero ? (
   <Hero
-    headline={text('heroHeadline', siteName)}
+    headline={text('heroHeadline', name)}
     lead={text('heroLead', tagline)}
     primary={{ href: heroLink(themeSettings.primaryLink, newest ? postPath(newest) : null), label: text('primaryLabel', copy.startReading) }}
     secondary={{ href: heroLink(themeSettings.secondaryLink, `${home}#posts`), label: text('secondaryLabel', copy.allPosts) }}
   />
 ) : (
-  <h1 class="sr-only">{siteName}</h1>
+  <h1 class="sr-only">{name}</h1>
 )}
 
 <section class="almanac-frame almanac-home" id="posts">
@@ -51,7 +53,7 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
     {posts.length > 0 ? (
       <div class="almanac-grid">
         {posts.map((post, index) => (
-          <PostCard eager={!showHero && !cursor && index < 3} locale={locale} post={post} siteName={siteName} timezone={timezone} />
+          <PostCard eager={!cursor && index < 3} first={!cursor && index === 0} locale={locale} post={post} siteName={name} timezone={timezone} />
         ))}
       </div>
     ) : !loadError && (
@@ -65,17 +67,6 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
 </section>
 
 <script>
-  /* A cover fades in once it has arrived, and the stylesheet keeps it hidden until then only
-   * where scripting runs. Listening on the document catches the covers a pill swaps in too;
-   * it is wired before the feed code is fetched, so no cover arrives unheard. */
-  const arrived = (image: HTMLImageElement) => { image.dataset.loaded = ''; };
-  document.addEventListener('load', ({ target }) => {
-    if (target instanceof HTMLImageElement && target.closest('.almanac-card')) arrived(target);
-  }, true);
-  for (const image of document.querySelectorAll<HTMLImageElement>('.almanac-card img')) {
-    if (image.complete && image.naturalWidth) arrived(image);
-  }
-
   /*
    * The pills swap the list in place with the feed code Paper's row uses, imported only when
    * there is a list to swap. The feed carries no "more" marker, so it adds no rows as the reader

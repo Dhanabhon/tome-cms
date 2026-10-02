@@ -1,6 +1,7 @@
 import { dateLocale, publicCopy } from '../../lib/i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
-import type { Post, PostCategoryBadge, PostLocale } from '../../types/cms';
+import type { PostLocale } from '../../types/cms';
+import type { ThemeHomePost } from '../contract';
 import { tone } from './tone';
 
 /**
@@ -17,29 +18,27 @@ export function heroLink(value: string | undefined, fallback: string | null): st
   return link && !link.startsWith('http:') ? link : null;
 }
 
-/**
- * The categories the home route's posts carry. The contract types them as Post, but the route
- * hands over the published read, which has each post's categories on it; the type has no room
- * for them and the contract is not changed for a theme, so they are read for what they are.
- */
-function firstCategory(post: Post): PostCategoryBadge | undefined {
-  const { categories } = post as Post & { categories?: unknown };
-  const [first] = Array.isArray(categories) ? categories : [];
-  return typeof first?.id === 'string' && typeof first.name === 'string' ? first : undefined;
-}
-
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
-/** A grapheme, not a code unit: a Thai letter keeps its marks, and a vowel written before its
- *  consonant (เ แ โ ใ ไ) alone reads as a stray stroke, so it takes its consonant along. */
+const count = (text: string) => [...graphemes.segment(text)].length;
+
+/**
+ * A grapheme, not a code unit: a Thai letter keeps its marks, and a vowel written before its
+ * consonant (เ แ โ ใ ไ) alone reads as a stray stroke, so it takes its consonant along.
+ *
+ * Capitalised the same on every server (not by the host's locale), and only when that leaves it
+ * the same number of letters: "ß" would become "SS", and the circle holds one.
+ */
 function firstLetter(words: string): string {
   const [first = '', second = ''] = [...graphemes.segment(words.trim())].map(({ segment }) => segment);
-  return (/^[เ-ไ]$/u.test(first) ? first + second : first).toLocaleUpperCase();
+  const letter = /^[เ-ไ]$/u.test(first) ? first + second : first;
+  const upper = letter.toUpperCase();
+  return count(upper) === count(letter) ? upper : letter;
 }
 
 /** What fills a card's panel when the post has no cover: a letter on its category's tone. */
-export function cardPanel(post: Post, siteName: string): { letter: string; tone: number } {
-  const category = firstCategory(post);
+export function cardPanel(post: ThemeHomePost, siteName: string): { letter: string; tone: number } {
+  const [category] = post.categories ?? [];
   return {
     letter: firstLetter(category?.name ?? '') || firstLetter(siteName),
     // Posts with no category share one tone, so they read as one kind of thing.

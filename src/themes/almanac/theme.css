@@ -470,11 +470,21 @@
   .almanac-card__link:hover { transform: translateY(-2px); }
 }
 
-/* A cover fades in once it has arrived. Hidden until then only where the script that says so
- * runs; without it, or for a reader who asked for less motion, it is simply there. */
-@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
-  .almanac-card__panel img { opacity: 0; transition: opacity var(--dur-long) var(--ease-out); }
-  .almanac-card__panel img[data-loaded] { opacity: 1; }
+/* A lazy cover fades in, from the stylesheet alone: no state in which it is hidden, so nothing
+ * can leave it hidden. The first row is eager and is not faded, since it is the page's largest
+ * paint and a fade would hold that paint back.
+ * ponytail: the fade runs when the card is drawn, not when its cover arrives, so a cover that
+ * arrives later simply appears; a fade on arrival needs a script, which is what this replaced. */
+@keyframes almanac-fade-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .almanac-card__panel img[loading='lazy'] {
+    animation-name: almanac-fade-in;
+    animation-duration: var(--dur-long);
+    animation-timing-function: var(--ease-out);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
