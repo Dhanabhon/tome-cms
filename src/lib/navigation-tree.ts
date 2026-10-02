@@ -4,8 +4,9 @@ import type { NavigationItem, NavigationLocation, NavigationMutationItem, Naviga
  * The Navigation screen's rules for sub-items, on its flat draft list.
  *
  * The screen draws one list in menu order: a top-level item, then its sub-items, then the next.
- * Every rule here keeps that list one a server would accept: one level only, header only, and a
- * sub-item that leaves its parent only by being moved out.
+ * Every rule here keeps that list one a server would accept: one level only, header only, no group
+ * under another item, and a parent's sub-items always right after it. Up and down keep a sub-item
+ * among its siblings; a drag, or moving it out, takes it to another parent or the top level.
  */
 export interface NavigationDraftItem extends Omit<NavigationMutationItem, 'children'> {
   id: string;
@@ -30,12 +31,18 @@ export function canIndent(items: NavigationDraftItem[], index: number, location:
   return location === 'header' && index > 0 && !!item && item.parentId === null && item.kind !== 'group' && !hasChildren(items, item.id);
 }
 
+/** The index of the nearest top-level item above, the one an indent puts this item under; -1 for none. */
+export function indentParent(items: NavigationDraftItem[], index: number): number {
+  let parent = index - 1;
+  while (parent >= 0 && items[parent].parentId !== null) parent -= 1;
+  return parent;
+}
+
 /** The item becomes the last sub-item of the nearest top-level item above it. */
 export function indent(items: NavigationDraftItem[], index: number): NavigationDraftItem[] {
   if (!canIndent(items, index, 'header')) return items;
   // Everything between that top-level item and this one is already its sub-items, so nothing moves.
-  let parent = index - 1;
-  while (items[parent].parentId !== null) parent -= 1;
+  const parent = indentParent(items, index);
   return items.map((entry, position) => position === index ? { ...entry, parentId: items[parent].id } : entry);
 }
 
@@ -80,6 +87,51 @@ export function moveBlock(items: NavigationDraftItem[], from: number, to: number
   const rest = without(items, from, block.length);
   const at = rest.findIndex((entry) => entry.id === items[target].id);
   return insert(rest, target < from ? at : at + blockLength(rest, at), ...block);
+}
+
+/** Where a dragged item would land, or why it cannot. "after" a top-level row is after its whole block. */
+export type DropAction = { kind: 'into' | 'before' | 'after'; target: number } | { refused: DropRefusal };
+export type DropRefusal = 'one-level' | 'self' | 'group';
+
+/** The middle of a top-level row, as a share of its height, means "put under it". */
+const INTO_FROM = 0.28;
+const INTO_TO = 0.72;
+
+/**
+ * What dropping the item at `dragged` onto the row at `target` does, with `fraction` the pointer's
+ * height within that row (0 at its top edge, 1 at its bottom). Over a top-level row on the header
+ * the middle band puts the item under it, the edges place it before or after; over a sub-item, or
+ * anywhere on the footer, the upper half is before and the lower half after. Over its own row, where
+ * every drag starts, there is nothing to say yet: null.
+ */
+export function dropAction(items: NavigationDraftItem[], dragged: number, target: number, fraction: number, location: NavigationLocation): DropAction | null {
+  const item = items[dragged];
+  const onto = items[target];
+  if (!item || !onto || dragged === target) return null;
+  if (onto.parentId === item.id) return { refused: 'self' };
+  const into = location === 'header' && onto.parentId === null && fraction >= INTO_FROM && fraction <= INTO_TO;
+  const edge = onto.parentId === null && location === 'header' ? (fraction < INTO_FROM ? 'before' : 'after') : (fraction < 0.5 ? 'before' : 'after');
+  // Under a top-level row or beside a sub-item, the item becomes a sub-item: the rules of indent apply.
+  if (into || onto.parentId) {
+    if (hasChildren(items, item.id)) return { refused: 'one-level' };
+    if (item.kind === 'group') return { refused: 'group' };
+  }
+  return { kind: into ? 'into' : edge, target };
+}
+
+/** The menu after a drop; no drop, a refused one, or one that changes nothing returns `items` itself. */
+export function applyDrop(items: NavigationDraftItem[], dragged: number, action: DropAction | null): NavigationDraftItem[] {
+  if (!action || 'refused' in action) return items;
+  const item = items[dragged];
+  const onto = items[action.target];
+  const block = items.slice(dragged, dragged + (item.parentId ? 1 : blockLength(items, dragged)));
+  const rest = without(items, dragged, block.length);
+  const at = rest.findIndex((entry) => entry.id === onto.id);
+  const parentId = action.kind === 'into' ? onto.id : onto.parentId;
+  // Into a row or after a top-level one lands past its sub-items; beside a sub-item lands next to it.
+  const position = action.kind === 'before' ? at : action.kind === 'after' && onto.parentId ? at + 1 : at + blockLength(rest, at);
+  const next = insert(rest, position, { ...block[0], parentId }, ...block.slice(1));
+  return next.every((entry, index) => entry.id === items[index].id && entry.parentId === items[index].parentId) ? items : next;
 }
 
 /** Removes one item; a removed parent's sub-items stay, at the top level where they were. */

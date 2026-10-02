@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 
 import { adminCopy, fill } from '../../lib/admin-i18n';
-import { canIndent, canOutdent, emptyGroups, fromRows, indent, moveBlock, outdent, removeItem, sibling, toMutation, type NavigationDraftItem } from '../../lib/navigation-tree';
+import { wireDetailsMenus } from '../../lib/details-menu';
+import { applyDrop, canIndent, canOutdent, dropAction, emptyGroups, fromRows, indent, indentParent, moveBlock, outdent, removeItem, sibling, toMutation, type DropAction, type NavigationDraftItem } from '../../lib/navigation-tree';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
 import { animateDismissals, closeOverlay } from '../../lib/overlay-motion';
 import type { NavigationItem, NavigationKind, NavigationLocation, NavigationMutationItem, Page, PageLocale, PostLocale } from '../../types/cms';
@@ -19,6 +20,9 @@ const emptyMenus = (): Record<MenuKey, NavigationDraftItem[]> => ({ 'header:th':
 const cleanMenus = (): Record<MenuKey, boolean> => ({ 'header:th': false, 'header:en': false, 'footer:th': false, 'footer:en': false });
 // A group has no target, so any number of them can share a menu.
 const target = (item: NavigationMutationItem) => item.kind === 'group' ? null : `${item.kind}:${item.pageId ?? item.url ?? ''}`;
+/** How far the pointer moves before a press on the grip becomes a drag, and how near an edge of the window scrolls it. */
+const DRAG_START_PX = 4;
+const SCROLL_EDGE_PX = 56;
 
 interface NavigationManagerProps {
   ownerLocale?: PostLocale | null;
@@ -56,7 +60,11 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
   // The field an empty or malformed submit was about: it is marked, focused, and released as the owner types.
   const [addInvalid, setAddInvalid] = useState<'label' | 'url' | null>(null);
   const savingRef = useRef(false);
-  const dragged = useRef<string | null>(null);
+  // The item being dragged and where it would land; null when nothing is dragged.
+  const [drag, setDrag] = useState<{ id: string; action: DropAction | null } | null>(null);
+  const hint = useRef<HTMLParagraphElement>(null);
+  // Ends the drag in progress, if any: one drag at a time, and none left running after the screen goes.
+  const endDrag = useRef<((drop: boolean) => void) | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const labelField = useRef<HTMLInputElement>(null);
   const urlField = useRef<HTMLInputElement>(null);
@@ -91,6 +99,9 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => (dialog.current ? animateDismissals(dialog.current) : undefined), []);
+  // A row's ⋯ menu closes on a press outside and on Escape, and only one is open at a time.
+  useEffect(() => wireDetailsMenus('details.navigation-nest-menu'), []);
+  useEffect(() => () => endDrag.current?.(false), []);
 
   function closeDialog() {
     if (dialog.current) void closeOverlay(dialog.current);
@@ -195,21 +206,136 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     keepFocus(button);
   }
 
-  function nest(index: number) {
+  /** Says where an item went: under a parent, out of one, or to a new position. */
+  function announce(item: NavigationDraftItem, next: NavigationDraftItem[]) {
+    const moved = next.find((entry) => entry.id === item.id)!;
+    const parentId = moved.parentId ?? item.parentId;
+    const parent = items.find((entry) => entry.id === parentId);
+    if (moved.parentId && moved.parentId !== item.parentId) setStatus(fill(copy.navigation.indented, { label: item.label, parent: parent!.label }));
+    else if (!moved.parentId && item.parentId) setStatus(fill(copy.navigation.outdented, { label: item.label, parent: parent!.label }));
+    else setStatus(fill(copy.navigation.moved, { label: item.label, position: next.indexOf(moved) + 1 }));
+  }
+
+  /** The ⋯ menu's choice: under the top-level item above, or out to the main menu. */
+  function nest(index: number, menu: HTMLDetailsElement | null) {
+    if (menu) menu.open = false;
     if (savingRef.current) return;
     const item = items[index];
     const next = item.parentId ? outdent(items, index) : indent(items, index);
     if (next === items) return;
-    const parentId = item.parentId ?? next.find((entry) => entry.id === item.id)!.parentId;
-    const parent = items.find((entry) => entry.id === parentId)!;
     edit(next);
-    setStatus(fill(item.parentId ? copy.navigation.outdented : copy.navigation.indented, { label: item.label, parent: parent.label }));
-    // The row now offers the way back, so focus goes to that button; its label stays if it cannot go.
+    announce(item, next);
+    // The row's menu now offers the way back; its label takes focus if it has none.
     requestAnimationFrame(() => {
       const row = list.current?.querySelector(`li[data-item-id="${item.id}"]`);
-      const back = row?.querySelector<HTMLButtonElement>(`[data-nest="${item.parentId ? 'indent' : 'outdent'}"]`);
-      (back && !back.disabled ? back : row?.querySelector('input'))?.focus();
+      (row?.querySelector<HTMLElement>('.navigation-nest-menu summary') ?? row?.querySelector('input'))?.focus();
     });
+  }
+
+  /**
+   * A press on a row's grip: past a few pixels it becomes a drag, with a ghost of the row under
+   * the pointer, the drop it would make on the list and in the hint, and the window scrolling near
+   * its edges. Release drops; Escape, or a cancelled pointer, puts everything back.
+   */
+  function startDrag(event: ReactPointerEvent<HTMLElement>, from: number) {
+    // A second finger or pen while one drag runs would drop onto a list the first has already changed.
+    if (savingRef.current || endDrag.current || event.button !== 0) return;
+    event.preventDefault();
+    const { pointerId, clientX: startX, clientY: startY } = event;
+    event.currentTarget.setPointerCapture?.(pointerId);
+    const item = items[from];
+    const row = event.currentTarget.closest('li')!.getBoundingClientRect();
+    let x = startX;
+    let y = startY;
+    let ghost: HTMLElement | null = null;
+    let action: DropAction | null = null;
+    let shown = '';
+    let frame = 0;
+
+    const locate = () => {
+      const over = document.elementFromPoint(x, y)?.closest<HTMLElement>('li[data-item-id]');
+      const at = over && list.current?.contains(over) ? items.findIndex((entry) => entry.id === over.dataset.itemId) : -1;
+      const box = over?.getBoundingClientRect();
+      action = at < 0 || !box ? null : dropAction(items, from, at, (y - box.top) / box.height, location);
+      const key = JSON.stringify(action);
+      if (key !== shown) { shown = key; setDrag({ id: item.id, action }); }
+    };
+    const scroll = () => {
+      const near = y < SCROLL_EDGE_PX ? y - SCROLL_EDGE_PX : y > innerHeight - SCROLL_EDGE_PX ? y - innerHeight + SCROLL_EDGE_PX : 0;
+      if (near) { window.scrollBy(0, Math.round(near / 3)); locate(); }
+      frame = requestAnimationFrame(scroll);
+    };
+    const onMove = (move: PointerEvent) => {
+      if (move.pointerId !== pointerId) return;
+      x = move.clientX;
+      y = move.clientY;
+      if (!ghost) {
+        if (Math.hypot(x - startX, y - startY) < DRAG_START_PX) return;
+        ghost = document.createElement('div');
+        ghost.className = 'navigation-ghost';
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.textContent = item.label;
+        document.body.append(ghost);
+        // The line keeps the height it had, so a shorter hint does not pull the list from under the pointer.
+        if (hint.current) hint.current.style.minBlockSize = `${hint.current.offsetHeight}px`;
+        frame = requestAnimationFrame(scroll);
+      }
+      ghost.style.transform = `translate(${x - (startX - row.left)}px, ${y - (startY - row.top)}px)`;
+      locate();
+    };
+    const finish = (drop: boolean) => {
+      endDrag.current = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('keydown', onKey, true);
+      cancelAnimationFrame(frame);
+      ghost?.remove();
+      if (hint.current) hint.current.style.minBlockSize = '';
+      setDrag(null);
+      if (!drop || !ghost || !action || savingRef.current) return;
+      const next = applyDrop(items, from, action);
+      if (next === items) return;
+      edit(next);
+      announce(item, next);
+    };
+    const onUp = (up: PointerEvent) => { if (up.pointerId === pointerId) finish(true); };
+    const onCancel = (cancel: PointerEvent) => { if (cancel.pointerId === pointerId) finish(false); };
+    const onKey = (key: globalThis.KeyboardEvent) => {
+      if (key.key !== 'Escape') return;
+      key.preventDefault();
+      key.stopPropagation();
+      finish(false);
+    };
+    endDrag.current = finish;
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('keydown', onKey, true);
+  }
+
+  /** What the drop under the pointer would do, in words. */
+  function dropHint(action: DropAction | null): string {
+    if (!action) return '';
+    if ('refused' in action) return { 'one-level': copy.navigation.dropOneLevel, self: copy.navigation.dropSelf, group: copy.navigation.dropGroup }[action.refused];
+    const onto = items[action.target];
+    if (action.kind === 'into') return fill(copy.navigation.dropInto, { label: onto.label });
+    const above = action.kind === 'before';
+    const parent = onto.parentId ? items.find((entry) => entry.id === onto.parentId) : undefined;
+    if (parent) return fill(above ? copy.navigation.dropAboveSub : copy.navigation.dropBelowSub, { label: onto.label, parent: parent.label });
+    if (location === 'footer') return fill(above ? copy.navigation.dropAbove : copy.navigation.dropBelow, { label: onto.label });
+    return fill(above ? copy.navigation.dropAboveMain : copy.navigation.dropBelowMain, { label: onto.label });
+  }
+
+  /** The row that shows the drop: the target, or for "after" a top-level row, the last row of its block. */
+  function dropMark(): { row: number; mark: string } | null {
+    const action = drag?.action;
+    if (!action || 'refused' in action) return null;
+    const onto = items[action.target];
+    if (action.kind !== 'after' || onto.parentId) return { row: action.target, mark: action.kind };
+    let row = action.target;
+    while (items[row + 1]?.parentId === onto.id) row += 1;
+    return { row, mark: row === action.target ? 'after' : 'after-block' };
   }
 
   function remove(index: number) {
@@ -256,6 +382,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     }
   }
 
+  const mark = dropMark();
+
   return (
     <section className="admin-page navigation-manager">
       <header className="admin-page__head">
@@ -283,14 +411,16 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                 <p>{copy.navigation.empty}</p>
               </div>
             )}
-            <ol aria-label={copy.navigation.menuItems} className="navigation-items" ref={list}>
+            {items.length > 1 && <p className="navigation-hint" data-refused={drag?.action && 'refused' in drag.action ? '' : undefined} ref={hint}><span aria-live="polite">{drag ? dropHint(drag.action) : ''}</span>{!drag && (location === 'header' ? copy.navigation.dragHint : copy.navigation.dragHintFooter)}</p>}
+            <ol aria-label={copy.navigation.menuItems} className="navigation-items" data-dragging={drag ? '' : undefined} ref={list}>
               {items.map((item, index) => {
                 const page = pages.find((entry) => entry.id === item.pageId);
                 const summary = item.kind === 'home' ? fill(copy.navigation.homeTarget, { locale }) : item.kind === 'custom' ? item.url : item.kind === 'group' ? copy.navigation.group : page?.title ?? copy.navigation.pageUnavailable;
                 const parent = item.parentId ? items.find((entry) => entry.id === item.parentId) : undefined;
                 const emptyNote = empty.has(index) ? `navigation-empty-${item.id}` : undefined;
-                return <li className="navigation-item" data-item-id={item.id} data-depth={parent ? 1 : undefined} draggable={!saving} key={item.id} onDragStart={(event) => { dragged.current = item.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', item.id); }} onDragEnd={() => { dragged.current = null; }} onDragOver={(event) => { if (dragged.current && !saving) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={(event) => { event.preventDefault(); move(items.findIndex((entry) => entry.id === dragged.current), index); dragged.current = null; }}>
-                  <span aria-hidden="true" className="navigation-grip"><Icon name="grip" /></span>
+                const nesting = location === 'header' && (canIndent(items, index, location) || canOutdent(items, index));
+                return <li className="navigation-item" data-depth={parent ? 1 : undefined} data-dragging={drag && (item.id === drag.id || item.parentId === drag.id) ? '' : undefined} data-drop={mark?.row === index ? mark.mark : undefined} data-item-id={item.id} key={item.id}>
+                  <span aria-hidden="true" className="navigation-grip navigation-grip--pointer" onPointerDown={(event) => startDrag(event, index)}><Icon name="grip" /></span>
                   <div className="navigation-item__content">
                     <label className="admin-field"><span className="sr-only">{fill(copy.navigation.itemLabel, { index: index + 1 })}{parent && ` ${fill(copy.navigation.subItemOf, { label: parent.label })}`}</span><input aria-describedby={emptyNote} aria-invalid={!item.label.trim() || undefined} className="admin-control" disabled={saving} maxLength={80} onChange={(event) => edit(items.map((entry) => entry.id === item.id ? { ...entry, label: event.target.value } : entry))} required value={item.label} /></label>
                     <p className="navigation-target">{summary}</p>
@@ -301,10 +431,14 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                   <div aria-label={fill(copy.navigation.actionsForItem, { index: index + 1 })} className="navigation-item__actions" role="group">
                     <button aria-label={copy.navigation.moveUp} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || sibling(items, index, -1) < 0} onClick={(event) => move(index, sibling(items, index, -1), event.currentTarget)} title={copy.navigation.moveUp} type="button"><Icon name="up" /></button>
                     <button aria-label={copy.navigation.moveDown} className="admin-button admin-button--ghost admin-button--icon" disabled={saving || sibling(items, index, 1) < 0} onClick={(event) => move(index, sibling(items, index, 1), event.currentTarget)} title={copy.navigation.moveDown} type="button"><Icon name="down" /></button>
-                    {location === 'header' && <>
-                      <button aria-label={copy.navigation.outdent} data-nest="outdent" className="admin-button admin-button--ghost admin-button--icon" disabled={saving || !canOutdent(items, index)} onClick={() => nest(index)} title={copy.navigation.outdent} type="button"><Icon name="arrowLeft" /></button>
-                      <button aria-label={copy.navigation.indent} data-nest="indent" className="admin-button admin-button--ghost admin-button--icon" disabled={saving || !canIndent(items, index, location)} onClick={() => nest(index)} title={copy.navigation.indent} type="button"><Icon name="arrowRight" /></button>
-                    </>}
+                    {/* A row with no nesting choice keeps the ⋯ button's slot, so every row's columns line up. */}
+                    {location === 'header' && !nesting && <span aria-hidden="true" className="navigation-nest-slot" />}
+                    {nesting && <details className="admin-story-menu navigation-nest-menu" name="navigation-nest-menu">
+                      <summary aria-label={fill(copy.navigation.nestMenu, { index: index + 1 })} title={fill(copy.navigation.nestMenu, { index: index + 1 })}><Icon name="more" /></summary>
+                      <div>
+                        <button disabled={saving} onClick={(event) => nest(index, event.currentTarget.closest('details'))} type="button">{item.parentId ? copy.navigation.outdent : fill(copy.navigation.indent, { label: items[indentParent(items, index)].label })}</button>
+                      </div>
+                    </details>}
                     <button aria-label={copy.navigation.remove} className="admin-button admin-button--ghost admin-button--icon navigation-remove" disabled={saving} onClick={() => remove(index)} title={copy.navigation.remove} type="button"><Icon name="trash" /></button>
                   </div>
                 </li>;
