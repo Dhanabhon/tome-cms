@@ -29,16 +29,22 @@ const phaseMessages = {
   rolled_back: 'The previous application version was restored.',
   failed_manual_recovery: 'Manual recovery is required.',
 } as const;
+const updaterErrorCodes = [
+  'release_unavailable', 'incompatible_update', 'backup_failed', 'migration_failed',
+  'health_failed', 'rolled_back', 'manual_recovery_required', 'preflight_failed',
+  'verification_failed', 'download_failed', 'update_failed', 'insufficient_disk_space',
+] as const;
+type UpdaterErrorCode = typeof updaterErrorCodes[number];
 const jobSchema = z.object({
   id: uuid, targetVersion: stableVersion,
   phase: z.enum(Object.keys(phaseMessages) as [keyof typeof phaseMessages, ...(keyof typeof phaseMessages)[]]),
   completedSteps: z.number().int().min(0).max(8), totalSteps: z.literal(8), message: z.string(),
   startedAt: timestamp, finishedAt: timestamp.nullable(), backupCreatedAt: timestamp.nullable(),
-  errorCode: z.enum([
-    'release_unavailable', 'incompatible_update', 'backup_failed', 'migration_failed',
-    'health_failed', 'rolled_back', 'manual_recovery_required', 'preflight_failed',
-    'verification_failed', 'download_failed', 'update_failed', 'insufficient_disk_space',
-  ]).nullable(),
+  // A code from a newer updater reads as a failed update. A strict enum once made the whole status
+  // unreadable, and System then took the server for one it cannot update.
+  errorCode: z.string().regex(/^[a-z][a-z0-9_]*$/)
+    .transform((code): UpdaterErrorCode => (updaterErrorCodes as readonly string[]).includes(code) ? code as UpdaterErrorCode : 'update_failed')
+    .nullable(),
 }).strict().refine((job) => {
   const step = Object.keys(phaseMessages).indexOf(job.phase);
   return job.message === phaseMessages[job.phase]

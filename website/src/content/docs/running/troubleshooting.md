@@ -95,7 +95,9 @@ The running version is the one that asks, so an update started from 1.1.0 or ear
 
 ### `Not enough free disk space for the backup: the update needs 5 GB free.`
 
-"System" shows this when an update stopped at its first step. Before it changes anything, the updater checks that the disk holding `/var/backups/tome-cms/` has 5 GB free, and it found less. Nothing changed, and the site kept running. An updater before 1.4.0 refused in the same way, but reported it as `release_unavailable`.
+"System" shows this when an update stopped at "Verify the official update". Before it changes anything, the updater checks that the disk holding `/var/backups/tome-cms/` has 5 GB free, and it found less. Nothing changed, and the site kept running.
+
+Only the application from 1.10.0 on, with updater 1.4.0 or later, shows this message. An earlier application, or an earlier updater, refuses in the same way but reports it as `release_unavailable`, and "System" says only that the previous version was restored. On a full disk, that is this entry.
 
 See what takes the space:
 

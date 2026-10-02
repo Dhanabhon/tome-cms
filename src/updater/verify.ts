@@ -176,9 +176,8 @@ export async function runPreflight(input: {
 
   const filesystem = await dependencies.statfs(input.config.backupDirectory);
   const availableBytes = filesystem.bsize * filesystem.bavail;
-  if (!Number.isSafeInteger(availableBytes) || availableBytes < input.config.minimumFreeBytes) {
-    throw new InsufficientDiskSpaceError();
-  }
+  if (!Number.isSafeInteger(availableBytes)) throw new Error('Backup disk space is unreadable');
+  if (availableBytes < input.config.minimumFreeBytes) throw new InsufficientDiskSpaceError();
 
   const platform = dependencies.hostPlatform?.() ?? currentPlatform();
   if (!input.target.image.platforms.includes(platform as 'linux/amd64' | 'linux/arm64')) {

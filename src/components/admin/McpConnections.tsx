@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 
 import { adminDateFormat, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { confirmUi } from '../../lib/ui-dialog';
+import { DOCS_URL } from '../../lib/docs-url';
 import type { McpConnectionSummary } from '../../server/mcp/connections';
 import BrandMark from '../BrandMark';
 import Icon from '../Icon';
-
-const DOCS = 'https://dhanabhon.github.io/tome-cms';
 
 /**
  * Under the MCP card while it is on: the address to give an AI app, and who is connected.
@@ -80,7 +79,7 @@ export default function McpConnections({ copy, locale }: { copy: AdminCopy; loca
           </button>
         </div>
         <small>
-          <a href={`${DOCS}/${locale === 'th' ? 'th/' : ''}extending/mcp/`} rel="noopener" target="_blank">{copy.mcp.howTo}</a>
+          <a href={`${DOCS_URL}/${locale === 'th' ? 'th/' : ''}extending/mcp/`} rel="noopener" target="_blank">{copy.mcp.howTo}</a>
         </small>
       </div>
       <h3>{copy.mcp.connections}</h3>

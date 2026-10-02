@@ -215,7 +215,9 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
       } finally { await closeScenario(scenario); }
     });
 
-    await t.test('successful update writes a complete backup, migrates once, and switches only app', async () => {
+    await t.test('successful update writes a complete backup, migrates once, and switches only app', async (st) => {
+      const removals: string[] = [];
+      st.mock.method(console, 'info', (message: unknown) => { removals.push(String(message)); });
       const scenario = await createScenario('success', fixture);
       try {
         const migrationBefore = await migrationCount(scenario.config, fixture.images.previous.id);
@@ -240,6 +242,7 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
           ['image', 'ls', '--no-trunc', '--digests', '--format', '{{json .}}', OFFICIAL_IMAGE_REPOSITORY],
           ['image', 'rm', staleImageId],
         ], 'only the image older than the previous one is removed');
+        assert.deepEqual(removals.map((line) => JSON.parse(line).imageId), [staleImageId], 'and its removal is journalled');
       } finally { await closeScenario(scenario); }
     });
 

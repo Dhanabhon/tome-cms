@@ -14,6 +14,7 @@ import type { UpdaterConfig } from '../../src/updater/config.js';
 import { createUpdaterServer, removeStaleUpdaterSocket } from '../../src/updater/server.js';
 import { createUpdaterStateStore, toPublicUpdateJob, type InstalledState } from '../../src/updater/state.js';
 import { applyUpdate, reconcileUpdate, type UpdateDependencies } from '../../src/updater/transaction.js';
+import { pruneOldImages } from '../../src/updater/prune.js';
 import { InsufficientDiskSpaceError } from '../../src/updater/verify.js';
 
 const previous: InstalledState = {
@@ -857,15 +858,26 @@ test('a backup that is not the kind asked for is refused before the image change
 
 test('a disk too full for the backup says so, instead of calling the release unavailable', async (t) => {
   const f = await fixture(t);
-  f.input.dependencies.verifyTargetRelease = async () => { throw new InsufficientDiskSpaceError(); };
-  const job = await applyUpdate(f.input);
+  const input = await fromVersion(f, '1.10.0');
+  input.dependencies.verifyTargetRelease = async () => { throw new InsufficientDiskSpaceError(); };
+  const job = await applyUpdate(input);
   assert.equal(job.phase, 'rolled_back');
   assert.equal(job.errorCode, 'insufficient_disk_space');
   assert.equal(f.events.includes('stop'), false);
 });
 
-const imageRow = (digest: string, id: string, repository: string = OFFICIAL_IMAGE_REPOSITORY) =>
-  JSON.stringify({ Containers: 'N/A', Digest: digest, ID: id, Repository: repository, Tag: '<none>' });
+test('an app before 1.10.0 is told release_unavailable, the code it knows, for a full disk', async (t) => {
+  // Its strict status parser refuses a code it does not know, and System would then offer no update.
+  const f = await fixture(t);
+  const input = await fromVersion(f, '1.9.1');
+  input.dependencies.verifyTargetRelease = async () => { throw new InsufficientDiskSpaceError(); };
+  const job = await applyUpdate(input);
+  assert.equal(job.phase, 'rolled_back');
+  assert.equal(job.errorCode, 'release_unavailable');
+});
+
+const imageRow = (digest: string, id: string, repository: string = OFFICIAL_IMAGE_REPOSITORY, tag: string | null = '<none>') =>
+  JSON.stringify({ Containers: 'N/A', Digest: digest, ID: id, Repository: repository, ...tag === null ? {} : { Tag: tag } });
 const imageId = (character: string) => `sha256:${character.repeat(64)}`;
 
 test('after a successful update, old official images go, and the installed and previous ones stay', async (t) => {
@@ -878,6 +890,11 @@ test('after a successful update, old official images go, and the installed and p
     imageRow(`sha256:${'e'.repeat(64)}`, imageId('4')),
     imageRow('<none>', imageId('5')),
     imageRow(`sha256:${'f'.repeat(64)}`, imageId('6'), 'postgres'),
+    // A tag means someone pulled or built it on purpose; the updater pulls by digest alone.
+    imageRow(`sha256:${'7'.repeat(64)}`, imageId('7'), OFFICIAL_IMAGE_REPOSITORY, 'dev'),
+    imageRow(`sha256:${'8'.repeat(64)}`, imageId('8'), OFFICIAL_IMAGE_REPOSITORY, null),
+    // One image under two digests: kept, since one of them is the previous one.
+    imageRow(`sha256:${'9'.repeat(64)}`, imageId('2')),
   ].join('\n');
   const images: string[][] = [];
   f.input.dependencies.runCommand = async (executable, args, options) => {
@@ -889,11 +906,17 @@ test('after a successful update, old official images go, and the installed and p
     return { code: 0, stdout: '', stderr: '' };
   };
   const messages: string[] = [];
+  const removals: string[] = [];
   t.mock.method(console, 'error', (message: unknown) => { messages.push(String(message)); });
+  t.mock.method(console, 'info', (message: unknown) => { removals.push(String(message)); });
 
   const job = await applyUpdate(f.input);
   assert.equal(job.phase, 'succeeded');
   assert.equal((await f.state.readJob())?.phase, 'succeeded');
+  assert.deepEqual(removals.map((line) => JSON.parse(line)), [{
+    event: 'updater_image_removed', jobId: job.id, targetVersion: '1.0.1',
+    stage: 'cleanup.image.remove', imageId: imageId('3'), result: 'removed',
+  }], 'each removal is journalled');
   assert.deepEqual(images, [
     ['image', 'ls', '--no-trunc', '--digests', '--format', '{{json .}}', OFFICIAL_IMAGE_REPOSITORY],
     ['image', 'rm', imageId('3')],
@@ -923,4 +946,45 @@ test('an update that rolls back removes no image', async (t) => {
   const job = await applyUpdate(f.input);
   assert.equal(job.phase, 'rolled_back');
   assert.equal(f.commands.some(({ args }) => args[0] === 'image'), false);
+});
+
+test('a listing Docker answers but nothing in it can be read removes nothing, and says so', async (t) => {
+  const f = await fixture(t);
+  const run = f.input.dependencies.runCommand;
+  const images: string[][] = [];
+  f.input.dependencies.runCommand = async (executable, args, options) => {
+    if (args[0] !== 'image') return run(executable, args, options);
+    images.push([...args]);
+    return { code: 0, stdout: 'REPOSITORY TAG DIGEST\n', stderr: '' };
+  };
+  const messages: string[] = [];
+  t.mock.method(console, 'error', (message: unknown) => { messages.push(String(message)); });
+  const job = await applyUpdate(f.input);
+  assert.equal(job.phase, 'succeeded');
+  assert.deepEqual(images.map((args) => args[1]), ['ls']);
+  assert.equal(messages.length, 1);
+  assert.deepEqual(JSON.parse(messages[0]!), {
+    event: 'updater_image_listing_unreadable', jobId: job.id, targetVersion: '1.0.1', stage: 'cleanup.image.list',
+  });
+});
+
+test('on the owner’s real listing (containerd store, 2026-10-02), all but the installed and previous image go', async (t) => {
+  // `docker image ls --no-trunc --digests --format '{{json .}}' ghcr.io/dhanabhon/tome-cms`, word for word.
+  const listing = String.raw`{"Containers":"1","CreatedAt":"2026-10-02 05:59:08 +0000 UTC","CreatedSince":"3 hours ago","Digest":"sha256:174ab3ea7b4009b5fff0a5b3373715610ed90acdd48a363989e89bee4ecef437","ID":"sha256:174ab3ea7b4009b5fff0a5b3373715610ed90acdd48a363989e89bee4ecef437","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"763MB","Tag":"<none>","UniqueSize":"N/A"}
+{"Containers":"0","CreatedAt":"2026-10-01 22:55:05 +0000 UTC","CreatedSince":"10 hours ago","Digest":"sha256:3894585167aa22abbc55cdb3507a0de162b18113ef39ccde82ac61c0214e3319","ID":"sha256:3894585167aa22abbc55cdb3507a0de162b18113ef39ccde82ac61c0214e3319","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"763MB","Tag":"<none>","UniqueSize":"N/A"}
+{"Containers":"0","CreatedAt":"2026-10-01 20:14:43 +0000 UTC","CreatedSince":"13 hours ago","Digest":"sha256:4854e6fadff66aa479360044d7b3d7e6ce49159de167dbd8ff984c518b90b487","ID":"sha256:4854e6fadff66aa479360044d7b3d7e6ce49159de167dbd8ff984c518b90b487","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"763MB","Tag":"<none>","UniqueSize":"N/A"}
+{"Containers":"0","CreatedAt":"2026-10-01 18:44:41 +0000 UTC","CreatedSince":"15 hours ago","Digest":"sha256:832318918883cea20713ec42ac4aaf02071e5f6556f380647072010e633b2edb","ID":"sha256:832318918883cea20713ec42ac4aaf02071e5f6556f380647072010e633b2edb","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"763MB","Tag":"<none>","UniqueSize":"N/A"}
+{"Containers":"0","CreatedAt":"2026-10-01 16:47:53 +0000 UTC","CreatedSince":"17 hours ago","Digest":"sha256:6ff5866ee4930730dc4c5680bbb45eb8b384030c426d24588098a55f72b053f5","ID":"sha256:6ff5866ee4930730dc4c5680bbb45eb8b384030c426d24588098a55f72b053f5","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"763MB","Tag":"<none>","UniqueSize":"N/A"}
+{"Containers":"0","CreatedAt":"2026-10-01 13:46:50 +0000 UTC","CreatedSince":"20 hours ago","Digest":"sha256:1e522723a7a85c926002778e3082bdb22f8fa901f2f8f1c244a7253849921903","ID":"sha256:1e522723a7a85c926002778e3082bdb22f8fa901f2f8f1c244a7253849921903","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"763MB","Tag":"<none>","UniqueSize":"N/A"}
+{"Containers":"0","CreatedAt":"2026-10-01 09:13:50 +0000 UTC","CreatedSince":"24 hours ago","Digest":"sha256:35c9435d5b9a1fa8fe4cb7b6f3564cb205238f0af59a783a33db9bd027008ca8","ID":"sha256:35c9435d5b9a1fa8fe4cb7b6f3564cb205238f0af59a783a33db9bd027008ca8","Repository":"ghcr.io/dhanabhon/tome-cms","SharedSize":"N/A","Size":"753MB","Tag":"<none>","UniqueSize":"N/A"}`;
+  const installed = 'sha256:174ab3ea7b4009b5fff0a5b3373715610ed90acdd48a363989e89bee4ecef437';
+  const previousDigest = 'sha256:3894585167aa22abbc55cdb3507a0de162b18113ef39ccde82ac61c0214e3319';
+  const removed: string[] = [];
+  t.mock.method(console, 'info', () => undefined);
+  await pruneOldImages(async (stage, args) => {
+    if (stage === 'cleanup.image.list') return `${listing}\n`;
+    removed.push(args.at(-1)!);
+    return '';
+  }, [installed, previousDigest], { jobId: randomUUID(), targetVersion: '1.10.0', secrets: null });
+  assert.deepEqual(removed, ['sha256:4854e6fadff66aa479360044d7b3d7e6ce49159de167dbd8ff984c518b90b487', 'sha256:832318918883cea20713ec42ac4aaf02071e5f6556f380647072010e633b2edb', 'sha256:6ff5866ee4930730dc4c5680bbb45eb8b384030c426d24588098a55f72b053f5', 'sha256:1e522723a7a85c926002778e3082bdb22f8fa901f2f8f1c244a7253849921903', 'sha256:35c9435d5b9a1fa8fe4cb7b6f3564cb205238f0af59a783a33db9bd027008ca8']);
 });

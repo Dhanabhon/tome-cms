@@ -7,6 +7,7 @@ import { authClient } from '../../lib/auth-client';
 import { updateDurations, type UpdateTimeline } from '../../lib/update-timeline';
 import { describePasskeyException, describeReauthFailure } from '../../lib/passkey-failure';
 import { confirmUi } from '../../lib/ui-dialog';
+import { DOCS_URL } from '../../lib/docs-url';
 import { OFFICIAL_REPOSITORY_URL } from '../../update/contracts';
 import type { UpdaterStatus } from '../../server/update/updater-client';
 import type { UpdateUnavailableReason } from '../../server/update/service';
@@ -106,7 +107,6 @@ export function jobStatusMessage(copy: AdminCopy, job: Pick<PublicUpdateJob, 'ph
   return copy.updates.manualRecoveryRequired;
 }
 
-const DOCS = 'https://dhanabhon.github.io/tome-cms';
 const diskSpaceAnchors = {
   en: 'running/troubleshooting/#not-enough-free-disk-space-for-the-backup-the-update-needs-5-gb-free',
   th: 'th/running/troubleshooting/#พื้นที่ดิสก์ว่างไม่พอสำหรับสำรองข้อมูล-การอัปเดตต้องมีพื้นที่ว่าง-5-gb',
@@ -115,7 +115,7 @@ const diskSpaceAnchors = {
 /** The troubleshooting entry for an update the disk was too full for, or null for any other outcome. */
 export function diskSpaceHelp(job: Pick<PublicUpdateJob, 'errorCode'>, locale?: PostLocale | null): { href: string } | null {
   if (job.errorCode !== 'insufficient_disk_space') return null;
-  return { href: `${DOCS}/${diskSpaceAnchors[locale === 'th' ? 'th' : 'en']}` };
+  return { href: `${DOCS_URL}/${diskSpaceAnchors[locale === 'th' ? 'th' : 'en']}` };
 }
 
 function DiskSpaceNote({ copy, job, locale }: { copy: AdminCopy; job: Pick<PublicUpdateJob, 'errorCode'>; locale?: PostLocale | null }) {

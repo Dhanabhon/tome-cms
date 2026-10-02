@@ -447,6 +447,11 @@ test('a disk too full for the backup is its own error, so the job can say so', a
       installed, target: manifest, updaterVersion: '1.0.0', config,
       dependencies: dependencies({ availableBytes: config.minimumFreeBytes - 1 }),
     }), InsufficientDiskSpaceError);
+    // Free space that cannot be read is not a full disk: it stays a plain failure.
+    await assert.rejects(runPreflight({
+      installed, target: manifest, updaterVersion: '1.0.0', config,
+      dependencies: dependencies({ availableBytes: Number.NaN }),
+    }), (error) => error instanceof Error && !(error instanceof InsufficientDiskSpaceError));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
