@@ -105,14 +105,18 @@ One screen, read-only:
 
 Two new endpoints on the existing socket, under protocol 1. Both use the same `active` lock as
 `/v1/apply`, so updates, backups and prunes never overlap:
-- **`POST /v1/backup`** with `{ requestId, kind: 'database' | 'full' }`. It answers 202 with a job,
-  in the same job record and phases the update uses: quiescing, backing_up, then restarting and
-  succeeded or failed.
-  - **A backup job is distinguishable** from an update job. It has no `targetVersion`; give the
-    job a `kind: 'update' | 'backup'` field that defaults to `'update'` for old records.
-  - **System in the admin** shows a finished backup job sensibly, e.g. "Backup taken 2 Oct 21:40",
-    and never as an update. An app before 1.11.0 that reads a backup job must not break. Check
-    `updater-client.ts` at 1.10.x, and gate it the way the 1.10.0 disk code was gated if needed.
+- **`POST /v1/backup`** with `{ requestId, kind: 'database' | 'full' }`. It answers 202 with
+  `{ id, phase }`.
+  - **Its own state.** A backup keeps its own state file, `backup-job.json` in the updater's state
+    directory: id, kind, phase (`quiescing`, `backing_up`, `restarting`, `succeeded`, `failed`),
+    `startedAt`, `finishedAt`, `backupDirectory`, `sizeBytes`, `errorCode`.
+  - **`GET /v1/backup`** returns that record, for the CLI to follow.
+  - **`/v1/status` and the update `job` record are not changed.** The app's updater client parses
+    them strictly (`.strict()`), in 1.9.x and 1.10.x too. A new field there, or a backup in `job`,
+    would make an already-installed app treat the server as unmanaged. System in the admin
+    therefore does not show backups; the CLI does.
+  - **Same safety as an update.** The backup path writes the same public maintenance marker an
+    update writes, and always clears it and starts the app again.
 - **`POST /v1/prune`** with `{ dryRun: boolean }`. It answers 200 with `{ candidates: [{ id,
   size }], removed: [...] }`. It reuses `src/updater/prune.ts`, with dry-run support added. It
   needs the installed and previous digests from the state.
@@ -165,8 +169,8 @@ the app does not need the new endpoints.
 - **The updater:**
   - unit tests for `/v1/backup` and `/v1/prune`: the lock against apply, a refusal while active,
     and the backup job record;
-  - System showing a backup job;
-  - an older app reading a backup job.
+  - `/v1/status` and the job record unchanged byte for byte in shape, with a test that the app's
+    strict client still parses a status taken during and after a backup.
 - **The managed update harness** (`npm run test:operations:update`):
   - `tome status`, `tome backup` and `tome prune` (dry run and real) against the harness server;
   - `updater:upgrade` installing the shim.
