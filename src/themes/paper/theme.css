@@ -77,8 +77,11 @@ body.paper { background: var(--color-paper); }
 .site-submenu-item summary::-webkit-details-marker { display: none; }
 /* A link parent's ▾ sits right after its label, as a group's does. Its 44 px target runs forward
  * into the gap before the next item, never back over the label, which would steal the link's
- * clicks; the next item paints over the few pixels the two share. */
+ * clicks. Whatever comes next paints over the few pixels the two share. */
 .site-submenu-item summary[aria-label] { justify-content: flex-start; margin-inline-end: calc(1rem - 44px); }
+/* A positioned item paints over an unpositioned one wherever it is, so every item in the row and
+ * every control after it is positioned too: they paint in DOM order, and each keeps its own clicks. */
+.site-header__desktop > ul > li, .site-header .language-switcher, .site-header .ui-theme { position: relative; }
 /* Only a group's label underlines, and only where a pointer really hovers: a tap leaves :hover
  * behind on a phone. */
 @media (hover: hover) {

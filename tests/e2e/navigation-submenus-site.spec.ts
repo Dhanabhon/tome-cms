@@ -116,6 +116,8 @@ test.beforeAll(async () => {
       link('Contact', '/contact'),
       link('Elsewhere', 'https://example.com/', true),
     ] },
+    // A flat link right after a link parent, whose ▾ target reaches into the gap between them.
+    link('Blog', '/blog'),
     { kind: 'group', label: 'Company', pageId: null, url: null, newTab: false, children: [
       { kind: 'page', label: 'History', pageId: history, url: null, newTab: false },
       link('Press', '/press'),
@@ -243,6 +245,19 @@ for (const theme of ['paper', 'plain'] as const) {
     await page.goto(`${origin}/en/history`);
     await expect(parent(page, 'Company').summary, 'a group is current by its label').toHaveAttribute('aria-current', 'true');
     await expect(parent(page, 'About').item.getByRole('link', { name: 'About', exact: true })).not.toHaveAttribute('aria-current', /.*/);
+  });
+
+  test(`${theme}: the ▾'s wide target takes no clicks from the link or the button after it`, async ({ page }) => {
+    test.setTimeout(120_000);
+    useTheme(theme);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${origin}/en`);
+    const hits = (selector: string) => page.locator(selector).first().evaluate((target) => {
+      const { left, top, height } = target.getBoundingClientRect();
+      return [0.5, 1, 2, 3].map((x) => target.contains(document.elementFromPoint(left + x, top + height / 2)));
+    });
+    expect(await hits('nav[aria-label="Primary"] a[href="/blog"]'), 'the first pixels of Blog are Blog').toEqual([true, true, true, true]);
+    expect(await hits('.ui-theme__trigger'), 'and of the theme button, the button').toEqual([true, true, true, true]);
   });
 
   test(`${theme}: the last parent's panel stays inside the window at 1024 px`, async ({ page }) => {

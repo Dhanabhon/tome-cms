@@ -79,6 +79,8 @@
 /* A link parent's ▾ sits right after its label, as a group's does; its target runs forward into
  * the gap before the next item, never back over the label, whose clicks it would take. */
 .site-submenu-item summary[aria-label] { justify-content: flex-start; margin-inline-end: calc(1rem - var(--plain-field)); }
+/* Positioned, so what follows paints over that overhang in DOM order and keeps its own clicks. */
+.plain-nav > ul > li, .plain-nav > a, .plain-nav .ui-theme { position: relative; }
 /* Only where a pointer really hovers: a phone keeps :hover after a tap. */
 @media (hover: hover) {
   .site-submenu-item summary:not([aria-label]):hover > span { border-block-end-color: currentColor; }
@@ -92,8 +94,7 @@
   z-index: var(--z-sticky-nav);
   flex-direction: column;
   flex-wrap: nowrap;
-  /* Each link as wide as its words, so the current one's rule is under it and not across the panel. */
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0;
   min-inline-size: 100%;
   padding: var(--space-2xs) var(--space-sm);
@@ -110,9 +111,9 @@
   .plain-nav [data-site-submenu][open] > .site-submenu { opacity: 0; transform: translateY(calc(-1 * var(--space-2xs))); }
 }
 .plain-nav .site-submenu[data-align="end"] { inset-inline: auto 0; }
-/* The spacing is the item's, so a current link's rule sits right under its words. */
-.plain-nav .site-submenu li { padding-block: var(--space-xs); }
-.plain-nav .site-submenu a { white-space: nowrap; }
+/* The whole row is the link; the current one's mark is a line under its words, not the row. */
+.plain-nav .site-submenu a { display: block; padding-block: var(--space-xs); border-block-end: 0; white-space: nowrap; text-decoration-thickness: var(--rule-hair); text-underline-offset: var(--space-2xs); }
+.plain-nav .site-submenu a:is(:hover, [aria-current]) { text-decoration-line: underline; }
 
 /* A phone has no room to hang a panel off one word in a wrapped row: it spans the header,
  * just under the parent it opened from. */
