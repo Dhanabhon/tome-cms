@@ -190,7 +190,7 @@ test('a Markdown file with pictures becomes a draft, and a skipped picture leave
     await expect(sheet.getByRole('button', { name: 'Import as draft' })).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await sheet.getByRole('button', { name: 'Import as draft' }).click();
-    await expect(sheet.getByText('One picture was skipped. Search the post for "Missing image".')).toBeVisible();
+    await expect(sheet.getByText('One picture was skipped. Search the post for “Missing image”.')).toBeVisible();
     await expect(sheet.getByText('These categories do not exist: Gardening.')).toBeVisible();
     // One file under two addresses went up once.
     expect(await uploads('one.png')).toBe(before.one + 1);

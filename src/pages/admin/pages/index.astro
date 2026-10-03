@@ -133,8 +133,8 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
                           <a class="admin-story-edition__link" href={adminHref(adminSettings, `/pages/edit/${edition.id}`)}>
                             <span class="admin-locale">{edition.locale.toUpperCase()}</span>
                             {index === 0
-                              ? <h2 class="admin-story-edition__title">{title}</h2>
-                              : <span class="admin-story-edition__title">{title}</span>}
+                              ? <h2 class="admin-story-edition__title" lang={edition.locale}>{title}</h2>
+                              : <span class="admin-story-edition__title" lang={edition.locale}>{title}</span>}
                             <span class="admin-page-path">/{edition.locale}/{edition.slug}</span>
                           </a>
                           <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status, edition.published_at)}</span>

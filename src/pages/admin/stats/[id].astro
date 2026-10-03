@@ -2,6 +2,7 @@
 import AdminShell from '../../../components/admin/AdminShell.astro';
 import StatsFilters from '../../../components/admin/stats/StatsFilters.astro';
 import StatsReport from '../../../components/admin/stats/StatsReport.astro';
+import Icon from '../../../components/Icon.astro';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { adminHref, adminLoginPath } from '../../../lib/admin';
 import { adminCopy } from '../../../lib/admin-i18n';
@@ -70,7 +71,7 @@ const siteHref = edition?.slug && edition.live && getServerEnv().TOME_CMS_FRONTE
   ) : (
     <AdminShell active="stats" adminPath={settings.admin_path} locale={settings.default_locale} siteName={settings.site_name} title={copy.stats.heading} userEmail={userEmail}>
       <section class="admin-page stats-page">
-        <p class="stats-back"><a href={statsHref(base, query, { page: 1 })}>← {copy.stats.back}</a></p>
+        <p class="stats-back"><a href={statsHref(base, query, { page: 1 })}><Icon name="arrowLeft" />{copy.stats.back}</a></p>
         {!edition || !report ? (
           <>
             <header class="admin-page__head">

@@ -356,6 +356,9 @@ html[data-notice-closed] .site-notice { display: none; }
  * a single file of them pushed the backup line 196px below the bar it belongs to. */
 .update-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: var(--space-2xs) var(--space-lg); margin: 0; padding-inline-start: var(--space-lg); list-style: decimal; color: var(--color-muted); font-size: var(--text-sm); }
 .update-steps li[aria-current='step'] { color: var(--color-ink); font-weight: 600; }
+.update-steps .icon { width: 1rem; height: 1rem; margin-inline-end: var(--space-2xs); vertical-align: -0.125em; color: var(--color-accent); }
+.update-release-notes { display: inline-flex; gap: var(--space-2xs); align-items: center; width: fit-content; }
+.update-release-notes .icon { width: 1rem; height: 1rem; }
 .admin-settings-form { display: grid; gap: 0; margin-top: 0; }
 .admin-settings-form fieldset { display: grid; min-width: 0; gap: var(--space-lg); margin: 0; padding: 0; border: 0; }
 .admin-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
@@ -1373,6 +1376,14 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* Destructive must not look identical to safe. Both tokens are already measured
  * against paper by theme-contrast.test.ts -- error-ink at 4.5, error at 3. */
 .admin-button--danger { border-color: var(--color-error); color: var(--color-error-ink); }
+/* A dialog's confirm that deletes: the one filled button there, in the danger colour. Paper on
+ * error-ink is the pair theme-contrast.test.ts measures at 4.5 in both themes. */
+.admin-button--primary.admin-button--danger {
+  --admin-button-hover: color-mix(in oklch, var(--color-error-ink) 88%, var(--color-ink));
+  border-color: var(--color-error-ink);
+  background: var(--color-error-ink);
+  color: var(--color-paper);
+}
 .admin-preview-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1420,6 +1431,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .admin-button--primary[aria-busy="true"] { --admin-busy-ring: var(--color-accent-ink); }
 .admin-button--danger[aria-busy="true"] { --admin-busy-ring: var(--color-error-ink); }
+.admin-button--primary.admin-button--danger[aria-busy="true"] { --admin-busy-ring: var(--color-paper); }
 .admin-button[data-state="error"] { border-color: var(--color-error); color: var(--color-error-ink); }
 .admin-button[data-state="success"] { border-color: var(--color-green); }
 
@@ -1456,6 +1468,12 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-post-tabs a[aria-current="page"],
 .navigation-tabs [aria-selected="true"] { border-color: var(--color-accent); color: var(--color-ink); font-weight: 600; }
 .navigation-tabs [role="tab"]:disabled { cursor: not-allowed; opacity: 0.55; }
+/* A press answers as the sidebar's language link does: the focus colour, for as long as it lasts. */
+.admin-post-tabs a:active,
+.navigation-tabs [role="tab"]:active:not(:disabled),
+.admin-sidebar nav a:active,
+.admin-mobile-nav nav a:active,
+.media-category:active { color: var(--color-focus); }
 .navigation-tab { min-width: 0; }
 /* The tab row and, at its right end, the one filter a list keeps: the language. */
 .admin-list-bar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-xs) var(--space-lg); margin-block-start: var(--space-lg); margin-block-end: var(--space-lg); border-block-end: var(--rule-hair) solid var(--color-rule); }
@@ -1936,6 +1954,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   text-decoration: none;
   white-space: nowrap;
 }
+.admin-auth-nav__link .icon { width: 1rem; height: 1rem; }
 
 .admin-auth-brand:active,
 .admin-auth-nav__link:active { transform: translateY(var(--space-3xs)); }
@@ -1983,7 +2002,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
 .admin-auth-context h2 { max-width: 12ch; font-size: var(--text-2xl); }
 /* Negative tracking pulls a Thai cluster's marks into the next one. Latin keeps it. */
-:lang(th) :is(.admin-page__head h1, .admin-empty h2, .admin-auth-context h2, .admin-auth-panel h1) { letter-spacing: 0; }
+/* On the heading itself, so a Thai post title in an English admin is reached by its own lang. */
+:is(.admin-page__head h1, .admin-empty h2, .admin-auth-context h2, .admin-auth-panel h1, .admin-story-content h2, .admin-story-edition__title, .category-row h2, .theme-card__name, .plugin-card__name strong, .admin-card h2, .media-card strong, .redirect-add h2):lang(th) { letter-spacing: 0; }
 .admin-auth-context p {
   max-width: 34ch;
   margin: var(--space-md) 0 0;
@@ -2270,6 +2290,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .admin-card.admin-card--note > :not(.admin-card__head) { grid-column: 1; }
 .admin-card.admin-card--note h2 { margin: 0; font-size: var(--text-base); }
 .admin-card--note p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.admin-card--note a { color: var(--color-link); text-decoration: underline; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   .admin-switch input,
   .admin-switch input::after { transition: none; }
@@ -2585,6 +2606,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   .admin-editor-actions .admin-button { padding-inline: var(--space-sm); }
   .admin-editor-workspace { padding-block-start: var(--space-md); }
   .admin-editor-settings { width: 100%; border: 0; }
+  /* The language filter wraps under the tabs here; the tabs take the row's rule, so the current
+   * one's underline stays on it and the filter sits below. */
+  .admin-list-bar { border-block-end: 0; }
+  .admin-list-bar .admin-post-tabs { flex: 1 0 100%; border-block-end: var(--rule-hair) solid var(--color-rule); }
 }
 
 /* Every hover in the admin, in one place: a tap on a touch screen fires :hover and leaves it lit
@@ -2598,7 +2623,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   }
 
   .admin-button:hover:not(:disabled),
-  .admin-control:hover { background: var(--admin-button-hover, var(--color-paper-3)); }
+  .admin-control:not([aria-invalid="true"]):hover { background: var(--admin-button-hover, var(--color-paper-3)); }
   .admin-button--ghost:hover:not(:disabled) { color: var(--color-ink); }
   .admin-page__head .admin-button--secondary:hover:not(:disabled) { color: var(--color-ink); background: var(--color-paper-3); }
 
@@ -2730,13 +2755,13 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .home-slides-facts small, .maintenance-facts small { color: var(--color-muted); font-size: var(--text-xs); font-weight: 400; line-height: 1.6; }
 .home-slides-actions { position: sticky; inset-block-end: calc(var(--space-lg) * -1); z-index: 1; margin-inline: calc(var(--space-lg) * -1); padding: var(--space-md) var(--space-lg) calc(var(--space-md) + var(--space-lg)); border-block-start: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); }
 /* Slides the home page will not show yet: said once, calmly, with the way to change it. It is
- * advice, not a failure, so it wears a card's surface rather than the error's red, and it
- * keeps its distance from the page head, whose button sits on the head's bottom edge. */
-.home-slides-notice, .admin-maintenance-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) 0 var(--space-sm) var(--space-md); border: 0; border-inline-start: 2px solid var(--color-accent); border-radius: 0; background: none; }
-.home-slides-notice p, .admin-maintenance-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+ * advice, not a failure: muted text over a hairline, as the migrations notice is, with no stripe
+ * down its side; the page head's own rule closes it above. */
+.home-slides-notice, .admin-maintenance-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-block-start: var(--space-lg); padding: var(--space-sm) 0; border: 0; border-block-end: var(--rule-hair) solid var(--color-rule); border-radius: 0; background: none; }
+.home-slides-notice p, .admin-maintenance-notice p { min-width: 0; max-width: 60ch; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 /* Maintenance: the notice sits above the screen's head, not below it, inset from the shell's
  * edges as the migrations alert in the same place is. */
-.admin-maintenance-notice { margin: 0; padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); border-block-end: var(--rule-hair) solid var(--color-rule); }
+.admin-maintenance-notice { margin: 0; padding: var(--space-sm) clamp(var(--space-md), 4vw, var(--space-xl)); }
 /* In a card, the card's gap spaces the tabs; their page margins would double it. */
 .maintenance-screen .navigation-tabs { margin-block: 0; }
 .maintenance-state__actions { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; }
@@ -2744,8 +2769,9 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .maintenance-words { display: grid; gap: var(--space-md); }
 
 /* Four templates, each a card with a small drawing of its layout and its radio beside its
- * name, clear of the drawing (Picture's is dark). */
-.maintenance-templates { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-sm); margin: 0; padding: 0; border: 0; }
+ * name, clear of the drawing (Picture's is dark). Two by two at every width: auto-fit left
+ * Countdown alone under three. */
+.maintenance-templates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); margin: 0; padding: 0; border: 0; }
 .maintenance-template { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3xs) var(--space-xs); align-content: start; align-items: center; padding: var(--space-sm); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); cursor: pointer; }
 .maintenance-template input { grid-row: 2; grid-column: 1; margin: 0; }
 .maintenance-template strong { grid-row: 2; grid-column: 2; }
@@ -2899,7 +2925,7 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .redirect-manager { display: grid; gap: var(--space-lg); }
 .redirect-add { display: grid; gap: var(--space-md); }
 .redirect-add h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: 700; letter-spacing: -0.015em; }
-.redirect-add p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.redirect-add p { max-width: 40rem; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 .redirect-add .admin-button { justify-self: start; }
 .redirect-list { display: grid; margin: 0; padding: 0; list-style: none; border-block-start: var(--rule-hair) solid var(--color-rule); }
 .redirect-row {
@@ -2945,10 +2971,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .mcp-connections__mark { display: grid; flex: none; align-self: start; margin-block-start: var(--space-3xs); width: 1.25rem; height: 1.25rem; place-items: center; }
 .mcp-connections__mark .brand-mark, .mcp-connections__mark .icon { width: 1.25rem; height: 1.25rem; }
 .mcp-connections__list li > div { flex: 1 1 12rem; }
-/* Above a draft an AI changed, as the migrations notice sits above a screen: a rule at the start,
- * not a tinted box, because it reports something rather than warning of it. Its content lines up
- * with the editor bar's below, which is 80rem wide at most. */
-.ai-undo, .editing-status { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-inline-start: 2px solid var(--color-focus); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
+/* Above a draft an AI changed, as the migrations notice sits above a screen: over a hairline,
+ * not a tinted box or a side stripe, because it reports something rather than warning of it. Its
+ * content lines up with the editor bar's below, which is 80rem wide at most. */
+.ai-undo, .editing-status { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); align-items: center; justify-content: space-between; padding-block: var(--space-sm); padding-inline: max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 80rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl)))); border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); font-size: var(--text-sm); }
 .ai-undo p, .editing-status p { margin: 0; min-width: 0; }
 /* An app names itself, and a long name must wrap rather than widen the page. */
 .editing-status p { overflow-wrap: anywhere; }

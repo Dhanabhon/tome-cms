@@ -13,6 +13,7 @@
 .stats-segments a { min-height: var(--control-height); margin-block-end: -1px; padding-inline: var(--space-3xs); border-block-end: 2px solid transparent; color: var(--color-muted); font-size: var(--text-sm); font-weight: 500; line-height: var(--control-height); text-decoration: none; white-space: nowrap; }
 .stats-segments a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .stats-segments a[aria-current='true'] { border-block-end-color: var(--color-accent); color: var(--color-ink); font-weight: 600; }
+.stats-segments a:active { color: var(--color-focus); }
 
 /* Three figures on one row, ruled above and below, a rule between: the page's lead. */
 .stats-summary { display: grid; margin: var(--space-xl) 0 var(--space-xs); border-block: var(--rule-hair) solid var(--color-rule); }
@@ -110,6 +111,16 @@
 .stats-pages { display: flex; justify-content: space-between; margin-block-start: var(--space-sm); }
 .stats-links { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
 .stats-back { margin: 0 0 var(--space-sm); }
+.stats-back a { display: inline-flex; gap: var(--space-2xs); align-items: center; }
+.stats-back .icon { width: 1rem; height: 1rem; }
+.stats-articles tbody th:lang(th) { letter-spacing: 0; }
+
+/* On a phone the language select wraps under the periods, and the row's rule went with it,
+ * leaving the current period's underline in mid-air. The periods take the rule there. */
+@media (max-width: 39.999rem) {
+  .stats-filters { border-block-end: 0; }
+  .stats-segments { flex: 1 0 100%; border-block-end: var(--rule-hair) solid var(--color-rule); }
+}
 .stats-articles { margin-block-start: var(--space-lg); }
 
 @media (min-width: 40rem) {

@@ -4,6 +4,7 @@ import { useDrawer } from './useDrawer';
 
 import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { adminHref } from '../../lib/admin';
+import { DOCS_URL } from '../../lib/docs-url';
 import { THEME_MANIFESTS } from '../../themes/manifests';
 import type { ThemeManifest } from '../../themes/contract';
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from '../../themes/registry';
@@ -158,7 +159,7 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
       <div className="admin-notes">
         <section className="admin-card admin-card--note" aria-labelledby="themes-source-heading">
           <h2 id="themes-source-heading">{copy.theme.sourceTitle}</h2>
-          <p>{copy.theme.sourceBody}</p>
+          <p>{copy.theme.sourceBody} <a href={`${DOCS_URL}${locale === 'th' ? '/th' : ''}/extending/themes/`} rel="noopener noreferrer" target="_blank">{copy.theme.sourceLink}</a></p>
         </section>
       </div>
 

@@ -87,7 +87,7 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         <a class="admin-auth-brand" href="/" aria-label={copy.auth.tomecmsHome}>
           <img class="tomecms-logo" src="/brand/tomecms-logo-color.png" alt="TomeCMS" width="2172" height="724" />
         </a>
-        <a class="admin-auth-nav__link" href="/">{copy.auth.viewSite} <span aria-hidden="true">↗</span></a>
+        <a class="admin-auth-nav__link" href="/">{copy.auth.viewSite}<Icon name="external" /></a>
       </header>
 
       <div class="admin-auth-stage">
@@ -195,8 +195,8 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
                         <a class="admin-story-edition__link" href={adminHref(adminSettings, `/edit/${edition.id}`)}>
                           <span class="admin-locale">{edition.locale.toUpperCase()}</span>
                           {index === 0
-                            ? <h2 class="admin-story-edition__title">{title}</h2>
-                            : <span class="admin-story-edition__title">{title}</span>}
+                            ? <h2 class="admin-story-edition__title" lang={edition.locale}>{title}</h2>
+                            : <span class="admin-story-edition__title" lang={edition.locale}>{title}</span>}
                           <span class="admin-status" data-status={edition.status}>{statusLabel(copy, edition.status, edition.published_at)}</span>
                         </a>
                         <details class="admin-story-menu">

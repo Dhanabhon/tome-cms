@@ -1062,7 +1062,7 @@ test('a file joins the library, is found by its type, and the filter holds throu
   // in the admin's words ("this file"), not the API's ("the file").
   await upload.setInputFiles({ name: 'รายชื่อ.csv', mimeType: 'text/csv', buffer: Buffer.from([0xaa, 0xd7, 0xe8, 0xcd, 0x2c, 0x31, 0x0a]) });
   await uploadDialog.getByRole('button', { name: 'Upload 1 file' }).click();
-  await expect(uploadDialog.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, "CSV UTF-8")');
+  await expect(uploadDialog.getByRole('alert')).toContainText('Save this file as UTF-8 (in Excel, “CSV UTF-8”)');
 });
 
 test('a PDF shows its first page in the library and in its details, and a file pdf.js cannot open keeps its label', async ({ context, page }) => {

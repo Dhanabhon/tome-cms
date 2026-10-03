@@ -109,7 +109,7 @@ const quiet = !report || (report.totals.views === 0 && report.totals.reads === 0
                     <tbody>
                       {articles.map((article) => (
                         <tr>
-                          <th scope="row">
+                          <th lang={article.title ? article.locale : undefined} scope="row">
                             <a href={statsHref(`${base}/${article.id}`, query, { page: 1 })}>{article.title ?? copy.stats.deleted}</a>
                           </th>
                           <td>{article.kind === 'post' ? copy.stats.post : copy.stats.page}</td>
