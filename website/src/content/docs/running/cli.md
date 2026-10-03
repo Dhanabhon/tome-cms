@@ -313,6 +313,7 @@ For a directory, the first line says `Directory:` instead of `Archive:`.
 
 What it keeps and decides:
 
+- **Addresses.** A `slug` that is already a valid address is kept exactly as written, so a move keeps every address, Thai ones included. One that is not, such as `Rye & Spelt!`, is made into one, as the editor would make it; with no `slug`, the file's name is used, and the title when the name has no words.
 - **Status and dates.** `status: published` makes a published item with its `published` date. A draft keeps its `planned` date. A file with no `status` is a draft. The updated time is the time of the import.
 - **Content.** When a `<slug>.tome.json` sits beside the `.md`, its exact document is used. Otherwise the `.md` body is converted, with the converter the admin's Markdown import uses. Every item is checked and cleaned the way a save from the editor is.
 - **Media.** Files are matched by checksum, so one the site already has is reused and not uploaded again. A file the content names that is missing from the archive shows as a line saying it is missing, and the end says how many.

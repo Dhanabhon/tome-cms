@@ -148,9 +148,9 @@ export async function applyImport(root: string, ownerId: string, site?: SiteRead
               coverMediaId: cover,
               showCover: item.frontMatter.show_cover ?? true,
             });
-            await insertPostIn(trx, ownerId, { ...input, locale: item.locale }, { groupId });
+            await insertPostIn(trx, ownerId, { ...input, locale: item.locale }, { groupId, keepSlug: true });
           } else {
-            await insertPageIn(trx, ownerId, { ...createPageSchema.parse(fields), locale: item.locale }, { groupId });
+            await insertPageIn(trx, ownerId, { ...createPageSchema.parse(fields), locale: item.locale }, { groupId, keepSlug: true });
           }
         } catch (error) {
           throw itemRefusal(error, item.path);

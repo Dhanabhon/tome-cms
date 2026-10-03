@@ -4,7 +4,8 @@ import { isAbsolute, posix, relative, resolve, sep } from 'node:path';
 
 import { MAX_MARKDOWN_BYTES } from '../../lib/markdown-import';
 import { documentTypeForName, MAX_DOCUMENT_FILE_BYTES, MAX_IMAGE_BYTES } from '../../lib/media';
-import { contentSlug } from '../../lib/slug';
+import { RESERVED_PAGE_SLUGS } from '../../lib/pages';
+import { contentSlug, SLUG, SLUG_LENGTH } from '../../lib/slug';
 import type { EditorDocument, EditorNode } from '../../types/cms';
 import { parseEditorContent, ValidationError } from '../content/editor';
 import { parseMarkdownPost } from '../content/markdown-import';
@@ -88,6 +89,19 @@ const ITEM = /^(.+)\.(md|tome\.json)$/;
 const MAX_EXACT_BYTES = 8 * 1024 * 1024;
 // A body the converter takes, with as much again for the front matter, which is a few fields.
 const MAX_ITEM_MARKDOWN_BYTES = 2 * MAX_MARKDOWN_BYTES;
+
+/**
+ * The slug an import stores, which the plan checks and apply writes as it is. One the archive gives
+ * (its front matter's, or else its file's name) that is already valid is kept byte for byte, so a
+ * move keeps every address: `contentSlug` would split some Thai runs that the site stored whole.
+ * Any other is made one from it, or from the title when it has no words; a title with none either
+ * leaves it empty, and the write gives it `post-<id>` or `page-<id>`.
+ */
+export function importSlug(kind: Kind, written: string, title: string): string {
+  const slug = written.normalize('NFC').trim();
+  if (SLUG.test(slug) && slug.length <= SLUG_LENGTH && !(kind === 'page' && RESERVED_PAGE_SLUGS.has(slug))) return slug;
+  return contentSlug(slug) || contentSlug(title);
+}
 
 /** Every read goes through here: a path, from a manifest or a document, never leaves the archive. */
 function archivePath(root: string, path: string): string {
@@ -254,9 +268,8 @@ async function readItem(
   return {
     kind: entry.kind,
     locale: entry.locale,
-    // The slug the write stores: a hand-written file's name becomes its slug the way a title would,
-    // and an empty one is the title's.
-    slug: (frontMatter.slug !== undefined ? frontMatter.slug.normalize('NFC').trim() : contentSlug(entry.stem)) || contentSlug(frontMatter.title),
+    // A hand-written file with no slug is at the address its name gives.
+    slug: importSlug(entry.kind, frontMatter.slug ?? entry.stem, frontMatter.title),
     path,
     source: entry.json ? 'tome.json' : 'md',
     frontMatter,

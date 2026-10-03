@@ -292,7 +292,7 @@ test('each refusal of the import step gives its sentence, and the work directory
     [{ code: 'front_matter_invalid', file: 'posts/en/a.md', field: 'published' }, 'posts/en/a.md has front matter TomeCMS cannot read: published.'],
     [{ code: 'front_matter_invalid', file: 'posts/en/a.md' }, 'posts/en/a.md has front matter TomeCMS cannot read: the block between the --- lines.'],
     [{ code: 'media_type_unsupported', file: 'media/x.exe' }, 'media/x.exe is not a picture or a document the File Manager accepts.'],
-    [{ code: 'content_invalid', file: 'posts/en/c.md' }, 'posts/en/c.md holds content TomeCMS cannot accept, such as a slug that is too long or a document that does not read.'],
+    [{ code: 'content_invalid', file: 'posts/en/c.md' }, 'posts/en/c.md holds content TomeCMS cannot accept, such as a published item with no content, or a document that does not read.'],
     [{ code: 'layout_invalid', file: 'notes.txt' }, 'notes.txt does not fit the archive\'s layout: manifest.json, media/, and posts/ or pages/ in th/ or en/.'],
     [{ code: 'manifest_invalid', file: 'manifest.json' }, 'manifest.json does not read as a TomeCMS Markdown archive\'s.'],
     [{ code: 'site_busy' }, 'The site is in maintenance, or the updater is busy. Try again when it is done.'],

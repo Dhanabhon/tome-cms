@@ -261,10 +261,10 @@ test('an import that fails part-way leaves no item, no media row and no uploaded
   await writeTree(root, {
     'posts/en/a-first.md': md('First', 'first', 'one.png'),
     'posts/en/b-second.md': md('Second', 'second', 'two.png'),
-    'posts/en/c-third.md': md('Third', 'x'.repeat(400), 'three.png'),
+    // Published with nothing in it: refused when it is written, after the pictures went up.
+    'posts/en/c-third.md': '---\ntitle: Third\nslug: third\nstatus: published\n---\n',
     'media/one.png': await picture('#111111'),
     'media/two.png': await picture('#222222'),
-    'media/three.png': await picture('#333333'),
   });
   const counts = await rowCounts();
   const keys = await objectKeys();
@@ -323,7 +323,7 @@ test('a clean-up delete that fails names the object left behind, and the others 
   const picture = (color: string) => sharp({ create: { width: 2, height: 2, channels: 3, background: color } }).png().toBuffer();
   await writeTree(root, {
     'posts/en/a.md': '---\ntitle: A\nslug: a-cleanup\n---\n\n![a](../../media/one.png)\n\n![b](../../media/two.png)\n',
-    'posts/en/b.md': `---\ntitle: B\nslug: ${'x'.repeat(400)}\n---\n\nWords.\n`,
+    'posts/en/b.md': '---\ntitle: B\nslug: b-cleanup\nstatus: published\n---\n',
     'media/one.png': await picture('#555555'),
     'media/two.png': await picture('#666666'),
   });
@@ -347,3 +347,40 @@ test('a clean-up delete that fails names the object left behind, and the others 
   await send(new DeleteObjectCommand({ Bucket: 'tomecms-test-media', Key: refused }));
 });
 
+
+test('a valid slug in the archive is kept byte for byte, even one contentSlug would split, and a second plan skips it', async () => {
+  const { contentSlug } = await import('../../src/lib/slug');
+  const { planImport } = await import('../../src/server/transfer/import-plan');
+  const post = 'สวัสดี-ชาวโลก';
+  const page = 'เกี่ยวกับ';
+  assert.notEqual(contentSlug(post), post, 'this ICU splits it further');
+  assert.notEqual(contentSlug(page), page, 'and this one');
+  const root = await tempDirectory();
+  await writeTree(root, {
+    'posts/th/hello.md': `---\ntitle: สวัสดี\nslug: ${post}\n---\n\nคำ\n`,
+    'pages/th/about.md': `---\ntitle: เกี่ยวกับ\nslug: ${page}\n---\n\nคำ\n`,
+  });
+  const planned = await planImport(root, OWNER);
+  const result = await m.applyImport(root, OWNER);
+  assert.deepEqual(planned.create.map(({ slug }) => slug), [page, post]);
+  assert.deepEqual(result.create, planned.create, 'the plan and the write agree');
+  const stored = await m.db.selectFrom('posts').select('slug').where('slug', '=', post).executeTakeFirst();
+  assert.equal(Buffer.from(stored?.slug ?? '').toString('hex'), Buffer.from(post).toString('hex'), 'the post keeps its address');
+  assert.ok(await m.db.selectFrom('pages').select('slug').where('slug', '=', page).executeTakeFirst(), 'the page keeps its address');
+
+  const again = await planImport(root, OWNER);
+  assert.deepEqual(again.create, []);
+  assert.deepEqual(again.skip.map(({ path }) => path), ['pages/th/about.md', 'posts/th/hello.md']);
+});
+
+test('a slug that is not one is made one, and the plan names the slug the write stores', async () => {
+  const { planImport } = await import('../../src/server/transfer/import-plan');
+  const root = await tempDirectory();
+  await writeTree(root, { 'posts/en/odd.md': '---\ntitle: Odd\nslug: Rye & Spelt Loaves!\n---\n\nWords.\n' });
+  const planned = await planImport(root, OWNER);
+  assert.deepEqual(planned.create.map(({ slug }) => slug), ['rye-spelt-loaves']);
+  const result = await m.applyImport(root, OWNER);
+  assert.deepEqual(result.create, planned.create);
+  assert.ok(await m.db.selectFrom('posts').select('id').where('slug', '=', 'rye-spelt-loaves').executeTakeFirst());
+  assert.deepEqual((await planImport(root, OWNER)).create, [], 'a second plan skips it');
+});

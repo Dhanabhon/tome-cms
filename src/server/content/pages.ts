@@ -66,8 +66,9 @@ export function pageFromRow(row: Selectable<PageTable>): Page {
   };
 }
 
-function pageSlug(input: { id: string; requested: string; title: string }): string {
-  const slug = normalizedContentSlug('page', input.requested, input.title, input.id);
+function pageSlug(input: { id: string; requested: string; title: string; keep?: boolean }): string {
+  // An import's slug is kept as the archive gives it: it checked it, and a move keeps every address.
+  const slug = input.keep && input.requested ? input.requested : normalizedContentSlug('page', input.requested, input.title, input.id);
   if (RESERVED_PAGE_SLUGS.has(slug)) throw new HttpError(400, 'That page slug is reserved.');
   return slug;
 }
@@ -112,7 +113,7 @@ export async function insertPageIn(
   trx: Transaction<Database>,
   ownerId: string,
   input: CreatePageInput,
-  options: { groupId?: string; prepared?: StoredEditorContent } = {},
+  options: { groupId?: string; prepared?: StoredEditorContent; keepSlug?: boolean } = {},
 ): Promise<Selectable<PageTable>> {
   const id = randomUUID();
   const content = options.prepared ?? await prepareContentWithFiles(trx, ownerId, input);
@@ -144,7 +145,7 @@ export async function insertPageIn(
     translation_group_id: translationGroupId,
     locale,
     title: input.title,
-    slug: pageSlug({ id, requested: input.slug, title: input.title }),
+    slug: pageSlug({ id, requested: input.slug, title: input.title, keep: options.keepSlug }),
     content_json: content.contentJson,
     content_html: content.contentHtml,
     meta_title: input.metaTitle,

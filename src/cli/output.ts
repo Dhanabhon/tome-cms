@@ -145,7 +145,7 @@ export function explainContentRefusal(code: string, detail: { file?: unknown; fi
     media_too_large: `${file} is larger than the File Manager accepts for its kind.`,
     front_matter_invalid: `${file} has front matter TomeCMS cannot read: ${shown(detail.field, 'the block between the --- lines')}.`,
     media_type_unsupported: `${file} is not a picture or a document the File Manager accepts.`,
-    content_invalid: `${file} holds content TomeCMS cannot accept, such as a slug that is too long or a document that does not read.`,
+    content_invalid: `${file} holds content TomeCMS cannot accept, such as a published item with no content, or a document that does not read.`,
     layout_invalid: `${file} does not fit the archive's layout: manifest.json, media/, and posts/ or pages/ in th/ or en/.`,
     manifest_invalid: 'manifest.json does not read as a TomeCMS Markdown archive\'s.',
     site_busy: TRANSFER_BUSY,

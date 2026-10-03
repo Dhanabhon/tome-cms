@@ -137,7 +137,7 @@ export async function insertPostIn(
   trx: Transaction<Database>,
   ownerId: string,
   input: CreatePostInput,
-  options: { groupId?: string; prepared?: StoredEditorContent } = {},
+  options: { groupId?: string; prepared?: StoredEditorContent; keepSlug?: boolean } = {},
 ): Promise<Selectable<PostTable>> {
   const id = randomUUID();
   const content = options.prepared ?? await prepareContentWithFiles(trx, ownerId, input);
@@ -170,7 +170,8 @@ export async function insertPostIn(
     translation_group_id: translationGroupId,
     locale,
     title: input.title,
-    slug: normalizedContentSlug('post', input.slug, input.title, id),
+    // An import's slug is kept as the archive gives it: it checked it, and a move keeps every address.
+    slug: options.keepSlug && input.slug ? input.slug : normalizedContentSlug('post', input.slug, input.title, id),
     cover_media_id: coverMediaId,
     show_cover: input.showCover,
     content_json: content.contentJson,
