@@ -86,6 +86,8 @@ const LOCALES: ReadonlySet<string> = new Set(['th', 'en']);
 const ITEM = /^(.+)\.(md|tome\.json)$/;
 // A pretty-printed document is a few times the size of the one stored, which is capped at 1 MB.
 const MAX_EXACT_BYTES = 8 * 1024 * 1024;
+// A body the converter takes, with as much again for the front matter, which is a few fields.
+const MAX_ITEM_MARKDOWN_BYTES = 2 * MAX_MARKDOWN_BYTES;
 
 /** Every read goes through here: a path, from a manifest or a document, never leaves the archive. */
 function archivePath(root: string, path: string): string {
@@ -97,6 +99,12 @@ function archivePath(root: string, path: string): string {
 
 export async function readArchiveFile(root: string, path: string): Promise<Buffer> {
   return readFile(archivePath(root, path));
+}
+
+/** An item's file, refused by its size before a byte of it is held in memory. */
+async function readItemFile(root: string, path: string, limit: number): Promise<Buffer> {
+  if ((await lstat(archivePath(root, path))).size > limit) throw new ArchiveInputError('content_invalid', path);
+  return readArchiveFile(root, path);
 }
 
 interface Layout {
@@ -201,7 +209,7 @@ async function readItem(
 ): Promise<Omit<PlannedItem, 'categories' | 'group'> & { translation: string | null }> {
   if (!entry.md) throw new ArchiveInputError('layout_invalid', entry.json!);
   const path = entry.md;
-  const text = (await readArchiveFile(root, path)).toString('utf8');
+  const text = (await readItemFile(root, path, MAX_ITEM_MARKDOWN_BYTES)).toString('utf8');
   const { frontMatter, body } = readFrontMatter(text, path);
   if (frontMatter.language && frontMatter.language !== entry.locale) throw new ArchiveInputError('front_matter_invalid', path, 'language');
   if (frontMatter.categories?.some((name) => !name.trim() || name.trim().length > 80)) throw new ArchiveInputError('front_matter_invalid', path, 'categories');
@@ -211,8 +219,7 @@ async function readItem(
   let missing = 0;
   let document: EditorDocument;
   if (entry.json) {
-    const exact = await readArchiveFile(root, entry.json);
-    if (exact.length > MAX_EXACT_BYTES) throw new ArchiveInputError('content_invalid', entry.json);
+    const exact = await readItemFile(root, entry.json, MAX_EXACT_BYTES);
     try {
       // The editor's own check of a document's shape and bounds; its files are checked on write.
       document = parseEditorContent({ contentJson: JSON.parse(exact.toString('utf8')) });
@@ -247,8 +254,9 @@ async function readItem(
   return {
     kind: entry.kind,
     locale: entry.locale,
-    // A hand-written file's name becomes its slug the way a title would.
-    slug: frontMatter.slug !== undefined ? frontMatter.slug.normalize('NFC').trim() : contentSlug(entry.stem),
+    // The slug the write stores: a hand-written file's name becomes its slug the way a title would,
+    // and an empty one is the title's.
+    slug: (frontMatter.slug !== undefined ? frontMatter.slug.normalize('NFC').trim() : contentSlug(entry.stem)) || contentSlug(frontMatter.title),
     path,
     source: entry.json ? 'tome.json' : 'md',
     frontMatter,
@@ -305,13 +313,14 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
     const members = groups.get(group) ?? { translation: item.translation, created: [], skipped: [] };
     groups.set(group, members);
     const address = `${item.kind}/${item.locale}/${item.slug}`;
-    // An address the site has, or that an earlier file in the archive takes: never overwritten.
-    if (taken.has(address)) {
+    // An address the site has, or that an earlier file in the archive takes: never overwritten. A
+    // title with no words leaves no slug; the write gives each such item one of its own.
+    if (item.slug && taken.has(address)) {
       plan.skip.push({ path: item.path, reason: 'slug_taken' });
       members.skipped.push(item.path);
       continue;
     }
-    taken.add(address);
+    if (item.slug) taken.add(address);
     // A group holds one edition in each language.
     if (members.created.some(({ locale }) => locale === item.locale)) throw new ArchiveInputError('front_matter_invalid', item.path, 'translation');
     members.created.push(item);

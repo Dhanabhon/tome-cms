@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -114,4 +114,28 @@ test('anything outside the layout, a bad front matter and an oversized picture r
   await symlink(join(linked, 'posts/en/a.md'), join(linked, 'posts/en/b.md'));
   await assert.rejects(planImport(linked, OWNER, site()),
     (error) => error instanceof ArchiveInputError && error.code === 'layout_invalid' && error.file === 'posts/en/b.md', 'a link is not followed');
+});
+
+test('the plan checks the slug the write stores: an empty one, or a file name with no words, falls back to the title', async (context) => {
+  const root = await archive(context, {
+    'posts/en/a.md': '---\ntitle: Hello There\nslug: ""\n---\nWords.\n',
+    'posts/en/!!!.md': '---\ntitle: Rye Bread\n---\nWords.\n',
+    'posts/en/c.md': '---\ntitle: New One\nslug: ""\n---\nWords.\n',
+  });
+  const plan = await planImport(root, OWNER, site(['posts/en/hello-there', 'posts/en/rye-bread']));
+  assert.deepEqual(plan.skip.map(({ path }) => path).sort(), ['posts/en/!!!.md', 'posts/en/a.md']);
+  assert.deepEqual(plan.create.map(({ slug }) => slug), ['new-one']);
+});
+
+test('an item file over its bound is refused by its size, before it is read', { skip: process.getuid?.() === 0 && 'root reads everything' }, async (context) => {
+  // Unreadable, so a read of it would fail otherwise than with the refusal.
+  const oversized = async (path: string, bytes: number, extra: Record<string, string> = {}) => {
+    const root = await archive(context, { [path]: '', ...extra });
+    await truncate(join(root, path), bytes);
+    await chmod(join(root, path), 0o000);
+    await assert.rejects(planImport(root, OWNER, site()),
+      (error) => error instanceof ArchiveInputError && error.code === 'content_invalid' && error.file === path, path);
+  };
+  await oversized('posts/en/a.md', 2 * 900_000 + 1);
+  await oversized('posts/en/b.tome.json', 8 * 1024 * 1024 + 1, { 'posts/en/b.md': md({ title: 'B' }) });
 });
