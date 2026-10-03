@@ -30,6 +30,7 @@ const lead = leads ? posts[0] : undefined;
 const rest = leads ? posts.slice(1) : posts;
 const leadExcerpt = lead && postExcerpt(lead, '');
 const when = (post: Post) => post.published_at ?? post.created_at;
+const isCurrent = (category: string) => activeCategory?.toLocaleLowerCase() === category.toLocaleLowerCase();
 ---
 
 <div class="plain-page">
@@ -46,11 +47,13 @@ const when = (post: Post) => post.published_at ?? post.created_at;
       <nav class="plain-filter" aria-label={copy.categories}>
         <a href={home} aria-current={activeCategory || query ? undefined : 'page'}>{copy.allPosts}</a>
         {categories.map(({ name }) => (
-          <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase() ? 'page' : undefined}>{name}</a>
+          <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a>
         ))}
       </nav>
     )}
   </div>
+  {/* A category with no posts has no tab to mark, so the list names it. */}
+  {activeCategory && !query && !categories.some(({ name }) => isCurrent(name)) && <h2 class="plain-list-heading">{activeCategory}</h2>}
   {query && <p class="plain-search-status" role="status">{saying(copy.searchResults)} · <a href={home}>{copy.clearSearch}</a></p>}
   {loadError && <p class="plain-empty" role="alert">{copy.postsUnavailable}</p>}
 
@@ -91,7 +94,9 @@ const when = (post: Post) => post.published_at ?? post.created_at;
 
 <script>
   /*
-   * Below 64rem the tabs scroll sideways. A page arrives with the row at its start, so the chosen
+   * Below 64rem the tabs scroll sideways, and the row says so: an edge with more beyond it fades
+   * (data-more), and a tab scrolled in stops further from the edge than the gap, so the next peeks in.
+   * A page arrives with the row at its start, so the chosen
    * tab is scrolled into it, and the reader sees which list this is; and a tab the keyboard reaches
    * is scrolled in whole, clear of the edge by the row's scroll-padding: the browser's own scroll on
    * focus left the last tab cut by the edge at 768px (tests/e2e/home-search.spec.ts). Only the row
@@ -105,6 +110,14 @@ const when = (post: Post) => post.published_at ?? post.created_at;
     if (box.left < edge.left + pad) row.scrollLeft += box.left - edge.left - pad;
     else if (box.right > edge.right - pad) row.scrollLeft += box.right - edge.right + pad;
   };
+  const mark = () => {
+    if (!row) return;
+    const more = [row.scrollLeft > 1 && 'start', row.scrollLeft + row.clientWidth < row.scrollWidth - 1 && 'end'];
+    row.dataset.more = more.filter(Boolean).join(' ');
+  };
   show(row?.querySelector('[aria-current="page"]'));
+  mark();
   row?.addEventListener('focusin', (event) => show(event.target as Element));
+  row?.addEventListener('scroll', mark, { passive: true });
+  addEventListener('resize', mark);
 </script>

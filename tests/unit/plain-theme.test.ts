@@ -279,8 +279,10 @@ test('header, footer, back and paging links are a full target on a touch screen'
   assert.match(touch, /display: inline-flex;/);
   assert.match(touch, /min-height: var\(--plain-field\);/);
   assert.match(top('.plain-nav .site-submenu a', COARSE), /padding-block: var\(--space-sm\);/);
-  // And a press shows on them, as on the tabs and the search button.
-  assert.match(top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a:active, .plain-wordmark:active', COARSE), /translate: 0 1px;/);
+  // And a press shows on them, with a mouse as with a finger, as on the tabs and the search button.
+  assert.match(top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a:active, .plain-wordmark:active'), /translate: 0 1px;/);
+  // A translate moves only a box, so each of them is one at every width, not an inline run of words.
+  assert.match(top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a'), /display: inline-block;/);
   // The underline is the text's, so a taller link keeps it under the words.
   assert.match(top('.plain-nav a,\n.plain-foot a'), /text-decoration-color: transparent;/);
   assert.doesNotMatch(top('.plain-nav a,\n.plain-foot a'), /border-block-end/);
@@ -330,4 +332,30 @@ test("the missing page is titled at Plain's article size, untracked, on the arti
   assert.match(block, /width: min\(var\(--plain-frame\), 44rem\)/);
   assert.match(block, /max-width: none/);
   assert.match(block, /padding-inline: 0/);
+});
+
+test('the tab row shows that it scrolls: an edge fades where there is more, and a neighbour peeks in', () => {
+  const row = top('.plain-filter', NARROW);
+  // A tab scrolled in stops this far from the edge, more than the gap, so part of the next one shows.
+  assert.match(row, /scroll-padding-inline: var\(--space-xl\);/);
+  assert.match(top('.plain-filter'), /gap: 0 var\(--space-lg\);/);
+  assert.match(row, /mask-image: linear-gradient\(to right, transparent, currentColor var\(--plain-fade-start\), currentColor calc\(100% - var\(--plain-fade-end\)\), transparent\);/);
+  assert.match(top(".plain-filter[data-more~='start']", NARROW), /--plain-fade-start: var\(--space-xl\);/);
+  assert.match(top(".plain-filter[data-more~='end']", NARROW), /--plain-fade-end: var\(--space-xl\);/);
+  const script = /<script>([\s\S]*?)<\/script>/.exec(read('Home.astro'))?.[1] ?? '';
+  assert.match(script, /row\.dataset\.more = /);
+  assert.match(script, /addEventListener\('scroll', mark/);
+});
+
+test('an empty category names itself in a heading, since it has no tab to mark', () => {
+  const home = read('Home.astro');
+  assert.match(home, /\{activeCategory && !query && !categories\.some\(\(\{ name \}\) => isCurrent\(name\)\) && <h2 class="plain-list-heading">\{activeCategory\}<\/h2>\}/);
+  assert.match(top('.plain-list-heading'), /font-size: var\(--text-xl\)/);
+});
+
+test('a file card is ruled above and below, as the code block is, not a rounded box', () => {
+  const card = top('.plain-body p.file-card > :is(a, .file-card__link)');
+  assert.match(card, /border-inline: 0/);
+  assert.match(card, /border-radius: 0/);
+  assert.match(card, /border-color: var\(--color-rule-strong\)/);
 });
