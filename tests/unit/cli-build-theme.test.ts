@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { copyTheme, renameThemeFile } from '../../src/cli/build/theme.js';
+import { copyTheme, coreNames, renameThemeFile } from '../../src/cli/build/theme.js';
 import { themeNew } from '../../src/cli/commands/theme-new.js';
 import { tome } from '../../src/cli/main.js';
 
@@ -14,10 +14,10 @@ const repository = fileURLToPath(new URL('../..', import.meta.url));
 const themes = join(repository, 'src', 'themes');
 const SOURCES = ['plain', 'paper', 'almanac'] as const;
 
-/** A real file of a real theme, renamed from `from` to zzdemo. */
+/** A real file of a real theme, renamed from `from` to zzdemo, keeping what the core selects by as copyTheme does. */
 function renamed(from: string, path: string) {
   const text = readFileSync(join(themes, from, path), 'utf8');
-  return { text, after: renameThemeFile(path, text, from, 'zzdemo') };
+  return { text, after: renameThemeFile(path, text, from, 'zzdemo', coreNames(repository, from)) };
 }
 
 test('the manifest takes the new id, as its id, name and description; its settings are kept', () => {
@@ -68,8 +68,10 @@ test('only the id changes: comments and prose that mention the source theme are 
       // The font's import is the one other change, and has its own test.
       const back = after.replaceAll('zzdemo', from).replace(`@import '../${from}/fonts.css';`, "@import './fonts.css';");
       assert.equal(back, text, `${from}/${path}: nothing but the id changed`);
-      // What is left of the source's names is in comments.
-      for (const line of after.split('\n').filter((each) => new RegExp(`(?<![\\w-])(--)?${from}-|\\.${from}\\b|"${from}"`).test(each))) {
+      // What is left of the source's names is in comments, or is a name the core selects by.
+      const kept = [...coreNames(repository, from)];
+      for (const line of after.split('\n').filter((each) => new RegExp(`(?<![\\w-])(--)?${from}-|\\.${from}\\b|"${from}"`)
+        .test(kept.reduce((rest, name) => rest.replaceAll(name, ''), each)))) {
         assert.match(line.trim(), /^(\*|\/\*|\/\/|<!--|\{\/\*)/, `${from}/${path}: ${line.trim()}`);
       }
     }
@@ -168,4 +170,52 @@ test('when registering fails, the new theme\'s directory is removed', async (t) 
   assert.equal(code, 1);
   assert.match(out.lines.join('\n'), /the disk is full/);
   assert.deepEqual([await listing(), await lists()], before);
+});
+
+test('a name the core selects a theme\'s markup by is kept, so a plain copy\'s bare <pre> is still drawn by code.css', () => {
+  assert.deepEqual([...coreNames(repository, 'plain')], ['plain-body']);
+  assert.deepEqual([...coreNames(repository, 'paper')], []);
+  assert.deepEqual([...coreNames(repository, 'almanac')], []);
+  const files = copyTheme(repository, 'plain', 'zzdemo');
+  const text = (path: string) => files.find((file) => file.path === path)!.text;
+  // code.css draws a post's bare <pre> by the body's class, and the copy's body keeps it.
+  assert.match(readFileSync(join(repository, 'src', 'styles', 'code.css'), 'utf8'), /^\.plain-body pre,$/m);
+  for (const path of ['Post.astro', 'Page.astro']) assert.match(text(path), /<div class="plain-body" set:html=/, path);
+  assert.match(text('theme.css'), /^\.plain-body \{ line-height: 1\.7; \}$/m);
+  // Everything else is the copy's own.
+  assert.match(text('Post.astro'), /<article class="zzdemo-page zzdemo-article">/);
+});
+
+test('core names are found in styles, components, layouts and lib, by selector or class attribute, and kept by every rule', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'tome-core-names-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const core = {
+    'src/styles/a.css': 'body.almanac main { margin: 0; }\n.almanac-card:hover { color: red; }',
+    'src/components/B.tsx': 'export const B = () => <p className="almanac-note other">x</p>;',
+    'src/layouts/C.astro': '<div class="wrap almanac-frame" />',
+    'src/lib/d.ts': "document.querySelector('.almanac-hero');\nconst kind = 'text/almanac-ish'; settings.almanac;",
+    'src/themes/elsewhere.css': '.almanac-grid {}',
+  };
+  for (const [path, text] of Object.entries(core)) {
+    await mkdir(join(root, path, '..'), { recursive: true });
+    await writeFile(join(root, path), text);
+  }
+  const keep = coreNames(root, 'almanac');
+  assert.deepEqual([...keep].sort(), ['almanac', 'almanac-card', 'almanac-frame', 'almanac-hero', 'almanac-note']);
+  assert.equal(
+    renameThemeFile('theme.css', '.almanac { x: 1; }\n.almanac-card, .almanac-grid { y: 2; }', 'almanac', 'zzdemo', keep),
+    '.almanac { x: 1; }\n.almanac-card, .zzdemo-grid { y: 2; }',
+  );
+  assert.equal(
+    renameThemeFile('Shell.astro', '<body class="almanac"><div class="almanac-frame almanac-grid">', 'almanac', 'zzdemo', keep),
+    '<body class="almanac"><div class="almanac-frame zzdemo-grid">',
+  );
+});
+
+test('a hidden file in the source, such as .DS_Store, is not copied', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'tome-dotfiles-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'src', 'themes', 'zz', 'parts'), { recursive: true });
+  for (const path of ['theme.css', '.DS_Store', 'parts/Card.astro', 'parts/.DS_Store']) await writeFile(join(root, 'src', 'themes', 'zz', path), '');
+  assert.deepEqual(copyTheme(root, 'zz', 'yy').map(({ path }) => path), ['parts/Card.astro', 'theme.css']);
 });

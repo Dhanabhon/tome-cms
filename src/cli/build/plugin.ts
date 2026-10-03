@@ -18,7 +18,11 @@ const HOOK_METHODS: Record<PluginHook, string[]> = {
   ],
   signIn: [],
   editorSuggestions: [
-    '/** How likely the article belongs under each category, by id: none, so nothing is suggested. */',
+    '/**',
+    ' * How likely the article belongs under each category, by id: none, so nothing is suggested.',
+    ' * Once the plugin is switched on, the editor shows its suggestion button, which answers that',
+    ' * nothing fits until this is written.',
+    ' */',
     "export const categoryLikelihoods: NonNullable<Plugin['categoryLikelihoods']> = async () => ({});",
   ],
 };
