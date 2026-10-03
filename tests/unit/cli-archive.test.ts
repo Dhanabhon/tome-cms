@@ -19,11 +19,18 @@ async function scratch(t: { after: (fn: () => Promise<void>) => void }): Promise
   return base;
 }
 
+type RawEntry = { name: string; type?: string; body?: string | Buffer; link?: string; uname?: string };
+
 /**
  * A .tar.gz with exactly these entries, written header by header, so an archive can hold what no
  * one could make on this machine without root: an absolute path, `..`, a device.
  */
-function tarball(entries: Array<{ name: string; type?: string; body?: string | Buffer; link?: string; uname?: string }>): Buffer {
+function tarball(entries: RawEntry[]): Buffer {
+  return gzipSync(Buffer.concat([tarBlocks(entries), Buffer.alloc(1024)]));
+}
+
+/** The headers and data of these entries, with no end-of-archive blocks: one tar can hide inside another's body. */
+function tarBlocks(entries: RawEntry[]): Buffer {
   const blocks: Buffer[] = [];
   for (const entry of entries) {
     const body = Buffer.isBuffer(entry.body) ? entry.body : Buffer.from(entry.body ?? '');
@@ -47,7 +54,7 @@ function tarball(entries: Array<{ name: string; type?: string; body?: string | B
     header.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148);
     blocks.push(header, body, Buffer.alloc((512 - (body.length % 512)) % 512));
   }
-  return gzipSync(Buffer.concat([...blocks, Buffer.alloc(1024)]));
+  return Buffer.concat(blocks);
 }
 
 async function archiveOf(t: Parameters<typeof scratch>[0], entries: Parameters<typeof tarball>[0]): Promise<string> {
@@ -210,7 +217,7 @@ test('a Thai file name passes, and packs, lists and unpacks byte for byte', asyn
   assert.ok(entries.some((entry) => entry.type === 'file' && entry.name === `./posts/th/${thai}` && entry.size === body.length), JSON.stringify(entries));
   const target = join(base, 'target');
   await mkdir(target);
-  await extractArchive(real, packed, target);
+  await extractArchive(real, packed, target, entries);
   assert.deepEqual((await readdir(join(target, 'posts', 'th'))).map((name) => Buffer.from(name)), [Buffer.from(thai)]);
   assert.deepEqual(await readFile(join(target, 'posts', 'th', thai)), body);
   await assert.rejects(packDirectory(real, source, packed), { code: 'EEXIST' }, 'an archive is never written over');
@@ -222,7 +229,7 @@ test('a link found after unpacking is caught by the walk, whatever tar did', asy
   await symlink('/etc/shadow', join(target, 'media', 'planted'));
   // tar itself "succeeds"; what it left behind is checked all the same.
   const quiet = { runCommand: async () => ({ code: 0, stdout: '', stderr: '' }), streamCommand };
-  await assert.rejects(extractArchive(quiet, 'in.tar.gz', target),
+  await assert.rejects(extractArchive(quiet, 'in.tar.gz', target, [{ type: 'other', name: 'media/planted', size: 0 }]),
     new ArchiveRefusal('That archive holds a link or a special file (media/planted), so nothing was imported.'));
 });
 
@@ -231,7 +238,7 @@ test('tar runs as argv, unpacking without the archive\'s owners or permissions',
   const spy = { runCommand: async (executable: string, args: readonly string[], options: { timeoutMs: number }) => { calls.push({ executable, args, timeoutMs: options.timeoutMs }); return { code: 0, stdout: '', stderr: '' }; }, streamCommand };
   const target = await mkdtemp(join(tmpdir(), 'tome-archive-'));
   try {
-    await extractArchive(spy, '/var/backups/tome-cms/in.tar.gz', target);
+    await extractArchive(spy, '/var/backups/tome-cms/in.tar.gz', target, []);
   } finally {
     await rm(target, { recursive: true, force: true });
   }
@@ -243,7 +250,37 @@ test('more than 2 GiB on disk after unpacking is refused, whatever the listing s
   await writeFile(join(target, 'manifest.json'), '{}');
   await truncate(join(target, 'manifest.json'), ARCHIVE_LIMITS.bytes + 1); // sparse
   const quiet = { runCommand: async () => ({ code: 0, stdout: '', stderr: '' }), streamCommand };
-  await assert.rejects(extractArchive(quiet, 'in.tar.gz', target), new ArchiveRefusal('That archive is larger than 2 GiB, or holds more than 20,000 entries.'));
+  await assert.rejects(extractArchive(quiet, 'in.tar.gz', target, [{ type: 'file', name: './manifest.json', size: 2 }]),
+    new ArchiveRefusal('That archive is larger than 2 GiB, or holds more than 20,000 entries.'));
+});
+
+test('a plain file named like a directory, whose body hides more entries, is refused by its listing', async (t) => {
+  // GNU tar lists this as `drw-r--r-- 0/0 5632 … posts/` and skips its body, then extracts the body
+  // as hidden.md and media/bomb, which the listing never shows. bsdtar lists the same `d` with a size.
+  const hidden = tarBlocks([{ name: 'hidden.md', body: 'x' }, { name: 'media/bomb', body: Buffer.alloc(4096) }]);
+  const path = await archiveOf(t, [{ name: 'manifest.json', body: '{}' }, { name: 'posts/', type: '0', body: hidden }]);
+  assert.equal(refusal(await listArchive(real, path)), 'That archive holds a link or a special file (posts/), so nothing was imported.');
+  // Captured from GNU tar 1.35, `tar --numeric-owner -tvzf` on that same archive.
+  const gnu = ['-rw-r--r-- 0/0               2 2026-09-21 14:13 manifest.json', 'drw-r--r-- 0/0            5632 2026-09-21 14:13 posts/'];
+  const fixture = { runCommand, streamCommand: async (_e: string, _a: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void) => { for (const line of gnu) onLine(line, 'stdout'); return 0; } };
+  const entries = await listArchive(fixture, path);
+  assert.deepEqual(entries[1], { type: 'other', name: 'posts/', size: 0 });
+  assert.equal(refusal(entries), 'That archive holds a link or a special file (posts/), so nothing was imported.');
+});
+
+test('anything unpacked that the listing did not name is refused, so no tar quirk can slip an entry past it', async (t) => {
+  const target = await scratch(t);
+  await mkdir(join(target, 'posts', 'th'), { recursive: true });
+  await writeFile(join(target, 'manifest.json'), '{}');
+  await writeFile(join(target, 'posts', 'th', thai), 'x');
+  const quiet = { runCommand: async () => ({ code: 0, stdout: '', stderr: '' }), streamCommand };
+  // What GNU extracted from the archive above, beside what its listing showed.
+  const listed: ArchiveEntry[] = [{ type: 'dir', name: './', size: 0 }, { type: 'file', name: './manifest.json', size: 2 }, { type: 'file', name: `./posts/th/${thai}`, size: 1 }];
+  await extractArchive(quiet, 'in.tar.gz', target, listed); // the directories a listed file implies are fine
+  await mkdir(join(target, 'media'));
+  await writeFile(join(target, 'media', 'bomb'), 'x');
+  await assert.rejects(extractArchive(quiet, 'in.tar.gz', target, listed),
+    new ArchiveRefusal('That archive holds an entry its listing does not show (media), so nothing was imported.'));
 });
 
 test('a pack that fails leaves no archive behind, and an archive already there is never touched', async (t) => {

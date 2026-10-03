@@ -86,9 +86,10 @@ export async function importContent(context: CliContext, options: { path: string
  * handed over, so the updater's user never sees it half-written. Every file 0600, every directory 0700.
  */
 async function unpack(context: CliContext, archive: string, work: string): Promise<string> {
-  assertSafeEntries(await listArchive(context, archive));
+  const entries = await listArchive(context, archive);
+  assertSafeEntries(entries);
   await mkdir(work, { mode: 0o700 });
-  await extractArchive(context, archive, work);
+  await extractArchive(context, archive, work, entries);
   // Unpacked without the archive's permission bits, but a file it made unreadable must still be read.
   const result = await context.runCommand('chmod', ['-R', 'u=rwX,go=', work], { timeoutMs: 10 * 60_000 });
   if (result.code !== 0) throw new Error(`chmod exited with ${result.code}`);

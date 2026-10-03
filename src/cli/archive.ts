@@ -1,5 +1,5 @@
 import { lstat, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, posix, relative, sep } from 'node:path';
 
 import type { CliContext } from './main.js';
 import { findUnsafeEntry } from './ownership.js';
@@ -39,7 +39,10 @@ function parseLine(line: string): ArchiveEntry | null {
   const match = GNU_LINE.exec(line) ?? BSD_LINE.exec(line);
   if (!match) return null;
   const [, letter, size, name] = match as unknown as [string, string, string, string];
-  const type = letter === '-' ? 'file' : letter === 'd' ? 'dir' : 'other';
+  // Both tars print 0 for every real directory. GNU lists a plain file whose name ends in `/` as a
+  // directory with that file's size, skipping its bytes, but extracts those bytes as more entries
+  // that the listing never shows: so a "directory" with a size is refused.
+  const type = letter === '-' ? 'file' : letter === 'd' && size === '0' ? 'dir' : 'other';
   // A link's line goes on to its target. Only the name is shown, and a link is refused either way.
   const link = letter === 'l' ? ' -> ' : letter === 'h' ? ' link to ' : null;
   const shown = link && name.includes(link) ? name.slice(0, name.indexOf(link)) : name;
@@ -106,19 +109,34 @@ export function assertSafeEntries(entries: readonly ArchiveEntry[], limits: { by
 
 /**
  * Unpacks an archive whose listing passed, as root, owning nothing and keeping no permission bits,
- * then walks what it left: anything but a plain file or a directory is refused, and so is more than
+ * then walks what it left. Refused: anything but a plain file or a directory; anything the listing
+ * did not name, so no quirk of tar's can slip an entry past the listing's checks; and more than
  * 2 GiB on disk, whatever sizes the listing gave.
  */
-export async function extractArchive(commands: Commands, path: string, directory: string): Promise<void> {
+export async function extractArchive(commands: Commands, path: string, directory: string, entries: readonly ArchiveEntry[]): Promise<void> {
   const result = await commands.runCommand('tar', ['-xzf', path, '-C', directory, '--no-same-owner', '--no-same-permissions'], { timeoutMs: TAR_MS });
   if (result.code !== 0) throw unreadable();
   const unsafe = await findUnsafeEntry(directory);
   if (unsafe !== null) throw new ArchiveRefusal(`That archive holds a link or a special file (${printable(unsafe)}), so nothing was imported.`);
+  const listed = listedPaths(entries);
   let total = 0;
   for (const entry of await readdir(directory, { recursive: true, withFileTypes: true })) {
-    total += (await lstat(join(entry.parentPath, entry.name))).size;
+    const onDisk = join(entry.parentPath, entry.name);
+    const name = relative(directory, onDisk).split(sep).join('/');
+    if (!listed.has(name)) throw new ArchiveRefusal(`That archive holds an entry its listing does not show (${printable(name)}), so nothing was imported.`);
+    total += (await lstat(onDisk)).size;
   }
   if (total > ARCHIVE_LIMITS.bytes) throw tooLarge();
+}
+
+/** Every path the listing names, as `a/b` relative to the archive, with the directories they imply. */
+function listedPaths(entries: readonly ArchiveEntry[]): Set<string> {
+  const paths = new Set<string>();
+  for (const { name } of entries) {
+    const parts = posix.normalize(name).split('/').filter((part) => part && part !== '.');
+    for (let length = 1; length <= parts.length; length += 1) paths.add(parts.slice(0, length).join('/'));
+  }
+  return paths;
 }
 
 /**
