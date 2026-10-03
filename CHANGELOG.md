@@ -2,6 +2,18 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.13.0 - 2026-10-03
+
+Put a backup back into the site, move to a new server, and keep a Markdown copy of your writing, with updater 1.6.0.
+
+### Added
+
+- `sudo tome restore <backup>` puts a backup back into the site, after taking a safety backup it falls back to if anything fails. A backup from an older version is migrated. Everyone is signed out; MCP connections are kept.
+- `sudo tome export` writes every post and page as Markdown, with an exact `.tome.json` and their media, to one archive.
+- `sudo tome import <archive>` brings such an archive in, keeping each item's status, dates and address and never overwriting; all or nothing.
+- Updater 1.6.0 runs the restore as a job (`/v1/restore`), under the same lock as updates and backups. `/v1/status` is unchanged.
+- `tome status` shows a running restore, or one that left the site in maintenance.
+
 ## 1.12.1 - 2026-10-03
 
 Fixes from a design review of the themes and the admin, and Thai headings with room for their marks.
