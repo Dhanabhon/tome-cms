@@ -35,7 +35,8 @@ const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
 const CREDENTIAL = 'theme-shots-secret-at-least-32-chars';
 const OWNER = 'theme-shots-owner';
 const THEMES = ['paper', 'plain', 'almanac'] as const;
-const WIDTHS = [320, 375, 768, 1440] as const;
+// 1024 is where Paper's slide words go over the picture (64rem).
+const WIDTHS = [320, 375, 768, 1024, 1440] as const;
 const SCHEMES = ['light', 'dark'] as const;
 const THAI_SLUG = 'ขนมปัง-ยามค่ำ';
 const THAI_CATEGORY = 'สูตรขนม';
@@ -324,7 +325,7 @@ async function measureOf(page: Page) {
   });
 }
 
-test('the three themes, every screen, four widths, both schemes', async ({ page }) => {
+test('the three themes, every screen, five widths, both schemes', async ({ page }) => {
   test.setTimeout(1_800_000);
   const { sql } = await import('kysely');
   const { db } = await import('../../src/server/db/client');

@@ -381,7 +381,7 @@ test.describe('paper', () => {
     }
   });
 
-  test('a slide shows its picture whole on a phone, and its words read at 4.5:1 wherever they sit', async ({ page }) => {
+  test('a slide shows its picture whole below 64rem, and its words read at 4.5:1 wherever they sit', async ({ page }) => {
     test.setTimeout(180_000);
     // A slide wants a picture in the library. The row has no object behind it: the browser is
     // handed a flat colour for it below -- white, the worst a photograph can be, and the mid-tone
@@ -425,12 +425,13 @@ test.describe('paper', () => {
 
     for (const colour of ['#ffffff', '#8a9b7a']) {
       fill = colour;
-      for (const width of [375, 768, 1440]) {
+      for (const width of [375, 768, 1024, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         await shown();
         const first = page.locator('.hero-slide').first();
-        if (width < 768) {
-          // The picture whole, nothing over it, and the words and the buttons under it, apart.
+        if (width < 1024) {
+          // The picture whole, nothing over it, and the words and the buttons under it, apart: on a
+          // tablet too, where a scrim deep enough for the words covered nearly all of the picture.
           const picture = (await first.locator('img').boundingBox())!;
           const words = (await first.locator('.hero-slide__words').boundingBox())!;
           const buttons = (await page.locator('.hero-slider__controls').boundingBox())!;
@@ -438,6 +439,13 @@ test.describe('paper', () => {
           expect(buttons.y, `${width}px: the buttons come after the words`).toBeGreaterThanOrEqual(words.y + words.height - 0.5);
           expect(buttons.x + buttons.width, `${width}px: and on the screen`).toBeLessThanOrEqual(width);
           expect(await first.evaluate((element) => getComputedStyle(element, '::after').content), 'no scrim on the picture').toBe('none');
+        } else {
+          // Over the picture, the scrim is short: at least half the picture is clear, or under no
+          // more than the first half of the fade (a fifth of the scrim's ink at most).
+          const slide = (await first.boundingBox())!;
+          const words = (await first.locator('.hero-slide__words').boundingBox())!;
+          const fade = await first.locator('.hero-slide__words').evaluate((element) => -parseFloat(getComputedStyle(element, '::before').top));
+          expect((words.y - fade / 2 - slide.y) / slide.height, `${width}px: most of the picture stays clear`).toBeGreaterThanOrEqual(0.5);
         }
         for (const part of ['.hero-slide__heading', '.hero-slide__body']) {
           const words = first.locator(part);
