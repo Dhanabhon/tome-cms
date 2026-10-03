@@ -71,7 +71,9 @@ cd /opt/tome-cms-src
 
 Updater 1.5.0 and the `tome` command come with `sudo npm run updater:upgrade` from 1.11.0, as [The tome command](/tome-cms/running/cli/#installing) describes.
 
-It refuses to run while an update or a backup is in progress, when `/usr/local/bin/tome` is a program that is not TomeCMS's (it leaves that file alone), from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
+Updater 1.6.0 comes with 1.13.0. It adds the restore that `sudo tome restore` runs, and `tome export` and `tome import` need the 1.13.0 application. These three commands exist only after you update the application to 1.13.0 from "System" and then run `sudo npm run updater:upgrade` from a checkout of v1.13.0, with the commands above and `v1.13.0` as the tag. Until then `tome` says what is missing. [Backups and restore](/tome-cms/running/backups/#restoring-a-site) shows what they do.
+
+It refuses to run while an update, a backup or a restore is in progress, when `/usr/local/bin/tome` is a program that is not TomeCMS's (it leaves that file alone), from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
 
 A 0.x install cannot become a managed one in place. The move to 1.0.0 needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
 

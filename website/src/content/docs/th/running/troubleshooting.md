@@ -85,7 +85,11 @@ sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 ### `This update made a backup before it failed, so it may have changed the database. Follow the recovery steps instead.`
 
-`npm run updater:clear-failed` แยกเก็บเฉพาะการอัปเดตที่หยุดก่อนสำรองข้อมูล การอัปเดตครั้งนี้ไปไกลกว่านั้น และอาจรัน migration ไปแล้ว ให้ทำตามหัวข้อ[กู้คืนการติดตั้งแบบ managed](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed)แทน
+`npm run updater:clear-failed` แยกเก็บเฉพาะการอัปเดตที่หยุดก่อนสำรองข้อมูล และการกู้คืนที่ทิ้งเว็บไว้ในโหมดปิดปรับปรุง การอัปเดตครั้งนี้ไปไกลกว่านั้น และอาจรัน migration ไปแล้ว ให้ทำตามหัวข้อ[กู้คืนการติดตั้งแบบ managed](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed)แทน
+
+### `Warning: a restore failed (rollback_failed) and keeps the site in maintenance.`
+
+`sudo tome status` แสดงข้อความนี้หลัง `sudo tome restore` ล้มเหลวและใส่ชุดสำรองเพื่อความปลอดภัยกลับไม่ได้ เว็บจะแสดงหน้าปิดปรับปรุงและแอปถูกหยุดไว้ เพราะฐานข้อมูลอาจถูกกู้คืนไปครึ่งเดียว และงานอื่นทุกอย่างถูกปฏิเสธด้วย `An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.` ให้แยกเก็บการกู้คืนนั้นด้วย `sudo npm run updater:clear-failed` จาก checkout ของ v1.13.0 หรือใหม่กว่า แล้วกู้คืนชุดสำรองเพื่อความปลอดภัยด้วย `sudo tome restore` หัวข้อ[การกู้คืนที่ทำให้เว็บค้างในโหมดปิดปรับปรุง](/tome-cms/th/running/recovery/#การกู้คืนที่ทำให้เว็บค้างในโหมดปิดปรับปรุง)มีขั้นตอน และบอกว่ารหัสอื่นในคำเตือนนั้นหมายถึงอะไร
 
 ### `ยืนยันด้วย passkey ไม่สำเร็จ อาจถูกยกเลิกไป ลองอีกครั้ง` ตอนติดตั้งอัปเดต
 

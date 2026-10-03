@@ -85,7 +85,11 @@ sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 ### `This update made a backup before it failed, so it may have changed the database. Follow the recovery steps instead.`
 
-`npm run updater:clear-failed` sets aside only an update that stopped before its backup. This one got further, and may have run migrations. Follow [Recovering a managed installation](/tome-cms/running/recovery/#recovering-a-managed-installation) instead.
+`npm run updater:clear-failed` sets aside only an update that stopped before its backup, and a restore that kept the site in maintenance. This update got further, and may have run migrations. Follow [Recovering a managed installation](/tome-cms/running/recovery/#recovering-a-managed-installation) instead.
+
+### `Warning: a restore failed (rollback_failed) and keeps the site in maintenance.`
+
+`sudo tome status` shows this after a `sudo tome restore` that failed and could not put the safety backup back. The site shows the maintenance page and the application is stopped, because the database may be half restored, and every other job is refused, with `An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.` Set the restore aside with `sudo npm run updater:clear-failed` from a checkout of v1.13.0 or newer, then restore the safety backup with `sudo tome restore`. [A restore that kept the site in maintenance](/tome-cms/running/recovery/#a-restore-that-kept-the-site-in-maintenance) has the steps, and what the other codes in that warning mean.
 
 ### `The passkey check did not finish. It may have been cancelled. Try again.` when installing an update
 
