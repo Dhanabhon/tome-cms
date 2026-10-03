@@ -42,6 +42,8 @@ It writes `src/plugins/<id>/plugin.ts`, the manifest, with the hook declared, th
 - `publicPage` adds `siteNotice`, which returns `null`;
 - `editorSuggestions` adds `categoryLikelihoods`, which returns no categories.
 
+One of these shows once it is switched on. A switched-on `editorSuggestions` skeleton makes the editor draw its suggestion buttons, and each answers that nothing fits. Each kind of suggestion also comes from one plugin only: the first switched-on plugin, in the registry's alphabetical order, that has the method (`src/server/plugins/suggestions.ts`). So a skeleton whose id sorts before `typesafe`, such as `nimbus`, answers in Typesafe's place, and category suggestions stop until you write it.
+
 Each method is typed from `src/plugins/contract.ts`, so a change to the contract fails the build here.
 
 **With `--client`,** it also writes `client.ts` and a `publicClient` method that returns `null`, so no page loads the code yet, and the plugin declares `publicPage` as well, because browser code runs on public pages. With `--hook signIn --client` the manifest lists both hooks.

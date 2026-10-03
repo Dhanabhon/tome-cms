@@ -42,6 +42,8 @@ npm run tome -- plugin new nimbus --hook signIn --dry-run
 - `publicPage` เพิ่ม `siteNotice` ซึ่งคืน `null`
 - `editorSuggestions` เพิ่ม `categoryLikelihoods` ซึ่งไม่คืนหมวดหมู่ใดเลย
 
+มีอย่างหนึ่งที่เห็นได้ทันทีเมื่อเปิดใช้ โครง `editorSuggestions` ที่เปิดใช้แล้วจะทำให้ตัวแก้ไขแสดงปุ่มแนะนำ และทุกปุ่มจะตอบว่าไม่มีอะไรเหมาะ คำแนะนำแต่ละแบบยังมาจากปลั๊กอินเพียงตัวเดียว คือปลั๊กอินตัวแรกที่เปิดใช้และมีเมธอดนั้น ตามลำดับตัวอักษรใน registry (`src/server/plugins/suggestions.ts`) โครงที่ id เรียงก่อน `typesafe` เช่น `nimbus` จึงตอบแทน Typesafe และการแนะนำหมวดหมู่จะหยุดไปจนกว่าคุณจะเขียนโค้ดจริง
+
 เมธอดแต่ละตัวมี type มาจาก `src/plugins/contract.ts` ถ้าข้อตกลงเปลี่ยน การ build จะล้มตรงนี้
 
 **ถ้าใส่ `--client`** คำสั่งจะเขียน `client.ts` และเมธอด `publicClient` ที่คืน `null` ด้วย จึงยังไม่มีหน้าไหนโหลดโค้ดนี้ และปลั๊กอินจะประกาศ `publicPage` เพิ่มด้วย เพราะโค้ดฝั่งเบราว์เซอร์รันบนหน้าสาธารณะ ถ้าใช้ `--hook signIn --client` manifest จะมี hook ทั้งสองตัว
