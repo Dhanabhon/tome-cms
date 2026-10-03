@@ -372,7 +372,8 @@ test('managed 1.0.0 to 1.0.1 update is isolated, recoverable, and preserves infr
       const commands: string[] = [];
       await swapUpdater(paths, 'HARNESS', {
         run: (command, args) => { commands.push([command, ...args].join(' ')); },
-        jobPhase: async () => null, backupPhase: async () => 'succeeded', answers: async () => true, log: () => undefined,
+        jobPhase: async () => null, backupPhase: async () => 'succeeded', restorePhase: async () => null,
+        answers: async () => true, log: () => undefined,
       });
       assert.equal(await readFile(paths.shim, 'utf8'), TOME_SHIM);
       assert.equal((await stat(paths.shim)).mode & 0o777, 0o755);

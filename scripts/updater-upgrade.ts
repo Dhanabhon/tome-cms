@@ -48,13 +48,12 @@ export function upgradeRefusal(check: UpgradeCheck): string | null {
   if (!check.clean) return 'The checkout has changes. Run this from a clean checkout of the release tag.';
   if (check.jobPhase !== null && !TERMINAL.has(check.jobPhase)) return 'An update is in progress. Wait for it to finish, then run this again.';
   if (check.backupPhase !== null && !BACKUP_TERMINAL.has(check.backupPhase)) return backupInProgress;
-  if (check.restorePhase !== null && !BACKUP_TERMINAL.has(check.restorePhase)) {
-    return 'A restore is in progress. Wait for it to finish, then run this again. If sudo tome status says it is stuck, follow what it says first.';
-  }
+  if (check.restorePhase !== null && !BACKUP_TERMINAL.has(check.restorePhase)) return restoreInProgress;
   if (compareStableVersions(check.running, UPDATER_VERSION) > 0) return `The running updater (${check.running}) is newer than this checkout's (${UPDATER_VERSION}).`;
   return null;
 }
 
+const restoreInProgress = 'A restore is in progress. Wait for it to finish, then run this again. If sudo tome status says it is stuck, follow what it says first.';
 const backupInProgress = 'A backup is in progress. Wait for it to finish, then run this again. If sudo tome status says it is stuck, follow what it says first.';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
@@ -136,6 +135,7 @@ async function main(): Promise<void> {
       run: (command, args) => { run(command, args); },
       jobPhase: async () => (await store.readJob())?.phase ?? null,
       backupPhase: async () => (await store.readBackup())?.phase ?? null,
+      restorePhase: async () => (await store.readRestore())?.phase ?? null,
       answers: () => answers(config.socketPath, UPDATER_VERSION),
       log: (line) => console.error(line),
     });
@@ -188,6 +188,8 @@ export interface SwapOperations {
   jobPhase(): Promise<string | null>;
   /** The phase of the last backup on request, read at the same moment. */
   backupPhase(): Promise<string | null>;
+  /** The phase of the last restore, read at the same moment. */
+  restorePhase(): Promise<string | null>;
   /** Whether the started updater answers with the new version. */
   answers(): Promise<boolean>;
   log(line: string): void;
@@ -219,6 +221,11 @@ export async function swapUpdater(paths: SwapPaths, stamp: string, ops: SwapOper
   if (backupPhase !== null && !BACKUP_TERMINAL.has(backupPhase)) {
     ops.run('systemctl', ['start', 'tomecms-updater']);
     throw new Error(backupInProgress);
+  }
+  const restorePhase = await ops.restorePhase().catch(() => 'unknown');
+  if (restorePhase !== null && !BACKUP_TERMINAL.has(restorePhase)) {
+    ops.run('systemctl', ['start', 'tomecms-updater']);
+    throw new Error(restoreInProgress);
   }
 
   let moved = false;

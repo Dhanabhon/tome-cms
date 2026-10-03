@@ -48,7 +48,7 @@ class RestoreRefusal extends Error {
  * A restore of a backup into the site. It checks the backup while the site is still up, then takes
  * a maintenance window as an update does: the marker, the drain, the stop and a full safety backup.
  * Only then does it put the backup's database and media in place, migrate when the backup is from
- * an older version, start the app and compare what came back with the manifest. From the first
+ * an older version, compare what came back with the manifest, and start the app. From the first
  * restore step on, any failure puts the safety backup back the same way.
  */
 export async function runRestore(input: RestoreInput): Promise<RestoreJob> {
@@ -134,7 +134,7 @@ export async function verifyBackupDirectory(config: UpdaterConfig, path: string)
   return manifest;
 }
 
-/** The backup's database, then its media, then migrations when it is older, the report, the start and the check. */
+/** The backup's database, then its media, then migrations when it is older, the report and its check, and the start. */
 async function putBack(run: Run, backupDirectory: string, manifest: BackupManifest): Promise<void> {
   const { config, state, id, installed, dependencies, diagnostics, names } = run;
   const work = await workPath(config, backupDirectory);
@@ -149,13 +149,14 @@ async function putBack(run: Run, backupDirectory: string, manifest: BackupManife
       'app', 'npm', 'run', 'db:migrate'], SHORT_STEP_MS, dependencies, diagnostics, 'restore.migrate');
   }
   const report = parseRestoreReport(await content(run, 'restore.report', names.afterRestore, 'after-restore'));
-  await state.transitionRestore(id, 'restarting', { migrated });
-  await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'restart');
-  await state.transitionRestore(id, 'checking', { report });
-  // Site settings are seeded by migrations as well, so only the content is compared.
+  // Compared before the start, so the app never runs on a database about to be put back. Site
+  // settings are seeded by migrations as well, so only the content is compared.
   if ((['posts', 'pages', 'mediaItems'] as const).some((key) => report.records[key] !== manifest.records[key])) {
     throw new Error('The restored records differ from the backup');
   }
+  await state.transitionRestore(id, 'restarting', { migrated, report });
+  await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'restart');
+  await state.transitionRestore(id, 'checking');
 }
 
 /**
@@ -172,6 +173,8 @@ async function rollBack(run: Run, safetyBackupDirectory: string | null, errorCod
     if (!safetyBackupDirectory) throw new Error('There is no safety backup');
     // A one-shot left running by a CLI that died, here or before a restart, must not race the steps.
     for (const name of Object.values(names)) await cleanOneShot(name, dependencies, true, diagnostics);
+    // Time may have passed since it was taken, a boot's worth or more: a damaged dump is never dropped in.
+    await verifyBackupDirectory(config, safetyBackupDirectory);
     await stopApp(config, dependencies, diagnostics, 'rollback.stop_app');
     const work = await workPath(config, safetyBackupDirectory);
     await content(run, 'restore.rollback', names.restoreDatabase, 'restore-database', '--dump', `${work}/database.dump`);
@@ -179,6 +182,8 @@ async function rollBack(run: Run, safetyBackupDirectory: string | null, errorCod
     await content(run, 'restore.rollback', names.afterRestore, 'after-restore');
     await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'rollback');
   } catch {
+    // Whatever stopped the rollback, the app does not serve a database in a state no one knows.
+    await stopApp(config, dependencies, diagnostics, 'rollback.stop_app').catch(() => undefined);
     return state.transitionRestore(id, 'failed', { errorCode: 'rollback_failed' });
   }
   return state.transitionRestore(id, 'failed', { errorCode });

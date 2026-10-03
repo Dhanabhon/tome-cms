@@ -371,6 +371,9 @@ test('restored counts that differ from the manifest roll back with restore_faile
   const record = await restoreThrough(f);
   assert.equal(record.errorCode, 'restore_failed');
   assert.deepEqual(only(f.events, restoreSteps), [...restoreSteps, 'restore-database', 'restore-objects', 'after-restore']);
+  // Known before the start, so the app never runs on a database about to be put back.
+  assert.equal(f.events.filter((event) => event === 'up').length, 1, 'started once, on the safety backup');
+  assert.equal(f.observed.some((step) => step.startsWith('restarting')), false);
 });
 
 test('site settings are not compared, and a receipt that is not one is a failed step', async (t) => {
@@ -387,8 +390,9 @@ test('an app that does not come back after the restore is rolled back', async (t
   const f = await fixture(t);
   f.unready();
   const record = await restoreThrough(f);
-  // It does not come back on the safety backup either.
+  // It does not come back on the safety backup either, and is left stopped.
   assert.equal(record.errorCode, 'rollback_failed');
+  assert.equal(f.isAppRunning(), false);
   assert.deepEqual(only(f.events, restoreSteps), [...restoreSteps, 'restore-database', 'restore-objects', 'after-restore']);
 });
 
@@ -396,7 +400,7 @@ test('an app that does not come back after the restore is rolled back', async (t
 async function cutShort(f: Fixture, phase: RestorePhase): Promise<string> {
   const id = randomUUID();
   await f.state.createRestore({ id, backupDirectory: f.backupDirectory });
-  const path: RestorePhase[] = ['quiescing', 'safety_backup', 'restoring', 'migrating', 'restarting', 'checking'];
+  const path: RestorePhase[] = ['quiescing', 'safety_backup', 'restoring', 'migrating', 'restarting', 'checking', 'rolling_back'];
   for (const next of path.slice(0, path.indexOf(phase) + 1)) {
     await f.state.transitionRestore(id, next, next === 'restoring' ? { safetyBackupDirectory: f.safetyDirectory } : {});
   }
@@ -439,7 +443,7 @@ for (const phase of ['quiescing', 'safety_backup'] as const) {
   });
 }
 
-for (const phase of ['restoring', 'migrating', 'restarting', 'checking'] as const) {
+for (const phase of ['restoring', 'migrating', 'restarting', 'checking', 'rolling_back'] as const) {
   test(`on boot, a restore cut short in ${phase} puts the safety backup back and ends interrupted`, async (t) => {
     const f = await fixture(t);
     const id = await cutShort(f, phase);
@@ -453,7 +457,7 @@ for (const phase of ['restoring', 'migrating', 'restarting', 'checking'] as cons
     assert.deepEqual(f.events.filter((event) => !event.startsWith('rm:')),
       ['stop', 'restore-database', 'restore-objects', 'after-restore', 'stop', 'up', 'health']);
     assert.ok(f.commands[1]!.includes('/work/tomecms-safety/database.dump'));
-    assert.deepEqual(f.observed, ['rolling_back:migrating', 'failed:none']);
+    assert.deepEqual(f.observed, phase === 'rolling_back' ? ['failed:none'] : ['rolling_back:migrating', 'failed:none']);
     assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
     // Nothing to do on the next boot.
     const count = f.events.length;
@@ -470,6 +474,18 @@ test('on boot, a restore that cannot be put back leaves the site in maintenance 
   const record = await reconcileRestore({ config: f.config, state: f.state, dependencies: f.dependencies });
   assert.equal(record?.errorCode, 'rollback_failed');
   assert.equal(f.events.includes('up'), false);
+  assert.equal(f.isAppRunning(), false);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true);
+});
+
+test('a safety backup damaged since it was taken is never restored: the rollback stops before the drop', async (t) => {
+  const f = await fixture(t);
+  await cutShort(f, 'restarting');
+  await writeFile(join(f.safetyDirectory, 'database.dump'), 'damaged');
+  const record = await reconcileRestore({ config: f.config, state: f.state, dependencies: f.dependencies });
+  assert.equal(record?.errorCode, 'rollback_failed');
+  assert.deepEqual(only(f.events, restoreSteps), []);
+  assert.equal(f.isAppRunning(), false, 'a running app is stopped all the same');
   assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true);
 });
 

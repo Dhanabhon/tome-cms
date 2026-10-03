@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
+import { clearFailedJob } from '../../scripts/updater-clear-failed-job.js';
 import type { UpdaterConfig } from '../../src/updater/config.js';
-import { createUpdaterStateStore, type InstalledState, type UpdatePhase } from '../../src/updater/state.js';
+import { createUpdaterStateStore, type InstalledState, type RestorePhase, type UpdatePhase, type UpdaterStateStore } from '../../src/updater/state.js';
 import { UPDATER_VERSION } from '../../src/updater/version.js';
 
 const installed: InstalledState = {
@@ -194,4 +195,83 @@ test('a job written by an earlier updater is still read, and carries on from the
   assert.deepEqual((await store.readJob())?.timeline.map(({ phase }) => phase), ['verifying']);
   await writeFile(jobPath, JSON.stringify({ ...legacy, backupKind: 'everything' }));
   await assert.rejects(() => store.readJob(), /job state/i);
+});
+
+/** A restore taken to `phase`, and ended `failed` with `errorCode` when given. */
+async function restoreIn(store: UpdaterStateStore, phase: RestorePhase, errorCode?: string) {
+  const id = crypto.randomUUID();
+  await store.createRestore({ id, backupDirectory: '/var/backups/tome-cms/tomecms-old' });
+  const path: RestorePhase[] = ['quiescing', 'safety_backup', 'restoring', 'rolling_back'];
+  for (const next of path.slice(0, path.indexOf(phase) + 1)) {
+    await store.transitionRestore(id, next, next === 'restoring' ? { safetyBackupDirectory: '/var/backups/tome-cms/tomecms-safety' } : {});
+  }
+  if (errorCode) await store.transitionRestore(id, 'failed', { errorCode });
+  return id;
+}
+
+async function cleaned(t: TestContext) {
+  const f = await fixture();
+  t.after(() => rm(f.root, { recursive: true, force: true }));
+  await f.store.writeInstalled(installed);
+  return f;
+}
+
+test('a restore whose safety backup could not be put back is set aside, and the maintenance marker goes', async (t) => {
+  const { stateDirectory, statusPath, store } = await cleaned(t);
+  const id = await restoreIn(store, 'rolling_back', 'rollback_failed');
+  const finished = await store.readRestore();
+  assert.equal(JSON.parse(await readFile(statusPath, 'utf8')).job.phase, 'migrating');
+  await assert.rejects(store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' }), /manual recovery/i);
+
+  const message = await clearFailedJob(store);
+  const keptAs = join(stateDirectory, `restore-job.${finished!.finishedAt!.replace(/[-:.]/g, '')}.json`);
+  assert.equal(JSON.parse(await readFile(keptAs, 'utf8')).id, id);
+  assert.equal((await stat(keptAs)).mode & 0o777, 0o600);
+  assert.equal(await store.readRestore(), null);
+  assert.equal(JSON.parse(await readFile(statusPath, 'utf8')).job, null);
+  assert.deepEqual(message.split('\n'), [
+    `Set aside the restore of /var/backups/tome-cms/tomecms-old, whose safety backup could not be put back. Its record is kept as ${keptAs}.`,
+    'The site is out of maintenance. Nothing else was changed: the app is still stopped.',
+    'Next: sudo tome restore /var/backups/tome-cms/tomecms-safety, to put the safety backup back, or the restore again.',
+  ]);
+  await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+});
+
+test('a restore in any other state is never set aside', async (t) => {
+  for (const [phase, errorCode] of [
+    ['verifying'], ['quiescing'], ['safety_backup'], ['restoring'], ['rolling_back'], ['rolling_back', 'restore_failed'], ['restoring', undefined],
+  ] as Array<[RestorePhase, string?]>) {
+    const { stateDirectory, store } = await cleaned(t);
+    await restoreIn(store, phase, errorCode);
+    const before = await store.readRestore();
+    await assert.rejects(store.clearRollbackFailure(), /only a restore whose safety backup could not be put back/i, `${phase} ${errorCode}`);
+    assert.deepEqual(await store.readRestore(), before);
+    assert.deepEqual((await readdir(stateDirectory)).filter((name) => name.startsWith('restore-job.') && name !== 'restore-job.json'), []);
+  }
+  const { store } = await cleaned(t);
+  await assert.rejects(store.clearRollbackFailure(), /no restore/i);
+});
+
+test('the clear-failed script still clears an update that failed before its backup, whatever restore came before', async (t) => {
+  for (const restore of [null, 'succeeded', 'restore_failed'] as const) {
+    const { store } = await cleaned(t);
+    if (restore === 'restore_failed') await restoreIn(store, 'rolling_back', 'restore_failed');
+    if (restore === 'succeeded') {
+      const id = crypto.randomUUID();
+      await store.createRestore({ id, backupDirectory: '/var/backups/tome-cms/tomecms-old' });
+      await store.transitionRestore(id, 'failed', { errorCode: 'backup_invalid' });
+    }
+    await assert.rejects(clearFailedJob(store), /no update job/i, String(restore));
+    const job = await store.createJob({ requestId: crypto.randomUUID(), targetVersion: '1.0.1' });
+    await store.transitionJob(job.id, 'failed_manual_recovery');
+    assert.equal(await clearFailedJob(store), `Cleared the failed update to 1.0.1. Its record is kept as job.json.cleared-${job.id}.`);
+    assert.equal(await store.readJob(), null);
+  }
+});
+
+test('the clear-failed script refuses while a restore is running', async (t) => {
+  const { store } = await cleaned(t);
+  await restoreIn(store, 'restoring');
+  await assert.rejects(clearFailedJob(store), /only a restore whose safety backup could not be put back/i);
+  assert.equal((await store.readRestore())?.phase, 'restoring');
 });

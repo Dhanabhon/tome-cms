@@ -127,6 +127,12 @@ export interface UpdaterStateStore {
   transitionRestore(id: string, phase: RestorePhase, patch?: Partial<Pick<RestoreJob,
     'safetyBackupDirectory' | 'migrated' | 'errorCode' | 'report'
   >>): Promise<RestoreJob>;
+  /**
+   * Operator-only: sets aside a restore that ended `rollback_failed`, which otherwise keeps the site
+   * in maintenance and refuses every job. It touches no database, bucket or app: the operator then
+   * restores the safety backup, or the backup again.
+   */
+  clearRollbackFailure(): Promise<{ restore: RestoreJob; keptAs: string }>;
 }
 
 const phases: readonly UpdatePhase[] = [
@@ -475,6 +481,20 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
           await atomicJson(restorePath, restore, 0o600);
         }
         return restore;
+      });
+    },
+    clearRollbackFailure() {
+      return exclusive(async () => {
+        const restore = await readRestore();
+        if (!restore) throw new Error('There is no restore to clear.');
+        if (restore.phase !== 'failed' || restore.errorCode !== 'rollback_failed') {
+          throw new Error('Only a restore whose safety backup could not be put back can be cleared.');
+        }
+        // A rename keeps the record's mode, beside the original, named by when it ended.
+        const keptAs = join(config.stateDirectory, `restore-job.${restore.finishedAt!.replace(/[-:.]/g, '')}.json`);
+        await rename(restorePath, keptAs);
+        await writeStatus(await readInstalled(), await readJob());
+        return { restore, keptAs };
       });
     },
   };

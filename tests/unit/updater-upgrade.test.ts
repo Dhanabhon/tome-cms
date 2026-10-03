@@ -54,7 +54,7 @@ import { join } from 'node:path';
 import { swapUpdater, type SwapOperations } from '../../scripts/updater-upgrade';
 import { TOME_SHIM, TOME_SHIM_MARKER, UPDATER_INSTALL_DIRECTORY } from '../../src/cli/shim';
 
-async function server(options: { jobAfterStop?: string | null; backupAfterStop?: string | null; answers?: boolean; failing?: string; shim?: string } = {}) {
+async function server(options: { jobAfterStop?: string | null; backupAfterStop?: string | null; restoreAfterStop?: string | null; answers?: boolean; failing?: string; shim?: string } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'tomecms-swap-'));
   const paths = {
     install: join(root, 'opt', 'updater'), service: join(root, 'etc', 'tomecms-updater.service'), compose: join(root, 'opt', 'compose.managed.yaml'),
@@ -82,6 +82,7 @@ async function server(options: { jobAfterStop?: string | null; backupAfterStop?:
     },
     jobPhase: async () => options.jobAfterStop ?? null,
     backupPhase: async () => options.backupAfterStop ?? null,
+    restorePhase: async () => options.restoreAfterStop ?? null,
     answers: async () => options.answers ?? true,
     log: () => undefined,
   };
@@ -114,6 +115,14 @@ test('a swap installs tome: the CLI beside the updater, and the shim on the PATH
 test('a backup that began before the updater stopped is left to finish, and nothing is replaced', async () => {
   const s = await server({ backupAfterStop: 'backing_up' });
   await assert.rejects(swapUpdater(s.paths, 'STAMP', s.operations), /backup is in progress/);
+  assert.equal(await s.read(join(s.paths.install, 'updater', 'main.js')), 'old');
+  await assert.rejects(access(s.paths.shim));
+  assert.ok(s.running());
+});
+
+test('a restore that began before the updater stopped is left to its reconciliation, and nothing is replaced', async () => {
+  const s = await server({ restoreAfterStop: 'restoring' });
+  await assert.rejects(swapUpdater(s.paths, 'STAMP', s.operations), /restore is in progress/);
   assert.equal(await s.read(join(s.paths.install, 'updater', 'main.js')), 'old');
   await assert.rejects(access(s.paths.shim));
   assert.ok(s.running());
