@@ -112,6 +112,7 @@ test('status --json prints the same as one object, for scripts', async (t) => {
     lastUpdate: { version: '1.11.0', phase: 'succeeded', errorCode: null, finishedAt: '2026-10-02T11:05:00.000Z' },
     newestBackup: { path: newest, kind: 'database', sizeBytes: 1.5 * 1024 ** 2 + Buffer.byteLength(manifest('2026-10-02T10:00:00.000Z', true)), createdAt: '2026-10-02T10:00:00.000Z' },
     runningBackup: null,
+    backupError: null,
     restore: null,
     restoreError: null,
   });
@@ -302,6 +303,22 @@ test('a restore record that cannot be read is one line, and the rest of the upda
     assert.match(report.restoreError, /^it answered \/v1\/restore with /, name);
     assert.deepEqual(report.versions, { app: '1.10.1', updater: '1.6.0' }, name);
   }
+});
+
+test('a backup record that cannot be read is one line, and the rest of the updater\'s side still shows', async (t) => {
+  const { root } = await backups(t);
+  const answer = { status: 500, body: { error: 'updater_unavailable' } };
+  const f = healthy(root, { 'GET /v1/backup': [answer] });
+  assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
+  assert.match(f.out(), /^TomeCMS 1\.10\.1, updater 1\.6\.0$/m);
+  assert.match(f.out(), /^Last update: 1\.11\.0 succeeded/m);
+  assert.match(f.out(), /^Backup: could not be read \(it answered \/v1\/backup with 500 \(updater_unavailable\)\)\. Check it with: sudo tome logs updater$/m);
+  const json = healthy(root, { 'GET /v1/backup': [answer] });
+  assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => json.context, print: json.context.print, warn: json.context.warn }), 0);
+  const report = JSON.parse(json.printed[0]!);
+  assert.equal(report.runningBackup, null);
+  assert.match(report.backupError, /^it answered \/v1\/backup with 500/);
+  assert.deepEqual(report.versions, { app: '1.10.1', updater: '1.6.0' });
 });
 
 test('a stuck check that cannot reach the updater never fails status', async (t) => {

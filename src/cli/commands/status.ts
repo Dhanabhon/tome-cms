@@ -21,6 +21,8 @@ export interface StatusReport {
   lastUpdate: { version: string; phase: string; errorCode: string | null; finishedAt: string | null } | null;
   newestBackup: { path: string; kind: 'database' | 'full'; sizeBytes: number; createdAt: string } | null;
   runningBackup: { id: string; kind: string; phase: string; startedAt: string; stuck: boolean } | null;
+  /** Why the backup record could not be read, when the rest of the updater could. */
+  backupError: string | null;
   /** A restore that is running, or one that failed and keeps the site in maintenance; null otherwise. */
   restore: {
     id: string; phase: string; startedAt: string; errorCode: string | null; backupDirectory: string;
@@ -50,6 +52,7 @@ export async function status(context: CliContext, options: { json: boolean }): P
     } : null,
     newestBackup,
     runningBackup: read?.runningBackup ?? null,
+    backupError: read?.backupError ?? null,
     restore: read?.restore ?? null,
     restoreError: read?.restoreError ?? null,
   };
@@ -60,22 +63,26 @@ export async function status(context: CliContext, options: { json: boolean }): P
 
 /** The updater's side, or why it could not be read: this is the screen for a sick server, so nothing here stops it. */
 async function readUpdater(context: CliContext): Promise<{
-  status: UpdaterStatus; runningBackup: StatusReport['runningBackup']; restore: StatusReport['restore']; restoreError: string | null;
+  status: UpdaterStatus; runningBackup: StatusReport['runningBackup']; backupError: string | null;
+  restore: StatusReport['restore']; restoreError: string | null;
 } | { error: string }> {
   try {
-    // The restore is read on its own: a record the updater cannot read (a 500) must not hide the versions.
-    const [status, backup, restoreRead] = await Promise.all([readStatus(context.socket), readBackup(context.socket),
-      readRestore(context.socket).then((record) => ({ record, error: null }), (error: unknown) => ({ record: null, error: errorText(error) }))]);
+    // The backup and the restore are read on their own: a record the updater cannot read (a 500) must not hide the versions.
+    const isolated = <T>(read: Promise<T>) => read.then((record) => ({ record, error: null }), (error: unknown) => ({ record: null, error: errorText(error) }));
+    const [status, backupRead, restoreRead] = await Promise.all([
+      readStatus(context.socket), isolated(readBackup(context.socket)), isolated(readRestore(context.socket)),
+    ]);
+    const backup = backupRead.record;
     const restore = restoreRead.record;
     const shown = isRestoreRunning(restore) || isRestoreKeptInMaintenance(restore) ? {
       id: restore!.id, phase: restore!.phase, startedAt: restore!.startedAt, errorCode: restore!.errorCode,
       backupDirectory: restore!.backupDirectory, safetyBackupDirectory: restore!.safetyBackupDirectory,
       maintenanceKept: restore!.maintenanceKept, stuck: await isRestoreStuck(context.socket, restore).catch(() => false),
     } : null;
-    const restoreFields = { restore: shown, restoreError: restoreRead.error };
-    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null, ...restoreFields };
-    const stuck = await isBackupStuck(context.socket, backup);
-    return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck }, ...restoreFields };
+    const records = { backupError: backupRead.error, restore: shown, restoreError: restoreRead.error };
+    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null, ...records };
+    const stuck = await isBackupStuck(context.socket, backup).catch(() => false);
+    return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck }, ...records };
   } catch (error) {
     if (error instanceof UpdaterUnreachableError) {
       return { error: `did not answer at ${context.config.socketPath}. Check it with: sudo systemctl status tomecms-updater` };
@@ -186,7 +193,8 @@ function printReport(context: CliContext, report: StatusReport): void {
   }
 
   const running = report.runningBackup;
-  if (running?.stuck) print(`Warning: ${stuckBackupAdvice(running.phase)}`);
+  if (report.backupError) print(`Backup: could not be read (${printable(report.backupError)}). Check it with: sudo tome logs updater`);
+  else if (running?.stuck) print(`Warning: ${stuckBackupAdvice(running.phase)}`);
   else if (running) print(`Backup running: ${running.kind}, at "${running.phase}" since ${localTime(running.startedAt)}`);
 
   const restore = report.restore;

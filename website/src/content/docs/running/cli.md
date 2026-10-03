@@ -75,7 +75,7 @@ While a restore is running, a `Restore` line shows it, above the newest backup:
 Restore running: at "restoring" since 2026-10-03 11:00
 ```
 
-A restore whose record stops with no job running is flagged as stuck, like a backup. A restore that failed and kept the site in maintenance shows a warning that starts `Warning: a restore failed (rollback_failed) and keeps the site in maintenance.`, then the steps out, which [Recovery](/tome-cms/running/recovery/#a-restore-that-kept-the-site-in-maintenance) explains. If the updater cannot read the restore's record, one line says so, `Restore: could not be read (…). Check it with: sudo tome logs updater`, and everything else still shows. With `--json`, the same is in a `restore` field, which is `null` when no restore is running and none is waiting for recovery.
+A restore whose record stops with no job running is flagged as stuck, like a backup. A restore that failed and kept the site in maintenance shows a warning that starts `Warning: a restore failed (rollback_failed) and keeps the site in maintenance.`, then the steps out, which [Recovery](/tome-cms/running/recovery/#a-restore-that-kept-the-site-in-maintenance) explains. If the updater cannot read the restore's record, one line says so, `Restore: could not be read (…). Check it with: sudo tome logs updater`, and everything else still shows. The same goes for the backup's record, with `Backup: could not be read (…)`. With `--json`, the same is in a `restore` field, which is `null` when no restore is running and none is waiting for recovery.
 
 | Option | What it does |
 | --- | --- |
