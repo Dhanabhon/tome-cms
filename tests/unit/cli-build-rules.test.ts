@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
 import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +21,9 @@ import { check } from '../../src/cli/commands/check.js';
 
 const repository = fileURLToPath(new URL('../..', import.meta.url));
 const read = (path: string) => readFile(join(repository, path), 'utf8');
+/** The theme or plugin directories in this checkout, sorted, as tome check finds them. */
+const directories = (kind: 'themes' | 'plugins') => readdirSync(join(repository, 'src', kind), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.')).map((entry) => entry.name).sort();
 const where = (problems: ReadonlyArray<{ path: string; line: number; message: string }>) =>
   problems.map(({ path, line, message }) => `${path}:${line}: ${message}`);
 
@@ -32,27 +36,35 @@ test('rule 1: a manifest whose id is not its directory name is reported at its i
 });
 
 test('rule 2: every directory is listed in both files, and nothing is listed without a directory', async () => {
+  // Today's themes and plugins, read from the tree, so a theme or plugin added with tome passes here too.
+  const themes = directories('themes');
   const lists = { manifests: await read('src/themes/manifests.ts'), registry: await read('src/themes/registry.ts') };
-  assert.deepEqual(listedInBoth('theme', ['almanac', 'paper', 'plain'], lists), []);
+  assert.deepEqual(listedInBoth('theme', themes, lists), []);
   const plugins = { manifests: await read('src/plugins/manifests.ts'), registry: await read('src/plugins/registry.ts') };
-  assert.deepEqual(listedInBoth('plugin', ['lightbox', 'mcp', 'notice', 'popup', 'turnstile', 'typesafe'], plugins), []);
+  assert.deepEqual(listedInBoth('plugin', directories('plugins'), plugins), []);
 
   // A name in a comment is not a listing.
   const commented = {
-    manifests: lists.manifests.replace('[paper, plain, almanac]', '[paper, plain /* , ledger */, almanac]'),
-    registry: lists.registry.replace("  almanac: () => import('./almanac'),\n", "  almanac: () => import('./almanac'),\n  // ledger: () => import('./ledger'),\n"),
+    manifests: lists.manifests.replace(/(THEME_MANIFESTS\b[^=]*=\s*\[[^\]]*)\]/, '$1 /* , ledger */]'),
+    registry: lists.registry.replace('const THEMES = {\n', "const THEMES = {\n  // ledger: () => import('./ledger'),\n"),
   };
-  assert.deepEqual(listedInBoth('theme', ['almanac', 'paper', 'plain'], commented), []);
+  assert.notDeepEqual(commented, lists);
+  assert.deepEqual(listedInBoth('theme', themes, commented), []);
 
   // ledger has a directory and is in neither list; plain is in both and has no directory; and
   // almanac has been left out of the registry only.
   const registry = lists.registry.replace("  almanac: () => import('./almanac'),\n", '');
-  assert.deepEqual(where(listedInBoth('theme', ['almanac', 'ledger', 'paper'], { manifests: lists.manifests, registry })), [
-    'src/themes/registry.ts:13: almanac is not listed here',
-    'src/themes/manifests.ts:10: ledger is not listed here',
-    'src/themes/registry.ts:13: ledger is not listed here',
-    'src/themes/manifests.ts:10: plain is listed, but src/themes/plain does not exist',
-    'src/themes/registry.ts:15: plain is listed, but src/themes/plain does not exist',
+  assert.notEqual(registry, lists.registry);
+  const ids = [...themes.filter((id) => id !== 'plain'), 'ledger'].sort();
+  const lineOf = (text: string, needle: string) => text.slice(0, text.indexOf(needle)).split('\n').length;
+  const array = lineOf(lists.manifests, 'THEME_MANIFESTS');
+  const anchor = lineOf(registry, 'const THEMES = {');
+  assert.deepEqual(where(listedInBoth('theme', ids, { manifests: lists.manifests, registry })), [
+    `src/themes/registry.ts:${anchor}: almanac is not listed here`,
+    `src/themes/manifests.ts:${array}: ledger is not listed here`,
+    `src/themes/registry.ts:${anchor}: ledger is not listed here`,
+    `src/themes/manifests.ts:${array}: plain is listed, but src/themes/plain does not exist`,
+    `src/themes/registry.ts:${lineOf(registry, "  plain: () => import('./plain'),")}: plain is listed, but src/themes/plain does not exist`,
   ]);
 });
 
@@ -210,7 +222,7 @@ async function checkout(t: test.TestContext) {
 test('tome check passes on a copy of the real themes and plugins', async (t) => {
   const { root, lines, output } = await checkout(t);
   assert.equal(await check(root, output), 0, lines.err.join('\n'));
-  assert.deepEqual(lines, { out: ['Checked 3 themes and 6 plugins: no problems.'], err: [] });
+  assert.deepEqual(lines, { out: [`Checked ${directories('themes').length} themes and ${directories('plugins').length} plugins: no problems.`], err: [] });
 });
 
 test('tome check reports each problem as path:line and exits 1', async (t) => {
@@ -282,4 +294,7 @@ test('rule 5: a plugin index.ts that cannot be loaded is reported, not thrown', 
   assert.equal(await check(root, output), 1);
   assert.equal(lines.err.length, 2, lines.err.join('\n'));
   assert.match(lines.err[0]!, /^src\/plugins\/notice\/index\.ts:1: it could not be loaded: /);
+  // The syntax error's own file, line and column are kept, on the one line, with no stack.
+  assert.match(lines.err[0]!, /notice\/index\.ts:2:\d+: ERROR: /);
+  assert.doesNotMatch(lines.err[0]!, /\n|\bat \S+ \(/);
 });

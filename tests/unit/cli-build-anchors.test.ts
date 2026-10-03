@@ -26,23 +26,40 @@ function swap(text: string, from: string, to: string): string {
   return text.replace(from, to);
 }
 
+// What the four files hold today is read from them, never written here, so a theme or plugin added
+// with tome leaves these tests passing.
+
+/** The entries of a manifests.ts's `*_MANIFESTS = [...]`, as the file has them. */
+const arrayOf = (text: string) => /_MANIFESTS\b[^=]*=\s*\[([^\]]*)\]/.exec(text)![1]!;
+/** The whole `export const *_MANIFESTS ... = [...];` line. */
+const arrayLineOf = (text: string) => /^export const \w+_MANIFESTS\b.*$/m.exec(text)![0];
+/** The last `import { manifest as … }` line, which a new import follows. */
+const lastImport = (text: string) => [...text.matchAll(/^import \{ manifest as \w+ \} from '[^']+';\n/gm)].at(-1)![0];
+const entry = (id: string) => `  ${id}: () => import('./${id}'),\n`;
+/** The ids a registry lists, in its order. */
+const registryIds = (text: string) => [...text.matchAll(/^ {2}(\w+): \(\) => import\('\.\/\w+'\),\n/gm)].map((match) => match[1]!);
+/** `text`, a registry in alphabetical order, with `id` in its place: before the first id after it, or last. */
+function registered(text: string, id: string): string {
+  const ids = registryIds(text);
+  const next = ids.find((each) => each > id);
+  return next ? swap(text, entry(next), `${entry(id)}${entry(next)}`) : swap(text, entry(ids.at(-1)!), `${entry(ids.at(-1)!)}${entry(id)}`);
+}
+
 test('a new theme is imported after the last manifest import, appended to THEME_MANIFESTS and registered in order', async (t) => {
   const { root, original, read } = await copies(t);
   const plan = planRegistration('theme', 'zzdemo', root);
   assert.ok(plan.ok);
-  const manifests = swap(swap(original['src/themes/manifests.ts'],
-    "import { manifest as plain } from './plain/theme';\n",
-    "import { manifest as plain } from './plain/theme';\nimport { manifest as zzdemo } from './zzdemo/theme';\n"),
-    '= [paper, plain, almanac];', '= [paper, plain, almanac, zzdemo];');
-  const registry = swap(original['src/themes/registry.ts'],
-    "  plain: () => import('./plain'),\n",
-    "  plain: () => import('./plain'),\n  zzdemo: () => import('./zzdemo'),\n");
+  const before = original['src/themes/manifests.ts'];
+  const array = arrayOf(before);
+  const manifests = swap(swap(before, lastImport(before), `${lastImport(before)}import { manifest as zzdemo } from './zzdemo/theme';\n`),
+    `= [${array}];`, `= [${array}, zzdemo];`);
+  const registry = registered(original['src/themes/registry.ts'], 'zzdemo');
   assert.deepEqual(plan.edits.map((edit) => [edit.path, edit.after]), [
     [join(root, 'src/themes/manifests.ts'), manifests],
     [join(root, 'src/themes/registry.ts'), registry],
   ]);
   assert.deepEqual(plan.edits.map((edit) => edit.lines), [
-    ["import { manifest as zzdemo } from './zzdemo/theme';", 'export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, almanac, zzdemo];'],
+    ["import { manifest as zzdemo } from './zzdemo/theme';", arrayLineOf(manifests)],
     ["  zzdemo: () => import('./zzdemo'),"],
   ]);
   assert.deepEqual(await read(), original, 'planning writes nothing');
@@ -54,13 +71,11 @@ test('a new plugin is imported, appended to PLUGIN_MANIFESTS and registered in o
   const { root, original, read } = await copies(t);
   const plan = planRegistration('plugin', 'zzdemo', root);
   assert.ok(plan.ok);
-  const manifests = swap(swap(original['src/plugins/manifests.ts'],
-    "import { manifest as typesafe } from './typesafe/plugin';\n",
-    "import { manifest as typesafe } from './typesafe/plugin';\nimport { manifest as zzdemo } from './zzdemo/plugin';\n"),
-    '= [turnstile, notice, popup, lightbox, typesafe, mcp];', '= [turnstile, notice, popup, lightbox, typesafe, mcp, zzdemo];');
-  const registry = swap(original['src/plugins/registry.ts'],
-    "  typesafe: () => import('./typesafe'),\n",
-    "  typesafe: () => import('./typesafe'),\n  zzdemo: () => import('./zzdemo'),\n");
+  const before = original['src/plugins/manifests.ts'];
+  const array = arrayOf(before);
+  const manifests = swap(swap(before, lastImport(before), `${lastImport(before)}import { manifest as zzdemo } from './zzdemo/plugin';\n`),
+    `= [${array}];`, `= [${array}, zzdemo];`);
+  const registry = registered(original['src/plugins/registry.ts'], 'zzdemo');
   applyEdits(plan.edits);
   assert.deepEqual(await read(), { ...original, 'src/plugins/manifests.ts': manifests, 'src/plugins/registry.ts': registry });
 });
@@ -72,33 +87,33 @@ test('the registry keeps its alphabetical order; one that is not in order gets t
     assert.ok(plan.ok);
     return plan.edits[1].after;
   };
-  assert.equal(registryOf('theme', 'basic'), swap(original['src/themes/registry.ts'],
-    "  paper: () => import('./paper'),\n", "  basic: () => import('./basic'),\n  paper: () => import('./paper'),\n"));
-  assert.equal(registryOf('plugin', 'nimbus'), swap(original['src/plugins/registry.ts'],
-    "  notice: () => import('./notice'),\n", "  nimbus: () => import('./nimbus'),\n  notice: () => import('./notice'),\n"));
-  assert.equal(registryOf('plugin', 'aardvark'), swap(original['src/plugins/registry.ts'],
-    "  lightbox: () => import('./lightbox'),\n", "  aardvark: () => import('./aardvark'),\n  lightbox: () => import('./lightbox'),\n"));
+  assert.equal(registryOf('theme', 'basic'), registered(original['src/themes/registry.ts'], 'basic'));
+  assert.equal(registryOf('plugin', 'nimbus'), registered(original['src/plugins/registry.ts'], 'nimbus'));
+  assert.equal(registryOf('plugin', 'aardvark'), registered(original['src/plugins/registry.ts'], 'aardvark'));
+  assert.equal(registryOf('plugin', 'zzzz'), registered(original['src/plugins/registry.ts'], 'zzzz'));
 
-  const shuffled = swap(swap(original['src/themes/registry.ts'],
-    "  almanac: () => import('./almanac'),\n", ''), "  plain: () => import('./plain'),\n", "  plain: () => import('./plain'),\n  almanac: () => import('./almanac'),\n");
+  // The first entry moved to the end: out of order, so a new id goes last whatever it is.
+  const themeRegistry = original['src/themes/registry.ts'];
+  const [first, ...rest] = registryIds(themeRegistry);
+  const shuffled = swap(swap(themeRegistry, entry(first!), ''), entry(rest.at(-1)!), `${entry(rest.at(-1)!)}${entry(first!)}`);
   await writeFile(join(root, 'src/themes/registry.ts'), shuffled);
-  assert.equal(registryOf('theme', 'basic'), swap(shuffled,
-    "  almanac: () => import('./almanac'),\n", "  almanac: () => import('./almanac'),\n  basic: () => import('./basic'),\n"));
+  assert.equal(registryOf('theme', 'basic'), swap(shuffled, entry(first!), `${entry(first!)}${entry('basic')}`));
 });
 
 test('a missing or ambiguous anchor changes nothing and gives the lines to add by hand', async (t) => {
   const { root, original, read } = await copies(t);
   const themeManifests = original['src/themes/manifests.ts'];
   const themeRegistry = original['src/themes/registry.ts'];
-  const arrayLine = 'export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, almanac];';
+  const arrayLine = arrayLineOf(themeManifests);
+  const array = arrayOf(themeManifests);
   const broken: Array<[string, string, string]> = [
     ['no manifest import', 'src/themes/manifests.ts', themeManifests.replace(/^import \{ manifest as .*\n/gm, '')],
     ['no THEME_MANIFESTS', 'src/themes/manifests.ts', swap(themeManifests, arrayLine, '')],
     ['THEME_MANIFESTS twice', 'src/themes/manifests.ts', swap(themeManifests, arrayLine, `${arrayLine}\n${arrayLine}`)],
-    ['THEME_MANIFESTS over several lines', 'src/themes/manifests.ts', swap(themeManifests, '[paper, plain, almanac]', '[\n  paper,\n  plain,\n  almanac,\n]')],
+    ['THEME_MANIFESTS over several lines', 'src/themes/manifests.ts', swap(themeManifests, `[${array}]`, `[\n${array.split(', ').map((id) => `  ${id},\n`).join('')}]`)],
     ['no THEMES', 'src/themes/registry.ts', swap(themeRegistry, 'const THEMES = {', 'const LOOKS = {')],
     ['THEMES twice', 'src/themes/registry.ts', `${themeRegistry}\nconst THEMES = {\n} as const;\n`],
-    ['an unexpected line in THEMES', 'src/themes/registry.ts', swap(themeRegistry, "  paper: () => import('./paper'),\n", "  // the default\n  paper: () => import('./paper'),\n")],
+    ['an unexpected line in THEMES', 'src/themes/registry.ts', swap(themeRegistry, entry(registryIds(themeRegistry)[0]!), `  // the default\n${entry(registryIds(themeRegistry)[0]!)}`)],
     ['THEMES never closed', 'src/themes/registry.ts', swap(themeRegistry, '} as const;', '};')],
   ];
   for (const [what, file, text] of broken) {
@@ -133,8 +148,7 @@ test('an id already in the lists is refused by the plan itself, which writes not
     if (!plan.ok) assert.deepEqual(plan.manualLines, [`${id} is already listed in ${file}, so nothing was changed.`]);
   }
   // Listed in the registry only.
-  await writeFile(join(root, 'src/themes/registry.ts'), swap(original['src/themes/registry.ts'],
-    "  plain: () => import('./plain'),\n", "  plain: () => import('./plain'),\n  zzdemo: () => import('./zzdemo'),\n"));
+  await writeFile(join(root, 'src/themes/registry.ts'), registered(original['src/themes/registry.ts'], 'zzdemo'));
   const plan = planRegistration('theme', 'zzdemo', root);
   assert.equal(plan.ok, false);
   if (!plan.ok) assert.match(plan.manualLines[0], /zzdemo is already listed in src\/themes\/registry\.ts/);
@@ -145,9 +159,9 @@ test('an id already in the lists is refused by the plan itself, which writes not
 test('an empty list is not an anchor: the plan changes nothing and gives the lines to add by hand', async (t) => {
   const { root, original, read } = await copies(t);
   const empties: Array<[string, string, string]> = [
-    ['empty THEME_MANIFESTS', 'src/themes/manifests.ts', swap(original['src/themes/manifests.ts'], '= [paper, plain, almanac];', '= [];')],
+    ['empty THEME_MANIFESTS', 'src/themes/manifests.ts', swap(original['src/themes/manifests.ts'], `= [${arrayOf(original['src/themes/manifests.ts'])}];`, '= [];')],
     ['empty THEMES', 'src/themes/registry.ts', original['src/themes/registry.ts'].replace(/^ {2}\w+: \(\) => import\('\.\/\w+'\),\n/gm, '')],
-    ['empty PLUGIN_MANIFESTS', 'src/plugins/manifests.ts', swap(original['src/plugins/manifests.ts'], '= [turnstile, notice, popup, lightbox, typesafe, mcp];', '= [];')],
+    ['empty PLUGIN_MANIFESTS', 'src/plugins/manifests.ts', swap(original['src/plugins/manifests.ts'], `= [${arrayOf(original['src/plugins/manifests.ts'])}];`, '= [];')],
     ['empty PLUGINS', 'src/plugins/registry.ts', original['src/plugins/registry.ts'].replace(/^ {2}\w+: \(\) => import\('\.\/\w+'\),\n/gm, '')],
   ];
   for (const [what, file, text] of empties) {

@@ -100,7 +100,10 @@ async function load(path: string): Promise<{ ok: true; module: Record<string, un
   try {
     return { ok: true, module: await import(pathToFileURL(path).href) as Record<string, unknown> };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message.split('\n')[0]! : String(error) };
+    // A syntax error names its file:line:col on the message's second line; a stack is never shown.
+    const lines = (error instanceof Error ? error.message : String(error)).split('\n').map((line) => line.trim())
+      .filter((line) => line !== '' && !line.startsWith('at '));
+    return { ok: false, error: lines.slice(0, 3).join(' ') };
   }
 }
 
