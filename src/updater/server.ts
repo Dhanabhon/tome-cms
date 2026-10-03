@@ -1,10 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { lstat, unlink } from 'node:fs/promises';
 import { createConnection } from 'node:net';
+import { isAbsolute, normalize } from 'node:path';
 
 import { parseStableVersion } from '../update/contracts.js';
 import type { PruneResult } from './prune.js';
-import { toPublicUpdateJob, type BackupJob, type BackupKind, type UpdateJob, type UpdaterStateStore } from './state.js';
+import { toPublicUpdateJob, type BackupJob, type BackupKind, type RestoreJob, type UpdateJob, type UpdaterStateStore } from './state.js';
 import { InsufficientDiskSpaceError } from './verify.js';
 import { UPDATER_VERSION } from './version.js';
 
@@ -16,6 +17,11 @@ export interface ApplyRequest {
 export interface BackupRequest {
   requestId: string;
   kind: BackupKind;
+}
+
+export interface RestoreRequest {
+  requestId: string;
+  backupDirectory: string;
 }
 
 const bodyLimit = 4 * 1024;
@@ -56,8 +62,14 @@ export function createUpdaterServer(input: {
     run: (job: BackupJob) => Promise<unknown>;
   };
   prune?: (request: { dryRun: boolean }) => Promise<PruneResult | null>;
+  restore?: {
+    /** Refuses before anything starts: too little room for the safety backup. */
+    check: () => Promise<void>;
+    /** Runs a restore created in `verifying` to its end. */
+    run: (job: RestoreJob) => Promise<unknown>;
+  };
 }): ReturnType<typeof createServer> {
-  // The one lock: an update, a backup and a prune never overlap.
+  // The one lock: an update, a backup, a prune and a restore never overlap.
   let active = false;
   return createServer(async (request, response) => {
     try {
@@ -65,7 +77,7 @@ export function createUpdaterServer(input: {
         return json(response, 200, await publicStatus(input.state));
       }
       if (request.url === '/v1/busy' && request.method === 'GET') {
-        // Whether an update, a backup or a prune holds the lock. It only reads the flag.
+        // Whether an update, a backup, a prune or a restore holds the lock. It only reads the flag.
         return json(response, 200, { busy: active });
       }
       if (request.url === '/v1/timeline' && request.method === 'GET') {
@@ -154,6 +166,44 @@ export function createUpdaterServer(input: {
           if (!dispatched) active = false;
         }
       }
+      if (request.url === '/v1/restore' && request.method === 'GET' && input.restore) {
+        const restore = await input.state.readRestore();
+        return restore ? json(response, 200, restore) : json(response, 404, { error: 'not_found' });
+      }
+      if (request.url === '/v1/restore' && request.method === 'POST' && input.restore) {
+        const restoreRequest = parseRestoreRequest(await readBody(request));
+        // As for a backup: a request sent again is answered from its record and starts nothing.
+        const known = await input.state.readRestore();
+        if (known?.id === restoreRequest.requestId) {
+          return known.phase === 'succeeded' || known.phase === 'failed'
+            ? json(response, 200, known) : json(response, 202, { id: known.id, phase: known.phase });
+        }
+        if (active) return json(response, 409, { error: 'update_in_progress' });
+        active = true;
+        let dispatched = false;
+        try {
+          try {
+            await input.restore.check();
+          } catch (error) {
+            if (error instanceof InsufficientDiskSpaceError) return json(response, 409, { error: 'insufficient_disk_space' });
+            throw error;
+          }
+          const restore = await input.state.createRestore({ id: restoreRequest.requestId, backupDirectory: restoreRequest.backupDirectory });
+          json(response, 202, { id: restore.id, phase: restore.phase });
+          dispatched = true;
+          void Promise.resolve().then(() => input.restore!.run(restore)).catch(async () => {
+            // Only a record that could not be written reaches here. It is left as it is: still active,
+            // it refuses other jobs, and the next boot puts the safety backup back. The marker is
+            // made to agree with it.
+            console.error('Updater restore state could not be persisted');
+            await input.state.refreshStatus();
+          }).catch(() => { console.error('Updater status could not be refreshed'); })
+            .finally(() => { active = false; });
+          return;
+        } finally {
+          if (!dispatched) active = false;
+        }
+      }
       if (request.url === '/v1/prune' && request.method === 'POST' && input.prune) {
         const pruneRequest = parsePruneRequest(await readBody(request));
         if (active) return json(response, 409, { error: 'update_in_progress' });
@@ -165,7 +215,7 @@ export function createUpdaterServer(input: {
           active = false;
         }
       }
-      if (['/v1/status', '/v1/apply', '/v1/timeline', '/v1/busy', '/v1/backup', '/v1/prune'].includes(request.url ?? '')) {
+      if (['/v1/status', '/v1/apply', '/v1/timeline', '/v1/busy', '/v1/backup', '/v1/prune', '/v1/restore'].includes(request.url ?? '')) {
         return json(response, 405, { error: 'method_not_allowed' });
       }
       return json(response, 404, { error: 'not_found' });
@@ -208,6 +258,15 @@ function parseBackupRequest(value: unknown): BackupRequest {
   if (!isRecord(value) || !hasExactKeys(value, ['requestId', 'kind']) || !uuid(value.requestId) ||
     (value.kind !== 'database' && value.kind !== 'full')) throw new RequestError(400, 'invalid_request');
   return { requestId: value.requestId, kind: value.kind };
+}
+
+function parseRestoreRequest(value: unknown): RestoreRequest {
+  if (!isRecord(value) || !hasExactKeys(value, ['requestId', 'backupDirectory']) || !uuid(value.requestId) ||
+    typeof value.backupDirectory !== 'string' || !isAbsolute(value.backupDirectory) ||
+    normalize(value.backupDirectory) !== value.backupDirectory || value.backupDirectory.includes('\0')) {
+    throw new RequestError(400, 'invalid_request');
+  }
+  return { requestId: value.requestId, backupDirectory: value.backupDirectory };
 }
 
 function parsePruneRequest(value: unknown): { dryRun: boolean } {

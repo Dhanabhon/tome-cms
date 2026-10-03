@@ -3,7 +3,7 @@ import { constants } from 'node:fs';
 import { lstat, open, readFile, realpath, rename, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
-import { parseBackupManifest } from '../update/backup.js';
+import { parseBackupManifest, type BackupManifest } from '../update/backup.js';
 import { compareStableVersions, OFFICIAL_IMAGE_REPOSITORY, parseStableVersion } from '../update/contracts.js';
 import { composePrefix, type UpdaterConfig } from './config.js';
 import { directorySize, readManifestBytes } from './files.js';
@@ -28,7 +28,7 @@ export interface UpdateDependencies {
   now: () => Date;
 }
 
-const defaults: UpdateDependencies = {
+export const defaults: UpdateDependencies = {
   runCommand, verifyTargetRelease, runPreflight, fetcher: fetch,
   sleep: (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms)), now: () => new Date(),
 };
@@ -82,8 +82,8 @@ export async function applyUpdate(input: UpdateInput): Promise<UpdateJob> {
   });
 }
 
-/** The one lock: an update, a backup and a prune never run at once. */
-async function exclusively<T>(state: UpdaterStateStore, work: () => Promise<T>): Promise<T> {
+/** The one lock: an update, a backup, a prune and a restore never run at once. */
+export async function exclusively<T>(state: UpdaterStateStore, work: () => Promise<T>): Promise<T> {
   if (active.has(state)) throw new Error('An update job is already active');
   active.add(state);
   try {
@@ -399,19 +399,26 @@ async function chooseBackupKind(
   }
 }
 
-function oneShotNames(projectName: UpdaterConfig['projectName'], id: string): { inventory: string; backup: string; migration: string; installedInventory: string } {
+export function oneShotNames(projectName: UpdaterConfig['projectName'], id: string): {
+  inventory: string; backup: string; migration: string; installedInventory: string;
+  restoreDatabase: string; restoreObjects: string; afterRestore: string;
+} {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw new Error('Invalid updater job ID');
   }
   const prefix = `${projectName}-update-${id.toLowerCase()}`;
-  return { inventory: `${prefix}-inventory`, backup: `${prefix}-backup`, migration: `${prefix}-migration`, installedInventory: `${prefix}-installed-inventory` };
+  return {
+    inventory: `${prefix}-inventory`, backup: `${prefix}-backup`, migration: `${prefix}-migration`,
+    installedInventory: `${prefix}-installed-inventory`, restoreDatabase: `${prefix}-restore-database`,
+    restoreObjects: `${prefix}-restore-objects`, afterRestore: `${prefix}-after-restore`,
+  };
 }
 
 class OneShotCleanupError extends Error {
   constructor() { super('One-shot container cleanup could not be verified'); }
 }
 
-async function runOneShot(
+export async function runOneShot(
   name: string,
   args: readonly string[],
   timeoutMs: number,
@@ -431,7 +438,7 @@ async function runOneShot(
   return output;
 }
 
-async function cleanOneShot(
+export async function cleanOneShot(
   name: string,
   dependencies: UpdateDependencies,
   force: boolean,
@@ -467,7 +474,7 @@ function commandRunner(dependencies: UpdateDependencies, diagnostics: CommandDia
     )).stdout;
 }
 
-function updaterIdentity(): string {
+export function updaterIdentity(): string {
   const uid = process.getuid?.();
   const gid = process.getgid?.();
   if (!Number.isSafeInteger(uid) || !Number.isSafeInteger(gid) || uid! <= 0 || gid! < 0) {
@@ -476,7 +483,7 @@ function updaterIdentity(): string {
   return `${uid}:${gid}`;
 }
 
-async function localPreflight(
+export async function localPreflight(
   config: UpdaterConfig,
   installed: InstalledState,
   dependencies: UpdateDependencies,
@@ -569,11 +576,16 @@ async function validateBackup(output: string, config: UpdaterConfig, application
   const manifest = parseBackupManifest(JSON.parse(bytes.toString('utf8')));
   if (manifest.applicationVersion !== applicationVersion) throw new Error('Invalid backup manifest');
   if ((manifest.scope === 'database') !== (kind === 'database')) throw new Error('Backup is not the kind that was asked for');
+  await verifyBackupFiles(directory, manifest);
+  return { backupDirectory: join(config.backupDirectory, tail), backupCreatedAt: manifest.createdAt };
+}
+
+/** Every file a backup's manifest lists, each read without following a link, against its checksum. */
+export async function verifyBackupFiles(directory: string, manifest: BackupManifest): Promise<void> {
   await verifyBackupFile(directory, manifest.database.file, manifest.database.sha256);
   for (const object of manifest.objects) {
     await verifyBackupFile(directory, join('objects', ...object.key.split('/')), object.sha256, object.sizeBytes);
   }
-  return { backupDirectory: join(config.backupDirectory, tail), backupCreatedAt: manifest.createdAt };
 }
 
 async function verifyBackupFile(directory: string, relativePath: string, checksum: string, size?: number): Promise<void> {
@@ -620,12 +632,12 @@ async function writeImageEnvironment(path: string, digest: string): Promise<void
 }
 
 /**
- * The first half of a maintenance window, the same for an update and a backup on request: drain,
- * stop the app, take the offline backup in a one-shot container, and check what it wrote. The
- * caller has already written the public maintenance marker (its job in `quiescing`), and starts
- * the app again whatever this throws.
+ * The first half of a maintenance window, the same for an update, a backup on request and a
+ * restore's safety backup: drain, stop the app, take the offline backup in a one-shot container,
+ * and check what it wrote. The caller has already written the public maintenance marker (its job
+ * in `quiescing`), and starts the app again whatever this throws.
  */
-async function stopAndBackUp(input: {
+export async function stopAndBackUp(input: {
   config: UpdaterConfig;
   installed: InstalledState;
   kind: BackupKind;
@@ -638,8 +650,7 @@ async function stopAndBackUp(input: {
   const { config, dependencies, diagnostics } = input;
   const compose = composePrefix(config);
   await dependencies.sleep(2_000);
-  await commandRunner(dependencies, diagnostics)('quiesce.stop_app',
-    [...compose, 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS);
+  await stopApp(config, dependencies, diagnostics, 'quiesce.stop_app');
   await input.backingUp();
   const output = await runOneShot(input.name, [
     ...compose, 'run', '--rm', '--name', input.name, '--no-deps', '--user', input.identity,
@@ -651,23 +662,33 @@ async function stopAndBackUp(input: {
 }
 
 /**
- * Starts the installed app again and waits until it is ready: an update's rollback, and the end of
- * every backup on request, failed or not. A stop that timed out can still be under way in Docker,
- * and starting the app then fails; stopping again waits for it. It is best effort: if it fails
- * too, the start decides.
+ * Starts the installed app again and waits until it is ready: an update's rollback, the end of
+ * every backup on request, failed or not, and a restore's start. A stop that timed out can still
+ * be under way in Docker, and starting the app then fails; stopping again waits for it. It is best
+ * effort: if it fails too, the start decides.
  */
-async function restoreInstalledApp(
+export async function restoreInstalledApp(
   config: UpdaterConfig,
   imageDigest: string,
   dependencies: UpdateDependencies,
   diagnostics: CommandDiagnosticContext,
   stage: 'rollback' | 'restart',
 ): Promise<void> {
-  await commandRunner(dependencies, diagnostics)(`${stage}.stop_app`,
-    [...composePrefix(config), 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS).catch(() => undefined);
+  await stopApp(config, dependencies, diagnostics, `${stage}.stop_app`).catch(() => undefined);
   await writeImageEnvironment(config.imageEnvironmentFile, imageDigest);
   await startApp(config, dependencies, diagnostics, `${stage}.start_app`);
   await awaitReadiness(config, dependencies);
+}
+
+/** Stops the app, letting it exit on SIGTERM for the grace period first. */
+export async function stopApp(
+  config: UpdaterConfig,
+  dependencies: UpdateDependencies,
+  diagnostics: CommandDiagnosticContext,
+  stage: 'quiesce.stop_app' | 'restart.stop_app' | 'rollback.stop_app',
+): Promise<void> {
+  await commandRunner(dependencies, diagnostics)(stage,
+    [...composePrefix(config), 'stop', '--timeout', String(STOP_GRACE_SECONDS), 'app'], STOP_COMMAND_MS);
 }
 
 async function startApp(

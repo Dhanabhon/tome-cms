@@ -193,8 +193,8 @@ function assertOldAppsRead(value: unknown, label: string): void {
   assert.doesNotThrow(() => releasedStatusSchemas['1.9.1'].parse(value), `${label}: an app at 1.9.1`);
 }
 
-test('the updater is 1.5.0', () => {
-  assert.equal(UPDATER_VERSION, '1.5.0');
+test('the updater is 1.6.0', () => {
+  assert.equal(UPDATER_VERSION, '1.6.0');
 });
 
 test('a backup on request answers 202, then goes through quiescing, backing up and restarting to succeeded', async (t) => {

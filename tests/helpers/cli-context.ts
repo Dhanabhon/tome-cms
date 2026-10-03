@@ -74,7 +74,7 @@ export function updateJob(phase: string, patch: Record<string, unknown> = {}) {
 }
 
 export function statusAnswer(job: unknown = null, version = '1.10.1'): SocketAnswer {
-  return { status: 200, body: { protocolVersion: 1, updaterVersion: '1.5.0', managed: true, installed: { version, imageDigest: digest }, job } };
+  return { status: 200, body: { protocolVersion: 1, updaterVersion: '1.6.0', managed: true, installed: { version, imageDigest: digest }, job } };
 }
 
 /** A backup record as `GET /v1/backup` shows it. */

@@ -319,9 +319,9 @@ test('update with a version uses it, and never installs an older one', async () 
 });
 
 test('update refuses a release that needs a newer updater, and says how to get one', async () => {
-  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: release('1.12.0', { minimumUpdaterVersion: '1.6.0' }) } });
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: release('1.12.0', { minimumUpdaterVersion: '1.7.0' }) } });
   assert.equal(await run(f, ['update', '--yes']), 1);
-  assert.match(f.err(), /needs updater 1\.6\.0.*sudo npm run updater:upgrade/s);
+  assert.match(f.err(), /needs updater 1\.7\.0.*sudo npm run updater:upgrade/s);
   assert.equal(posts(f, '/v1/apply').length, 0);
 });
 
@@ -358,10 +358,10 @@ test('update refuses a release whose contracts this server does not have, newest
 
 test('a named version is checked the same way, and one never released is said plainly', async () => {
   const asked: Array<string | null> = [];
-  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async (version) => { asked.push(version); return release('1.12.0', { minimumUpdaterVersion: '1.6.0' })(version); } } });
+  const f = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async (version) => { asked.push(version); return release('1.12.0', { minimumUpdaterVersion: '1.7.0' })(version); } } });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
   assert.deepEqual(asked, ['1.11.0']);
-  assert.match(f.err(), /needs updater 1\.6\.0/);
+  assert.match(f.err(), /needs updater 1\.7\.0/);
   const missing = fakeContext({ routes: { 'GET /v1/status': [statusAnswer(null)] }, overrides: { release: async () => { throw new NoOfficialReleaseError(); } } });
   assert.equal(await run(missing, ['update', '1.11.0', '--yes']), 1);
   assert.match(missing.err(), /There is no TomeCMS release 1\.11\.0\./);

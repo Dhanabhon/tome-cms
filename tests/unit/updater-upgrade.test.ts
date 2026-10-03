@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { upgradeRefusal } from '../../scripts/updater-upgrade';
 import { UPDATER_VERSION } from '../../src/updater/version';
 
-const ready = { root: true, tag: 'v1.3.0', packageVersion: '1.3.0', clean: true, jobPhase: 'succeeded' as string | null, backupPhase: null as string | null, running: '1.0.0' };
+const ready = { root: true, tag: 'v1.3.0', packageVersion: '1.3.0', clean: true, jobPhase: 'succeeded' as string | null, backupPhase: null as string | null, restorePhase: null as string | null, running: '1.0.0' };
 
 test('an upgrade runs only as root, from a clean checkout of the exact release tag', () => {
   assert.equal(upgradeRefusal(ready), null);
@@ -29,6 +29,15 @@ test('an upgrade never replaces the updater in the middle of a backup on request
   }
   for (const phase of [null, 'succeeded', 'failed']) {
     assert.equal(upgradeRefusal({ ...ready, backupPhase: phase }), null, String(phase));
+  }
+});
+
+test('an upgrade never replaces the updater in the middle of a restore', () => {
+  for (const phase of ['verifying', 'quiescing', 'safety_backup', 'restoring', 'migrating', 'restarting', 'checking', 'rolling_back']) {
+    assert.match(upgradeRefusal({ ...ready, restorePhase: phase }) ?? '', /restore is in progress/, phase);
+  }
+  for (const phase of [null, 'succeeded', 'failed']) {
+    assert.equal(upgradeRefusal({ ...ready, restorePhase: phase }), null, String(phase));
   }
 });
 

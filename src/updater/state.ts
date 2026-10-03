@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 
+import { parseBackupRecordCounts, type BackupRecordCounts } from '../update/backup.js';
 import { parseStableVersion } from '../update/contracts.js';
 import type { UpdaterConfig } from './config.js';
 import { UPDATER_VERSION } from './version.js';
@@ -62,6 +63,36 @@ export interface BackupJob {
   errorCode: string | null;
 }
 
+export type RestorePhase =
+  | 'verifying' | 'quiescing' | 'safety_backup' | 'restoring' | 'migrating' | 'restarting' | 'checking'
+  | 'rolling_back' | 'succeeded' | 'failed';
+
+/** What `after-restore` reported: the records that came back, and the plugin secrets this server cannot open. */
+export interface RestoreReport {
+  records: BackupRecordCounts;
+  sealedSecrets: number;
+  unopenedSecrets: Array<{ plugin: string; setting: string }>;
+}
+
+/**
+ * A restore of a backup into the site (`POST /v1/restore`), in its own `restore-job.json`, for the
+ * same reason a backup has its own: /v1/status is the update's, and apps parse it strictly.
+ */
+export interface RestoreJob {
+  /** The caller's request ID. */
+  id: string;
+  phase: RestorePhase;
+  startedAt: string;
+  finishedAt: string | null;
+  /** The backup being restored, by its real path under the backup root. */
+  backupDirectory: string;
+  /** The full backup taken just before anything was replaced, which a failure puts back. */
+  safetyBackupDirectory: string | null;
+  migrated: boolean;
+  errorCode: string | null;
+  report: RestoreReport | null;
+}
+
 export type PublicUpdateJob = Pick<UpdateJob,
   | 'id' | 'targetVersion' | 'phase' | 'completedSteps' | 'totalSteps'
   | 'message' | 'startedAt' | 'finishedAt' | 'errorCode' | 'backupCreatedAt'
@@ -90,6 +121,12 @@ export interface UpdaterStateStore {
   transitionBackup(id: string, phase: BackupPhase, patch?: Partial<Pick<BackupJob,
     'kind' | 'backupDirectory' | 'sizeBytes' | 'errorCode'
   >>): Promise<BackupJob>;
+  readRestore(): Promise<RestoreJob | null>;
+  /** Starts a restore in `verifying`. The site stays up while the backup is checked, so no marker yet. */
+  createRestore(input: Pick<RestoreJob, 'id' | 'backupDirectory'>): Promise<RestoreJob>;
+  transitionRestore(id: string, phase: RestorePhase, patch?: Partial<Pick<RestoreJob,
+    'safetyBackupDirectory' | 'migrated' | 'errorCode' | 'report'
+  >>): Promise<RestoreJob>;
 }
 
 const phases: readonly UpdatePhase[] = [
@@ -162,11 +199,39 @@ const backupTransitions: Record<BackupPhase, readonly BackupPhase[]> = {
   succeeded: [],
   failed: [],
 };
+const restoreKeys = [
+  'id', 'phase', 'startedAt', 'finishedAt', 'backupDirectory', 'safetyBackupDirectory', 'migrated', 'errorCode', 'report',
+] as const;
+const restorePatchKeys = ['safetyBackupDirectory', 'migrated', 'errorCode', 'report'];
+const restoreTerminal = new Set<RestorePhase>(['succeeded', 'failed']);
+// A check that fails while verifying stops nothing. Up to the safety backup nothing is replaced, so
+// a failure there ends the restore once the app has been started again; from `restoring` on, every
+// failure goes through `rolling_back`, which puts the safety backup back.
+const restoreTransitions: Record<RestorePhase, readonly RestorePhase[]> = {
+  verifying: ['quiescing', 'failed'],
+  quiescing: ['safety_backup', 'failed'],
+  safety_backup: ['restoring', 'failed'],
+  restoring: ['migrating', 'restarting', 'rolling_back'],
+  migrating: ['restarting', 'rolling_back'],
+  restarting: ['checking', 'rolling_back'],
+  checking: ['succeeded', 'rolling_back'],
+  rolling_back: ['failed'],
+  succeeded: [],
+  failed: [],
+};
+// The update phase the app reads for each step of a restore. Every step that may stop the app or
+// change the database is one the app refuses writes in; an update's `rolling_back` is not, so a
+// restore's rolling back shows as `migrating`, which is what it does.
+const restoreMarkerPhases: Partial<Record<RestorePhase, UpdatePhase>> = {
+  quiescing: 'quiescing', safety_backup: 'backing_up', restoring: 'migrating', migrating: 'migrating',
+  restarting: 'restarting', checking: 'health_check', rolling_back: 'migrating',
+};
 
 export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStore {
   const installedPath = join(config.stateDirectory, 'installed.json');
   const jobPath = join(config.stateDirectory, 'job.json');
   const backupPath = join(config.stateDirectory, 'backup-job.json');
+  const restorePath = join(config.stateDirectory, 'restore-job.json');
   let pending: Promise<void> = Promise.resolve();
 
   const exclusive = <T>(operation: () => Promise<T>): Promise<T> => {
@@ -192,16 +257,32 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
       throw error;
     }
   };
-  const writeStatus = async (installed: InstalledState, job: UpdateJob | null, given?: BackupJob): Promise<void> => {
-    // A backup record that cannot be read gives no marker: it must not stop an update writing its
-    // own, and the backup itself cannot move without reading it.
-    const backup = given ?? await readBackup().catch(() => null);
+  const readRestore = async (): Promise<RestoreJob | null> => {
+    try {
+      return parseRestore(await readJson(restorePath));
+    } catch (error) {
+      if (hasCode(error, 'ENOENT')) return null;
+      throw error;
+    }
+  };
+  const writeStatus = async (
+    installed: InstalledState,
+    job: UpdateJob | null,
+    given: { backup?: BackupJob; restore?: RestoreJob } = {},
+  ): Promise<void> => {
+    // A backup or restore record that cannot be read gives no marker: it must not stop an update
+    // writing its own, and the job itself cannot move without reading it.
+    const backup = given.backup ?? await readBackup().catch(() => null);
+    const restore = given.restore ?? await readRestore().catch(() => null);
+    const restorePhase = restore && restoreMarkerPhase(restore);
     await atomicJson(config.statusPath, {
       protocolVersion: 1,
       updaterVersion: UPDATER_VERSION,
       managed: true,
       installed: { version: installed.version, imageDigest: installed.imageDigest },
-      job: backup && !backupTerminal.has(backup.phase) ? backupMarker(backup, installed) : job ? toPublicUpdateJob(job) : null,
+      job: backup && !backupTerminal.has(backup.phase) ? maintenanceMarker(backup, backup.phase as UpdatePhase, installed)
+        : restore && restorePhase ? maintenanceMarker(restore, restorePhase, installed)
+          : job ? toPublicUpdateJob(job) : null,
     }, 0o640);
   };
   const assertNoActiveJob = async (): Promise<void> => {
@@ -210,6 +291,10 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
     if (job && !terminalPhases.has(job.phase)) throw new Error('An update job is already active');
     const backup = await readBackup();
     if (backup && !backupTerminal.has(backup.phase)) throw new Error('A backup job is already active');
+    const restore = await readRestore();
+    // Nothing may run on a database a failed restore left in a state no one knows.
+    if (restore?.phase === 'failed' && restore.errorCode === 'rollback_failed') throw new Error('Manual recovery is required');
+    if (restore && !restoreTerminal.has(restore.phase)) throw new Error('A restore job is already active');
   };
 
   return {
@@ -326,7 +411,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
           finishedAt: null, backupDirectory: null, sizeBytes: null, errorCode: null,
         });
         const [installed, job] = await Promise.all([readInstalled(), readJob()]);
-        await writeStatus(installed, job, backup);
+        await writeStatus(installed, job, { backup });
         try {
           await atomicJson(backupPath, backup, 0o600);
         } catch (error) {
@@ -351,27 +436,98 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         // a record that cannot be written leaves a marker that still tells the truth.
         if (backupTerminal.has(phase)) {
           await atomicJson(backupPath, backup, 0o600);
-          await writeStatus(installed, job, backup);
+          await writeStatus(installed, job, { backup });
         } else {
-          await writeStatus(installed, job, backup);
+          await writeStatus(installed, job, { backup });
           await atomicJson(backupPath, backup, 0o600);
         }
         return backup;
+      });
+    },
+    readRestore,
+    createRestore(input) {
+      return exclusive(async () => {
+        await assertNoActiveJob();
+        const restore = parseRestore({
+          id: input.id, phase: 'verifying', startedAt: new Date().toISOString(), finishedAt: null,
+          backupDirectory: input.backupDirectory, safetyBackupDirectory: null, migrated: false, errorCode: null, report: null,
+        });
+        await atomicJson(restorePath, restore, 0o600);
+        return restore;
+      });
+    },
+    transitionRestore(id, phase, patch = {}) {
+      return exclusive(async () => {
+        if (!isRecord(patch) || !hasExactSubset(patch, restorePatchKeys)) throw new Error('Invalid restore job patch');
+        const current = await readRestore();
+        if (!current || current.id !== id) throw new Error('Restore job not found');
+        if (!restoreTransitions[current.phase].includes(phase)) throw new Error('Invalid restore job transition');
+        const restore = parseRestore({
+          ...current, ...patch, phase, finishedAt: restoreTerminal.has(phase) ? new Date().toISOString() : null,
+        });
+        const [installed, job] = await Promise.all([readInstalled(), readJob()]);
+        // As for a backup: the marker goes up before the record moves on, and comes down after it has ended.
+        if (restoreTerminal.has(phase)) {
+          await atomicJson(restorePath, restore, 0o600);
+          await writeStatus(installed, job, { restore });
+        } else {
+          await writeStatus(installed, job, { restore });
+          await atomicJson(restorePath, restore, 0o600);
+        }
+        return restore;
       });
     },
   };
 }
 
 /**
- * The public maintenance marker for a backup: the very phase an update writes there, so the app
- * refuses writes the same way, and in the update job's exact shape, which every app since 1.0
- * parses. Only status.json carries it; /v1/status keeps answering with the last update.
+ * The public maintenance marker for a backup or a restore: the very phase an update writes there,
+ * so the app refuses writes the same way, and in the update job's exact shape, which every app
+ * since 1.0 parses. Only status.json carries it; /v1/status keeps answering with the last update.
  */
-function backupMarker(backup: BackupJob, installed: InstalledState): PublicUpdateJob {
-  const phase = backup.phase as Exclude<BackupPhase, 'succeeded' | 'failed'>;
+function maintenanceMarker(source: { id: string; startedAt: string }, phase: UpdatePhase, installed: InstalledState): PublicUpdateJob {
   return {
-    id: backup.id, targetVersion: installed.version, phase, completedSteps: completedSteps[phase]!, totalSteps: 8,
-    message: messages[phase], startedAt: backup.startedAt, finishedAt: null, errorCode: null, backupCreatedAt: null,
+    id: source.id, targetVersion: installed.version, phase, completedSteps: completedSteps[phase]!, totalSteps: 8,
+    message: messages[phase], startedAt: source.startedAt, finishedAt: null, errorCode: null, backupCreatedAt: null,
+  };
+}
+
+/**
+ * The marker a restore holds up, or null for none. Verifying stops nothing, so it has none. A
+ * restore whose safety backup could not be put back keeps one after it has ended: the database is
+ * in a state no one knows, and nothing may write to it.
+ */
+function restoreMarkerPhase(restore: RestoreJob): UpdatePhase | null {
+  if (restore.phase === 'failed' && restore.errorCode === 'rollback_failed') return 'migrating';
+  return restoreMarkerPhases[restore.phase] ?? null;
+}
+
+function parseRestore(value: unknown): RestoreJob {
+  if (!isRecord(value) || !hasExactKeys(value, restoreKeys) || !uuid(value.id) ||
+    typeof value.phase !== 'string' || !Object.hasOwn(restoreTransitions, value.phase) ||
+    !isoDate(value.startedAt) || !(value.finishedAt === null || isoDate(value.finishedAt)) ||
+    restoreTerminal.has(value.phase as RestorePhase) !== (value.finishedAt !== null) ||
+    !(typeof value.backupDirectory === 'string' && isAbsolute(value.backupDirectory)) ||
+    !(value.safetyBackupDirectory === null || (typeof value.safetyBackupDirectory === 'string' && isAbsolute(value.safetyBackupDirectory))) ||
+    typeof value.migrated !== 'boolean' ||
+    !(value.errorCode === null || (typeof value.errorCode === 'string' && /^[a-z][a-z0-9_]*$/.test(value.errorCode)))) {
+    throw new Error('Invalid restore job state');
+  }
+  return { ...value, report: value.report === null ? null : parseRestoreReport(value.report) } as unknown as RestoreJob;
+}
+
+/** A restore report, exactly: `after-restore`'s receipt, which the CLI prints. */
+export function parseRestoreReport(value: unknown): RestoreReport {
+  const name = (entry: unknown) => typeof entry === 'string' && entry.length > 0 && entry.length <= 200;
+  if (!isRecord(value) || !hasExactKeys(value, ['records', 'sealedSecrets', 'unopenedSecrets']) ||
+    !Number.isSafeInteger(value.sealedSecrets) || (value.sealedSecrets as number) < 0 ||
+    !Array.isArray(value.unopenedSecrets) || value.unopenedSecrets.length > 1000 ||
+    !value.unopenedSecrets.every((entry) => isRecord(entry) && hasExactKeys(entry, ['plugin', 'setting']) &&
+      name(entry.plugin) && name(entry.setting))) throw new Error('Invalid restore report');
+  return {
+    records: parseBackupRecordCounts(value.records),
+    sealedSecrets: value.sealedSecrets as number,
+    unopenedSecrets: (value.unopenedSecrets as Array<{ plugin: string; setting: string }>).map(({ plugin, setting }) => ({ plugin, setting })),
   };
 }
 

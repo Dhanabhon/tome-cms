@@ -78,7 +78,7 @@ test('status shows the versions, the site, the containers, the disk, the last up
   const f = healthy(root);
   assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
   const out = f.out();
-  assert.match(out, /^TomeCMS 1\.10\.1, updater 1\.5\.0$/m);
+  assert.match(out, /^TomeCMS 1\.10\.1, updater 1\.6\.0$/m);
   assert.match(out, /^Site: ready \(migrations: ready\)$/m);
   assert.match(out, /^ {2}app +running, healthy$/m);
   assert.match(out, /^ {2}postgres +running, healthy$/m);
@@ -99,7 +99,7 @@ test('status --json prints the same as one object, for scripts', async (t) => {
   assert.equal(f.printed.length, 1);
   const report = JSON.parse(f.printed[0]!);
   assert.deepEqual(report, {
-    versions: { app: '1.10.1', updater: '1.5.0' },
+    versions: { app: '1.10.1', updater: '1.6.0' },
     updaterError: null,
     site: { ready: true, status: 'ready', migrations: 'ready' },
     containers: [

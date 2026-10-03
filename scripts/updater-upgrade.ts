@@ -4,9 +4,9 @@
 // "System" replaces the application image only, so a server keeps the updater it was installed
 // with until this is run. Run it as root from a clean checkout of the release tag, after `npm ci`:
 //   sudo npm run updater:upgrade
-// It leaves the site running. It refuses while an update or a backup is in progress, keeps the
-// previous updater beside the new one, and puts it back if the new one does not answer. It brings
-// `tome` too: the CLI is built with the updater, and its shim goes on the PATH.
+// It leaves the site running. It refuses while an update, a backup or a restore is in progress,
+// keeps the previous updater beside the new one, and puts it back if the new one does not answer. It
+// brings `tome` too: the CLI is built with the updater, and its shim goes on the PATH.
 import { spawnSync } from 'node:child_process';
 import { chmod, cp, lstat, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -35,6 +35,8 @@ export interface UpgradeCheck {
   jobPhase: string | null;
   /** The phase of the last backup on request, or null when there has been none. */
   backupPhase: string | null;
+  /** The phase of the last restore, or null when there has been none. */
+  restorePhase: string | null;
   /** The version the running updater reports. */
   running: string;
 }
@@ -46,6 +48,9 @@ export function upgradeRefusal(check: UpgradeCheck): string | null {
   if (!check.clean) return 'The checkout has changes. Run this from a clean checkout of the release tag.';
   if (check.jobPhase !== null && !TERMINAL.has(check.jobPhase)) return 'An update is in progress. Wait for it to finish, then run this again.';
   if (check.backupPhase !== null && !BACKUP_TERMINAL.has(check.backupPhase)) return backupInProgress;
+  if (check.restorePhase !== null && !BACKUP_TERMINAL.has(check.restorePhase)) {
+    return 'A restore is in progress. Wait for it to finish, then run this again. If sudo tome status says it is stuck, follow what it says first.';
+  }
   if (compareStableVersions(check.running, UPDATER_VERSION) > 0) return `The running updater (${check.running}) is newer than this checkout's (${UPDATER_VERSION}).`;
   return null;
 }
@@ -100,7 +105,7 @@ async function main(): Promise<void> {
   // An updater that does not answer is the one to replace; it is treated as the first release.
   const running = await socketStatus(config.socketPath).then((status) => status.updaterVersion ?? '1.0.0', () => '1.0.0');
   const store = createUpdaterStateStore(config);
-  const [job, backup] = await Promise.all([store.readJob(), store.readBackup()]);
+  const [job, backup, restore] = await Promise.all([store.readJob(), store.readBackup(), store.readRestore()]);
   const refusal = upgradeRefusal({
     root: process.getuid?.() === 0,
     tag: tagOfHead(),
@@ -108,6 +113,7 @@ async function main(): Promise<void> {
     clean: run('git', ['status', '--porcelain', '--untracked-files=normal'], { quiet: true }) === '',
     jobPhase: job?.phase ?? null,
     backupPhase: backup?.phase ?? null,
+    restorePhase: restore?.phase ?? null,
     running,
   });
   if (refusal) throw new Error(refusal);

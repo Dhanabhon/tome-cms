@@ -26,7 +26,8 @@ export type CommandDiagnosticStage =
   | 'cleanup.image.list' | 'cleanup.image.remove'
   | 'reconcile.app.list' | 'reconcile.app.inspect'
   | 'verify.docker_engine' | 'verify.compose_cli' | 'verify.gh_cli'
-  | 'verify.manifest_attestation' | 'verify.image_attestation' | 'verify.compose_health';
+  | 'verify.manifest_attestation' | 'verify.image_attestation' | 'verify.compose_health'
+  | 'restore.database' | 'restore.objects' | 'restore.migrate' | 'restore.report' | 'restore.rollback';
 
 export interface CommandDiagnosticContext {
   jobId: string;
