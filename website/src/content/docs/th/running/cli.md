@@ -276,7 +276,7 @@ Exported to /var/backups/tome-cms/markdown-20261003T120000000Z.tar.gz (3.2 MiB).
 
 คำสั่งนี้ไม่ถามอะไรและไม่มีตัวเลือก เว็บเปิดอยู่ตลอด เพราะอ่านทุกอย่างในมุมมองเดียวที่สอดคล้องกันของฐานข้อมูล ไฟล์ที่ได้จึงตรงกับช่วงเวลาเดียว ไฟล์อยู่ใน `/var/backups/tome-cms/` เจ้าของคือผู้ใช้ของตัวอัปเดต และเจ้าของอ่านได้คนเดียว (`0600`) ในไฟล์มีบทความและเพจทุกรายการ ทุกภาษา ทุกสถานะ และมีเดียที่ใช้ ส่วนที่ไม่รวมคือการตั้งค่า เมนู สไลด์ การเปลี่ยนเส้นทาง บัญชี สถิติ และไฟล์ที่ไม่มีอะไรใช้ ซึ่งชุดสำรองเต็มเก็บไว้หมด หัวข้อ[สำเนาข้อความของคุณเป็น Markdown](/tome-cms/th/running/backups/#สำเนาข้อความของคุณเป็น-markdown)แสดงว่าข้างในมีอะไร
 
-คำสั่งนี้ปฏิเสธและจบด้วย exit code 1 โดยไม่เขียนอะไรเลย เมื่อเว็บใช้ TomeCMS ก่อน 1.13.0 (`This site runs TomeCMS 1.12.4. Export and import need 1.13.0 or newer: sudo tome update`) และเมื่อเว็บอยู่ในโหมดปิดปรับปรุงหรือตัวอัปเดตไม่ว่าง (`The site is in maintenance, or the updater is busy. Try again when it is done.`) บทความที่ใช้ไฟล์ซึ่งหายไปจากที่เก็บจะทำให้หยุดด้วยข้อความ `A media file the content uses (…) is missing from storage, so nothing was exported.` การส่งออกที่ล้มเหลวไม่ทิ้งไฟล์ไว้
+คำสั่งนี้ปฏิเสธและจบด้วย exit code 1 โดยไม่เขียนอะไรเลย เมื่อเว็บใช้ TomeCMS ก่อน 1.13.0 (`This site runs TomeCMS 1.12.4. Export and import need 1.13.0 or newer: sudo tome update`) เมื่อเว็บอยู่ในโหมดปิดปรับปรุงหรือตัวอัปเดตไม่ว่าง (`The site is in maintenance, or the updater is busy. Try again when it is done.`) และเมื่อที่เก็บชุดสำรองเหลือที่ว่างไม่ถึง 5 GiB (`Not enough free disk space where backups go (/var/backups/tome-cms) for the export: it needs 5.0 GiB, so nothing was exported; sudo tome prune shows old images that can go.`) เพราะไฟล์ถูกเขียนลงที่นั่นสองรอบ คือเป็นไดเรกทอรีทำงานก่อนแล้วจึงแพ็ก บทความที่ใช้ไฟล์ซึ่งหายไปจากที่เก็บจะทำให้หยุดด้วยข้อความ `A media file the content uses (…) is missing from storage, so nothing was exported.` การส่งออกที่ล้มเหลวไม่ทิ้งไฟล์ไว้
 
 ## tome import
 
@@ -335,6 +335,7 @@ Categories created: Baking, Travel.
 | `notes.txt does not fit the archive's layout: manifest.json, media/, and posts/ or pages/ in th/ or en/.` | ไฟล์นั้นไม่มีที่อยู่ในโครงสร้าง |
 | `This site runs TomeCMS 1.12.4. Export and import need 1.13.0 or newer: sudo tome update` | แอปต้องมีการนำเข้าอยู่ในตัว |
 | `The site is in maintenance, or the updater is busy. Try again when it is done.` | ไม่นำเข้าอะไรขณะที่เว็บอยู่ในโหมดปิดปรับปรุงหรือมีงานอื่นรันอยู่ |
+| `Not enough free disk space where backups go (/var/backups/tome-cms) for the import: it needs 5.0 GiB, so nothing was imported; sudo tome prune shows old images that can go.` | การนำเข้าต้องมีที่ว่าง 5 GiB ในที่เก็บชุดสำรอง หรือสองเท่าของขนาดไฟล์ถ้ามากกว่านั้น เพราะไฟล์ถูกแตกออกที่นั่น |
 
 การปฏิเสธที่เกี่ยวกับไฟล์จะตามด้วย `Nothing was imported.` ปัญหาอื่นของไฟล์มีประโยคของตัวเอง เช่น `media/x.exe is not a picture or a document the File Manager accepts.`
 
@@ -400,7 +401,7 @@ src/plugins/nimbus/index.ts:1: declares publicPage, but exports none of siteNoti
 
 ## เมื่อดิสก์เต็ม
 
-ดิสก์เต็มคือตอนที่ `tome` ช่วยได้มากที่สุด เมื่อที่ว่างตรงที่เก็บชุดสำรองน้อยกว่า 5 GiB การอัปเดต การสำรองข้อมูล หรือการกู้คืนจะปฏิเสธด้วยข้อความ `Not enough free disk space where backups go` และ `tome status` จะแสดงคำเตือน
+ดิสก์เต็มคือตอนที่ `tome` ช่วยได้มากที่สุด เมื่อที่ว่างตรงที่เก็บชุดสำรองน้อยกว่า 5 GiB การอัปเดต การสำรองข้อมูล การกู้คืน การส่งออก หรือการนำเข้าจะปฏิเสธด้วยข้อความ `Not enough free disk space where backups go` และ `tome status` จะแสดงคำเตือน
 
 1. ดูว่าเหลือที่ว่างเท่าไร และ image เก่าตัวไหนลบได้
 

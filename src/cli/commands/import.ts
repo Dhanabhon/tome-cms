@@ -2,7 +2,7 @@ import { mkdir, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
 import { ArchiveRefusal, assertSafeEntries, extractArchive, listArchive } from '../archive.js';
-import { ContentStepFailure, explainStepFailure, runContentStep, transferRefusal } from '../content-step.js';
+import { ContentStepFailure, explainStepFailure, runContentStep, spaceRefusal, transferRefusal } from '../content-step.js';
 import type { CliContext } from '../main.js';
 import { printable } from '../output.js';
 import { chownTree, findUnsafeEntry, inBackupRoot, ownerOfBackupRoot } from '../ownership.js';
@@ -27,13 +27,15 @@ export async function importContent(context: CliContext, options: { path: string
   try {
     input = await inBackupRoot(config.backupDirectory, options.path);
   } catch {
-    input = { real: '', isDirectory: false, isFile: false };
+    input = { real: '', isDirectory: false, isFile: false, size: 0 };
   }
   if (!input.isDirectory && !input.isFile) {
     context.warn('That archive is not under /var/backups/tome-cms.');
     return 1;
   }
-  const refused = await transferRefusal(context);
+  // An archive is unpacked beside itself: it needs twice its size free, when that is more than the floor.
+  const needed = Math.max(config.minimumFreeBytes, input.isFile ? 2 * input.size : 0);
+  const refused = await transferRefusal(context) ?? await spaceRefusal(context, 'import', needed);
   if (refused) {
     context.warn(refused);
     return 1;

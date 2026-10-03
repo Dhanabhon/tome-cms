@@ -2,7 +2,7 @@ import { rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { packDirectory } from '../archive.js';
-import { ContentStepFailure, explainStepFailure, runContentStep, transferRefusal } from '../content-step.js';
+import { ContentStepFailure, explainStepFailure, runContentStep, spaceRefusal, transferRefusal } from '../content-step.js';
 import type { CliContext } from '../main.js';
 import { formatBytes, printable } from '../output.js';
 import { chownTree, findUnsafeEntry, ownerOfBackupRoot } from '../ownership.js';
@@ -13,7 +13,7 @@ import { chownTree, findUnsafeEntry, ownerOfBackupRoot } from '../ownership.js';
  * system tar, checks the archive reads back, hands it to the updater's user, and removes the directory.
  */
 export async function exportContent(context: CliContext): Promise<number> {
-  const refused = await transferRefusal(context);
+  const refused = await transferRefusal(context) ?? await spaceRefusal(context, 'export');
   if (refused) {
     context.warn(refused);
     return 1;

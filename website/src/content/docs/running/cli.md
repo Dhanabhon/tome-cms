@@ -276,7 +276,7 @@ Exported to /var/backups/tome-cms/markdown-20261003T120000000Z.tar.gz (3.2 MiB).
 
 It asks nothing and takes no options. The site stays up: everything is read in one consistent view of the database, so the archive matches a single moment. The archive is in `/var/backups/tome-cms/`, owned by the updater's user and readable by its owner only (`0600`). It holds every post and page, in every language and every status, and the media they use. It leaves out the settings, menus, slides, redirects, accounts and stats, and files nothing uses; a full backup has all of those. [A Markdown copy of your writing](/tome-cms/running/backups/#a-markdown-copy-of-your-writing) shows what is inside.
 
-It refuses with exit code 1, and writes nothing, when the site runs TomeCMS before 1.13.0 (`This site runs TomeCMS 1.12.4. Export and import need 1.13.0 or newer: sudo tome update`) and when the site is in maintenance or the updater is busy (`The site is in maintenance, or the updater is busy. Try again when it is done.`). A post that uses a file that is gone from storage stops it, with `A media file the content uses (…) is missing from storage, so nothing was exported.` A failed export leaves no archive behind.
+It refuses with exit code 1, and writes nothing, when the site runs TomeCMS before 1.13.0 (`This site runs TomeCMS 1.12.4. Export and import need 1.13.0 or newer: sudo tome update`) when the site is in maintenance or the updater is busy (`The site is in maintenance, or the updater is busy. Try again when it is done.`), and when less than 5 GiB is free where backups go (`Not enough free disk space where backups go (/var/backups/tome-cms) for the export: it needs 5.0 GiB, so nothing was exported; sudo tome prune shows old images that can go.`). The archive is written there twice over, as a work directory and then packed. A post that uses a file that is gone from storage stops it, with `A media file the content uses (…) is missing from storage, so nothing was exported.` A failed export leaves no archive behind.
 
 ## tome import
 
@@ -335,6 +335,7 @@ The archive or directory has to be directly in `/var/backups/tome-cms`. `tome` r
 | `notes.txt does not fit the archive's layout: manifest.json, media/, and posts/ or pages/ in th/ or en/.` | A file has no place in the layout. |
 | `This site runs TomeCMS 1.12.4. Export and import need 1.13.0 or newer: sudo tome update` | The application has to carry the import. |
 | `The site is in maintenance, or the updater is busy. Try again when it is done.` | Nothing is imported while the site is in maintenance or another job runs. |
+| `Not enough free disk space where backups go (/var/backups/tome-cms) for the import: it needs 5.0 GiB, so nothing was imported; sudo tome prune shows old images that can go.` | An import needs 5 GiB free where backups go, or twice the archive's size when that is more, because the archive is unpacked there. |
 
 A refusal about a file is followed by `Nothing was imported.` Other file problems have their own sentence, such as `media/x.exe is not a picture or a document the File Manager accepts.`
 
@@ -400,7 +401,7 @@ src/plugins/nimbus/index.ts:1: declares publicPage, but exports none of siteNoti
 
 ## When the disk is full
 
-A full disk is where `tome` helps most. When there is less than 5 GiB free where backups go, an update, a backup or a restore refuses with `Not enough free disk space where backups go`, and `tome status` shows the warning.
+A full disk is where `tome` helps most. When there is less than 5 GiB free where backups go, an update, a backup, a restore, an export or an import refuses with `Not enough free disk space where backups go`, and `tome status` shows the warning.
 
 1. See how much is free, and which old images can go:
 

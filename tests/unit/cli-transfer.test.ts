@@ -178,6 +178,40 @@ test('export and import refuse an app older than 1.13.0, and a site in maintenan
   assert.deepEqual((await readdir(site.root)).sort(), ['markdown-20261001T100000000Z.tar.gz']);
 });
 
+test('export and import refuse when the disk where backups go is short, before anything runs', async (t) => {
+  const site = await server(t);
+  const path = await archive(site, { 'manifest.json': '{}' });
+  const size = (await stat(path)).size;
+  const free = (bytes: number) => ({ statfs: async () => ({ bsize: 1, bavail: bytes }) });
+  const short = (step: string, needs: string) =>
+    `Not enough free disk space where backups go (${site.root}) for the ${step}: it needs ${needs}, so nothing was ${step}ed; sudo tome prune shows old images that can go.`;
+
+  const exporting = transferContext(site, { overrides: free(5 * 1024 ** 3 - 1) });
+  assert.equal(await run(exporting, ['export']), 1);
+  assert.equal(exporting.err(), short('export', '5.0 GiB'));
+  assert.deepEqual(exporting.commands, []);
+
+  // An archive is unpacked next to itself, so an import needs twice its size when that is more.
+  const config = { minimumFreeBytes: 10 };
+  const importing = (bytes: number) => {
+    const f = transferContext(site, { overrides: free(bytes) });
+    f.context.config = { ...f.context.config, ...config };
+    return f;
+  };
+  const tight = importing(2 * size - 1);
+  assert.equal(await run(tight, ['import', path, '--dry-run']), 1);
+  assert.equal(tight.err(), short('import', `${2 * size} B`));
+  assert.deepEqual(tight.commands, []);
+  const enough = importing(2 * size);
+  assert.equal(await run(enough, ['import', path, '--dry-run']), 0, enough.err());
+
+  const directory = join(site.root, 'hand-written');
+  await mkdir(directory);
+  const low = transferContext(site, { overrides: free(1024) });
+  assert.equal(await run(low, ['import', directory, '--dry-run']), 1);
+  assert.equal(low.err(), short('import', '5.0 GiB'));
+});
+
 // --- import -------------------------------------------------------------------------------------
 
 test('import unpacks the archive into a work directory, hands it over, prints the plan and asks', async (t) => {

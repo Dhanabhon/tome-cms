@@ -4,8 +4,8 @@ import { compareStableVersions } from '../update/contracts.js';
 import { composePrefix } from '../updater/config.js';
 import { parseManagedDiagnosticSecrets } from '../updater/process.js';
 import type { CliContext } from './main.js';
-import { explainContentRefusal, printable, redactionProblem, redactLine, TRANSFER_BUSY } from './output.js';
-import { ownerOfBackupRoot } from './ownership.js';
+import { explainContentRefusal, formatBytes, printable, redactionProblem, redactLine, TRANSFER_BUSY } from './output.js';
+import { isBackupRootLow, ownerOfBackupRoot } from './ownership.js';
 import { isRestoreKeptInMaintenance, isUpdateRunning, readBusy, readRestore, readStatus } from './socket.js';
 
 // The first app whose image carries the export and import steps.
@@ -37,6 +37,16 @@ export async function transferRefusal(context: CliContext): Promise<string | nul
     return TRANSFER_BUSY;
   }
   return null;
+}
+
+/**
+ * Why the disk where backups go is too short for this step, or null. Everything a step writes lands
+ * there: an export twice (its directory, then the archive), an import's unpacked archive once.
+ */
+export async function spaceRefusal(context: CliContext, step: 'export' | 'import', needed = context.config.minimumFreeBytes): Promise<string | null> {
+  if (!await isBackupRootLow(context, needed)) return null;
+  return `Not enough free disk space where backups go (${context.config.backupDirectory}) for the ${step}: it needs ${formatBytes(needed)}, ` +
+    `so nothing was ${step}ed; sudo tome prune shows old images that can go.`;
 }
 
 /**
