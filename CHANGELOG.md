@@ -2,6 +2,30 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.14.0 - 2026-10-04
+
+A design release: the three themes and the admin, reviewed screen by screen and set right.
+
+### Changed
+
+- Paper is on warm paper with thin rules and Google Sans throughout; a post without a cover shows its category; slide words sit under the picture on phones and tablets.
+- Almanac shows a post without a cover as a band in its category's colour; choosing a category hides the hero; with no hero headline the heading is the site's tagline.
+- Plain is set in Google Sans; its category row scrolls on a phone; empty and failed feeds say so; "More posts" pages forward.
+- In every theme a missing page wears the theme, inline code has no backticks, and controls answer a press without sticky hovers on phones.
+- The admin keeps to its design guide: one main action per screen, selection shown by text colour, no side bars on notes, shadows on drop-down menus, steady forms, and a simpler Stats.
+
+### Fixed
+
+- The lightbox opens at its picture's shape straight away, instead of an empty frame while a large picture loads.
+
+### Added
+
+- `preloadFonts` in a theme's manifest, checked by `tome check`; TomeCMS no longer preloads fonts of its own on theme pages.
+
+### Removed
+
+- The `.notice-title` class and the `--ease-spring` token.
+
 ## 1.13.0 - 2026-10-03
 
 Put a backup back into the site, move to a new server, and keep a Markdown copy of your writing, with updater 1.6.0.
