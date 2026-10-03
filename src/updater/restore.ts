@@ -61,7 +61,7 @@ async function restoreBackup(input: RestoreInput): Promise<RestoreJob> {
   let manifest: BackupManifest;
   try {
     run = await prepare(input, job.id);
-    await localPreflight(run.config, run.installed, run.dependencies, run.diagnostics);
+    await localPreflight(run.config, run.installed, run.dependencies, run.diagnostics, { appMayBeStopped: true });
     manifest = await verify(run, job.backupDirectory);
   } catch (error) {
     return state.transitionRestore(job.id, 'failed', { errorCode: error instanceof RestoreRefusal ? error.code : 'preflight_failed' });

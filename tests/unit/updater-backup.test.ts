@@ -294,6 +294,16 @@ test('a backup that fails its checks stops nothing and starts nothing', async (t
   assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
 });
 
+test('a backup refuses a stopped app, as before: only a restore goes ahead without one', async (t) => {
+  const f = await fixture(t);
+  f.appDown();
+  assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody())).status, 202);
+  const record = await follow(f.socketPath, f.config.statusPath);
+  assert.equal(record.errorCode, 'preflight_failed');
+  assert.deepEqual(f.events, []);
+  assert.equal(f.isAppRunning(), false);
+});
+
 test('an app before 1.3.0 cannot back up its database alone, so it backs up everything', async (t) => {
   const f = await fixture(t, '1.2.0');
   assert.equal((await unixRequest(f.socketPath, 'POST', '/v1/backup', backupBody('database'))).status, 202);

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
+import { clearFailedJob } from '../../scripts/updater-clear-failed-job.js';
 import { OFFICIAL_IMAGE_REPOSITORY } from '../../src/update/contracts.js';
 import { isUpdateWriteBlocked } from '../../src/server/update/maintenance.js';
 import { parseUpdaterStatus } from '../../src/server/update/updater-client.js';
@@ -79,6 +80,9 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
   const failing = new Map<string, number>();
   let afterRestore: unknown = { ok: true, ...report };
   let appRunning = true;
+  // The app containers `compose ps --all` lists: the app's own, none, or one too many.
+  let containers: 'one' | 'none' | 'two' = 'one';
+  let runningDigest = installed.imageDigest;
   let ready = true;
   let gate: Promise<void> = Promise.resolve();
   const events: string[] = [];
@@ -92,7 +96,12 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
       if (args[0] === 'ps') return { code: 0, stdout: '', stderr: '' };
       if (args[0] === 'rm') { events.push(`rm:${args.at(-1)}`); return { code: 0, stdout: '', stderr: '' }; }
       if (args[0] === 'inspect') {
-        return { code: 0, stdout: JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}` }, State: { Running: appRunning } }]), stderr: '' };
+        const state = { Running: appRunning, Status: appRunning ? 'running' : 'exited' };
+        return { code: 0, stdout: JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: state }]), stderr: '' };
+      }
+      if (args.includes('ps') && args.includes('--all')) {
+        const ids = { none: [], one: ['c'.repeat(64)], two: ['c'.repeat(64), 'd'.repeat(64)] }[containers];
+        return { code: 0, stdout: ids.map((id) => `${id}\n`).join(''), stderr: '' };
       }
       if (args.includes('ps')) return { code: 0, stdout: appRunning ? `${'c'.repeat(64)}\n` : '', stderr: '' };
       const event = args.includes('content') ? args[args.lastIndexOf('--') + 1]!
@@ -150,6 +159,8 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
     afterRestore: (value: unknown) => { afterRestore = value; },
     unready: () => { ready = false; },
     appDown: () => { appRunning = false; },
+    containers: (value: 'one' | 'none' | 'two') => { containers = value; },
+    running: (value: string) => { runningDigest = value; },
     isAppRunning: () => appRunning,
     diskFree: (value: number) => { freeBytes = value; },
     hold: () => { let release!: () => void; gate = new Promise((resolve) => { release = resolve; }); return release; },
@@ -297,12 +308,56 @@ test('a site older than 1.13.0 is refused with app_too_old: its image has no res
   assert.deepEqual(f.events, []);
 });
 
-test('a restore whose checks before the safety backup fail stops nothing, with preflight_failed', async (t) => {
+const preflightRefusals: Array<[string, (f: Fixture) => Promise<void> | void]> = [
+  ['an app running another image', (f) => f.running(digest('d'))],
+  ['two app containers', (f) => f.containers('two')],
+  ['a stopped app whose configured image is not the installed one', async (f) => {
+    f.appDown();
+    await writeFile(f.config.imageEnvironmentFile, imageEnv(digest('b')));
+  }],
+];
+
+for (const [label, arrange] of preflightRefusals) {
+  test(`a restore with ${label} stops nothing, with preflight_failed`, async (t) => {
+    const f = await fixture(t);
+    await arrange(f);
+    const record = await restoreThrough(f);
+    assert.equal(record.errorCode, 'preflight_failed');
+    assert.deepEqual(f.events, []);
+  });
+}
+
+for (const containers of ['one', 'none'] as const) {
+  test(`a restore into a stopped app (${containers === 'one' ? 'one exited container' : 'no container'}) goes ahead and starts it at the end`, async (t) => {
+    const f = await fixture(t);
+    f.appDown();
+    f.containers(containers);
+    const record = await restoreThrough(f);
+    assert.equal(record.phase, 'succeeded');
+    assert.deepEqual(f.events.slice(-3), ['stop', 'up', 'health']);
+    assert.equal(f.isAppRunning(), true);
+  });
+}
+
+test('after rollback_failed and updater:clear-failed, the safety backup is restored into the stopped app, which runs again', async (t) => {
   const f = await fixture(t);
-  f.appDown();
-  const record = await restoreThrough(f);
-  assert.equal(record.errorCode, 'preflight_failed');
-  assert.deepEqual(f.events, []);
+  f.fail('restore-objects');
+  t.mock.method(console, 'error', () => undefined);
+  assert.equal((await restoreThrough(f)).errorCode, 'rollback_failed');
+  assert.equal(f.isAppRunning(), false);
+
+  const message = await clearFailedJob(f.state);
+  assert.match(message, new RegExp(`Next: sudo tome restore ${f.safetyDirectory},`));
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
+  f.fail('restore-objects', 0);
+  f.events.length = 0;
+  const record = await restoreThrough(f, restoreBody(f, f.safetyDirectory));
+  assert.equal(record.phase, 'succeeded');
+  assert.deepEqual(f.events.filter((event) => !event.startsWith('rm:')), [
+    'drain', 'stop', 'backup', 'restore-database', 'restore-objects', 'after-restore', 'stop', 'up', 'health',
+  ]);
+  assert.equal(f.isAppRunning(), true);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
 });
 
 test('a failed restore step puts the safety backup back, starts the app and ends failed with restore_failed', async (t) => {
