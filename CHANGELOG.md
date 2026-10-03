@@ -2,6 +2,16 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.12.0 - 2026-10-03
+
+`tome` gains three commands for building themes and plugins in a source checkout.
+
+### Added
+
+- `npm run tome -- theme new <id> [--from plain|paper|almanac]` copies a working theme under a new id and registers it.
+- `npm run tome -- plugin new <id> --hook publicPage|signIn|editorSuggestions [--client]` writes a plugin that does nothing until written, and registers it, switched off.
+- `npm run tome -- check` checks every theme and plugin against seven rules and prints each problem as `path:line: what is wrong`. `npm run check` runs it.
+
 ## 1.11.1 - 2026-10-03
 
 Almanac's header and footer follow the owner's reference more closely.
