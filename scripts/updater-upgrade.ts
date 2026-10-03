@@ -8,6 +8,7 @@
 // keeps the previous updater beside the new one, and puts it back if the new one does not answer. It
 // brings `tome` too: the CLI is built with the updater, and its shim goes on the PATH.
 import { spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { chmod, cp, lstat, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -288,7 +289,8 @@ export async function swapUpdater(paths: SwapPaths, stamp: string, ops: SwapOper
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// Node runs a module by its real path, so a link to the script still counts as starting it.
+if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

@@ -80,9 +80,15 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
   const failing = new Map<string, number>();
   let afterRestore: unknown = { ok: true, ...report };
   let appRunning = true;
-  // The app containers `compose ps --all` lists: the app's own, none, or one too many.
-  let containers: 'one' | 'none' | 'two' = 'one';
+  // The app's own container (which may have been removed), and any other container of the app
+  // service: a second one, or a one-off that `compose run` left behind.
+  let appExists = true;
+  let extra: Array<{ id: string; running: boolean; oneoff: boolean }> = [];
   let runningDigest = installed.imageDigest;
+  const containers = () => [
+    ...appExists ? [{ id: 'c'.repeat(64), running: appRunning, oneoff: false, image: runningDigest }] : [],
+    ...extra.map((container) => ({ ...container, image: installed.imageDigest })),
+  ];
   let ready = true;
   let gate: Promise<void> = Promise.resolve();
   const events: string[] = [];
@@ -96,14 +102,19 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
       if (args[0] === 'ps') return { code: 0, stdout: '', stderr: '' };
       if (args[0] === 'rm') { events.push(`rm:${args.at(-1)}`); return { code: 0, stdout: '', stderr: '' }; }
       if (args[0] === 'inspect') {
-        const state = { Running: appRunning, Status: appRunning ? 'running' : 'exited' };
-        return { code: 0, stdout: JSON.stringify([{ Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${runningDigest}` }, State: state }]), stderr: '' };
+        const inspected = args.slice(3).map((id) => containers().find((container) => container.id === id)!).map((container) => ({
+          Config: { Image: `${OFFICIAL_IMAGE_REPOSITORY}@${container.image}`, Labels: container.oneoff ? { 'com.docker.compose.oneoff': 'True' } : {} },
+          State: { Running: container.running, Status: container.running ? 'running' : 'exited' },
+        }));
+        return { code: 0, stdout: JSON.stringify(inspected), stderr: '' };
       }
+      // Compose lists one-offs only with --all, and only running containers without it.
       if (args.includes('ps') && args.includes('--all')) {
-        const ids = { none: [], one: ['c'.repeat(64)], two: ['c'.repeat(64), 'd'.repeat(64)] }[containers];
-        return { code: 0, stdout: ids.map((id) => `${id}\n`).join(''), stderr: '' };
+        return { code: 0, stdout: containers().map(({ id }) => `${id}\n`).join(''), stderr: '' };
       }
-      if (args.includes('ps')) return { code: 0, stdout: appRunning ? `${'c'.repeat(64)}\n` : '', stderr: '' };
+      if (args.includes('ps')) {
+        return { code: 0, stdout: containers().filter((container) => container.running && !container.oneoff).map(({ id }) => `${id}\n`).join(''), stderr: '' };
+      }
       const event = args.includes('content') ? args[args.lastIndexOf('--') + 1]!
         : args.includes('db:migrate') ? 'migrate' : args.includes('stop') ? 'stop' : args.includes('up') ? 'up'
           : args.includes('backup') ? 'backup' : '';
@@ -116,7 +127,7 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
         return { code: 1, stdout: '{"ok":false,"code":"injected"}\n', stderr: 'private failure' };
       }
       if (event === 'stop') appRunning = false;
-      if (event === 'up') appRunning = true;
+      if (event === 'up') { appRunning = true; appExists = true; }
       const stdout = event === 'backup' ? safetyReceipt
         : event === 'restore-database' ? '{"ok":true}\n'
           : event === 'restore-objects' ? '{"ok":true,"uploaded":1,"deleted":2,"foreign":1}\n'
@@ -159,7 +170,8 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
     afterRestore: (value: unknown) => { afterRestore = value; },
     unready: () => { ready = false; },
     appDown: () => { appRunning = false; },
-    containers: (value: 'one' | 'none' | 'two') => { containers = value; },
+    noAppContainer: () => { appExists = false; appRunning = false; },
+    extraContainer: (container: { running: boolean; oneoff: boolean }) => { extra = [...extra, { id: `${extra.length + 1}`.repeat(64).slice(0, 64), ...container }]; },
     running: (value: string) => { runningDigest = value; },
     isAppRunning: () => appRunning,
     diskFree: (value: number) => { freeBytes = value; },
@@ -227,6 +239,7 @@ test('a restore verifies, takes a safety backup, puts the backup back, migrates,
   assert.deepEqual({ ...record, startedAt: typeof record.startedAt, finishedAt: typeof record.finishedAt }, {
     id: body.requestId, phase: 'succeeded', startedAt: 'string', finishedAt: 'string',
     backupDirectory: f.backupDirectory, safetyBackupDirectory: f.safetyDirectory, migrated: true, errorCode: null, report,
+    maintenanceKept: false,
   });
   assert.deepEqual(f.events, [
     'drain', 'stop', 'backup', 'restore-database', 'restore-objects', 'migrate', 'after-restore', 'stop', 'up', 'health',
@@ -310,7 +323,8 @@ test('a site older than 1.13.0 is refused with app_too_old: its image has no res
 
 const preflightRefusals: Array<[string, (f: Fixture) => Promise<void> | void]> = [
   ['an app running another image', (f) => f.running(digest('d'))],
-  ['two app containers', (f) => f.containers('two')],
+  ['two stopped app containers', (f) => { f.appDown(); f.extraContainer({ running: false, oneoff: false }); }],
+  ['a one-off still running beside a stopped app', (f) => { f.appDown(); f.extraContainer({ running: true, oneoff: true }); }],
   ['a stopped app whose configured image is not the installed one', async (f) => {
     f.appDown();
     await writeFile(f.config.imageEnvironmentFile, imageEnv(digest('b')));
@@ -327,17 +341,64 @@ for (const [label, arrange] of preflightRefusals) {
   });
 }
 
-for (const containers of ['one', 'none'] as const) {
-  test(`a restore into a stopped app (${containers === 'one' ? 'one exited container' : 'no container'}) goes ahead and starts it at the end`, async (t) => {
+const stoppedApps: Array<[string, (f: Fixture) => void]> = [
+  ['one exited container', (f) => f.appDown()],
+  ['no container', (f) => f.noAppContainer()],
+  ['an exited one-off left beside it', (f) => { f.appDown(); f.extraContainer({ running: false, oneoff: true }); }],
+];
+
+for (const [label, arrange] of stoppedApps) {
+  test(`a restore into a stopped app (${label}) goes ahead and starts it at the end`, async (t) => {
     const f = await fixture(t);
-    f.appDown();
-    f.containers(containers);
+    arrange(f);
     const record = await restoreThrough(f);
     assert.equal(record.phase, 'succeeded');
     assert.deepEqual(f.events.slice(-3), ['stop', 'up', 'health']);
     assert.equal(f.isAppRunning(), true);
   });
 }
+
+test('a restore that found the app stopped and cannot take its safety backup leaves it stopped, in maintenance', async (t) => {
+  const f = await fixture(t);
+  f.appDown();
+  f.fail('backup');
+  t.mock.method(console, 'error', () => undefined);
+  const record = await restoreThrough(f);
+  assert.equal(record.errorCode, 'safety_backup_failed');
+  assert.equal(record.maintenanceKept, true);
+  assert.equal(f.events.includes('up'), false);
+  assert.equal(f.isAppRunning(), false);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true);
+  // It holds the other jobs up as a failed rollback does, and clear-failed sets it aside the same way.
+  assert.deepEqual(await unixRequest(f.socketPath, 'POST', '/v1/backup', { requestId: randomUUID(), kind: 'full' }),
+    { status: 409, json: { error: 'manual_recovery_required' } });
+  const message = (await clearFailedJob(f.state)).split('\n');
+  assert.equal(message.at(-1), `Next: sudo tome restore ${f.backupDirectory}, to run the restore again.`);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
+});
+
+test('a restore that found the app stopped puts its safety backup back on a failure, and leaves the app stopped, in maintenance', async (t) => {
+  const f = await fixture(t);
+  f.appDown();
+  f.fail('restore-objects', 1);
+  t.mock.method(console, 'error', () => undefined);
+  const record = await restoreThrough(f);
+  assert.equal(record.errorCode, 'restore_failed');
+  assert.equal(record.maintenanceKept, true);
+  assert.deepEqual(only(f.events, restoreSteps), ['restore-database', 'restore-objects', 'restore-database', 'restore-objects', 'after-restore']);
+  assert.equal(f.events.includes('up'), false);
+  assert.equal(f.isAppRunning(), false);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), true);
+});
+
+test('a restore that found the app running and fails ends with the site out of maintenance, as before', async (t) => {
+  const f = await fixture(t);
+  f.fail('restore-objects', 1);
+  t.mock.method(console, 'error', () => undefined);
+  const record = await restoreThrough(f);
+  assert.equal(record.maintenanceKept, false);
+  assert.equal(f.isAppRunning(), true);
+});
 
 test('after rollback_failed and updater:clear-failed, the safety backup is restored into the stopped app, which runs again', async (t) => {
   const f = await fixture(t);

@@ -91,6 +91,11 @@ export interface RestoreJob {
   migrated: boolean;
   errorCode: string | null;
   report: RestoreReport | null;
+  /**
+   * Set on a restore that ended with the app stopped and the site kept in maintenance: its safety
+   * backup could not be put back, or it found the app stopped and so never started it on a failure.
+   */
+  maintenanceKept: boolean;
 }
 
 export type PublicUpdateJob = Pick<UpdateJob,
@@ -125,14 +130,14 @@ export interface UpdaterStateStore {
   /** Starts a restore in `verifying`. The site stays up while the backup is checked, so no marker yet. */
   createRestore(input: Pick<RestoreJob, 'id' | 'backupDirectory'>): Promise<RestoreJob>;
   transitionRestore(id: string, phase: RestorePhase, patch?: Partial<Pick<RestoreJob,
-    'safetyBackupDirectory' | 'migrated' | 'errorCode' | 'report'
+    'safetyBackupDirectory' | 'migrated' | 'errorCode' | 'report' | 'maintenanceKept'
   >>): Promise<RestoreJob>;
   /**
-   * Operator-only: sets aside a restore that ended `rollback_failed`, which otherwise keeps the site
-   * in maintenance and refuses every job. It touches no database, bucket or app: the operator then
-   * restores the safety backup, or the backup again.
+   * Operator-only: sets aside a failed restore that kept the site in maintenance, which otherwise
+   * refuses every job. It touches no database, bucket or app: the operator then restores the safety
+   * backup, or the backup again.
    */
-  clearRollbackFailure(): Promise<{ restore: RestoreJob; keptAs: string }>;
+  clearFailedRestore(): Promise<{ restore: RestoreJob; keptAs: string }>;
 }
 
 const phases: readonly UpdatePhase[] = [
@@ -207,8 +212,9 @@ const backupTransitions: Record<BackupPhase, readonly BackupPhase[]> = {
 };
 const restoreKeys = [
   'id', 'phase', 'startedAt', 'finishedAt', 'backupDirectory', 'safetyBackupDirectory', 'migrated', 'errorCode', 'report',
+  'maintenanceKept',
 ] as const;
-const restorePatchKeys = ['safetyBackupDirectory', 'migrated', 'errorCode', 'report'];
+const restorePatchKeys = ['safetyBackupDirectory', 'migrated', 'errorCode', 'report', 'maintenanceKept'];
 const restoreTerminal = new Set<RestorePhase>(['succeeded', 'failed']);
 // A check that fails while verifying stops nothing. Up to the safety backup nothing is replaced, so
 // a failure there ends the restore once the app has been started again; from `restoring` on, every
@@ -299,7 +305,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
     if (backup && !backupTerminal.has(backup.phase)) throw new Error('A backup job is already active');
     const restore = await readRestore();
     // Nothing may run on a database a failed restore left in a state no one knows.
-    if (restore?.phase === 'failed' && restore.errorCode === 'rollback_failed') throw new Error('Manual recovery is required');
+    if (restore?.phase === 'failed' && restore.maintenanceKept) throw new Error('Manual recovery is required');
     if (restore && !restoreTerminal.has(restore.phase)) throw new Error('A restore job is already active');
   };
 
@@ -457,6 +463,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         const restore = parseRestore({
           id: input.id, phase: 'verifying', startedAt: new Date().toISOString(), finishedAt: null,
           backupDirectory: input.backupDirectory, safetyBackupDirectory: null, migrated: false, errorCode: null, report: null,
+          maintenanceKept: false,
         });
         await atomicJson(restorePath, restore, 0o600);
         return restore;
@@ -483,12 +490,12 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
         return restore;
       });
     },
-    clearRollbackFailure() {
+    clearFailedRestore() {
       return exclusive(async () => {
         const restore = await readRestore();
         if (!restore) throw new Error('There is no restore to clear.');
-        if (restore.phase !== 'failed' || restore.errorCode !== 'rollback_failed') {
-          throw new Error('Only a restore whose safety backup could not be put back can be cleared.');
+        if (restore.phase !== 'failed' || !restore.maintenanceKept) {
+          throw new Error('Only a restore that kept the site in maintenance can be cleared.');
         }
         // A rename keeps the record's mode, beside the original, named by when it ended.
         const keptAs = join(config.stateDirectory, `restore-job.${restore.finishedAt!.replace(/[-:.]/g, '')}.json`);
@@ -514,11 +521,11 @@ function maintenanceMarker(source: { id: string; startedAt: string }, phase: Upd
 
 /**
  * The marker a restore holds up, or null for none. Verifying stops nothing, so it has none. A
- * restore whose safety backup could not be put back keeps one after it has ended: the database is
- * in a state no one knows, and nothing may write to it.
+ * failed restore that kept the site in maintenance keeps one after it has ended: the database is in
+ * a state no one knows, and nothing may write to it.
  */
 function restoreMarkerPhase(restore: RestoreJob): UpdatePhase | null {
-  if (restore.phase === 'failed' && restore.errorCode === 'rollback_failed') return 'migrating';
+  if (restore.phase === 'failed' && restore.maintenanceKept) return 'migrating';
   return restoreMarkerPhases[restore.phase] ?? null;
 }
 
@@ -530,6 +537,7 @@ function parseRestore(value: unknown): RestoreJob {
     !(typeof value.backupDirectory === 'string' && isAbsolute(value.backupDirectory)) ||
     !(value.safetyBackupDirectory === null || (typeof value.safetyBackupDirectory === 'string' && isAbsolute(value.safetyBackupDirectory))) ||
     typeof value.migrated !== 'boolean' ||
+    typeof value.maintenanceKept !== 'boolean' || (value.maintenanceKept && value.phase !== 'failed') ||
     !(value.errorCode === null || (typeof value.errorCode === 'string' && /^[a-z][a-z0-9_]*$/.test(value.errorCode)))) {
     throw new Error('Invalid restore job state');
   }

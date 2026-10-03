@@ -47,9 +47,10 @@ test('an upgrade does not go backwards', () => {
   assert.equal(upgradeRefusal({ ...ready, running: UPDATER_VERSION }), null, 'the same version again repairs a damaged install');
 });
 
-import { access, mkdir, mkdtemp, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { swapUpdater, type SwapOperations } from '../../scripts/updater-upgrade';
 import { TOME_SHIM, TOME_SHIM_MARKER, UPDATER_INSTALL_DIRECTORY } from '../../src/cli/shim';
@@ -188,5 +189,18 @@ test('a tome is TomeCMS\'s by its marker line, so any of its shims is replaced, 
     const s = await server({ shim: foreign });
     await assert.rejects(swapUpdater(s.paths, 'STAMP', s.operations), /not TomeCMS's tome command/);
     assert.equal(await s.read(s.paths.shim), foreign);
+  }
+});
+
+test('both maintenance scripts run when started through a link to them', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'tomecms-script-link-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const script of ['updater-upgrade.ts', 'updater-clear-failed-job.ts']) {
+    const link = join(root, script);
+    await symlink(resolve('scripts', script), link);
+    // A configuration that is not there: a script that ran says so and exits 1; one that did not run exits 0.
+    const result = spawnSync(process.execPath, ['--import', 'tsx', link, join(root, 'missing.json')], { encoding: 'utf8' });
+    assert.equal(result.status, 1, script);
+    assert.notEqual(result.stderr.trim(), '', script);
   }
 });

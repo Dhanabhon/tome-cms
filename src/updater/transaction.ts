@@ -487,6 +487,7 @@ export function updaterIdentity(): string {
  * The checks before any job stops anything: the managed files, the configured image, and the
  * running app on the installed image. A restore alone may also find the app stopped, as a restore
  * whose safety backup could not be put back leaves it, so the safety backup can still be restored.
+ * Resolves true when it found the app stopped.
  */
 export async function localPreflight(
   config: UpdaterConfig,
@@ -494,7 +495,7 @@ export async function localPreflight(
   dependencies: UpdateDependencies,
   diagnostics: CommandDiagnosticContext,
   options: { appMayBeStopped?: boolean } = {},
-): Promise<void> {
+): Promise<boolean> {
   for (const [path, directory] of [
     [config.composeFile, false], [config.environmentFile, false], [config.imageEnvironmentFile, false],
     [config.stateDirectory, true], [config.backupDirectory, true],
@@ -508,13 +509,19 @@ export async function localPreflight(
   if (await readFile(config.imageEnvironmentFile, 'utf8') !== imageEnvironment(installed.imageDigest)) {
     throw new Error('Installed and configured image disagree');
   }
-  if (options.appMayBeStopped && await appStopped(config, dependencies, diagnostics)) return;
+  if (options.appMayBeStopped && await appStopped(config, dependencies, diagnostics)) return true;
   if (await inspectRunningApp(config, dependencies, diagnostics, 'preflight') !== `${OFFICIAL_IMAGE_REPOSITORY}@${installed.imageDigest}`) {
     throw new Error('Running application image does not match installed image');
   }
+  return false;
 }
 
-/** True when the app is not running: no container at all, or its one container has exited. */
+/**
+ * True when the app is not running: every container of the app service has exited, and at most one
+ * is the app's own. `ps --all` also lists the one-offs `compose run` leaves behind, which an exited
+ * one does not count. Any container that has not exited (running, paused, restarting) sends the app
+ * through the running-app check, which refuses a one-shot still running beside a stopped app.
+ */
 async function appStopped(
   config: UpdaterConfig,
   dependencies: UpdateDependencies,
@@ -524,11 +531,15 @@ async function appStopped(
   const ids = (await command('preflight.app.list', [...composePrefix(config), 'ps', '--all', '--quiet', 'app'], 30_000))
     .trim().split(/\s+/).filter(Boolean);
   if (ids.length === 0) return true;
-  if (ids.length !== 1 || !/^[0-9a-f]{64}$/.test(ids[0]!)) throw new Error('Expected at most one valid application container');
-  const inspection: unknown = JSON.parse(await command('preflight.app.inspect', ['inspect', '--type', 'container', ids[0]!], 30_000));
-  const state = Array.isArray(inspection) && inspection.length === 1 ? (inspection[0] as { State?: { Running?: unknown; Status?: unknown } }).State : undefined;
-  // Anything but a plain exited container (running, paused, restarting) goes through the running-app check.
-  return state?.Running === false && state.Status === 'exited';
+  if (ids.length > 64 || ids.some((id) => !/^[0-9a-f]{64}$/.test(id))) throw new Error('Invalid application container listing');
+  type Inspected = { State?: { Running?: unknown; Status?: unknown }; Config?: { Labels?: Record<string, unknown> | null } };
+  const inspection: unknown = JSON.parse(await command('preflight.app.inspect', ['inspect', '--type', 'container', ...ids], 30_000));
+  if (!Array.isArray(inspection) || inspection.length !== ids.length) throw new Error('Application container inspection is incomplete');
+  const containers = inspection as Inspected[];
+  if (!containers.every((container) => container?.State?.Running === false && container.State.Status === 'exited')) return false;
+  const own = containers.filter((container) => container.Config?.Labels?.['com.docker.compose.oneoff'] !== 'True');
+  if (own.length > 1) throw new Error('Expected at most one application container');
+  return true;
 }
 
 async function inspectRunningApp(

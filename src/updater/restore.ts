@@ -35,6 +35,11 @@ interface Run {
   diagnostics: CommandDiagnosticContext;
   identity: string;
   names: ReturnType<typeof oneShotNames>;
+  /**
+   * The preflight found the app stopped, as a failed restore leaves it, on a database no one knows
+   * the state of. Then no failure ever starts it: only a restore that succeeds does.
+   */
+  foundStopped: boolean;
 }
 
 /** A refusal while verifying, named by the code `tome` explains. Nothing has stopped. */
@@ -60,8 +65,8 @@ async function restoreBackup(input: RestoreInput): Promise<RestoreJob> {
   let run: Run;
   let manifest: BackupManifest;
   try {
-    run = await prepare(input, job.id);
-    await localPreflight(run.config, run.installed, run.dependencies, run.diagnostics, { appMayBeStopped: true });
+    const prepared = await prepare(input, job.id);
+    run = { ...prepared, foundStopped: await localPreflight(prepared.config, prepared.installed, prepared.dependencies, prepared.diagnostics, { appMayBeStopped: true }) };
     manifest = await verify(run, job.backupDirectory);
   } catch (error) {
     return state.transitionRestore(job.id, 'failed', { errorCode: error instanceof RestoreRefusal ? error.code : 'preflight_failed' });
@@ -77,9 +82,9 @@ async function restoreBackup(input: RestoreInput): Promise<RestoreJob> {
     await state.transitionRestore(job.id, 'restoring', { safetyBackupDirectory });
   } catch {
     // Nothing has been replaced. The app is started again whatever the start does, and ending the
-    // restore clears the marker.
-    await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'restart').catch(() => undefined);
-    return state.transitionRestore(job.id, 'failed', { errorCode: 'safety_backup_failed' });
+    // restore clears the marker; unless it was found stopped, when both stay as they were found.
+    if (!run.foundStopped) await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'restart').catch(() => undefined);
+    return state.transitionRestore(job.id, 'failed', { errorCode: 'safety_backup_failed', maintenanceKept: run.foundStopped });
   }
   try {
     await putBack(run, job.backupDirectory, manifest);
@@ -97,7 +102,7 @@ async function prepare(input: Omit<RestoreInput, 'restore'>, id: string): Promis
       jobId: id, targetVersion: installed.version,
       secrets: await readFile(input.config.environmentFile, 'utf8').then(parseManagedDiagnosticSecrets).catch(() => null),
     },
-    identity: updaterIdentity(), names: oneShotNames(input.config.projectName, id),
+    identity: updaterIdentity(), names: oneShotNames(input.config.projectName, id), foundStopped: false,
   };
 }
 
@@ -180,17 +185,19 @@ async function rollBack(run: Run, safetyBackupDirectory: string | null, errorCod
     await content(run, 'restore.rollback', names.restoreDatabase, 'restore-database', '--dump', `${work}/database.dump`);
     await content(run, 'restore.rollback', names.restoreObjects, 'restore-objects', '--backup', work);
     await content(run, 'restore.rollback', names.afterRestore, 'after-restore');
-    await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'rollback');
+    // An app found stopped is left stopped: what was put back is the database it was stopped on.
+    if (!run.foundStopped) await restoreInstalledApp(config, installed.imageDigest, dependencies, diagnostics, 'rollback');
   } catch {
     // Whatever stopped the rollback, the app does not serve a database in a state no one knows.
     await stopApp(config, dependencies, diagnostics, 'rollback.stop_app').catch(() => undefined);
-    return state.transitionRestore(id, 'failed', { errorCode: 'rollback_failed' });
+    return state.transitionRestore(id, 'failed', { errorCode: 'rollback_failed', maintenanceKept: true });
   }
-  return state.transitionRestore(id, 'failed', { errorCode });
+  return state.transitionRestore(id, 'failed', { errorCode, maintenanceKept: run.foundStopped });
 }
 
 /**
- * On boot, a restore the updater stopped in the middle of. Cut off while verifying, nothing had
+ * On boot, a restore the updater stopped in the middle of. Whether that restore found the app
+ * stopped is not recorded, so a boot starts the app as for one that found it running. Cut off while verifying, nothing had
  * stopped. Cut off before its first restore step, nothing had been replaced, so the app is started
  * again. Later, the safety backup is put back. Either way it ends `interrupted`, and the marker goes,
  * unless the safety backup cannot be put back. Nothing here throws: a record that cannot be ended is
