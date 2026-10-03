@@ -4,13 +4,13 @@
 
 /* The admin's reset leaves a bare link looking like its text: these say they go somewhere. */
 .stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution) a { color: var(--color-link); }
-.stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution, .stats-articles tbody) a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-.stats-filters { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-xl); margin-block-end: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
-/* Period and language are two rows of tabs, drawn like every other tab in the admin; each row rules itself, so a wrapped row keeps its underline. */
-.stats-segments { display: inline-flex; flex-wrap: wrap; gap: var(--space-lg); }
-.stats-segments a { min-height: var(--control-height); margin-block-end: -1px; padding-inline: var(--space-3xs); border-block-end: 2px solid transparent; color: var(--color-muted); font-size: var(--text-sm); font-weight: 500; line-height: var(--control-height); text-decoration: none; }
-.stats-segments a:hover { color: var(--color-ink); }
+.stats-filters { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-xs) var(--space-xl); margin-block-end: 0; border-block-end: var(--rule-hair) solid var(--color-rule); }
+/* The period is the one row of tabs, drawn like every other tab in the admin; the language is the
+ * admin select at the row's end, as on Posts. Two tablists on one rule read as one choice. The
+ * labels are short (7d, 30d) so the row never wraps; the full name is the link's label. */
+.stats-segments { display: inline-flex; flex-wrap: nowrap; gap: var(--space-lg); }
+.stats-segments a { min-height: var(--control-height); margin-block-end: -1px; padding-inline: var(--space-3xs); border-block-end: 2px solid transparent; color: var(--color-muted); font-size: var(--text-sm); font-weight: 500; line-height: var(--control-height); text-decoration: none; white-space: nowrap; }
 .stats-segments a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .stats-segments a[aria-current='true'] { border-block-end-color: var(--color-accent); color: var(--color-ink); font-weight: 600; }
 
@@ -38,7 +38,7 @@
 /* A panel is a heading in the display face and what it heads, 40px from the next. No box. */
 .stats-panel { min-inline-size: 0; }
 .stats-page > .stats-panel + .stats-panel { margin-block-start: var(--space-xl); } /* margins collapse with .stats-shares' own margin-block */
-.stats-page .admin-empty { border-block-end: 0; } /* the filter row's rule sits below; two rules would stack */
+.stats-filters + .admin-empty { border-block-start: 0; } /* the filter row's rule sits above it; two rules would stack */
 .stats-panel h2 { margin: 0 0 var(--space-xs); font-family: var(--font-display); font-size: var(--text-md); font-weight: 700; letter-spacing: -0.015em; }
 
 .stats-legend {
@@ -46,7 +46,7 @@
   gap: var(--space-md);
   margin: 0 0 var(--space-xs);
   color: var(--color-muted);
-  font-size: 0.8125rem;
+  font-size: var(--text-xs);
 }
 
 .stats-legend span::before {
@@ -66,18 +66,21 @@
 
 .stats-chart { display: block; inline-size: 100%; block-size: 12rem; }
 .stats-chart__hit { fill: transparent; }
-.stats-chart__day:hover .stats-chart__views { fill: var(--color-ink-2); }
 
 .stats-chart__axis {
   display: flex;
   justify-content: space-between;
   margin: var(--space-2xs) 0 0;
   color: var(--color-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .stats-numbers { margin-block-start: var(--space-sm); }
-.stats-numbers summary { color: var(--color-link); cursor: pointer; font-size: 0.875rem; }
+.stats-numbers summary { display: inline-flex; gap: var(--space-2xs); align-items: center; color: var(--color-link); cursor: pointer; font-size: var(--text-sm); list-style: none; }
+/* The browser's own triangle is a glyph from another set; the chevron is the admin's, and turns. */
+.stats-numbers summary::-webkit-details-marker { display: none; }
+.stats-numbers summary .icon { width: 1rem; height: 1rem; transition: rotate var(--dur-short) var(--ease-out); }
+.stats-numbers[open] summary .icon { rotate: 180deg; }
 
 .stats-shares { display: grid; gap: var(--space-xl); margin-block: var(--space-xl); }
 .stats-share ol { display: grid; margin: 0; padding: 0; list-style: none; }
@@ -87,10 +90,10 @@
 .stats-share__label { overflow-wrap: anywhere; }
 .stats-share__value { color: var(--color-ink); font-variant-numeric: tabular-nums; }
 .stats-share__none { color: var(--color-muted); }
-.stats-attribution { margin: var(--space-sm) 0 0; color: var(--color-muted); font-size: 0.75rem; }
+.stats-attribution { margin: var(--space-sm) 0 0; color: var(--color-muted); font-size: var(--text-xs); }
 
 .stats-table-wrap { overflow-x: auto; }
-.stats-table { inline-size: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.stats-table { inline-size: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 
 .stats-table th, .stats-table td { padding: var(--space-sm) 0; border-block-end: var(--rule-hair) solid var(--color-rule); text-align: start; vertical-align: top; }
 .stats-table td { padding-block: var(--space-md); }
@@ -99,7 +102,7 @@
 :lang(th) .stats-table thead th { letter-spacing: 0; line-height: 1.5; }
 .stats-table th + th, .stats-table td + td { padding-inline-start: var(--space-md); }
 .stats-table .stats-table__number { font-variant-numeric: tabular-nums; text-align: end; }
-.stats-articles tbody th { min-inline-size: 10rem; font-family: var(--font-display); font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; text-transform: none; color: var(--color-ink); }
+.stats-articles tbody th { min-inline-size: 10rem; font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; text-transform: none; color: var(--color-ink); }
 .stats-table thead a { color: var(--color-muted); text-decoration: none; }
 .stats-table thead [aria-sort] a { color: var(--color-ink); }
 .stats-table thead a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
@@ -115,4 +118,14 @@
   .stats-summary > div:first-child { padding-inline-start: 0; }
   .stats-summary > div + div { border-block-start: 0; border-inline-start: var(--rule-hair) solid var(--color-rule); }
   .stats-shares { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stats-page :is(.stats-back, .stats-links, .stats-pages, .stats-attribution, .stats-articles tbody) a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .stats-segments a:hover { color: var(--color-ink); }
+  .stats-chart__day:hover .stats-chart__views { fill: var(--color-ink-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-numbers summary .icon { transition: none; }
 }

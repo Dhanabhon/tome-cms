@@ -37,17 +37,18 @@ export default function PageSettingsDrawer({
   copy, errorMessage, excerpt, locale, metaDescription, metaTitle, onChangeExcerpt,
   onChangeMetaDescription, onChangeMetaTitle, onChangePublishedAt, onChangeSlug, onSuggestDescription, onSuggestExcerpt, onClose, open, ownerLocale, publishedAt, slug,
 }: PageSettingsDrawerProps) {
-  const closeButton = useRef<HTMLButtonElement>(null);
+  // The first field, not the close button: the drawer is opened to change something.
+  const slugField = useRef<HTMLInputElement>(null);
   /* Built by the same function that builds the real link, so the two cannot drift. */
   const slugPrefix = pagePath({ locale, slug: '' });
 
-  const { cancel, close, dialog } = useDrawer({ focus: closeButton, onClose, open });
+  const { cancel, close, dialog } = useDrawer({ focus: slugField, onClose, open });
 
   return (
     <dialog aria-label={copy.drawer.pageSettings} className="admin-editor-settings" onCancel={cancel} ref={dialog}>
       <div className="admin-editor-settings__head">
         <div><h2>{copy.drawer.pageSettings}</h2><p>{copy.drawer.pageSettingsHint}</p></div>
-        <button autoFocus aria-label={copy.drawer.closeSettings} className="admin-button admin-button--ghost admin-button--icon" onClick={() => close()} ref={closeButton} title={copy.drawer.closeSettings} type="button"><Icon name="close" /></button>
+        <button aria-label={copy.drawer.closeSettings} className="admin-button admin-button--ghost admin-button--icon" onClick={() => close()} title={copy.drawer.closeSettings} type="button"><Icon name="close" /></button>
       </div>
       {errorMessage && <p className="admin-alert" role="alert">{errorMessage}</p>}
       <section className="drawer-group">
@@ -56,7 +57,7 @@ export default function PageSettingsDrawer({
           <span>{copy.drawer.slug}</span>
           <div className="admin-control admin-control--prefixed">
             <span>{slugPrefix}</span>
-            <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="about" type="text" value={slug} />
+            <input maxLength={160} onChange={(event) => onChangeSlug(event.target.value)} placeholder="about" ref={slugField} type="text" value={slug} />
           </div>
           <small>{copy.drawer.slugHintPage}</small>
         </label>

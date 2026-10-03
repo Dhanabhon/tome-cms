@@ -137,9 +137,10 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
                     </a>
                   </>
                 ) : (
+                  // Secondary: the card in use is the screen's answer, and the others are alternatives to it.
                   <button
                     aria-busy={busy === id}
-                    className="admin-button admin-button--primary"
+                    className="admin-button admin-button--secondary"
                     disabled={Boolean(busy)}
                     onClick={() => write({ themeId: id as ThemeId }, fill(copy.theme.activated, { name }), id)}
                     type="button"
@@ -151,13 +152,15 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
             </li>
           );
         })}
-        {/* Not a button. Nothing here can install a theme, and a dashed card with a plus in
-            it would say otherwise; this says where the next one actually comes from. */}
-        <li className="theme-card theme-card--source">
-          <strong className="theme-card__name">{copy.theme.sourceTitle}</strong>
-          <span className="theme-card__note">{copy.theme.sourceBody}</span>
-        </li>
       </ul>
+      {/* Not a button, and not a card. Nothing here can install a theme, and a dashed card with a
+          plus in it would say otherwise; this says where the next one actually comes from. */}
+      <div className="admin-notes">
+        <section className="admin-card admin-card--note" aria-labelledby="themes-source-heading">
+          <h2 id="themes-source-heading">{copy.theme.sourceTitle}</h2>
+          <p>{copy.theme.sourceBody}</p>
+        </section>
+      </div>
 
       {customizing && (
         <ThemeCustomize

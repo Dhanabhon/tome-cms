@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { placePopover } from '../../lib/popover';
+import Icon from '../Icon';
 
 /** The gap between the trigger and its list, and the shortest list worth opening. */
 const GAP = 4;
@@ -221,7 +222,7 @@ export default function UiSelect({
             type="button"
           >
             <span>{option.label}</span>
-            <span aria-hidden="true">{selectedValue === option.value ? '✓' : ''}</span>
+            <span aria-hidden="true">{selectedValue === option.value && <Icon name="check" />}</span>
           </button>
         ))}
       </div>

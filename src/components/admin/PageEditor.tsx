@@ -5,6 +5,7 @@ import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
 import { POST_LOCALES, type Page, type PageLocale, type PageStatus, type PageTranslationSummary } from '../../types/cms';
+import Icon from '../Icon';
 import DocumentCanvas from './DocumentCanvas';
 import EditingStatus from './EditingStatus';
 import PageSettingsDrawer from './PageSettingsDrawer';
@@ -362,7 +363,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
                 setIsNavigating(true);
               }
             }}>
-              <span aria-hidden="true">←</span> {copy.editor.backToPages}
+              <Icon name="arrowLeft" />{copy.editor.backToPages}
             </a>
             <nav className="admin-nav" aria-label={copy.editor.pageLanguages}>
               {POST_LOCALES.map((language) => {
@@ -385,7 +386,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
           </div>
           <div className="admin-editor-actions">
             <span className="admin-save-state" data-state={saveState} aria-live="polite">
-              <span aria-hidden="true">{saveState === 'saved' ? '✓' : '·'}</span> <span>{copy.editor[saveState]}</span>
+              {saveState === 'saved' && <Icon name="check" />}<span>{copy.editor[saveState]}</span>
             </span>
             {saveState === 'failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">{copy.editor.retrySave}</button>}
             <button aria-describedby={!pageId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!pageId.current && !title.trim())} onClick={() => void previewDraft()} type="button">{copy.row.preview}</button>

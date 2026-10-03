@@ -5,6 +5,7 @@ import { adminHref, adminPreviewHref, apiErrorMessage } from '../../lib/admin';
 import { adminCopy, statusLabel } from '../../lib/admin-i18n';
 import { hasMeaningfulContent } from '../../lib/editor-content';
 import { POST_LOCALES, type MediaAsset, type Post, type PostCategory, type PostLocale, type PostStatus, type PostTranslationSummary } from '../../types/cms';
+import Icon from '../Icon';
 import DocumentCanvas from './DocumentCanvas';
 import EditingStatus from './EditingStatus';
 import PostSettingsDrawer from './PostSettingsDrawer';
@@ -365,7 +366,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
                 setIsNavigating(true);
               }
             }}>
-              <span aria-hidden="true">←</span> {copy.editor.backToPosts}
+              <Icon name="arrowLeft" />{copy.editor.backToPosts}
             </a>
             <nav className="admin-nav" aria-label={copy.editor.postLanguages}>
               {POST_LOCALES.map((language) => {
@@ -388,7 +389,7 @@ export default function Editor({ canSuggest = false, adminPath, categories, init
           </div>
           <div className="admin-editor-actions">
             <span className="admin-save-state" data-state={saveState} aria-live="polite">
-              <span aria-hidden="true">{saveState === 'saved' ? '✓' : '·'}</span> <span>{copy.editor[saveState]}</span>
+              {saveState === 'saved' && <Icon name="check" />}<span>{copy.editor[saveState]}</span>
             </span>
             {saveState === 'failed' && <button className="admin-button admin-button--secondary" disabled={isActionPending} onClick={() => void saveBefore(() => undefined)} type="button">{copy.editor.retrySave}</button>}
             <button aria-describedby={!postId.current && !title.trim() ? 'preview-disabled-reason' : undefined} className="admin-button admin-button--secondary" disabled={isActionPending || (!postId.current && !title.trim())} onClick={() => void previewDraft()} type="button">{copy.row.preview}</button>

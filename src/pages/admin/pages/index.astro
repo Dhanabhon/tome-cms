@@ -79,7 +79,8 @@ const tabs = (['draft', 'published', 'all'] as const).map((tabStatus) => ({
       <section class="admin-page">
         <header class="admin-page__head admin-page__head--tabs">
           <div><p class="admin-eyebrow">{copy.nav.groupContent}</p><h1>{copy.pages.heading}</h1><p>{copy.pages.subheading}</p><p class="admin-page__note">{fill(copy.row.timezoneNote, { timezone: settings?.timezone ?? 'UTC' })}</p></div>
-          <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.newPage} <span aria-hidden="true">+</span></a>
+          {/* With no pages the empty block below holds the one primary, Create first page. */}
+          {pages.length > 0 && <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/pages/new')}>{copy.pages.newPage} <span aria-hidden="true">+</span></a>}
         </header>
         <div data-admin-pages data-edit-base={adminHref(adminSettings, '/pages/edit')} data-timezone={settings?.timezone ?? 'UTC'} data-locale={ownerLocale} data-copy-action-failed={copy.errors.actionFailed} data-copy-content-required={copy.editor.contentRequired} data-copy-draft={copy.status.draft} data-copy-published={copy.status.published} data-copy-published-at={copy.status.publishedAt} data-copy-updated-at={copy.status.updatedAt} data-copy-publish={copy.row.publish} data-copy-unpublish={copy.row.unpublish} data-copy-delete={copy.row.delete} data-copy-cancel={copy.shell.cancel} data-copy-delete-title={copy.pages.deleteTitle} data-copy-delete-message={copy.pages.deleteMessage} data-copy-close={copy.shell.close} data-copy-copied={copy.media.urlCopiedShort} data-copy-link-label={copy.row.link} data-copy-link-manual={copy.row.copyLinkManual} data-copy-link-title={copy.row.copyLink}>
           <div class="admin-list-bar">

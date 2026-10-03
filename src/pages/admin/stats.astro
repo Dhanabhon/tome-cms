@@ -60,6 +60,9 @@ const tag = ownerLocale === 'th' ? 'th-TH' : 'en';
 const number = new Intl.NumberFormat(tag);
 const percent = new Intl.NumberFormat(tag, { maximumFractionDigits: 0, style: 'percent' });
 const COLUMNS: Array<[StatsSort, string]> = [['views', copy.stats.views], ['reads', copy.stats.reads], ['ratio', copy.stats.readRatio]];
+// Nothing counted in this period: the masthead, the filters and one block say so. Three figures
+// at zero, a blank chart and five panels each saying "nothing" said it seven times.
+const quiet = !report || (report.totals.views === 0 && report.totals.reads === 0);
 ---
 
 <AdminLayout lang={ownerLocale ?? 'en'} title={copy.stats.heading}>
@@ -75,15 +78,13 @@ const COLUMNS: Array<[StatsSort, string]> = [['views', copy.stats.views], ['read
             <p>{copy.stats.subheading}</p>
           </div>
         </header>
-        {!counted && (
+        <StatsFilters base={base} copy={copy} query={query} />
+        {quiet ? (
           <div class="admin-empty" role="status">
             <p class="admin-eyebrow">{copy.empty.eyebrow}</p>
-            <h2>{copy.stats.emptyHeading}</h2>
-            <p>{copy.stats.emptyBody}</p>
+            {counted ? <p>{copy.stats.noViews}</p> : <><h2>{copy.stats.emptyHeading}</h2><p>{copy.stats.emptyBody}</p></>}
           </div>
-        )}
-        <StatsFilters base={base} copy={copy} query={query} />
-        {report && (
+        ) : report && (
           <>
             <StatsReport copy={copy} locale={settings.default_locale} report={report} unit={unit} />
             <section aria-labelledby="stats-articles-heading" class="stats-panel stats-articles">

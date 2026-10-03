@@ -335,12 +335,13 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
         <div className="update-summary">
           <p className="update-status" data-status={statusAttr} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
           <dl className="admin-facts">
-            <div><dt>{copy.updates.installedVersion}</dt><dd>{check?.currentVersion ?? copy.updates.checking}</dd></div>
+            {check && <div><dt>{copy.updates.installedVersion}</dt><dd>{check.currentVersion}</dd></div>}
             {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
             {check?.latest && <div><dt>{copy.updates.published}</dt><dd>{formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</dd></div>}
           </dl>
-          {/* The words live here, so neither button changes width while it works. */}
-          <p>{progress}</p>
+          {/* The words live here, so neither button changes width while it works. While the check
+              runs the status line above already says so, and once is enough. */}
+          {!busy && <p>{progress}</p>}
           {installError && <p className="update-error" role="alert">{installError}</p>}
           {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
         </div>

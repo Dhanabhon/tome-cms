@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { thaiDeclarations } from '../helpers/css';
+import { cssRules, thaiDeclarations } from '../helpers/css';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const CSS = read('src/styles/global.css');
@@ -284,7 +284,8 @@ test('the insert menu is the same menu as the others', () => {
   const item = ruleBody(CSS, '.block-insert-item');
   assert.equal(declaration(item, 'border-radius'), 'var(--radius-sm)');
   assert.equal(declaration(item, 'padding'), 'var(--space-xs) var(--space-sm)');
-  assert.match(ruleBody(CSS, '.block-insert-item:hover,\n.block-insert-item:focus'), /var\(--color-paper-3\)/);
+  assert.match(ruleBody(CSS, '.block-insert-item:focus'), /var\(--color-paper-3\)/);
+  assert.match(CSS, /\.block-insert-item:hover \{ background: var\(--color-paper-3\); \}/);
   // The editor's last utility chain.
   assert.doesNotMatch(read('src/components/admin/Editor.tsx'), /className="mb-6 flex/);
 });
@@ -641,7 +642,8 @@ test('the date-time field clears to nothing and closes like a menu', () => {
   assert.match(field, /event\.key === 'Escape'/);
   assert.match(field, /placePopover\(/);
   assert.match(field, /role="grid"/);
-  assert.match(read('src/styles/global.css'), /@media \(pointer: coarse\) \{[^}]*\}[^}]*\.ui-datetime__day \{ min-height: 44px; \}/, 'a day is 44px under a coarse pointer');
+  // A control's height there, which is 44px under a coarse pointer.
+  assert.match(read('src/styles/global.css'), /@media \(pointer: coarse\) \{[^}]*\}[^}]*\.ui-datetime__day \{ min-height: var\(--control-height\); \}/, 'a day is a control tall under a coarse pointer');
   for (const file of ['PostSettingsDrawer', 'PageSettingsDrawer', 'MaintenanceForm', 'SlidesManager']) {
     assert.match(read(`src/components/admin/${file}.tsx`), /<UiDateTime\b/, file);
   }
@@ -695,12 +697,21 @@ test('a row menu floats, is quiet at rest, and closes like a menu', () => {
   assert.match(read('src/components/admin/MediaLibrary.tsx'), /wireDetailsMenus\('details\.media-category-menu'\)/);
 });
 
-test('a note is a paragraph with a 2px bar and a 16px heading, and it sits under the grid, not in it', () => {
+test('a note is muted text under a hairline, with a 16px heading, and it sits under the grid, not in it', () => {
   assert.doesNotMatch(read('src/components/admin/PluginManager.tsx'), /plugin-card--source/);
   const note = ruleBody(CSS, '.admin-notes');
   assert.equal(declaration(note, 'margin-block-start'), 'var(--space-xl)');
+  assert.equal(declaration(note, 'border-block-start'), 'var(--rule-hair) solid var(--color-rule)');
   assert.equal(declaration(ruleBody(CSS, '.admin-card.admin-card--note h2'), 'font-size'), 'var(--text-base)');
-  assert.doesNotMatch(CSS, /border-inline-start: 3px solid/, 'a bar is 2px');
+  assert.equal(declaration(ruleBody(CSS, '.admin-card--note p'), 'color'), 'var(--color-muted)');
+  // No stripe down the side of a note: a 2px bar the height of a grid cell read as a broken card.
+  for (const selector of ['.admin-card--note', '.admin-migrations']) {
+    assert.equal(declaration(ruleBody(CSS, selector), 'border-inline-start'), undefined, selector);
+  }
+  assert.doesNotMatch(CSS, /\.theme-card--source/);
+  const themes = read('src/components/admin/ThemeForm.tsx');
+  assert.doesNotMatch(themes, /theme-card--source/);
+  assert.match(themes, /<\/ul>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<div className="admin-notes">/, 'the theme note follows the grid');
 });
 
 test('every radio and checkbox in the admin shell takes the accent colour from one rule', () => {
@@ -797,4 +808,145 @@ test('an eyebrow is never under 12px, and in Thai it is neither tracked nor tigh
     assert.match(thaiDeclarations(CSS, target), /letter-spacing: 0; line-height: 1\.5/, `${target} in Thai`);
   }
   assert.match(thaiDeclarations(STATS, '.stats-table thead th'), /letter-spacing: 0; line-height: 1\.5/);
+});
+
+/** The admin's stylesheets, rule by rule. global.css also holds what the public pages draw -- the
+ * band, the popup, the missing page, an article's file and video -- and those are left out. */
+const PUBLIC = /\.site-notice|\.site-popup|\.file-card|\.tome-video|\.notice-/;
+const ADMIN_RULES = ['global.css', 'ui-controls.css', 'overlays.css', 'stats.css']
+  .flatMap((file) => cssRules(read(`src/styles/${file}`)).map((rule) => ({ file, ...rule })))
+  .filter(({ selector }) => !PUBLIC.test(selector));
+const UI = read('src/styles/ui-controls.css');
+
+test('every hover in the admin waits for a pointer that can hover, so a tap leaves nothing lit', () => {
+  const stuck = ADMIN_RULES
+    .filter(({ selector, context }) => selector.includes(':hover') && !context.some((at) => /^@media[^{]*\(hover: hover\)/.test(at)))
+    .map(({ file, selector }) => `${file}: ${selector}`);
+  assert.deepEqual(stuck, []);
+});
+
+test('a hover fill is paper-3 under ink, never the paper-2 that barely shows on paper', () => {
+  const faint = ADMIN_RULES
+    .filter(({ selector, body }) => selector.includes(':hover') && /background(?:-color)?:\s*var\(--color-paper-2\)/.test(body))
+    .map(({ file, selector }) => `${file}: ${selector}`);
+  assert.deepEqual(faint, []);
+  for (const selector of ['.media-row:hover', '.ui-datetime .ui-datetime__grid .ui-datetime__day:hover', '.ui-theme__option:hover']) {
+    const bodies = ADMIN_RULES.filter((rule) => rule.selector === selector).map(({ body }) => body);
+    assert.ok(bodies.some((body) => declaration(body, 'background') === 'var(--color-paper-3)' && declaration(body, 'color') === 'var(--color-ink)'), selector);
+  }
+});
+
+test('a selected or current thing is marked by ink and the accent, never by a surface fill', () => {
+  const STATE = /aria-current|aria-pressed=['"]true|aria-selected=['"]true|\.is-selected|\[data-in-use\]|\[data-on\]/;
+  const filled = ADMIN_RULES
+    .filter(({ selector }) => STATE.test(selector.replace(/:not\([^)]*\)/g, '')))
+    .flatMap(({ file, selector, body }) => [...body.matchAll(/background(?:-color)?:\s*([^;]+)/g)].map(([, value]) => `${file}: ${selector} -> ${value.trim()}`))
+    .filter((found) => !/-> (var\(--color-accent(-hover)?\)|none|transparent)$/.test(found));
+  assert.deepEqual(filled, []);
+  // The editor's current language: ink, 600 and the accent under it, as every tab is drawn.
+  const current = ruleBody(CSS, '.admin-nav__link[aria-current="page"]');
+  assert.equal(declaration(current, 'color'), 'var(--color-ink)');
+  assert.equal(declaration(current, 'font-weight'), '600');
+  assert.equal(declaration(current, 'border-block-end-color'), 'var(--color-accent)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-nav__link'), 'border-block-end'), '2px solid transparent');
+  // Its paper-3 is for a hover, and the current one is not something to press.
+  assert.ok(ADMIN_RULES.some(({ selector, context }) => selector.includes('.admin-nav__link:not([aria-current]):hover') && context.length));
+});
+
+test('a field keeps the line its error will take, so nothing below it jumps when the error comes', () => {
+  const collapsed = ADMIN_RULES
+    .filter(({ selector, body }) => /field-error|ui-dialog__error/.test(selector) && selector.includes(':empty') && /display:\s*none/.test(body))
+    .map(({ file, selector }) => `${file}: ${selector}`);
+  assert.deepEqual(collapsed, []);
+  assert.equal(declaration(ruleBody(CSS, '.admin-field-error'), 'min-height'), '1lh');
+  // A form-level banner still goes when it has nothing to say.
+  assert.match(CSS, /\.admin-auth__error:empty \{ display: none; \}/);
+});
+
+test('the select menu floats like every panel opened from a control, and checks its choice with the icon set', () => {
+  assert.equal(declaration(ruleBody(UI, '.ui-select__menu'), 'box-shadow'), 'var(--shadow-float)');
+  const select = read('src/components/admin/UiSelect.tsx');
+  assert.doesNotMatch(select, /✓/);
+  assert.match(select, /<Icon name="check" \/>/);
+});
+
+test('an overlay arrives on ease-out, never on a spring that runs past its mark', () => {
+  const overlays = read('src/styles/overlays.css');
+  assert.doesNotMatch(overlays + TOKENS, /ease-spring/);
+  assert.match(overlays, /dialog\[open\] \{[^}]*transition-timing-function: var\(--ease-out\);/);
+});
+
+test('every overlay title speaks in one voice, and the post drawer opens on its first field', () => {
+  const titles = ['.ui-dialog h2', '.admin-editor-settings__head h2', '.media-upload-dialog__head h2', '.navigation-dialog h2'];
+  const title = ruleBody(CSS, titles.join(',\n'));
+  assert.equal(declaration(title, 'font-family'), 'var(--font-display)');
+  assert.equal(declaration(title, 'font-size'), 'var(--text-xl)');
+  assert.equal(declaration(title, 'font-weight'), '700');
+  assert.equal(declaration(title, 'line-height'), '1.2');
+  // No other rule gives one of them a voice of its own.
+  const own = ADMIN_RULES.filter(({ selector, body }) => titles.includes(selector) && /font-(size|weight|family)/.test(body));
+  assert.deepEqual(own.map(({ file, selector }) => `${file}: ${selector}`), []);
+  const drawer = read('src/components/admin/PostSettingsDrawer.tsx');
+  assert.doesNotMatch(drawer, /<button autoFocus/);
+  assert.match(drawer, /useDrawer\(\{ focus: slugField/);
+  assert.match(drawer, /ref=\{slugField\}/);
+});
+
+test("inside the admin a dialog's field and buttons are the admin's own controls", () => {
+  const dialog = read('src/lib/ui-dialog.ts');
+  assert.match(dialog, /classList\.contains\('admin-body'\)/);
+  for (const name of ["'admin-control'", 'admin-button--primary', 'admin-button--danger', 'admin-field-error']) {
+    assert.ok(dialog.includes(name), name);
+  }
+});
+
+test('the editor bar and Stats draw their marks from the icon set', () => {
+  for (const editor of ['Editor', 'PageEditor']) {
+    const source = read(`src/components/admin/${editor}.tsx`);
+    assert.doesNotMatch(source, /[←✓]/, editor);
+    assert.match(source, /<Icon name="arrowLeft" \/>/, editor);
+    assert.match(source, /saveState === 'saved' && <Icon name="check" \/>/, editor);
+  }
+  const stats = read('src/styles/stats.css');
+  assert.equal(declaration(ruleBody(stats, '.stats-numbers summary'), 'list-style'), 'none');
+  assert.match(stats, /\.stats-numbers summary::-webkit-details-marker \{ display: none; \}/);
+  assert.match(read('src/components/admin/stats/StatsReport.astro'), /<summary>[^<]*<Icon name="down" \/>/);
+});
+
+test('the admin takes its faces, sizes, corners and touch targets from tokens', () => {
+  const bodies = ADMIN_RULES.map(({ file, selector, body }) => ({ where: `${file}: ${selector}`, body }));
+  const off = bodies.filter(({ body }) => /font-family:\s*ui-monospace/.test(body)
+    || /font-size:\s*(0\.8125|1\.0625|1\.75|0\.6875)rem/.test(body)
+    || /\b44px\b/.test(body)).map(({ where }) => where);
+  assert.deepEqual(off, []);
+  assert.equal(declaration(ruleBody(CSS, '.admin-button--primary'), 'border-radius'), 'var(--radius-card)');
+});
+
+test('the media picker fills the window it is in, not the window and its scrollbar', () => {
+  assert.doesNotMatch(CSS, /:\s*100vw\b/);
+  assert.match(CSS, /\.media-picker \{\s*width: 100%;/);
+});
+
+test("a form page's footer shares the page column's edges", () => {
+  const footer = ruleBody(CSS, '.admin-shell-main:has(.admin-form-page) .admin-footer');
+  assert.equal(declaration(footer, 'margin-inline'), 'max(clamp(var(--space-md), 4vw, var(--space-xl)), calc((100% - 57rem) / 2 + clamp(var(--space-md), 4vw, var(--space-xl))))');
+});
+
+test('Stats chooses its language with the admin select, keeps its periods short, and shows one empty block for a quiet period', () => {
+  const filters = read('src/components/admin/stats/StatsFilters.astro');
+  assert.match(filters, /<UiSelect[\s\S]{0,400}?name="lang"[\s\S]{0,300}?submitOnChange/);
+  assert.match(filters, /aria-label=\{copy\.stats\.ranges\[range\]\}/);
+  assert.match(filters, /\{copy\.stats\.rangesShort\[range\]\}/);
+  const stats = read('src/styles/stats.css');
+  assert.equal(declaration(ruleBody(stats, '.stats-segments'), 'flex-wrap'), 'nowrap');
+  assert.equal(declaration(ruleBody(stats, '.stats-segments a'), 'white-space'), 'nowrap');
+  // No counts in the period: no figures, no chart, no five panels each saying so.
+  assert.match(read('src/pages/admin/stats.astro'), /quiet \? \(/);
+});
+
+test('System says it is checking once, and Navigation shows no save row until something changes', () => {
+  const update = read('src/components/admin/UpdateManager.tsx');
+  assert.doesNotMatch(update, /currentVersion \?\? copy\.updates\.checking/);
+  assert.match(update, /\{!busy && <p>\{progress\}<\/p>\}/);
+  assert.match(read('src/components/admin/NavigationManager.tsx'), /\{\(dirty\[key\] \|\| pressed === 'save' \|\| savedOnce\) && <div className="navigation-save">/);
 });

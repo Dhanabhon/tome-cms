@@ -163,7 +163,7 @@ test.afterAll(async () => {
 
 // First in the file, before any other test counts a hit: `hasStats` is true for good once a
 // row exists for the owner, so the never-counted screen can only be seen before that happens.
-test('a site that has never counted a reader shows the report at zero, with an explanation', async ({ browser, context, page }) => {
+test('a site that has never counted a reader shows its filters and one explanation, with no report at zero', async ({ browser, context, page }) => {
   test.setTimeout(90_000);
   query('delete from content_stats_daily');
   await signIn(context, page);
@@ -175,24 +175,16 @@ test('a site that has never counted a reader shows the report at zero, with an e
   await expect(page.getByText(/Numbers appear once someone opens a published post or page\./)).toBeVisible();
   expect(await page.locator('.stats-empty').count(), 'the old dashed box is gone').toBe(0);
 
-  const summary = page.locator('.stats-summary > div');
-  await expect(summary.nth(0).locator('.stats-summary__value')).toHaveText('0');
-  await expect(summary.nth(1).locator('.stats-summary__value')).toHaveText('0');
-  await expect(summary.nth(2).locator('.stats-summary__value')).toContainText('—');
-  await expect(summary.nth(2).locator('.stats-summary__value .sr-only')).toHaveText('No reads yet');
-  for (let index = 0; index < 3; index += 1) {
-    await expect(summary.nth(index).locator('.stats-summary__change'), 'no change arrow at zero').toHaveText('Nothing to compare with yet');
-  }
-
-  await expect(page.getByRole('heading', { name: 'Views and reads per day' })).toBeVisible();
-  await expect(page.locator('.stats-chart__axis')).toBeVisible();
+  // The masthead, the filters and one block: no figures at zero, no blank chart, and no five
+  // panels each saying the same nothing.
+  await expect(page.locator('.stats-filters')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Language' }), 'the language is the admin select').toBeVisible();
+  await expect(page.locator('.admin-empty')).toHaveCount(1);
+  await expect(page.locator('.stats-summary')).toHaveCount(0);
+  await expect(page.locator('.stats-chart')).toHaveCount(0);
+  await expect(page.locator('.stats-share')).toHaveCount(0);
   await page.screenshot({ fullPage: true, path: test.info().outputPath('stats-zero-1280.png') });
-
-  await page.locator('.stats-numbers summary').click();
-  await expect(page.locator('.stats-numbers')).toContainText('Nothing was viewed in this period.');
-  for (const heading of ['Where readers came from', 'Devices', 'Countries', 'Languages']) {
-    await expect(page.locator('.stats-share').filter({ hasText: heading }), heading).toContainText('Nothing was viewed in this period.');
-  }
+  const summary = page.locator('.stats-summary > div');
 
   // A reader, in a browser of its own: the admin's browser is excluded for good once it has
   // signed in (see the "owner's own browser" test below), so this one counts the view.
@@ -342,12 +334,23 @@ test('Stats shows what was counted, by range, language and sort, and one article
   await expect(page).toHaveURL(/range=7d/);
   await expect(summary.nth(0)).toHaveText(/Views\s*21\s*Nothing to compare with yet/);
 
+  // The periods are short on the row, and named in full for a screen reader.
+  await expect(page.locator('.stats-segments a[aria-current="true"]')).toHaveText('7d');
+  // The language is the admin select, and a choice keeps the period. Thai in the last 7 days is
+  // a period with nothing in it, which says so once.
+  await page.getByRole('combobox', { name: 'Language' }).click();
+  await page.getByRole('option', { name: 'Thai', exact: true }).click();
+  await expect(page).toHaveURL(/\?range=7d&lang=th$/);
+  await expect(page.locator('.admin-empty')).toHaveText(/Nothing was viewed in this period\./);
+  await expect(page.locator('.stats-chart')).toHaveCount(0);
+
   await page.getByRole('link', { name: 'Last 30 days' }).click();
-  await page.getByRole('link', { name: 'Thai', exact: true }).click();
   await expect(page).toHaveURL(/lang=th/);
   await expect(summary.nth(0)).toHaveText(/Views\s*8/);
   await expect(page.locator('.stats-articles thead').getByRole('link', { name: 'Reads' }), 'a sort keeps the language').toHaveAttribute('href', '/admin/stats?lang=th&sort=reads');
-  await page.getByRole('link', { name: 'All languages' }).click();
+  await page.getByRole('combobox', { name: 'Language' }).click();
+  await page.getByRole('option', { name: 'All languages' }).click();
+  await expect(page).toHaveURL(/lang=all/);
 
   await page.locator('.stats-articles thead').getByRole('link', { name: 'Reads' }).click();
   await expect(page).toHaveURL(/sort=reads/);

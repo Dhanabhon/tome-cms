@@ -1,6 +1,7 @@
 ---
 import type { AdminCopy } from '../../../lib/admin-i18n';
 import { STATS_RANGES, statsHref, type StatsQuery } from '../../../server/stats/report';
+import UiSelect from '../UiSelect';
 
 interface Props {
   base: string;
@@ -11,24 +12,35 @@ interface Props {
 }
 
 const { base, copy, languages = true, query } = Astro.props;
-const LANGUAGES = [null, 'th', 'en'] as const;
 ---
 
 <div class="stats-filters">
   <nav aria-label={copy.stats.rangeLabel} class="stats-segments">
     {STATS_RANGES.map((range) => (
-      <a aria-current={query.range === range ? 'true' : undefined} href={statsHref(base, query, { page: 1, range })}>
-        {copy.stats.ranges[range]}
+      <a aria-current={query.range === range ? 'true' : undefined} aria-label={copy.stats.ranges[range]} href={statsHref(base, query, { page: 1, range })}>
+        {copy.stats.rangesShort[range]}
       </a>
     ))}
   </nav>
   {languages && (
-    <nav aria-label={copy.stats.language} class="stats-segments">
-      {LANGUAGES.map((lang) => (
-        <a aria-current={query.lang === lang ? 'true' : undefined} href={statsHref(base, query, { lang, page: 1 })}>
-          {lang ? copy.stats.languages[lang] : copy.stats.allLanguages}
-        </a>
-      ))}
-    </nav>
+    <form class="admin-list-filter" action={base} method="get" novalidate>
+      {/* The address statsHref would build: a default is left out, and a new language starts at page 1. */}
+      {query.range !== '30d' && <input type="hidden" name="range" value={query.range} />}
+      <UiSelect
+        client:load
+        ariaLabel={copy.stats.language}
+        className="admin-control admin-list-filter__select"
+        defaultValue={query.lang ?? 'all'}
+        id="stats-lang"
+        name="lang"
+        options={[
+          { label: copy.stats.allLanguages, value: 'all' },
+          { label: copy.stats.languages.th, value: 'th' },
+          { label: copy.stats.languages.en, value: 'en' },
+        ]}
+        submitOnChange
+      />
+      {query.sort !== 'views' && <input type="hidden" name="sort" value={query.sort} />}
+    </form>
   )}
 </div>

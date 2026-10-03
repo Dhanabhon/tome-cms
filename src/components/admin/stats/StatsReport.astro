@@ -2,6 +2,7 @@
 import { fill, type AdminCopy } from '../../../lib/admin-i18n';
 import type { StatsReport } from '../../../server/stats/dashboard';
 import { percentChange, pointsChange, readRatio, type SeriesPoint } from '../../../server/stats/report';
+import Icon from '../../Icon.astro';
 import StatsChart from './StatsChart.astro';
 import StatsShares from './StatsShares.astro';
 
@@ -87,7 +88,7 @@ const countryName = (key: string) => (key === '' ? copy.stats.unknownCountry : r
   </p>
   <StatsChart describe={describe} label={chartTitle} points={report.series} tick={dateOf} />
   <details class="stats-numbers">
-    <summary>{copy.stats.chartTable}</summary>
+    <summary>{copy.stats.chartTable}<Icon name="down" /></summary>
     {nothingYet ? (
       <p>{copy.stats.noViews}</p>
     ) : (

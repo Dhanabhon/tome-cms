@@ -299,7 +299,7 @@ test('a header item goes under a group, moves with it, saves, and an empty group
   await page.getByRole('tab', { name: 'ไทย' }).click();
   expect(await outline(page)).toEqual(['บริษัท']);
   await expect(emptyGroup).toBeVisible();
-  await expect(save).toBeDisabled();
+  await expect(save, 'nothing has changed here, so there is no save row to press').toHaveCount(0);
 
   // The footer has no sub-items and no groups.
   await page.getByRole('tab', { name: 'English' }).click();
@@ -449,9 +449,11 @@ test('rows nest by dragging onto the middle of another, place by its edges, and 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('.navigation-grip').first()).toHaveCSS('touch-action', 'none');
   await expect(page.locator('.navigation-item__content').first()).not.toHaveCSS('touch-action', 'none');
+  // A control's height: 44px where the pointer is coarse, as on a phone; 40 under this project's mouse.
+  const control = await page.evaluate(() => parseFloat(getComputedStyle(document.body).getPropertyValue('--control-height')) * parseFloat(getComputedStyle(document.documentElement).fontSize));
   const grip = (await page.locator('.navigation-grip').first().boundingBox())!;
-  expect(grip.width, 'a 44px target for a finger').toBeGreaterThanOrEqual(44);
-  expect(grip.height).toBeGreaterThanOrEqual(44);
+  expect(grip.width, 'a control-sized target for a finger').toBeGreaterThanOrEqual(control);
+  expect(grip.height).toBeGreaterThanOrEqual(control);
   await page.evaluate(() => window.addEventListener('pointerdown', (event) => { document.body.dataset.pointerType = event.pointerType; }, { once: true }));
   await bringIntoView(page, await row(page, 'Contact'), await row(page, 'About'));
   const from = await gripPoint(await row(page, 'Contact'));

@@ -388,7 +388,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     <section className="admin-page navigation-manager">
       <header className="admin-page__head">
         <div><p className="admin-eyebrow">{copy.nav.groupContent}</p><h1>{copy.navigation.heading}</h1><p>{copy.navigation.subheading}</p></div>
-        <button className="admin-button admin-button--primary" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
+        <button className="admin-button admin-button--secondary" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
       </header>
       <p className="navigation-status" role="status" aria-live="polite" aria-atomic="true">{loading ? copy.navigation.loading : status}</p>
       {loadError && <div className="admin-alert" role="alert">{loadError} <button className="admin-button" onClick={() => void load()} type="button">{copy.navigation.retry}</button></div>}
@@ -444,7 +444,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                 </li>;
               })}
             </ol>
-            <div className="navigation-save">
+            {/* No change, no save row: a disabled primary under an unchanged menu said nothing but "faded". */}
+            {(dirty[key] || pressed === 'save' || savedOnce) && <div className="navigation-save">
               <SaveButton
                 describedBy={empty.size ? `navigation-empty-${items[Math.min(...empty)].id}` : undefined}
                 disabled={saving || empty.size > 0}
@@ -454,7 +455,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
                 savingLabel={copy.shell.saving}
                 state={saveButtonState({ saving: pressed === 'save', dirty: dirty[key], savedOnce })}
               />
-            </div>
+            </div>}
             {saveError && <div className="admin-alert" role="alert">{saveError} <button aria-busy={pressed === 'retry'} className="admin-button" disabled={saving} onClick={() => void save(true)} type="button">{copy.navigation.retrySave}</button></div>}
           </div>
         </div>

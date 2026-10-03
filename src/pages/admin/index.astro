@@ -133,7 +133,8 @@ const Frame = authRequired || errorMessage ? 'main' : AdminShell;
         <div class="admin-page__actions">
           <MarkdownImport client:idle mediaText={{ refusals: copy.media.refusals, storageRejected: copy.media.storageRejected, storageTimedOut: copy.media.storageTimedOut, storageUnreachable: copy.media.storageUnreachable, unavailable: copy.media.unavailable }} text={copy.markdownImport} editHref={adminHref(adminSettings, '/edit/__ID__')} />
           <a class="admin-button admin-button--secondary" href={adminHref(adminSettings, '/categories')}>{copy.posts.manageCategories}</a>
-          <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/new')}>{copy.posts.newPost} <span aria-hidden="true">+</span></a>
+          {/* With no posts the empty block below holds the one primary, Create first post. */}
+          {posts.length > 0 && <a class="admin-button admin-button--primary" href={adminHref(adminSettings, '/new')}>{copy.posts.newPost} <span aria-hidden="true">+</span></a>}
         </div>
       )}
     </header>

@@ -38,9 +38,20 @@ export function dialogAnswer(secondary: boolean, checked: boolean, value: string
 let sequence = 0;
 let dismissActive: (() => void) | null = null;
 
+/**
+ * Inside the admin a dialog's field and buttons are the admin's own, so they cannot drift from the
+ * ones on the page behind it; the ui-dialog__ controls are the installer's.
+ */
+const inAdmin = () => document.body.classList.contains('admin-body');
+
+function adminButtonClass(kind: 'cancel' | 'confirm' | 'secondary', tone: DialogTone) {
+  if (kind !== 'confirm') return `admin-button admin-button--secondary${kind === 'secondary' ? ' ui-dialog__button--secondary' : ''}`;
+  return tone === 'danger' ? 'admin-button admin-button--danger' : 'admin-button admin-button--primary';
+}
+
 function button(label: string, kind: 'cancel' | 'confirm' | 'secondary', tone: DialogTone) {
   const element = document.createElement('button');
-  element.className = `ui-dialog__button ui-dialog__button--${kind}`;
+  element.className = inAdmin() ? adminButtonClass(kind, tone) : `ui-dialog__button ui-dialog__button--${kind}`;
   element.dataset.tone = tone;
   element.type = 'button';
   element.textContent = label;
@@ -79,12 +90,12 @@ function openDialog(kind: 'alert' | 'confirm' | 'prompt', options: DialogOptions
     const label = document.createElement('span');
     label.textContent = promptOptions.label;
     input = document.createElement('input');
-    input.className = 'ui-dialog__input';
+    input.className = inAdmin() ? 'admin-control' : 'ui-dialog__input';
     input.value = promptOptions.value ?? '';
     if (promptOptions.readOnly) input.readOnly = true;
     input.setAttribute('aria-describedby', `${id}-error`);
     inputError = document.createElement('p');
-    inputError.className = 'ui-dialog__error';
+    inputError.className = inAdmin() ? 'admin-field-error' : 'ui-dialog__error';
     inputError.id = `${id}-error`;
     inputError.setAttribute('aria-live', 'polite');
     input.addEventListener('input', () => {
