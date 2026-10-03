@@ -1,6 +1,6 @@
 import { realpathSync } from 'node:fs';
-import { readFile, realpath, stat } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { mkdir, readFile, realpath, stat } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -15,7 +15,8 @@ export type ContentStep =
   | { step: 'self-test' }
   | { step: 'restore-database'; dump: string }
   | { step: 'restore-objects'; backup: string }
-  | { step: 'after-restore' };
+  | { step: 'after-restore' }
+  | { step: 'export'; out: string };
 
 class UsageError extends Error {}
 
@@ -31,20 +32,21 @@ export function parseContentArgs(argv: string[]): ContentStep {
   try {
     parsed = parseArgs({
       args: argv, allowPositionals: true, strict: true,
-      options: { backup: { type: 'string' }, dump: { type: 'string' } },
+      options: { backup: { type: 'string' }, dump: { type: 'string' }, out: { type: 'string' } },
     });
   } catch {
     throw new UsageError('usage');
   }
   const { positionals, values } = parsed;
   const given = Object.keys(values);
-  const only = (option?: 'backup' | 'dump') => positionals.length === 1 &&
+  const only = (option?: 'backup' | 'dump' | 'out') => positionals.length === 1 &&
     given.length === (option ? 1 : 0) && (!option || Boolean(values[option]));
   const step = positionals[0];
   if (step === 'self-test' && only()) return { step };
   if (step === 'after-restore' && only()) return { step };
   if (step === 'restore-database' && only('dump')) return { step, dump: values.dump! };
   if (step === 'restore-objects' && only('backup')) return { step, backup: values.backup! };
+  if (step === 'export' && only('out')) return { step, out: values.out! };
   throw new UsageError('usage');
 }
 
@@ -102,10 +104,33 @@ async function afterRestore(): Promise<Receipt> {
   }
 }
 
+/** The step makes its own directory directly in /work, so nothing it writes can reach through a link. */
+async function exportContent(out: string): Promise<Receipt> {
+  if (!isAbsolute(out) || dirname(resolve(out)) !== WORK) throw new StepError('path_outside_work');
+  try {
+    await mkdir(out, { mode: 0o700 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new StepError('out_exists');
+    throw error;
+  }
+  const directory = await workPath(out);
+  const { exportSite } = await import('./export');
+  const { closeDatabase } = await import('../db/client');
+  const { s3 } = await import('../media/storage');
+  try {
+    return { ...await exportSite(directory) };
+  } finally {
+    s3.destroy();
+    await closeDatabase();
+  }
+}
+
 async function selfTest(): Promise<Receipt> {
   // Loads every package the steps use, without the environment, so the build fails on a missing one.
   const steps = await import('./restore-steps');
   if (typeof steps.syncBucketToManifest !== 'function') throw new StepError('self_test_failed');
+  const { exportSite } = await import('./export');
+  if (typeof exportSite !== 'function') throw new StepError('self_test_failed');
   const { step } = parseContentArgs(['restore-objects', '--backup', `${WORK}/backup`]);
   if (step !== 'restore-objects') throw new StepError('self_test_failed');
   return {};
@@ -117,6 +142,7 @@ function run(step: ContentStep): Promise<Receipt> {
     case 'restore-database': return restoreDatabase(step.dump);
     case 'restore-objects': return restoreObjects(step.backup);
     case 'after-restore': return afterRestore();
+    case 'export': return exportContent(step.out);
   }
 }
 

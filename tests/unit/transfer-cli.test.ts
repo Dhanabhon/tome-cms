@@ -16,6 +16,8 @@ test('the router turns a step and its option into one value', () => {
   assert.deepEqual(parseContentArgs(['restore-database', '--dump', '/work/x/database.dump']), { step: 'restore-database', dump: '/work/x/database.dump' });
   assert.deepEqual(parseContentArgs(['after-restore']), { step: 'after-restore' });
   assert.deepEqual(parseContentArgs(['self-test']), { step: 'self-test' });
+  assert.deepEqual(parseContentArgs(['export', '--out', '/work/export']), { step: 'export', out: '/work/export' });
+  assert.throws(() => parseContentArgs(['export']), 'an export needs its directory');
   assert.throws(() => parseContentArgs(['restore-objects']), 'a restore step needs its path');
   assert.throws(() => parseContentArgs(['restore-objects', '--dump', '/work/x']), 'and only its own option');
   assert.throws(() => parseContentArgs(['after-restore', 'extra']), 'and nothing after it');
@@ -42,6 +44,14 @@ test('a restore step refuses a path outside /work before it loads anything', () 
   ]) {
     const result = run(args);
     assert.equal(result.stdout, '{"ok":false,"code":"path_outside_work"}\n', args.join(' '));
+    assert.equal(result.status, 1);
+  }
+});
+
+test('an export refuses a directory anywhere but directly in /work, before it loads anything', () => {
+  for (const out of ['/tmp/export', '/work', '/work/../export', '/work/a/b', 'work/export']) {
+    const result = run(['export', '--out', out]);
+    assert.equal(result.stdout, '{"ok":false,"code":"path_outside_work"}\n', out);
     assert.equal(result.status, 1);
   }
 });
