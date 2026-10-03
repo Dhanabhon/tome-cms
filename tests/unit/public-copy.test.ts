@@ -84,3 +84,21 @@ test('a site that has not written a tagline is given one', () => {
   assert.match(home, /tagline=\{settings\?\.tagline\?\.trim\(\) \|\| publicCopy\(locale\)\.defaultTagline\}/);
   assert.match(read('src/themes/contract.ts'), /tagline: string;/);
 });
+
+test('a missing or unavailable page or post says so in the reader\'s language', () => {
+  const keys = ['pageNotFound', 'pageUnavailable', 'postNotFound', 'postUnavailable', 'returnToAllPosts', 'unavailable'] as const;
+  for (const locale of ['en', 'th'] as const) {
+    const copy = publicCopy(locale);
+    for (const key of keys) assert.ok(copy[key]?.trim(), `${locale}.${key} is missing`);
+  }
+  const pages = ['src/pages/[locale]/[slug].astro', 'src/pages/[locale]/blog/[slug].astro', 'src/pages/blog/[slug].astro'];
+  for (const path of pages) {
+    const source = read(path);
+    assert.match(source, /publicCopy\(/, `${path} does not read the public copy`);
+    for (const phrase of [/'(Page|Post) not found/, /'Unavailable'/, /temporarily unavailable/, />Return to all posts</]) {
+      assert.doesNotMatch(source, phrase, `${path} still hard-codes ${phrase}`);
+    }
+    // The figure is the same in every language, and stays.
+    assert.match(source, />\{loadError \? copy\.unavailable : '404'\}</, `${path} lost its 404 figure`);
+  }
+});

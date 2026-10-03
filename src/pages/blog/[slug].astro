@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { localePath, otherLocale, postPath } from '../../lib/i18n';
+import { localePath, otherLocale, postPath, publicCopy } from '../../lib/i18n';
 import { getPublishedPost } from '../../server/content/published';
 import { getSiteSettings } from '../../server/content/settings';
 import type { Post } from '../../types/cms';
@@ -28,18 +28,19 @@ if (post) {
 } else if (!loadError) {
   Astro.response.status = 404;
 }
+const copy = publicCopy(defaultLocale);
 ---
 
 {!post && (
   <BaseLayout
     locale={defaultLocale}
     robots="noindex, follow"
-    title={loadError ? 'Unavailable' : 'Post not found'}
+    title={loadError ? copy.unavailable : copy.postNotFound}
   >
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
-      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
-      <h1 class="notice-title mt-4">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
-      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(defaultLocale)}>Return to all posts</a>
+      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? copy.unavailable : '404'}</p>
+      <h1 class="notice-title mt-4">{loadError ? copy.postUnavailable : copy.postNotFound}</h1>
+      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(defaultLocale)}>{copy.returnToAllPosts}</a>
     </section>
   </BaseLayout>
 )}

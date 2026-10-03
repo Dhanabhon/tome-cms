@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { documentHasVideo } from '../../../lib/editor-video';
-import { isPostLocale, localePath, postPath } from '../../../lib/i18n';
+import { isPostLocale, localePath, postPath, publicCopy } from '../../../lib/i18n';
 import { postDescription } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import {
@@ -67,6 +67,7 @@ const themeSettings = await readThemeSettings(isThemeId(settings?.theme_id) ? se
 const xDefaultHref = settings
   ? availableLocales.find((alternate) => alternate.locale === settings.default_locale)?.href
   : undefined;
+const copy = publicCopy(locale);
 ---
 
 <BaseLayout
@@ -81,7 +82,7 @@ const xDefaultHref = settings
   publishedTime={post?.published_at ?? post?.created_at}
   robots={post ? undefined : 'noindex, follow'}
   stats={post ? { id: post.id, kind: 'post' } : undefined}
-  title={post?.meta_title ?? post?.title ?? (loadError ? 'Unavailable' : 'Post not found')}
+  title={post?.meta_title ?? post?.title ?? (loadError ? copy.unavailable : copy.postNotFound)}
   type={post ? 'article' : 'website'}
   video={post ? documentHasVideo(post.content_json) : false}
   xDefaultHref={xDefaultHref}
@@ -91,9 +92,9 @@ const xDefaultHref = settings
       settings={articleSettings} themeSettings={themeSettings} />
   ) : (
     <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
-      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? 'Unavailable' : '404'}</p>
-      <h1 class="notice-title mt-4">{loadError ? 'This post is temporarily unavailable.' : 'Post not found.'}</h1>
-      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(locale)}>Return to all posts</a>
+      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? copy.unavailable : '404'}</p>
+      <h1 class="notice-title mt-4">{loadError ? copy.postUnavailable : copy.postNotFound}</h1>
+      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(locale)}>{copy.returnToAllPosts}</a>
     </section>
   )}
 </BaseLayout>
