@@ -122,7 +122,7 @@
   --almanac-field: 44px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100svh;
 }
 
 @media (min-width: 40rem) {
@@ -138,6 +138,10 @@
  * two-line Thai title in Trirong needs the same. Scoped to .almanac so it outranks the title's
  * and the prose's own leading. */
 .almanac:lang(th) :is(h1, h2, h3) { line-height: 1.4; }
+
+/* The core's 404 title is drawn tight for Google Sans at 700; in Almanac it is a title like the
+ * theme's own, Trirong at 600 with no tracking. */
+.almanac .article-title { font-weight: 600; letter-spacing: 0; }
 
 /* The header: the brand with the menu right after it, and the search at the row's end. */
 .almanac-header { position: relative; border-block-end: var(--rule-hair) solid var(--color-rule); }
@@ -163,7 +167,11 @@
 
 .almanac-header__mobile { min-width: 0; }
 
-.almanac-header__mobile summary { min-height: var(--almanac-field); padding-block: var(--space-sm); color: var(--color-ink); cursor: pointer; font-size: var(--text-sm); font-weight: 500; }
+/* The Menu wears the sub-menu's own chevron, not the browser's triangle. */
+.almanac-header__mobile summary { display: flex; align-items: center; gap: var(--space-3xs); min-height: var(--almanac-field); padding-block: var(--space-sm); color: var(--color-ink); cursor: pointer; font-size: var(--text-sm); font-weight: 500; list-style: none; }
+.almanac-header__mobile summary::-webkit-details-marker { display: none; }
+.almanac-header__mobile summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
+.almanac-header__mobile[open] > summary .icon { transform: rotate(180deg); }
 
 /* Open, the Menu is a panel the width of the header, under it and over the page. */
 .almanac-header__mobile > nav {
@@ -185,9 +193,12 @@
 
 .almanac-nav a { display: block; min-height: var(--almanac-field); max-width: 100%; padding-block: var(--space-sm); overflow-x: auto; color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-decoration: none; text-underline-offset: var(--space-2xs); }
 
-.almanac-nav a:hover,
 .almanac-nav a[aria-current],
 .almanac-nav summary[aria-current] > span { text-decoration: underline; text-decoration-color: var(--color-accent); text-decoration-thickness: 2px; }
+
+@media (hover: hover) {
+  .almanac-nav a:hover { text-decoration: underline; text-decoration-color: var(--color-accent); text-decoration-thickness: 2px; }
+}
 
 /* On a phone a parent takes its own row and its sub-items stack under it, indented on a hairline. */
 .almanac-header__mobile li:has(> ul) { flex-basis: 100%; }
@@ -237,7 +248,9 @@
 
 .almanac-nav .site-submenu[data-align="end"] { inset-inline: auto 0; }
 .almanac-nav .site-submenu a { padding-inline: var(--space-sm); border-radius: var(--radius-sm); }
-.almanac-nav .site-submenu a:hover { background: var(--color-paper-2); }
+@media (hover: hover) {
+  .almanac-nav .site-submenu a:hover { background: var(--color-paper-2); }
+}
 
 /* The search: quiet, but its edge still holds 3:1 against the page, the only sign a field is there. */
 .almanac-search { position: relative; flex: 0 1 16rem; min-width: 0; margin-inline-start: auto; }
@@ -276,7 +289,11 @@
   cursor: pointer;
 }
 
-.almanac-search__submit:hover { background: var(--color-paper-3); color: var(--color-ink); }
+@media (hover: hover) {
+  .almanac-search__submit:hover { background: var(--color-paper-3); color: var(--color-ink); }
+}
+
+.almanac-search__submit:active { translate: 0 1px; }
 
 :is(.almanac-search__submit, .almanac-search-toggle) .icon { width: 1.125rem; height: 1.125rem; }
 
@@ -337,13 +354,21 @@
 /* Only the footer's own links: the language menu's are the component's to draw. */
 .almanac-footer p a, .almanac-footer__nav a { color: inherit; text-decoration: none; text-underline-offset: var(--space-2xs); }
 
-.almanac-footer__nav a:hover,
 .almanac-footer__nav a[aria-current] { color: var(--color-ink); text-decoration: underline; }
 
 /* A link inside a line of text (the site's name, the credit) is underlined at rest, so it never reads as plain text. */
 .almanac-footer p a { text-decoration: underline; text-decoration-thickness: 1px; }
 
-.almanac-footer p a:hover { color: var(--color-ink); text-decoration-thickness: 2px; }
+@media (hover: hover) {
+  .almanac-footer__nav a:hover { color: var(--color-ink); text-decoration: underline; }
+  .almanac-footer p a:hover { color: var(--color-ink); text-decoration-thickness: 2px; }
+}
+
+/* An inline link's padding grows what a finger can hit without moving the line: the footer's 14px
+ * type on its line, and 12px above and below, is 44. */
+@media (pointer: coarse) {
+  .almanac-footer p a, .almanac-footer__nav a { padding-block: var(--space-sm); }
+}
 
 /* The language menu opens upward from the footer, lined up with its button, and downward only
  * where there is no room above. The component's own rule is scoped, so this names it twice. */
@@ -375,10 +400,17 @@
 
 .almanac-hero__lead { max-inline-size: 40rem; margin: 0; color: var(--color-ink-2); font-size: var(--text-md); line-height: 1.6; overflow-wrap: anywhere; }
 
-.almanac-hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: var(--space-xs) 0 0; }
+/* Held to the frame, so a button's label too long for it is cut short rather than pushing past. */
+.almanac-hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); min-width: 0; max-width: 100%; margin: var(--space-xs) 0 0; }
+
+/* A category chosen by its pill swaps the list in place, and the list brings the heading that names
+ * it: the band gives way to it, as it does when the category's address is opened. Its h1 stays for
+ * a screen reader, still the page's one, and its line and buttons go with the rest of it. */
+main:has(.almanac-feed__heading:not(.sr-only)) .almanac-hero { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+main:has(.almanac-feed__heading:not(.sr-only)) :is(.almanac-hero__lead, .almanac-hero__actions) { display: none; }
 
 @media (min-width: 48rem) {
-  .almanac-hero__inner { padding-block: var(--space-2xl) var(--space-3xl); }
+  .almanac-hero__inner { padding-block: var(--space-xl) var(--space-3xl); }
   .almanac-hero__headline { font-size: var(--text-display); }
 }
 
@@ -387,6 +419,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
+  max-width: 100%;
   min-height: var(--almanac-field);
   padding-inline: var(--space-lg);
   border: var(--rule-hair) solid var(--color-accent);
@@ -395,13 +428,19 @@
   text-decoration: none;
 }
 
-.almanac-button--primary { background: var(--color-accent); color: var(--color-accent-ink); }
+/* An owner's label of up to 40 characters stays on one line, cut short where the row runs out. */
+.almanac-button__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.almanac-button--primary:hover { border-color: var(--color-accent-hover); background: var(--color-accent-hover); }
+.almanac-button--primary { background: var(--color-accent); color: var(--color-accent-ink); }
 
 .almanac-button--secondary { background: transparent; color: var(--color-link); }
 
-.almanac-button--secondary:hover { background: var(--color-paper); }
+@media (hover: hover) {
+  .almanac-button--primary:hover { border-color: var(--color-accent-hover); background: var(--color-accent-hover); }
+  .almanac-button--secondary:hover { background: var(--color-paper); }
+}
+
+.almanac-button:active { translate: 0 1px; }
 
 .almanac-home { padding-block-start: var(--space-xl); }
 
@@ -431,7 +470,11 @@
   white-space: nowrap;
 }
 
-.almanac-pills a:hover { border-color: var(--color-rule-strong); }
+@media (hover: hover) {
+  .almanac-pills a:hover { border-color: var(--color-rule-strong); }
+}
+
+.almanac-pills a:active { translate: 0 1px; }
 
 .almanac-pills a[aria-current='page'] { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); font-weight: 600; }
 
@@ -439,9 +482,13 @@
 
 .almanac-feed__clear { margin: calc(-1 * var(--space-sm)) 0 var(--space-lg); font-size: var(--text-sm); }
 
-.almanac-feed__clear a { color: var(--color-link); font-weight: 500; }
+.almanac-feed__clear a, .almanac-feed__empty a { color: var(--color-link); font-weight: 500; }
 
 .almanac-feed__empty { margin: 0; color: var(--color-muted); }
+
+@media (pointer: coarse) {
+  .almanac-feed__clear a, .almanac-feed__empty a { padding-block: var(--space-sm); }
+}
 
 /* The list a pill is replacing steps back while the new one loads. */
 .almanac-feed[aria-busy='true'] { opacity: 0.5; }
@@ -476,30 +523,30 @@
 
 .almanac-card__link:focus-visible { outline-offset: var(--space-2xs); }
 
-/* The cover, or the category's tone with its letter. A cover waits on the paper-3 band. */
-.almanac-card__panel {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: var(--card-tone, var(--color-paper-3));
-  color: var(--card-tone-ink, var(--color-ink-2));
-}
+/* The cover, which waits on the paper-3 band. */
+.almanac-card__panel { aspect-ratio: 16 / 9; overflow: hidden; background: var(--color-paper-3); }
 
 .almanac-card__panel img { width: 100%; height: 100%; object-fit: cover; }
 
-.almanac-card__letter {
-  display: grid;
-  place-items: center;
-  width: 4.5rem;
-  aspect-ratio: 1;
-  border: 2px solid currentColor;
-  border-radius: 50%;
+/* No cover: a shorter band in the category's tone, with the category's name in Trirong. Its two
+ * colours are the tone and the tone's ink, a pair the token test holds to 4.5:1 in both schemes.
+ * A name too long for the band, in either script, ends in an ellipsis on its one line; the line is
+ * Thai-tall, so the clip never takes a mark. */
+.almanac-card__band {
+  display: flex;
+  align-items: center;
+  aspect-ratio: 3 / 1;
+  margin: 0;
+  padding-inline: var(--space-md);
+  background: var(--card-tone, var(--almanac-tone-0));
+  color: var(--card-tone-ink, var(--almanac-tone-0-ink));
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.4;
 }
+
+.almanac-card__band span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .almanac-card__body { display: flex; flex: 1; flex-direction: column; gap: var(--space-xs); padding: var(--space-md) var(--space-md) var(--space-lg); }
 
@@ -514,18 +561,13 @@
 
 .almanac-card__meta { margin: auto 0 0; padding-block-start: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); }
 
+/* One answer to a hover: the title takes the link colour. No lift, no shadow. */
 @media (hover: hover) {
-  .almanac-card__link:hover { border-color: var(--color-rule-strong); box-shadow: var(--shadow-float); }
   .almanac-card__link:hover .almanac-card__title { color: var(--color-link); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .almanac-feed { transition: opacity var(--dur-short) var(--ease-out); }
-}
-
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .almanac-card__link { transition: transform var(--dur-short) var(--ease-out); }
-  .almanac-card__link:hover { transform: translateY(-2px); }
 }
 
 /* A lazy cover fades in, from the stylesheet alone: no state in which it is hidden, so nothing
@@ -550,11 +592,12 @@
   .almanac-header :not([popover]), .almanac-footer :not([popover]) { transition: none !important; animation: none !important; }
 }
 
-/* A post and a page: one column of reading, 68 characters of the body's 18 px, centred. The
- * head and the end are sized from the root; only the body reads at 18 px. The gutter's fallback
- * is for the admin's draft preview, which has no Almanac body to set it. */
+/* A post and a page: one column of reading, 36em of the body's 18 px, centred: about 70 characters
+ * a line. Not ch, which is the width of a "0" and counts running text, and Thai, short. The head
+ * and the end are sized from the root; only the body reads at 18 px. The gutter's fallback is for
+ * the admin's draft preview, which has no Almanac body to set it. */
 .almanac-article {
-  inline-size: min(100% - 2 * var(--almanac-gutter, 1.25rem), 68ch);
+  inline-size: min(100% - 2 * var(--almanac-gutter, 1.25rem), 36em);
   margin-inline: auto;
   padding-block: var(--space-xl) var(--space-2xl);
   color: var(--color-ink);
@@ -585,13 +628,22 @@
   white-space: nowrap;
 }
 
-.almanac-article__pill:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .almanac-article__pill:hover { text-decoration: underline; }
+}
+
+/* As tall as the home page's pills on a touch screen. */
+@media (pointer: coarse) {
+  .almanac-article__pill { padding-block: calc((var(--almanac-field) - 1.25rem) / 2); }
+}
 
 .almanac-article__title { margin: 0; font-family: var(--font-display); font-size: var(--text-title); font-weight: 600; line-height: 1.25; text-wrap: balance; }
 
 .almanac-article__lead { margin: 0; color: var(--color-ink-2); font-size: var(--text-md); line-height: 1.6; }
 
 .almanac-article__meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-xs); margin: 0; color: var(--color-muted); font-size: var(--text-sm); line-height: 1.5; }
+
+.almanac-article__dot { margin-inline-end: var(--space-xs); }
 
 .almanac-article__cover {
   display: block;
@@ -615,6 +667,11 @@
 
 .almanac-prose h2 { font-size: 1.5em; }
 
+/* On a phone the title is 28px, and a body h2 at 1.5em would be 27: it steps down to stay under it. */
+@media (max-width: 39.999rem) {
+  .almanac-prose h2 { font-size: 1.3em; }
+}
+
 .almanac-prose h3 { font-size: 1.2em; }
 
 .almanac-prose > :is(h2, h3) { margin-block-start: 1.75em; }
@@ -631,9 +688,14 @@
 
 .almanac-prose a { color: var(--color-link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
 
-.almanac-prose a:hover { text-decoration-thickness: 2px; }
+@media (hover: hover) {
+  .almanac-prose a:hover { text-decoration-thickness: 2px; }
+}
 
 .almanac-prose strong { font-weight: 600; }
+
+/* No italic face is loaded, and a slanted Thai is no emphasis: an em is a step heavier instead. */
+.almanac-prose em { font-weight: 500; }
 
 .almanac-prose :is(ul, ol) { padding-inline-start: 1.5em; }
 
@@ -712,6 +774,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
+  max-width: 100%;
   min-height: var(--almanac-field, 44px);
   color: var(--color-link);
   font-family: var(--font-display);
@@ -720,13 +783,18 @@
   text-decoration: none;
 }
 
-.almanac-article__more:hover { text-decoration: underline; }
+/* A long category's name stays on the one line, cut short; the arrow stays after it. */
+.almanac-article__more-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.almanac-article__more span { display: inline-block; }
+@media (hover: hover) {
+  .almanac-article__more:hover .almanac-article__more-label { text-decoration: underline; }
+}
+
+.almanac-article__arrow { display: inline-block; }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .almanac-article__more span { transition: transform var(--dur-short) var(--ease-out); }
-  .almanac-article__more:hover span { transform: translateX(0.25em); }
+  .almanac-article__more .almanac-article__arrow { transition: transform var(--dur-short) var(--ease-out); }
+  .almanac-article__more:hover .almanac-article__arrow { transform: translateX(0.25em); }
 }
 
 /*

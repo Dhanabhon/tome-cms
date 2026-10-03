@@ -225,8 +225,8 @@ test('Almanac is the site: its hero, its pills, six cards, its serif, one h1', a
   await open(page, '/en');
   await expect(page.locator('body.almanac')).toHaveCount(1);
   await expect(page.locator('h1'), 'one h1, and it is the hero\'s').toHaveCount(1);
-  await expect(page.locator('h1')).toHaveText(SITE);
-  await expect(page.locator('.almanac-hero__lead'), 'the lead is the tagline').toHaveText(TAGLINE);
+  await expect(page.locator('h1'), 'with no headline, the tagline, not the header\'s name again').toHaveText(TAGLINE);
+  await expect(page.locator('.almanac-hero__lead'), 'and it is not said twice').toHaveCount(0);
   await expect(hero(page).getByRole('link', { name: copy.startReading }), 'it opens the newest post').toHaveAttribute('href', POST);
   await expect(hero(page).getByRole('link', { name: copy.allPosts })).toHaveAttribute('href', '/en#posts');
   await expect(cards(page), 'a page of six').toHaveCount(6);
@@ -248,7 +248,7 @@ test('Almanac is the site: its hero, its pills, six cards, its serif, one h1', a
   await expect(siteLink).toHaveCSS('text-decoration-line', 'underline');
 });
 
-test('the cards: one link each, and a letter on a tone when there is no cover', async ({ page }) => {
+test('the cards: one link each, and their category\'s name on its tone when there is no cover', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
   await open(page, '/en');
@@ -258,14 +258,22 @@ test('the cards: one link each, and a letter on a tone when there is no cover', 
   await expect(cover.locator('img'), 'and is a decoration inside a link already named by the title').toHaveAttribute('alt', '');
   await expect(cover.locator('img')).toHaveAttribute('width', '800');
   expect(await cover.locator('img').getAttribute('fetchpriority'), 'the first card\'s cover is the one asked for first').toBe('high');
-  await expect(cover.locator('.almanac-card__letter')).toHaveCount(0);
+  await expect(cover.locator('.almanac-card__band'), 'a cover has no band').toHaveCount(0);
   // A cover further down the page is lazy, and is not the one asked for first.
   const lazy = cardNamed(page, 'Notes on the first recipe').locator('img');
   await expect(lazy).toHaveAttribute('loading', 'lazy');
   await expect(lazy).not.toHaveAttribute('fetchpriority', /.*/);
 
-  await expect(cardNamed(page, 'ขนมปังซาวร์โดว์สำหรับมือใหม่').locator('.almanac-card__letter'), 'a Thai category gives its first grapheme, mark and all').toHaveText('สู');
-  await expect(cardNamed(page, 'Zymurgy, butter and patience').locator('.almanac-card__letter'), 'no category chosen is the default, Uncategorized').toHaveText('U');
+  const band = (title: string) => cardNamed(page, title).locator('.almanac-card__band');
+  await expect(band('ขนมปังซาวร์โดว์สำหรับมือใหม่'), 'a Thai category, named whole').toHaveText(THAI_CATEGORY);
+  await expect(band('Zymurgy, butter and patience'), 'no category chosen is the default, Uncategorized').toHaveText('Uncategorized');
+  await expect(band(LONG_TITLE)).toHaveText('Field Notes');
+  await expect(page.locator('.almanac-card__letter'), 'no letter in a circle anywhere').toHaveCount(0);
+  // Shorter than a cover's 16:9, and the cards of a row stand as tall as each other.
+  const ratio = await band('Zymurgy, butter and patience').evaluate((element) => element.clientWidth / element.clientHeight);
+  expect(ratio, 'a band of about 3:1').toBeCloseTo(3, 1);
+  const heights = await cards(page).evaluateAll((all) => all.slice(0, 3).map((card) => Math.round(card.getBoundingClientRect().height)));
+  expect(new Set(heights).size, `the first row's cards are one height: ${heights}`).toBe(1);
 
   for (const card of await cards(page).all()) {
     await expect(card.getByRole('link'), 'one link per card').toHaveCount(1);
@@ -275,8 +283,8 @@ test('the cards: one link each, and a letter on a tone when there is no cover', 
   await expect(first.getByRole('link'), 'a link is named by its title alone').toHaveAccessibleName('Why we bake at night');
   await expect(first.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}T/);
 
-  // Each lettered panel wears the tone of its own category: the tone the id hashes to, whichever it is.
-  const toneOf = (title: string) => cardNamed(page, title).locator('.almanac-card__panel').evaluate((panel) => (panel as HTMLElement).style.getPropertyValue('--card-tone'));
+  // Each band wears the tone of its own category: the tone the id hashes to, whichever it is.
+  const toneOf = (title: string) => band(title).evaluate((element) => (element as HTMLElement).style.getPropertyValue('--card-tone'));
   const expected = (category: string) => `var(--almanac-tone-${tone(categoryIds[category])})`;
   expect(await toneOf('ขนมปังซาวร์โดว์สำหรับมือใหม่'), 'a Thai category').toBe(expected(THAI_CATEGORY));
   expect(await toneOf(LONG_TITLE), 'Field Notes').toBe(expected('Field Notes'));
@@ -352,12 +360,16 @@ test('an empty tagline falls back to the theme\'s, in the language of the page',
   test.setTimeout(120_000);
   useAlmanac({}, '');
   await open(page, '/en');
-  await expect(page.locator('.almanac-hero__lead'), 'never an empty paragraph').toHaveText(copy.defaultTagline);
+  await expect(page.locator('h1'), 'never an empty heading').toHaveText(copy.defaultTagline);
   await open(page, '/en', 390);
-  await expect(page.locator('.almanac-hero__lead')).toHaveText(copy.defaultTagline);
+  await expect(page.locator('h1')).toHaveText(copy.defaultTagline);
   expect(await overflow(page), 'and it fits a phone').toBeLessThanOrEqual(0);
   await open(page, '/th');
-  await expect(page.locator('.almanac-hero__lead')).toHaveText(publicCopy('th').defaultTagline);
+  await expect(page.locator('h1')).toHaveText(publicCopy('th').defaultTagline);
+  // With a headline the tagline goes back under it, as the lead.
+  useAlmanac({ heroHeadline: 'Notes from the oven' }, '');
+  await open(page, '/en');
+  await expect(page.locator('.almanac-hero__lead'), 'never an empty paragraph').toHaveText(copy.defaultTagline);
 });
 
 test('with no posts at all the page says so, and the hero offers only where it can go', async ({ page }) => {
@@ -387,9 +399,12 @@ test('the pills filter the list in place, by click and by keyboard, in Thai too'
   await expect(cards(page), 'two posts are in Field Notes').toHaveCount(2);
   await expect(feed(page).getByRole('heading', { level: 2 }), 'the list says what it is').toHaveText('Field Notes');
   await expect(pills(page).getByRole('link', { name: 'Field Notes' })).toHaveAttribute('aria-current', 'page');
-  await expect(hero(page), 'a pill does not take the hero away').toHaveCount(1);
+  // The band gives way to the list, as the category's address has it, but its h1 is still the page's one.
+  await expect(hero(page).getByRole('link').first(), 'a pill takes the band\'s buttons away').toBeHidden();
+  expect(await hero(page).evaluate((element) => element.getBoundingClientRect().height), 'and the band with them').toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => (window as unknown as { stayed?: boolean }).stayed), 'and the page was not reloaded').toBe(true);
   await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page.getByRole('heading', { level: 1 }), 'still named for a screen reader').toHaveText(TAGLINE);
 
   await pills(page).getByRole('link', { name: THAI_CATEGORY }).click();
   await expect(page).toHaveURL(`${origin}/en?category=${encodeURIComponent(THAI_CATEGORY)}`);
@@ -406,6 +421,7 @@ test('the pills filter the list in place, by click and by keyboard, in Thai too'
   await pills(page).getByRole('link', { name: copy.allPosts }).click();
   await expect(cards(page)).toHaveCount(6);
   await expect(page).toHaveURL(`${origin}/en`);
+  await expect(hero(page).getByRole('link', { name: copy.startReading }), 'all posts brings the band back').toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { stayed?: boolean }).stayed)).toBe(true);
 
   // Straight to an address: the pill is already the current one.
@@ -452,6 +468,21 @@ test('a search with no result says so, and the reader\'s words are text, never m
 
   await open(page, '/en?category=Nothing+here');
   await expect(feed(page).getByText(copy.noPostsInCategory)).toBeVisible();
+  await expect(feed(page).getByRole('link', { name: copy.allPosts }), 'and the way back to every post').toHaveAttribute('href', '/en');
+});
+
+test('a category opened by its address has no hero: its list comes first, under a heading that names it', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  for (const width of [1440, 375]) {
+    await open(page, '/en?category=Field+Notes', width);
+    await expect(hero(page)).toHaveCount(0);
+    await expect(page.locator('h1'), 'the site\'s name is the h1, for a screen reader').toHaveText(SITE);
+    await expect(page.locator('h1')).toHaveClass(/sr-only/);
+    await expect(feed(page).getByRole('heading', { level: 2 })).toHaveText('Field Notes');
+    const top = await cards(page).first().evaluate((element) => element.getBoundingClientRect().top);
+    expect(top, `${width}px: the first card starts on the first screen`).toBeLessThan(page.viewportSize()!.height);
+  }
 });
 
 test('"More posts" carries on where the list stopped: nothing twice, nothing missed', async ({ page }) => {
@@ -497,6 +528,50 @@ test('a post: the pill, the one eager cover, the reading bar, and the way on', a
   await page.locator('.almanac-article__pill').click();
   await expect(page).toHaveURL(`${origin}/en?category=Field+Notes`);
   await expect(pills(page).getByRole('link', { name: 'Field Notes' })).toHaveAttribute('aria-current', 'page');
+});
+
+test('on a phone a post\'s title is clearly larger than a heading in its body', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  await open(page, POST, 375);
+  const size = (selector: string) => page.locator(selector).first().evaluate((element) => parseFloat(getComputedStyle(element).fontSize));
+  const [title, heading] = [await size('h1'), await size('.almanac-prose h2')];
+  expect(title / heading, `the title ${title}px over a body h2 ${heading}px`).toBeGreaterThanOrEqual(1.15);
+});
+
+test('the hero\'s buttons, "More in" and a coverless card\'s band each stay on one line, cut short', async ({ page }) => {
+  test.setTimeout(120_000);
+  // Forty characters each, the most the settings keep.
+  useAlmanac({ primaryLabel: 'Start with the newest post from the oven', secondaryLabel: 'Every single post this bakery wrote down' });
+  // The lines its words are set on, from the text itself, and whether the box cut them short.
+  const oneLine = (target: Locator) => target.evaluate((element) => {
+    const words = document.createRange();
+    words.selectNodeContents(element);
+    const lines = new Set([...words.getClientRects()].map(({ top }) => Math.round(top))).size;
+    return { cut: element.scrollWidth > element.clientWidth, lines };
+  });
+  for (const width of [320, 375]) {
+    await open(page, '/en', width);
+    for (const label of await hero(page).locator('.almanac-button__label').all()) {
+      expect(await oneLine(label), `${width}px: a hero button`).toEqual({ cut: true, lines: 1 });
+    }
+    for (const button of await hero(page).locator('.almanac-button').all()) {
+      expect((await button.boundingBox())!.height, `${width}px: a hero button is one line tall`).toBeLessThanOrEqual(46);
+    }
+    // A Thai category's name longer than the band: one line, ending in an ellipsis, in a card no wider.
+    const name = cardNamed(page, 'ขนมปังซาวร์โดว์สำหรับมือใหม่').locator('.almanac-card__band span');
+    await name.evaluate((element) => { element.textContent = 'หมวดหมู่ที่มีชื่อยาวมากจนแถบสีของการ์ดบนโทรศัพท์ไม่พอจะแสดงได้ครบ'; });
+    expect(await oneLine(name), `${width}px: a long Thai name in the band`).toEqual({ cut: true, lines: 1 });
+    await expect(name).toHaveCSS('text-overflow', 'ellipsis');
+    expect(await overflow(page), `${width}px: no sideways scroll`).toBeLessThanOrEqual(0);
+
+    await open(page, POST, width);
+    const more = page.locator('.almanac-article__more-label');
+    await more.evaluate((element) => { element.textContent = 'More in A Category Whose Name Runs On Well Past The Line'; });
+    expect(await oneLine(more), `${width}px: "More in" a long category`).toEqual({ cut: true, lines: 1 });
+    await expect(page.locator('.almanac-article__arrow'), 'the arrow still follows it').toBeVisible();
+    expect(await overflow(page), `${width}px: no sideways scroll on the post`).toBeLessThanOrEqual(0);
+  }
 });
 
 test('a post with no cover has none, and one with no category chosen is filed under the default', async ({ page }) => {
@@ -956,19 +1031,23 @@ test('the keyboard alone reaches the search, the pills, the cards and "More post
   await expect(cards(page)).toHaveCount(3);
 });
 
-test('a reader who asked for less motion is given none: no lift, no fade, no bar, no arrow', async ({ page }) => {
+test('a card never lifts, and a reader who asked for less motion is given none: no fade, no bar, no arrow', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
   const card = cardNamed(page, 'Why we bake at night').getByRole('link');
   const lazyCover = () => cardNamed(page, 'Notes on the first recipe').locator('img');
   const bar = () => page.locator('.almanac-progress').evaluate((element) => getComputedStyle(element).display);
-  const arrow = () => page.locator('.almanac-article__more span').evaluate((element) => getComputedStyle(element).transitionDuration);
+  const arrow = () => page.locator('.almanac-article__arrow').evaluate((element) => getComputedStyle(element).transitionDuration);
   const lift = () => card.evaluate((element) => ({ transform: getComputedStyle(element).transform, duration: getComputedStyle(element).transitionDuration }));
 
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await open(page, '/en');
+  const title = cardNamed(page, 'Why we bake at night').locator('.almanac-card__title');
   await card.hover();
-  await expect.poll(async () => (await lift()).transform, 'it lifts for everyone else').not.toBe('none');
+  // A hover's one answer is the title in the link colour: no lift, no shadow, for anyone.
+  await expect(title).toHaveCSS('color', await token(page, '--color-link'));
+  expect((await lift()).transform, 'it does not lift').toBe('none');
+  await expect(card).toHaveCSS('box-shadow', 'none');
   expect(await lazyCover().evaluate((element) => getComputedStyle(element).animationName), 'a cover fades in').toBe('almanac-fade-in');
   await open(page, POST);
   expect(await bar(), 'the bar is drawn').not.toBe('none');

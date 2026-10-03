@@ -31,8 +31,8 @@ export const manifest: ThemeManifest = {
     {
       fallback: '',
       hint: {
-        en: 'Left blank, the hero shows the site name.',
-        th: 'ถ้าเว้นว่าง จะแสดงชื่อเว็บไซต์',
+        en: 'Left blank, the hero shows the tagline.',
+        th: 'ถ้าเว้นว่าง จะแสดงข้อความประจำเว็บไซต์',
       },
       key: 'heroHeadline',
       kind: 'text',
@@ -42,8 +42,8 @@ export const manifest: ThemeManifest = {
     {
       fallback: '',
       hint: {
-        en: 'The line under the headline. Left blank, it shows the tagline.',
-        th: 'ข้อความใต้หัวข้อ ถ้าเว้นว่าง จะแสดงข้อความประจำเว็บไซต์',
+        en: 'The line under the headline. Left blank, it shows the tagline, or nothing when the headline is blank too, since the tagline is then the headline.',
+        th: 'ข้อความใต้หัวข้อ ถ้าเว้นว่าง จะแสดงข้อความประจำเว็บไซต์ หรือไม่แสดงอะไรเลยถ้าหัวข้อว่างด้วย เพราะข้อความประจำเว็บไซต์จะเป็นหัวข้อแทน',
       },
       key: 'heroLead',
       kind: 'text',

@@ -11,13 +11,18 @@ interface Props extends ThemeHomeProps {}
 const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, themeSettings, timezone } = Astro.props;
 const copy = publicCopy(locale);
 const home = localePath(locale);
-// The first page only, and not while searching: whoever typed a search wants its results first.
-const showHero = themeSettings.hero !== 'off' && !cursor && !query;
+// The first page only, and not for a search or a category: whoever asked for a list wants it first.
+const showHero = themeSettings.hero !== 'off' && !cursor && !query && !activeCategory;
 const newest = posts[0];
 // Never an empty h1: a site with no name yet is called what the route calls it.
 const name = siteName.trim() || 'TomeCMS';
 // The owner's words, or the theme's in the language the page is read in.
 const text = (key: string, fallback: string) => themeSettings[key]?.trim() || fallback;
+// With no headline the tagline is the h1, rather than the site's name said again under the header,
+// and the line under it is only the owner's own, so the tagline is not said twice either.
+const headline = themeSettings.heroHeadline?.trim();
+// Paper's words for it: the core's copy has no "try again".
+const tryAgain = locale === 'th' ? 'ลองอีกครั้ง' : 'Try again';
 
 const olderHref = nextCursor
   ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
@@ -33,8 +38,8 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
 
 {showHero ? (
   <Hero
-    headline={text('heroHeadline', name)}
-    lead={text('heroLead', tagline)}
+    headline={headline || tagline}
+    lead={headline ? text('heroLead', tagline) : text('heroLead', '')}
     primary={{ href: heroLink(themeSettings.primaryLink, newest ? postPath(newest) : null), label: text('primaryLabel', copy.startReading) }}
     secondary={{ href: heroLink(themeSettings.secondaryLink, `${home}#posts`), label: text('secondaryLabel', copy.allPosts) }}
   />
@@ -57,12 +62,12 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
         ))}
       </div>
     ) : !loadError && (
-      <p class="almanac-feed__empty">{query ? saying(copy.noResults) : activeCategory ? copy.noPostsInCategory : copy.noPosts}</p>
+      <p class="almanac-feed__empty">{query ? saying(copy.noResults) : activeCategory ? <>{copy.noPostsInCategory} <a href={home}>{copy.allPosts}</a></> : copy.noPosts}</p>
     )}
 
     {olderHref && <p class="almanac-more"><a class="almanac-button almanac-button--secondary" href={olderHref}>{copy.morePosts} <span aria-hidden="true">→</span></a></p>}
 
-    {loadError && <p class="almanac-feed__empty" role="alert">{copy.postsUnavailable}</p>}
+    {loadError && <p class="almanac-feed__empty" role="alert">{copy.postsUnavailable} <a href={`${Astro.url.pathname}${Astro.url.search}`}>{tryAgain}</a></p>}
   </div>
 </section>
 

@@ -18,29 +18,15 @@ export function heroLink(value: string | undefined, fallback: string | null): st
   return link && !link.startsWith('http:') ? link : null;
 }
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
-const count = (text: string) => [...graphemes.segment(text)].length;
-
 /**
- * A grapheme, not a code unit: a Thai letter keeps its marks, and a vowel written before its
- * consonant (เ แ โ ใ ไ) alone reads as a stray stroke, so it takes its consonant along.
- *
- * Capitalised the same on every server (not by the host's locale), and only when that leaves it
- * the same number of letters: "ß" would become "SS", and the circle holds one.
+ * What fills a card's band when the post has no cover: its category's name on that category's
+ * tone. The server files a post with no category chosen under the default one, so a post read
+ * without any is named for the site instead, and never left a blank band.
  */
-function firstLetter(words: string): string {
-  const [first = '', second = ''] = [...graphemes.segment(words.trim())].map(({ segment }) => segment);
-  const letter = /^[เ-ไ]$/u.test(first) ? first + second : first;
-  const upper = letter.toUpperCase();
-  return count(upper) === count(letter) ? upper : letter;
-}
-
-/** What fills a card's panel when the post has no cover: a letter on its category's tone. */
-export function cardPanel(post: ThemeHomePost, siteName: string): { letter: string; tone: number } {
+export function cardPanel(post: ThemeHomePost, siteName: string): { name: string; tone: number } {
   const [category] = post.categories ?? [];
   return {
-    letter: firstLetter(category?.name ?? '') || firstLetter(siteName),
+    name: category?.name.trim() || siteName,
     // Posts with no category share one tone, so they read as one kind of thing.
     tone: tone(category?.id ?? ''),
   };

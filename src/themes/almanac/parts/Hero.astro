@@ -13,7 +13,8 @@ interface Props {
 
 /**
  * The band above the posts: the page's one h1, a line under it, and up to two buttons. A button
- * with no label or nowhere to go is left out rather than drawn empty or broken.
+ * with no label or nowhere to go is left out rather than drawn empty or broken; one whose label
+ * is too long for the row is cut short on one line, never wrapped to two.
  */
 const { headline, lead, primary, secondary } = Astro.props;
 const buttons = [
@@ -29,7 +30,7 @@ const buttons = [
     {buttons.length > 0 && (
       <p class="almanac-hero__actions">
         {buttons.map(({ href, kind, label }) => (
-          <a class={`almanac-button almanac-button--${kind}`} href={href}>{label}</a>
+          <a class={`almanac-button almanac-button--${kind}`} href={href}><span class="almanac-button__label">{label}</span></a>
         ))}
       </p>
     )}

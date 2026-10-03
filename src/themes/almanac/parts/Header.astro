@@ -46,7 +46,7 @@ const query = searchQuery(Astro.url.searchParams.get('q')) ?? '';
     {items.some(({ children }) => children.length) && <SubmenuScript />}
     {items.length > 0 && (
       <details class="almanac-header__mobile">
-        <summary>{copy.menu}</summary>
+        <summary><span>{copy.menu}</span><Icon name="down" /></summary>
         <nav aria-label={copy.primaryNavigation} class="almanac-nav">
           {/* A phone lists every sub-item under its parent: the Menu is already the one tap. */}
           <ul>{items.map((item) => {

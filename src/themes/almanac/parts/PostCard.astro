@@ -18,10 +18,10 @@ interface Props {
 }
 
 /**
- * One post as one link. Its name is the title alone: the panel is decoration, and the excerpt
- * and the meta line are read inside the link but are not what it is called. So the cover's alt
- * is empty on purpose: inside a link already named by the title, the media's alt would only be
- * read as a second name, or not at all.
+ * One post as one link. Its name is the title alone: the band's category, the excerpt and the
+ * meta line are read inside the link but are not what it is called. The cover is decoration, so
+ * its alt is empty on purpose: inside a link already named by the title, the media's alt would
+ * only be read as a second name, or not at all.
  */
 const { eager, first, locale, post, siteName, timezone } = Astro.props;
 const excerpt = postExcerpt(post, '');
@@ -33,15 +33,15 @@ const titleId = `card-${post.id}`;
 
 <article class="almanac-card">
   <a class="almanac-card__link" href={postPath(post)} aria-labelledby={titleId}>
-    <div
-      class="almanac-card__panel"
-      aria-hidden="true"
-      style={panel ? `--card-tone: var(--almanac-tone-${panel.tone}); --card-tone-ink: var(--almanac-tone-${panel.tone}-ink);` : undefined}
-    >
-      {post.cover_image
-        ? <img src={post.cover_image} alt="" width="800" height="450" decoding="async" fetchpriority={first ? 'high' : undefined} loading={eager ? 'eager' : 'lazy'} />
-        : <span class="almanac-card__letter">{panel?.letter}</span>}
-    </div>
+    {post.cover_image ? (
+      <div class="almanac-card__panel" aria-hidden="true">
+        <img src={post.cover_image} alt="" width="800" height="450" decoding="async" fetchpriority={first ? 'high' : undefined} loading={eager ? 'eager' : 'lazy'} />
+      </div>
+    ) : panel && (
+      <p class="almanac-card__band" style={`--card-tone: var(--almanac-tone-${panel.tone}); --card-tone-ink: var(--almanac-tone-${panel.tone}-ink);`}>
+        <span>{panel.name}</span>
+      </p>
+    )}
     <div class="almanac-card__body">
       <h3 class="almanac-card__title" id={titleId}>{post.title}</h3>
       {excerpt && <p class="almanac-card__excerpt">{excerpt}</p>}

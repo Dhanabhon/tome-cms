@@ -9,35 +9,24 @@ import type { PostCategoryBadge } from '../../src/types/cms';
 /** A post as the home route hands it over: the route's posts carry their categories. */
 const post = (categories?: PostCategoryBadge[]) => ({ categories, id: 'p1', title: 'A title' }) as unknown as ThemeHomePost;
 
-test('a card with no cover takes its letter and tone from the first category', () => {
+test('a card with no cover takes its band\'s name and tone from the first category', () => {
   const design = { id: '6f1c2a90-3d4b-4e5f-8a7b-1c2d3e4f5a6b', name: 'design notes' };
   const panel = cardPanel(post([design, { id: 'other', name: 'Zebra' }]), 'Tome');
-  assert.deepEqual(panel, { letter: 'D', tone: tone(design.id) });
+  assert.deepEqual(panel, { name: 'design notes', tone: tone(design.id) });
 });
 
-test('a Thai category gives its first letter with the marks it carries, and a leading vowel brings its consonant', () => {
-  assert.equal(cardPanel(post([{ id: 'c', name: 'ข่าว' }]), 'Tome').letter, 'ข่');
-  assert.equal(cardPanel(post([{ id: 'c', name: 'เทคโนโลยี' }]), 'Tome').letter, 'เท');
-  assert.equal(cardPanel(post([{ id: 'c', name: '  ไทย' }]), 'Tome').letter, 'ไท');
-});
-
-test('the letter is capitalised the same on every server, and never turns into two letters', () => {
-  const letter = (name: string) => cardPanel(post([{ id: 'c', name }]), 'Tome').letter;
-  // Not the host's locale: a Turkish server would make "i" a dotted capital.
-  assert.equal(letter('indigo'), 'I');
-  assert.equal(letter('écrits'), 'É');
-  assert.equal(letter('e\u0301crits'), 'E\u0301', 'a letter with a combining accent keeps the accent');
-  // "ß" capitalises to "SS", and a ligature to its two letters: one circle holds one letter.
-  assert.equal(letter('ßeta'), 'ß');
-  assert.equal(letter('\uFB01eld'), '\uFB01');
-  assert.equal(letter('ข่าว'), 'ข่');
+test('a Thai category is named whole, as it is written', () => {
+  assert.equal(cardPanel(post([{ id: 'c', name: 'สูตรขนม' }]), 'Tome').name, 'สูตรขนม');
+  assert.equal(cardPanel(post([{ id: 'c', name: '  เทคโนโลยี ' }]), 'Tome').name, 'เทคโนโลยี');
 });
 
 test('a post with no category falls back to the site name, in one tone for all of them', () => {
-  assert.deepEqual(cardPanel(post([]), 'tome notes'), { letter: 'T', tone: tone('') });
-  assert.deepEqual(cardPanel(post(), 'บันทึก'), { letter: 'บั', tone: tone('') });
-  // A category with no name is no letter: the site name speaks instead.
-  assert.equal(cardPanel(post([{ id: 'c', name: '   ' }]), 'Tome').letter, 'T');
+  // The server files a post with no category chosen under the default, so this is a post read
+  // without its categories: the band still says something.
+  assert.deepEqual(cardPanel(post([]), 'tome notes'), { name: 'tome notes', tone: tone('') });
+  assert.deepEqual(cardPanel(post(), 'บันทึก'), { name: 'บันทึก', tone: tone('') });
+  // A category with no name is no name: the site name speaks instead.
+  assert.equal(cardPanel(post([{ id: 'c', name: '   ' }]), 'Tome').name, 'Tome');
 });
 
 test('the meta line is the reading time and the day, in the page\'s language and the site\'s time zone', () => {

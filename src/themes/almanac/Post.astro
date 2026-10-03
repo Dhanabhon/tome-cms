@@ -7,7 +7,7 @@ import type { ThemePostProps } from '../contract';
 import { tone } from './tone';
 
 /**
- * One column of reading, 68 characters wide: the first category as a pill on its own tone, the
+ * One column of reading, about 70 characters wide: the first category as a pill on its own tone, the
  * title in Trirong, the lead, who wrote it and when, the cover, the body, and the way on to the
  * rest of that category. The draft preview passes no categories, so it has no pill and no end.
  */
@@ -38,17 +38,16 @@ const lead = post.excerpt || post.meta_description;
     {lead && <p class="almanac-article__lead">{lead}</p>}
     <p class="almanac-article__meta">
       <span>{copy.by} {profile?.name || settings.site_name}</span>
-      <span aria-hidden="true">·</span>
-      <span>{preview && `${copy.lastSaved} `}<time datetime={when}>{date}</time></span>
-      <span aria-hidden="true">·</span>
-      <span>{copy.minutesRead.replace('{minutes}', String(postReadingMinutes(post)))}</span>
+      {/* Each dot belongs to the item after it, so a wrap never leaves one at a line's end. */}
+      <span><span aria-hidden="true" class="almanac-article__dot">·</span>{preview && `${copy.lastSaved} `}<time datetime={when}>{date}</time></span>
+      <span><span aria-hidden="true" class="almanac-article__dot">·</span>{copy.minutesRead.replace('{minutes}', String(postReadingMinutes(post)))}</span>
     </p>
   </header>
   {cover && <img class="almanac-article__cover" src={cover} alt={post.title} width="1200" height="675" loading="eager" fetchpriority="high" />}
   <div class="almanac-prose" set:html={body} />
   {category && (
     <footer class="almanac-article__end">
-      <a class="almanac-article__more" href={categoryHref}>{copy.moreIn.replace('{category}', () => category.name)} <span aria-hidden="true">→</span></a>
+      <a class="almanac-article__more" href={categoryHref}><span class="almanac-article__more-label">{copy.moreIn.replace('{category}', () => category.name)}</span> <span aria-hidden="true" class="almanac-article__arrow">→</span></a>
     </footer>
   )}
 </article>
