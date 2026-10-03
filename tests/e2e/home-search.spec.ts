@@ -202,7 +202,7 @@ for (const theme of ['paper', 'plain'] as const) {
     await page.getByRole('search').getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(`${origin}/en?q=note`);
     await expect(cards(page, theme), 'a page of six').toHaveCount(6);
-    const older = page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /All posts →/ });
+    const older = page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /More posts/ });
     await expect(older).toHaveAttribute('href', /q=note/);
     await older.click();
     await expect(page).toHaveURL(/q=note.*cursor=|cursor=.*q=note/);
@@ -224,12 +224,12 @@ for (const [theme, pages] of [['paper', [6, 3]], ['plain', [7, 2]]] as const) {
     await page.goto(`${origin}/en`);
     await expect(cards(page, theme)).toHaveCount(pages[0]);
     const first = await titles();
-    await page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /All posts →/ }).click();
+    await page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /More posts/ }).click();
     await expect(page).toHaveURL(/cursor=/);
     await expect(cards(page, theme)).toHaveCount(pages[1]);
     const second = await titles();
     expect(new Set([...first, ...second]).size, 'every post once').toBe(9);
-    expect(await page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /All posts →/ }).count(), 'and nothing older than the last').toBe(0);
+    expect(await page.getByRole('link', { name: theme === 'paper' ? /Older posts/ : /More posts/ }).count(), 'and nothing older than the last').toBe(0);
     await context.close();
   });
 }
@@ -467,5 +467,101 @@ test.describe('paper', () => {
       }
     }
     await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [] }));
+  });
+});
+
+// Plain's home, as a reader meets it (1.14.0, spec §3). The tab-row test files posts under more
+// categories, so it comes last.
+test.describe('plain', () => {
+  test.beforeEach(() => useTheme('plain'));
+  const tabs = (page: Page) => page.getByRole('navigation', { name: 'Categories' });
+
+  test('the home has one h1, the site\'s name, whatever the list', async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const path of ['/en', '/en?q=note', '/en?category=Notes', '/th']) {
+      await page.goto(`${origin}${path}`);
+      await expect(page.locator('h1'), path).toHaveCount(1);
+      await expect(page.locator('h1'), path).toHaveText('Search Test');
+    }
+  });
+
+  test('the next page is "More posts", and a later page leads back to the newest', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(`${origin}/en?category=Uncategorized`);
+    await expect(page.getByRole('link', { name: 'All posts →' }), 'the old label, the first tab\'s name').toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Latest posts/ }), 'the first page is the newest').toHaveCount(0);
+    await page.getByRole('link', { name: 'More posts' }).click();
+    await expect(page).toHaveURL(/category=Uncategorized.*cursor=/);
+    const back = page.getByRole('link', { name: 'Latest posts' });
+    await expect(back, 'the same list, from its newest').toHaveAttribute('href', '/en?category=Uncategorized');
+    await back.click();
+    await expect(page).toHaveURL(`${origin}/en?category=Uncategorized`);
+  });
+
+  test('an empty list says why: an empty category, and a list that failed to load', async ({ page }) => {
+    test.setTimeout(120_000);
+    psql(`insert into categories (owner_id, name, is_default) values ('${OWNER}', 'Bare', false) on conflict do nothing`);
+    await page.goto(`${origin}/en?category=Bare`);
+    const empty = page.locator('.plain-empty');
+    await expect(empty).toHaveText('No posts in this category yet. All posts');
+    await expect(empty.getByRole('link', { name: 'All posts' })).toHaveAttribute('href', '/en');
+    // A cursor that does not verify is a list that could not be read.
+    await page.goto(`${origin}/en?cursor=not-a-cursor`);
+    await expect(page.getByRole('alert')).toHaveText('Published posts are temporarily unavailable.');
+    await expect(page.locator('.plain-empty:not([role])'), 'and no second sentence under it').toHaveCount(0);
+  });
+
+  test('during a search, "All posts" is not the list on screen', async ({ page }) => {
+    test.setTimeout(120_000);
+    const all = () => tabs(page).getByRole('link', { name: 'All posts' });
+    await page.goto(`${origin}/en`);
+    await expect(all()).toHaveAttribute('aria-current', 'page');
+    await page.goto(`${origin}/en?q=note`);
+    await expect(all()).not.toHaveAttribute('aria-current');
+  });
+
+  test('on a phone and a tablet the tabs are one row that scrolls, and the keyboard brings a tab into view', async ({ page }) => {
+    test.setTimeout(120_000);
+    // Enough names, long enough, that the row runs past a phone's and a tablet's width.
+    const names = ['Kitchen experiments', 'Seasonal baking', 'Letters from readers', 'Equipment and tools', 'Market days', 'Long-read essays'];
+    psql(`insert into categories (owner_id, name, is_default) values ${names.map((name) => `('${OWNER}', '${name}', false)`).join(', ')} on conflict do nothing;
+      insert into post_category_assignments (translation_group_id, category_id, owner_id)
+        select p.translation_group_id, c.id, '${OWNER}'
+        from (values ${names.map((name, index) => `('field-note-${index + 2}', '${name}')`).join(', ')}) as v(slug, name)
+        join posts p on p.slug = v.slug join categories c on c.name = v.name
+        on conflict do nothing;`);
+    for (const width of [375, 768]) {
+      await page.setViewportSize({ width, height: 812 });
+      await page.goto(`${origin}/en`);
+      const row = tabs(page);
+      const links = row.getByRole('link');
+      await expect(links).toHaveCount(names.length + 3);
+      const [scrolls, tops] = await row.evaluate((nav) => [
+        nav.scrollWidth > nav.clientWidth,
+        new Set([...nav.querySelectorAll('a')].map((link) => Math.round(link.getBoundingClientRect().top))).size,
+      ]);
+      expect(scrolls, `${width}: the row runs past the screen`).toBe(true);
+      expect(tops, `${width}: on one line`).toBe(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${width}: the page does not scroll sideways`).toBeLessThanOrEqual(0);
+
+      const last = links.last();
+      const inView = () => last.evaluate((link) => {
+        const tab = link.getBoundingClientRect();
+        const box = link.parentElement!.getBoundingClientRect();
+        return tab.left >= box.left - 0.5 && tab.right <= box.right + 0.5;
+      });
+      expect(await inView(), `${width}: the last tab starts out of view`).toBe(false);
+      await page.getByRole('searchbox', { name: 'Search posts' }).focus();
+      for (let presses = 0; presses < 20 && !await last.evaluate((link) => link === document.activeElement); presses += 1) {
+        await page.keyboard.press('Tab');
+      }
+      await expect(last).toBeFocused();
+      await expect.poll(inView, `${width}: focus brings it into view`).toBe(true);
+
+      // Chosen, it is in view on arrival, with its bar. The row is in the site's order, not this list's.
+      await page.goto(`${origin}/en?category=${encodeURIComponent((await last.textContent())!)}`);
+      await expect(last).toHaveAttribute('aria-current', 'page');
+      await expect.poll(inView, `${width}: the chosen tab is shown`).toBe(true);
+    }
   });
 });

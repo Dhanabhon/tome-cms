@@ -2,11 +2,23 @@
  *
  * It reads the same tokens the rest of the product does, so the owner's light and dark
  * settings go on working and the contrast pairs stay the measured ones. What it does not
- * take is the shape: the reader's own font, and a rule where Paper draws a surface -- on the
- * same 80rem frame, so it widens with the screen as Paper does. That difference is the
- * point -- a second theme that agreed with the first about everything would not have tested
- * the contract it was written to test.
+ * take is the shape: a rule where Paper draws a surface -- on the same 80rem frame, so it
+ * widens with the screen as Paper does. That difference is the point -- a second theme that
+ * agreed with the first about everything would not have tested the contract it was written to
+ * test.
  */
+
+/* One face for every word, Latin and Thai: Google Sans carries both (public/fonts.css), so a Thai
+ * page is not left to whatever the reader's system has. Written over the core's names, and only on
+ * a Plain page or the admin's draft preview of a Plain article, so the admin keeps its own pair.
+ * The 404 and a code block's label read these names too, so they are Plain's face as well. */
+:root:has(> body.plain, .plain-article) {
+  --font-display: "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Plain is white, so what shows past either end of the page on a rubber-band scroll is too. */
+html:has(> body.plain) { background: var(--color-paper); }
 
 .plain {
   /* Paper's frame: 80rem across, with 1.25rem at the sides and 1.75rem from the sm width.
@@ -14,10 +26,12 @@
   --plain-gutter: 1.25rem;
   --plain-frame: min(100% - 2 * var(--plain-gutter), 80rem - 2 * var(--plain-gutter));
   --plain-field: 2.5rem;
+  /* The lead's excerpt and a grid title: between the scale's base and md. */
+  --plain-text-lead: 1.125rem;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  min-height: 100svh;
+  font-family: var(--font-body);
   color: var(--color-ink);
   background: var(--color-paper);
 }
@@ -47,7 +61,7 @@
 }
 
 .plain-head { justify-content: space-between; border-block-end: var(--rule-hair) solid var(--color-rule); }
-.plain-foot { margin-block-start: auto; border-block-start: var(--rule-hair) solid var(--color-rule); color: var(--color-muted); font-size: 0.875rem; }
+.plain-foot { margin-block-start: auto; border-block-start: var(--rule-hair) solid var(--color-rule); color: var(--color-muted); font-size: var(--text-sm); }
 
 .plain-foot p { overflow-wrap: anywhere; }
 .plain-foot__credit { margin-inline-start: auto; }
@@ -60,12 +74,22 @@
 
 .plain-nav,
 .plain-foot nav { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; }
+/* The mark under a link is the text's own underline, not a border, so a link made taller for a
+ * finger keeps it under its words. */
 .plain-nav a,
-.plain-foot a { color: inherit; text-decoration: none; border-block-end: var(--rule-hair) solid transparent; }
-.plain-nav a:hover,
-.plain-foot a:hover,
+.plain-foot a {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: var(--rule-hair);
+  text-underline-offset: var(--space-2xs);
+}
 .plain-nav a[aria-current],
-.plain-nav summary[aria-current] > span { border-block-end-color: currentColor; }
+.plain-nav summary[aria-current] > span { text-decoration-color: currentColor; }
+@media (hover: hover) {
+  .plain-nav a:hover,
+  .plain-foot a:hover { text-decoration-color: currentColor; }
+}
 .plain-nav ul { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; margin: 0; padding: 0; list-style: none; }
 
 /* A sub-menu: the ▾ beside a link parent, or a group's label, opens a ruled panel under it. It
@@ -73,8 +97,8 @@
  * when it would pass the window's. */
 .site-submenu-item { position: relative; display: flex; align-items: center; gap: var(--space-3xs); }
 .site-submenu-item summary { display: flex; align-items: center; gap: var(--space-3xs); min-width: var(--plain-field); min-height: var(--plain-field); justify-content: center; list-style: none; cursor: pointer; }
-/* The rule marks a group's label, not the box its ▾ shares. */
-.site-submenu-item summary > span { border-block-end: var(--rule-hair) solid transparent; }
+/* The line marks a group's label, not the box its ▾ shares. */
+.site-submenu-item summary > span { text-decoration-line: underline; text-decoration-color: transparent; text-decoration-thickness: var(--rule-hair); text-underline-offset: var(--space-2xs); }
 .site-submenu-item summary::-webkit-details-marker { display: none; }
 /* A link parent's ▾ sits right after its label, as a group's does; its target runs forward into
  * the gap before the next item, never back over the label, whose clicks it would take. */
@@ -83,7 +107,7 @@
 .plain-nav > ul > li, .plain-nav > a, .plain-nav .ui-theme { position: relative; }
 /* Only where a pointer really hovers: a phone keeps :hover after a tap. */
 @media (hover: hover) {
-  .site-submenu-item summary:not([aria-label]):hover > span { border-block-end-color: currentColor; }
+  .site-submenu-item summary:not([aria-label]):hover > span { text-decoration-color: currentColor; }
 }
 .site-submenu-item summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
 .site-submenu-item [data-site-submenu][open] > summary .icon { transform: rotate(180deg); }
@@ -112,8 +136,7 @@
 }
 .plain-nav .site-submenu[data-align="end"] { inset-inline: auto 0; }
 /* The whole row is the link; the current one's mark is a line under its words, not the row. */
-.plain-nav .site-submenu a { display: block; padding-block: var(--space-xs); border-block-end: 0; white-space: nowrap; text-decoration-thickness: var(--rule-hair); text-underline-offset: var(--space-2xs); }
-.plain-nav .site-submenu a:is(:hover, [aria-current]) { text-decoration-line: underline; }
+.plain-nav .site-submenu a { display: block; padding-block: var(--space-xs); white-space: nowrap; }
 
 /* A phone has no room to hang a panel off one word in a wrapped row: it spans the header,
  * just under the parent it opened from. */
@@ -146,8 +169,33 @@
   color: var(--color-muted);
   text-decoration: none;
 }
-.plain-filter a:hover { color: var(--color-ink); }
 .plain-filter a[aria-current="page"] { color: var(--color-ink); font-weight: 600; border-block-end-color: var(--color-link); }
+.plain-filter a:active { color: var(--color-ink); }
+/* Drawn inside the tab, so the row's scroller below 64rem cannot clip it. */
+.plain-filter a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+@media (hover: hover) {
+  .plain-filter a:hover { color: var(--color-ink); }
+}
+
+/* Below 64rem the tabs do not wrap: a second row put the open tab's bar in mid-air, over the row
+ * under it. They are one row that scrolls sideways, beside the search from 40rem and under it on
+ * a phone, and the rule is the row's own, drawn inside it so the scroller does not clip the bar
+ * that lies on it. A tab the keyboard reaches, and the chosen one on arrival, are brought into view
+ * whole, clear of the edge by the scroll-padding (Home.astro). */
+@media (max-width: 63.999rem) {
+  .plain-controls { border-block-end: 0; }
+  .plain-filter {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--space-lg);
+    box-shadow: inset 0 calc(-1 * var(--rule-hair)) var(--color-rule);
+  }
+  .plain-filter::-webkit-scrollbar { display: none; }
+  .plain-filter a { flex: none; margin-block-end: 0; white-space: nowrap; }
+}
 
 /* The field is the form: the magnifier inside it is the button that sends it. */
 .plain-search { position: relative; order: 1; flex: 0 1 14rem; min-width: 0; margin-inline-start: auto; padding-block: var(--space-xs); }
@@ -162,10 +210,9 @@
   background: var(--color-paper);
   color: var(--color-ink);
   font: inherit;
-  font-size: 1rem;
+  font-size: var(--text-base);
 }
 .plain-search input::placeholder { color: var(--color-placeholder); opacity: 1; }
-.plain-search input:hover { border-color: var(--color-ink); }
 /* One line, as Paper's: the border turns accent and thickens inward; the outline stays transparent so forced-colors can paint it. */
 .plain-search input:focus-visible { border-color: var(--color-accent); outline: 2px solid transparent; box-shadow: inset 0 0 0 var(--rule-hair) var(--color-accent); }
 .plain-search__submit {
@@ -182,8 +229,12 @@
   cursor: pointer;
 }
 .plain-search__submit .icon { width: 1.125rem; height: 1.125rem; }
-.plain-search__submit:hover { color: var(--color-ink); }
 .plain-search__submit:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; color: var(--color-ink); }
+.plain-search__submit:active { translate: 0 1px; }
+@media (hover: hover) {
+  .plain-search input:hover { border-color: var(--color-ink); }
+  .plain-search__submit:hover { color: var(--color-ink); }
+}
 
 /* It comes first in the page, so a phone draws it above the tabs and reaches it before them. A wide
    screen sets it at the row's end with `order`, which moves only what is drawn. */
@@ -191,15 +242,18 @@
   .plain-search { order: 0; flex-basis: 100%; }
 }
 
+/* What a search found, and why a list is empty: one muted line. A failure to load sits above the
+ * list it explains. */
 .plain-search-status,
-.plain-search-none { margin: var(--space-md) 0; color: var(--color-muted); font-size: 0.875rem; }
-.plain-search-status a { color: var(--color-link); }
+.plain-empty { margin: var(--space-md) 0; color: var(--color-muted); font-size: var(--text-sm); }
+.plain-search-status a,
+.plain-empty a { color: var(--color-link); }
 
 /* The newest post, set large across the frame. */
 .plain-lead { padding-block: var(--space-lg); }
-.plain-lead h2 { margin: 0 0 var(--space-2xs); font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; }
-.plain-lead time { display: block; margin-block-end: var(--space-xs); color: var(--color-muted); font-size: 0.875rem; }
-.plain-lead p { max-width: 40rem; margin: 0; color: var(--color-muted); font-size: 1.125rem; line-height: 1.6; }
+.plain-lead h2 { margin: 0 0 var(--space-2xs); font-size: var(--text-title); font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; text-wrap: balance; }
+.plain-lead time { display: block; margin-block-end: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); }
+.plain-lead p { max-width: 40rem; margin: 0; color: var(--color-muted); font-size: var(--plain-text-lead); line-height: 1.6; }
 
 /* The rest: a grid of rules, not boxes. */
 .plain-grid { display: grid; grid-template-columns: 1fr; gap: 0 var(--space-xl); margin: 0; padding: 0; list-style: none; }
@@ -212,12 +266,14 @@
 /* With nothing between them the first row's hairlines lie on the controls' own. */
 .plain-controls + .plain-grid { margin-block-start: calc(-1 * var(--rule-hair)); }
 .plain-grid > li { min-width: 0; padding-block: var(--space-md) var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
-.plain-grid h2 { margin: 0 0 var(--space-2xs); font-size: 1.125rem; font-weight: 600; line-height: 1.3; }
+.plain-grid h2 { margin: 0 0 var(--space-2xs); font-size: var(--plain-text-lead); font-weight: 600; line-height: 1.3; text-wrap: balance; }
 .plain-lead h2 a,
 .plain-grid h2 a { color: inherit; text-decoration: none; }
-.plain-lead h2 a:hover,
-.plain-grid h2 a:hover { text-decoration: underline; }
-.plain-grid time { display: block; margin-block-end: var(--space-2xs); color: var(--color-muted); font-size: 0.8125rem; }
+@media (hover: hover) {
+  .plain-lead h2 a:hover,
+  .plain-grid h2 a:hover { text-decoration: underline; }
+}
+.plain-grid time { display: block; margin-block-end: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
 .plain-grid p {
   display: -webkit-box;
   overflow: hidden;
@@ -229,20 +285,27 @@
   line-clamp: 3;
 }
 
-.plain-more { margin-block-start: var(--space-xl); }
+/* Back to the newest and on to the older: the two ends of one row. */
+.plain-more { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-sm) var(--space-lg); margin-block-start: var(--space-xl); }
 
-.plain-back { margin: 0 0 var(--space-md); font-size: 0.875rem; }
-.plain-article h1 { margin: 0 0 var(--space-sm); font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 700; line-height: 1.2; }
+.plain-back { margin: 0 0 var(--space-md); font-size: var(--text-sm); }
+.plain-article h1 { margin: 0 0 var(--space-sm); font-size: var(--text-title); font-weight: 700; line-height: 1.2; text-wrap: balance; }
 /* Thai stacks marks above and below the letter: tracking pulls a cluster's marks into the next
  * one, and 1.2 brings a wrapped title's two lines into each other. Latin keeps both. */
 :lang(th) :is(.plain-wordmark, .plain-lead h2, .plain-article h1) { letter-spacing: 0; }
 :lang(th) :is(.plain-lead h2, .plain-article h1) { line-height: 1.4; }
-.plain-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: 0.875rem; }
-.plain-draft { margin: 0 0 var(--space-sm); color: var(--color-muted); font-size: 0.875rem; }
+.plain-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
+.plain-draft { margin: 0 0 var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); }
 .plain-article img { width: 100%; height: auto; }
+/* The cover is outside the body, so the body's spacing never reached it. */
+.plain-article > img { margin-block-end: var(--space-lg); }
 
 .plain-body { line-height: 1.7; }
 .plain-body > * + * { margin-block-start: var(--space-md); }
+/* The running text keeps a reading measure, about 68 characters of 16px Google Sans (counted in a
+ * 1440px shot: 34rem held 73), inside the column a picture and a code block still use in full. In
+ * rem, not ch: a ch is a Latin zero, and measures Thai badly. */
+.plain-body > :is(p, ul, ol, blockquote, h2, h3) { max-inline-size: 31rem; }
 .plain-body h2, .plain-body h3 { margin-block-start: var(--space-xl); line-height: 1.3; }
 /* Tailwind's preflight sets every heading to the body's size and weight and takes a list's
  * markers and indent away. Paper and Almanac get them back from a prose class; this is Plain's. */
@@ -258,6 +321,10 @@
 .plain-body li > p + p { margin-block-start: var(--space-xs); }
 .plain-body li::marker { color: var(--color-muted); }
 .plain-body :not(pre) > code { padding: 0.1em 0.35em; border-radius: var(--radius-sm); background: var(--color-code-surface); font-size: 0.875em; }
+/* A code block is drawn once for every theme (src/styles/code.css); in Plain it is not a rounded
+ * box but a band between two rules, as the rest of the page is ruled. Its fill stays: the code's
+ * colours are measured against it. Written to outrank code.css's `.plain-body pre`. */
+.plain-body :is(pre, pre.code-block) { border-block: var(--rule-hair) solid var(--color-rule-strong); border-inline: 0; border-radius: 0; }
 .plain-body a { color: var(--color-link); }
 /* A new part: three dots, no line. Still an hr to a screen reader. */
 .plain-body hr {
@@ -285,5 +352,19 @@
 .plain-body :is(th, td) > * + * { margin-block-start: var(--space-2xs); }
 
 .plain-author { margin-block-start: var(--space-2xl); padding-block-start: var(--space-lg); border-block-start: var(--rule-hair) solid var(--color-rule); }
-.plain-author h2 { margin: 0 0 var(--space-2xs); font-size: 1rem; }
+.plain-author h2 { margin: 0 0 var(--space-2xs); font-size: var(--text-base); }
+
+/* The theme button in a header of words: no ring of its own, the field's size, and a fill when a
+ * pointer is over it. Open, it keeps the core's ring. */
+.plain-nav .ui-theme__trigger { width: var(--plain-field); height: var(--plain-field); border-color: transparent; }
+@media (hover: hover) {
+  .plain-nav .ui-theme__trigger:hover { border-color: transparent; background: var(--color-paper-2); }
+}
+
+/* A finger's target: a link in the header, the footer, back to the list, or on to the next page is
+ * as tall as a field, and a sub-menu's row as tall again with its padding. */
+@media (pointer: coarse) {
+  :is(.plain-nav, .plain-foot, .plain-back, .plain-more) a { display: inline-flex; gap: var(--space-2xs); align-items: center; min-height: var(--plain-field); }
+  .plain-nav .site-submenu a { padding-block: var(--space-sm); }
+}
 .plain-author p { margin: 0; color: var(--color-muted); }

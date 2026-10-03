@@ -4,7 +4,7 @@ import Post from './Post.astro';
 import Shell from './Shell.astro';
 
 /**
- * The reader's own font on a wide frame, rules instead of surfaces.
+ * Google Sans on a wide frame, rules instead of surfaces.
  *
  * It ships to keep the contract honest: an interface with one implementation is a guess,
  * and a theme switch with one option proves nothing.

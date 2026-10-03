@@ -1,8 +1,9 @@
 /* Code: the block a reader sees and the one the writer types in, and the colours both are
  * highlighted with.
  *
- * It is drawn here once, for the admin's editor and for both themes, because the two must agree:
- * the page shows what the editor showed. The surface and every colour are tokens
+ * It is drawn here once, for the admin's editor and for every theme, because they must agree: the
+ * page shows what the editor showed. A theme may redraw the frame in its own stylesheet, as Plain
+ * does; the colours stay these. The surface and every colour are tokens
  * (installer-tokens.css), so the block follows the light and dark schemes without a rule of its own.
  *
  * Posts written before a block had a language carry a bare <pre>; it is drawn the same, only

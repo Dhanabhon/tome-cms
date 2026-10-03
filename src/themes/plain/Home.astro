@@ -8,16 +8,20 @@ import { leadsWith } from './lead';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, tagline, timezone } = Astro.props;
+const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, timezone } = Astro.props;
 const copy = publicCopy(locale);
-const unavailable = locale === 'th'
-  ? 'ขณะนี้ยังแสดงบทความไม่ได้ โปรดลองใหม่ภายหลัง'
-  : 'Published posts are temporarily unavailable.';
+// Never an empty h1: a site with no name yet is called what the route calls it, as in Almanac.
+const name = siteName.trim() || 'TomeCMS';
 const home = localePath(locale);
 const formatter = new Intl.DateTimeFormat(dateLocale(locale), { dateStyle: 'long', timeZone: timezone });
-const olderHref = nextCursor
-  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
-  : null;
+// The same list -- its category, its search -- from its newest post, or from where a page stopped.
+const listHref = (from?: string) => {
+  const search = `${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), ...(from ? { cursor: from } : {}) })}`;
+  return search ? `${home}?${search}` : home;
+};
+const olderHref = nextCursor ? listHref(nextCursor) : null;
+// A page knows the next one's cursor but not the last one's, so the way back is to the newest.
+const newestHref = cursor ? listHref() : null;
 // The reader's words go into a sentence as text, whatever they contain.
 const saying = (template: string) => template.replace('{query}', () => query ?? '');
 // A category filter narrows the list but not the lead: the newest post in it leads.
@@ -29,6 +33,7 @@ const when = (post: Post) => post.published_at ?? post.created_at;
 ---
 
 <div class="plain-page">
+  <h1 class="sr-only">{name}</h1>
   {tagline && <p class="plain-tagline">{tagline}</p>}
 
   <div class="plain-controls">
@@ -39,7 +44,7 @@ const when = (post: Post) => post.published_at ?? post.created_at;
     </form>
     {categories.length > 0 && (
       <nav class="plain-filter" aria-label={copy.categories}>
-        <a href={home} aria-current={activeCategory ? undefined : 'page'}>{copy.allPosts}</a>
+        <a href={home} aria-current={activeCategory || query ? undefined : 'page'}>{copy.allPosts}</a>
         {categories.map(({ name }) => (
           <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase() ? 'page' : undefined}>{name}</a>
         ))}
@@ -47,6 +52,7 @@ const when = (post: Post) => post.published_at ?? post.created_at;
     )}
   </div>
   {query && <p class="plain-search-status" role="status">{saying(copy.searchResults)} · <a href={home}>{copy.clearSearch}</a></p>}
+  {loadError && <p class="plain-empty" role="alert">{copy.postsUnavailable}</p>}
 
   {lead && (
     <article class="plain-lead">
@@ -56,21 +62,43 @@ const when = (post: Post) => post.published_at ?? post.created_at;
     </article>
   )}
 
-  <ol class="plain-grid">
-    {rest.map((post) => {
-      const excerpt = postExcerpt(post, '');
-      return (
-        <li>
-          <h2><a href={postPath(post)}>{post.title}</a></h2>
-          <time datetime={when(post)}>{formatter.format(new Date(when(post)))}</time>
-          {excerpt && <p>{excerpt}</p>}
-        </li>
-      );
-    })}
-  </ol>
+  {rest.length > 0 && (
+    <ol class="plain-grid">
+      {rest.map((post) => {
+        const excerpt = postExcerpt(post, '');
+        return (
+          <li>
+            <h2><a href={postPath(post)}>{post.title}</a></h2>
+            <time datetime={when(post)}>{formatter.format(new Date(when(post)))}</time>
+            {excerpt && <p>{excerpt}</p>}
+          </li>
+        );
+      })}
+    </ol>
+  )}
 
-  {query && posts.length === 0 && !loadError && <p class="plain-search-none">{saying(copy.noResults)}</p>}
+  {posts.length === 0 && !loadError && (
+    <p class="plain-empty">{query ? saying(copy.noResults) : activeCategory ? <>{copy.noPostsInCategory} <a href={home}>{copy.allPosts}</a></> : copy.noPosts}</p>
+  )}
 
-  {olderHref && <p class="plain-more"><a href={olderHref}>{copy.allPosts} →</a></p>}
-  {loadError && <p role="alert">{unavailable}</p>}
+  {(newestHref || olderHref) && (
+    <p class="plain-more">
+      {newestHref && <a href={newestHref}><span aria-hidden="true">←</span> {copy.latestPosts}</a>}
+      {olderHref && <a href={olderHref}>{copy.morePosts} <span aria-hidden="true">→</span></a>}
+    </p>
+  )}
 </div>
+
+<script>
+  /*
+   * Below 64rem the tabs scroll sideways. A page arrives with the row at its start, so the chosen
+   * tab is brought into it, and the reader sees which list this is; and a tab the keyboard reaches
+   * is brought in whole, clear of the edge by the row's scroll-padding: the browser's own scroll on
+   * focus left the last tab cut by the edge at 768px (tests/e2e/home-search.spec.ts). A wide row is
+   * all in view, and neither moves it.
+   */
+  const row = document.querySelector<HTMLElement>('.plain-filter');
+  const show = (tab: Element | null | undefined) => tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  show(row?.querySelector('[aria-current="page"]'));
+  row?.addEventListener('focusin', (event) => show(event.target as Element));
+</script>

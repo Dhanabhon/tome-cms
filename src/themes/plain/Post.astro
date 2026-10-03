@@ -21,7 +21,8 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     <span>{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></span>
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
-  {cover && <img src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />}
+  {/* The title is the h1 just above it; the picture says nothing a reader has not heard. */}
+  {cover && <img src={cover} alt="" fetchpriority="high" width="1200" height="675" />}
   <div class="plain-body" set:html={demoteH1(bodyHtml)} />
   {profile?.bio && (
     <footer class="plain-author">

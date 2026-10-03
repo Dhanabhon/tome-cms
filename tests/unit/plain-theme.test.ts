@@ -138,3 +138,174 @@ test('Thai display type in Plain is not tracked in, and its two-line titles have
   assert.match(css, /\.plain-lead h2 \{[^}]*letter-spacing: -0\.015em; line-height: 1\.2;/);
   assert.match(css, /\.plain-article h1 \{[^}]*line-height: 1\.2;/);
 });
+
+/*
+ * Plain on a phone and in Google Sans (1.14.0, D4 and spec §3): read from the stylesheet and the
+ * templates, as above; tests/e2e/home-search.spec.ts sees the page.
+ */
+const PLAIN = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const CODE = readFileSync(new URL('../../src/styles/code.css', import.meta.url), 'utf8');
+
+/** Every rule as [the at-rules it sits in, its own selector, its declarations]. Almanac's and Paper's tests keep the same walker. */
+function parse(source: string): Array<{ context: string[]; selector: string; body: string }> {
+  const found: Array<{ context: string[]; selector: string; body: string }> = [];
+  const stack: string[] = [];
+  let prelude = '';
+  for (let at = 0; at < source.length; at += 1) {
+    const char = source[at];
+    if (char === '{') {
+      const selector = prelude.trim();
+      const close = source.indexOf('}', at);
+      const nextOpen = source.indexOf('{', at + 1);
+      if (!selector.startsWith('@') && (nextOpen === -1 || nextOpen > close)) {
+        found.push({ context: [...stack], selector, body: source.slice(at + 1, close) });
+        at = close;
+      } else {
+        stack.push(selector);
+      }
+      prelude = '';
+    } else if (char === '}') {
+      stack.pop();
+      prelude = '';
+    } else if (char === ';' && !stack.length) {
+      prelude = '';
+    } else {
+      prelude += char;
+    }
+  }
+  return found;
+}
+
+const RULES = parse(PLAIN);
+/** The declarations of `selector` at the top level, or inside the at-rule written exactly as `at`. */
+const top = (selector: string, at?: string) => RULES
+  .filter((candidate) => candidate.selector === selector && (at ? candidate.context.includes(at) : !candidate.context.length))
+  .map(({ body }) => body)
+  .join(';');
+const NARROW = '@media (max-width: 63.999rem)';
+const COARSE = '@media (pointer: coarse)';
+const HOVER = '@media (hover: hover)';
+
+test('every word in Plain is Google Sans, Latin and Thai, through the font tokens', () => {
+  const block = top(':root:has(> body.plain, .plain-article)');
+  for (const name of ['font-display', 'font-body']) {
+    const family = new RegExp(`--${name}: ([^;]+);`).exec(block)?.[1] ?? '';
+    assert.match(family, /^"Google Sans",/, `--${name} leads with Google Sans`);
+    assert.match(family, /sans-serif$/, `--${name} falls back to a sans`);
+    assert.doesNotMatch(family, /Plex/, `--${name} still names Plex`);
+  }
+  assert.match(top('.plain'), /font-family: var\(--font-body\);/);
+  // A family is named only in the token block: no literal anywhere else.
+  for (const rule of RULES.filter(({ selector }) => selector !== ':root:has(> body.plain, .plain-article)')) {
+    assert.doesNotMatch(rule.body, /font-family:(?! var\(--font-(body|display|mono)\)| inherit)/, `${rule.selector} names a face`);
+  }
+  for (const file of ['Shell.astro', 'theme.css', 'index.ts', 'theme.ts']) {
+    assert.doesNotMatch(read(file), /system font|reader's own font/i, `${file} describes the old face`);
+  }
+  // The code block's label is drawn in the page's face, which the token now is.
+  assert.match(CODE, /pre\[data-language\]::before \{[^}]*font-family: var\(--font-body\);/);
+});
+
+test("Plain's overscroll is its own white, not the cream behind the other themes", () => {
+  assert.match(top('html:has(> body.plain)'), /background: var\(--color-paper\);/);
+});
+
+test('the shell is at least a small viewport tall, so a phone toolbar does not leave a gap', () => {
+  assert.match(top('.plain'), /min-height: 100svh;/);
+  assert.doesNotMatch(PLAIN, /100vh/);
+});
+
+test("a post's running text keeps a reading measure in rem, not ch", () => {
+  const measure = /max-inline-size: ([\d.]+)rem;/.exec(top('.plain-body > :is(p, ul, ol, blockquote, h2, h3)'))?.[1];
+  assert.ok(measure, 'the prose has a measure');
+  // About 68 characters of 16px Google Sans, counted in a screenshot.
+  assert.ok(Number(measure) >= 30 && Number(measure) <= 33, `${measure}rem`);
+  assert.doesNotMatch(PLAIN, /\dch\b/, 'no measure in ch, which counts Thai badly');
+});
+
+test('the cover stands off the first paragraph, and does not say the title again', () => {
+  assert.match(top('.plain-article > img'), /margin-block-end: var\(--space-lg\);/);
+  const post = read('Post.astro');
+  assert.match(post, /<img src=\{cover\} alt="" /);
+  assert.doesNotMatch(post, /alt=\{post\.title\}/);
+});
+
+test("Plain's code block is a rule above and below: no radius, no side borders", () => {
+  const block = top('.plain-body :is(pre, pre.code-block)');
+  assert.match(block, /border-inline: 0;/);
+  assert.match(block, /border-radius: 0;/);
+  assert.match(block, /border-block: var\(--rule-hair\) solid var\(--color-rule-strong\);/);
+  assert.doesNotMatch(CODE, /both themes/, 'code.css still counts two themes');
+});
+
+test('a hover is only a hover where a pointer really hovers', () => {
+  const hovers = RULES.filter(({ selector }) => selector.includes(':hover'));
+  assert.ok(hovers.length > 0);
+  for (const rule of hovers) assert.ok(rule.context.includes(HOVER), `${rule.selector} hovers on a tap`);
+});
+
+test('the lead, an article title and a grid title wrap in balanced lines', () => {
+  for (const selector of ['.plain-lead h2', '.plain-article h1', '.plain-grid h2']) {
+    assert.match(top(selector), /text-wrap: balance;/, selector);
+  }
+});
+
+test('type sizes come off the scale, with a lead size of Plain\'s own', () => {
+  assert.doesNotMatch(PLAIN, /font-size: (clamp|[\d.]+rem)/, 'a literal size');
+  assert.match(top('.plain'), /--plain-text-lead: 1\.125rem;/);
+  assert.match(top('.plain-lead p'), /font-size: var\(--plain-text-lead\);/);
+  assert.match(top('.plain-grid time'), /font-size: var\(--text-xs\);/);
+});
+
+test('below 64rem the tabs are one row that scrolls sideways, with the rule under them and not the search', () => {
+  assert.match(top('.plain-controls', NARROW), /border-block-end: 0;/);
+  const row = top('.plain-filter', NARROW);
+  assert.match(row, /flex-wrap: nowrap;/);
+  assert.match(row, /overflow-x: auto;/);
+  assert.match(row, /scrollbar-width: none;/);
+  assert.match(row, /scroll-padding-inline: /, 'a tab that takes focus comes into view clear of the edge');
+  // The rule is the row's own, drawn inside it, so the scroller does not clip the bar on it.
+  assert.match(row, /box-shadow: inset 0 calc\(-1 \* var\(--rule-hair\)\) var\(--color-rule\);/);
+  assert.match(top('.plain-filter a', NARROW), /margin-block-end: 0;/);
+  assert.match(top('.plain-filter::-webkit-scrollbar', NARROW), /display: none;/);
+  // A clipped ring is no ring: it is drawn inside the tab.
+  assert.match(top('.plain-filter a:focus-visible'), /outline-offset: -2px;/);
+});
+
+test('header, footer, back and paging links are a full target on a touch screen', () => {
+  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a', COARSE);
+  assert.match(touch, /display: inline-flex;/);
+  assert.match(touch, /min-height: var\(--plain-field\);/);
+  assert.match(top('.plain-nav .site-submenu a', COARSE), /padding-block: var\(--space-sm\);/);
+  // The underline is the text's, so a taller link keeps it under the words.
+  assert.match(top('.plain-nav a,\n.plain-foot a'), /text-decoration-color: transparent;/);
+  assert.doesNotMatch(top('.plain-nav a,\n.plain-foot a'), /border-block-end/);
+});
+
+test("the theme button is quiet in Plain's header: no ring, the field's size, a fill on hover", () => {
+  const button = top('.plain-nav .ui-theme__trigger');
+  assert.match(button, /width: var\(--plain-field\);/);
+  assert.match(button, /height: var\(--plain-field\);/);
+  assert.match(button, /border-color: transparent;/);
+  assert.match(top('.plain-nav .ui-theme__trigger:hover', HOVER), /border-color: transparent; background: var\(--color-paper-2\);/);
+});
+
+test('a tab and the search button answer a press', () => {
+  assert.match(top('.plain-filter a:active'), /color: var\(--color-ink\);/);
+  assert.match(top('.plain-search__submit:active'), /translate: 0 1px;/);
+});
+
+test('the home names its copy from the core, and says why a list is empty', () => {
+  const home = read('Home.astro');
+  assert.match(home, /const name = siteName\.trim\(\) \|\| 'TomeCMS';/);
+  assert.match(home, /<h1 class="sr-only">\{name\}<\/h1>/);
+  assert.match(home, /\{copy\.morePosts\} <span aria-hidden="true">→<\/span>/);
+  assert.match(home, /query \? saying\(copy\.noResults\) : activeCategory \?/);
+  assert.match(home, /copy\.noPostsInCategory/);
+  assert.match(home, /copy\.noPosts\b/);
+  assert.match(home, /role="alert">\{copy\.postsUnavailable\}/);
+  assert.doesNotMatch(home, /temporarily unavailable|ขณะนี้/, 'its own copy of the core\'s words');
+  // The failure comes before the list it explains.
+  assert.ok(home.indexOf('copy.postsUnavailable') < home.indexOf('<ol class="plain-grid">'));
+  assert.match(home, /aria-current=\{activeCategory \|\| query \? undefined : 'page'\}/);
+});
