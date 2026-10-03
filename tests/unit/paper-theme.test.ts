@@ -238,3 +238,9 @@ test('inline code is a quiet tint in the line, not a word between backticks', ()
   assert.match(code, /background: var\(--color-paper-3\)/);
   assert.match(code, /border-radius: var\(--radius-sm\)/);
 });
+
+test("an article's edge is the header's on a phone, and the missing page's everywhere", () => {
+  // The header and the 404 block are px-5, and px-7 from the 600px (37.5rem) breakpoint.
+  assert.match(body('.post-page'), /padding: var\(--space-xl\) 1\.25rem var\(--space-3xl\)/);
+  assert.match(within('@media (min-width: 37.5rem)', '.post-page'), /padding-inline: 1\.75rem/);
+});

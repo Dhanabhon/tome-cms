@@ -294,6 +294,10 @@ html:has(> body.plain) { background: var(--color-paper); }
  * one, and 1.2 brings a wrapped title's two lines into each other. Latin keeps both. */
 :lang(th) :is(.plain-wordmark, .plain-lead h2, .plain-article h1) { letter-spacing: 0; }
 :lang(th) :is(.plain-lead h2, .plain-article h1) { line-height: 1.4; }
+/* The missing page (a core block, 48rem with a gutter of its own) is a Plain article: its title at
+ * the article's size and untracked, and the block on the article's column. */
+.plain .notice-page { width: min(var(--plain-frame), 44rem); max-width: none; padding-inline: 0; }
+.plain .article-title { font-size: var(--text-title); letter-spacing: normal; }
 .plain-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
 .plain-draft { margin: 0 0 var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); }
 .plain-article img { width: 100%; height: auto; }

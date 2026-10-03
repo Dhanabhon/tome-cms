@@ -108,8 +108,8 @@ test('the hero buttons and "More in" stay on one line, cut short rather than wra
   assert.match(read('src/themes/almanac/parts/Hero.astro'), /<span class="almanac-button__label">\{label\}<\/span>/);
 });
 
-test('a post reads at about 36em, its emphasis is a weight, and its meta keeps each dot with what follows', () => {
-  assert.match(body('.almanac-article'), /inline-size: min\(100% - 2 \* var\(--almanac-gutter, 1\.25rem\), 36em\)/);
+test('a post reads at 35em, its emphasis is a weight, and its meta keeps each dot with what follows', () => {
+  assert.match(body('.almanac-article'), /inline-size: min\(100% - 2 \* var\(--almanac-gutter, 1\.25rem\), 35em\)/, '36em ran to 73-77 characters a line');
   assert.doesNotMatch(body('.almanac-article'), /\dch\b/, 'no measure in ch, which counts Thai badly');
   assert.match(body('.almanac-prose em'), /font-weight: 500/);
   assert.doesNotMatch(body('.almanac-prose em'), /italic/);
@@ -146,4 +146,13 @@ test('an empty category leads back to all posts, and a failed list offers to try
   const home = read('src/themes/almanac/Home.astro');
   assert.match(home, /activeCategory \? <>\{copy\.noPostsInCategory\} <a href=\{home\}>\{copy\.allPosts\}<\/a><\/>/);
   assert.match(home, /\{copy\.postsUnavailable\} <a href=\{`\$\{Astro\.url\.pathname\}\$\{Astro\.url\.search\}`\}>\{tryAgain\}<\/a>/);
+});
+
+test("the missing page is titled at Almanac's post-title size, on the article's own column", () => {
+  assert.match(body('.almanac .article-title'), /font-size: var\(--text-title\)/);
+  const block = body('.almanac .notice-page');
+  assert.match(block, /inline-size: min\(100% - 2 \* var\(--almanac-gutter\), 35em\)/);
+  assert.match(block, /font-size: 1\.125rem/, 'the em of the article, so 35em is the same width');
+  assert.match(block, /max-inline-size: none/);
+  assert.match(block, /padding-inline: 0/);
 });

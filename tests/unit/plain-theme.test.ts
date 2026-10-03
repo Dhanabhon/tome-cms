@@ -320,3 +320,14 @@ test('the home names its copy from the core, and says why a list is empty', () =
   assert.ok(home.indexOf('copy.postsUnavailable') < home.indexOf('<ol class="plain-grid">'));
   assert.match(home, /aria-current=\{activeCategory \|\| query \? undefined : 'page'\}/);
 });
+
+test("the missing page is titled at Plain's article size, untracked, on the article's 44rem column", () => {
+  const title = top('.plain .article-title');
+  assert.match(title, /font-size: var\(--text-title\)/);
+  assert.match(title, /letter-spacing: normal/);
+  // The core block is 48rem with a gutter of its own; in Plain it is the article's column.
+  const block = top('.plain .notice-page');
+  assert.match(block, /width: min\(var\(--plain-frame\), 44rem\)/);
+  assert.match(block, /max-width: none/);
+  assert.match(block, /padding-inline: 0/);
+});

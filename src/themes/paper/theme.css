@@ -873,11 +873,17 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 
 /* An article is one column of reading, in the frame the rest of the site now uses: a named
  * rule with token spacing rather than a row of utility classes. The measure is unchanged --
- * 48rem is where the line length was already right. */
+ * 48rem is where the line length was already right. Its gutter is the header's, px-5 and px-7
+ * from 37.5rem, so on a phone the title starts under the wordmark, and the missing page (the
+ * same 48rem with those classes) starts where an article does. */
 .post-page {
   width: min(100%, 48rem);
   margin-inline: auto;
-  padding: var(--space-xl) clamp(var(--space-md), 4vw, var(--space-xl)) var(--space-3xl);
+  padding: var(--space-xl) 1.25rem var(--space-3xl);
+}
+
+@media (min-width: 37.5rem) {
+  .post-page { padding-inline: 1.75rem; }
 }
 
 /* The way back, with the arrow drawn rather than typed. */
