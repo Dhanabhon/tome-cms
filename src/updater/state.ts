@@ -498,7 +498,7 @@ export function createUpdaterStateStore(config: UpdaterConfig): UpdaterStateStor
           throw new Error('Only a restore that kept the site in maintenance can be cleared.');
         }
         // A rename keeps the record's mode, beside the original, named by when it ended.
-        const keptAs = join(config.stateDirectory, `restore-job.${restore.finishedAt!.replace(/[-:.]/g, '')}.json`);
+        const keptAs = join(config.stateDirectory, `restore-job.${restore.finishedAt!.replace(/[.:-]/g, '')}.json`);
         await rename(restorePath, keptAs);
         await writeStatus(await readInstalled(), await readJob());
         return { restore, keptAs };
