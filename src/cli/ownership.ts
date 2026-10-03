@@ -1,19 +1,40 @@
-import { realpath, stat } from 'node:fs/promises';
-import { isAbsolute, relative, sep } from 'node:path';
+import { lstat, readdir, realpath, stat } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
 
 import type { CliContext } from './main.js';
+import { printable } from './output.js';
 
 /**
- * The backup directory named, by its real path, when that is a directory under the backup root and
- * not the root itself, as the updater requires. It throws otherwise, also when it does not exist.
+ * The backup directory named, by its real path, when that is a directory directly in the backup
+ * root, where `tome backup` and the updater put every backup. It throws otherwise: a plain Error when
+ * it is somewhere else or not a directory, and the file system's own (ENOENT, EACCES) when it cannot
+ * be resolved.
  */
 export async function assertUnderBackupRoot(root: string, path: string): Promise<string> {
   const real = await realpath(path);
-  const tail = relative(await realpath(root), real);
-  if (!tail || tail === '..' || tail.startsWith(`..${sep}`) || isAbsolute(tail) || !(await stat(real)).isDirectory()) {
-    throw new Error('Not a backup directory under the backup root');
+  // Only the backup itself is handed to the updater's user, so a directory between it and the root
+  // would be one the updater may not be able to enter.
+  if (dirname(real) !== await realpath(root) || !(await stat(real)).isDirectory()) {
+    throw new Error('Not a backup directory in the backup root');
   }
   return real;
+}
+
+/**
+ * The first entry in a backup, by its path relative to it, that is a link, a file with another hard
+ * link, or anything but a plain file or directory; null when there is none. `chown -R
+ * --no-dereference` already changes links rather than what they point to, so this is defence in
+ * depth: the updater's user is in the docker group, so handing it a link or a hard link to a file
+ * outside the backup, such as /etc/shadow, would hand it that file. Nothing in a real backup is one.
+ */
+export async function findUnsafeEntry(directory: string): Promise<string | null> {
+  for (const entry of await readdir(directory, { recursive: true, withFileTypes: true })) {
+    const path = join(entry.parentPath, entry.name);
+    const metadata = await lstat(path);
+    if (metadata.isDirectory()) continue;
+    if (!metadata.isFile() || metadata.nlink > 1) return relative(directory, path);
+  }
+  return null;
 }
 
 /** Who owns the backup root (`tomecms-updater`), by number, as the updater and its one-shots run. */
@@ -28,5 +49,5 @@ export async function ownerOfBackupRoot(root: string): Promise<{ uid: number; gi
  */
 export async function chownTree(runCommand: CliContext['runCommand'], path: string, owner: { uid: number; gid: number }): Promise<void> {
   const result = await runCommand('chown', ['-R', '--no-dereference', `${owner.uid}:${owner.gid}`, path], { timeoutMs: 10 * 60_000 });
-  if (result.code !== 0) throw new Error(`chown exited with ${result.code}`);
+  if (result.code !== 0) throw new Error(printable(result.stderr.trim()).slice(0, 200) || `chown exited with ${result.code}`);
 }

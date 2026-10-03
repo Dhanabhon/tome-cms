@@ -139,6 +139,7 @@ export function manualRecovery(restore: Pick<RestoreJob, 'errorCode' | 'backupDi
   const states: Record<string, string> = {
     rollback_failed: 'Neither the backup nor the safety backup could be put back, so no one knows what state the database is in.',
     restore_failed: 'The safety backup was put back, so the database is as it was before the restore. The restore found the app stopped, so it left it so.',
+    interrupted: 'The restore was cut off when the updater stopped. When it started again, the safety backup was put back, so the database is as it was before the restore. The app was left stopped.',
     safety_backup_failed: 'Nothing was replaced, so the database is as it was before the restore. The restore found the app stopped, so it left it so.',
   };
   const safety = restore.safetyBackupDirectory === null ? null : printable(restore.safetyBackupDirectory);

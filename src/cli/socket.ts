@@ -1,7 +1,7 @@
 import { request } from 'node:http';
 
 import type { BackupJob, PublicUpdateJob, RestoreJob } from '../updater/state.js';
-import { manualRecovery } from './output.js';
+import { manualRecovery, printable } from './output.js';
 
 export interface SocketAnswer {
   status: number;
@@ -182,15 +182,32 @@ export async function readBusy(socket: SocketClient): Promise<boolean | null> {
  * likely on a full disk, and the record keeps refusing other jobs until the updater starts again.
  * The record is read again once the lock is seen free, since a backup that just ended lets go of it.
  */
-export async function isBackupStuck(socket: SocketClient, backup: BackupJob | null): Promise<boolean> {
-  if (!isBackupRunning(backup) || await readBusy(socket) !== false) return false;
-  const again = await readBackup(socket);
-  return again?.id === backup!.id && isBackupRunning(again);
+export function isBackupStuck(socket: SocketClient, backup: BackupJob | null): Promise<boolean> {
+  return isStuck(socket, backup, isBackupRunning, readBackup);
+}
+
+/** The same for a restore: its end could not be written, and it would be followed forever. */
+export function isRestoreStuck(socket: SocketClient, restore: RestoreJob | null): Promise<boolean> {
+  return isStuck(socket, restore, isRestoreRunning, readRestore);
+}
+
+async function isStuck<T extends { id: string; phase: string }>(
+  socket: SocketClient, record: T | null, running: (record: T | null) => boolean, read: (socket: SocketClient) => Promise<T | null>,
+): Promise<boolean> {
+  if (!running(record) || await readBusy(socket) !== false) return false;
+  const again = await read(socket);
+  return again?.id === record!.id && running(again);
 }
 
 export function stuckBackupAdvice(phase: string): string {
   return `A backup is stuck at "${phase}" with no job running: the updater could not write its end, most likely because the disk is full. ` +
     'Free some space (sudo tome prune shows old images that can go), then run: sudo systemctl restart tomecms-updater';
+}
+
+export function stuckRestoreAdvice(phase: string): string {
+  return `A restore is stuck at "${printable(phase)}" with no job running: the updater could not write its record, most likely because the disk is full. ` +
+    'Free some space (sudo tome prune shows old images that can go), then run: sudo systemctl restart tomecms-updater. ' +
+    'When it starts again, it ends the restore and puts the site back as it was before.';
 }
 
 /** What to tell the owner when the updater refuses a job. */
@@ -199,9 +216,11 @@ export async function refusal(socket: SocketClient, answer: SocketAnswer): Promi
   if (code === 'update_in_progress') {
     const backup = await readBackup(socket).catch(() => null);
     if (await isBackupStuck(socket, backup).catch(() => false)) return stuckBackupAdvice(backup!.phase);
-    // A prune holds the lock too, and leaves no record; tome status shows only an update or a backup.
+    const restore = await readRestore(socket).catch(() => null);
+    if (await isRestoreStuck(socket, restore).catch(() => false)) return stuckRestoreAdvice(restore!.phase);
+    // A prune holds the lock too, and leaves no record; tome status shows the others.
     const job = await readStatus(socket).then((status) => status.job, () => null);
-    const shown = isUpdateRunning(job) || isBackupRunning(backup) ? '; sudo tome status shows it' : '';
+    const shown = isUpdateRunning(job) || isBackupRunning(backup) || isRestoreRunning(restore) ? '; sudo tome status shows it' : '';
     return `An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again${shown}.`;
   }
   if (code === 'manual_recovery_required') {

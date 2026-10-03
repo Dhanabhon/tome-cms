@@ -57,6 +57,7 @@ function healthy(root: string, routes: NonNullable<Parameters<typeof fakeContext
       routes: {
         'GET /v1/status': [statusAnswer(updateJob('succeeded'))],
         'GET /v1/backup': [{ status: 200, body: backupRecord('succeeded') }],
+        'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
         ...routes,
       },
       overrides: {
@@ -111,6 +112,7 @@ test('status --json prints the same as one object, for scripts', async (t) => {
     lastUpdate: { version: '1.11.0', phase: 'succeeded', errorCode: null, finishedAt: '2026-10-02T11:05:00.000Z' },
     newestBackup: { path: newest, kind: 'database', sizeBytes: 1.5 * 1024 ** 2 + Buffer.byteLength(manifest('2026-10-02T10:00:00.000Z', true)), createdAt: '2026-10-02T10:00:00.000Z' },
     runningBackup: null,
+    restore: null,
   });
 });
 
@@ -223,4 +225,56 @@ test('a directory not named as a backup is passed over, so its name never reache
   const f = healthy(root);
   assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
   assert.equal(JSON.parse(f.printed[0]!).newestBackup.path, newest);
+});
+
+/** A restore record as `GET /v1/restore` shows it. */
+function restoreRecord(phase: string, patch: Record<string, unknown> = {}) {
+  const ended = phase === 'succeeded' || phase === 'failed';
+  return {
+    id: '33333333-3333-4333-8333-333333333333', phase, startedAt: '2026-10-02T11:00:00.000Z',
+    finishedAt: ended ? '2026-10-02T11:05:00.000Z' : null, backupDirectory: '/var/backups/tome-cms/tomecms-20261001T100000000Z',
+    safetyBackupDirectory: null, migrated: false, errorCode: null, report: null, maintenanceKept: false, ...patch,
+  };
+}
+
+test('status shows a restore that is running, one that is stuck, and none once it has ended', async (t) => {
+  const { root } = await backups(t);
+  const status = async (record: unknown, busy: boolean) => {
+    const f = healthy(root, {
+      'GET /v1/restore': [{ status: 200, body: record }],
+      'GET /v1/busy': [{ status: 200, body: { busy } }],
+    });
+    assert.equal(await tome(['status'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
+    return f.out();
+  };
+  assert.match(await status(restoreRecord('restoring'), true), /^Restore running: at "restoring" since 2026-10-02 18:00$/m);
+  assert.match(await status(restoreRecord('restoring'), false), /^Warning: A restore is stuck at "restoring" with no job running.*sudo systemctl restart tomecms-updater/m);
+  const ended = await status(restoreRecord('succeeded'), false);
+  assert.doesNotMatch(ended, /Restore/);
+  assert.doesNotMatch(await status(restoreRecord('failed', { errorCode: 'restore_failed' }), false), /Restore|restore/);
+});
+
+test('status shows a failed restore that keeps the site in maintenance, with the way out', async (t) => {
+  const { root } = await backups(t);
+  const f = healthy(root, {
+    'GET /v1/restore': [{ status: 200, body: restoreRecord('failed', {
+      errorCode: 'rollback_failed', safetyBackupDirectory: '/var/backups/tome-cms/tomecms-20261002T110100000Z\u001b[2J', maintenanceKept: true,
+    }) }],
+  });
+  assert.equal(await tome(['status', '--json'], { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn }), 0);
+  assert.deepEqual(JSON.parse(f.printed[0]!).restore, {
+    id: '33333333-3333-4333-8333-333333333333', phase: 'failed', startedAt: '2026-10-02T11:00:00.000Z', errorCode: 'rollback_failed',
+    backupDirectory: '/var/backups/tome-cms/tomecms-20261001T100000000Z',
+    safetyBackupDirectory: '/var/backups/tome-cms/tomecms-20261002T110100000Z\u001b[2J', maintenanceKept: true, stuck: false,
+  });
+  const g = healthy(root, { 'GET /v1/restore': [{ status: 200, body: restoreRecord('failed', {
+    errorCode: 'rollback_failed', safetyBackupDirectory: '/var/backups/tome-cms/tomecms-20261002T110100000Z\u001b[2J', maintenanceKept: true,
+  }) }] });
+  assert.equal(await tome(['status'], { uid: 0, load: async () => g.context, print: g.context.print, warn: g.context.warn }), 0);
+  const out = g.out();
+  assert.match(out, /^Warning: a restore failed \(rollback_failed\) and keeps the site in maintenance\.$/m);
+  assert.match(out, /^ {2}The site stays in maintenance, and the app is stopped\.$/m);
+  assert.match(out, /^ {4}1\. From a checkout of v1\.13\.0 or newer, run: sudo npm run updater:clear-failed$/m);
+  assert.match(out, /^ {4}2\. Then put the safety backup back, which starts the app: sudo tome restore \/var\/backups\/tome-cms\/tomecms-20261002T110100000Z\[2J$/m);
+  assert.ok(!out.includes('\u001b'));
 });

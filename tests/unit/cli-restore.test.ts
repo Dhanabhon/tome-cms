@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, linkSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -68,6 +69,8 @@ function restoreContext(site: Server, input: {
       'GET /v1/status': [statusAnswer(null, input.version ?? '1.13.0')],
       'POST /v1/restore': [() => { events.push('POST'); return { status: 202, body: { id: requestId, phase: 'verifying' } }; }],
       'GET /v1/restore': [{ status: 200, body: restoreRecord(site, 'succeeded', { safetyBackupDirectory: safety, report: report() }) }],
+      // While a restore runs, the updater says its lock is held: not stuck.
+      'GET /v1/busy': [{ status: 200, body: { busy: true } }],
       ...input.routes,
     },
     overrides: {
@@ -111,8 +114,54 @@ test('a backup whose manifest does not read is refused as not passing its checks
   const site = server(t, { format: 'something-else' });
   const f = restoreContext(site);
   assert.equal(await run(f, ['restore', site.backup, '--yes']), 1);
-  assert.match(f.err(), /did not pass its checks.*nothing was changed/);
+  assert.equal(f.err(), 'That backup did not pass its checks: its manifest.json does not read as a TomeCMS backup\'s. Nothing was changed.');
+  assert.doesNotMatch(f.err(), /tome logs updater/, 'the updater was never asked, so its log has nothing');
   assert.deepEqual(f.events, []);
+});
+
+test('a backup nested deeper under the root is refused: a backup is a directory in the root itself', async (t) => {
+  const site = server(t);
+  const nested = join(site.root, 'imports', backupName);
+  mkdirSync(join(site.root, 'imports'));
+  execFileSync('cp', ['-R', site.backup, nested]);
+  const f = restoreContext(site);
+  assert.equal(await run(f, ['restore', nested, '--yes']), 1);
+  assert.equal(f.err(), 'That is not a backup directory under /var/backups/tome-cms.');
+  assert.deepEqual(f.events, []);
+});
+
+test('a backup path that cannot be read says so, rather than calling it no backup', { skip: process.getuid?.() === 0 && 'root reads everything' }, async (t) => {
+  const site = server(t);
+  const locked = join(site.root, 'locked');
+  mkdirSync(join(locked, 'inner'), { recursive: true });
+  const f = restoreContext(site);
+  chmodSync(locked, 0o000);
+  try {
+    assert.equal(await run(f, ['restore', join(locked, 'inner'), '--yes']), 1);
+  } finally {
+    chmodSync(locked, 0o700); // so the clean-up can remove it
+  }
+  assert.equal(f.err(), 'That backup directory could not be read (EACCES), so nothing was changed.');
+  assert.deepEqual(f.events, []);
+});
+
+test('a backup holding a link, a hard link or a special file is refused, and nothing is chowned', async (t) => {
+  const plant: Record<string, (backup: string) => boolean> = {
+    'objects/link': (backup) => { mkdirSync(join(backup, 'objects')); symlinkSync('/etc/shadow', join(backup, 'objects', 'link')); return true; },
+    'database.dump': (backup) => { linkSync(join(backup, 'database.dump'), join(backup, '..', 'outside-hard-link')); return true; },
+    fifo: (backup) => {
+      try { execFileSync('mkfifo', [join(backup, 'fifo')]); return true; } catch { return false; }
+    },
+  };
+  for (const [entry, make] of Object.entries(plant)) {
+    const site = server(t);
+    if (!make(site.backup)) continue; // no mkfifo on this platform
+    const f = restoreContext(site);
+    assert.equal(await run(f, ['restore', site.backup, '--yes']), 1, entry);
+    assert.equal(f.err(), `That backup holds a link or a special file (${entry}), so nothing was changed.`, entry);
+    assert.deepEqual(f.events, [], `${entry}: no chown, no POST`);
+    assert.equal(f.prompts.length, 0);
+  }
 });
 
 test('a backup made for another address is refused: a restore keeps the site\'s address', async (t) => {
@@ -199,9 +248,10 @@ test('before it asks the updater, the backup is handed to the owner of the backu
 
 test('a chown that fails stops the restore before anything is sent', async (t) => {
   const site = server(t);
-  const f = restoreContext(site, { overrides: { runCommand: async () => ({ code: 1, stdout: '', stderr: 'chown: Operation not permitted' }) } });
+  const f = restoreContext(site, { overrides: { runCommand: async () => ({ code: 1, stdout: '', stderr: `chown: Operation not permitted\u001b[2J${'x'.repeat(1000)}\n` }) } });
   assert.equal(await run(f, ['restore', site.backup, '--yes']), 1);
-  assert.match(f.err(), /could not be handed to the updater/);
+  assert.match(f.err(), /^The backup could not be handed to the updater \(chown: Operation not permitted\[2Jx+\), so nothing was changed\.$/);
+  assert.ok(f.err().length < 400, 'what chown said is capped');
   assert.equal(posts(f).length, 0);
 });
 
@@ -290,6 +340,7 @@ test('each way a restore can fail is said in a plain sentence', async (t) => {
     restore_failed: /restore failed.*safety backup was put back/,
     rollback_failed: /could not be put back either.*stays in maintenance/,
     interrupted: /updater stopped.*put the site back as it was/,
+    something_new: /^The restore failed \(something_new\)\. See what happened with: sudo tome logs updater$/,
     preflight_failed: /did not start.*Nothing was changed.*sudo tome logs updater/,
   };
   for (const [code, sentence] of Object.entries(expected)) {
@@ -392,7 +443,7 @@ test('a 409 while a restore runs is busy and not tried again; once none runs, it
   });
   assert.equal(await run(busy, ['restore', site.backup, '--yes']), 1);
   assert.equal(posts(busy).length, 1);
-  assert.equal(busy.err(), 'An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again.');
+  assert.equal(busy.err(), 'An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again; sudo tome status shows it.');
 
   const late = restoreContext(site, {
     routes: {
@@ -407,4 +458,68 @@ test('a 409 while a restore runs is busy and not tried again; once none runs, it
   });
   assert.equal(await run(late, ['restore', site.backup, '--yes']), 0);
   assert.equal(posts(late).length, 2);
+});
+
+test('a restore that rolls back shows the step, and an interrupted one that kept maintenance says the safety backup is back', async (t) => {
+  const site = server(t);
+  const f = restoreContext(site, {
+    routes: {
+      'GET /v1/restore': [
+        { status: 200, body: restoreRecord(site, 'restoring') },
+        { status: 200, body: restoreRecord(site, 'rolling_back') },
+        { status: 200, body: restoreRecord(site, 'failed', { errorCode: 'interrupted', safetyBackupDirectory: safety, maintenanceKept: true }) },
+      ],
+    },
+  });
+  assert.equal(await run(f, ['restore', site.backup, '--yes']), 1);
+  assert.deepEqual(f.printed.slice(4), ['[4/7] Restore the backup', 'Putting the safety backup back']);
+  assert.match(f.err(), /safety backup was put back, so the database is as it was before the restore/);
+  assert.doesNotMatch(f.err(), /No one knows/);
+});
+
+test('a restore whose record stops with no job running is reported as stuck, with the way out', async (t) => {
+  const site = server(t);
+  const f = restoreContext(site, {
+    routes: {
+      'GET /v1/restore': [{ status: 200, body: restoreRecord(site, 'restoring') }],
+      'GET /v1/busy': [{ status: 200, body: { busy: false } }],
+    },
+  });
+  assert.equal(await run(f, ['restore', site.backup, '--yes']), 1);
+  assert.equal(f.err(), 'A restore is stuck at "restoring" with no job running: the updater could not write its record, most likely because the disk is full. ' +
+    'Free some space (sudo tome prune shows old images that can go), then run: sudo systemctl restart tomecms-updater. ' +
+    'When it starts again, it ends the restore and puts the site back as it was before.');
+});
+
+test('a restore that ends between its read and the lock check is not taken for stuck', async (t) => {
+  const site = server(t);
+  const f = restoreContext(site, {
+    routes: {
+      'GET /v1/restore': [
+        { status: 200, body: restoreRecord(site, 'checking') },
+        { status: 200, body: restoreRecord(site, 'succeeded', { safetyBackupDirectory: safety, report: report() }) },
+      ],
+      'GET /v1/busy': [{ status: 200, body: { busy: false } }],
+    },
+  });
+  assert.equal(await run(f, ['restore', site.backup, '--yes']), 0);
+  assert.equal(f.err(), '');
+});
+
+test('a 409 from a stuck restore says how to free it, and an unknown refusal code is printed safely', async (t) => {
+  const site = server(t);
+  const stuck = restoreContext(site, {
+    routes: {
+      'POST /v1/restore': [{ status: 409, body: { error: 'update_in_progress' } }],
+      'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
+      'GET /v1/restore': [{ status: 200, body: { ...restoreRecord(site, 'restarting'), id: '33333333-3333-4333-8333-333333333333' } }],
+      'GET /v1/busy': [{ status: 200, body: { busy: false } }],
+    },
+  });
+  assert.equal(await run(stuck, ['restore', site.backup, '--yes']), 1);
+  assert.match(stuck.err(), /^A restore is stuck at "restarting" with no job running/);
+
+  const odd = restoreContext(site, { routes: { 'POST /v1/restore': [{ status: 400, body: { error: 'odd\u001b[2J' } }] } });
+  assert.equal(await run(odd, ['restore', site.backup, '--yes']), 1);
+  assert.equal(odd.err(), 'The updater refused the restore (odd[2J).');
 });

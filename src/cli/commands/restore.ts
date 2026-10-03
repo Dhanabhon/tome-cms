@@ -7,12 +7,14 @@ import { readManifestBytes } from '../../updater/files.js';
 import type { RestoreJob } from '../../updater/state.js';
 import type { CliContext } from '../main.js';
 import { explainError, localTime, manualRecovery, printable, restoreStep } from '../output.js';
-import { assertUnderBackupRoot, chownTree, ownerOfBackupRoot } from '../ownership.js';
-import { errorCodeOf, follow, isRestoreRunning, postJob, readRestore, readStatus, refusal } from '../socket.js';
+import { assertUnderBackupRoot, chownTree, findUnsafeEntry, ownerOfBackupRoot } from '../ownership.js';
+import { errorCodeOf, follow, isRestoreRunning, isRestoreStuck, postJob, readRestore, readStatus, refusal, stuckRestoreAdvice } from '../socket.js';
 
 // The first app whose image carries the restore steps, and the first updater with the restore job.
 const RESTORE_APP_SINCE = '1.13.0';
 const RESTORE_UPDATER_SINCE = '1.6.0';
+// tome's own refusal of a manifest: the updater was never asked, so its log has nothing to show.
+const manifestUnreadable = 'That backup did not pass its checks: its manifest.json does not read as a TomeCMS backup\'s. Nothing was changed.';
 
 /**
  * Puts a backup back into the site through the updater's `/v1/restore`. Everything the updater checks
@@ -21,9 +23,14 @@ const RESTORE_UPDATER_SINCE = '1.6.0';
  */
 export async function restore(context: CliContext, options: { directory: string; yes: boolean }): Promise<number> {
   const { config } = context;
-  const directory = await assertUnderBackupRoot(config.backupDirectory, options.directory).catch(() => null);
-  if (directory === null) {
-    context.warn('That is not a backup directory under /var/backups/tome-cms.');
+  let directory: string;
+  try {
+    directory = await assertUnderBackupRoot(config.backupDirectory, options.directory);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    context.warn(code && !['ENOENT', 'ENOTDIR', 'ELOOP'].includes(code)
+      ? `That backup directory could not be read (${printable(code)}), so nothing was changed.`
+      : 'That is not a backup directory under /var/backups/tome-cms.');
     return 1;
   }
   let manifest: BackupManifest;
@@ -32,7 +39,12 @@ export async function restore(context: CliContext, options: { directory: string;
   } catch (error) {
     context.warn((error as NodeJS.ErrnoException).code === 'ENOENT'
       ? 'That backup has no manifest.json, so it was cut off or is not a TomeCMS backup.'
-      : explainError('backup_invalid', 'restore', config));
+      : manifestUnreadable);
+    return 1;
+  }
+  const unsafe = await findUnsafeEntry(directory);
+  if (unsafe !== null) {
+    context.warn(`That backup holds a link or a special file (${printable(unsafe)}), so nothing was changed.`);
     return 1;
   }
   const refused = await refuse(context, manifest);
@@ -59,14 +71,14 @@ export async function restore(context: CliContext, options: { directory: string;
     const code = errorCodeOf(answer);
     context.warn(code === 'insufficient_disk_space'
       ? explainError(code, 'restore', config)
-      : await refusal(context.socket, answer) ?? `The updater refused the restore (${code ?? answer.status}).`);
+      : await refusal(context.socket, answer) ?? `The updater refused the restore (${printable(code ?? String(answer.status))}).`);
     return 1;
   }
   const ended = await follow(context, async () => {
     const record = await readRestore(context.socket);
     if (record?.id !== id) throw new Error('The updater is following another restore');
     return record;
-  }, (record) => restoreStep(record.phase), (record) => !isRestoreRunning(record));
+  }, (record) => restoreStep(record.phase), async (record) => !isRestoreRunning(record) || await isRestoreStuck(context.socket, record));
   return report(context, ended);
 }
 
@@ -91,7 +103,7 @@ async function refuse(context: CliContext, manifest: BackupManifest): Promise<st
   try {
     newer = compareStableVersions(manifest.applicationVersion, status.installed.version) > 0;
   } catch {
-    return explainError('backup_invalid', 'restore', context.config);
+    return manifestUnreadable;
   }
   const version = printable(manifest.applicationVersion);
   return newer ? `That backup is from TomeCMS ${version}, newer than this site's ${installed}. Update the site to ${version} first: sudo tome update ${version}` : null;
@@ -117,6 +129,10 @@ function summarize(context: CliContext, directory: string, manifest: BackupManif
 }
 
 function report(context: CliContext, record: RestoreJob): number {
+  if (isRestoreRunning(record)) {
+    context.warn(stuckRestoreAdvice(record.phase));
+    return 1;
+  }
   if (record.phase !== 'succeeded') {
     context.warn(explainError(record.errorCode, 'restore', context.config));
     if (record.maintenanceKept) for (const line of manualRecovery(record)) context.warn(line);

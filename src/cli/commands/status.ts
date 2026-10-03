@@ -5,8 +5,11 @@ import { parseBackupManifest } from '../../update/backup.js';
 import { composePrefix } from '../../updater/config.js';
 import { directorySize, readManifestBytes } from '../../updater/files.js';
 import type { CliContext } from '../main.js';
-import { formatAge, formatBytes, localTime, printable } from '../output.js';
-import { isBackupStuck, readBackup, readStatus, stuckBackupAdvice, UnexpectedAnswerError, UpdaterUnreachableError, type UpdaterStatus } from '../socket.js';
+import { formatAge, formatBytes, localTime, manualRecovery, printable } from '../output.js';
+import {
+  isBackupStuck, isRestoreKeptInMaintenance, isRestoreRunning, isRestoreStuck, readBackup, readRestore, readStatus, stuckBackupAdvice,
+  stuckRestoreAdvice, UnexpectedAnswerError, UpdaterUnreachableError, type UpdaterStatus,
+} from '../socket.js';
 
 export interface StatusReport {
   versions: { app: string; updater: string } | null;
@@ -18,6 +21,11 @@ export interface StatusReport {
   lastUpdate: { version: string; phase: string; errorCode: string | null; finishedAt: string | null } | null;
   newestBackup: { path: string; kind: 'database' | 'full'; sizeBytes: number; createdAt: string } | null;
   runningBackup: { id: string; kind: string; phase: string; startedAt: string; stuck: boolean } | null;
+  /** A restore that is running, or one that failed and keeps the site in maintenance; null otherwise. */
+  restore: {
+    id: string; phase: string; startedAt: string; errorCode: string | null; backupDirectory: string;
+    safetyBackupDirectory: string | null; maintenanceKept: boolean; stuck: boolean;
+  } | null;
 }
 
 const services = ['app', 'postgres', 'seaweedfs'];
@@ -40,6 +48,7 @@ export async function status(context: CliContext, options: { json: boolean }): P
     } : null,
     newestBackup,
     runningBackup: read?.runningBackup ?? null,
+    restore: read?.restore ?? null,
   };
   if (options.json) context.print(JSON.stringify(report));
   else printReport(context, report);
@@ -47,12 +56,19 @@ export async function status(context: CliContext, options: { json: boolean }): P
 }
 
 /** The updater's side, or why it could not be read: this is the screen for a sick server, so nothing here stops it. */
-async function readUpdater(context: CliContext): Promise<{ status: UpdaterStatus; runningBackup: StatusReport['runningBackup'] } | { error: string }> {
+async function readUpdater(context: CliContext): Promise<{
+  status: UpdaterStatus; runningBackup: StatusReport['runningBackup']; restore: StatusReport['restore'];
+} | { error: string }> {
   try {
-    const [status, backup] = await Promise.all([readStatus(context.socket), readBackup(context.socket)]);
-    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null };
+    const [status, backup, restore] = await Promise.all([readStatus(context.socket), readBackup(context.socket), readRestore(context.socket)]);
+    const shown = isRestoreRunning(restore) || isRestoreKeptInMaintenance(restore) ? {
+      id: restore!.id, phase: restore!.phase, startedAt: restore!.startedAt, errorCode: restore!.errorCode,
+      backupDirectory: restore!.backupDirectory, safetyBackupDirectory: restore!.safetyBackupDirectory,
+      maintenanceKept: restore!.maintenanceKept, stuck: await isRestoreStuck(context.socket, restore),
+    } : null;
+    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null, restore: shown };
     const stuck = await isBackupStuck(context.socket, backup);
-    return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck } };
+    return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck }, restore: shown };
   } catch (error) {
     if (error instanceof UpdaterUnreachableError) {
       return { error: `did not answer at ${context.config.socketPath}. Check it with: sudo systemctl status tomecms-updater` };
@@ -161,6 +177,16 @@ function printReport(context: CliContext, report: StatusReport): void {
   const running = report.runningBackup;
   if (running?.stuck) print(`Warning: ${stuckBackupAdvice(running.phase)}`);
   else if (running) print(`Backup running: ${running.kind}, at "${running.phase}" since ${localTime(running.startedAt)}`);
+
+  const restore = report.restore;
+  if (restore?.maintenanceKept) {
+    print(`Warning: a restore failed (${printable(restore.errorCode ?? 'unknown')}) and keeps the site in maintenance.`);
+    for (const line of manualRecovery(restore)) print(`  ${line}`);
+  } else if (restore?.stuck) {
+    print(`Warning: ${stuckRestoreAdvice(restore.phase)}`);
+  } else if (restore) {
+    print(`Restore running: at "${printable(restore.phase)}" since ${localTime(restore.startedAt)}`);
+  }
 
   const backup = report.newestBackup;
   print(backup
