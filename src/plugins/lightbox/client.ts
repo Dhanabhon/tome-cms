@@ -43,6 +43,18 @@ export default function wireLightbox(mount: HTMLElement): void {
   animateDismissals(dialog);
 
   const open = (image: HTMLImageElement) => {
+    // The picture's shape from the first frame, taken from the image it was opened from: without it
+    // the picture has no size until it loads, and one with an empty alt (a cover, which its title
+    // already names) draws nothing at all meanwhile, so the dialog that holds it was 0px tall.
+    const width = image.naturalWidth || Number(image.getAttribute('width')) || 0;
+    const height = image.naturalHeight || Number(image.getAttribute('height')) || 0;
+    if (width && height) {
+      shown.width = width;
+      shown.height = height;
+    } else {
+      shown.removeAttribute('width');
+      shown.removeAttribute('height');
+    }
     shown.src = image.currentSrc || image.src;
     shown.alt = image.alt;
     dialog.showModal();

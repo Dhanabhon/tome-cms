@@ -266,7 +266,7 @@ html[data-notice-closed] .site-notice { display: none; }
   background: transparent;
 }
 
-.lightbox__image { display: block; width: 100%; max-height: 92dvh; object-fit: contain; }
+.lightbox__image { display: block; width: 100%; height: auto; max-height: 92dvh; object-fit: contain; }
 
 .lightbox__close {
   position: absolute;
