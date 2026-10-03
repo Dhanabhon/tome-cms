@@ -102,3 +102,26 @@ test('a manifest that does not hold together is refused', () => {
   refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], path: `media/../${KEY}` } } });
   refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], size: '1024' } } });
 });
+
+test('a manifest from an untrusted archive names only files the export could have written', () => {
+  const entry = manifest.media[MEDIA_ID]!;
+  const refused = (media: unknown, why: string) => assert.throws(
+    () => readManifest(JSON.stringify({ ...manifest, media })),
+    (error) => error instanceof ArchiveInputError && error.code === 'manifest_invalid',
+    why,
+  );
+  for (const path of ['media/', 'media//etc/passwd', 'media/./x', 'media/a\\..\\b', 'media/manifest.json', '../x', KEY, `media/${KEY}/`]) {
+    refused({ [MEDIA_ID]: { ...entry, path } }, path);
+  }
+  refused({ 'not-a-uuid': entry }, 'an id that is not a uuid');
+  refused({ [MEDIA_ID]: { ...entry, sha256: 'abc' } }, 'a short sha256');
+  refused({ [MEDIA_ID]: { ...entry, sha256: 'f'.repeat(64) } }, 'a hex sha256');
+  refused({ [MEDIA_ID]: { ...entry, size: -1 } }, 'a negative size');
+  refused({ [MEDIA_ID]: { ...entry, size: 1.5 } }, 'a fractional size');
+  refused({ [MEDIA_ID]: { ...entry, type: 'text/html' } }, 'a type the File Manager does not take');
+  refused({ [MEDIA_ID]: { ...entry, name: '' } }, 'an empty name');
+  refused({ [MEDIA_ID]: { ...entry, name: 'x'.repeat(256) } }, 'a name longer than the File Manager keeps');
+  for (const field of [{ createdAt: 'yesterday' }, { publicUrl: 'not a url' }]) {
+    assert.throws(() => readManifest(JSON.stringify({ ...manifest, ...field })), ArchiveInputError, JSON.stringify(field));
+  }
+});

@@ -1,6 +1,9 @@
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
 
+import { ACCEPTED_MEDIA_TYPES } from '../../lib/media';
+import { isTomeObjectKey, isUuid } from '../media/keys';
+
 /*
  * The Markdown archive `tome export` writes and `tome import` reads: where each file lives in it,
  * its manifest, and the front matter at the head of each `.md`. A person may write one by hand, so
@@ -55,18 +58,26 @@ export function mediaLink(objectKey: string): string {
 
 const count = z.number().int().nonnegative();
 
+const MEDIA_PREFIX = mediaPath('');
+
+/**
+ * An archive is untrusted, and an import opens each file the manifest names: so a path is only
+ * ever one the export could have written, `media/` and an object key of TomeCMS's own grammar.
+ */
 const manifestSchema = z.object({
   format: z.literal(ARCHIVE_FORMAT),
   version: z.literal(1),
-  createdAt: z.string(),
+  createdAt: z.iso.datetime(),
   applicationVersion: z.string(),
-  publicUrl: z.string(),
+  publicUrl: z.url(),
   counts: z.object({ posts: count, pages: count, media: count }),
-  media: z.record(z.string(), z.object({
-    path: z.string().startsWith('media/').refine((path) => !path.split('/').includes('..')),
-    name: z.string(),
-    type: z.string(),
-    sha256: z.string(),
+  media: z.record(z.string().refine(isUuid), z.object({
+    path: z.string().refine((path) => path.startsWith(MEDIA_PREFIX) && isTomeObjectKey(path.slice(MEDIA_PREFIX.length))),
+    // The File Manager's own limit on a file's name (migration 006).
+    name: z.string().min(1).max(255),
+    type: z.enum(ACCEPTED_MEDIA_TYPES),
+    // Base64, as the File Manager stores it.
+    sha256: z.string().regex(/^[A-Za-z0-9+/]{43}=$/),
     size: count,
   })),
 }).refine((manifest) => manifest.counts.media === Object.keys(manifest.media).length);
