@@ -316,7 +316,7 @@ What it keeps and decides:
 - **Status and dates.** `status: published` makes a published item with its `published` date. A draft keeps its `planned` date. A file with no `status` is a draft. The updated time is the time of the import.
 - **Content.** When a `<slug>.tome.json` sits beside the `.md`, its exact document is used. Otherwise the `.md` body is converted, with the converter the admin's Markdown import uses. Every item is checked and cleaned the way a save from the editor is.
 - **Media.** Files are matched by checksum, so one the site already has is reused and not uploaded again. A file the content names that is missing from the archive shows as a line saying it is missing, and the end says how many.
-- **Categories.** They are matched by name, ignoring case, with no language. A name the site lacks is created, and `Uncategorized` is matched by name like any other, so it joins the site's default category while that is still called that.
+- **Categories.** They are matched by name, ignoring case, with no language. A name the site lacks is created, and `Uncategorized` is matched by name like any other, so it joins the site's default category.
 - **Translations.** Items that share a `translation` value form one new group. When one of them was skipped, the rest still form a group, and the plan says so.
 - **Author.** The site's owner.
 
@@ -329,6 +329,8 @@ The archive or directory has to be directly in `/var/backups/tome-cms`. `tome` r
 | `That archive is not under /var/backups/tome-cms.` | It is somewhere else, or a link out. |
 | `That archive holds a path outside itself (…), so nothing was imported.` | An entry starts with `/` or has a `..` part. |
 | `That archive holds a link or a special file (…), so nothing was imported.` | An entry is a link, a device or a pipe. |
+| `That archive could not be read as a .tar.gz, so nothing was imported.` | It is not a `.tar.gz`, or it is damaged. |
+| `That archive holds an entry its listing does not show (…), so nothing was imported.` | Unpacking it made a file its listing did not name, as an archive made to hide one does. |
 | `That archive is larger than 2 GiB, or holds more than 20,000 entries.` | The limits of an archive. |
 | `media/big.png is larger than the File Manager accepts for its kind.` | The File Manager's own limit applies to each media file: 8 MiB for a picture, 25 MiB for a document. |
 | `posts/en/a.md has front matter TomeCMS cannot read: published.` | A file's front matter does not read, or a field has the wrong type. It names the file, and the field when it can. |
@@ -339,7 +341,7 @@ The archive or directory has to be directly in `/var/backups/tome-cms`. `tome` r
 
 A refusal about a file is followed by `Nothing was imported.` Other file problems have their own sentence, such as `media/x.exe is not a picture or a document the File Manager accepts.`
 
-`--dry-run` imports nothing, but a directory is still handed to the updater's user, as `restore` does with a backup, so that the plan can read it. An archive is unpacked into a work directory that is removed afterwards, so the archive itself is not changed.
+`--dry-run` imports nothing, but a directory is still handed to the updater's user, as `restore` does with a backup, so that the plan can read it. An archive is unpacked into a work directory that is removed afterwards, so the archive itself is not changed. The plan reads every file and checks its layout, front matter and size, but pictures are decoded and each item's content is checked the way the editor checks a save only when it is written. So an import can still refuse a file the dry run let through, and when it does, nothing is imported.
 
 | Argument or option | What it does |
 | --- | --- |
