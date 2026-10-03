@@ -228,7 +228,10 @@ test('tome check passes on a copy of the real themes and plugins', async (t) => 
 test('tome check reports each problem as path:line and exits 1', async (t) => {
   const { root, lines, output } = await checkout(t);
   const theme = join(root, 'src', 'themes', 'plain');
-  await writeFile(join(theme, 'theme.css'), `${await readFile(join(theme, 'theme.css'), 'utf8')}\n.plain-alert { color: #c00; }\n`);
+  const css = await readFile(join(theme, 'theme.css'), 'utf8');
+  // The rule goes after a blank line at the end, so its line is counted, not pinned: Plain's own edits move it.
+  const line = css.split('\n').length + 1;
+  await writeFile(join(theme, 'theme.css'), `${css}\n.plain-alert { color: #c00; }\n`);
   await rm(join(theme, 'Page.astro'));
   const plugin = join(root, 'src', 'plugins', 'notice', 'plugin.ts');
   await writeFile(plugin, (await readFile(plugin, 'utf8')).replace("id: 'notice'", "id: 'notices'"));
@@ -236,7 +239,7 @@ test('tome check reports each problem as path:line and exits 1', async (t) => {
   assert.deepEqual(lines.out, []);
   assert.deepEqual(lines.err, [
     'src/themes/plain/Page.astro:1: is missing, and every theme needs it',
-    'src/themes/plain/theme.css:273: #c00 is a raw colour outside a token block; use a token',
+    `src/themes/plain/theme.css:${line}: #c00 is a raw colour outside a token block; use a token`,
     'src/plugins/notice/plugin.ts:11: the manifest\'s id is "notices", but its directory is "notice"',
     '3 problems.',
   ]);

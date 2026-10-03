@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { leadsWith } from '../../src/themes/plain/lead';
+import { thaiDeclarations } from '../helpers/css';
 
 const read = (path: string) => readFileSync(new URL(`../../src/themes/plain/${path}`, import.meta.url), 'utf8');
 const css = read('theme.css');
@@ -89,4 +90,51 @@ test("Plain's search field shows one focus line, as Paper's does, and its button
   assert.match(rule, /border-color: var\(--color-accent\);/);
   assert.match(rule, /box-shadow: inset 0 0 0 var\(--rule-hair\) var\(--color-accent\);/);
   assert.match(css, /\.plain-search__submit:focus-visible \{ outline: 2px solid var\(--color-focus\);/);
+});
+
+/** The declarations of the first rule whose selector list is exactly `selector`. */
+const rule = (selector: string) => {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|\\n)${escaped} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+};
+
+test("a post's headings are headings: h2 and h3 sized off the scale and bold, h4 to h6 semi-bold", () => {
+  // Tailwind's preflight sets every heading to the body's size and weight; Paper and Almanac
+  // put theirs back inside a prose class, and Plain's body had nothing.
+  assert.match(rule('.plain-body h2'), /font-size: var\(--text-xl\);/);
+  assert.match(rule('.plain-body h2'), /font-weight: 700;/);
+  assert.match(rule('.plain-body h3'), /font-size: var\(--text-md\);/);
+  assert.match(rule('.plain-body h3'), /font-weight: 700;/);
+  assert.match(rule('.plain-body :is(h4, h5, h6)'), /font-weight: 600;/);
+  // The margin and the leading they already had stay.
+  assert.match(rule('.plain-body h2, .plain-body h3'), /margin-block-start: var\(--space-xl\); line-height: 1\.3;/);
+});
+
+test("a post's lists keep their markers, their indent and a gap between items, nested or holding two paragraphs", () => {
+  assert.match(rule('.plain-body :is(ul, ol)'), /padding-inline-start: var\(--space-lg\);/);
+  assert.match(rule('.plain-body ul'), /list-style: disc;/);
+  assert.match(rule('.plain-body ol'), /list-style: decimal;/);
+  assert.match(css, /\.plain-body li \+ li,\s*\.plain-body li > :is\(ul, ol\) \{ margin-block-start: var\(--space-2xs\); \}/);
+  // The editor wraps every item's text in a paragraph, and preflight zeroes a paragraph's margin.
+  assert.match(rule('.plain-body li > p + p'), /margin-block-start: var\(--space-xs\);/);
+  assert.match(rule('.plain-body li::marker'), /color: var\(--color-muted\);/);
+});
+
+test('inline code in a post is set apart from the words around it', () => {
+  const code = rule('.plain-body :not(pre) > code');
+  assert.match(code, /background: var\(--color-code-surface\);/);
+  assert.match(code, /border-radius: var\(--radius-sm\);/);
+  assert.match(code, /font-size: 0\.875em;/);
+});
+
+test('Thai display type in Plain is not tracked in, and its two-line titles have room for the marks', () => {
+  for (const target of ['.plain-wordmark', '.plain-lead h2', '.plain-article h1']) {
+    assert.match(thaiDeclarations(css, target), /letter-spacing: 0/, `${target} keeps its tracking in Thai`);
+  }
+  for (const target of ['.plain-lead h2', '.plain-article h1']) {
+    assert.match(thaiDeclarations(css, target), /line-height: 1\.4/, `${target} is set tight in Thai`);
+  }
+  // Latin keeps today's values.
+  assert.match(css, /\.plain-lead h2 \{[^}]*letter-spacing: -0\.015em; line-height: 1\.2;/);
+  assert.match(css, /\.plain-article h1 \{[^}]*line-height: 1\.2;/);
 });
