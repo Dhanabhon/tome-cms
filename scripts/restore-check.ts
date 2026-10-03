@@ -5,20 +5,17 @@ import { spawn, spawnSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { S3Client } from '@aws-sdk/client-s3';
 
-import { isDocumentType, type SupportedDocumentType } from '../src/lib/media';
-import { contentDisposition } from '../src/server/media/disposition';
 import { isTomeObjectKey } from '../src/server/media/keys';
+import {
+  documentDispositions, listObjectKeys, RESTORED_DOCUMENTS_QUERY, syncBucketToManifest,
+} from '../src/server/transfer/restore-steps';
 import { parseBackupManifest, parseBackupRecordCounts, type BackupManifest } from '../src/update/backup';
 import { sha256File } from './backup';
 
-/**
- * Every ready document's key, name and type: a backup does not carry `Content-Disposition`
- * (only `contentType` travels with each object), so restore-check rebuilds it from the row that
- * survived the database restore, the same header finalize signs into an upload.
- */
-export const RESTORED_DOCUMENTS_QUERY = `select coalesce(json_agg(json_build_object('key', object_key, 'name', original_name, 'type', mime_type) order by object_key), '[]'::json)::text from media_items where state = 'ready' and mime_type not like 'image/%'`;
+// The restore steps the app image runs own these; restore-check runs them against its own stack.
+export { documentDispositions, RESTORED_DOCUMENTS_QUERY };
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const projectPattern = /^tomecms-restore-check-[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -48,22 +45,6 @@ function compose(project: string, args: string[], env: NodeJS.ProcessEnv, output
   });
   if (result.error || result.status !== 0) throw new Error('Disposable restore environment failed.');
   return output ? result.stdout.trim() : '';
-}
-
-function documentRow(value: unknown): { key: string; name: string; type: SupportedDocumentType } {
-  if (typeof value !== 'object' || value === null) throw new Error('Restored media rows are invalid.');
-  const { key, name, type } = value as Record<string, unknown>;
-  if (typeof key !== 'string' || !isTomeObjectKey(key) || typeof name !== 'string' || !name ||
-    typeof type !== 'string' || !isDocumentType(type)) {
-    throw new Error('Restored media rows are invalid.');
-  }
-  return { key, name, type };
-}
-
-/** Each ready document's key mapped to the `Content-Disposition` a restore has to put back. */
-export function documentDispositions(rows: unknown): Map<string, string> {
-  if (!Array.isArray(rows)) throw new Error('Restored media rows are invalid.');
-  return new Map<string, string>(rows.map(documentRow).map((row) => [row.key, contentDisposition(row.name, row.type)]));
 }
 
 async function verifyBackup(backup: string): Promise<BackupManifest> {
@@ -99,6 +80,7 @@ async function restoreDatabase(project: string, backup: string, env: NodeJS.Proc
   }
 }
 
+/** The disposable stack's bucket made equal to the backup, then every key in it. */
 export async function restoreObjects(backup: string, manifest: BackupManifest, dispositions: Map<string, string>): Promise<string[]> {
   const storage = new S3Client({
     endpoint: 'http://127.0.0.1:59000',
@@ -107,36 +89,8 @@ export async function restoreObjects(backup: string, manifest: BackupManifest, d
     credentials: { accessKeyId: 'tomecms_test', secretAccessKey: 'foundation-test-only' },
   });
   try {
-    for (const object of manifest.objects) {
-      const disposition = dispositions.get(object.key);
-      await storage.send(new PutObjectCommand({
-        Bucket: 'tomecms-test-media',
-        Key: object.key,
-        Body: createReadStream(join(backup, 'objects', ...object.key.split('/'))),
-        ContentLength: object.sizeBytes,
-        ContentType: object.contentType,
-        // A document with no ready row -- an unfinished upload -- goes back with no header, as today.
-        ...(disposition ? { ContentDisposition: disposition } : {}),
-      }));
-    }
-    for (const object of manifest.objects) {
-      const disposition = dispositions.get(object.key);
-      if (!disposition) continue;
-      const head = await storage.send(new HeadObjectCommand({ Bucket: 'tomecms-test-media', Key: object.key }));
-      if (head.ContentDisposition !== disposition) throw new Error('Restored document headers do not match the database.');
-    }
-    const keys: string[] = [];
-    let continuationToken: string | undefined;
-    do {
-      const listed = await storage.send(new ListObjectsV2Command({
-        Bucket: 'tomecms-test-media',
-        ContinuationToken: continuationToken,
-      }));
-      keys.push(...(listed.Contents ?? []).flatMap(({ Key }) => Key ? [Key] : []));
-      continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
-      if (listed.IsTruncated && !continuationToken) throw new Error('Restored object listing was incomplete.');
-    } while (continuationToken);
-    return keys.sort();
+    await syncBucketToManifest(storage, 'tomecms-test-media', backup, manifest, dispositions);
+    return await listObjectKeys(storage, 'tomecms-test-media');
   } finally {
     storage.destroy();
   }
