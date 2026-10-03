@@ -342,52 +342,43 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 
 .hero-slider__step[data-state='still'] .icon:nth-of-type(2) { display: block; }
 
-/* The owner's own slides: the picture fills the slide and the words sit over it where the owner
- * asked. A slide is at least the band's shape, and taller when its words need the room: at 16:7
- * a phone's band is too short for a heading, a line and a button. */
+/* The owner's own slides.
+ *
+ * On a phone the picture is shown whole, with nothing over it, and the words sit under it on the
+ * page in the page's own colours: at 16:7 a phone's picture is too short for a heading, a line and
+ * a button, and a scrim deep enough for them would hide most of the photograph. From 48rem the
+ * words go over the picture at its foot, where the owner aligned them, on a scrim that fades in
+ * long and smooth above them and is deepest only under the text (the 48rem block below).
+ *
+ * The words run the slide's full width either way, and their padding brings them in to the
+ * content edge -- where the wordmark, the pills and the grid start -- rather than to a column of
+ * their own. */
 .hero-slide {
   display: grid;
   position: relative;
   flex: 0 0 100%;
-  align-content: end;
+  align-content: start;
   min-width: 0;
-  aspect-ratio: 16 / 7;
   scroll-snap-align: start;
 }
 
 .hero-slide > img {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 16 / 7;
   object-fit: cover;
 }
 
-.hero-slide::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
-.hero-slide:is([data-overlay='none'], [data-overlay='soft'])::after { content: none; }
-.hero-slide[data-overlay='strong']::after { background: color-mix(in oklch, var(--color-hero) 62%, transparent); }
-
-/* The words run the slide's full width, and their padding brings them in to the content edge --
- * where the wordmark, the pills and the grid start -- rather than to a column of their own.
- *
- * Soft is drawn behind the words themselves: it fades in over their top padding and is near-opaque
- * from the first line down. It used to be a gradient of the slide, which faded out at a fixed
- * height, so a heading on a phone (where the band grows to hold the words) and every line of a
- * centred slide sat on its thin end, at about 3:1 over a mid-tone picture. Following the words,
- * they read at 4.5:1 or better over any picture lighter than white, and the e2e measures it. */
 .hero-slide__words {
   display: grid;
   position: relative;
   z-index: 1;
   justify-items: start;
   gap: var(--space-xs);
-  padding-block: var(--space-2xl) var(--space-lg);
+  padding-block: var(--space-lg);
   padding-inline: calc(max(0px, (100% - 80rem) / 2) + 1.25rem);
-  color: var(--color-on-dark);
-}
-
-.hero-slide[data-overlay='soft'] .hero-slide__words {
-  background: linear-gradient(to bottom, transparent, color-mix(in oklch, var(--color-hero) 85%, transparent) var(--space-2xl));
+  color: var(--color-ink);
 }
 
 @media (min-width: 37.5rem) {
@@ -396,9 +387,6 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 
 .hero-slide[data-align='center'] .hero-slide__words { justify-items: center; text-align: center; }
 .hero-slide[data-align='end'] .hero-slide__words { justify-items: end; text-align: end; }
-
-/* The three buttons sit at the bottom end of a slider, so its words stop above them. */
-.home-hero--slides[data-hero-slider] .hero-slide__words { padding-block-end: calc(2.75rem + var(--space-lg) * 2); }
 
 .hero-slide__heading {
   margin: 0;
@@ -411,7 +399,7 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   text-wrap: balance;
 }
 
-.hero-slide__body { max-width: 36rem; margin: 0; color: var(--color-on-dark); overflow-wrap: anywhere; }
+.hero-slide__body { max-width: 36rem; margin: 0; color: var(--color-ink-2); overflow-wrap: anywhere; }
 
 .hero-slide__button {
   display: inline-flex;
@@ -419,6 +407,7 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   min-height: 2.75rem;
   margin-block-start: var(--space-2xs);
   padding-inline: var(--space-md);
+  border: var(--rule-hair) solid var(--color-rule-strong);
   border-radius: var(--radius-pill);
   background: var(--color-paper);
   color: var(--color-ink);
@@ -430,7 +419,28 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   .hero-slide__button:hover { background: var(--color-paper-2); }
 }
 .hero-slide__button:active { translate: 0 1px; }
-.hero-slide__button:focus-visible { outline: 2px solid var(--color-on-dark); outline-offset: var(--space-3xs); }
+
+/* On a phone the slider's three buttons follow the words, at the content's end edge, drawn as the
+ * page's own controls: over nothing, they need no dark disc to be seen. The covers slider keeps
+ * its buttons over the picture, where its captions are. */
+@media (max-width: 47.999rem) {
+  .home-hero--slides { background: none; }
+  .home-hero--slides .hero-slider__controls {
+    position: static;
+    justify-content: flex-end;
+    padding-block-end: var(--space-lg);
+    padding-inline: 1.25rem;
+  }
+  .home-hero--slides .hero-slider__step { border-color: var(--color-rule-strong); background: var(--color-paper); color: var(--color-ink); }
+  .home-hero--slides .hero-slider__step:focus-visible { outline-color: var(--color-focus); }
+  @media (hover: hover) {
+    .home-hero--slides .hero-slider__step:hover { background: var(--color-paper-2); }
+  }
+}
+
+@media (min-width: 37.5rem) and (max-width: 47.999rem) {
+  .home-hero--slides .hero-slider__controls { padding-inline: 1.75rem; }
+}
 
 /* Fading: each slide fades as the track carries it in and out, drawn from the scroll itself,
  * so a swipe still works and nothing waits on a script. A browser without scroll-driven
@@ -455,9 +465,44 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 @media (min-width: 48rem) {
   .hero-slider__slide img { aspect-ratio: 21 / 9; }
   .hero-slider__title { font-size: var(--text-2xl); letter-spacing: -0.5px; }
-  /* The words stay at the foot of the slide at every width, on the scrim that follows them. */
-  .hero-slide { aspect-ratio: 21 / 9; }
   .hero-slide__heading { font-size: var(--text-2xl); letter-spacing: -0.5px; }
+
+  /* The words over the picture, at its foot. A slide is at least the band's shape, and taller when
+   * its words need the room. */
+  .hero-slide { align-content: end; aspect-ratio: 21 / 9; }
+  .hero-slide > img { position: absolute; inset: 0; height: 100%; aspect-ratio: auto; }
+  .hero-slide__words { color: var(--color-on-dark); }
+  .hero-slide__body { color: var(--color-on-dark); }
+  .hero-slide__button { border-color: transparent; }
+  .hero-slide__button:focus-visible { outline: 2px solid var(--color-on-dark); outline-offset: var(--space-3xs); }
+
+  /* The three buttons sit at the bottom end of a slider, so its words stop above them. */
+  .home-hero--slides[data-hero-slider] .hero-slide__words { padding-block-end: calc(2.75rem + var(--space-lg) * 2); }
+
+  .hero-slide::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+  .hero-slide:is([data-overlay='none'], [data-overlay='soft'])::after { content: none; }
+  .hero-slide[data-overlay='strong']::after { background: color-mix(in oklch, var(--color-hero) 62%, transparent); }
+
+  /* Soft follows the words: drawn behind them and reaching --hero-fade above them, clear at its
+   * top and easing in, so it has no edge to see, and at its deepest only from just above the first
+   * line down. 70% of the hero ink, mixed over the picture, holds the words at 4.5:1 or better on a
+   * white one (about 6:1, measured in the e2e) -- a photograph is never lighter than that. The
+   * stops ease in rather than ramp, or the eye finds the knee where the ramp turns flat. Drawn by
+   * the words rather than the slide, because only the words know how tall they are. */
+  .hero-slide[data-overlay='soft'] .hero-slide__words::before {
+    --hero-fade: 14rem;
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--hero-fade)) 0 0;
+    z-index: -1;
+    background: linear-gradient(to bottom,
+      transparent,
+      color-mix(in oklch, var(--color-hero) 5%, transparent) calc(var(--hero-fade) * 0.25),
+      color-mix(in oklch, var(--color-hero) 18%, transparent) calc(var(--hero-fade) * 0.5),
+      color-mix(in oklch, var(--color-hero) 40%, transparent) calc(var(--hero-fade) * 0.75),
+      color-mix(in oklch, var(--color-hero) 70%, transparent) var(--hero-fade));
+    pointer-events: none;
+  }
 }
 
 /* A headline nobody can break -- a long word, a URL, sixty of the same letter -- has to

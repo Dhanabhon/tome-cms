@@ -49,6 +49,9 @@ function rules(css: string): Array<{ context: string[]; selector: string; body: 
 }
 
 const RULES = rules(CSS);
+/** The declarations of `selector` inside the at-rule written exactly as `at`. */
+const within = (at: string, selector: string) => RULES.find((rule) => rule.selector === selector && rule.context.includes(at))?.body ?? '';
+const WIDE = '@media (min-width: 48rem)';
 const body = (selector: string) => {
   const rule = RULES.find((candidate) => candidate.selector === selector && !candidate.context.length);
   assert.ok(rule, `no top-level rule for ${selector}`);
@@ -101,8 +104,8 @@ test('in the dark, Paper sets its words in a tinted ink, not pure white, and the
     const ratio = contrast(ink, oklch(token(TOKENS, ":root[data-theme='dark'] {", surface)));
     assert.ok(ratio >= 4.5, `ink on ${surface} is ${ratio.toFixed(2)}`);
   }
-  // The words on a slide sit over a photograph on the hero's scrim: the full on-dark, not the muted.
-  assert.match(body('.hero-slide__body'), /color: var\(--color-on-dark\)/);
+  // Over a photograph, on the hero's scrim, a slide's words are the full on-dark, not the muted.
+  assert.match(within(WIDE, '.hero-slide__body'), /color: var\(--color-on-dark\)/);
 });
 
 test('every word in Paper is Google Sans, Latin and Thai, with no IBM Plex Sans Thai', () => {
@@ -157,7 +160,10 @@ test('a card with no cover shows its category on a flat band, not a huge repeate
 
 test('the home always has an h1, and a category is shown like a search: no band, and a heading', () => {
   assert.match(HOME, /const band = query \|\| activeCategory \? 'none'/);
-  assert.match(HOME, /<h1 class="sr-only">\{name\}<\/h1>/);
+  // One h1, outside every band, so hiding a band never takes it away; the text band's line is not it.
+  assert.match(HOME, /<h1 class="sr-only">\{name\}<\/h1>\n\n\{band === 'slider'/);
+  assert.equal(HOME.match(/<h1/g)?.length, 1);
+  assert.match(HOME, /<p class="hero-title max-w-xl">\{headline\}<\/p>/);
   assert.match(HOME, /<h2 class="post-feed__heading">/);
   // A pill swaps the feed in place, heading and all; the band above it goes with that.
   assert.match(CSS, /main:has\(\.post-feed__heading\) \.home-hero \{ display: none; \}/);
@@ -171,12 +177,28 @@ test('on a tablet the search spans the row above the pills, not alone at its rig
   assert.match(CSS, /@media \(max-width: 63\.999rem\) \{ \.post-search, \.post-search:focus-within \{ flex-basis: 100%; max-width: none; \} \}/);
 });
 
-test('the slide words start where the wordmark does, on a scrim that follows them', () => {
+test('on a phone the slide words sit under a whole picture; from 48rem over it, on a long scrim', () => {
   // The header's frame: max-w-7xl (80rem) with px-5, and px-7 from the 600px breakpoint.
-  assert.match(body('.hero-slide__words'), /padding-inline: calc\(max\(0px, \(100% - 80rem\) \/ 2\) \+ 1\.25rem\)/);
-  assert.doesNotMatch(body('.hero-slide__words'), /48rem/);
-  assert.match(body(".hero-slide[data-overlay='soft'] .hero-slide__words"), /background: linear-gradient/);
-  assert.doesNotMatch(CSS, /\.hero-slide \{[^}]*align-content: center/, 'the words are not lifted off the scrim');
+  const words = body('.hero-slide__words');
+  assert.match(words, /padding-inline: calc\(max\(0px, \(100% - 80rem\) \/ 2\) \+ 1\.25rem\)/);
+  assert.doesNotMatch(words, /48rem/);
+  // A phone: the picture in the flow, nothing drawn over it, the words in the page's ink.
+  assert.doesNotMatch(body('.hero-slide > img'), /position: absolute/);
+  assert.match(words, /color: var\(--color-ink\)/);
+  assert.match(body('.hero-slide__body'), /color: var\(--color-ink-2\)/);
+  const narrowOverlays = RULES.filter(({ selector, context }) => /\.hero-slide.*::(after|before)/.test(selector) && !context.includes(WIDE));
+  assert.deepEqual(narrowOverlays.map(({ selector }) => selector), [], 'no scrim below 48rem');
+  assert.match(within('@media (max-width: 47.999rem)', '.home-hero--slides .hero-slider__controls'), /position: static/);
+  // From 48rem: over the picture at its foot, never lifted to the middle.
+  assert.match(within(WIDE, '.hero-slide > img'), /position: absolute/);
+  assert.match(within(WIDE, '.hero-slide'), /align-content: end/);
+  assert.doesNotMatch(CSS, /align-content: center/);
+  // Soft fades in from clear over --hero-fade above the words, and is deepest (70%) under them.
+  const scrim = within(WIDE, ".hero-slide[data-overlay='soft'] .hero-slide__words::before");
+  assert.match(scrim, /--hero-fade: 14rem/);
+  assert.match(scrim, /inset: calc\(-1 \* var\(--hero-fade\)\) 0 0/);
+  assert.match(scrim, /linear-gradient\(to bottom,\s*transparent,/);
+  assert.match(scrim, /color-mix\(in oklch, var\(--color-hero\) 70%, transparent\) var\(--hero-fade\)\)/);
   // The scrim runs the slide's full width: the slider's buttons stay above it, seen and pressable.
   const layer = (selector: string) => Number(/z-index: (\d+)/.exec(body(selector))?.[1] ?? 0);
   assert.ok(layer('.hero-slider__controls') > layer('.hero-slide__words'));

@@ -334,9 +334,12 @@ test.describe('paper', () => {
     // Chosen by its pill, which swaps the list in place: the band still gives way to it.
     await page.goto(`${origin}/en`);
     await expect(page.locator('.home-hero')).toBeVisible();
+    await expect(page.locator('h1'), 'the text hero home has one h1').toHaveCount(1);
     await page.getByRole('navigation', { name: 'Categories' }).getByRole('link', { name: 'Notes' }).click();
     await expect(page.getByRole('heading', { level: 2, name: 'Notes', exact: true })).toBeVisible();
     await expect(page.locator('.home-hero')).toBeHidden();
+    await expect(page.locator('h1'), 'and still one when the band gives way').toHaveCount(1);
+    await expect(page.locator('h1')).toHaveText('Search Test');
   });
 
   test('an empty category offers the way back to every post', async ({ page }) => {
@@ -378,10 +381,11 @@ test.describe('paper', () => {
     }
   });
 
-  test('the words on a slide read at 4.5:1 over its picture, where they sit', async ({ page }) => {
-    test.setTimeout(120_000);
+  test('a slide shows its picture whole on a phone, and its words read at 4.5:1 wherever they sit', async ({ page }) => {
+    test.setTimeout(180_000);
     // A slide wants a picture in the library. The row has no object behind it: the browser is
-    // handed a flat mid-tone for it below, the colour the audit measured the slide words on.
+    // handed a flat colour for it below -- white, the worst a photograph can be, and the mid-tone
+    // the audit measured the slide words on.
     const { sql } = await import('kysely');
     const { db } = await import('../../src/server/db/client');
     const [image] = (await sql<{ id: string }>`insert into media_items (owner_id, folder_id, object_key, original_name, mime_type,
@@ -390,53 +394,76 @@ test.describe('paper', () => {
       returning id`.execute(db)).rows;
     const { homeSlidesSchema } = await import('../../src/lib/home-slides');
     const { replaceSlides } = await import('../../src/server/content/slides');
-    await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [{
-      mediaId: image.id, heading: 'Warm bread before the street wakes.', body: 'Notes from a small bakery, set down while the oven cools.',
-      align: 'start', overlay: 'soft', button: null,
-    }] }));
+    // Two, so the slider's buttons are drawn too.
+    const slide = (heading: string) => ({ mediaId: image.id, heading, body: 'Notes from a small bakery, set down while the oven cools.',
+      align: 'start', overlay: 'soft', button: { label: 'Read the notes', link: { kind: 'custom', url: '/en', newTab: false } } });
+    await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [slide('Warm bread before the street wakes.'), slide('Second')] }));
     const { writeThemeSettings } = await import('../../src/server/themes/store');
     await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slides' } });
+    let fill = '#ffffff';
     await page.route('**/media/**', (route) => route.fulfill({
       contentType: 'image/svg+xml',
-      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="#8a9b7a"/></svg>',
+      headers: { 'cache-control': 'no-store' },
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="${fill}"/></svg>`,
     }));
+    // Still, so the first slide is the one on screen throughout.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     const sharp = (await import('sharp')).default;
     const luminance = ([r, g, b]: number[]) => {
       const linear = (v: number) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
       return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
     };
-
+    const shown = async () => {
+      await page.goto(`${origin}/en`);
+      await expect(page.locator('.hero-slide img').first()).toHaveJSProperty('complete', true);
+    };
     // The server holds a language's live slides for five seconds, and the tests above read the home.
     await expect(async () => {
       await page.goto(`${origin}/en`);
-      await expect(page.locator('.hero-slide img')).toHaveCount(1, { timeout: 500 });
+      await expect(page.locator('.hero-slide img')).toHaveCount(2, { timeout: 500 });
     }).toPass({ timeout: 15_000 });
 
-    for (const width of [375, 1440]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto(`${origin}/en`);
-      await expect(page.locator('.hero-slide img')).toHaveJSProperty('complete', true);
-      for (const part of ['.hero-slide__heading', '.hero-slide__body']) {
-        const words = page.locator(part);
-        // The words' own colour, as the browser resolves it, read back through a canvas.
-        const ink = await words.evaluate((element) => {
-          const context = document.createElement('canvas').getContext('2d')!;
-          context.fillStyle = getComputedStyle(element).color;
-          context.fillRect(0, 0, 1, 1);
-          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
-        });
-        // What is behind them: the same box with the letters made clear, at its lightest pixel. Only
-        // the letters: the scrim may be the words' own background.
-        const box = (await words.boundingBox())!;
-        await page.addStyleTag({ content: '.hero-slide__words * { color: transparent !important; }' });
-        const shot = await page.screenshot({ clip: box });
-        await page.reload();
-        await expect(page.locator('.hero-slide img')).toHaveJSProperty('complete', true);
-        const { data, info } = await sharp(shot).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-        let lightest = 0;
-        for (let at = 0; at < data.length; at += info.channels) lightest = Math.max(lightest, luminance([data[at], data[at + 1], data[at + 2]]));
-        const ratio = (luminance(ink) + 0.05) / (lightest + 0.05);
-        expect(ratio, `${part} at ${width}px`).toBeGreaterThanOrEqual(4.5);
+    for (const colour of ['#ffffff', '#8a9b7a']) {
+      fill = colour;
+      for (const width of [375, 768, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await shown();
+        const first = page.locator('.hero-slide').first();
+        if (width < 768) {
+          // The picture whole, nothing over it, and the words and the buttons under it, apart.
+          const picture = (await first.locator('img').boundingBox())!;
+          const words = (await first.locator('.hero-slide__words').boundingBox())!;
+          const buttons = (await page.locator('.hero-slider__controls').boundingBox())!;
+          expect(words.y, `${width}px: the words start under the picture`).toBeGreaterThanOrEqual(picture.y + picture.height - 0.5);
+          expect(buttons.y, `${width}px: the buttons come after the words`).toBeGreaterThanOrEqual(words.y + words.height - 0.5);
+          expect(buttons.x + buttons.width, `${width}px: and on the screen`).toBeLessThanOrEqual(width);
+          expect(await first.evaluate((element) => getComputedStyle(element, '::after').content), 'no scrim on the picture').toBe('none');
+        }
+        for (const part of ['.hero-slide__heading', '.hero-slide__body']) {
+          const words = first.locator(part);
+          // The words' own colour, as the browser resolves it, read back through a canvas.
+          const ink = await words.evaluate((element) => {
+            const context = document.createElement('canvas').getContext('2d')!;
+            context.fillStyle = getComputedStyle(element).color;
+            context.fillRect(0, 0, 1, 1);
+            return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+          });
+          // What is behind them: the same box with the letters made clear, at the pixel nearest the
+          // letters' own lightness -- the lightest under light words, the darkest under dark ones. Only
+          // the letters: the scrim is drawn by the words' own box.
+          const box = (await words.boundingBox())!;
+          await page.addStyleTag({ content: '.hero-slide__words * { color: transparent !important; }' });
+          const shot = await page.screenshot({ clip: box });
+          await shown();
+          const { data, info } = await sharp(shot).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+          const text = luminance(ink);
+          let ratio = Infinity;
+          for (let at = 0; at < data.length; at += info.channels) {
+            const behind = luminance([data[at], data[at + 1], data[at + 2]]);
+            ratio = Math.min(ratio, (Math.max(text, behind) + 0.05) / (Math.min(text, behind) + 0.05));
+          }
+          expect(ratio, `${part} at ${width}px over ${colour}`).toBeGreaterThanOrEqual(4.5);
+        }
       }
     }
     await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [] }));

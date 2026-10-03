@@ -111,6 +111,11 @@ const readTime = (post: Post) => {
 };
 ---
 
+{/* The page's one h1, whatever the band: the site's name. It stands outside every band, so a
+    category chosen by its pill, which hides the band, leaves it in place. The text band's headline
+    is the owner's line about the site, drawn large, not the page's title. */}
+<h1 class="sr-only">{name}</h1>
+
 {band === 'slider' && (
   <section class="home-hero home-hero--slider" aria-roledescription="carousel" aria-label={copy.featured} data-hero-slider>
     <ul class="hero-slider" data-hero-track>
@@ -195,10 +200,10 @@ const readTime = (post: Post) => {
   </section>
 )}
 
-{(band === 'text' || band === 'animated') ? (
+{(band === 'text' || band === 'animated') && (
   <section class="home-hero" data-hero={band === 'animated' ? 'moving' : undefined}>
     <div class="mx-auto max-w-7xl px-5 pt-12 pb-16 sm:px-7 sm:pt-16 sm:pb-20">
-      <h1 class="hero-title max-w-xl">{headline}</h1>
+      <p class="hero-title max-w-xl">{headline}</p>
       {tagline && (
         <p class="lead mt-6 max-w-md">
           {tagline}
@@ -206,8 +211,6 @@ const readTime = (post: Post) => {
       )}
     </div>
   </section>
-) : (
-  <h1 class="sr-only">{name}</h1>
 )}
 
 <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
