@@ -375,7 +375,7 @@ npm run tome -- check
 5. ปลั๊กอินที่ `index.ts` ไม่ได้ export เมธอดคู่ sign-in ที่ปลั๊กอินทุกตัวต้องตอบ หรือไม่ได้ export เมธอดของ hook ที่ประกาศไว้อย่างน้อยหนึ่งตัว
 6. ธีมที่ import จาก `src/server/` หรือ `src/pages/`
 7. สีดิบใน CSS ของธีมที่อยู่นอก token block สีดิบคือค่า hex เช่น `#c00` หรือ `rgb()`, `hsl()`, `hwb()`, `oklch()`, `oklab()`, `lab()`, `lch()` และ `color()` ส่วน token block คือ rule ที่ declaration ของตัวเองเป็น custom property ทั้งหมด เช่น `--color-ink: oklch(24% 0.012 70);` rule ที่ซ้อนอยู่ข้างในจะถูกตรวจแยกต่างหาก ที่อื่นทั้งหมดในสไตล์ชีตให้ใช้ `var(--color-ink)` คำสั่งนี้ไม่อ่านคอมเมนต์ และไม่ตรวจชื่อสีอย่าง `red`
-8. ฟอนต์ใน `preloadFonts` ของ manifest ธีมที่ไม่ใช่ไฟล์ใต้ `public/`
+8. ฟอนต์ใน `preloadFonts` ของ manifest ธีมที่ไม่ใช่ไฟล์ `.woff2` ใน `public/fonts/`
 
 คำสั่งนี้ไม่รันปลั๊กอิน แค่ import manifest แต่ละตัวและ `index.ts` ของปลั๊กอินแต่ละตัวแบบเดียวกับที่ core ทำ โดยไม่เรียกอะไรในนั้นเลย การ export เมธอดแบบไหนก็นับ รวมถึง `export * from './hooks'` แต่เมธอดที่อยู่แค่ในออบเจ็กต์ที่ export default ไม่นับ เพราะ core ใช้ named export ของโมดูล
 

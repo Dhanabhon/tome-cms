@@ -260,19 +260,22 @@ function ownDeclarations(text: string, open: number): string[] {
 }
 
 /**
- * Rule 8: every font a theme's manifest preloads is a file under public/, which is where a page is
- * served it from. `exists` answers for a path as the manifest writes it, `/fonts/<file>.woff2`; a
- * path that is not absolute, or that climbs out with `..`, is never one. Each is reported at the
- * line it is written on.
+ * Rule 8: every font a theme's manifest preloads is a .woff2 file in public/fonts/, which is where a
+ * page is served it from. The page preloads each as a woff2 font, so anything else there -- a
+ * stylesheet, an icon -- would be fetched and thrown away. `exists` answers for a path as the
+ * manifest writes it, `/fonts/<file>.woff2`. Each is reported at the line it is written on.
  */
+/** A file directly in public/fonts/: no subdirectory, so no `..` either. */
+const WOFF2 = /^\/fonts\/[^/]+\.woff2$/;
+
 export function preloadsExist(path: string, text: string, preloadFonts: unknown, exists: (file: string) => boolean): Problem[] {
   if (preloadFonts === undefined) return [];
   const anchor = lineOf(text, /\bpreloadFonts\s*:/);
   if (!Array.isArray(preloadFonts)) return [{ path, line: anchor, message: 'preloadFonts is not a list' }];
   return preloadFonts
-    .filter((file) => typeof file !== 'string' || !file.startsWith('/') || file.split('/').includes('..') || !exists(file))
+    .filter((file) => typeof file !== 'string' || !WOFF2.test(file) || !exists(file))
     .map((file) => {
       const at = typeof file === 'string' ? text.search(new RegExp(`['"]${escape(file)}['"]`)) : -1;
-      return { path, line: at === -1 ? anchor : lineAt(text, at), message: `preloads ${JSON.stringify(file)}, which is not a file under public/` };
+      return { path, line: at === -1 ? anchor : lineAt(text, at), message: `preloads ${JSON.stringify(file)}, which is not a .woff2 file in public/fonts/` };
     });
 }

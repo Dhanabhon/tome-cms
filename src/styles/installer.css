@@ -48,6 +48,11 @@ h1, h2, p { margin-block-start: 0; }
   white-space: nowrap;
 }
 .installer-wordmark .tomecms-logo { width: 7.5rem; height: 1.5rem; }
+/* The language switcher takes its type from where it sits, and this is where the installer's sits:
+ * the trigger at the body size in 500, the choices a step smaller. Three classes, so it outranks the
+ * component's own `font: inherit`, which Astro scopes to a class and an attribute. */
+.installer-nav .language-switcher--installer .language-switcher__trigger { font-size: var(--text-base); font-weight: 500; }
+.installer-nav .language-switcher--installer .language-switcher__menu a { font-size: var(--text-sm); }
 .installer-page {
   width: min(100%, 80rem);
   min-width: 0;

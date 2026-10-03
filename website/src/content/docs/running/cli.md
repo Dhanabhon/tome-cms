@@ -375,7 +375,7 @@ npm run tome -- check
 5. a plugin whose `index.ts` does not export the sign-in pair every plugin answers, or a method of each hook it declares;
 6. a theme that imports from `src/server/` or `src/pages/`;
 7. a raw colour in a theme's CSS outside a token block. A raw colour is a hex such as `#c00`, or `rgb()`, `hsl()`, `hwb()`, `oklch()`, `oklab()`, `lab()`, `lch()` or `color()`. A token block is a rule whose own declarations are all custom properties, such as `--color-ink: oklch(24% 0.012 70);`; a rule nested inside it is checked on its own. Everywhere else the stylesheet uses `var(--color-ink)`. Comments are not read, and neither is a colour name such as `red`.
-8. a font a theme's manifest preloads, in `preloadFonts`, that is not a file under `public/`.
+8. a font a theme's manifest preloads, in `preloadFonts`, that is not a `.woff2` file in `public/fonts/`.
 
 It does not run a plugin. It imports each manifest and each plugin's `index.ts`, as the core does, and calls nothing in them. Any way of exporting a method counts, including `export * from './hooks'`. A method that is only on the default export object does not count, because the core uses the module's named exports.
 

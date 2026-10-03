@@ -269,7 +269,7 @@ const intro = themeSettings.intro || tagline;
   preloadFonts: ['/fonts/google-sans-latin-400-normal.woff2', '/fonts/google-sans-thai-400-normal.woff2'],
 ```
 
-Name the faces the first screen is drawn in, so they do not swap in late. The page preloads exactly that list. A theme with no `preloadFonts` preloads nothing, and its faces load when its stylesheet asks for them. `tome check` reports a path that is not a file under `public/`, and `tome theme new` copies the list with the theme.
+Name the faces the first screen is drawn in, so they do not swap in late. The page preloads exactly that list. A theme with no `preloadFonts` preloads nothing, and its faces load when its stylesheet asks for them. `tome check` reports a path that is not a `.woff2` file in `public/fonts/`, and `tome theme new` copies the list with the theme.
 
 ## Registering a theme
 

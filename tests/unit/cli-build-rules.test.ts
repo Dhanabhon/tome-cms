@@ -207,7 +207,7 @@ test('rule 7: a raw colour is allowed only in a token block, a rule that declare
   ]);
 });
 
-test('rule 8: every font a theme preloads is a file under public/', () => {
+test('rule 8: every font a theme preloads is a .woff2 file in public/fonts/', () => {
   const text = "export const manifest = {\n  id: 'ledger',\n  preloadFonts: [\n    '/fonts/a.woff2',\n    '/fonts/gone.woff2',\n    '/fonts/../../secrets.woff2',\n  ],\n};\n";
   const files = new Set(['/fonts/a.woff2', '/fonts/../../secrets.woff2']);
   const exists = (path: string) => files.has(path);
@@ -216,12 +216,19 @@ test('rule 8: every font a theme preloads is a file under public/', () => {
   assert.deepEqual(preloadsExist(path, text, undefined, exists), []);
   assert.deepEqual(preloadsExist(path, text, ['/fonts/a.woff2'], exists), []);
   assert.deepEqual(where(preloadsExist(path, text, ['/fonts/a.woff2', '/fonts/gone.woff2', '/fonts/../../secrets.woff2', 'fonts/a.woff2', 7], exists)), [
-    'src/themes/ledger/theme.ts:5: preloads "/fonts/gone.woff2", which is not a file under public/',
-    'src/themes/ledger/theme.ts:6: preloads "/fonts/../../secrets.woff2", which is not a file under public/',
-    'src/themes/ledger/theme.ts:3: preloads "fonts/a.woff2", which is not a file under public/',
-    'src/themes/ledger/theme.ts:3: preloads 7, which is not a file under public/',
+    'src/themes/ledger/theme.ts:5: preloads "/fonts/gone.woff2", which is not a .woff2 file in public/fonts/',
+    'src/themes/ledger/theme.ts:6: preloads "/fonts/../../secrets.woff2", which is not a .woff2 file in public/fonts/',
+    'src/themes/ledger/theme.ts:3: preloads "fonts/a.woff2", which is not a .woff2 file in public/fonts/',
+    'src/themes/ledger/theme.ts:3: preloads 7, which is not a .woff2 file in public/fonts/',
   ]);
   assert.deepEqual(where(preloadsExist(path, text, '/fonts/a.woff2', exists)), ['src/themes/ledger/theme.ts:3: preloadFonts is not a list']);
+
+  // The page preloads each as a woff2 font, so a file under public/ that is not one under fonts/ is
+  // refused even when it is there: the browser would fetch it and then throw it away.
+  const served = new Set(['/favicon.svg', '/fonts.css', '/fonts/../x.woff2', '/fonts/a.woff2', '/fonts/sub/b.woff2', '/fonts/c.woff']);
+  const wrong = ['/favicon.svg', '/fonts.css', '/fonts/../x.woff2', '/fonts/sub/b.woff2', '/fonts/c.woff', '/fonts/missing.woff2'];
+  assert.deepEqual(where(preloadsExist(path, '', ['/fonts/a.woff2', ...wrong], (file) => served.has(file))),
+    wrong.map((file) => `src/themes/ledger/theme.ts:1: preloads ${JSON.stringify(file)}, which is not a .woff2 file in public/fonts/`));
 });
 
 /** A checkout holding a copy of the real themes and plugins, which tests may break. */
@@ -274,7 +281,7 @@ test('tome check reports a preloaded font that public/ does not have, at its lin
   const line = text.slice(0, text.indexOf("'/fonts/trirong-thai-600-normal.woff2'")).split('\n').length;
   assert.equal(await check(root, output), 1);
   assert.deepEqual(lines.err, [
-    `src/themes/almanac/theme.ts:${line}: preloads "/fonts/trirong-thai-700-normal.woff2", which is not a file under public/`,
+    `src/themes/almanac/theme.ts:${line}: preloads "/fonts/trirong-thai-700-normal.woff2", which is not a .woff2 file in public/fonts/`,
     '1 problem.',
   ]);
 });
