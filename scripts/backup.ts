@@ -7,10 +7,11 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { sql } from 'kysely';
 
 import { isTomeObjectKey } from '../src/server/media/keys';
 import type { ServerEnv } from '../src/server/env';
+import { splitDatabaseUrl } from '../src/server/transfer/database-url';
+import { countRecords } from '../src/server/transfer/record-counts';
 import { parseBackupManifest, type BackupManifest } from '../src/update/backup';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
@@ -95,18 +96,7 @@ export interface PgDumpInvocation {
 }
 
 export function directPgDumpInvocation(databaseUrl: string): PgDumpInvocation {
-  const url = new URL(databaseUrl);
-  let queryPassword = '';
-  const query = url.search.slice(1).split('&').filter((pair) => {
-    const separator = pair.indexOf('=');
-    const key = decodeURIComponent(pair.slice(0, separator < 0 ? pair.length : separator).replace(/\+/g, ' '));
-    if (key !== 'password') return true;
-    queryPassword = decodeURIComponent((separator < 0 ? '' : pair.slice(separator + 1)).replace(/\+/g, ' '));
-    return false;
-  }).join('&');
-  const password = queryPassword || decodeURIComponent(url.password);
-  url.search = query ? `?${query}` : '';
-  url.password = '';
+  const { url, password } = splitDatabaseUrl(databaseUrl);
   const { DATABASE_URL: _databaseUrl, PGPASSWORD: _password, ...env } = process.env;
   return {
     executable: 'pg_dump',
@@ -137,14 +127,7 @@ async function dumpDatabaseDirect(destination: string, databaseUrl: string): Pro
 async function recordCounts(): Promise<BackupManifest['records']> {
   const { db, closeDatabase } = await import('../src/server/db/client');
   try {
-    const result = await sql<BackupManifest['records']>`
-      select
-        (select count(*)::integer from site_settings) as "siteSettings",
-        (select count(*)::integer from posts) as posts,
-        (select count(*)::integer from pages) as pages,
-        (select count(*)::integer from media_items) as "mediaItems"
-    `.execute(db);
-    return result.rows[0]!;
+    return await countRecords(db);
   } finally {
     await closeDatabase();
   }

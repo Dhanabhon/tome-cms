@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { join } from 'node:path';
+import { lstat, realpath } from 'node:fs/promises';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 import {
   DeleteObjectsCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, type S3Client,
@@ -14,6 +15,8 @@ import type { BackupManifest, BackupRecordCounts } from '../../update/backup';
 import { contentDisposition } from '../media/disposition';
 import { isTomeObjectKey } from '../media/keys';
 import { isSealed, openSecret } from '../plugins/secrets';
+import { splitDatabaseUrl } from './database-url';
+import { countRecords } from './record-counts';
 
 /*
  * The steps a restore runs inside the app image, as one-shots (cli.ts). The database client and
@@ -51,23 +54,9 @@ export async function restoredDocumentDispositions(): Promise<Map<string, string
   return documentDispositions(JSON.parse(String(Object.values(result.rows[0] ?? {})[0])));
 }
 
-/**
- * The same split as `directPgDumpInvocation` (scripts/backup.ts), which this bundle cannot import:
- * the password leaves the URL, wherever it was, and travels in PGPASSWORD instead of argv.
- */
-function pgRestoreInvocation(databaseUrl: string, dumpPath: string): { executable: 'pg_restore'; args: string[]; env: NodeJS.ProcessEnv } {
-  const url = new URL(databaseUrl);
-  let queryPassword = '';
-  const query = url.search.slice(1).split('&').filter((pair) => {
-    const separator = pair.indexOf('=');
-    const key = decodeURIComponent(pair.slice(0, separator < 0 ? pair.length : separator).replace(/\+/g, ' '));
-    if (key !== 'password') return true;
-    queryPassword = decodeURIComponent((separator < 0 ? '' : pair.slice(separator + 1)).replace(/\+/g, ' '));
-    return false;
-  }).join('&');
-  const password = queryPassword || decodeURIComponent(url.password);
-  url.search = query ? `?${query}` : '';
-  url.password = '';
+/** `pg_restore` of a dump into the database, with the password in PGPASSWORD rather than argv. */
+export function pgRestoreInvocation(databaseUrl: string, dumpPath: string): { executable: 'pg_restore'; args: string[]; env: NodeJS.ProcessEnv } {
+  const { url, password } = splitDatabaseUrl(databaseUrl);
   const { DATABASE_URL: _databaseUrl, PGPASSWORD: _password, ...env } = process.env;
   return {
     executable: 'pg_restore',
@@ -76,12 +65,25 @@ function pgRestoreInvocation(databaseUrl: string, dumpPath: string): { executabl
   };
 }
 
+async function runPgRestore(args: string[], env: NodeJS.ProcessEnv): Promise<void> {
+  const child = spawn('pg_restore', args, { env, stdio: ['ignore', 'ignore', 'inherit'] });
+  const code = await new Promise<number | null>((resolveExit, reject) => {
+    child.once('error', reject);
+    child.once('close', resolveExit);
+  });
+  if (code !== 0) throw Object.assign(new Error('Database restore failed.'), { code: 'pg_restore_failed' });
+}
+
 /**
  * Empties the database, then restores the dump into it. Emptying first matters: a dump from an
  * older version restored beside a newer migration's tables would make the next migration fail on
  * a table that already exists, and `pg_restore --clean` only drops what the dump itself holds.
  */
 export async function resetAndRestoreDatabase(databaseUrl: string, dumpPath: string): Promise<void> {
+  const invocation = pgRestoreInvocation(databaseUrl, dumpPath);
+  // Reads the whole archive's table of contents without a database: a cut-off or foreign file
+  // is found out before anything is dropped.
+  await runPgRestore(['--list', dumpPath], invocation.env);
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
@@ -89,13 +91,30 @@ export async function resetAndRestoreDatabase(databaseUrl: string, dumpPath: str
   } finally {
     await client.end();
   }
-  const invocation = pgRestoreInvocation(databaseUrl, dumpPath);
-  const child = spawn(invocation.executable, invocation.args, { env: invocation.env, stdio: ['ignore', 'ignore', 'inherit'] });
-  const code = await new Promise<number | null>((resolveExit, reject) => {
-    child.once('error', reject);
-    child.once('close', resolveExit);
-  });
-  if (code !== 0) throw Object.assign(new Error('Database restore failed.'), { code: 'pg_restore_failed' });
+  await runPgRestore(invocation.args, invocation.env);
+}
+
+function within(directory: string, path: string): boolean {
+  const inside = relative(directory, path);
+  return inside !== '' && inside !== '..' && !inside.startsWith(`..${sep}`) && !isAbsolute(inside);
+}
+
+/**
+ * A file a restore reads from a backup: a regular file, reached without a link, inside the real
+ * backup directory. A backup copied in with its links, or built by hand, could otherwise hand the
+ * one-shot any file it can read, and that file would go up into the media bucket.
+ */
+export async function backupFile(backup: string, path: string): Promise<string> {
+  const candidate = join(backup, path);
+  const invalid = () => Object.assign(new Error('The backup holds a file that is not a plain file inside it.'), { code: 'backup_invalid' });
+  try {
+    if (!(await lstat(candidate)).isFile()) throw invalid();
+    const real = await realpath(candidate);
+    if (!within(await realpath(backup), real)) throw invalid();
+    return real;
+  } catch (error) {
+    throw (error as { code?: unknown }).code === 'backup_invalid' ? error : invalid();
+  }
 }
 
 /** Every key in the bucket, sorted. */
@@ -123,12 +142,15 @@ export async function syncBucketToManifest(
 ): Promise<{ uploaded: number; deleted: number; foreign?: number }> {
   // The key becomes a path under the backup: only the grammar TomeCMS writes may.
   if (!manifest.objects.every(({ key }) => isTomeObjectKey(key))) throw new Error('Backup manifest contains an unsupported object key.');
+  // Every file is checked before the first put, so a bad backup changes nothing.
+  const paths = new Map<string, string>();
+  for (const { key } of manifest.objects) paths.set(key, await backupFile(backup, join('objects', ...key.split('/'))));
   for (const object of manifest.objects) {
     const disposition = dispositions.get(object.key);
     await client.send(new PutObjectCommand({
       Bucket: bucket,
       Key: object.key,
-      Body: createReadStream(join(backup, 'objects', ...object.key.split('/'))),
+      Body: createReadStream(paths.get(object.key)!),
       ContentLength: object.sizeBytes,
       ContentType: object.contentType,
       // A document with no ready row -- an unfinished upload -- goes back with no header, as today.
@@ -167,18 +189,12 @@ export interface AfterRestoreReport {
 
 /**
  * Signs everyone out (MCP connections are kept), counts what came back the way a backup counts
- * it (scripts/backup.ts `recordCounts`), and names every plugin secret this server cannot open.
+ * it, and names every plugin secret this server cannot open.
  */
 export async function afterRestoreReport(): Promise<AfterRestoreReport> {
   const { db } = await import('../db/client');
   await db.deleteFrom('session').execute();
-  const counts = await sql<BackupRecordCounts>`
-    select
-      (select count(*)::integer from site_settings) as "siteSettings",
-      (select count(*)::integer from posts) as posts,
-      (select count(*)::integer from pages) as pages,
-      (select count(*)::integer from media_items) as "mediaItems"
-  `.execute(db);
+  const records = await countRecords(db);
   const rows = await db.selectFrom('plugin_settings').select(['id', 'settings']).orderBy('id').execute();
   let sealedSecrets = 0;
   const unopenedSecrets: AfterRestoreReport['unopenedSecrets'] = [];
@@ -192,5 +208,5 @@ export async function afterRestoreReport(): Promise<AfterRestoreReport> {
       if (openSecret(value as string) === null) unopenedSecrets.push({ plugin: row.id, setting: setting.key });
     }
   }
-  return { records: counts.rows[0]!, sealedSecrets, unopenedSecrets };
+  return { records, sealedSecrets, unopenedSecrets };
 }

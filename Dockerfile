@@ -34,6 +34,8 @@ COPY --from=builder --chown=node:node /app/src/server/env.ts ./src/server/env.ts
 COPY --from=builder --chown=node:node /app/src/server/media ./src/server/media
 COPY --from=builder --chown=node:node /app/src/lib/media.ts ./src/lib/media.ts
 COPY --from=builder --chown=node:node /app/src/update/backup.ts ./src/update/backup.ts
+COPY --from=builder --chown=node:node /app/src/server/transfer/database-url.ts ./src/server/transfer/database-url.ts
+COPY --from=builder --chown=node:node /app/src/server/transfer/record-counts.ts ./src/server/transfer/record-counts.ts
 RUN node --import tsx scripts/backup.ts --self-test
 RUN node dist/server/content-cli.mjs self-test
 USER node

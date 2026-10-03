@@ -48,9 +48,10 @@ const { appendFileSync, openSync } = require('node:fs');
 const args = process.argv.slice(2);
 appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args, password: process.env.PGPASSWORD ?? null }) + '\\n');
 const flags = args.slice(0, -1).filter((arg) => !arg.startsWith('--dbname='));
-const result = spawnSync('docker', [...${JSON.stringify(IN_POSTGRES)}, 'pg_restore', '--host=127.0.0.1',
-  '--username=tomecms_test', '--dbname=tomecms_test', ...flags], {
-  cwd: ${JSON.stringify(process.cwd())}, stdio: [openSync(args.at(-1), 'r'), 'inherit', 'inherit'],
+const target = flags.includes('--list') ? [] : ['--host=127.0.0.1', '--username=tomecms_test', '--dbname=tomecms_test'];
+const result = spawnSync('docker', [...${JSON.stringify(IN_POSTGRES)}, 'pg_restore', ...target, ...flags], {
+  // Its complaints about the deliberately broken dump go to a file, not the test output.
+  cwd: ${JSON.stringify(process.cwd())}, stdio: [openSync(args.at(-1), 'r'), 'inherit', openSync(${JSON.stringify(log)} + '.stderr', 'a')],
 });
 process.exit(result.status ?? 1);
 `, { mode: 0o700 });
@@ -104,6 +105,12 @@ test('a dump taken at migration 028 restores into a 029 database, and migrating 
   await migrateToLatest();
   await insertPost('after-the-backup', ownerId);
 
+  // A dump that is not one is found out before anything is dropped.
+  const broken = join(directory, 'broken.dump');
+  await writeFile(broken, 'PGDMP, cut off');
+  await assert.rejects(resetAndRestoreDatabase(DATABASE_URL, broken), { code: 'pg_restore_failed' });
+  assert.equal((await db.selectFrom('posts').select('slug').execute()).length, 2, 'and the database is as it was');
+
   await resetAndRestoreDatabase(DATABASE_URL, dump);
   await migrateToLatest();
 
@@ -113,10 +120,14 @@ test('a dump taken at migration 028 restores into a 029 database, and migrating 
   assert.ok(applied.rows.some(({ name }) => name === '029_navigation_parent'), 'and 029 ran over the 028 dump');
 
   const calls = (await readFile(log, 'utf8')).trim().split('\n').map((line) => JSON.parse(line) as { args: string[]; password: string | null });
-  assert.deepEqual(calls, [{
-    args: ['--dbname=postgresql://tomecms_test@127.0.0.1:55432/tomecms_test', '--no-owner', '--no-privileges', '--exit-on-error', dump],
-    password: 'foundation-test-only',
-  }], 'the password travels in PGPASSWORD, never in argv');
+  assert.deepEqual(calls, [
+    { args: ['--list', broken], password: 'foundation-test-only' },
+    { args: ['--list', dump], password: 'foundation-test-only' },
+    {
+      args: ['--dbname=postgresql://tomecms_test@127.0.0.1:55432/tomecms_test', '--no-owner', '--no-privileges', '--exit-on-error', dump],
+      password: 'foundation-test-only',
+    },
+  ], 'the dump is read before the reset, and the password travels in PGPASSWORD, never in argv');
 });
 
 test('the bucket ends up holding exactly what the manifest lists, and a document keeps its download name', async (context) => {

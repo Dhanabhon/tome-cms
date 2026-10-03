@@ -1,5 +1,6 @@
-import { readFile, realpath } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { readFile, realpath, stat } from 'node:fs/promises';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -66,6 +67,7 @@ type Receipt = Record<string, unknown>;
 
 async function restoreDatabase(dump: string): Promise<Receipt> {
   const path = await workPath(dump);
+  if (!(await stat(path)).isFile()) throw new StepError('backup_invalid');
   const { getServerEnv } = await import('../env');
   const { resetAndRestoreDatabase } = await import('./restore-steps');
   await resetAndRestoreDatabase(getServerEnv().DATABASE_URL, path);
@@ -75,10 +77,10 @@ async function restoreDatabase(dump: string): Promise<Receipt> {
 async function restoreObjects(backup: string): Promise<Receipt> {
   const directory = await workPath(backup);
   const { parseBackupManifest } = await import('../../update/backup');
-  const manifest = parseBackupManifest(JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')));
+  const { backupFile, restoredDocumentDispositions, syncBucketToManifest } = await import('./restore-steps');
+  const manifest = parseBackupManifest(JSON.parse(await readFile(await backupFile(directory, 'manifest.json'), 'utf8')));
   // A database-only backup lists no objects; making the bucket equal it would empty the library.
   if (manifest.scope === 'database') throw new StepError('database_only_backup');
-  const { restoredDocumentDispositions, syncBucketToManifest } = await import('./restore-steps');
   const { closeDatabase } = await import('../db/client');
   const { s3, s3Bucket } = await import('../media/storage');
   try {
@@ -145,6 +147,7 @@ async function main(argv: string[]): Promise<void> {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+// Node runs a module by its real path, so a link to the bundle still counts as starting it.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   await main(process.argv.slice(2));
 }
