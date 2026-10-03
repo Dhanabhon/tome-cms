@@ -2,6 +2,18 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.12.1 - 2026-10-03
+
+Fixes from a design review of the themes and the admin, and Thai headings with room for their marks.
+
+### Fixed
+
+- Plain shows a post's headings, bulleted and numbered lists, and inline code as such.
+- A missing or unavailable page reads in Thai on a Thai address, in every theme.
+- Paper's post cards no longer show a stray "·" where the date wraps.
+- In the admin, the count beside a title is small again, the Plugins and Themes grids fit a 320-pixel screen, and a plugin's switch is clear when off, shows that it is saving, and answers hover and press.
+- Thai headings in the admin and the themes get line spacing tall enough for their marks and no squeezed letter-spacing; small admin labels are not spaced out in Thai and are at least 12 pixels.
+
 ## 1.12.0 - 2026-10-03
 
 `tome` gains three commands for building themes and plugins in a source checkout.
