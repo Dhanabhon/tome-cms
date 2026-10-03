@@ -475,6 +475,17 @@ test('after a rollback that failed inside pg_restore and left the database empty
   assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
 });
 
+test('clear-failed after rollback_failed with no safety backup points at the newest backup, not the one that failed', async (t) => {
+  const f = await fixture(t);
+  const id = randomUUID();
+  await f.state.createRestore({ id, backupDirectory: f.backupDirectory });
+  await f.state.transitionRestore(id, 'quiescing');
+  await f.state.transitionRestore(id, 'failed', { errorCode: 'rollback_failed', maintenanceKept: true });
+  const message = (await clearFailedJob(f.state)).split('\n');
+  assert.match(message[0]!, new RegExp(`^Set aside the restore of ${f.backupDirectory}, which failed with no safety backup to put back\\. Its record is kept as `));
+  assert.equal(message.at(-1), 'Next: restore the newest backup, which starts the app (sudo tome status shows it): sudo tome restore <newest backup>');
+});
+
 test('a failed restore step puts the safety backup back, starts the app and ends failed with restore_failed', async (t) => {
   const f = await fixture(t);
   f.fail('restore-objects', 1);

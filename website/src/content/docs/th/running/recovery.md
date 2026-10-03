@@ -173,7 +173,7 @@ Warning: a restore failed (rollback_failed) and keeps the site in maintenance.
    Next: sudo tome restore /var/backups/tome-cms/tomecms-20261003T110100000Z, to put the safety backup back, or the restore again.
    ```
 
-   ถ้าเป็นการกู้คืนที่ล้มเหลวบนเว็บที่พบว่าแอปหยุดอยู่ บรรทัดแรกจะขึ้นว่า `which failed on a site it found stopped` แทน `whose safety backup could not be put back` และบรรทัดสุดท้ายคือ `Next: sudo tome restore <the backup>, to run the restore again.`
+   ถ้าเป็นการกู้คืนที่ล้มเหลวบนเว็บที่พบว่าแอปหยุดอยู่ บรรทัดแรกจะขึ้นว่า `which failed on a site it found stopped` แทน `whose safety backup could not be put back` และบรรทัดสุดท้ายคือ `Next: sudo tome restore <the backup>, to run the restore again.` ส่วน `rollback_failed` ที่ไม่มีชุดสำรองเพื่อความปลอดภัย บรรทัดแรกจะขึ้นว่า `which failed with no safety backup to put back` และบรรทัดสุดท้ายบอกให้กู้คืนชุดสำรองล่าสุด ซึ่ง `tome status` แสดงไว้
 2. กู้คืนอีกครั้ง ซึ่งจะเปิดแอป ให้รันคำสั่งในบรรทัด `Next:` หลัง `rollback_failed` บรรทัดนั้นระบุชุดสำรองเพื่อความปลอดภัย ที่สำรองไว้ก่อนการกู้คืนครั้งนั้น
 
    ```sh

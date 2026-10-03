@@ -24,15 +24,19 @@ export async function clearFailedJob(store: UpdaterStateStore): Promise<string> 
   const restoreHolds = restore !== null && restore.phase !== 'succeeded' && !(restore.phase === 'failed' && !restore.maintenanceKept);
   if (restoreHolds) {
     const { restore: cleared, keptAs } = await store.clearFailedRestore();
-    const rollbackFailed = cleared.errorCode === 'rollback_failed' && cleared.safetyBackupDirectory !== null;
+    const backup = printable(cleared.backupDirectory);
+    const safety = cleared.safetyBackupDirectory === null ? null : printable(cleared.safetyBackupDirectory);
+    // After rollback_failed the database is in a state no one knows: the backup that failed is no way out.
+    const [what, next] = cleared.errorCode !== 'rollback_failed'
+      ? ['which failed on a site it found stopped', `Next: sudo tome restore ${backup}, to run the restore again.`]
+      : safety
+        ? ['whose safety backup could not be put back', `Next: sudo tome restore ${safety}, to put the safety backup back, or the restore again.`]
+        : ['which failed with no safety backup to put back',
+          'Next: restore the newest backup, which starts the app (sudo tome status shows it): sudo tome restore <newest backup>'];
     return [
-      rollbackFailed
-        ? `Set aside the restore of ${printable(cleared.backupDirectory)}, whose safety backup could not be put back. Its record is kept as ${keptAs}.`
-        : `Set aside the restore of ${printable(cleared.backupDirectory)}, which failed on a site it found stopped. Its record is kept as ${keptAs}.`,
+      `Set aside the restore of ${backup}, ${what}. Its record is kept as ${keptAs}.`,
       'The site is out of maintenance. Nothing else was changed: the app is still stopped.',
-      rollbackFailed
-        ? `Next: sudo tome restore ${printable(cleared.safetyBackupDirectory!)}, to put the safety backup back, or the restore again.`
-        : `Next: sudo tome restore ${printable(cleared.backupDirectory)}, to run the restore again.`,
+      next,
     ].join('\n');
   }
   // Run again after a restore was set aside, it has nothing to do, and says so of both.

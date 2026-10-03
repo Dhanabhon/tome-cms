@@ -173,7 +173,7 @@ Every other job is refused while this holds, with `An earlier restore failed and
    Next: sudo tome restore /var/backups/tome-cms/tomecms-20261003T110100000Z, to put the safety backup back, or the restore again.
    ```
 
-   For a restore that failed on a site it found stopped, the first line says `which failed on a site it found stopped` in place of `whose safety backup could not be put back`, and the last is `Next: sudo tome restore <the backup>, to run the restore again.`
+   For a restore that failed on a site it found stopped, the first line says `which failed on a site it found stopped` in place of `whose safety backup could not be put back`, and the last is `Next: sudo tome restore <the backup>, to run the restore again.` For `rollback_failed` with no safety backup, the first line says `which failed with no safety backup to put back`, and the last tells you to restore the newest backup, which `tome status` shows.
 2. Restore again, which starts the application. Run the command on the `Next:` line. After `rollback_failed` it names the safety backup, taken just before the restore:
 
    ```sh
