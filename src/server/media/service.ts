@@ -389,6 +389,59 @@ export async function importImage(ownerId: string, body: Buffer, name: string): 
   }
 }
 
+/**
+ * Keeps a file an import brought, as a ready item in the library: a picture as `importImage` keeps
+ * one, and a document, named for its type, checked in the bucket as a finished upload is. A
+ * refusal is a 413 for the size and a 415 for anything else, and leaves no object behind.
+ */
+export async function createMediaFromBytes(ownerId: string, body: Buffer, name: string): Promise<ReadyMedia> {
+  if (detectImageType(body)) {
+    if (body.length > MAX_IMAGE_BYTES) throw new HttpError(413, 'Images must be 8 MB or smaller.');
+    return importImage(ownerId, body, name);
+  }
+  const originalName = name.trim().slice(0, 255).trim();
+  const type = documentTypeForName(originalName);
+  if (!type || body.length < 1) throw new HttpError(415, 'The file is not a supported image or document.');
+  if (body.length > MAX_DOCUMENT_FILE_BYTES) throw new HttpError(413, 'Files must be 25 MB or smaller.');
+  const objectKey = createObjectKey(ownerId, type);
+  const checksum = createHash('sha256').update(body).digest('base64');
+  const put = await s3.send(new PutObjectCommand({
+    Body: body, Bucket: s3Bucket, ContentType: type, Key: objectKey, ChecksumSHA256: checksum,
+    ContentDisposition: contentDisposition(originalName, type),
+  }));
+  try {
+    await verifiedDocument(objectKey, type, body.length, checksum, put.ETag);
+    const item = await db.insertInto('media_items').values({
+      id: randomUUID(),
+      owner_id: ownerId,
+      folder_id: null,
+      object_key: objectKey,
+      original_name: originalName,
+      mime_type: type,
+      size_bytes: body.length,
+      checksum_sha256: checksum,
+      width: null,
+      height: null,
+      alt_text: null,
+      state: 'ready',
+      delete_error_code: null,
+    }).returningAll().executeTakeFirstOrThrow();
+    return readyMedia(item);
+  } catch (error) {
+    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: objectKey })).catch(() => undefined);
+    if (error instanceof InvalidUploadError) throw new HttpError(415, error.message, error.code ? { code: error.code } : undefined);
+    throw error;
+  }
+}
+
+/** Takes back what an import uploaded, when its items could not be written: the rows, then their objects. */
+export async function deleteImportedMedia(ownerId: string, ids: readonly string[]): Promise<void> {
+  if (!ids.length) return;
+  const rows = await db.deleteFrom('media_items').where('owner_id', '=', ownerId).where('id', 'in', [...ids])
+    .returning('object_key').execute();
+  await Promise.all(rows.map(({ object_key: key }) => s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }))));
+}
+
 /** An image, read whole: sharp needs all of it, and it is 8 MB at most. */
 async function verifiedImage(objectKey: string, type: SupportedImageType, size: number, checksum: string): Promise<{ height: number; width: number }> {
   let body: Buffer;

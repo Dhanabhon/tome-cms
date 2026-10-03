@@ -72,3 +72,19 @@ test('an export makes its own directory, and refuses one that is already there, 
   await assert.rejects(createOutDirectory(join(work, 'link'), work), code('out_exists'));
   await assert.rejects(createOutDirectory(join(work, 'export', 'deeper'), work), code('path_outside_work'));
 });
+
+test('an import takes its directory and exactly one of --plan and --apply', () => {
+  assert.deepEqual(parseContentArgs(['import', '--dir', '/work/in', '--plan']), { step: 'import', dir: '/work/in', mode: 'plan' });
+  assert.deepEqual(parseContentArgs(['import', '--apply', '--dir', '/work/in']), { step: 'import', dir: '/work/in', mode: 'apply' });
+  assert.throws(() => parseContentArgs(['import', '--dir', '/work/in']), 'it says which');
+  assert.throws(() => parseContentArgs(['import', '--dir', '/work/in', '--plan', '--apply']), 'and only one');
+  assert.throws(() => parseContentArgs(['import', '--plan']), 'and names its directory');
+});
+
+test('an import refuses a directory outside /work before it loads anything', () => {
+  for (const dir of ['/tmp/in', '/work', '/work/../etc', 'work/in']) {
+    const result = run(['import', '--dir', dir, '--plan']);
+    assert.equal(result.stdout, '{"ok":false,"code":"path_outside_work"}\n', dir);
+    assert.equal(result.status, 1);
+  }
+});

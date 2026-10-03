@@ -16,7 +16,8 @@ export type ContentStep =
   | { step: 'restore-database'; dump: string }
   | { step: 'restore-objects'; backup: string }
   | { step: 'after-restore' }
-  | { step: 'export'; out: string };
+  | { step: 'export'; out: string }
+  | { step: 'import'; dir: string; mode: 'plan' | 'apply' };
 
 class UsageError extends Error {}
 
@@ -32,7 +33,10 @@ export function parseContentArgs(argv: string[]): ContentStep {
   try {
     parsed = parseArgs({
       args: argv, allowPositionals: true, strict: true,
-      options: { backup: { type: 'string' }, dump: { type: 'string' }, out: { type: 'string' } },
+      options: {
+        backup: { type: 'string' }, dump: { type: 'string' }, out: { type: 'string' }, dir: { type: 'string' },
+        plan: { type: 'boolean' }, apply: { type: 'boolean' },
+      },
     });
   } catch {
     throw new UsageError('usage');
@@ -47,6 +51,10 @@ export function parseContentArgs(argv: string[]): ContentStep {
   if (step === 'restore-database' && only('dump')) return { step, dump: values.dump! };
   if (step === 'restore-objects' && only('backup')) return { step, backup: values.backup! };
   if (step === 'export' && only('out')) return { step, out: values.out! };
+  // Exactly one of --plan and --apply, beside the directory.
+  if (step === 'import' && positionals.length === 1 && given.length === 2 && values.dir && (values.plan || values.apply)) {
+    return { step, dir: values.dir, mode: values.plan ? 'plan' : 'apply' };
+  }
   throw new UsageError('usage');
 }
 
@@ -132,12 +140,42 @@ async function exportContent(out: string): Promise<Receipt> {
   }
 }
 
+async function importContent(dir: string, mode: 'plan' | 'apply'): Promise<Receipt> {
+  const directory = await workPath(dir);
+  if (!(await stat(directory)).isDirectory()) throw new StepError('layout_invalid');
+  const { isUpdateWriteBlocked } = await import('../update/maintenance');
+  // The updater's status file, mounted into every app container, says when an update is writing.
+  // tome asks the updater's /v1/busy before it starts this step, for its other jobs.
+  if (await isUpdateWriteBlocked()) throw new StepError('site_busy');
+  const { ArchiveInputError } = await import('./archive-format');
+  const { closeDatabase, db } = await import('../db/client');
+  const { s3 } = await import('../media/storage');
+  try {
+    const settings = await db.selectFrom('site_settings').select('owner_id').where('id', '=', true).executeTakeFirst();
+    if (!settings) throw new StepError('site_not_installed');
+    if (mode === 'plan') {
+      const { planImport } = await import('./import-plan');
+      return { plan: await planImport(directory, settings.owner_id) };
+    }
+    const { applyImport } = await import('./import-apply');
+    return { result: await applyImport(directory, settings.owner_id) };
+  } catch (error) {
+    if (error instanceof ArchiveInputError) throw new StepError(error.code, { file: error.file });
+    throw error;
+  } finally {
+    s3.destroy();
+    await closeDatabase();
+  }
+}
+
 async function selfTest(): Promise<Receipt> {
   // Loads every package the steps use, without the environment, so the build fails on a missing one.
   const steps = await import('./restore-steps');
   if (typeof steps.syncBucketToManifest !== 'function') throw new StepError('self_test_failed');
   const { exportSite } = await import('./export');
   if (typeof exportSite !== 'function') throw new StepError('self_test_failed');
+  const { applyImport } = await import('./import-apply');
+  if (typeof applyImport !== 'function') throw new StepError('self_test_failed');
   const { step } = parseContentArgs(['restore-objects', '--backup', `${WORK}/backup`]);
   if (step !== 'restore-objects') throw new StepError('self_test_failed');
   return {};
@@ -150,6 +188,7 @@ function run(step: ContentStep): Promise<Receipt> {
     case 'restore-objects': return restoreObjects(step.backup);
     case 'after-restore': return afterRestore();
     case 'export': return exportContent(step.out);
+    case 'import': return importContent(step.dir, step.mode);
   }
 }
 

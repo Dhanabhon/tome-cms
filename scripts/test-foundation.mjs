@@ -19,6 +19,7 @@ const STORAGE_TESTS = new Set([
   'tests/integration/popup-plugin-media.test.ts',
   'tests/integration/restore-objects.test.ts',
   'tests/integration/transfer-export.test.ts',
+  'tests/integration/transfer-import.test.ts',
   'tests/integration/transfer-restore.test.ts',
   'tests/integration/video-poster.test.ts',
 ]);

@@ -1,0 +1,109 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import test, { type TestContext } from 'node:test';
+
+import { ArchiveInputError, writeFrontMatter, type FrontMatter } from '../../src/server/transfer/archive-format';
+import { planImport, type SiteReader } from '../../src/server/transfer/import-plan';
+
+const OWNER = '11111111-1111-4111-8111-111111111111';
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+const OTHER_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 4, 5, 6, 7]);
+const sha = (bytes: Buffer) => createHash('sha256').update(bytes).digest('base64');
+
+/** A site with `taken` slugs, the default category and Baking, and one picture already in its library. */
+function site(taken: string[] = []): SiteReader {
+  return {
+    takenSlugs: async (kind, locale, slugs) => new Set(slugs.filter((slug) => taken.includes(`${kind}s/${locale}/${slug}`))),
+    categories: async () => [
+      { id: 'default-id', name: 'Uncategorized', is_default: true },
+      { id: 'baking-id', name: 'Baking', is_default: false },
+    ],
+    media: async (_owner, checksums) => checksums.includes(sha(PNG))
+      ? [{ id: 'existing-picture', checksum_sha256: sha(PNG), size_bytes: String(PNG.length) }]
+      : [],
+  };
+}
+
+async function archive(context: TestContext, files: Record<string, string | Buffer>): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'tomecms-import-plan-'));
+  context.after(() => rm(root, { force: true, recursive: true }));
+  for (const [path, data] of Object.entries(files)) {
+    await mkdir(dirname(join(root, path)), { recursive: true });
+    await writeFile(join(root, path), data);
+  }
+  return root;
+}
+
+function md(fields: Partial<FrontMatter> & { title: string }, body = 'Words.\n'): string {
+  const base = { slug: 'x', language: 'en', status: 'draft', updated: '2026-10-01T00:00:00.000Z', excerpt: '', translation: 't' } as const;
+  return `${writeFrontMatter({ ...base, ...fields } as FrontMatter)}\n${body}`;
+}
+
+test('a slug taken in the same language is skipped, and the same slug in the other language is created', async (context) => {
+  const root = await archive(context, {
+    'posts/en/bread.md': md({ title: 'Bread', slug: 'bread', language: 'en', translation: 'g1' }),
+    'posts/th/bread.md': md({ title: 'ขนมปัง', slug: 'bread', language: 'th', translation: 'g1' }),
+  });
+  const plan = await planImport(root, OWNER, site(['posts/en/bread']));
+  assert.deepEqual(plan.create, [{ kind: 'post', locale: 'th', slug: 'bread', path: 'posts/th/bread.md', source: 'md' }]);
+  assert.deepEqual(plan.skip, [{ path: 'posts/en/bread.md', reason: 'slug_taken' }]);
+  assert.deepEqual(plan.groupsSplit, [{ translation: 'g1', skipped: ['posts/en/bread.md'] }], 'the group a skip split');
+});
+
+test('media already in the library are reused by their SHA-256 and size; the rest are uploaded', async (context) => {
+  const root = await archive(context, {
+    'posts/en/a.md': md({ title: 'A', slug: 'a', cover: '../../media/one.png' }, '![x](../../media/two.png)\n'),
+    'media/one.png': PNG,
+    'media/two.png': OTHER_PNG,
+  });
+  const plan = await planImport(root, OWNER, site());
+  assert.deepEqual(plan.media, { upload: 1, reuse: 1 });
+});
+
+test('Uncategorized is the default category, names match ignoring case, and a group asks for the union of its lists', async (context) => {
+  const root = await archive(context, {
+    'posts/en/a.md': md({ title: 'A', slug: 'a', categories: ['uncategorized', 'baking', 'Bread'], translation: 'g' }),
+    'posts/th/a.md': md({ title: 'ก', slug: 'a', language: 'th', categories: ['ขนม', 'BREAD'], translation: 'g' }),
+  });
+  const plan = await planImport(root, OWNER, site());
+  assert.deepEqual(plan.categoriesToCreate, ['Bread', 'ขนม']);
+  assert.equal(plan.create.length, 2);
+  assert.deepEqual(plan.groupsSplit, []);
+});
+
+test('an exact .tome.json is preferred to its .md', async (context) => {
+  const root = await archive(context, {
+    'pages/en/about.md': md({ title: 'About', slug: 'about' }),
+    'pages/en/about.tome.json': JSON.stringify({ type: 'doc', content: [] }),
+  });
+  const plan = await planImport(root, OWNER, site());
+  assert.deepEqual(plan.create, [{ kind: 'page', locale: 'en', slug: 'about', path: 'pages/en/about.md', source: 'tome.json' }]);
+});
+
+test('anything outside the layout, a bad front matter and an oversized picture refuse the whole input, naming the file', async (context) => {
+  const refused = async (files: Record<string, string | Buffer>, code: string, file: string) => {
+    const root = await archive(context, files);
+    await assert.rejects(planImport(root, OWNER, site()),
+      (error) => error instanceof ArchiveInputError && error.code === code && error.file === file, `${code} ${file}`);
+  };
+  await refused({ 'notes.txt': 'hi' }, 'layout_invalid', 'notes.txt');
+  await refused({ 'posts/fr/a.md': md({ title: 'A' }) }, 'layout_invalid', 'posts/fr');
+  await refused({ 'posts/en/deep/a.md': md({ title: 'A' }) }, 'layout_invalid', 'posts/en/deep');
+  await refused({ 'posts/en/a.tome.json': '{}' }, 'layout_invalid', 'posts/en/a.tome.json');
+  await refused({ 'posts/en/a.md': '---\ntitle: A\nstatus: live\n---\n' }, 'front_matter_invalid', 'posts/en/a.md');
+  await refused({ 'posts/en/a.md': md({ title: 'A', language: 'th' }) }, 'front_matter_invalid', 'posts/en/a.md');
+  await refused({ 'posts/en/a.md': md({ title: 'A' }), 'posts/en/a.tome.json': '{not json' }, 'content_invalid', 'posts/en/a.tome.json');
+  await refused({ 'posts/en/a.md': md({ title: 'A' }), 'posts/en/a.tome.json': '{"type":"doc","content":"words"}' }, 'content_invalid', 'posts/en/a.tome.json');
+  const huge = Buffer.alloc(9 * 1024 * 1024);
+  PNG.copy(huge);
+  await refused({ 'media/big.png': huge }, 'media_too_large', 'media/big.png');
+  await refused({ 'media/notes.exe': 'MZ' }, 'media_type_unsupported', 'media/notes.exe');
+
+  const linked = await archive(context, { 'posts/en/a.md': md({ title: 'A' }) });
+  await symlink(join(linked, 'posts/en/a.md'), join(linked, 'posts/en/b.md'));
+  await assert.rejects(planImport(linked, OWNER, site()),
+    (error) => error instanceof ArchiveInputError && error.code === 'layout_invalid' && error.file === 'posts/en/b.md', 'a link is not followed');
+});

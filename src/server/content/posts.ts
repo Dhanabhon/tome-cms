@@ -10,6 +10,7 @@ import { HttpError } from '../http/errors';
 import { stableMediaPath } from '../media/url';
 import { replacePostGroupCategories } from './categories';
 import { assertContentMedia, prepareContentWithFiles } from './content-media';
+import type { StoredEditorContent } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -114,62 +115,78 @@ export async function listPostTranslations(ownerId: string, translationGroupId: 
 }
 
 export async function createPost(ownerId: string, input: CreatePostInput): Promise<Post> {
-  const id = randomUUID();
   const content = await prepareContentWithFiles(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
-      let translationGroupId: string = randomUUID();
-      let locale: PostLocale;
-      const coverMediaId = input.coverMediaId;
-
-      if (input.sourcePostId && input.locale) {
-        const source = await trx.selectFrom('posts').select(['locale', 'translation_group_id'])
-          .where('id', '=', input.sourcePostId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
-        if (!source) throw new HttpError(404, 'Post not found.');
-        if (source.locale === input.locale) throw new HttpError(409, 'That language edition already exists.');
-        translationGroupId = source.translation_group_id;
-        locale = input.locale;
-        await trx.selectFrom('post_translation_groups').select('id')
-          .where('id', '=', translationGroupId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
-      } else {
-        const settings = await trx.selectFrom('site_settings').select('default_locale')
-          .where('id', '=', true).where('owner_id', '=', ownerId).executeTakeFirst();
-        if (!settings) throw new HttpError(503, 'Site settings are unavailable.');
-        // An import names its own language; the editor's "New post" does not, and gets the default.
-        locale = input.locale ?? settings.default_locale;
-        await trx.insertInto('post_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
-      }
-
-      await assertContentMedia(trx, ownerId, content.contentJson, coverMediaId ? [coverMediaId] : []);
-
-      const created = await trx.insertInto('posts').values({
-        id,
-        translation_group_id: translationGroupId,
-        locale,
-        title: input.title,
-        slug: normalizedContentSlug('post', input.slug, input.title, id),
-        cover_media_id: coverMediaId,
-        show_cover: input.showCover,
-        content_json: content.contentJson,
-        content_html: content.contentHtml,
-        excerpt: input.excerpt,
-        meta_title: input.metaTitle,
-        meta_description: input.metaDescription,
-        status: input.status,
-        // A first save can already carry a date: an owner who schedules before the autosave
-        // has run is scheduling the post that save creates.
-        published_at: input.publishedAt ? new Date(input.publishedAt) : null,
-        ...plannedAtWrite(input),
-        owner_id: ownerId,
-      }).returningAll().executeTakeFirstOrThrow();
-      await replacePostGroupCategories(trx, ownerId, translationGroupId, input.categoryIds);
-      return created;
+      return insertPostIn(trx, ownerId, input, { prepared: content });
     });
     return postFromRow(row);
   } catch (error) {
     return writeConflict(error);
   }
+}
+
+/**
+ * The write `createPost` makes, inside a transaction the caller holds, with every read on it:
+ * the pool may have no second connection. With `groupId` the edition joins that group, which the
+ * caller has made, in `input.locale`; an import makes its groups first. Without `prepared`, the
+ * document is checked here, through the transaction.
+ */
+export async function insertPostIn(
+  trx: Transaction<Database>,
+  ownerId: string,
+  input: CreatePostInput,
+  options: { groupId?: string; prepared?: StoredEditorContent } = {},
+): Promise<Selectable<PostTable>> {
+  const id = randomUUID();
+  const content = options.prepared ?? await prepareContentWithFiles(trx, ownerId, input);
+  let translationGroupId: string = options.groupId ?? randomUUID();
+  let locale: PostLocale;
+  const coverMediaId = input.coverMediaId;
+
+  if (input.sourcePostId && input.locale) {
+    const source = await trx.selectFrom('posts').select(['locale', 'translation_group_id'])
+      .where('id', '=', input.sourcePostId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
+    if (!source) throw new HttpError(404, 'Post not found.');
+    if (source.locale === input.locale) throw new HttpError(409, 'That language edition already exists.');
+    translationGroupId = source.translation_group_id;
+    locale = input.locale;
+    await trx.selectFrom('post_translation_groups').select('id')
+      .where('id', '=', translationGroupId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirstOrThrow();
+  } else {
+    const settings = await trx.selectFrom('site_settings').select('default_locale')
+      .where('id', '=', true).where('owner_id', '=', ownerId).executeTakeFirst();
+    if (!settings) throw new HttpError(503, 'Site settings are unavailable.');
+    // An import names its own language; the editor's "New post" does not, and gets the default.
+    locale = input.locale ?? settings.default_locale;
+    if (!options.groupId) await trx.insertInto('post_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
+  }
+
+  await assertContentMedia(trx, ownerId, content.contentJson, coverMediaId ? [coverMediaId] : []);
+
+  const created = await trx.insertInto('posts').values({
+    id,
+    translation_group_id: translationGroupId,
+    locale,
+    title: input.title,
+    slug: normalizedContentSlug('post', input.slug, input.title, id),
+    cover_media_id: coverMediaId,
+    show_cover: input.showCover,
+    content_json: content.contentJson,
+    content_html: content.contentHtml,
+    excerpt: input.excerpt,
+    meta_title: input.metaTitle,
+    meta_description: input.metaDescription,
+    status: input.status,
+    // A first save can already carry a date: an owner who schedules before the autosave
+    // has run is scheduling the post that save creates.
+    published_at: input.publishedAt ? new Date(input.publishedAt) : null,
+    ...plannedAtWrite(input),
+    owner_id: ownerId,
+  }).returningAll().executeTakeFirstOrThrow();
+  await replacePostGroupCategories(trx, ownerId, translationGroupId, input.categoryIds);
+  return created;
 }
 
 /**
