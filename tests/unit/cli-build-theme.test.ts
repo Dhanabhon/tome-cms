@@ -28,6 +28,13 @@ test('the manifest takes the new id, as its id, name and description; its settin
     assert.equal(changed.length, 3, `${from}: only those three lines change`);
   }
   assert.match(renamed('almanac', 'theme.ts').after, /key: 'readingProgress'/);
+  // The fonts it preloads are files under public/, which the copy loads too: they are kept as they are.
+  for (const from of SOURCES) {
+    const fonts = /^  preloadFonts: \[[^\]]*\],$/m;
+    const { text, after } = renamed(from, 'theme.ts');
+    assert.match(text, fonts, `${from} preloads its fonts`);
+    assert.equal(fonts.exec(after)?.[0], fonts.exec(text)?.[0], `${from}'s preloadFonts is copied as it is`);
+  }
 });
 
 test('names the theme owns are renamed in its CSS and its templates; the core\'s are not', () => {

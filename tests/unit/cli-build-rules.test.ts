@@ -11,6 +11,7 @@ import {
   HOOK_METHODS,
   hooksImplemented,
   listedInBoth,
+  preloadsExist,
   rawColours,
   requiredFiles,
   serverImports,
@@ -206,12 +207,31 @@ test('rule 7: a raw colour is allowed only in a token block, a rule that declare
   ]);
 });
 
+test('rule 8: every font a theme preloads is a file under public/', () => {
+  const text = "export const manifest = {\n  id: 'ledger',\n  preloadFonts: [\n    '/fonts/a.woff2',\n    '/fonts/gone.woff2',\n    '/fonts/../../secrets.woff2',\n  ],\n};\n";
+  const files = new Set(['/fonts/a.woff2', '/fonts/../../secrets.woff2']);
+  const exists = (path: string) => files.has(path);
+  const path = 'src/themes/ledger/theme.ts';
+  // None is nothing to preload, and nothing to check.
+  assert.deepEqual(preloadsExist(path, text, undefined, exists), []);
+  assert.deepEqual(preloadsExist(path, text, ['/fonts/a.woff2'], exists), []);
+  assert.deepEqual(where(preloadsExist(path, text, ['/fonts/a.woff2', '/fonts/gone.woff2', '/fonts/../../secrets.woff2', 'fonts/a.woff2', 7], exists)), [
+    'src/themes/ledger/theme.ts:5: preloads "/fonts/gone.woff2", which is not a file under public/',
+    'src/themes/ledger/theme.ts:6: preloads "/fonts/../../secrets.woff2", which is not a file under public/',
+    'src/themes/ledger/theme.ts:3: preloads "fonts/a.woff2", which is not a file under public/',
+    'src/themes/ledger/theme.ts:3: preloads 7, which is not a file under public/',
+  ]);
+  assert.deepEqual(where(preloadsExist(path, text, '/fonts/a.woff2', exists)), ['src/themes/ledger/theme.ts:3: preloadFonts is not a list']);
+});
+
 /** A checkout holding a copy of the real themes and plugins, which tests may break. */
 async function checkout(t: test.TestContext) {
   const root = await mkdtemp(join(tmpdir(), 'tome-check-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'tome-cms' }));
   for (const kind of ['themes', 'plugins']) await cp(join(repository, 'src', kind), join(root, 'src', kind), { recursive: true });
+  // What a theme preloads is checked against the files a page could be served.
+  await cp(join(repository, 'public', 'fonts'), join(root, 'public', 'fonts'), { recursive: true });
   // Plugins import their dependencies (typesafe imports zod), so the copy resolves them as the checkout does.
   await symlink(join(repository, 'node_modules'), join(root, 'node_modules'), 'dir');
   const lines = { out: [] as string[], err: [] as string[] };
@@ -242,6 +262,20 @@ test('tome check reports each problem as path:line and exits 1', async (t) => {
     `src/themes/plain/theme.css:${line}: #c00 is a raw colour outside a token block; use a token`,
     'src/plugins/notice/plugin.ts:11: the manifest\'s id is "notices", but its directory is "notice"',
     '3 problems.',
+  ]);
+});
+
+test('tome check reports a preloaded font that public/ does not have, at its line', async (t) => {
+  const { root, lines, output } = await checkout(t);
+  const manifest = join(root, 'src', 'themes', 'almanac', 'theme.ts');
+  const text = await readFile(manifest, 'utf8');
+  assert.ok(text.includes("'/fonts/trirong-thai-600-normal.woff2'"));
+  await writeFile(manifest, text.replace("'/fonts/trirong-thai-600-normal.woff2'", "'/fonts/trirong-thai-700-normal.woff2'"));
+  const line = text.slice(0, text.indexOf("'/fonts/trirong-thai-600-normal.woff2'")).split('\n').length;
+  assert.equal(await check(root, output), 1);
+  assert.deepEqual(lines.err, [
+    `src/themes/almanac/theme.ts:${line}: preloads "/fonts/trirong-thai-700-normal.woff2", which is not a file under public/`,
+    '1 problem.',
   ]);
 });
 

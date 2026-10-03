@@ -18,7 +18,7 @@
  * carries the display roles -- the post title the writer types and the reader gets,
  * the hero, the card and section headings -- and IBM Plex Sans Thai carries the
  * interface and the body. Only the weights each family is actually used at are
- * copied, which is why display ships two and the interface ships four.
+ * copied, which is why display ships three and the interface ships four.
  *
  * A theme's own face is written into that theme's directory instead of fonts.css, and
  * its stylesheet imports it: fonts.css is linked by every page, and a reader of one
@@ -39,8 +39,9 @@ const OUT_DIR = join(ROOT, 'public/fonts');
 const SHARED_CSS = 'public/fonts.css';
 const SUBSETS = ['latin', 'thai'];
 const FAMILIES = [
-  // --font-display: 400 on the section and notice headings, 700 everywhere else.
-  { id: 'google-sans', family: 'Google Sans', weights: [400, 700], css: SHARED_CSS },
+  // --font-display: 400 on the section headings, 700 everywhere else, and 500 for a theme that
+  // sets its interface in it as well.
+  { id: 'google-sans', family: 'Google Sans', weights: [400, 500, 700], css: SHARED_CSS },
   // --font-body: the interface runs the full range.
   { id: 'ibm-plex-sans-thai', family: 'IBM Plex Sans Thai', weights: [400, 500, 600, 700], css: SHARED_CSS },
   // Almanac's --font-display: 400 for the large headings, 600 for the card titles.

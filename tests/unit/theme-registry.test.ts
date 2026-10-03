@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { serverImports } from '../../src/cli/build/rules';
@@ -148,4 +148,40 @@ test('the themes screen offers what is installed, and falls back to what is not'
   // this screen has no control for. It falls back to the same id the renderer does.
   assert.match(source('SettingsForm'), fallback);
   assert.equal(isThemeId(DEFAULT_THEME_ID), true);
+});
+
+test('each theme names the fonts it preloads, and the page preloads exactly those', () => {
+  // The files' own names under public/fonts/, as scripts/sync-fonts.mjs writes them.
+  const files = (...names: string[]) => names.map((name) => `/fonts/${name}-normal.woff2`);
+  const expected: Record<string, string[]> = {
+    almanac: files('trirong-latin-600', 'trirong-thai-600', 'ibm-plex-sans-thai-latin-400', 'ibm-plex-sans-thai-thai-400'),
+    paper: files('google-sans-latin-400', 'google-sans-thai-400', 'google-sans-latin-700', 'google-sans-thai-700'),
+    plain: files('google-sans-latin-400', 'google-sans-thai-400'),
+  };
+  for (const { id, preloadFonts } of THEME_MANIFESTS) {
+    assert.deepEqual(preloadFonts, expected[id], `${id} preloads its own faces`);
+    for (const path of preloadFonts ?? []) assert.ok(existsSync(new URL(`../../public${path}`, import.meta.url)), `${path} is in public/`);
+  }
+  const layout = readFileSync(new URL('../../src/layouts/BaseLayout.astro', import.meta.url), 'utf8');
+  // The active theme's list and nothing else: a theme with none preloads nothing.
+  assert.match(layout, /\(activeTheme\.manifest\.preloadFonts \?\? \[\]\)\.map\(\(href\) => \(?\s*<link rel="preload" href=\{href\} as="font" type="font\/woff2" crossorigin \/>/);
+  assert.equal(layout.split('rel="preload"').length, 2, 'the layout keeps no fixed list of its own');
+});
+
+test('Google Sans ships at 500 too, in Latin and Thai', () => {
+  const css = readFileSync(new URL('../../public/fonts.css', import.meta.url), 'utf8');
+  for (const subset of ['latin', 'thai']) {
+    assert.match(css, new RegExp(`/\\* Google Sans ${subset} 500 \\*/\\n@font-face \\{\\n  font-family: 'Google Sans';\\n  font-style: normal;\\n  font-weight: 500;`));
+    assert.ok(existsSync(new URL(`../../public/fonts/google-sans-${subset}-500-normal.woff2`, import.meta.url)), subset);
+  }
+});
+
+test('the language switcher takes its type from where it sits', () => {
+  // A header row and a footer line set different sizes, and a switcher with a size of its own
+  // looked like a guest in both. Paper's narrow, code-only label is Paper's to set.
+  const switcher = readFileSync(new URL('../../src/components/LanguageSwitcher.astro', import.meta.url), 'utf8');
+  const scoped = switcher.slice(switcher.indexOf('<style>'));
+  assert.doesNotMatch(scoped, /font-size\s*:/);
+  assert.doesNotMatch(scoped, /\.language-switcher__trigger \{[^}]*font-weight\s*:/);
+  assert.match(scoped, /\.language-switcher__trigger \{[^}]*font: inherit;/);
 });

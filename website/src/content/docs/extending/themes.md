@@ -78,7 +78,7 @@ A theme is a directory under `src/themes/`, and the directory's name is the them
 | `Post.astro` | One post |
 | `Page.astro` | One page |
 | `theme.css` | The theme's own stylesheet |
-| `theme.ts` | The manifest: the id, the name, the sentence the Themes screen shows, and any settings |
+| `theme.ts` | The manifest: the id, the name, the sentence the Themes screen shows, any settings, and the fonts it preloads |
 | `index.ts` | Exports the manifest and the four templates |
 
 `index.ts` is the same in every theme:
@@ -260,6 +260,16 @@ const intro = themeSettings.intro || tagline;
   </ol>
 </div>
 ```
+
+## The fonts a theme preloads
+
+`preloadFonts` in the manifest lists the font files a page asks for before the theme's stylesheet does, as paths under `public/`:
+
+```ts
+  preloadFonts: ['/fonts/google-sans-latin-400-normal.woff2', '/fonts/google-sans-thai-400-normal.woff2'],
+```
+
+Name the faces the first screen is drawn in, so they do not swap in late. The page preloads exactly that list. A theme with no `preloadFonts` preloads nothing, and its faces load when its stylesheet asks for them. `tome check` reports a path that is not a file under `public/`, and `tome theme new` copies the list with the theme.
 
 ## Registering a theme
 

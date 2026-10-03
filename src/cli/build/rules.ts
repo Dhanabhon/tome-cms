@@ -258,3 +258,21 @@ function ownDeclarations(text: string, open: number): string[] {
   parts.push(current);
   return parts.map((part) => part.trim()).filter(Boolean);
 }
+
+/**
+ * Rule 8: every font a theme's manifest preloads is a file under public/, which is where a page is
+ * served it from. `exists` answers for a path as the manifest writes it, `/fonts/<file>.woff2`; a
+ * path that is not absolute, or that climbs out with `..`, is never one. Each is reported at the
+ * line it is written on.
+ */
+export function preloadsExist(path: string, text: string, preloadFonts: unknown, exists: (file: string) => boolean): Problem[] {
+  if (preloadFonts === undefined) return [];
+  const anchor = lineOf(text, /\bpreloadFonts\s*:/);
+  if (!Array.isArray(preloadFonts)) return [{ path, line: anchor, message: 'preloadFonts is not a list' }];
+  return preloadFonts
+    .filter((file) => typeof file !== 'string' || !file.startsWith('/') || file.split('/').includes('..') || !exists(file))
+    .map((file) => {
+      const at = typeof file === 'string' ? text.search(new RegExp(`['"]${escape(file)}['"]`)) : -1;
+      return { path, line: at === -1 ? anchor : lineAt(text, at), message: `preloads ${JSON.stringify(file)}, which is not a file under public/` };
+    });
+}

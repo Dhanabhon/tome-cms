@@ -91,10 +91,10 @@ const copy = publicCopy(locale);
     <activeTheme.Post categories={categories} locale={locale} post={post} profile={profile}
       settings={articleSettings} themeSettings={themeSettings} />
   ) : (
-    <section class="mx-auto max-w-3xl px-5 py-20 text-center sm:px-7">
-      <p class="text-xs font-medium uppercase tracking-[0.125px] text-muted">{loadError ? copy.unavailable : '404'}</p>
-      <h1 class="notice-title mt-4">{loadError ? copy.postUnavailable : copy.postNotFound}</h1>
-      <a class="mt-8 inline-block font-medium text-link hover:underline" href={localePath(locale)}>{copy.returnToAllPosts}</a>
+    <section class="notice-page mx-auto max-w-3xl px-5 py-20 sm:px-7">
+      <p class="notice-status">{loadError ? copy.unavailable : '404'}</p>
+      <h1 class="article-title">{loadError ? copy.postUnavailable : copy.postNotFound}</h1>
+      <p class="notice-back"><a href={localePath(locale)}>{copy.returnToAllPosts}</a></p>
     </section>
   )}
 </BaseLayout>

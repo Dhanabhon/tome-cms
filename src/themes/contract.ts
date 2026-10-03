@@ -69,6 +69,10 @@ export interface ThemeManifest {
   /** The home page sets the newest post of an unsearched first page apart from its grid, so that
    *  page asks for one more and the grid under it ends on a full row. Absent means it does not. */
   leadsFirstPage?: boolean;
+  /** The font files the page asks for before its stylesheet does, as `/fonts/<file>.woff2` paths
+   *  under public/: the faces the first screen is drawn in, so they do not swap in late. A theme
+   *  with none preloads nothing, and its faces load when its stylesheet asks for them. */
+  preloadFonts?: readonly string[];
   /** What Customize offers for this theme. A theme with none is not customisable. */
   settings?: readonly ThemeSetting[];
 }

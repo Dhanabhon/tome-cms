@@ -36,7 +36,8 @@ const themeEntries = (text: string) => /THEME_MANIFESTS\b[^=]*=\s*\[([^\]]*)\]/.
 // for each hook in a copy of the checkout, then type-check the whole site there and run tome check
 // on it. The copy shares node_modules by a link, and is thrown away after.
 test('a theme and plugins made by tome new pass astro check and tome check', { timeout: 300_000 }, async (t) => {
-  const root = await copyCheckout(t, ['src', 'package.json', 'tsconfig.json', 'tsconfig.updater.json', 'astro.config.mjs']);
+  // public/fonts too: tome check holds each font a theme preloads to a file there.
+  const root = await copyCheckout(t, ['src', 'public/fonts', 'package.json', 'tsconfig.json', 'tsconfig.updater.json', 'astro.config.mjs']);
   // Astro's own cache would otherwise be node_modules/.astro, through the link and into the real tree.
   const config = await readFile(join(root, 'astro.config.mjs'), 'utf8');
   assert.equal(config.split('defineConfig({').length, 2, 'astro.config.mjs calls defineConfig({ once');
@@ -60,6 +61,16 @@ test('a theme and plugins made by tome new pass astro check and tome check', { t
   }
   const manifests = await readFile(join(root, 'src', 'themes', 'manifests.ts'), 'utf8');
   assert.equal(themeEntries(manifests), `${before.entries}, zzdemo, zzplain, zzpaper`);
+  // Each copy preloads what its source does: the same files, which tome check finds below.
+  const preloads = async (id: string) => /^  preloadFonts: \[[^\]]*\],$/m.exec(await readFile(join(root, 'src', 'themes', id, 'theme.ts'), 'utf8'))?.[0];
+  for (const [copy, source] of [['zzdemo', 'almanac'], ['zzplain', 'plain'], ['zzpaper', 'paper']] as const) {
+    assert.ok(await preloads(source), source);
+    assert.equal(await preloads(copy), await preloads(source), copy);
+  }
+  // And a theme that names none still checks and builds: it preloads nothing.
+  const plain = join(root, 'src', 'themes', 'zzplain', 'theme.ts');
+  await writeFile(plain, (await readFile(plain, 'utf8')).replace(/^  preloadFonts: \[[^\]]*\],\n/m, ''));
+  assert.equal(await preloads('zzplain'), undefined);
 
   // Its own Vite cache too, so the shared node_modules is not written to.
   const check = node(root, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'check'], {

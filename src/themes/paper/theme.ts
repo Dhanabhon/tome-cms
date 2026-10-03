@@ -5,6 +5,12 @@ export const manifest: ThemeManifest = {
   description: 'Paper surfaces and hairline rules: the look TomeCMS ships with.',
   id: 'paper',
   name: 'Paper',
+  preloadFonts: [
+    '/fonts/google-sans-latin-400-normal.woff2',
+    '/fonts/google-sans-thai-400-normal.woff2',
+    '/fonts/google-sans-latin-700-normal.woff2',
+    '/fonts/google-sans-thai-700-normal.woff2',
+  ],
   settings: [
     {
       fallback: 'text',

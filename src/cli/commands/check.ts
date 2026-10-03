@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -8,6 +8,7 @@ import {
   directoryMatchesId,
   hooksImplemented,
   listedInBoth,
+  preloadsExist,
   rawColours,
   requiredFiles,
   serverImports,
@@ -80,6 +81,10 @@ async function checkOne(root: string, kind: Kind, directory: string, id: string,
       const fields = manifest as Record<string, unknown>;
       problems.push(...directoryMatchesId(path, id, text, fields), ...wellFormedSettings(kind, path, text, fields.settings, kinds));
       if (exported) problems.push(...hooksImplemented(`${directory}/index.ts`, exported, fields.hooks));
+      if (kind === 'theme') {
+        const served = (file: string) => statSync(join(root, 'public', file), { throwIfNoEntry: false })?.isFile() ?? false;
+        problems.push(...preloadsExist(path, text, fields.preloadFonts, served));
+      }
     }
   }
   if (kind === 'theme') {

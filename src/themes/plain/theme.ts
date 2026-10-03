@@ -6,4 +6,5 @@ export const manifest: ThemeManifest = {
   id: 'plain',
   leadsFirstPage: true,
   name: 'Plain',
+  preloadFonts: ['/fonts/google-sans-latin-400-normal.woff2', '/fonts/google-sans-thai-400-normal.woff2'],
 };

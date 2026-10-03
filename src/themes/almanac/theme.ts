@@ -10,6 +10,13 @@ export const manifest: ThemeManifest = {
   description: 'Warm paper, serif headings and soft tinted panels, with a hero above a grid of cards.',
   id: 'almanac',
   name: 'Almanac',
+  // Trirong at the weight of its titles, and IBM Plex Sans Thai for the body.
+  preloadFonts: [
+    '/fonts/trirong-latin-600-normal.woff2',
+    '/fonts/trirong-thai-600-normal.woff2',
+    '/fonts/ibm-plex-sans-thai-latin-400-normal.woff2',
+    '/fonts/ibm-plex-sans-thai-thai-400-normal.woff2',
+  ],
   settings: [
     {
       fallback: 'on',
