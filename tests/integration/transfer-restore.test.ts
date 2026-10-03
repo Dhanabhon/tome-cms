@@ -251,3 +251,18 @@ test('after a restore everyone is signed out, MCP connections stay, and a secret
     unopenedSecrets: [{ plugin: 'turnstile', setting: 'secretKey' }],
   });
 });
+
+test('a schema a failed restore emptied, or left half made, counts its missing tables as none', async () => {
+  assertTestStack();
+  const { db } = await import('../../src/server/db/client');
+  const { migrateToLatest } = await import('../../src/server/db/migrator');
+  const { countRecords } = await import('../../src/server/transfer/record-counts');
+
+  await sql`drop schema public cascade; create schema public;`.execute(db);
+  assert.deepEqual(await countRecords(db), { siteSettings: 0, posts: 0, pages: 0, mediaItems: 0 }, 'an empty schema');
+  await sql`create table posts (id integer); insert into posts values (1), (2);`.execute(db);
+  assert.deepEqual(await countRecords(db), { siteSettings: 0, posts: 2, pages: 0, mediaItems: 0 }, 'a half made one');
+
+  await sql`drop schema public cascade; create schema public;`.execute(db);
+  await migrateToLatest();
+});

@@ -7,7 +7,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
+import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
+
 import { clearFailedJob } from '../../scripts/updater-clear-failed-job.js';
+import type { Database } from '../../src/server/db/types.js';
+import { countRecords } from '../../src/server/transfer/record-counts.js';
 import { OFFICIAL_IMAGE_REPOSITORY } from '../../src/update/contracts.js';
 import { isUpdateWriteBlocked } from '../../src/server/update/maintenance.js';
 import { parseUpdaterStatus } from '../../src/server/update/updater-client.js';
@@ -25,6 +29,27 @@ const sha256 = (bytes: Buffer | string) => createHash('sha256').update(bytes).di
 const objectKey = `owners/${randomUUID()}/2026/10/${randomUUID()}.png`;
 const records = { siteSettings: 1, posts: 2, pages: 3, mediaItems: 1 };
 const report = { records, sealedSecrets: 1, unopenedSecrets: [{ plugin: 'newsletter', setting: 'apiKey' }] };
+
+/** A database a failed rollback dropped: every table is missing, as PostgreSQL says it (42P01). */
+const emptiedDatabase = new Kysely<Database>({
+  dialect: {
+    createAdapter: () => new PostgresAdapter(),
+    createIntrospector: (db) => new PostgresIntrospector(db),
+    createQueryCompiler: () => new PostgresQueryCompiler(),
+    createDriver: () => ({
+      init: async () => undefined,
+      acquireConnection: async () => ({
+        executeQuery: async () => { throw Object.assign(new Error('relation does not exist'), { code: '42P01' }); },
+        streamQuery: () => { throw new Error('not streamed'); },
+      }),
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    }),
+  },
+});
 
 /** A backup as `tome backup` or the updater writes it, with its checksums right. */
 async function writeBackup(directory: string, options: { version: string; databaseOnly?: boolean; publicUrl?: string }) {
@@ -80,6 +105,7 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
   const failing = new Map<string, number>();
   let afterRestore: unknown = { ok: true, ...report };
   let appRunning = true;
+  let databaseEmptied = false;
   // The app's own container (which may have been removed), and any other container of the app
   // service: a second one, or a one-off that `compose run` left behind.
   let appExists = true;
@@ -122,6 +148,14 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
       events.push(event);
       commands.push([...args]);
       if (event === 'stop') await gate;
+      if (event === 'backup' && databaseEmptied) {
+        // The backup one-shot counts the records as scripts/backup.ts does, on what the rollback left.
+        try {
+          await countRecords(emptiedDatabase);
+        } catch {
+          return { code: 1, stdout: '', stderr: 'relation "site_settings" does not exist' };
+        }
+      }
       if ((failing.get(event) ?? 0) > 0) {
         failing.set(event, failing.get(event)! - 1);
         return { code: 1, stdout: '{"ok":false,"code":"injected"}\n', stderr: 'private failure' };
@@ -170,6 +204,7 @@ async function fixture(t: TestContext, options: { installed?: string; backup?: s
     afterRestore: (value: unknown) => { afterRestore = value; },
     unready: () => { ready = false; },
     appDown: () => { appRunning = false; },
+    emptyDatabase: () => { databaseEmptied = true; },
     noAppContainer: () => { appExists = false; appRunning = false; },
     extraContainer: (container: { running: boolean; oneoff: boolean }) => { extra = [...extra, { id: `${extra.length + 1}`.repeat(64).slice(0, 64), ...container }]; },
     running: (value: string) => { runningDigest = value; },
@@ -414,6 +449,25 @@ test('after rollback_failed and updater:clear-failed, the safety backup is resto
   f.events.length = 0;
   const record = await restoreThrough(f, restoreBody(f, f.safetyDirectory));
   assert.equal(record.phase, 'succeeded');
+  assert.deepEqual(f.events.filter((event) => !event.startsWith('rm:')), [
+    'drain', 'stop', 'backup', 'restore-database', 'restore-objects', 'after-restore', 'stop', 'up', 'health',
+  ]);
+  assert.equal(f.isAppRunning(), true);
+  assert.equal(await isUpdateWriteBlocked(f.config.statusPath), false);
+});
+
+test('after a rollback that failed inside pg_restore and left the database empty, the safety backup still goes back', async (t) => {
+  const f = await fixture(t);
+  // The restore fails putting its database in, and so does the rollback, after the drop.
+  f.fail('restore-database', 2);
+  t.mock.method(console, 'error', () => undefined);
+  assert.equal((await restoreThrough(f)).errorCode, 'rollback_failed');
+  f.emptyDatabase();
+  assert.match(await clearFailedJob(f.state), new RegExp(`Next: sudo tome restore ${f.safetyDirectory},`));
+
+  f.events.length = 0;
+  const record = await restoreThrough(f, restoreBody(f, f.safetyDirectory));
+  assert.equal(record.phase, 'succeeded', 'its own safety backup is taken of the empty database');
   assert.deepEqual(f.events.filter((event) => !event.startsWith('rm:')), [
     'drain', 'stop', 'backup', 'restore-database', 'restore-objects', 'after-restore', 'stop', 'up', 'health',
   ]);
