@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  ArchiveInputError, itemPath, mediaLink, mediaPath, readFrontMatter, writeFrontMatter, type FrontMatter,
+  ArchiveInputError, itemPath, mediaLink, mediaPath, readFrontMatter, readManifest, writeFrontMatter, type ArchiveManifest, type FrontMatter,
 } from '../../src/server/transfer/archive-format';
 
 const KEY = 'owners/11111111-1111-4111-8111-111111111111/2026/10/22222222-2222-4222-8222-222222222222.webp';
@@ -66,4 +66,39 @@ test('a hand-written file with only a title reads, and unknown keys are ignored'
   const { frontMatter, body } = readFrontMatter('---\ntitle: Notes\nauthor: Someone\n---\n# Heading\n', 'posts/en/notes.md');
   assert.deepEqual(frontMatter, { title: 'Notes' });
   assert.equal(body, '# Heading\n');
+});
+
+test('a file written on Windows, with CRLF line endings and a byte order mark, reads', () => {
+  const { frontMatter, body } = readFrontMatter('\uFEFF---\r\ntitle: Notes\r\nstatus: draft\r\n---\r\n\r\nText\r\n', 'posts/en/notes.md');
+  assert.deepEqual(frontMatter, { title: 'Notes', status: 'draft' });
+  assert.equal(body, 'Text\r\n');
+});
+
+const MEDIA_ID = '44444444-4444-4444-8444-444444444444';
+const manifest: ArchiveManifest = {
+  format: 'tomecms-markdown',
+  version: 1,
+  createdAt: '2026-10-03T08:00:00.000Z',
+  applicationVersion: '1.13.0',
+  publicUrl: 'https://example.com',
+  counts: { posts: 2, pages: 1, media: 1 },
+  media: { [MEDIA_ID]: { path: mediaPath(KEY), name: 'ขนม.webp', type: 'image/webp', sha256: `${'A'.repeat(43)}=`, size: 1024 } },
+};
+
+test('a manifest reads back as it was written, with each file by its id', () => {
+  assert.deepEqual(readManifest(JSON.stringify(manifest)), manifest);
+});
+
+test('a manifest that does not hold together is refused', () => {
+  const refused = (value: unknown) => assert.throws(
+    () => readManifest(typeof value === 'string' ? value : JSON.stringify(value)),
+    (error) => error instanceof ArchiveInputError && error.code === 'manifest_invalid' && error.file === 'manifest.json',
+  );
+  refused('not json');
+  refused({ ...manifest, format: 'tomecms-backup' });
+  refused({ ...manifest, version: 2 });
+  refused({ ...manifest, counts: { ...manifest.counts, media: 2 } });
+  refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], path: `../${KEY}` } } });
+  refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], path: `media/../${KEY}` } } });
+  refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], size: '1024' } } });
 });

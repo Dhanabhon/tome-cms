@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { lstat, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
-import { parseContentArgs } from '../../src/server/transfer/cli';
+import { createOutDirectory, parseContentArgs } from '../../src/server/transfer/cli';
 
 /** The CLI as a one-shot runs it, but with no environment at all: no database, no bucket, no secrets. */
 function run(args: string[]) {
@@ -54,4 +57,18 @@ test('an export refuses a directory anywhere but directly in /work, before it lo
     assert.equal(result.stdout, '{"ok":false,"code":"path_outside_work"}\n', out);
     assert.equal(result.status, 1);
   }
+});
+
+test('an export makes its own directory, and refuses one that is already there, even as a link', async (context) => {
+  const work = await realpath(await mkdtemp(join(tmpdir(), 'tomecms-transfer-cli-')));
+  context.after(() => rm(work, { force: true, recursive: true }));
+  const code = (expected: string) => (error: unknown) => (error as { code?: unknown }).code === expected;
+
+  const made = await createOutDirectory(join(work, 'export'), work);
+  assert.equal(made, join(work, 'export'));
+  assert.equal((await lstat(made)).mode & 0o777, 0o700);
+  await assert.rejects(createOutDirectory(join(work, 'export'), work), code('out_exists'));
+  await symlink(tmpdir(), join(work, 'link'));
+  await assert.rejects(createOutDirectory(join(work, 'link'), work), code('out_exists'));
+  await assert.rejects(createOutDirectory(join(work, 'export', 'deeper'), work), code('path_outside_work'));
 });

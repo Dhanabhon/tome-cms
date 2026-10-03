@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { mock } from 'node:test';
 
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import pg from 'pg';
 
@@ -31,7 +31,7 @@ test('an export writes every post and page as Markdown and an exact copy, with t
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const { createObjectKey } = await import('../../src/server/media/keys');
   const { getBuildInfo } = await import('../../src/server/update/current');
-  const { mediaLink, readFrontMatter } = await import('../../src/server/transfer/archive-format');
+  const { mediaLink, readFrontMatter, readManifest } = await import('../../src/server/transfer/archive-format');
   const { exportSite } = await import('../../src/server/transfer/export');
   const { s3 } = await import('../../src/server/media/storage');
   context.after(closeDatabase);
@@ -53,19 +53,21 @@ test('an export writes every post and page as Markdown and an exact copy, with t
 
   const picture = { id: randomUUID(), key: createObjectKey(owner, 'image/png'), bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]) };
   const guide = { id: randomUUID(), key: createObjectKey(owner, 'application/pdf'), bytes: Buffer.from('%PDF-1.7\nคู่มือ\n%%EOF\n') };
+  const poster = { id: randomUUID(), key: createObjectKey(owner, 'image/webp'), bytes: Buffer.from('RIFF....WEBPposter') };
   const unused = { id: randomUUID(), key: createObjectKey(owner, 'image/png') };
   const storage = new S3Client({
     credentials: { accessKeyId: 'tomecms_test', secretAccessKey: 'foundation-test-only' },
     endpoint: 'http://127.0.0.1:59000', forcePathStyle: true, region: 'us-east-1',
   });
   context.after(() => storage.destroy());
-  for (const { key, bytes } of [picture, guide]) {
+  for (const { key, bytes } of [picture, guide, poster]) {
     await storage.send(new PutObjectCommand({ Bucket: 'tomecms-test-media', Key: key, Body: bytes }));
   }
   const media = { owner_id: owner, folder_id: null, checksum_sha256: `${'A'.repeat(43)}=`, alt_text: null, state: 'ready' as const, delete_error_code: null };
   await db.insertInto('media_items').values([
     { ...media, id: picture.id, object_key: picture.key, original_name: 'loaf.png', mime_type: 'image/png', size_bytes: picture.bytes.length, width: 10, height: 10 },
     { ...media, id: guide.id, object_key: guide.key, original_name: 'คู่มือ.pdf', mime_type: 'application/pdf', size_bytes: guide.bytes.length, width: null, height: null },
+    { ...media, id: poster.id, object_key: poster.key, original_name: 'poster.webp', mime_type: 'image/webp', size_bytes: poster.bytes.length, width: 4, height: 3 },
     { ...media, id: unused.id, object_key: unused.key, original_name: 'unused.png', mime_type: 'image/png', size_bytes: 3, width: 1, height: 1 },
   ]).execute();
 
@@ -80,7 +82,12 @@ test('an export writes every post and page as Markdown and an exact copy, with t
       { type: 'image', attrs: { src: 'https://example.com/old.jpg', alt: 'old' } },
     ],
   } as EditorDocument;
-  const englishBody = { type: 'doc', content: [{ type: 'image', attrs: { src: `/media/${picture.id}`, alt: 'Bread', mediaId: picture.id } }] } as EditorDocument;
+  // A video's poster is a library file with no address of its own in the document.
+  const video = { type: 'video', attrs: { provider: 'youtube', videoId: 'dQw4w9WgXcQ', start: null, title: 'Kneading', mediaId: poster.id } };
+  const englishBody = {
+    type: 'doc',
+    content: [{ type: 'image', attrs: { src: `/media/${picture.id}`, alt: 'Bread', mediaId: picture.id } }, video],
+  } as EditorDocument;
   const group = randomUUID();
   const draftGroup = randomUUID();
   const pageGroup = randomUUID();
@@ -144,12 +151,13 @@ test('an export writes every post and page as Markdown and an exact copy, with t
 
   assert.deepEqual(levels, ['repeatable read'], 'every row is read in one REPEATABLE READ transaction');
   assert.ok(await (db as Kysely<Database>).selectFrom('posts').select('id').where('slug', '=', 'late').executeTakeFirst(), 'the late post was written');
-  assert.deepEqual(receipt, { counts: { posts: 3, pages: 1, media: 2 }, formattingNotShown: 1 });
+  assert.deepEqual(receipt, { counts: { posts: 3, pages: 1, media: 3 }, formattingNotShown: 1 });
 
   assert.deepEqual(await files(root), [
     'manifest.json',
     `media/${guide.key}`,
     `media/${picture.key}`,
+    `media/${poster.key}`,
     'pages/en/about.md',
     'pages/en/about.tome.json',
     'posts/en/bread-at-night.md',
@@ -162,12 +170,19 @@ test('an export writes every post and page as Markdown and an exact copy, with t
   for (const path of await files(root)) assert.equal((await stat(join(root, path))).mode & 0o777, 0o600, path);
   assert.equal((await stat(join(root, 'posts', 'th'))).mode & 0o777, 0o700);
 
-  const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
+  const manifest = readManifest(await readFile(join(root, 'manifest.json'), 'utf8'));
   assert.equal(new Date(manifest.createdAt).toISOString(), manifest.createdAt);
+  const listed = (item: { id: string; key: string; bytes: Buffer }, name: string, type: string) =>
+    ({ path: `media/${item.key}`, name, type, sha256: `${'A'.repeat(43)}=`, size: item.bytes.length });
   assert.deepEqual({ ...manifest, createdAt: undefined }, {
     format: 'tomecms-markdown', version: 1, createdAt: undefined, applicationVersion: getBuildInfo().version,
-    publicUrl: 'http://localhost:4321', counts: { posts: 3, pages: 1, media: 2 },
-  });
+    publicUrl: 'http://localhost:4321', counts: { posts: 3, pages: 1, media: 3 },
+    media: {
+      [picture.id]: listed(picture, 'loaf.png', 'image/png'),
+      [guide.id]: listed(guide, 'คู่มือ.pdf', 'application/pdf'),
+      [poster.id]: listed(poster, 'poster.webp', 'image/webp'),
+    },
+  }, 'every file by its id, the video poster too, and nothing unused');
 
   const read = async (path: string) => readFrontMatter(await readFile(join(root, path), 'utf8'), path);
   const thai = await read('posts/th/ขนมปัง-ยามค่ำ.md');
@@ -209,4 +224,15 @@ test('an export writes every post and page as Markdown and an exact copy, with t
 
   assert.deepEqual(await readFile(join(root, 'media', ...picture.key.split('/'))), picture.bytes);
   assert.deepEqual(await readFile(join(root, 'media', ...guide.key.split('/'))), guide.bytes);
+  assert.deepEqual(await readFile(join(root, ...manifest.media[poster.id]!.path.split('/'))), poster.bytes, 'the poster, found by its id');
+  const englishExact = JSON.parse(await readFile(join(root, 'posts/en/bread-at-night.tome.json'), 'utf8'));
+  assert.deepEqual(englishExact.content[1], video, 'a video keeps its poster id exactly');
+
+  // An object gone from the bucket stops the export, naming the file it is.
+  await storage.send(new DeleteObjectCommand({ Bucket: 'tomecms-test-media', Key: guide.key }));
+  const again = await mkdtemp(join(tmpdir(), 'tomecms-transfer-export-'));
+  context.after(() => rm(again, { force: true, recursive: true }));
+  await assert.rejects(exportSite(again), (error) =>
+    (error as { code?: unknown }).code === 'media_missing' && (error as { mediaId?: unknown }).mediaId === guide.id);
+  await assert.rejects(stat(join(again, 'manifest.json')), 'no manifest, so the directory is not a whole export');
 });

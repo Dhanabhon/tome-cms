@@ -20,9 +20,9 @@ export type ContentStep =
 
 class UsageError extends Error {}
 
-/** A refusal or failure the receipt names by its code. */
+/** A refusal or failure the receipt names by its code, with what it is about. */
 class StepError extends Error {
-  constructor(readonly code: string) {
+  constructor(readonly code: string, readonly detail: Record<string, string> = {}) {
     super(code);
   }
 }
@@ -52,16 +52,16 @@ export function parseContentArgs(argv: string[]): ContentStep {
 
 const WORK = '/work';
 
-function insideWork(path: string): boolean {
-  const within = relative(WORK, path);
+function insideWork(path: string, work = WORK): boolean {
+  const within = relative(work, path);
   return within !== '' && within !== '..' && !within.startsWith(`..${sep}`) && !isAbsolute(within);
 }
 
 /** A backup reaches a one-shot only through its /work volume: no path may lead outside it, by `..` or by a link. */
-async function workPath(path: string): Promise<string> {
-  if (!isAbsolute(path) || !insideWork(resolve(path))) throw new StepError('path_outside_work');
+async function workPath(path: string, work = WORK): Promise<string> {
+  if (!isAbsolute(path) || !insideWork(resolve(path), work)) throw new StepError('path_outside_work');
   const real = await realpath(path);
-  if (!insideWork(real)) throw new StepError('path_outside_work');
+  if (!insideWork(real, work)) throw new StepError('path_outside_work');
   return real;
 }
 
@@ -104,21 +104,28 @@ async function afterRestore(): Promise<Receipt> {
   }
 }
 
-/** The step makes its own directory directly in /work, so nothing it writes can reach through a link. */
-async function exportContent(out: string): Promise<Receipt> {
-  if (!isAbsolute(out) || dirname(resolve(out)) !== WORK) throw new StepError('path_outside_work');
+/** An export makes its own directory directly in /work, so nothing it writes can reach through a link. */
+export async function createOutDirectory(out: string, work = WORK): Promise<string> {
+  if (!isAbsolute(out) || dirname(resolve(out)) !== work) throw new StepError('path_outside_work');
   try {
     await mkdir(out, { mode: 0o700 });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new StepError('out_exists');
     throw error;
   }
-  const directory = await workPath(out);
-  const { exportSite } = await import('./export');
+  return workPath(out, work);
+}
+
+async function exportContent(out: string): Promise<Receipt> {
+  const directory = await createOutDirectory(out);
+  const { exportSite, MediaMissingError } = await import('./export');
   const { closeDatabase } = await import('../db/client');
   const { s3 } = await import('../media/storage');
   try {
     return { ...await exportSite(directory) };
+  } catch (error) {
+    if (error instanceof MediaMissingError) throw new StepError(error.code, { mediaId: error.mediaId });
+    throw error;
   } finally {
     s3.destroy();
     await closeDatabase();
@@ -168,7 +175,8 @@ async function main(argv: string[]): Promise<void> {
     process.stdout.write(`${JSON.stringify({ ok: true, ...receipt })}\n`);
   } catch (error) {
     if (!(error instanceof StepError)) console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    process.stdout.write(`${JSON.stringify({ ok: false, code: failureCode(error, step.step) })}\n`);
+    const detail = error instanceof StepError ? error.detail : {};
+    process.stdout.write(`${JSON.stringify({ ok: false, code: failureCode(error, step.step), ...detail })}\n`);
     process.exitCode = 1;
   }
 }

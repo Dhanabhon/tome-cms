@@ -28,9 +28,24 @@ export interface ExportReceipt {
   formattingNotShown: number;
 }
 
-type Post = Selectable<PostTable>;
-type Page = Selectable<PageTable>;
-type Media = Pick<Selectable<MediaItemTable>, 'id' | 'object_key'>;
+/** A media object the snapshot names but the bucket no longer holds. */
+export class MediaMissingError extends Error {
+  readonly code = 'media_missing';
+  constructor(readonly mediaId: string) {
+    super(`The media item ${mediaId} is missing from the bucket.`);
+  }
+}
+
+// Only what the archive writes: content_html is rebuilt on import, and is as large as the document.
+const EDITION = [
+  'translation_group_id', 'locale', 'title', 'slug', 'content_json', 'meta_title', 'meta_description',
+  'status', 'published_at', 'planned_at', 'updated_at', 'excerpt',
+] as const;
+const MEDIA = ['id', 'object_key', 'original_name', 'mime_type', 'checksum_sha256', 'size_bytes'] as const;
+
+type Page = Pick<Selectable<PageTable>, typeof EDITION[number]>;
+type Post = Page & Pick<Selectable<PostTable>, 'cover_media_id' | 'show_cover'>;
+type Media = Pick<Selectable<MediaItemTable>, typeof MEDIA[number]>;
 
 interface Site {
   posts: Post[];
@@ -55,8 +70,8 @@ function mediaIds(document: EditorDocument, ids: Set<string>): void {
 async function readSite(trx: Transaction<Database>): Promise<Site> {
   const settings = await trx.selectFrom('site_settings').select('owner_id').where('id', '=', true).executeTakeFirst();
   if (!settings) throw new Error('The site is not installed.');
-  const posts = await trx.selectFrom('posts').selectAll().orderBy('id').execute();
-  const pages = await trx.selectFrom('pages').selectAll().orderBy('id').execute();
+  const posts = await trx.selectFrom('posts').select([...EDITION, 'cover_media_id', 'show_cover']).orderBy('id').execute();
+  const pages = await trx.selectFrom('pages').select(EDITION).orderBy('id').execute();
   const assigned = await trx.selectFrom('post_category_assignments')
     .innerJoin('categories', 'categories.id', 'post_category_assignments.category_id')
     .select(['post_category_assignments.translation_group_id as group', 'categories.name'])
@@ -71,7 +86,7 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
   }
   for (const page of pages) mediaIds(page.content_json, ids);
   // listReadyMediaByIds's query, read through this transaction: the global client is not free.
-  const rows = ids.size ? await trx.selectFrom('media_items').select(['id', 'object_key'])
+  const rows = ids.size ? await trx.selectFrom('media_items').select(MEDIA)
     .where('owner_id', '=', settings.owner_id).where('state', '=', 'ready').where('id', 'in', [...ids])
     .orderBy('id').execute() : [];
   for (const { object_key: key } of rows) if (!isTomeObjectKey(key)) throw new Error('A media item has an unsupported object key.');
@@ -139,12 +154,23 @@ export async function exportSite(outDir: string): Promise<ExportReceipt> {
     await writeNew(join(outDir, itemPath(kind, row.locale, row.slug, '.tome.json')), `${JSON.stringify(relinked(row.content_json, link), null, 2)}\n`);
   }
 
-  for (const { object_key: key } of site.media.values()) {
-    const path = join(outDir, ...mediaPath(key).split('/'));
+  const media: ArchiveManifest['media'] = {};
+  for (const row of site.media.values()) {
+    const path = join(outDir, ...mediaPath(row.object_key).split('/'));
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-    const object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: key }));
-    if (!object.Body) throw new Error('A media object could not be read.');
+    let object;
+    try {
+      object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: row.object_key }));
+    } catch (error) {
+      if ((error as { name?: unknown }).name === 'NoSuchKey') throw new MediaMissingError(row.id);
+      throw error;
+    }
+    if (!object.Body) throw new MediaMissingError(row.id);
     await pipeline(object.Body as Readable, createWriteStream(path, { flags: 'wx', mode: 0o600 }));
+    media[row.id] = {
+      path: mediaPath(row.object_key), name: row.original_name, type: row.mime_type,
+      sha256: row.checksum_sha256, size: Number(row.size_bytes),
+    };
   }
 
   const counts = { posts: site.posts.length, pages: site.pages.length, media: site.media.size };
@@ -155,6 +181,7 @@ export async function exportSite(outDir: string): Promise<ExportReceipt> {
     applicationVersion: getBuildInfo().version,
     publicUrl: getServerEnv().TOME_CMS_PUBLIC_URL,
     counts,
+    media,
   };
   // Last, so a directory with a manifest is a whole export.
   await writeNew(join(outDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
