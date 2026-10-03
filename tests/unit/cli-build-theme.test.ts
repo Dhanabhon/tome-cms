@@ -56,12 +56,14 @@ test('the body class carries the new id, and so does a data attribute that names
   assert.match(bare('paper', 'Shell.astro'), /<body class="zzdemo flex min-h-screen flex-col">/);
   assert.match(bare('plain', 'theme.css'), /^\.zzdemo \{$/m);
   assert.ok(bare('paper', 'theme.css').includes('html:has(> body.zzdemo),\nbody.zzdemo {'));
-  // As copied from the real tree. Core code says "plain" ('text/plain') and "paper", so a copy of
-  // either keeps the source's body class, which is safe; nothing outside says "almanac".
+  // As copied from the real tree. The bare id is the theme's own, whatever words core code uses
+  // ('text/plain', a 'paper' default), so every copy's body carries the new id.
   assert.match(renamed('almanac', 'Shell.astro').after, /<body class="zzdemo">/);
   assert.ok(renamed('almanac', 'theme.css').after.includes(':root:has(> body.zzdemo, .zzdemo-article) {'));
-  assert.match(renamed('plain', 'Shell.astro').after, /<body class="plain">/);
-  assert.match(renamed('paper', 'Shell.astro').after, /<body class="paper flex min-h-screen flex-col">/);
+  assert.match(renamed('plain', 'Shell.astro').after, /<body class="zzdemo">/);
+  assert.match(renamed('plain', 'theme.css').after, /^\.zzdemo \{$/m);
+  assert.match(renamed('paper', 'Shell.astro').after, /<body class="zzdemo flex min-h-screen flex-col">/);
+  assert.ok(renamed('paper', 'theme.css').after.includes('html:has(> body.zzdemo),\nbody.zzdemo {'));
   // No theme has one today; the rule is there for the first that does.
   assert.equal(renameThemeFile('Shell.astro', '<main data-look="paper" data-paper="paper">', 'paper', 'zzdemo'), '<main data-look="zzdemo" data-paper="zzdemo">');
 });
@@ -180,6 +182,8 @@ test('when registering fails, the new theme\'s directory is removed', async (t) 
 
 test('a name the core selects a theme\'s markup by is kept, so a plain copy\'s bare <pre> is still drawn by code.css', () => {
   assert.ok(coreNames(repository, 'plain').has('plain-body'));
+  assert.equal(coreNames(repository, 'plain').has('plain'), false, 'the bare id is never the core\'s');
+  assert.equal(coreNames(repository, 'paper').has('paper'), false, 'the bare id is never the core\'s');
   // Nothing outside the theme and the CLI says "almanac", so a copy of Almanac is renamed whole.
   assert.deepEqual([...coreNames(repository, 'almanac')], []);
   const files = copyTheme(repository, 'plain', 'zzdemo');
@@ -218,14 +222,15 @@ test('core names are any word of the theme\'s, in any file of src outside the th
     await writeFile(join(root, path), text);
   }
   const keep = coreNames(root, 'almanac');
-  assert.deepEqual([...keep].sort(), ['almanac', ...'bcdeghijklm'.split('').map((letter) => `almanac-${letter}`), 'almanac-card'].sort());
+  // `body.almanac` is there too, but the bare id is the theme's identity and is never the core's.
+  assert.deepEqual([...keep].sort(), [...'bcdeghijklm'.split('').map((letter) => `almanac-${letter}`), 'almanac-card'].sort());
   assert.equal(
     renameThemeFile('theme.css', '.almanac { x: 1; }\n.almanac-card, .almanac-grid { y: 2; }', 'almanac', 'zzdemo', keep),
-    '.almanac { x: 1; }\n.almanac-card, .zzdemo-grid { y: 2; }',
+    '.zzdemo { x: 1; }\n.almanac-card, .zzdemo-grid { y: 2; }',
   );
   assert.equal(
     renameThemeFile('Shell.astro', '<body class="almanac"><div class="almanac-j almanac-grid">', 'almanac', 'zzdemo', keep),
-    '<body class="almanac"><div class="almanac-j zzdemo-grid">',
+    '<body class="zzdemo"><div class="almanac-j zzdemo-grid">',
   );
 });
 

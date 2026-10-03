@@ -40,14 +40,15 @@ export function copyTheme(root: string, from: string, id: string): ThemeFile[] {
 }
 
 /**
- * The words starting with the theme `from`'s id that core code uses: the id itself or `<from>-…`,
- * as a whole word, in any file of src/ but the themes' and tome's own. However the core spells a
- * class -- a selector, a class attribute in any quotes, class:list, classList.add -- it is one of
- * these words, so a copy keeps them all. That keeps some words that are no class ('text/plain'), and
- * a kept class only means the copy shares a name; a missed one would leave core markup unstyled.
+ * The words `<from>-…` that core code uses, as whole words, in any file of src/ but the themes' and
+ * tome's own. However the core spells a class -- a selector, a class attribute in any quotes,
+ * class:list, classList.add -- it is one of these words, so a copy keeps them all. That keeps some
+ * words that are no class ('plain-text'), and a kept class only means the copy shares a name; a
+ * missed one would leave core markup unstyled. The bare id is never one: it is the theme's own
+ * name, and its body class always takes the new id.
  */
 export function coreNames(root: string, from: string): Set<string> {
-  const word = new RegExp(`(?<![\\w-])${from}(?:-[\\w-]*)?(?![\\w-])`, 'g');
+  const word = new RegExp(`(?<![\\w-])${from}-[\\w-]*(?![\\w-])`, 'g');
   const source = join(root, 'src');
   const names = new Set<string>();
   for (const path of existsSync(source) ? files(source) : []) {
@@ -76,12 +77,12 @@ export function renameThemeFile(path: string, text: string, from: string, id: st
   if (path === 'theme.ts') {
     rules.push((code) => code.replace(/^( {2}(?:description|id|name): )'[^'\n]*',$/gm, `$1'${id}',`));
   }
-  if (path.endsWith('.astro') && !keep.has(from)) {
+  if (path.endsWith('.astro')) {
     rules.push((code) => code.replace(/(\s(?:class|data-[\w-]+)=")([^"]*)"/g, (_, attribute: string, value: string) =>
       `${attribute}${value.split(' ').map((word) => word === from ? id : word).join(' ')}"`));
   }
   if (path.endsWith('.css')) {
-    if (!keep.has(from)) rules.push((code) => code.replace(new RegExp(`\\.${from}(?![\\w-])`, 'g'), `.${id}`));
+    rules.push((code) => code.replace(new RegExp(`\\.${from}(?![\\w-])`, 'g'), `.${id}`));
     rules.push((code) => code.replaceAll(`@import './${FONTS}';`, `@import '../${from}/${FONTS}';`));
   }
   return outsideComments(text, (code) => rules.reduce((result, rule) => rule(result), code));
