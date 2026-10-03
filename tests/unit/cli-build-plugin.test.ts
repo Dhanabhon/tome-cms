@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { realpathSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -98,7 +99,9 @@ function output() {
   return { lines, print: (line: string) => { lines.push(line); }, warn: (line: string) => { lines.push(line); } };
 }
 
-const io = (root: string, out: ReturnType<typeof output>) => ({ uid: 1000, load: async () => { throw new Error('never loaded'); }, print: out.print, warn: out.warn, cwd: root });
+const io = (root: string, out: ReturnType<typeof output>) => ({ uid: 1000, load: async () => { throw new Error('never loaded'); }, print: out.print, warn: out.warn, cwd: root,
+  // The checkout's own entry file, as `npm run tome` runs it.
+  self: join(realpathSync(root), 'src', 'cli', 'main.ts') });
 
 test('plugin new writes the plugin, registers it and says what to do next', async (t) => {
   const { root } = await checkout(t);

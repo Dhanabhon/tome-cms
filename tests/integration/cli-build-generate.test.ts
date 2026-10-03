@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,20 +16,36 @@ function node(cwd: string, args: readonly string[], env: NodeJS.ProcessEnv = {})
   return { code: run.status, output: `${run.stdout}${run.stderr}${run.error ? `\n${run.error.message}` : ''}` };
 }
 
+/** A copy of the checkout in a scratch directory, sharing node_modules by a link. */
+async function copyCheckout(t: test.TestContext, paths: readonly string[]) {
+  const root = await mkdtemp(join(tmpdir(), 'tome-generate-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const path of paths) await cp(join(repository, path), join(root, path), { recursive: true });
+  await symlink(join(repository, 'node_modules'), join(root, 'node_modules'), 'dir');
+  return root;
+}
+
+/** The directories under src/<kind>s: the themes or plugins a checkout has. */
+const directories = (root: string, kind: 'themes' | 'plugins') =>
+  readdirSync(join(root, 'src', kind), { withFileTypes: true }).filter((entry) => entry.isDirectory() && !entry.name.startsWith('.')).length;
+
+/** The entries of THEME_MANIFESTS, as the file has them. */
+const themeEntries = (text: string) => /THEME_MANIFESTS\b[^=]*=\s*\[([^\]]*)\]/.exec(text)![1]!;
+
 // The proof that what tome writes builds: generate a theme from each kind of source and a plugin
 // for each hook in a copy of the checkout, then type-check the whole site there and run tome check
 // on it. The copy shares node_modules by a link, and is thrown away after.
 test('a theme and plugins made by tome new pass astro check and tome check', { timeout: 300_000 }, async (t) => {
-  const root = await mkdtemp(join(tmpdir(), 'tome-generate-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  for (const path of ['src', 'package.json', 'tsconfig.json', 'tsconfig.updater.json', 'astro.config.mjs']) {
-    await cp(join(repository, path), join(root, path), { recursive: true });
-  }
-  await symlink(join(repository, 'node_modules'), join(root, 'node_modules'), 'dir');
+  const root = await copyCheckout(t, ['src', 'package.json', 'tsconfig.json', 'tsconfig.updater.json', 'astro.config.mjs']);
   // Astro's own cache would otherwise be node_modules/.astro, through the link and into the real tree.
   const config = await readFile(join(root, 'astro.config.mjs'), 'utf8');
   assert.equal(config.split('defineConfig({').length, 2, 'astro.config.mjs calls defineConfig({ once');
   await writeFile(join(root, 'astro.config.mjs'), config.replace('defineConfig({', "defineConfig({\n  cacheDir: './.astro-cache',"));
+  const before = {
+    entries: themeEntries(await readFile(join(root, 'src', 'themes', 'manifests.ts'), 'utf8')),
+    themes: directories(root, 'themes'),
+    plugins: directories(root, 'plugins'),
+  };
 
   for (const command of [
     ['theme', 'new', 'zzdemo', '--from', 'almanac'],
@@ -42,7 +59,7 @@ test('a theme and plugins made by tome new pass astro check and tome check', { t
     assert.equal(run.code, 0, `${command.join(' ')}\n${run.output}`);
   }
   const manifests = await readFile(join(root, 'src', 'themes', 'manifests.ts'), 'utf8');
-  assert.match(manifests, /\[paper, plain, almanac, zzdemo, zzplain, zzpaper\]/);
+  assert.equal(themeEntries(manifests), `${before.entries}, zzdemo, zzplain, zzpaper`);
 
   // Its own Vite cache too, so the shared node_modules is not written to.
   const check = node(root, [join(root, 'node_modules', 'astro', 'bin', 'astro.mjs'), 'check'], {
@@ -55,5 +72,25 @@ test('a theme and plugins made by tome new pass astro check and tome check', { t
   // And tome's own rules hold for everything it made.
   const rules = node(root, ['--import', 'tsx', 'src/cli/main.ts', 'check']);
   assert.equal(rules.code, 0, rules.output);
-  assert.match(rules.output, /^Checked 6 themes and 9 plugins: no problems\.$/m);
+  assert.ok(rules.output.split('\n').includes(`Checked ${before.themes + 3} themes and ${before.plugins + 3} plugins: no problems.`), rules.output);
+});
+
+// A managed server keeps a release clone at /opt/tome-cms-src, which is a checkout, and its tome is
+// this tree compiled by tsconfig.updater.json and run by plain node. Run from inside the clone, that
+// tome still refuses every builder command, and writes nothing.
+test('the compiled tome a server installs refuses the builder commands, even inside a checkout', { timeout: 120_000 }, async (t) => {
+  const root = await copyCheckout(t, ['src', 'package.json', 'tsconfig.updater.json']);
+  const build = node(root, [join(root, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', 'tsconfig.updater.json']);
+  assert.equal(build.code, 0, build.output);
+  const lists = () => Promise.all(['themes', 'plugins'].flatMap((kind) => ['manifests.ts', 'registry.ts'].map((file) => readFile(join(root, 'src', kind, file), 'utf8'))));
+  const before = { lists: await lists(), themes: directories(root, 'themes'), plugins: directories(root, 'plugins') };
+  for (const command of [['theme', 'new', 'zzsrv'], ['plugin', 'new', 'zzsrv', '--hook', 'signIn'], ['check']]) {
+    const run = node(root, [join(root, 'dist-updater', 'cli', 'main.js'), ...command]);
+    assert.equal(run.code, 1, `${command.join(' ')}\n${run.output}`);
+    assert.equal(run.output, 'Run this in a TomeCMS source checkout.\n', command.join(' '));
+  }
+  assert.deepEqual({ lists: await lists(), themes: directories(root, 'themes'), plugins: directories(root, 'plugins') }, before);
+  // The same checkout's own source, as `npm run tome` runs it, is not refused.
+  const own = node(root, ['--import', 'tsx', 'src/cli/main.ts', 'theme', 'new', 'zzsrv', '--dry-run']);
+  assert.equal(own.code, 0, own.output);
 });

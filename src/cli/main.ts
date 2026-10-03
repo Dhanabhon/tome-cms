@@ -7,6 +7,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { readFile, statfs } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
@@ -56,6 +57,8 @@ export async function tome(argv: readonly string[], input: {
   warn: (line: string) => void;
   /** Where to look for a source checkout, for the builder commands; the working directory by default. */
   cwd?: string;
+  /** The real path of the running tome's own entry file. The builder commands run only from the checkout's src/cli/main.ts. */
+  self?: string;
 }): Promise<number> {
   if (isBuildCommand(argv[0])) return build(argv, { ...input, cwd: input.cwd ?? process.cwd() });
   // The overview names both groups, so reading it needs no root.
@@ -101,8 +104,12 @@ export async function tome(argv: readonly string[], input: {
   }
 }
 
-/** The builder commands. Outside a checkout they refuse before reading or writing anything. */
-async function build(argv: readonly string[], input: { cwd: string; print: (line: string) => void; warn: (line: string) => void }): Promise<number> {
+/**
+ * The builder commands. Outside a checkout, or run by any tome but that checkout's own source, they
+ * refuse before writing anything. The server's installed tome is compiled JavaScript under the
+ * updater's directory, so it refuses even in the release clone at /opt/tome-cms-src.
+ */
+async function build(argv: readonly string[], input: { cwd: string; self?: string; print: (line: string) => void; warn: (line: string) => void }): Promise<number> {
   let command;
   try {
     command = parseBuildCommand(argv);
@@ -116,7 +123,7 @@ async function build(argv: readonly string[], input: { cwd: string; print: (line
     return 0;
   }
   const root = findCheckout(input.cwd);
-  if (root === null) {
+  if (root === null || input.self !== join(realpathSync(root), 'src', 'cli', 'main.ts')) {
     input.warn('Run this in a TomeCMS source checkout.');
     return 1;
   }
@@ -193,5 +200,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
     load: loadContext,
     print: (line) => { process.stdout.write(`${line}\n`); },
     warn: (line) => { process.stderr.write(`${line}\n`); },
+    // Under `npm run tome` this is the checkout's src/cli/main.ts, run through tsx.
+    self: realpathSync(process.argv[1]),
   });
 }

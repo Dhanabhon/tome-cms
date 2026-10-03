@@ -169,7 +169,7 @@ An image a stopped container still uses cannot be removed. `tome` says how many 
 
 ## Building themes and plugins
 
-Three more commands help you write a theme or a plugin. They are not for a server. They run in a TomeCMS source checkout, with `npm run tome --`, need no `sudo`, and say `Run this in a TomeCMS source checkout.` and exit 1 anywhere else, including from the `tome` installed on a server. The server commands above keep their `sudo`, and the two groups do not mix.
+Three more commands help you write a theme or a plugin. They are not for a server. They run in a TomeCMS source checkout, with `npm run tome --`, need no `sudo`, and say `Run this in a TomeCMS source checkout.` and exit 1 anywhere else. Only the checkout's own `src/cli/main.ts` runs them, so the `tome` installed on a server always refuses, even in its release clone at `/opt/tome-cms-src`. The server commands above keep their `sudo`, and the two groups do not mix.
 
 ```sh
 npm run tome -- theme new <id> [--from plain|paper|almanac] [--dry-run]

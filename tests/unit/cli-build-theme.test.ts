@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
@@ -125,7 +125,9 @@ function output() {
   return { lines, print: (line: string) => { lines.push(line); }, warn: (line: string) => { lines.push(line); } };
 }
 
-const io = (root: string, out: ReturnType<typeof output>) => ({ uid: 1000, load: async () => { throw new Error('never loaded'); }, print: out.print, warn: out.warn, cwd: root });
+const io = (root: string, out: ReturnType<typeof output>) => ({ uid: 1000, load: async () => { throw new Error('never loaded'); }, print: out.print, warn: out.warn, cwd: root,
+  // The checkout's own entry file, as `npm run tome` runs it.
+  self: join(realpathSync(root), 'src', 'cli', 'main.ts') });
 
 test('theme new copies the theme, registers it and says what to do next', async (t) => {
   const { root, lists } = await checkout(t);
@@ -133,7 +135,9 @@ test('theme new copies the theme, registers it and says what to do next', async 
   assert.equal(await tome(['theme', 'new', 'zzdemo', '--from', 'almanac'], io(root, out)), 0);
   const [manifests, registry] = await lists();
   assert.match(manifests, /^import \{ manifest as zzdemo \} from '\.\/zzdemo\/theme';$/m);
-  assert.match(manifests, /\[paper, plain, almanac, zzdemo\]/);
+  // The array as it was, read from the source tree, with the new id appended.
+  const entries = (text: string) => /THEME_MANIFESTS\b[^=]*=\s*\[([^\]]*)\]/.exec(text)![1];
+  assert.equal(entries(manifests), `${entries(readFileSync(join(themes, 'manifests.ts'), 'utf8'))}, zzdemo`);
   assert.match(registry, /^ {2}zzdemo: \(\) => import\('\.\/zzdemo'\),$/m);
   assert.deepEqual(
     (await readdir(join(root, 'src', 'themes', 'zzdemo'), { recursive: true })).sort(),

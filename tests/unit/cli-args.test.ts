@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -159,6 +159,31 @@ test('the builder commands need no root, and refuse outside a checkout before re
     assert.equal(await tome([...argv, '--help'], { ...io, cwd: outside }), 0);
     assert.equal(await tome([argv[0], '--wrong'], { ...io, cwd: outside }), 2);
   }
+});
+
+test('inside a checkout, only that checkout\'s own src/cli/main.ts runs the builder commands: the server\'s compiled tome refuses', async (t) => {
+  const checkout = await mkdtemp(join(tmpdir(), 'tome-checkout-'));
+  t.after(() => rm(checkout, { recursive: true, force: true }));
+  await writeFile(join(checkout, 'package.json'), JSON.stringify({ name: 'tome-cms' }));
+  await mkdir(join(checkout, 'src', 'themes'), { recursive: true });
+  await writeFile(join(checkout, 'src', 'themes', 'manifests.ts'), '');
+  const listing = async () => (await readdir(checkout, { recursive: true })).sort();
+  const before = await listing();
+  const own = join(await realpath(checkout), 'src', 'cli', 'main.ts');
+  // The installed tome, a build of this checkout, another checkout's source, and no word at all.
+  for (const self of ['/opt/tome-cms/updater/cli/main.js', join(await realpath(checkout), 'dist-updater', 'cli', 'main.js'), '/elsewhere/tome-cms/src/cli/main.ts', undefined]) {
+    for (const argv of [['theme', 'new', 'ledger'], ['plugin', 'new', 'nimbus', '--hook', 'signIn'], ['check']]) {
+      const f = fakeContext();
+      const io = { uid: 0, load: async () => f.context, print: f.context.print, warn: f.context.warn, cwd: checkout, self };
+      assert.equal(await tome(argv, io), 1, `${self} ${argv.join(' ')}`);
+      assert.equal(f.err(), 'Run this in a TomeCMS source checkout.', `${self} ${argv.join(' ')}`);
+    }
+  }
+  assert.deepEqual(await listing(), before, 'nothing was written');
+  // The checkout's own source gets past that refusal (this bare checkout then stops on its empty lists).
+  const f = fakeContext();
+  await tome(['check'], { uid: 1000, load: async () => f.context, print: f.context.print, warn: f.context.warn, cwd: checkout, self: own });
+  assert.notEqual(f.err(), 'Run this in a TomeCMS source checkout.');
 });
 
 test('the server commands still demand root, and the overview needs none', async () => {
