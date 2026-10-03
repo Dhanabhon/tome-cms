@@ -34,8 +34,12 @@ Owner decisions:
   `--help`, and print English output.
 - **Paths:** every path a command reads must resolve, after symlinks, to somewhere under the
   backup directory, `/var/backups/tome-cms` (`backupDirectory` in `src/updater/config.ts`). Every
-  file a command writes goes there too, with mode `0600` for files and `0700` for directories,
-  owned by root.
+  file a command writes goes there too, with mode `0600` for files and `0700` for directories.
+- **Ownership:** everything under the backup directory is owned by `tomecms-updater`, the user the
+  updater runs as, who owns that directory (`install-managed-vps.sh`).
+  - `tome` runs as root, so before it hands a directory to the updater or to a one-shot container,
+    it changes the directory's owner to `tomecms-updater`.
+  - A backup copied in with `rsync` as root arrives owned by root, so this step matters for a move.
 - **Confirmation:** `restore` and `import` print what they will do and ask y/N, and `--yes` skips
   the question. `import` also takes `--dry-run`.
 - **Version checks:**
@@ -49,12 +53,20 @@ Owner decisions:
 
 Restores a backup made by `tome backup` (full or database-only) or by the updater.
 
-**Before anything is touched, it refuses with a sentence and exit 1** when:
+**Before anything is touched, it refuses with a sentence and exit 1** when one of the conditions
+below holds. Who checks what:
+- `tome` checks the cheap conditions before it asks y/N.
+- The updater checks everything again, including every checksum, in the job's first phase,
+  `verifying`, while the site is still up. Hashing gigabytes takes longer than a socket request
+  allows.
+
+The conditions:
 - the directory has no `manifest.json` (a cut-off backup), or the manifest does not parse;
 - the dump's checksum, or any object's checksum (full backups), does not match the manifest;
 - the manifest's `config.publicUrl` is not this site's public URL;
 - the manifest's `applicationVersion` is newer than the installed app. The message names the
   version to update to first;
+- the installed app is older than 1.13.0, the first image that carries the restore steps;
 - an update, backup, prune or restore holds the updater's lock;
 - the backup directory has too little free space for the safety backup of step 1. The test is the
   same free-space test a backup uses, and the failure code is `insufficient_disk_space`.
@@ -75,8 +87,12 @@ job takes the same lock as apply, backup and prune, and `/v1/busy` reports it. T
    If it fails, stop before changing anything.
 2. **Quiesce.** Write the maintenance marker, drain, and stop the app: the same first half of a
    maintenance window that a backup and an update use.
-3. **Database.** Restore `database.dump` into the site's PostgreSQL with `pg_restore --clean
-   --if-exists`, through Compose.
+3. **Database.** Empty the database (`drop schema public cascade; create schema public;`), then
+   restore `database.dump` with `pg_restore --no-owner --no-privileges`.
+   - The restore runs as a one-shot of the installed app image. Its client is then at least as new
+     as the `pg_dump` that wrote the dump.
+   - Emptying the database first matters. Migrations are not idempotent, so a newer table left
+     beside an older dump would make step 5 fail.
 4. **Media** (full backups only). Make the bucket equal the backup: upload every object in the
    manifest, and delete every object the backup does not list. Reuse the object-restore steps that
    `scripts/restore-check.ts` already tests. A database-only backup leaves the bucket alone.
@@ -94,6 +110,12 @@ job takes the same lock as apply, backup and prune, and `/v1/busy` reports it. T
 - If the updater restarts with a restore job that has not finished, boot treats it the same way: it
   puts back the safety backup, clears maintenance, and marks the job failed. A site is never left
   half restored, or in maintenance, after a restart.
+- **If putting the safety backup back also fails:**
+  - the job records `rollback_failed` with both directories;
+  - it keeps the maintenance marker, so no one writes to a database in an unknown state;
+  - it leaves the app stopped.
+
+  `tome` prints the manual steps. This is the only case that ends in maintenance.
 
 **After the restore, `tome` prints:**
 - the counts restored;
@@ -177,8 +199,11 @@ fresh work directory under the backup root.
 **Refuses the whole input before writing anything** when:
 - an entry in the archive has an absolute path or a `..` part, or is a symlink, hard link, device or
   FIFO. The archive is listed and checked before it is unpacked;
-- it exceeds the size limits: the archive at most 2 GiB, a single file at most 200 MiB, and at most
-  20,000 entries;
+- it exceeds the size limits:
+  - the archive at most 2 GiB;
+  - at most 20,000 entries;
+  - each media file within the File Manager's own limit for its kind: 8 MiB for a picture, 25 MiB
+    for a document;
 - a file's front matter does not parse, or has a field of the wrong type. The refusal names the
   file;
 - the site is in maintenance, or the updater's `/v1/busy` says a job is running.
@@ -201,7 +226,10 @@ fresh work directory under the backup root.
   - a draft keeps its `planned` date;
   - a missing `status` means a draft.
   - The `updated` field is informational; the row's `updated_at` is the import time.
-- **Categories** are matched by name in the item's language, and missing ones are created.
+- **Categories** have no language in TomeCMS.
+  - They are matched by name, ignoring case, and missing ones are created.
+  - `Uncategorized` maps to the site's default category.
+  - A translation group's categories are the union of its items' lists.
 - **Translations:** the items that share a `translation` value form one new translation group.
   When a sibling was skipped, the rest still form a group, and the plan says so.
 - **Author:** the site's owner.
