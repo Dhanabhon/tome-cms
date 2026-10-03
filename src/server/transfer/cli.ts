@@ -220,7 +220,16 @@ async function main(argv: string[]): Promise<void> {
   }
 }
 
+/** A path by its real path, or as given when it has none: `node -e` passes along any argument. */
+function realOrGiven(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
 // Node runs a module by its real path, so a link to the bundle still counts as starting it.
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realOrGiven(process.argv[1])).href) {
   await main(process.argv.slice(2));
 }

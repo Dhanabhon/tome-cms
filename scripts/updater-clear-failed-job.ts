@@ -71,5 +71,14 @@ async function main(): Promise<void> {
   }
 }
 
+/** A path by its real path, or as given when it has none: `node -e` passes along any argument. */
+function realOrGiven(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
 // Node runs a module by its real path, so a link to the script still counts as starting it.
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) await main();
+if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realOrGiven(process.argv[1])) await main();

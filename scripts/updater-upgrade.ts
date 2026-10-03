@@ -289,8 +289,17 @@ export async function swapUpdater(paths: SwapPaths, stamp: string, ops: SwapOper
   }
 }
 
+/** A path by its real path, or as given when it has none: `node -e` passes along any argument. */
+function realOrGiven(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
 // Node runs a module by its real path, so a link to the script still counts as starting it.
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
+if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realOrGiven(process.argv[1])) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

@@ -88,3 +88,13 @@ test('an import refuses a directory outside /work before it loads anything', () 
     assert.equal(result.status, 1);
   }
 });
+
+test('a script loaded from node -e, with a path after it that does not exist, does not take itself for the entry', () => {
+  for (const module of ['./src/server/transfer/cli.ts', './scripts/updater-upgrade.ts', './scripts/updater-clear-failed-job.ts']) {
+    const result = spawnSync(process.execPath, ['--import', 'tsx', '-e', `await import(${JSON.stringify(module)})`, '/no/such/entry'], {
+      encoding: 'utf8', timeout: 30_000,
+    });
+    assert.equal(result.status, 0, `${module}: ${result.stderr}`);
+    assert.equal(result.stdout, '', module);
+  }
+});
