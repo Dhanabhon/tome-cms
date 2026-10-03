@@ -186,16 +186,27 @@ npm run tome -- check
 1. a theme or plugin whose directory name is not its manifest's id;
 2. one that is not listed in both its `manifests.ts` and its `registry.ts`, or a list entry with no directory;
 3. a missing file: a theme needs `index.ts`, `theme.ts`, `Shell.astro`, `Home.astro`, `Post.astro`, `Page.astro` and `theme.css`; a plugin needs `plugin.ts` and `index.ts`, and `client.ts` when it has a `publicClient`;
-4. a setting that is not well formed: a repeated key, a kind the contract does not allow, a label or hint missing in English or Thai, a choice without options or whose fallback is not one of them, a text without a maximum length, a switch whose fallback is not `on` or `off`;
-5. a plugin that does not implement the methods of the hook it declares, or the sign-in pair every plugin answers;
-6. a theme that imports from `src/server/`;
-7. a theme's stylesheet that does not use the design tokens only.
+4. a setting that is not well formed: a repeated key, a kind the contract does not allow, a label or hint missing in English or Thai, a choice without options or whose fallback is not one of them, a theme's text setting without a maximum length (a plugin's text has none in its contract), a switch whose fallback is not `on` or `off`;
+5. a plugin whose `index.ts` does not export the sign-in pair every plugin answers, or a method of each hook it declares;
+6. a theme that imports from `src/server/` or `src/pages/`;
+7. a raw colour in a theme's CSS outside a token block. A raw colour is a hex such as `#c00`, or `rgb()`, `hsl()`, `oklch()`, `oklab()`, `lab()` or `lch()`. A token block is a rule that declares nothing but custom properties, such as `--color-ink: oklch(24% 0.012 70);`. Everywhere else the stylesheet uses `var(--color-ink)`. Comments are not read.
 
-It does not run a plugin: it only loads the module and looks at what it exports. The output looks like this, with an illustrative problem:
+It does not run a plugin. It loads each manifest, which only declares data, and reads each plugin's `index.ts` for the names it exports. A method that is only on the default export object does not count, because the core loads the named exports.
+
+A checkout with nothing wrong:
 
 ```text
 $ npm run tome -- check
-src/plugins/nimbus/index.ts:1: <what is wrong>
+Checked 3 themes and 6 plugins: no problems.
+```
+
+A plugin made with `plugin new nimbus --hook publicPage`, then given a setting with no Thai label, and with `export` taken off its `siteNotice`:
+
+```text
+$ npm run tome -- check
+src/plugins/nimbus/plugin.ts:11: setting "message" has no Thai label
+src/plugins/nimbus/index.ts:1: declares publicPage, but exports none of siteNotice, sitePopup, publicClient
+2 problems.
 ```
 
 `npm run tome -- --help` lists them, and every command takes `--help`.

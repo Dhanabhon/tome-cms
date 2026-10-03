@@ -186,16 +186,27 @@ npm run tome -- check
 1. ธีมหรือปลั๊กอินที่ชื่อโฟลเดอร์ไม่ตรงกับ id ใน manifest
 2. ตัวที่ไม่อยู่ครบทั้งใน `manifests.ts` และ `registry.ts` หรือรายการที่ไม่มีโฟลเดอร์รองรับ
 3. ไฟล์ที่ขาด ธีมต้องมี `index.ts`, `theme.ts`, `Shell.astro`, `Home.astro`, `Post.astro`, `Page.astro` และ `theme.css` ปลั๊กอินต้องมี `plugin.ts` และ `index.ts` และมี `client.ts` เมื่อมี `publicClient`
-4. การตั้งค่าที่รูปแบบไม่ถูกต้อง เช่น key ซ้ำ ชนิดที่ข้อตกลงไม่อนุญาต label หรือ hint ที่ขาดภาษาอังกฤษหรือภาษาไทย choice ที่ไม่มีตัวเลือกหรือที่ค่า fallback ไม่ใช่หนึ่งในตัวเลือก text ที่ไม่มีความยาวสูงสุด และ switch ที่ fallback ไม่ใช่ `on` หรือ `off`
-5. ปลั๊กอินที่ไม่มีเมธอดของ hook ที่ประกาศไว้ หรือไม่มีเมธอดคู่ sign-in ที่ปลั๊กอินทุกตัวต้องตอบ
-6. ธีมที่ import จาก `src/server/`
-7. สไตล์ชีตของธีมที่ไม่ได้ใช้ design token เท่านั้น
+4. การตั้งค่าที่รูปแบบไม่ถูกต้อง เช่น key ซ้ำ ชนิดที่ข้อตกลงไม่อนุญาต label หรือ hint ที่ขาดภาษาอังกฤษหรือภาษาไทย choice ที่ไม่มีตัวเลือกหรือที่ค่า fallback ไม่ใช่หนึ่งในตัวเลือก การตั้งค่า text ของธีมที่ไม่มีความยาวสูงสุด (ข้อตกลงของปลั๊กอินไม่มีความยาวสูงสุดให้ text) และ switch ที่ fallback ไม่ใช่ `on` หรือ `off`
+5. ปลั๊กอินที่ `index.ts` ไม่ได้ export เมธอดคู่ sign-in ที่ปลั๊กอินทุกตัวต้องตอบ หรือไม่ได้ export เมธอดของ hook ที่ประกาศไว้อย่างน้อยหนึ่งตัว
+6. ธีมที่ import จาก `src/server/` หรือ `src/pages/`
+7. สีดิบใน CSS ของธีมที่อยู่นอก token block สีดิบคือค่า hex เช่น `#c00` หรือ `rgb()`, `hsl()`, `oklch()`, `oklab()`, `lab()` และ `lch()` ส่วน token block คือ rule ที่ประกาศเฉพาะ custom property เช่น `--color-ink: oklch(24% 0.012 70);` ที่อื่นทั้งหมดในสไตล์ชีตให้ใช้ `var(--color-ink)` คำสั่งนี้ไม่อ่านคอมเมนต์
 
-คำสั่งนี้ไม่รันปลั๊กอิน แค่โหลดโมดูลแล้วดูว่าส่งออกอะไร ผลลัพธ์มีหน้าตาดังนี้ โดยปัญหาในตัวอย่างเป็นเพียงภาพประกอบ
+คำสั่งนี้ไม่รันปลั๊กอิน แค่โหลด manifest แต่ละตัวซึ่งประกาศเพียงข้อมูล และอ่าน `index.ts` ของปลั๊กอินแต่ละตัวว่า export ชื่ออะไรบ้าง เมธอดที่อยู่แค่ในออบเจ็กต์ที่ export default ไม่นับ เพราะ core โหลดจาก named export
+
+checkout ที่ไม่มีปัญหา
 
 ```text
 $ npm run tome -- check
-src/plugins/nimbus/index.ts:1: <what is wrong>
+Checked 3 themes and 6 plugins: no problems.
+```
+
+ปลั๊กอินที่สร้างด้วย `plugin new nimbus --hook publicPage` แล้วเพิ่มการตั้งค่าที่ไม่มี label ภาษาไทย และเอา `export` ออกจาก `siteNotice`
+
+```text
+$ npm run tome -- check
+src/plugins/nimbus/plugin.ts:11: setting "message" has no Thai label
+src/plugins/nimbus/index.ts:1: declares publicPage, but exports none of siteNotice, sitePopup, publicClient
+2 problems.
 ```
 
 `npm run tome -- --help` แสดงรายการคำสั่งเหล่านี้ และทุกคำสั่งรับ `--help`
