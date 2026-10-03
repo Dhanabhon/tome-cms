@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createReadStream } from 'node:fs';
-import { lstat, realpath } from 'node:fs/promises';
+import { lstat, readFile, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 import {
@@ -147,10 +146,14 @@ export async function syncBucketToManifest(
   for (const { key } of manifest.objects) paths.set(key, await backupFile(backup, join('objects', ...key.split('/'))));
   for (const object of manifest.objects) {
     const disposition = dispositions.get(object.key);
+    // Read whole, as the File Manager's puts are: a stream goes up aws-chunked, and SeaweedFS keeps
+    // that as the object's Content-Encoding. Each is 25 MiB at most.
+    const body = await readFile(paths.get(object.key)!);
+    if (body.length !== object.sizeBytes) throw new Error('A backup object does not match the size its manifest gives.');
     await client.send(new PutObjectCommand({
       Bucket: bucket,
       Key: object.key,
-      Body: createReadStream(paths.get(object.key)!),
+      Body: body,
       ContentLength: object.sizeBytes,
       ContentType: object.contentType,
       // A document with no ready row -- an unfinished upload -- goes back with no header, as today.

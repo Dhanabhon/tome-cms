@@ -46,4 +46,7 @@ test('a restore puts back how each document is handed out, and an image as it wa
   const head = (key: string) => storage.send(new HeadObjectCommand({ Bucket: 'tomecms-test-media', Key: key }));
   assert.equal((await head(pdf!.key)).ContentDisposition, disposition, 'the document downloads under its own name again');
   assert.equal((await head(png!.key)).ContentDisposition, undefined, 'an image is handed out as it always was');
+  for (const { key } of [pdf!, png!]) {
+    assert.equal((await head(key)).ContentEncoding, undefined, `${key} is stored with no Content-Encoding, not aws-chunked`);
+  }
 });
