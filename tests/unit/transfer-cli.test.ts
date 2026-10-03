@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { createOutDirectory, parseContentArgs } from '../../src/server/transfer/cli';
+import { closeQuietly, createOutDirectory, parseContentArgs } from '../../src/server/transfer/cli';
 
 /** The CLI as a one-shot runs it, but with no environment at all: no database, no bucket, no secrets. */
 function run(args: string[]) {
@@ -97,4 +97,12 @@ test('a script loaded from node -e, with a path after it that does not exist, do
     assert.equal(result.status, 0, `${module}: ${result.stderr}`);
     assert.equal(result.stdout, '', module);
   }
+});
+
+test('a database that will not close after a step has done its work is logged, and the step still answers ok', async (t) => {
+  const logged = t.mock.method(console, 'error', () => undefined);
+  await closeQuietly(async () => { throw new Error('Connection terminated'); });
+  assert.deepEqual(logged.mock.calls.map((call) => call.arguments), [['Error: the database did not close: Connection terminated']]);
+  await closeQuietly(async () => undefined);
+  assert.equal(logged.mock.callCount(), 1);
 });

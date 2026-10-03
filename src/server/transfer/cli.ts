@@ -75,6 +75,19 @@ async function workPath(path: string, work = WORK): Promise<string> {
 
 type Receipt = Record<string, unknown>;
 
+/**
+ * Closes what a step opened. A step that returned has done its work, and an import's has been
+ * committed, so a close that fails then is only logged: the receipt still says ok. After a step
+ * that threw, the step's own error is the one reported.
+ */
+export async function closeQuietly(close: () => Promise<void>): Promise<void> {
+  try {
+    await close();
+  } catch (error) {
+    console.error(`Error: the database did not close: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function restoreDatabase(dump: string): Promise<Receipt> {
   const path = await workPath(dump);
   if (!(await stat(path)).isFile()) throw new StepError('backup_invalid');
@@ -98,7 +111,7 @@ async function restoreObjects(backup: string): Promise<Receipt> {
     return await syncBucketToManifest(s3, s3Bucket, directory, manifest, dispositions);
   } finally {
     s3.destroy();
-    await closeDatabase();
+    await closeQuietly(closeDatabase);
   }
 }
 
@@ -108,7 +121,7 @@ async function afterRestore(): Promise<Receipt> {
   try {
     return { ...await afterRestoreReport() };
   } finally {
-    await closeDatabase();
+    await closeQuietly(closeDatabase);
   }
 }
 
@@ -136,7 +149,7 @@ async function exportContent(out: string): Promise<Receipt> {
     throw error;
   } finally {
     s3.destroy();
-    await closeDatabase();
+    await closeQuietly(closeDatabase);
   }
 }
 
@@ -164,7 +177,7 @@ async function importContent(dir: string, mode: 'plan' | 'apply'): Promise<Recei
     throw error;
   } finally {
     s3.destroy();
-    await closeDatabase();
+    await closeQuietly(closeDatabase);
   }
 }
 
