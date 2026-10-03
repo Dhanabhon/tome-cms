@@ -434,12 +434,17 @@ export async function createMediaFromBytes(ownerId: string, body: Buffer, name: 
   }
 }
 
-/** Takes back what an import uploaded, when its items could not be written: the rows, then their objects. */
+/**
+ * Takes back what an import uploaded, when its items could not be written: the rows, then their
+ * objects. Every object is tried; the ones left in the bucket are named in the error.
+ */
 export async function deleteImportedMedia(ownerId: string, ids: readonly string[]): Promise<void> {
   if (!ids.length) return;
   const rows = await db.deleteFrom('media_items').where('owner_id', '=', ownerId).where('id', 'in', [...ids])
     .returning('object_key').execute();
-  await Promise.all(rows.map(({ object_key: key }) => s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }))));
+  const results = await Promise.allSettled(rows.map(({ object_key: key }) => s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }))));
+  const left = rows.filter((_, index) => results[index]!.status === 'rejected').map(({ object_key: key }) => key);
+  if (left.length) throw new Error(`These objects are left in the bucket: ${left.join(', ')}`);
 }
 
 /** An image, read whole: sharp needs all of it, and it is 8 MB at most. */
