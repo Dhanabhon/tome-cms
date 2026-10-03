@@ -35,13 +35,13 @@ export function validateId(kind: Kind, id: string, root: string): { ok: true } |
   }
   for (const list of ['manifests.ts', 'registry.ts']) {
     const file = `${directory}/${list}`;
-    if (lists(readFileSync(join(root, file), 'utf8'), id)) return { ok: false, reason: `${id} is already listed in ${file}.` };
+    if (isListed(readFileSync(join(root, file), 'utf8'), id)) return { ok: false, reason: `${id} is already listed in ${file}.` };
   }
   return { ok: true };
 }
 
 /** Whether a list file names `id`: as an import name or path, a registry key, or an entry of a MANIFESTS array. */
-function lists(text: string, id: string): boolean {
+export function isListed(text: string, id: string): boolean {
   const named = [
     new RegExp(`\\bmanifest\\s+as\\s+${id}\\b`),
     new RegExp(`['"]\\./${id}['"/]`),

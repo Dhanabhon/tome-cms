@@ -18,8 +18,10 @@ import { isBuildCommand, parseBuildCommand, parseCommand, UsageError } from './a
 import { findCheckout } from './build/checkout.js';
 import { backup } from './commands/backup.js';
 import { logs } from './commands/logs.js';
+import { pluginNew } from './commands/plugin-new.js';
 import { prune } from './commands/prune.js';
 import { status } from './commands/status.js';
+import { themeNew } from './commands/theme-new.js';
 import { update } from './commands/update.js';
 import { exitQuietlyOnClosedPipe, unixSocketClient, UpdaterUnreachableError, type SocketClient } from './socket.js';
 
@@ -112,12 +114,23 @@ async function build(argv: readonly string[], input: { cwd: string; print: (line
     input.print(command.text);
     return 0;
   }
-  if (findCheckout(input.cwd) === null) {
+  const root = findCheckout(input.cwd);
+  if (root === null) {
     input.warn('Run this in a TomeCMS source checkout.');
     return 1;
   }
-  input.warn(`tome ${command.name} is not built yet.`);
-  return 1;
+  try {
+    switch (command.name) {
+      case 'theme new': return themeNew(root, command, input);
+      case 'plugin new': return pluginNew(root, command, input);
+      case 'check':
+        input.warn(`tome ${command.name} is not built yet.`);
+        return 1;
+    }
+  } catch (error) {
+    input.warn(`tome stopped: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
 }
 
 async function loadContext(): Promise<CliContext> {

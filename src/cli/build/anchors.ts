@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { kindDirectory, type Kind } from './ids.js';
+import { isListed, kindDirectory, type Kind } from './ids.js';
 
 // How tome registers a new theme or plugin: by inserting lines at known anchors in that kind's two
 // list files, and only when each anchor is found exactly once, in exactly the shape below. A file in
@@ -11,12 +11,13 @@ import { kindDirectory, type Kind } from './ids.js';
 //   1. The last line of the form `import { manifest as <x> } from './<x>/theme';` (`/plugin';` for
 //      plugins). The new import goes on the line after it.
 //   2. The one line `export const THEME_MANIFESTS: readonly ThemeManifest[] = [a, b, c];` (or
-//      PLUGIN_MANIFESTS / PluginManifest), on a single line. The new id goes last in the array,
-//      since the order there is the order the admin offers them in.
+//      PLUGIN_MANIFESTS / PluginManifest), on a single line and with at least one entry. The new
+//      id goes last in the array, since the order there is the order the admin offers them in.
 //
 // registry.ts
 //   3. The one object literal from `const THEMES = {` (or PLUGINS) to the next `} as const;`, every
-//      line between them of the form `  <x>: () => import('./<x>'),`. The new entry goes in
+//      line between them of the form `  <x>: () => import('./<x>'),`, and at least one of them. An
+//      empty list is not one tome has seen, so it is not one it edits. The new entry goes in
 //      alphabetical order when the keys already are in it, and last otherwise.
 
 /** One list file's whole text before and after, and the lines the edit adds or rewrites. */
@@ -32,7 +33,10 @@ const names = {
   plugin: { array: 'PLUGIN_MANIFESTS', type: 'PluginManifest', module: 'plugin', object: 'PLUGINS' },
 } as const;
 
-/** The edits that register `id` (already validated) in the checkout at `root`, or the lines to add by hand. Writes nothing. */
+/**
+ * The edits that register `id` in the checkout at `root`, or the lines to add by hand. Writes
+ * nothing. An id either file already lists is refused here too, so no plan ever lists one twice.
+ */
 export function planRegistration(kind: Kind, id: string, root: string):
   { ok: true; edits: FileEdit[] } | { ok: false; manualLines: string[] } {
   const directory = kindDirectory(kind);
@@ -41,9 +45,11 @@ export function planRegistration(kind: Kind, id: string, root: string):
   const importLine = `import { manifest as ${id} } from './${id}/${name.module}';`;
   const entryLine = `  ${id}: () => import('./${id}'),`;
 
-  const read = (file: string) => readFileSync(join(root, file), 'utf8');
-  const manifests = editManifests(read(files.manifests), kind, id, importLine);
-  const registry = editRegistry(read(files.registry), kind, entryLine);
+  const texts = { manifests: readFileSync(join(root, files.manifests), 'utf8'), registry: readFileSync(join(root, files.registry), 'utf8') };
+  const listed = (['manifests', 'registry'] as const).find((file) => isListed(texts[file], id));
+  if (listed) return { ok: false, manualLines: [`${id} is already listed in ${files[listed]}, so nothing was changed.`] };
+  const manifests = editManifests(texts.manifests, kind, id, importLine);
+  const registry = editRegistry(texts.registry, kind, entryLine);
   if (manifests && registry) {
     return { ok: true, edits: [{ path: join(root, files.manifests), ...manifests }, { path: join(root, files.registry), ...registry }] };
   }
@@ -67,14 +73,13 @@ function editManifests(before: string, kind: Kind, id: string, importLine: strin
   const name = names[kind];
   const lines = before.split('\n');
   const imports = new RegExp(`^import \\{ manifest as ([a-z][a-z0-9]*) \\} from '\\./\\1/${name.module}';$`);
-  const array = new RegExp(`^export const ${name.array}: readonly ${name.type}\\[\\] = \\[([a-z0-9, ]*)\\];$`);
+  const array = new RegExp(`^export const ${name.array}: readonly ${name.type}\\[\\] = \\[[a-z][a-z0-9]*(?:, [a-z][a-z0-9]*)*\\];$`);
   const lastImport = lines.findLastIndex((line) => imports.test(line));
   const arrays = lines.flatMap((line, index) => array.test(line) ? [index] : []);
   // Any other mention of the array's declaration (one spread over lines, a second one) is a shape tome does not know.
   const declarations = lines.filter((line) => line.includes(`const ${name.array}`)).length;
   if (lastImport < 0 || arrays.length !== 1 || declarations !== 1) return null;
-  const entries = array.exec(lines[arrays[0]])![1].trim();
-  const arrayLine = lines[arrays[0]].replace(`[${entries}]`, `[${entries ? `${entries}, ` : ''}${id}]`);
+  const arrayLine = lines[arrays[0]].replace(/\];$/, `, ${id}];`);
   const after = lines.with(arrays[0], arrayLine).toSpliced(lastImport + 1, 0, importLine).join('\n');
   return { before, after, lines: [importLine, arrayLine] };
 }
@@ -90,7 +95,7 @@ function editRegistry(before: string, kind: Kind, entryLine: string): Omit<FileE
   if (end < 0) return null;
   const entry = /^ {2}([a-z][a-z0-9]*): \(\) => import\('\.\/\1'\),$/;
   const keys = lines.slice(start, end).map((line) => entry.exec(line)?.[1]);
-  if (keys.some((key) => key === undefined)) return null;
+  if (keys.length === 0 || keys.some((key) => key === undefined)) return null;
   const key = entry.exec(entryLine)![1];
   const sorted = keys.every((each, index) => index === 0 || keys[index - 1]! < each!);
   const position = sorted ? keys.filter((each) => each! < key).length : keys.length;

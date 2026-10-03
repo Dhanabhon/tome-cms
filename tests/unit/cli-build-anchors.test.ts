@@ -124,3 +124,41 @@ test('applying stops at a file changed since the plan, and puts back what it alr
   assert.throws(() => applyEdits(plan.edits), /src\/plugins\/registry\.ts changed/);
   assert.deepEqual(await read(), { ...original, 'src/plugins/registry.ts': changed });
 });
+
+test('an id already in the lists is refused by the plan itself, which writes nothing', async (t) => {
+  const { root, original, read } = await copies(t);
+  for (const [kind, id, file] of [['theme', 'plain', 'src/themes/manifests.ts'], ['plugin', 'notice', 'src/plugins/manifests.ts']] as const) {
+    const plan = planRegistration(kind, id, root);
+    assert.equal(plan.ok, false, id);
+    if (!plan.ok) assert.deepEqual(plan.manualLines, [`${id} is already listed in ${file}, so nothing was changed.`]);
+  }
+  // Listed in the registry only.
+  await writeFile(join(root, 'src/themes/registry.ts'), swap(original['src/themes/registry.ts'],
+    "  plain: () => import('./plain'),\n", "  plain: () => import('./plain'),\n  zzdemo: () => import('./zzdemo'),\n"));
+  const plan = planRegistration('theme', 'zzdemo', root);
+  assert.equal(plan.ok, false);
+  if (!plan.ok) assert.match(plan.manualLines[0], /zzdemo is already listed in src\/themes\/registry\.ts/);
+  await writeFile(join(root, 'src/themes/registry.ts'), original['src/themes/registry.ts']);
+  assert.deepEqual(await read(), original);
+});
+
+test('an empty list is not an anchor: the plan changes nothing and gives the lines to add by hand', async (t) => {
+  const { root, original, read } = await copies(t);
+  const empties: Array<[string, string, string]> = [
+    ['empty THEME_MANIFESTS', 'src/themes/manifests.ts', swap(original['src/themes/manifests.ts'], '= [paper, plain, almanac];', '= [];')],
+    ['empty THEMES', 'src/themes/registry.ts', original['src/themes/registry.ts'].replace(/^ {2}\w+: \(\) => import\('\.\/\w+'\),\n/gm, '')],
+    ['empty PLUGIN_MANIFESTS', 'src/plugins/manifests.ts', swap(original['src/plugins/manifests.ts'], '= [turnstile, notice, popup, lightbox, typesafe, mcp];', '= [];')],
+    ['empty PLUGINS', 'src/plugins/registry.ts', original['src/plugins/registry.ts'].replace(/^ {2}\w+: \(\) => import\('\.\/\w+'\),\n/gm, '')],
+  ];
+  for (const [what, file, text] of empties) {
+    assert.notEqual(text, original[file], what);
+    await writeFile(join(root, file), text);
+    const plan = planRegistration(file.includes('themes') ? 'theme' : 'plugin', 'zzdemo', root);
+    assert.equal(plan.ok, false, what);
+    if (plan.ok) continue;
+    assert.match(plan.manualLines[0], new RegExp(`${file.replace(/[./]/g, '\\$&')}.*nothing was changed`), what);
+    assert.ok(plan.manualLines.includes("  zzdemo: () => import('./zzdemo'),"), what);
+    assert.deepEqual(await read(), { ...original, [file]: text }, `${what}: nothing else was touched`);
+    await writeFile(join(root, file), original[file]);
+  }
+});
