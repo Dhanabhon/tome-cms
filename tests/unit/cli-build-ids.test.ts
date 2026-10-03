@@ -43,6 +43,19 @@ test('a word JavaScript reserves cannot be an id, since the id is an import name
   }
 });
 
+test('a theme id that is a Tailwind utility class is refused, since it becomes the body class', async (t) => {
+  const root = await listsOnly();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const id of ['hidden', 'grid', 'block', 'flex', 'container', 'prose', 'group', 'peer', 'dark', 'resize', 'transition']) {
+    const result = validateId('theme', id, root);
+    assert.equal(result.ok, false, id);
+    assert.match(result.ok ? '' : result.reason, new RegExp(`^"${id}" is a Tailwind utility class`), id);
+  }
+  // Only a theme's id is a class; a plugin may take the word, and a longer word is no utility.
+  assert.deepEqual(validateId('plugin', 'grid', root), { ok: true });
+  assert.deepEqual(validateId('theme', 'gridline', root), { ok: true });
+});
+
 test('an id is refused when its directory, or a file of that name, already exists', async (t) => {
   const root = await listsOnly();
   t.after(() => rm(root, { recursive: true, force: true }));

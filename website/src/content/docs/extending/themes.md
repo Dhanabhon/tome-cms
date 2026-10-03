@@ -21,7 +21,7 @@ npm run tome -- theme new ledger --dry-run
 
 | Argument or option | What it does |
 | --- | --- |
-| `id` | The new theme's id: 2 to 31 lowercase letters and digits, starting with a letter. There are no hyphens, because the id is also an import name. It is refused when `src/themes/<id>` exists or the id is already in `manifests.ts` or `registry.ts`. |
+| `id` | The new theme's id: 2 to 31 lowercase letters and digits, starting with a letter. There are no hyphens, because the id is also an import name. It is refused when `src/themes/<id>` exists, when the id is already in `manifests.ts` or `registry.ts`, or when it is a one-word Tailwind utility such as `grid`, since the id is also the body's class. |
 | `--from THEME` | The theme to copy: `plain` (the default), `paper` or `almanac`. |
 | `--dry-run` | Prints what it would do and writes nothing. |
 
@@ -31,7 +31,7 @@ It copies `src/themes/<from>/` to `src/themes/<id>/`, so the start is always the
 - every class, element id and custom property that starts with the source's name, so `.almanac-card` becomes `.ledger-card`;
 - the theme's own class on `<body>` and in the stylesheet, so `body.almanac` becomes `body.ledger`.
 
-A comment that only mentions the source theme is left as it was. A custom property of the core, such as `--color-paper-2`, is not renamed.
+A comment that only mentions the source theme is left as it was. A custom property of the core, such as `--color-paper-2`, is not renamed. Nor is a `<from>-` name the core itself uses: a copy of `plain` keeps `plain-body`, because the core's `code.css` draws code blocks inside it.
 
 Fonts are not copied. When the source loads its own, as `almanac` does with Trirong, the new stylesheet imports the source's `fonts.css`, so both load the same files under `public/fonts/`.
 
