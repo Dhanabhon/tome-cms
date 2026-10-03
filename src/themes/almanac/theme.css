@@ -172,6 +172,7 @@
 /* The Menu wears the sub-menu's own chevron, not the browser's triangle. */
 .almanac-header__mobile summary { display: flex; align-items: center; gap: var(--space-3xs); min-height: var(--almanac-field); padding-block: var(--space-sm); color: var(--color-ink); cursor: pointer; font-size: var(--text-sm); font-weight: 500; list-style: none; }
 .almanac-header__mobile summary::-webkit-details-marker { display: none; }
+.almanac-header__mobile summary:active { translate: 0 1px; }
 .almanac-header__mobile summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
 .almanac-header__mobile[open] > summary .icon { transform: rotate(180deg); }
 
@@ -335,6 +336,8 @@
   .almanac-search-toggle:hover { border-color: var(--color-ink-2); background: var(--color-paper-2); }
 }
 
+.almanac-search-toggle:active { translate: 0 1px; }
+
 @media (min-width: 48rem) {
   .almanac-header__desktop { display: block; flex: 0 1 auto; }
   .almanac-header__mobile { display: none; }
@@ -366,10 +369,12 @@
   .almanac-footer p a:hover { color: var(--color-ink); text-decoration-thickness: 2px; }
 }
 
-/* An inline link's padding grows what a finger can hit without moving the line: the footer's 14px
- * type on its line, and 12px above and below, is 44. */
+/* On a touch screen a footer link is a box a field tall, so its line grows to hold it: padding on
+ * the inline link reached over the line above and below it. A menu link is as wide as it is tall,
+ * so a short word ("Feed") is not a 32px target. */
 @media (pointer: coarse) {
-  .almanac-footer p a, .almanac-footer__nav a { padding-block: var(--space-sm); }
+  .almanac-footer p a, .almanac-footer__nav a { display: inline-flex; align-items: center; min-block-size: var(--almanac-field); }
+  .almanac-footer__nav a { justify-content: center; min-inline-size: var(--almanac-field); }
 }
 
 /* The language menu opens upward from the footer, lined up with its button, and downward only
@@ -530,21 +535,24 @@ main:has(.almanac-feed__heading:not(.sr-only)) :is(.almanac-hero__lead, .almanac
 
 .almanac-card__panel img { width: 100%; height: 100%; object-fit: cover; }
 
-/* No cover: a shorter band in the category's tone, with the category's name in Trirong. Its two
+/* No cover: a band in the category's tone, with the category's name in Trirong. It is the cover's
+ * 16:9, so a row that mixes the two starts its titles level (a 3:1 band left them up to 90px apart),
+ * and the name is smaller and lighter than the title under it, which leads. On a category's own
+ * list the heading already says the name, so the band is its tone alone (Home.astro). Its two
  * colours are the tone and the tone's ink, a pair the token test holds to 4.5:1 in both schemes.
  * A name too long for the band, in either script, ends in an ellipsis on its one line; the line is
  * Thai-tall, so the clip never takes a mark. */
 .almanac-card__band {
   display: flex;
   align-items: center;
-  aspect-ratio: 3 / 1;
+  aspect-ratio: 16 / 9;
   margin: 0;
   padding-inline: var(--space-md);
   background: var(--card-tone, var(--almanac-tone-0));
   color: var(--card-tone-ink, var(--almanac-tone-0-ink));
   font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: 400;
   line-height: 1.4;
 }
 
@@ -563,10 +571,13 @@ main:has(.almanac-feed__heading:not(.sr-only)) :is(.almanac-hero__lead, .almanac
 
 .almanac-card__meta { margin: auto 0 0; padding-block-start: var(--space-xs); color: var(--color-muted); font-size: var(--text-sm); }
 
-/* One answer to a hover: the title takes the link colour. No lift, no shadow. */
+/* One answer to a hover: the title takes the link colour. No lift, no shadow. A press, which a
+ * touch screen has without a hover, takes it too, underlined. */
 @media (hover: hover) {
   .almanac-card__link:hover .almanac-card__title { color: var(--color-link); }
 }
+
+.almanac-card__link:active .almanac-card__title { color: var(--color-link); text-decoration: underline; }
 
 @media (prefers-reduced-motion: no-preference) {
   .almanac-feed { transition: opacity var(--dur-short) var(--ease-out); }
@@ -633,6 +644,8 @@ main:has(.almanac-feed__heading:not(.sr-only)) :is(.almanac-hero__lead, .almanac
 @media (hover: hover) {
   .almanac-article__pill:hover { text-decoration: underline; }
 }
+
+.almanac-article__pill:active { translate: 0 1px; }
 
 /* As tall as the home page's pills on a touch screen. */
 @media (pointer: coarse) {

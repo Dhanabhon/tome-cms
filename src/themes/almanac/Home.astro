@@ -58,7 +58,7 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
     {posts.length > 0 ? (
       <div class="almanac-grid">
         {posts.map((post, index) => (
-          <PostCard eager={!cursor && index < 3} first={!cursor && index === 0} locale={locale} post={post} siteName={name} timezone={timezone} />
+          <PostCard eager={!cursor && index < 3} first={!cursor && index === 0} locale={locale} named={!activeCategory} post={post} siteName={name} timezone={timezone} />
         ))}
       </div>
     ) : !loadError && (

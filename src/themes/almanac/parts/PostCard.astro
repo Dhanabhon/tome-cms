@@ -12,6 +12,8 @@ interface Props {
    *  too, at 390 px as at 1440 -- a 16:9 cover outweighs the headline. */
   first: boolean;
   locale: PostLocale;
+  /** A coverless band names its category; on that category's own list it is its tone alone. */
+  named: boolean;
   post: ThemeHomePost;
   siteName: string;
   timezone: string;
@@ -23,7 +25,7 @@ interface Props {
  * its alt is empty on purpose: inside a link already named by the title, the media's alt would
  * only be read as a second name, or not at all.
  */
-const { eager, first, locale, post, siteName, timezone } = Astro.props;
+const { eager, first, locale, named, post, siteName, timezone } = Astro.props;
 const excerpt = postExcerpt(post, '');
 const published = post.published_at ?? post.created_at;
 const meta = cardMeta(postReadingMinutes(post), published, locale, timezone);
@@ -38,8 +40,8 @@ const titleId = `card-${post.id}`;
         <img src={post.cover_image} alt="" width="800" height="450" decoding="async" fetchpriority={first ? 'high' : undefined} loading={eager ? 'eager' : 'lazy'} />
       </div>
     ) : panel && (
-      <p class="almanac-card__band" style={`--card-tone: var(--almanac-tone-${panel.tone}); --card-tone-ink: var(--almanac-tone-${panel.tone}-ink);`}>
-        <span>{panel.name}</span>
+      <p class="almanac-card__band" aria-hidden={named ? undefined : 'true'} style={`--card-tone: var(--almanac-tone-${panel.tone}); --card-tone-ink: var(--almanac-tone-${panel.tone}-ink);`}>
+        {named && <span>{panel.name}</span>}
       </p>
     )}
     <div class="almanac-card__body">

@@ -269,11 +269,18 @@ test('the cards: one link each, and their category\'s name on its tone when ther
   await expect(band('Zymurgy, butter and patience'), 'no category chosen is the default, Uncategorized').toHaveText('Uncategorized');
   await expect(band(LONG_TITLE)).toHaveText('Field Notes');
   await expect(page.locator('.almanac-card__letter'), 'no letter in a circle anywhere').toHaveCount(0);
-  // Shorter than a cover's 16:9, and the cards of a row stand as tall as each other.
+  // A cover's 16:9, so the cards of a row stand as tall as each other and their titles start level.
   const ratio = await band('Zymurgy, butter and patience').evaluate((element) => element.clientWidth / element.clientHeight);
-  expect(ratio, 'a band of about 3:1').toBeCloseTo(3, 1);
+  expect(ratio, 'a band of 16:9, as a cover is').toBeCloseTo(16 / 9, 1);
   const heights = await cards(page).evaluateAll((all) => all.slice(0, 3).map((card) => Math.round(card.getBoundingClientRect().height)));
   expect(new Set(heights).size, `the first row's cards are one height: ${heights}`).toBe(1);
+  const titles = await cards(page).evaluateAll((all) => all.slice(0, 3).map((card) => Math.round(card.querySelector('.almanac-card__title')!.getBoundingClientRect().top)));
+  expect(new Set(titles).size, `the first row's titles start level: ${titles}`).toBe(1);
+  // On a category's own list the heading says the name: a band is its tone alone, and not read out.
+  await open(page, '/en?category=Recipes');
+  const bare = cardNamed(page, 'Notes on the second recipe').locator('.almanac-card__band');
+  await expect(bare).toHaveText('');
+  await expect(bare).toHaveAttribute('aria-hidden', 'true');
 
   for (const card of await cards(page).all()) {
     await expect(card.getByRole('link'), 'one link per card').toHaveCount(1);

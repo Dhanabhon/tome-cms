@@ -53,7 +53,13 @@ const within = (condition: RegExp) => RULES.filter(({ context }) => context.some
 
 test('a card with no cover is a band in its category\'s tone, drawn from tone tokens alone', () => {
   const band = body('.almanac-card__band');
-  assert.match(band, /aspect-ratio: 3 \/ 1/, 'shorter than a cover');
+  // The cover's 16:9, so a row that mixes bands and covers starts its titles level (it was 3:1).
+  assert.match(band, /aspect-ratio: 16 \/ 9/);
+  assert.match(body('.almanac-card__panel'), /aspect-ratio: 16 \/ 9/);
+  // The name says the category under the title's voice: smaller and lighter than the title.
+  assert.match(band, /font-size: var\(--text-md\)/);
+  assert.match(band, /font-weight: 400/);
+  assert.match(body('.almanac-card__title'), /font-size: var\(--text-xl\)/);
   assert.match(band, /background: var\(--card-tone, var\(--almanac-tone-0\)\)/);
   assert.match(band, /color: var\(--card-tone-ink, var\(--almanac-tone-0-ink\)\)/);
   assert.match(band, /font-family: var\(--font-display\)/, 'the name is set in Trirong');
@@ -86,8 +92,8 @@ test('a card answers a hover with one thing: its title takes the link colour', (
   }
 });
 
-test('the buttons, the pills and the search submit answer a press', () => {
-  for (const selector of ['.almanac-button:active', '.almanac-pills a:active', '.almanac-search__submit:active']) {
+test('the buttons, the pills, the search, the Menu and a card answer a press', () => {
+  for (const selector of ['.almanac-button:active', '.almanac-pills a:active', '.almanac-search__submit:active', '.almanac-search-toggle:active', '.almanac-article__pill:active', '.almanac-header__mobile summary:active', '.almanac-card__link:active .almanac-card__title']) {
     assert.ok(named(selector).length, `${selector} has no pressed state`);
   }
 });
@@ -155,4 +161,24 @@ test("the missing page is titled at Almanac's post-title size, on the article's 
   assert.match(block, /font-size: 1\.125rem/, 'the em of the article, so 35em is the same width');
   assert.match(block, /max-inline-size: none/);
   assert.match(block, /padding-inline: 0/);
+});
+
+test('on a category view a coverless card shows its tone alone, not the name the heading already says', () => {
+  const home = read('src/themes/almanac/Home.astro');
+  assert.match(home, /<PostCard [^>]*named=\{!activeCategory\}/);
+  const card = read('src/themes/almanac/parts/PostCard.astro');
+  assert.match(card, /\{named && <span>\{panel\.name\}<\/span>\}/);
+  // A band with no name is decoration, and is not read inside the link.
+  assert.match(card, /aria-hidden=\{named \? undefined : 'true'\}/);
+});
+
+test('on a touch screen a footer link is a box a finger can hit, as wide as it is tall, and never over the next line', () => {
+  const coarse = within(/\(pointer: coarse\)/);
+  const rule = (selector: string) => coarse.filter((candidate) => selectors(candidate).includes(selector)).map(({ body: declarations }) => declarations).join(';');
+  for (const selector of ['.almanac-footer p a', '.almanac-footer__nav a']) {
+    assert.match(rule(selector), /display: inline-flex/, selector);
+    assert.match(rule(selector), /min-block-size: var\(--almanac-field\)/, selector);
+    assert.doesNotMatch(rule(selector), /padding-block/, `${selector}: padding reached over the line above and below`);
+  }
+  assert.match(rule('.almanac-footer__nav a'), /min-inline-size: var\(--almanac-field\)/);
 });
