@@ -6,5 +6,11 @@ export const manifest: ThemeManifest = {
   id: 'plain',
   leadsFirstPage: true,
   name: 'Plain',
-  preloadFonts: ['/fonts/google-sans-latin-400-normal.woff2', '/fonts/google-sans-thai-400-normal.woff2'],
+  // 400 for the words, 700 for the headings, the chosen tab and the wordmark: both draw the first screen.
+  preloadFonts: [
+    '/fonts/google-sans-latin-400-normal.woff2',
+    '/fonts/google-sans-thai-400-normal.woff2',
+    '/fonts/google-sans-latin-700-normal.woff2',
+    '/fonts/google-sans-thai-700-normal.woff2',
+  ],
 };

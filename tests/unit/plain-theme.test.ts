@@ -216,11 +216,13 @@ test('the shell is at least a small viewport tall, so a phone toolbar does not l
 });
 
 test("a post's running text keeps a reading measure in rem, not ch", () => {
-  const measure = /max-inline-size: ([\d.]+)rem;/.exec(top('.plain-body > :is(p, ul, ol, blockquote, h2, h3)'))?.[1];
+  const measure = /max-inline-size: ([\d.]+)rem;/.exec(top('.plain-body > :is(p:not(.file-card), ul, ol, blockquote, h2, h3)'))?.[1];
   assert.ok(measure, 'the prose has a measure');
   // About 68 characters of 16px Google Sans, counted in a screenshot.
   assert.ok(Number(measure) >= 30 && Number(measure) <= 33, `${measure}rem`);
   assert.doesNotMatch(PLAIN, /\dch\b/, 'no measure in ch, which counts Thai badly');
+  // A file card is a <p>, and is as wide as the picture and the code beside it.
+  assert.doesNotMatch(PLAIN, /\.plain-body > :is\(p,/);
 });
 
 test('the cover stands off the first paragraph, and does not say the title again', () => {
@@ -273,10 +275,12 @@ test('below 64rem the tabs are one row that scrolls sideways, with the rule unde
 });
 
 test('header, footer, back and paging links are a full target on a touch screen', () => {
-  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a', COARSE);
+  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a, .plain-wordmark', COARSE);
   assert.match(touch, /display: inline-flex;/);
   assert.match(touch, /min-height: var\(--plain-field\);/);
   assert.match(top('.plain-nav .site-submenu a', COARSE), /padding-block: var\(--space-sm\);/);
+  // And a press shows on them, as on the tabs and the search button.
+  assert.match(top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a:active, .plain-wordmark:active', COARSE), /translate: 0 1px;/);
   // The underline is the text's, so a taller link keeps it under the words.
   assert.match(top('.plain-nav a,\n.plain-foot a'), /text-decoration-color: transparent;/);
   assert.doesNotMatch(top('.plain-nav a,\n.plain-foot a'), /border-block-end/);
@@ -288,6 +292,13 @@ test("the theme button is quiet in Plain's header: no ring, the field's size, a 
   assert.match(button, /height: var\(--plain-field\);/);
   assert.match(button, /border-color: transparent;/);
   assert.match(top('.plain-nav .ui-theme__trigger:hover', HOVER), /border-color: transparent; background: var\(--color-paper-2\);/);
+});
+
+test('the tab row is scrolled sideways only: the page itself never moves for it', () => {
+  const script = /<script>([\s\S]*?)<\/script>/.exec(read('Home.astro'))?.[1] ?? '';
+  assert.match(script, /row\.scrollLeft \+=/);
+  assert.match(script, /addEventListener\('focusin'/);
+  assert.doesNotMatch(script, /scrollIntoView/, 'scrollIntoView can scroll the page as well');
 });
 
 test('a tab and the search button answer a press', () => {

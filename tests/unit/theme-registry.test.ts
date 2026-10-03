@@ -156,7 +156,8 @@ test('each theme names the fonts it preloads, and the page preloads exactly thos
   const expected: Record<string, string[]> = {
     almanac: files('trirong-latin-600', 'trirong-thai-600', 'ibm-plex-sans-thai-latin-400', 'ibm-plex-sans-thai-thai-400'),
     paper: files('google-sans-latin-400', 'google-sans-thai-400', 'google-sans-latin-700', 'google-sans-thai-700'),
-    plain: files('google-sans-latin-400', 'google-sans-thai-400'),
+    // Plain's headings, its chosen tab and its wordmark are 700, and draw the first screen too.
+    plain: files('google-sans-latin-400', 'google-sans-thai-400', 'google-sans-latin-700', 'google-sans-thai-700'),
   };
   for (const { id, preloadFonts } of THEME_MANIFESTS) {
     assert.deepEqual(preloadFonts, expected[id], `${id} preloads its own faces`);

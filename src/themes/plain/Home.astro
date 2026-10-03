@@ -92,13 +92,19 @@ const when = (post: Post) => post.published_at ?? post.created_at;
 <script>
   /*
    * Below 64rem the tabs scroll sideways. A page arrives with the row at its start, so the chosen
-   * tab is brought into it, and the reader sees which list this is; and a tab the keyboard reaches
-   * is brought in whole, clear of the edge by the row's scroll-padding: the browser's own scroll on
-   * focus left the last tab cut by the edge at 768px (tests/e2e/home-search.spec.ts). A wide row is
-   * all in view, and neither moves it.
+   * tab is scrolled into it, and the reader sees which list this is; and a tab the keyboard reaches
+   * is scrolled in whole, clear of the edge by the row's scroll-padding: the browser's own scroll on
+   * focus left the last tab cut by the edge at 768px (tests/e2e/home-search.spec.ts). Only the row
+   * moves, never the page, which scrolling a tab into view could. A wide row is all in view, and nothing moves.
    */
   const row = document.querySelector<HTMLElement>('.plain-filter');
-  const show = (tab: Element | null | undefined) => tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const show = (tab: Element | null | undefined) => {
+    if (!row || !tab) return;
+    const pad = parseFloat(getComputedStyle(row).scrollPaddingInlineStart) || 0;
+    const [box, edge] = [tab.getBoundingClientRect(), row.getBoundingClientRect()];
+    if (box.left < edge.left + pad) row.scrollLeft += box.left - edge.left - pad;
+    else if (box.right > edge.right - pad) row.scrollLeft += box.right - edge.right + pad;
+  };
   show(row?.querySelector('[aria-current="page"]'));
   row?.addEventListener('focusin', (event) => show(event.target as Element));
 </script>
