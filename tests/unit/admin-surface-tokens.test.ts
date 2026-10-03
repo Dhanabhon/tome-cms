@@ -763,6 +763,9 @@ test('the switch shows its knob, says when it is busy, answers the pointer, and 
   // Hover and press.
   assert.match(CSS, /@media \(hover: hover\) \{\s*\.admin-switch:hover input:not\(:checked, :disabled\) \{ border-color: var\(--color-ink-2\); \}/);
   assert.match(CSS, /\.admin-switch:active input:not\(:disabled\)::after \{ scale: [\d.]+; \}/);
+  // The knob's travel is the translate property, not transform: scale applies after transform, so a
+  // pressed, checked knob would have its travel scaled with it and jump back.
+  assert.equal(declaration(ruleBody(CSS, '.admin-switch input:checked::after'), 'translate'), '1.0625rem 0');
 });
 
 test('display headings in the admin lead at 1.2, and Thai drops their negative tracking', () => {

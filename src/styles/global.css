@@ -2212,10 +2212,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   /* Muted on the paper-3 track, a pair held at 4.5 in both schemes. Paper on paper-3 was 1.15:1,
    * and in dark the knob all but disappeared. */
   background: var(--color-muted);
-  transition: transform var(--dur-short) var(--ease-out), scale var(--dur-short) var(--ease-out);
+  transition: translate var(--dur-short) var(--ease-out), scale var(--dur-short) var(--ease-out);
 }
 .admin-switch input:checked { border-color: var(--color-accent); background: var(--color-accent); }
-.admin-switch input:checked::after { transform: translateX(1.0625rem); background: var(--color-paper); }
+.admin-switch input:checked::after { translate: 1.0625rem 0; background: var(--color-paper); }
 .admin-switch input:checked + .admin-switch__state { color: var(--color-focus); }
 .admin-switch input:disabled { cursor: not-allowed; opacity: 0.55; }
 .admin-switch:has(input:disabled) { cursor: not-allowed; }
