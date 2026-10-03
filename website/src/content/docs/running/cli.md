@@ -189,9 +189,9 @@ npm run tome -- check
 4. a setting that is not well formed: a repeated key, a kind the contract does not allow, a label or hint missing in English or Thai, a choice without options or whose fallback is not one of them, a theme's text setting without a maximum length (a plugin's text has none in its contract), a switch whose fallback is not `on` or `off`;
 5. a plugin whose `index.ts` does not export the sign-in pair every plugin answers, or a method of each hook it declares;
 6. a theme that imports from `src/server/` or `src/pages/`;
-7. a raw colour in a theme's CSS outside a token block. A raw colour is a hex such as `#c00`, or `rgb()`, `hsl()`, `oklch()`, `oklab()`, `lab()` or `lch()`. A token block is a rule that declares nothing but custom properties, such as `--color-ink: oklch(24% 0.012 70);`. Everywhere else the stylesheet uses `var(--color-ink)`. Comments are not read.
+7. a raw colour in a theme's CSS outside a token block. A raw colour is a hex such as `#c00`, or `rgb()`, `hsl()`, `hwb()`, `oklch()`, `oklab()`, `lab()`, `lch()` or `color()`. A token block is a rule whose own declarations are all custom properties, such as `--color-ink: oklch(24% 0.012 70);`; a rule nested inside it is checked on its own. Everywhere else the stylesheet uses `var(--color-ink)`. Comments are not read, and neither is a colour name such as `red`.
 
-It does not run a plugin. It loads each manifest, which only declares data, and reads each plugin's `index.ts` for the names it exports. A method that is only on the default export object does not count, because the core loads the named exports.
+It does not run a plugin. It imports each manifest and each plugin's `index.ts`, as the core does, and calls nothing in them. Any way of exporting a method counts, including `export * from './hooks'`. A method that is only on the default export object does not count, because the core uses the module's named exports.
 
 A checkout with nothing wrong:
 
@@ -200,7 +200,13 @@ $ npm run tome -- check
 Checked 3 themes and 6 plugins: no problems.
 ```
 
-A plugin made with `plugin new nimbus --hook publicPage`, then given a setting with no Thai label, and with `export` taken off its `siteNotice`:
+A plugin made with `plugin new nimbus --hook publicPage`, with `export` then taken off the `siteNotice` line of its `index.ts`, and `settings: [],` in its `plugin.ts` replaced by a setting with no Thai label:
+
+```ts
+  settings: [
+    { key: 'message', kind: 'text', label: { en: 'Message', th: '' }, required: false },
+  ],
+```
 
 ```text
 $ npm run tome -- check
