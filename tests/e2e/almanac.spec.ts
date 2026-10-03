@@ -276,11 +276,6 @@ test('the cards: one link each, and their category\'s name on its tone when ther
   expect(new Set(heights).size, `the first row's cards are one height: ${heights}`).toBe(1);
   const titles = await cards(page).evaluateAll((all) => all.slice(0, 3).map((card) => Math.round(card.querySelector('.almanac-card__title')!.getBoundingClientRect().top)));
   expect(new Set(titles).size, `the first row's titles start level: ${titles}`).toBe(1);
-  // On a category's own list the heading says the name: a band is its tone alone, and not read out.
-  await open(page, '/en?category=Recipes');
-  const bare = cardNamed(page, 'Notes on the second recipe').locator('.almanac-card__band');
-  await expect(bare).toHaveText('');
-  await expect(bare).toHaveAttribute('aria-hidden', 'true');
 
   for (const card of await cards(page).all()) {
     await expect(card.getByRole('link'), 'one link per card').toHaveCount(1);
@@ -298,6 +293,11 @@ test('the cards: one link each, and their category\'s name on its tone when ther
   expect(await toneOf('Zymurgy, butter and patience'), 'the default category').toBe(expected('Uncategorized'));
   expect(await toneOf('Notes on the second recipe'), 'Recipes').toBe(expected('Recipes'));
   await expect(cover.locator('.almanac-card__panel'), 'a cover has no tone').not.toHaveAttribute('style', /--almanac-tone/);
+  // On a category's own list the heading says the name: a band is its tone alone, and not read out.
+  await open(page, '/en?category=Recipes');
+  const bare = cardNamed(page, 'Notes on the second recipe').locator('.almanac-card__band');
+  await expect(bare).toHaveText('');
+  await expect(bare).toHaveAttribute('aria-hidden', 'true');
 });
 
 test('a very long title stays in its card, clamped to three lines, and in its post', async ({ page }) => {

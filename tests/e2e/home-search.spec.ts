@@ -263,7 +263,7 @@ test('thai: the box and the words around a result are in the reader\'s language'
   await box.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/th\\?q=${encodeURIComponent('กุหลาบ')}`));
   await expect(page.locator('.post-card')).toHaveCount(1);
-  await expect(page.getByText('ผลการค้นหา “กุหลาบ”')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ผลการค้นหา “กุหลาบ”' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'ล้างการค้นหา' })).toBeVisible();
 });
 
@@ -513,6 +513,8 @@ test.describe('plain', () => {
     test.setTimeout(120_000);
     psql(`insert into categories (owner_id, name, is_default) values ('${OWNER}', 'Bare', false) on conflict do nothing`);
     await page.goto(`${origin}/en?category=Bare`);
+    // It has no tab to mark it, so the list names it.
+    await expect(page.getByRole('heading', { level: 2, name: 'Bare', exact: true })).toBeVisible();
     const empty = page.locator('.plain-empty');
     await expect(empty).toHaveText('No posts in this category yet. All posts');
     await expect(empty.getByRole('link', { name: 'All posts' })).toHaveAttribute('href', '/en');
