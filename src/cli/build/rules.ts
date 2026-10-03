@@ -1,9 +1,12 @@
+import { posix } from 'node:path';
+
 import type { Kind } from './ids.js';
 
 // The rules `tome check` holds every theme and plugin to. Each is a pure function over text it is
 // handed, and returns its problems; it reads nothing and writes nothing. commands/check.ts reads
-// the checkout and runs them. tests/unit/theme-registry.test.ts and almanac-tokens.test.ts call
-// rules 6 and 7, and plugin-admin.test.ts reads HOOK_METHODS, so each is written once.
+// the checkout, loads the modules and runs them. tests/unit/theme-registry.test.ts and
+// almanac-tokens.test.ts call rules 6 and 7, and plugin-admin.test.ts reads HOOK_METHODS, so each
+// is written once.
 
 /** One thing wrong, printed as `path:line: message`. The path is from the checkout's root. */
 export interface Problem {
@@ -40,6 +43,14 @@ function lineOf(text: string, pattern: RegExp): number {
   return match ? lineAt(text, match.index) : 1;
 }
 
+/** `text` with each match of `comments` turned to spaces, so every index and line stays where it was. */
+function blank(text: string, comments: RegExp): string {
+  return text.replace(comments, (comment) => comment.replace(/[^\n]/g, ' '));
+}
+
+const TS_COMMENTS = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+const CSS_COMMENTS = /\/\*[\s\S]*?\*\//g;
+
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const filled = (value: unknown) => typeof value === 'string' && value.trim() !== '';
 
@@ -53,8 +64,10 @@ export function directoryMatchesId(path: string, directory: string, text: string
  * Rule 2: every directory of a kind is an entry of its `*_MANIFESTS` array and a key of its
  * registry, and every entry and key has a directory. `ids` are the directories.
  */
-export function listedInBoth(kind: Kind, ids: readonly string[], lists: { manifests: string; registry: string }): Problem[] {
+export function listedInBoth(kind: Kind, ids: readonly string[], text: { manifests: string; registry: string }): Problem[] {
   const base = `src/${kind}s`;
+  // A name in a comment is not a listing.
+  const lists = { manifests: blank(text.manifests, TS_COMMENTS), registry: blank(text.registry, TS_COMMENTS) };
   const files = { manifests: `${base}/manifests.ts`, registry: `${base}/registry.ts` };
   const listed = {
     manifests: arrayEntries(lists.manifests),
@@ -84,11 +97,11 @@ function arrayEntries(text: string): Array<{ id: string; line: number }> {
   return [...array[1]!.matchAll(/[A-Za-z_$][\w$]*/g)].map((entry) => ({ id: entry[0], line: lineAt(text, start + entry.index) }));
 }
 
-/** Rule 3: the files a theme or plugin needs. `files` are paths inside its directory; `index` is its index.ts. */
-export function requiredFiles(kind: Kind, directory: string, files: readonly string[], index: string): Problem[] {
+/** Rule 3: the files a theme or plugin needs. `files` are paths inside its directory; `exported` is what its index.ts exports. */
+export function requiredFiles(kind: Kind, directory: string, files: readonly string[], exported: ReadonlySet<string>): Problem[] {
   const missing = (file: string, why: string): Problem[] => files.includes(file) ? [] : [{ path: `${directory}/${file}`, line: 1, message: `is missing, and ${why} needs it` }];
   const problems = (kind === 'theme' ? THEME_FILES : PLUGIN_FILES).flatMap((file) => missing(file, `every ${kind}`));
-  if (kind === 'plugin' && exportedNames(index).has('publicClient')) problems.push(...missing('client.ts', 'a plugin with a publicClient'));
+  if (kind === 'plugin' && exported.has('publicClient')) problems.push(...missing('client.ts', 'a plugin with a publicClient'));
   return problems;
 }
 
@@ -110,13 +123,16 @@ export function wellFormedSettings(kind: Kind, path: string, text: string, setti
   if (settings === undefined) return [];
   if (!Array.isArray(settings)) return [{ path, line: lineOf(text, /\bsettings\s*:/), message: 'settings is not a list' }];
   const problems: Problem[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
   for (const setting of settings as Array<Record<string, unknown>>) {
     const key = String(setting?.key ?? '');
-    const line = lineOf(text, new RegExp(`\\bkey\\s*:\\s*['"]${escape(key)}['"]`));
+    // The nth setting with this key is reported at the nth `key: '<key>'` in the source.
+    const nth = seen.get(key) ?? 0;
+    seen.set(key, nth + 1);
+    const at = [...text.matchAll(new RegExp(`\\bkey\\s*:\\s*['"]${escape(key)}['"]`, 'g'))][nth];
+    const line = at ? lineAt(text, at.index) : lineOf(text, /\bsettings\s*:/);
     const report = (message: string) => problems.push({ path, line, message: `setting "${key}" ${message}` });
-    if (seen.has(key)) report('is declared twice');
-    seen.add(key);
+    if (nth > 0) report('is declared twice');
     if (!kinds.includes(String(setting?.kind))) report(`has kind ${JSON.stringify(setting?.kind)}, which the contract does not allow (${kinds.join(', ')})`);
     for (const missing of languagesMissing(setting?.label)) report(`has no ${missing} label`);
     if (setting?.hint !== undefined) for (const missing of languagesMissing(setting.hint)) report(`has no ${missing} hint`);
@@ -145,25 +161,11 @@ function languagesMissing(pair: unknown): string[] {
 }
 
 /**
- * The names a module exports, read from its source: `export function|const|let|class <name>` and
- * `export { a, b as c }`, with or without `from`. Not the default export: the core loads a plugin's
- * module namespace, so a method only on the default object is one the core never finds.
+ * Rule 5: a plugin's index.ts exports the sign-in pair, and a method of each hook its manifest
+ * declares. `exported` is the keys of the loaded module's namespace, which is what the core calls:
+ * a method that is only on the default export object is one the core never finds.
  */
-export function exportedNames(text: string): Set<string> {
-  const names = new Set<string>();
-  for (const [, name] of text.matchAll(/^\s*export\s+(?:declare\s+)?(?:async\s+)?(?:function\s*\*?|const|let|var|class)\s*([A-Za-z_$][\w$]*)/gm)) names.add(name!);
-  for (const [, list] of text.matchAll(/^\s*export\s*\{([^}]*)\}/gm)) {
-    for (const part of list!.split(',').map((entry) => entry.trim())) {
-      if (part === '' || part.startsWith('type ')) continue;
-      names.add(part.split(/\s+as\s+/).pop()!);
-    }
-  }
-  return names;
-}
-
-/** Rule 5: a plugin's index.ts exports the sign-in pair, and a method of each hook its manifest declares. */
-export function hooksImplemented(path: string, index: string, hooks: unknown): Problem[] {
-  const exported = exportedNames(index);
+export function hooksImplemented(path: string, exported: ReadonlySet<string>, hooks: unknown): Problem[] {
   const problems: Problem[] = SIGN_IN_PAIR.filter((name) => !exported.has(name))
     .map((name) => ({ path, line: 1, message: `exports no ${name}, which every plugin needs` }));
   for (const hook of Array.isArray(hooks) ? hooks : []) {
@@ -177,39 +179,82 @@ export function hooksImplemented(path: string, index: string, hooks: unknown): P
   return problems;
 }
 
-/** Rule 6: a theme file imports nothing from src/server/ or src/pages/. A theme is handed what it needs. */
+/**
+ * Rule 6: a theme file imports nothing from src/server/ or src/pages/. A theme is handed what it
+ * needs. `path` is the file's, from the checkout's root: a relative import is resolved against it,
+ * so a theme's own `./pages/` folder is its own business.
+ */
 export function serverImports(path: string, source: string): Problem[] {
   return source.split('\n').flatMap((text, index) =>
-    [...text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]*\/(?:server|pages)(?:\/[^'"]*)?)['"]/g)].map(([, specifier]) => ({
-      path,
-      line: index + 1,
-      message: `imports ${specifier}, and a theme may not import from src/server/ or src/pages/`,
-    })));
+    [...text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g)]
+      .filter(([, specifier]) => /^src\/(?:server|pages)(?:\/|$)/.test(specifier!.startsWith('.') ? posix.join(posix.dirname(path), specifier!) : specifier!))
+      .map(([, specifier]) => ({
+        path,
+        line: index + 1,
+        message: `imports ${specifier}, and a theme may not import from src/server/ or src/pages/`,
+      })));
 }
 
-const COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\([^)]*\)/gi;
+const COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\([^)]*\)/gi;
 
 /**
- * Rule 7: a theme's CSS draws with tokens. A raw colour -- a hex, or rgb(), hsl(), oklch(), oklab(),
- * lab() or lch() -- may appear only in a token block: a rule whose declarations are all custom
- * properties, such as `:root { --color-ink: oklch(…); }`. Comments are not read, and a `#name` in
- * a selector is not a colour.
+ * Rule 7: a theme's CSS draws with tokens. A raw colour -- a hex, or rgb(), hsl(), hwb(), oklch(),
+ * oklab(), lab(), lch() or color() -- may appear only in a token block: a rule whose own
+ * declarations are all custom properties, such as `:root { --color-ink: oklch(…); }`. A block
+ * nested in it is a rule of its own. Comments are not read, and neither a `#name` in a selector
+ * nor a `#fragment` in a url() is a colour.
  */
 export function rawColours(path: string, css: string): Problem[] {
-  // Comments blanked to spaces, so every index and line stays where it was.
-  const text = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '));
+  const text = blank(css, CSS_COMMENTS);
   const problems: Problem[] = [];
   for (const match of text.matchAll(COLOUR)) {
     const at = match.index;
     const next = text.slice(at).search(/[{};]/);
     if (next !== -1 && text[at + next] === '{') continue;
-    const open = text.lastIndexOf('{', at);
-    if (open > text.lastIndexOf('}', at)) {
-      const close = text.indexOf('}', at);
-      const declarations = text.slice(open + 1, close === -1 ? undefined : close).split(';').map((part) => part.trim()).filter(Boolean);
-      if (declarations.every((declaration) => declaration.startsWith('--'))) continue;
-    }
+    const url = text.lastIndexOf('url(', at);
+    if (url !== -1 && !text.slice(url, at).includes(')')) continue;
+    const open = enclosingOpen(text, at);
+    if (open !== -1 && ownDeclarations(text, open).every((declaration) => declaration.startsWith('--'))) continue;
     problems.push({ path, line: lineAt(text, at), message: `${match[0]} is a raw colour outside a token block; use a token` });
   }
   return problems;
+}
+
+/** The `{` of the block `at` is directly inside, or -1 at the top level. */
+function enclosingOpen(text: string, at: number): number {
+  let depth = 0;
+  for (let index = at - 1; index >= 0; index -= 1) {
+    if (text[index] === '}') depth += 1;
+    if (text[index] === '{') {
+      if (depth === 0) return index;
+      depth -= 1;
+    }
+  }
+  return -1;
+}
+
+/** The declarations of the block opened at `open`, leaving out every block nested in it. */
+function ownDeclarations(text: string, open: number): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const character of text.slice(open + 1)) {
+    if (character === '{') {
+      // What came before a nested block was its selector, not a declaration.
+      if (depth === 0) current = '';
+      depth += 1;
+    } else if (character === '}') {
+      if (depth === 0) break;
+      depth -= 1;
+    } else if (depth === 0) {
+      if (character === ';') {
+        parts.push(current);
+        current = '';
+      } else {
+        current += character;
+      }
+    }
+  }
+  parts.push(current);
+  return parts.map((part) => part.trim()).filter(Boolean);
 }

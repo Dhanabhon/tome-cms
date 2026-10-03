@@ -18,8 +18,8 @@ import {
 
 /**
  * `tome check`: every theme and plugin in the checkout at `root`, held to the rules in
- * build/rules.ts. It prints each problem as `path:line: message` and changes nothing. The only
- * code it runs is each manifest file, which declares data; a plugin's index.ts is read, not run.
+ * build/rules.ts. It prints each problem as `path:line: message` and changes nothing. It imports
+ * each manifest file and each plugin's index.ts, and calls nothing in them.
  */
 export async function check(root: string, output: BuildOutput): Promise<number> {
   const counts = { theme: 0, plugin: 0 };
@@ -56,19 +56,30 @@ async function checkKind(root: string, kind: Kind): Promise<{ count: number; pro
 async function checkOne(root: string, kind: Kind, directory: string, id: string, kinds: readonly string[]): Promise<Problem[]> {
   const files = filesIn(join(root, directory));
   const read = (file: string) => readFileSync(join(root, directory, file), 'utf8');
-  const index = files.includes('index.ts') ? read('index.ts') : '';
-  const problems = requiredFiles(kind, directory, files, index);
+  const problems: Problem[] = [];
+  // What the core calls is a plugin module's namespace, so that is what is read. A theme's index.ts
+  // re-exports .astro templates, which only Astro can load, and no rule needs it.
+  let exported: ReadonlySet<string> | null = null;
+  if (kind === 'plugin' && files.includes('index.ts')) {
+    const index = await load(join(root, directory, 'index.ts'));
+    if (index.ok) exported = new Set(Object.keys(index.module));
+    else problems.push({ path: `${directory}/index.ts`, line: 1, message: `it could not be loaded: ${index.error}` });
+  }
+  problems.push(...requiredFiles(kind, directory, files, exported ?? new Set()));
   const manifestFile = kind === 'theme' ? 'theme.ts' : 'plugin.ts';
   if (files.includes(manifestFile)) {
     const path = `${directory}/${manifestFile}`;
     const text = read(manifestFile);
-    const loaded = await loadManifest(join(root, path));
+    const loaded = await load(join(root, path));
+    const manifest = loaded.ok ? loaded.module.manifest : undefined;
     if (!loaded.ok) {
-      problems.push({ path, line: 1, message: loaded.error });
+      problems.push({ path, line: 1, message: `its manifest could not be loaded: ${loaded.error}` });
+    } else if (typeof manifest !== 'object' || manifest === null) {
+      problems.push({ path, line: 1, message: 'exports no manifest' });
     } else {
-      const { manifest } = loaded;
-      problems.push(...directoryMatchesId(path, id, text, manifest), ...wellFormedSettings(kind, path, text, manifest.settings, kinds));
-      if (kind === 'plugin' && files.includes('index.ts')) problems.push(...hooksImplemented(`${directory}/index.ts`, index, manifest.hooks));
+      const fields = manifest as Record<string, unknown>;
+      problems.push(...directoryMatchesId(path, id, text, fields), ...wellFormedSettings(kind, path, text, fields.settings, kinds));
+      if (exported) problems.push(...hooksImplemented(`${directory}/index.ts`, exported, fields.hooks));
     }
   }
   if (kind === 'theme') {
@@ -80,14 +91,16 @@ async function checkOne(root: string, kind: Kind, directory: string, id: string,
   return problems;
 }
 
-/** The manifest a theme.ts or plugin.ts exports. It declares data and imports only types, so loading it runs nothing else. */
-async function loadManifest(path: string): Promise<{ ok: true; manifest: Record<string, unknown> } | { ok: false; error: string }> {
+/**
+ * A module's namespace. A manifest file declares data and imports only types. A plugin's index.ts
+ * is imported the way the core imports it: nothing in it is called, and today's plugins do nothing
+ * at import but declare constants.
+ */
+async function load(path: string): Promise<{ ok: true; module: Record<string, unknown> } | { ok: false; error: string }> {
   try {
-    const { manifest } = await import(pathToFileURL(path).href) as { manifest?: unknown };
-    if (typeof manifest === 'object' && manifest !== null) return { ok: true, manifest: manifest as Record<string, unknown> };
-    return { ok: false, error: 'exports no manifest' };
+    return { ok: true, module: await import(pathToFileURL(path).href) as Record<string, unknown> };
   } catch (error) {
-    return { ok: false, error: `its manifest could not be loaded: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}` };
+    return { ok: false, error: error instanceof Error ? error.message.split('\n')[0]! : String(error) };
   }
 }
 

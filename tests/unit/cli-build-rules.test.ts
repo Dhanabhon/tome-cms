@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   directoryMatchesId,
-  exportedNames,
+  HOOK_METHODS,
   hooksImplemented,
   listedInBoth,
   rawColours,
@@ -37,6 +37,13 @@ test('rule 2: every directory is listed in both files, and nothing is listed wit
   const plugins = { manifests: await read('src/plugins/manifests.ts'), registry: await read('src/plugins/registry.ts') };
   assert.deepEqual(listedInBoth('plugin', ['lightbox', 'mcp', 'notice', 'popup', 'turnstile', 'typesafe'], plugins), []);
 
+  // A name in a comment is not a listing.
+  const commented = {
+    manifests: lists.manifests.replace('[paper, plain, almanac]', '[paper, plain /* , ledger */, almanac]'),
+    registry: lists.registry.replace("  almanac: () => import('./almanac'),\n", "  almanac: () => import('./almanac'),\n  // ledger: () => import('./ledger'),\n"),
+  };
+  assert.deepEqual(listedInBoth('theme', ['almanac', 'paper', 'plain'], commented), []);
+
   // ledger has a directory and is in neither list; plain is in both and has no directory; and
   // almanac has been left out of the registry only.
   const registry = lists.registry.replace("  almanac: () => import('./almanac'),\n", '');
@@ -51,14 +58,15 @@ test('rule 2: every directory is listed in both files, and nothing is listed wit
 
 test('rule 3: the files a theme and a plugin need, and client.ts when the plugin has a publicClient', () => {
   const theme = ['index.ts', 'theme.ts', 'Shell.astro', 'Home.astro', 'Post.astro', 'Page.astro', 'theme.css', 'parts/Card.astro'];
-  assert.deepEqual(requiredFiles('theme', 'src/themes/ledger', theme, ''), []);
-  assert.deepEqual(where(requiredFiles('theme', 'src/themes/ledger', theme.filter((file) => !/^(Post\.astro|theme\.css)$/.test(file)), '')), [
+  const none = new Set<string>();
+  assert.deepEqual(requiredFiles('theme', 'src/themes/ledger', theme, none), []);
+  assert.deepEqual(where(requiredFiles('theme', 'src/themes/ledger', theme.filter((file) => !/^(Post\.astro|theme\.css)$/.test(file)), none)), [
     'src/themes/ledger/Post.astro:1: is missing, and every theme needs it',
     'src/themes/ledger/theme.css:1: is missing, and every theme needs it',
   ]);
 
-  const client = 'export function publicClient() { return null; }\n';
-  assert.deepEqual(requiredFiles('plugin', 'src/plugins/nimbus', ['index.ts', 'plugin.ts'], ''), []);
+  const client = new Set(['publicClient']);
+  assert.deepEqual(requiredFiles('plugin', 'src/plugins/nimbus', ['index.ts', 'plugin.ts'], none), []);
   assert.deepEqual(requiredFiles('plugin', 'src/plugins/nimbus', ['client.ts', 'index.ts', 'plugin.ts'], client), []);
   assert.deepEqual(where(requiredFiles('plugin', 'src/plugins/nimbus', ['index.ts'], client)), [
     'src/plugins/nimbus/plugin.ts:1: is missing, and every plugin needs it',
@@ -91,7 +99,7 @@ test('rule 4: well-formed settings pass, and each malformed one is reported at i
     { fallback: 'x', key: 'empty', kind: 'choice', label: en('Empty'), options: [] },
     { fallback: '', key: 'mood', kind: 'slider', label: en('Again') },
   ];
-  const badText = "  settings: [\n    { key: 'mood' },\n    { key: 'turn' },\n    { key: 'headline' },\n    { key: 'empty' },\n  ],\n";
+  const badText = "  settings: [\n    { key: 'mood' },\n    { key: 'turn' },\n    { key: 'headline' },\n    { key: 'empty' },\n    { key: 'mood' },\n  ],\n";
   assert.deepEqual(where(wellFormedSettings('theme', 'src/themes/ledger/theme.ts', badText, bad, kinds)), [
     'src/themes/ledger/theme.ts:2: setting "mood" has no Thai label',
     'src/themes/ledger/theme.ts:2: setting "mood" falls back to "c", which is not one of its options',
@@ -100,8 +108,8 @@ test('rule 4: well-formed settings pass, and each malformed one is reported at i
     'src/themes/ledger/theme.ts:3: setting "turn" is a switch, so it falls back to on or off, not "yes"',
     'src/themes/ledger/theme.ts:4: setting "headline" is text, so it needs a max length',
     'src/themes/ledger/theme.ts:5: setting "empty" is a choice with no options',
-    'src/themes/ledger/theme.ts:2: setting "mood" is declared twice',
-    'src/themes/ledger/theme.ts:2: setting "mood" has kind "slider", which the contract does not allow (choice, switch, text)',
+    'src/themes/ledger/theme.ts:6: setting "mood" is declared twice',
+    'src/themes/ledger/theme.ts:6: setting "mood" has kind "slider", which the contract does not allow (choice, switch, text)',
   ]);
 
   // A plugin's text has no max in its contract, and its settings must be a list.
@@ -112,32 +120,21 @@ test('rule 4: well-formed settings pass, and each malformed one is reported at i
   ]);
 });
 
-test('rule 5: what a plugin exports, read from its source', () => {
-  const source = [
-    "import type { Plugin } from '../contract';",
-    "export { manifest } from './plugin';",
-    'export function signInWidget() { return null; }',
-    'export async function verifySignIn() { return { outcome: \'passed\' }; }',
-    'export const pickExcerpt = picker();',
-    'const local = () => null;',
-    'export { local as siteNotice, type Plugin as Shape };',
-    'const plugin = { signInWidget, verifySignIn, publicClient: local };',
-    'export default plugin;',
-  ].join('\n');
-  assert.deepEqual([...exportedNames(source)].sort(), ['manifest', 'pickExcerpt', 'signInWidget', 'siteNotice', 'verifySignIn']);
+test('rule 5: the hook table names exactly the hooks the contract declares', async () => {
+  const union = /export type PluginHookId = ([^;]+);/.exec(await read('src/plugins/contract.ts'))?.[1] ?? '';
+  assert.deepEqual(Object.keys(HOOK_METHODS).sort(), [...union.matchAll(/'([^']+)'/g)].map(([, hook]) => hook).sort());
 });
 
 test('rule 5: a plugin implements the sign-in pair and a method of each hook it declares', () => {
-  const pair = 'export function signInWidget() {}\nexport async function verifySignIn() {}\n';
+  const pair = ['manifest', 'signInWidget', 'verifySignIn'];
   const path = 'src/plugins/nimbus/index.ts';
-  assert.deepEqual(hooksImplemented(path, pair, ['signIn']), []);
-  assert.deepEqual(hooksImplemented(path, `${pair}export const siteNotice = () => null;\n`, ['publicPage']), []);
-  assert.deepEqual(hooksImplemented(path, `${pair}export function pickDescription() {}\n`, ['editorSuggestions']), []);
-  assert.deepEqual(hooksImplemented(path, pair, ['mcp']), []);
+  assert.deepEqual(hooksImplemented(path, new Set(pair), ['signIn']), []);
+  assert.deepEqual(hooksImplemented(path, new Set([...pair, 'siteNotice']), ['publicPage']), []);
+  assert.deepEqual(hooksImplemented(path, new Set([...pair, 'pickDescription']), ['editorSuggestions']), []);
+  assert.deepEqual(hooksImplemented(path, new Set(pair), ['mcp']), []);
 
-  // Only on the default object: the core loads the module's named exports, so this is not implemented.
-  const onlyDefault = 'const plugin = { signInWidget() {}, async verifySignIn() {}, siteNotice() {} };\nexport default plugin;\n';
-  assert.deepEqual(where(hooksImplemented(path, onlyDefault, ['publicPage', 'editorSuggestions', 'later'])), [
+  // A module whose only export is its default object: the core uses the named exports, so this implements nothing.
+  assert.deepEqual(where(hooksImplemented(path, new Set(['default']), ['publicPage', 'editorSuggestions', 'later'])), [
     'src/plugins/nimbus/index.ts:1: exports no signInWidget, which every plugin needs',
     'src/plugins/nimbus/index.ts:1: exports no verifySignIn, which every plugin needs',
     'src/plugins/nimbus/index.ts:1: declares publicPage, but exports none of siteNotice, sitePopup, publicClient',
@@ -147,12 +144,15 @@ test('rule 5: a plugin implements the sign-in pair and a method of each hook it 
 });
 
 test('rule 6: a theme imports nothing from the server or the routes', () => {
-  const clean = "import type { ThemePostProps } from '../contract';\nimport { formatDate } from '../../lib/dates';\n";
+  // A theme's own folders may be called pages or server: only src/server/ and src/pages/ are out of bounds.
+  const clean = "import type { ThemePostProps } from '../contract';\nimport { formatDate } from '../../lib/dates';\nimport Card from './pages/Card.astro';\nimport { tidy } from './server';\n";
   assert.deepEqual(serverImports('src/themes/ledger/Post.astro', clean), []);
-  const reaching = `${clean}import { db } from '../../server/db';\nimport type { X } from "../../pages/api/x";\n`;
+  const reaching = `${clean}import { db } from '../../server/db';\nimport type { X } from "../../pages/api/x";\nexport * from '../../server';\nconst lazy = import('./../../pages/index.astro');\n`;
   assert.deepEqual(where(serverImports('src/themes/ledger/Post.astro', reaching)), [
-    'src/themes/ledger/Post.astro:3: imports ../../server/db, and a theme may not import from src/server/ or src/pages/',
-    'src/themes/ledger/Post.astro:4: imports ../../pages/api/x, and a theme may not import from src/server/ or src/pages/',
+    'src/themes/ledger/Post.astro:5: imports ../../server/db, and a theme may not import from src/server/ or src/pages/',
+    'src/themes/ledger/Post.astro:6: imports ../../pages/api/x, and a theme may not import from src/server/ or src/pages/',
+    'src/themes/ledger/Post.astro:7: imports ../../server, and a theme may not import from src/server/ or src/pages/',
+    'src/themes/ledger/Post.astro:8: imports ./../../pages/index.astro, and a theme may not import from src/server/ or src/pages/',
   ]);
 });
 
@@ -167,6 +167,9 @@ test('rule 7: a raw colour is allowed only in a token block, a rule that declare
     "  :root:not([data-theme='light']):has(> body.ledger) { --color-ink: rgb(240 240 240); }",
     '}',
     '#add, .card:hover { color: var(--color-ink); background: color-mix(in oklch, var(--color-ink) 10%, transparent); }',
+    ':root { --good: #123; &.dark { --g2: #fff; } --after: #456; }',
+    ':root { --a: #123; @media (min-width: 40rem) { --a: #fff; } }',
+    '.ledger-icon { mask: url(sprite.svg#bad) no-repeat; }',
   ].join('\n');
   assert.deepEqual(rawColours('src/themes/ledger/theme.css', tokens), []);
 
@@ -178,11 +181,16 @@ test('rule 7: a raw colour is allowed only in a token block, a rule that declare
     '  color: hsl(10 20% 30%);',
     '}',
     '.ledger-band { border: 1px solid #FFF; }',
+    '.ledger-wash { background: hwb(10 20% 30%); color: color(display-p3 1 0 0); }',
+    ':root { --fine: #000; .ledger-nested { color: #111; } }',
   ].join('\n');
   assert.deepEqual(where(rawColours('src/themes/ledger/theme.css', raw)), [
-    'src/themes/ledger/theme.css:12: #123456 is a raw colour outside a token block; use a token',
-    'src/themes/ledger/theme.css:13: hsl(10 20% 30%) is a raw colour outside a token block; use a token',
-    'src/themes/ledger/theme.css:15: #FFF is a raw colour outside a token block; use a token',
+    'src/themes/ledger/theme.css:15: #123456 is a raw colour outside a token block; use a token',
+    'src/themes/ledger/theme.css:16: hsl(10 20% 30%) is a raw colour outside a token block; use a token',
+    'src/themes/ledger/theme.css:18: #FFF is a raw colour outside a token block; use a token',
+    'src/themes/ledger/theme.css:19: hwb(10 20% 30%) is a raw colour outside a token block; use a token',
+    'src/themes/ledger/theme.css:19: color(display-p3 1 0 0) is a raw colour outside a token block; use a token',
+    'src/themes/ledger/theme.css:20: #111 is a raw colour outside a token block; use a token',
   ]);
 });
 
@@ -192,6 +200,8 @@ async function checkout(t: test.TestContext) {
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'tome-cms' }));
   for (const kind of ['themes', 'plugins']) await cp(join(repository, 'src', kind), join(root, 'src', kind), { recursive: true });
+  // Plugins import their dependencies (typesafe imports zod), so the copy resolves them as the checkout does.
+  await symlink(join(repository, 'node_modules'), join(root, 'node_modules'), 'dir');
   const lines = { out: [] as string[], err: [] as string[] };
   const output = { print: (line: string) => { lines.out.push(line); }, warn: (line: string) => { lines.err.push(line); } };
   return { root, lines, output };
@@ -227,4 +237,49 @@ test('tome check reports a manifest it cannot load, and a kind with no list file
   assert.equal(await check(root, output), 1);
   assert.match(lines.err[0] ?? '', /^src\/themes\/paper\/theme\.ts:1: its manifest could not be loaded: /);
   assert.deepEqual(lines.err.slice(1), ['src/plugins:1: is missing', '2 problems.']);
+});
+
+// What the core loads is the module's namespace, so check imports index.ts and reads its keys:
+// every way of exporting a name counts, and a name in a comment does not.
+const PAIR = "export const signInWidget = () => null;\nexport const verifySignIn = async () => ({ outcome: 'passed' });\n";
+const SHAPES: ReadonlyArray<readonly [string, Record<string, string>]> = [
+  ['export *', {
+    'index.ts': "export { manifest } from './plugin';\nexport * from './hooks';\n",
+    'hooks.ts': `${PAIR}export function siteNotice() { return null; }\n`,
+  }],
+  ['destructuring', {
+    'index.ts': "export { manifest } from './plugin';\nconst impl = { siteNotice: () => null, signInWidget: () => null, verifySignIn: async () => ({ outcome: 'passed' }) };\nexport const { siteNotice, signInWidget, verifySignIn } = impl;\n",
+  }],
+  ['several declarators', {
+    'index.ts': `export { manifest } from './plugin';\n${PAIR}export const a = 1, siteNotice = () => null;\n`,
+  }],
+];
+
+for (const [shape, files] of SHAPES) {
+  test(`rule 5: a hook exported by ${shape} counts`, async (t) => {
+    const { root, lines, output } = await checkout(t);
+    const notice = join(root, 'src', 'plugins', 'notice');
+    await rm(join(notice, 'index.ts'));
+    for (const [file, text] of Object.entries(files)) await writeFile(join(notice, file), text);
+    assert.equal(await check(root, output), 0, lines.err.join('\n'));
+  });
+}
+
+test('rule 5: a hook method that is only in a comment does not count', async (t) => {
+  const { root, lines, output } = await checkout(t);
+  const index = "export { manifest } from './plugin';\n" + PAIR + '// export function siteNotice() { return null; }\n/*\nexport const siteNotice = () => null;\n*/\n';
+  await writeFile(join(root, 'src', 'plugins', 'notice', 'index.ts'), index);
+  assert.equal(await check(root, output), 1);
+  assert.deepEqual(lines.err, [
+    'src/plugins/notice/index.ts:1: declares publicPage, but exports none of siteNotice, sitePopup, publicClient',
+    '1 problem.',
+  ]);
+});
+
+test('rule 5: a plugin index.ts that cannot be loaded is reported, not thrown', async (t) => {
+  const { root, lines, output } = await checkout(t);
+  await writeFile(join(root, 'src', 'plugins', 'notice', 'index.ts'), "export { manifest } from './plugin';\nexport const = ;\n");
+  assert.equal(await check(root, output), 1);
+  assert.equal(lines.err.length, 2, lines.err.join('\n'));
+  assert.match(lines.err[0]!, /^src\/plugins\/notice\/index\.ts:1: it could not be loaded: /);
 });

@@ -118,8 +118,14 @@ test('the dark palette is the same whether the system asks for it or the reader 
 });
 
 test('every colour Almanac draws with is a token: no raw colour outside the token blocks', () => {
-  // tome check's rule, which holds every theme to this.
+  // tome check's rule, which holds every theme to tokens.
   assert.deepEqual(rawColours('src/themes/almanac/theme.css', CSS), []);
+  // And Almanac's own, stricter one: its palette is these three blocks and nowhere else, so a
+  // colour token declared in any other rule -- which the dark blocks would not repaint -- fails.
+  const tokenBlocks = [LIGHT, DARK_SYSTEM, DARK_CHOSEN].map((selector) => block(selector));
+  let rest = CSS;
+  for (const tokens of tokenBlocks) rest = rest.replace(tokens, '');
+  assert.doesNotMatch(rest, /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch|oklab|lab|lch)\(/i);
 });
 
 test("Trirong's faces are in Almanac's stylesheet and in no other", () => {
