@@ -7,8 +7,11 @@ import { readManifestBytes } from '../../updater/files.js';
 import type { RestoreJob } from '../../updater/state.js';
 import type { CliContext } from '../main.js';
 import { explainError, localTime, manualRecovery, printable, restoreStep } from '../output.js';
-import { assertUnderBackupRoot, chownTree, findUnsafeEntry, ownerOfBackupRoot } from '../ownership.js';
-import { errorCodeOf, follow, isRestoreRunning, isRestoreStuck, postJob, readRestore, readStatus, refusal, stuckRestoreAdvice } from '../socket.js';
+import { assertUnderBackupRoot, chownTree, findUnsafeEntry, isBackupRootLow, ownerOfBackupRoot } from '../ownership.js';
+import {
+  errorCodeOf, follow, isRestoreKeptInMaintenance, isRestoreRunning, isRestoreStuck, postJob, readBusy, readRestore, readStatus, refusal,
+  stuckRestoreAdvice,
+} from '../socket.js';
 
 // The first app whose image carries the restore steps, and the first updater with the restore job.
 const RESTORE_APP_SINCE = '1.13.0';
@@ -106,7 +109,13 @@ async function refuse(context: CliContext, manifest: BackupManifest): Promise<st
     return manifestUnreadable;
   }
   const version = printable(manifest.applicationVersion);
-  return newer ? `That backup is from TomeCMS ${version}, newer than this site's ${installed}. Update the site to ${version} first: sudo tome update ${version}` : null;
+  if (newer) return `That backup is from TomeCMS ${version}, newer than this site's ${installed}. Update the site to ${version} first: sudo tome update ${version}`;
+  // The updater's own refusals, asked in the same words before the question rather than after it.
+  if (await readBusy(context.socket)) return refusal(context.socket, { status: 409, body: { error: 'update_in_progress' } });
+  if (isRestoreKeptInMaintenance(await readRestore(context.socket))) {
+    return refusal(context.socket, { status: 409, body: { error: 'manual_recovery_required' } });
+  }
+  return await isBackupRootLow(context) ? explainError('insufficient_disk_space', 'restore', context.config) : null;
 }
 
 async function siteOrigin(environmentFile: string): Promise<string> {

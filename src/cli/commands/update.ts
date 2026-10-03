@@ -3,6 +3,7 @@ import { compareStableVersions, type UpdateManifest } from '../../update/contrac
 import type { PublicUpdateJob } from '../../updater/state.js';
 import type { CliContext } from '../main.js';
 import { explainError, updateStep } from '../output.js';
+import { isBackupRootLow } from '../ownership.js';
 import { errorCodeOf, follow, isUpdateRunning, postJob, readStatus, refusal, type UpdaterStatus } from '../socket.js';
 
 type Release = Pick<UpdateManifest, 'version' | 'compatibility' | 'releaseNotesUrl'>;
@@ -78,7 +79,7 @@ export async function update(context: CliContext, options: { version: string | n
     : 'The update stopped and needs manual recovery.');
   context.warn(explainError(job.errorCode, 'update', context.config));
   // An app before 1.10.0 is told of a full disk as `release_unavailable`, a code it knows.
-  if (job.errorCode === 'release_unavailable' && await diskIsLow(context)) {
+  if (job.errorCode === 'release_unavailable' && await isBackupRootLow(context)) {
     context.warn(explainError('insufficient_disk_space', 'update', context.config));
   }
   return 1;
@@ -99,9 +100,4 @@ function incompatibility(release: Release, status: UpdaterStatus): string | null
     return `TomeCMS ${version} cannot be installed directly from ${installed}. Its release notes say how: ${releaseNotesUrl}`;
   }
   return null;
-}
-
-async function diskIsLow(context: CliContext): Promise<boolean> {
-  const filesystem = await context.statfs(context.config.backupDirectory).catch(() => null);
-  return filesystem !== null && filesystem.bsize * filesystem.bavail < context.config.minimumFreeBytes;
 }

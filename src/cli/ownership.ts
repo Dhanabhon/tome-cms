@@ -46,6 +46,15 @@ export async function findUnsafeEntry(directory: string): Promise<string | null>
   return null;
 }
 
+/**
+ * Whether the disk under the backup root has less than `needed` bytes free: the least an update, a
+ * backup or a restore needs, unless a step asks for more. False when the disk cannot be read.
+ */
+export async function isBackupRootLow(context: Pick<CliContext, 'config' | 'statfs'>, needed = context.config.minimumFreeBytes): Promise<boolean> {
+  const filesystem = await context.statfs(context.config.backupDirectory).catch(() => null);
+  return filesystem !== null && filesystem.bsize * filesystem.bavail < needed;
+}
+
 /** Who owns the backup root (`tomecms-updater`), by number, as the updater and its one-shots run. */
 export async function ownerOfBackupRoot(root: string): Promise<{ uid: number; gid: number }> {
   const { uid, gid } = await stat(root);

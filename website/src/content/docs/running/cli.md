@@ -229,6 +229,7 @@ A backup that fails a check is refused with one sentence and exit code 1. `tome`
 | `The updater is 1.5.0. Restore needs updater 1.6.0: run sudo npm run updater:upgrade from a v1.13.0 checkout.` | [Upgrading the updater](/tome-cms/running/updating/#upgrading-the-updater) shows the commands. |
 | `An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again; sudo tome status shows it.` | One job runs at a time. |
 | `Not enough free disk space where backups go (/var/backups/tome-cms): it needs 5.0 GiB. See which old images can go with: sudo tome prune` | The safety backup of step 3 needs the room a backup needs. |
+| `An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.` | It is followed by the steps out, which [Recovery](/tome-cms/running/recovery/#a-restore-that-kept-the-site-in-maintenance) explains. |
 | `The backup did not pass its checks (a file is missing, or does not match its checksum), so nothing was changed. See what happened with: sudo tome logs updater` | The updater's own check of every file found a difference. |
 
 If you decline the question, it prints `Nothing was done.` and exits 1.

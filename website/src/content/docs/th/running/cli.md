@@ -229,6 +229,7 @@ The site as it was before the restore is kept in /var/backups/tome-cms/tomecms-2
 | `The updater is 1.5.0. Restore needs updater 1.6.0: run sudo npm run updater:upgrade from a v1.13.0 checkout.` | หัวข้อ[อัปเกรดตัวอัปเดต](/tome-cms/th/running/updating/#อัปเกรดตัวอัปเดต)แสดงคำสั่งไว้ |
 | `An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again; sudo tome status shows it.` | รันได้ทีละงานเดียว |
 | `Not enough free disk space where backups go (/var/backups/tome-cms): it needs 5.0 GiB. See which old images can go with: sudo tome prune` | ชุดสำรองเพื่อความปลอดภัยในขั้นที่ 3 ต้องใช้ที่ว่างเท่ากับการสำรองข้อมูลทั่วไป |
+| `An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.` | ตามด้วยขั้นตอนออกจากสถานะนั้น ซึ่งหน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/#การกู้คืนที่ทำให้เว็บค้างในโหมดปิดปรับปรุง)อธิบายไว้ |
 | `The backup did not pass its checks (a file is missing, or does not match its checksum), so nothing was changed. See what happened with: sudo tome logs updater` | ตัวอัปเดตตรวจทุกไฟล์เองแล้วพบความต่าง |
 
 ถ้าคุณตอบว่าไม่ จะขึ้นว่า `Nothing was done.` และจบด้วย exit code 1

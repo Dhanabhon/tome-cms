@@ -55,23 +55,41 @@ const report = (patch: Record<string, unknown> = {}) => ({
   records: { siteSettings: 1, posts: 12, pages: 3, mediaItems: 40 }, sealedSecrets: 2, unopenedSecrets: [], ...patch,
 });
 
-/** A context on `site`, whose commands are recorded in `events` beside the socket calls. */
+type Route = SocketAnswer | ((body: unknown) => SocketAnswer);
+
+/**
+ * A context on `site`, whose commands are recorded in `events` beside the socket calls. Until the
+ * restore is posted, the updater is idle, with no restore on record, unless `before` says otherwise;
+ * `routes` answer from then on.
+ */
 function restoreContext(site: Server, input: {
-  routes?: Record<string, Array<SocketAnswer | ((body: unknown) => SocketAnswer)>>;
+  routes?: Record<string, Route[]>;
+  before?: { busy?: SocketAnswer; restore?: SocketAnswer };
   version?: string;
   overrides?: Partial<CliContext>;
 } = {}) {
   const events: string[] = [];
   const commands: Array<{ executable: string; args: readonly string[] }> = [];
+  const routes: Record<string, Route[]> = {
+    'GET /v1/status': [statusAnswer(null, input.version ?? '1.13.0')],
+    'POST /v1/restore': [() => { events.push('POST'); return { status: 202, body: { id: requestId, phase: 'verifying' } }; }],
+    'GET /v1/restore': [{ status: 200, body: restoreRecord(site, 'succeeded', { safetyBackupDirectory: safety, report: report() }) }],
+    // While a restore runs, the updater says its lock is held: not stuck.
+    'GET /v1/busy': [{ status: 200, body: { busy: true } }],
+    ...input.routes,
+  };
+  const posted = () => f.calls.some((call) => call.method === 'POST' && call.path === '/v1/restore');
+  const afterPost = (list: Route[], idle: SocketAnswer): Route[] => [(body) => {
+    if (!posted()) return idle;
+    const route = list.length > 1 ? list.shift()! : list[0]!;
+    return typeof route === 'function' ? route(body) : route;
+  }];
   const f = fakeContext({
     config: { backupDirectory: site.root, environmentFile: site.environmentFile },
     routes: {
-      'GET /v1/status': [statusAnswer(null, input.version ?? '1.13.0')],
-      'POST /v1/restore': [() => { events.push('POST'); return { status: 202, body: { id: requestId, phase: 'verifying' } }; }],
-      'GET /v1/restore': [{ status: 200, body: restoreRecord(site, 'succeeded', { safetyBackupDirectory: safety, report: report() }) }],
-      // While a restore runs, the updater says its lock is held: not stuck.
-      'GET /v1/busy': [{ status: 200, body: { busy: true } }],
-      ...input.routes,
+      ...routes,
+      'GET /v1/restore': afterPost(routes['GET /v1/restore']!, input.before?.restore ?? { status: 404, body: { error: 'not_found' } }),
+      'GET /v1/busy': afterPost(routes['GET /v1/busy']!, input.before?.busy ?? { status: 200, body: { busy: false } }),
     },
     overrides: {
       runCommand: async (executable, args) => {
@@ -195,6 +213,36 @@ test('an updater older than 1.6.0 cannot restore, and is told how to upgrade it'
   assert.equal(await run(f, ['restore', site.backup, '--yes']), 1);
   assert.equal(f.err(), 'The updater is 1.5.0. Restore needs updater 1.6.0: run sudo npm run updater:upgrade from a v1.13.0 checkout.');
   assert.deepEqual(f.events, []);
+});
+
+test('a busy updater is refused before the question, with its sentence', async (t) => {
+  const site = server(t);
+  const f = restoreContext(site, {
+    before: { busy: { status: 200, body: { busy: true } } },
+    routes: { 'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }] },
+  });
+  assert.equal(await run(f, ['restore', site.backup]), 1);
+  assert.equal(f.err(), 'An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again.');
+  assert.deepEqual([f.prompts, f.events, f.printed], [[], [], []], 'nothing asked, chowned or posted');
+});
+
+test('an earlier restore that kept the site in maintenance is refused before the question, with the way out', async (t) => {
+  const site = server(t);
+  const f = restoreContext(site, {
+    before: { restore: { status: 200, body: restoreRecord(site, 'failed', { errorCode: 'rollback_failed', safetyBackupDirectory: safety, maintenanceKept: true }) } },
+  });
+  assert.equal(await run(f, ['restore', site.backup]), 1);
+  assert.match(f.err(), /^An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered\.\n/);
+  assert.ok(f.err().includes(`sudo tome restore ${safety}`));
+  assert.deepEqual([f.prompts, f.events], [[], []]);
+});
+
+test('too little free disk is refused before the question, with the amount a restore needs', async (t) => {
+  const site = server(t);
+  const f = restoreContext(site, { overrides: { statfs: async () => ({ bsize: 4096, bavail: 1024 }) } });
+  assert.equal(await run(f, ['restore', site.backup]), 1);
+  assert.equal(f.err(), `Not enough free disk space where backups go (${site.root}): it needs 5.0 GiB. See which old images can go with: sudo tome prune`);
+  assert.deepEqual([f.prompts, f.events], [[], []]);
 });
 
 // --- asking -------------------------------------------------------------------------------------
