@@ -17,6 +17,53 @@ sidebar:
 | `index.ts` | hook ต่าง ๆ ที่ส่งออกทีละชื่อ และ default export ที่มี type เป็น `Plugin` |
 | `client.ts` | โค้ดฝั่งเบราว์เซอร์ สำหรับปลั๊กอินที่ต้องรันโค้ดบนหน้าสาธารณะ |
 
+## เริ่มต้นด้วย tome
+
+ใน source checkout ของ TomeCMS คำสั่ง `tome` ช่วยเริ่มปลั๊กอินให้ได้ ชุดคำสั่งนี้รันจาก checkout ด้วย `npm run tome --` ไม่ต้องใช้ `sudo` และปฏิเสธเมื่อรันที่อื่น ตามที่[คำสั่ง `tome`](/tome-cms/th/running/cli/#สร้างธีมและปลั๊กอิน)อธิบายไว้
+
+```sh
+npm run tome -- plugin new nimbus --hook publicPage
+npm run tome -- plugin new nimbus --hook publicPage --client
+npm run tome -- plugin new nimbus --hook signIn --dry-run
+```
+
+| อาร์กิวเมนต์หรือตัวเลือก | ทำอะไร |
+| --- | --- |
+| `id` | id ของปลั๊กอินใหม่ เป็นตัวอักษรพิมพ์เล็กและตัวเลข 2 ถึง 31 ตัว ขึ้นต้นด้วยตัวอักษร คำสั่งจะปฏิเสธเมื่อมี `src/plugins/<id>` อยู่แล้ว หรือ id นั้นอยู่ใน `manifests.ts` หรือ `registry.ts` แล้ว |
+| `--hook HOOK` | จำเป็นต้องระบุ hook ที่ปลั๊กอินเสียบ ได้แก่ `publicPage`, `signIn` หรือ `editorSuggestions` |
+| `--client` | เขียน `client.ts` เพิ่มด้วย เป็นโค้ดที่รันในเบราว์เซอร์ของผู้อ่าน |
+| `--dry-run` | แสดงสิ่งที่จะทำ โดยไม่เขียนอะไรเลย |
+
+คำสั่งนี้เขียน `src/plugins/<id>/plugin.ts` ซึ่งเป็น manifest ที่ประกาศ hook ไว้ โดยตั้งชื่อและคำอธิบายเป็น id ทั้งภาษาอังกฤษและภาษาไทย และไม่มีการตั้งค่า แล้วเขียน `src/plugins/<id>/index.ts` ที่มี default export เป็น type `Plugin`
+
+**โครงที่ได้ปลอดภัย** เมธอดทุกตัวที่ hook นั้นต้องมีจะอยู่ครบ และตอบว่า "ไม่มีอะไร" ปลั๊กอินจึงไม่เพิ่มอะไรเลยจนกว่าคุณจะเขียนโค้ดจริง
+
+- `signInWidget` คืน `null` และ `verifySignIn` คืน `{ outcome: 'passed' }` ปลั๊กอินทุกตัวต้องตอบสองเมธอดนี้ และ `signIn` ไม่ต้องมีอย่างอื่นอีก
+- `publicPage` เพิ่ม `siteNotice` ซึ่งคืน `null`
+- `editorSuggestions` เพิ่ม `categoryLikelihoods` ซึ่งไม่คืนหมวดหมู่ใดเลย
+
+เมธอดแต่ละตัวมี type มาจาก `src/plugins/contract.ts` ถ้าข้อตกลงเปลี่ยน การ build จะล้มตรงนี้
+
+**ถ้าใส่ `--client`** คำสั่งจะเขียน `client.ts` และเมธอด `publicClient` ที่คืน `null` ด้วย จึงยังไม่มีหน้าไหนโหลดโค้ดนี้ และปลั๊กอินจะประกาศ `publicPage` เพิ่มด้วย เพราะโค้ดฝั่งเบราว์เซอร์รันบนหน้าสาธารณะ ถ้าใช้ `--hook signIn --client` manifest จะมี hook ทั้งสองตัว
+
+**ปลั๊กอินเริ่มต้นแบบปิดอยู่** ปลั๊กอินถูกลงทะเบียนใน `src/plugins/manifests.ts` และ `src/plugins/registry.ts` และแสดงในหน้า "ปลั๊กอิน" เหมือนตัวอื่น ๆ แต่ปิดอยู่จนกว่าเจ้าของเว็บจะเปิด เช่นเดียวกับธีม คำสั่งเขียนโฟลเดอร์ก่อน ลบทิ้งถ้าลงทะเบียนไม่สำเร็จ และเมื่อรายการใดอยู่ในรูปแบบที่ไม่รู้จัก จะไม่เปลี่ยนอะไร แสดงบรรทัดที่ต้องเพิ่มด้วยมือ ผลของ `--dry-run` เป็นดังนี้
+
+```text
+$ npm run tome -- plugin new nimbus --hook publicPage --client --dry-run
+Would create:
+  src/plugins/nimbus/client.ts
+  src/plugins/nimbus/index.ts
+  src/plugins/nimbus/plugin.ts
+Would add to src/plugins/manifests.ts:
+  import { manifest as nimbus } from './nimbus/plugin';
+  export const PLUGIN_MANIFESTS: readonly PluginManifest[] = [turnstile, notice, popup, lightbox, typesafe, mcp, nimbus];
+Would add to src/plugins/registry.ts:
+    nimbus: () => import('./nimbus'),
+Nothing was written.
+```
+
+จากนั้นคำสั่งจะแสดงขั้นตอนถัดไป คือ `npm run dev` เปิดปลั๊กอินที่หน้า "ปลั๊กอิน" และ `npm run tome -- check` ซึ่งตรวจว่าปลั๊กอินมีไฟล์ hook และการตั้งค่าครบตามที่ข้อตกลงต้องการ หัวข้อ[ลงทะเบียนปลั๊กอิน](#ลงทะเบียนปลั๊กอิน)แสดงสิ่งที่ `tome` ทำให้ด้วยมือ
+
 ## Hook ทั้งสามตัว
 
 `src/plugins/contract.ts` ประกาศ hook และเมธอดที่ใช้เสียบกับ hook แต่ละตัว แถบบนการ์ดแต่ละใบในหน้า "ปลั๊กอิน" บอกชื่อ hook ด้วยคำของแกนระบบเอง

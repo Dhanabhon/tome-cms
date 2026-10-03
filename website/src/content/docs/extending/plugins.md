@@ -17,6 +17,53 @@ A plugin is a directory under `src/plugins/`, and the directory's name is the pl
 | `index.ts` | The hooks, each exported by name, and a default export typed `Plugin` |
 | `client.ts` | Browser code, for a plugin that runs some on public pages |
 
+## Starting with tome
+
+In a TomeCMS source checkout, `tome` starts a plugin for you. These commands run from the checkout with `npm run tome --`, need no `sudo`, and refuse anywhere else, as the [`tome` command](/tome-cms/running/cli/#building-themes-and-plugins) explains.
+
+```sh
+npm run tome -- plugin new nimbus --hook publicPage
+npm run tome -- plugin new nimbus --hook publicPage --client
+npm run tome -- plugin new nimbus --hook signIn --dry-run
+```
+
+| Argument or option | What it does |
+| --- | --- |
+| `id` | The new plugin's id: 2 to 31 lowercase letters and digits, starting with a letter. It is refused when `src/plugins/<id>` exists or the id is already in `manifests.ts` or `registry.ts`. |
+| `--hook HOOK` | Required. The hook it fills: `publicPage`, `signIn` or `editorSuggestions`. |
+| `--client` | Also writes `client.ts`, code that runs in the reader's browser. |
+| `--dry-run` | Prints what it would do and writes nothing. |
+
+It writes `src/plugins/<id>/plugin.ts`, the manifest, with the hook declared, the name and description set to the id in English and Thai, and no settings. It writes `src/plugins/<id>/index.ts` with a default export typed `Plugin`.
+
+**The skeleton is safe.** Every method the hook requires is there and answers "nothing here", so the plugin adds nothing until you write real code:
+
+- `signInWidget` returns `null` and `verifySignIn` returns `{ outcome: 'passed' }`. Every plugin answers these two, and `signIn` needs no more;
+- `publicPage` adds `siteNotice`, which returns `null`;
+- `editorSuggestions` adds `categoryLikelihoods`, which returns no categories.
+
+Each method is typed from `src/plugins/contract.ts`, so a change to the contract fails the build here.
+
+**With `--client`,** it also writes `client.ts` and a `publicClient` method that returns `null`, so no page loads the code yet, and the plugin declares `publicPage` as well, because browser code runs on public pages. With `--hook signIn --client` the manifest lists both hooks.
+
+**The plugin starts switched off.** It is registered in `src/plugins/manifests.ts` and `src/plugins/registry.ts`, and shows on the Plugins screen as every plugin does, off until the owner switches it on. As with themes, it writes the directory first, removes it if registering fails, and changes nothing and prints the lines to add by hand when a list is in a shape it does not recognise. A dry run prints:
+
+```text
+$ npm run tome -- plugin new nimbus --hook publicPage --client --dry-run
+Would create:
+  src/plugins/nimbus/client.ts
+  src/plugins/nimbus/index.ts
+  src/plugins/nimbus/plugin.ts
+Would add to src/plugins/manifests.ts:
+  import { manifest as nimbus } from './nimbus/plugin';
+  export const PLUGIN_MANIFESTS: readonly PluginManifest[] = [turnstile, notice, popup, lightbox, typesafe, mcp, nimbus];
+Would add to src/plugins/registry.ts:
+    nimbus: () => import('./nimbus'),
+Nothing was written.
+```
+
+Then it prints the next steps: `npm run dev`, switch the plugin on under Plugins, and `npm run tome -- check`, which checks that the plugin has the files, the hooks and the settings the contract asks for. [Registering a plugin](#registering-a-plugin) shows by hand what `tome` did.
+
 ## The hooks
 
 `src/plugins/contract.ts` declares the hooks and the methods that fill them. The band on each card of the Plugins screen names the hooks in the core's words.

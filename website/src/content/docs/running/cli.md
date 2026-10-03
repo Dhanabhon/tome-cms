@@ -167,6 +167,39 @@ An image a stopped container still uses cannot be removed. `tome` says how many 
 | --- | --- |
 | `-y`, `--yes` | Removes the images instead of only listing them. |
 
+## Building themes and plugins
+
+Three more commands help you write a theme or a plugin. They are not for a server. They run in a TomeCMS source checkout, with `npm run tome --`, need no `sudo`, and say `Run this in a TomeCMS source checkout.` and exit 1 anywhere else, including from the `tome` installed on a server. The server commands above keep their `sudo`, and the two groups do not mix.
+
+```sh
+npm run tome -- theme new <id> [--from plain|paper|almanac] [--dry-run]
+npm run tome -- plugin new <id> --hook publicPage|signIn|editorSuggestions [--client] [--dry-run]
+npm run tome -- check
+```
+
+- `theme new` copies an existing theme under a new id and registers it. [Writing a theme](/tome-cms/extending/themes/#starting-with-tome) says what it renames.
+- `plugin new` writes a plugin that fills its hook and does nothing yet, switched off. [Writing a plugin](/tome-cms/extending/plugins/#starting-with-tome) shows what it writes.
+- `check` checks every theme and plugin, and prints each problem as `path:line: what is wrong`. It changes nothing. It exits 0 when it found none and 1 when it found any. `npm run check` runs it, so CI stops a mistake before it is merged.
+
+`check` looks for these:
+
+1. a theme or plugin whose directory name is not its manifest's id;
+2. one that is not listed in both its `manifests.ts` and its `registry.ts`, or a list entry with no directory;
+3. a missing file: a theme needs `index.ts`, `theme.ts`, `Shell.astro`, `Home.astro`, `Post.astro`, `Page.astro` and `theme.css`; a plugin needs `plugin.ts` and `index.ts`, and `client.ts` when it has a `publicClient`;
+4. a setting that is not well formed: a repeated key, a kind the contract does not allow, a label or hint missing in English or Thai, a choice without options or whose fallback is not one of them, a text without a maximum length, a switch whose fallback is not `on` or `off`;
+5. a plugin that does not implement the methods of the hook it declares, or the sign-in pair every plugin answers;
+6. a theme that imports from `src/server/`;
+7. a theme's stylesheet that does not use the design tokens only.
+
+It does not run a plugin: it only loads the module and looks at what it exports. The output looks like this, with an illustrative problem:
+
+```text
+$ npm run tome -- check
+src/plugins/nimbus/index.ts:1: <what is wrong>
+```
+
+`npm run tome -- --help` lists them, and every command takes `--help`.
+
 ## When the disk is full
 
 A full disk is where `tome` helps most. When there is less than 5 GiB free where backups go, an update or a backup refuses with `Not enough free disk space where backups go`, and `tome status` shows the warning.

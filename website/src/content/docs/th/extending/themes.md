@@ -9,6 +9,64 @@ sidebar:
 
 ธีมมากับ repository เจ้าของเว็บเลือกธีมที่อยู่ในรุ่นนั้นได้จากหน้า[ธีม](/tome-cms/th/admin/themes/) และไม่มีทางติดตั้งธีมเพิ่มระหว่างที่เว็บทำงานอยู่ TomeCMS มีธีมสามแบบ คือ `paper` ซึ่งเป็นธีมตั้งต้น `plain` ธีมเรียบ ๆ ที่มีไว้เพื่อให้ข้อตกลงของธีมถูกใช้มากกว่าหนึ่งธีม และ `almanac` ธีมโทนอบอุ่นที่มีหัวข้อแบบตัวมีหัว แถบหัวเรื่อง แถวป้ายหมวดหมู่ และตารางการ์ด เป็นตัวอย่างของธีมที่มีฟอนต์ การตั้งค่า และแถบที่ขยับตามการเลื่อนหน้าเป็นของตัวเอง วิธีเริ่มที่เร็วที่สุดคือคัดลอก `plain` ไปแก้ และถ้าอยากดูธีมที่ทำได้มากกว่านั้นให้อ่าน `almanac`
 
+## เริ่มต้นด้วย tome
+
+ใน source checkout ของ TomeCMS คำสั่ง `tome` ช่วยเริ่มธีมให้ได้ เป็นโปรแกรมตัวเดียวกับ[คำสั่ง `tome`](/tome-cms/th/running/cli/)บนเซิร์ฟเวอร์ แต่ชุดคำสั่งนี้มีไว้ใช้ตอนพัฒนา คือรันจาก checkout ด้วย `npm run tome --` ไม่ต้องใช้ `sudo` และปฏิเสธเมื่อรันที่อื่น
+
+```sh
+npm run tome -- theme new ledger
+npm run tome -- theme new ledger --from almanac
+npm run tome -- theme new ledger --dry-run
+```
+
+| อาร์กิวเมนต์หรือตัวเลือก | ทำอะไร |
+| --- | --- |
+| `id` | id ของธีมใหม่ เป็นตัวอักษรพิมพ์เล็กและตัวเลข 2 ถึง 31 ตัว ขึ้นต้นด้วยตัวอักษร ไม่มีเครื่องหมายขีดกลาง เพราะ id ยังเป็นชื่อที่ใช้ import ด้วย คำสั่งจะปฏิเสธเมื่อมี `src/themes/<id>` อยู่แล้ว หรือ id นั้นอยู่ใน `manifests.ts` หรือ `registry.ts` แล้ว |
+| `--from THEME` | ธีมที่จะคัดลอก ได้แก่ `plain` (ค่าเริ่มต้น) `paper` หรือ `almanac` |
+| `--dry-run` | แสดงสิ่งที่จะทำ โดยไม่เขียนอะไรเลย |
+
+คำสั่งนี้คัดลอก `src/themes/<from>/` ไปไว้ที่ `src/themes/<id>/` จึงได้จุดเริ่มต้นที่ตรงกับข้อตกลงของธีมรุ่นปัจจุบันเสมอ ไม่ใช่แม่แบบเก่า ในสำเนาจะเปลี่ยนชื่อสิ่งที่มีชื่อของธีมต้นทางอยู่ ดังนี้
+
+- `id` ใน manifest รวมถึง `name` และ `description` ซึ่งทั้งหมดจะกลายเป็น id ให้คุณไปเขียนใหม่
+- class, id ขององค์ประกอบ และ custom property ทุกตัวที่ขึ้นต้นด้วยชื่อของธีมต้นทาง เช่น `.almanac-card` เป็น `.ledger-card`
+- class ของธีมเองบน `<body>` และในสไตล์ชีต เช่น `body.almanac` เป็น `body.ledger`
+
+คอมเมนต์ที่แค่พูดถึงธีมต้นทางจะไม่ถูกแก้ และ custom property ของแกนระบบ เช่น `--color-paper-2` ก็ไม่ถูกเปลี่ยนชื่อ
+
+ฟอนต์ไม่ถูกคัดลอก ถ้าธีมต้นทางโหลดฟอนต์ของตัวเอง เหมือน `almanac` ที่ใช้ Trirong สไตล์ชีตใหม่จะ import `fonts.css` ของธีมต้นทาง ทั้งสองธีมจึงโหลดไฟล์ชุดเดียวกันใน `public/fonts/`
+
+จากนั้นคำสั่งจะลงทะเบียนธีมให้ คือเพิ่ม import และรายการใน `THEME_MANIFESTS` ลงใน `src/themes/manifests.ts` และเพิ่ม dynamic import ลงใน `src/themes/registry.ts` คำสั่งเขียนโฟลเดอร์ใหม่ก่อน และลบทิ้งอีกครั้งถ้าลงทะเบียนไม่สำเร็จ จึงไม่ทิ้งธีมที่ทำค้างไว้ ถ้ารายการใดอยู่ในรูปแบบที่คำสั่งไม่รู้จัก จะไม่เปลี่ยนอะไรเลย แสดงบรรทัดที่ต้องเพิ่มด้วยมือ และจบด้วย exit code 1 ผลของ `theme new ledger --dry-run` เป็นดังนี้
+
+```text
+$ npm run tome -- theme new ledger --dry-run
+Would create:
+  src/themes/ledger/Home.astro
+  src/themes/ledger/Page.astro
+  src/themes/ledger/Post.astro
+  src/themes/ledger/Shell.astro
+  src/themes/ledger/index.ts
+  src/themes/ledger/lead.ts
+  src/themes/ledger/theme.css
+  src/themes/ledger/theme.ts
+Would add to src/themes/manifests.ts:
+  import { manifest as ledger } from './ledger/theme';
+  export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, almanac, ledger];
+Would add to src/themes/registry.ts:
+    ledger: () => import('./ledger'),
+Nothing was written.
+```
+
+ถ้าไม่ใส่ `--dry-run` คำสั่งจะจบด้วยขั้นตอนถัดไปที่ควรทำ
+
+```text
+Next:
+  npm run dev
+  Choose ledger under Appearance → Themes.
+  npm run tome -- check
+```
+
+ธีมนี้เลือกใช้ได้แล้วที่หน้า[ธีม](/tome-cms/th/admin/themes/) จากนั้น[`tome check`](/tome-cms/th/running/cli/#สร้างธีมและปลั๊กอิน)จะตรวจสิ่งที่ pull request มักถูกส่งกลับเพราะมัน เช่น ไฟล์ที่ขาด manifest ที่ไม่ตรงกับชื่อโฟลเดอร์ การตั้งค่าที่ไม่มีครบทั้งสองภาษา ธีมที่ import จาก `src/server/` และสไตล์ชีตที่ไม่ใช้ design token หัวข้อถัดไปอธิบายว่าแต่ละไฟล์มีไว้ทำอะไร และหัวข้อ[ลงทะเบียนธีม](#ลงทะเบียนธีม)ทำด้วยมือในสิ่งที่ `tome` เพิ่งทำให้
+
 ## ธีมประกอบด้วยอะไร
 
 ธีมหนึ่งธีมคือโฟลเดอร์หนึ่งโฟลเดอร์ใต้ `src/themes/` และชื่อโฟลเดอร์คือ id ของธีม

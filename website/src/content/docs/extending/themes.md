@@ -9,6 +9,64 @@ A theme draws the public site. It owns its templates and its stylesheet and noth
 
 Themes ship in the repository. The owner picks one of the themes a release contains on the [Themes](/tome-cms/admin/themes/) screen, and nothing installs a theme while the site runs. TomeCMS has three: `paper`, the default, `plain`, a spare second that exists so the contract has more than one reader, and `almanac`, a warm third with serif headings, a hero, a row of category pills and a grid of cards, which shows a theme with its own fonts, settings and scroll-driven bar. Copying `plain` is the quickest way to start, and `almanac` is the one to read when you want a theme that does more.
 
+## Starting with tome
+
+In a TomeCMS source checkout, `tome` starts a theme for you. It is the same program as the [`tome` command](/tome-cms/running/cli/) on a server, but these commands are for development: they run from the checkout with `npm run tome --`, need no `sudo`, and refuse anywhere else.
+
+```sh
+npm run tome -- theme new ledger
+npm run tome -- theme new ledger --from almanac
+npm run tome -- theme new ledger --dry-run
+```
+
+| Argument or option | What it does |
+| --- | --- |
+| `id` | The new theme's id: 2 to 31 lowercase letters and digits, starting with a letter. There are no hyphens, because the id is also an import name. It is refused when `src/themes/<id>` exists or the id is already in `manifests.ts` or `registry.ts`. |
+| `--from THEME` | The theme to copy: `plain` (the default), `paper` or `almanac`. |
+| `--dry-run` | Prints what it would do and writes nothing. |
+
+It copies `src/themes/<from>/` to `src/themes/<id>/`, so the start is always the current contract, not an older template. In the copy it renames what carries the source theme's name:
+
+- the manifest's `id`, and its `name` and `description`, which all become the id for you to rewrite;
+- every class, element id and custom property that starts with the source's name, so `.almanac-card` becomes `.ledger-card`;
+- the theme's own class on `<body>` and in the stylesheet, so `body.almanac` becomes `body.ledger`.
+
+A comment that only mentions the source theme is left as it was. A custom property of the core, such as `--color-paper-2`, is not renamed.
+
+Fonts are not copied. When the source loads its own, as `almanac` does with Trirong, the new stylesheet imports the source's `fonts.css`, so both load the same files under `public/fonts/`.
+
+Then it registers the theme: it adds the import and the `THEME_MANIFESTS` entry to `src/themes/manifests.ts`, and the dynamic import to `src/themes/registry.ts`. It writes the new directory first and removes it again if registering fails, so it never leaves half a theme behind. When either list is in a shape it does not recognise, it changes nothing, prints the lines to add by hand and exits 1. A dry run of `theme new ledger` prints:
+
+```text
+$ npm run tome -- theme new ledger --dry-run
+Would create:
+  src/themes/ledger/Home.astro
+  src/themes/ledger/Page.astro
+  src/themes/ledger/Post.astro
+  src/themes/ledger/Shell.astro
+  src/themes/ledger/index.ts
+  src/themes/ledger/lead.ts
+  src/themes/ledger/theme.css
+  src/themes/ledger/theme.ts
+Would add to src/themes/manifests.ts:
+  import { manifest as ledger } from './ledger/theme';
+  export const THEME_MANIFESTS: readonly ThemeManifest[] = [paper, plain, almanac, ledger];
+Would add to src/themes/registry.ts:
+    ledger: () => import('./ledger'),
+Nothing was written.
+```
+
+Without `--dry-run` it ends by saying what to do next:
+
+```text
+Next:
+  npm run dev
+  Choose ledger under Appearance → Themes.
+  npm run tome -- check
+```
+
+The theme is already selectable on the [Themes](/tome-cms/admin/themes/) screen. [`tome check`](/tome-cms/running/cli/#building-themes-and-plugins) then looks for what a pull request would be sent back for: a missing file, a manifest that does not match its directory, a setting without both languages, a theme that imports from `src/server/`, a stylesheet that does not keep to the design tokens. The sections below explain what each file is for, and [Registering a theme](#registering-a-theme) does by hand what `tome` just did.
+
 ## What a theme is made of
 
 A theme is a directory under `src/themes/`, and the directory's name is the theme's id.
