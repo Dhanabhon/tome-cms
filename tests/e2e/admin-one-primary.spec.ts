@@ -7,9 +7,10 @@ import { expect, test } from './own-worker';
 
 /**
  * DESIGN.md: the primary colour is for the single most important action on a screen. This walks
- * every screen that has one, in each state that changes what is on it -- an empty list and a
- * filled one, a menu with nothing changed and one with a change -- and counts the filled buttons
- * a reader can see. It signs in once: /recovery allows five sign-ins per spec file.
+ * every admin screen, in each state that changes what is on it -- an empty list and a filled one,
+ * a form with nothing changed and one with a change, a row being renamed -- and counts the filled
+ * buttons a reader can see, at 1440 and at 375. An unchanged Save is a secondary button, so it is
+ * not counted until there is a change. It signs in once: /recovery allows five sign-ins per spec file.
  */
 
 test.use({ stack: 'admin-one-primary' });
@@ -18,6 +19,8 @@ test.skip(({ isMobile }) => Boolean(isMobile), 'The stack is set up once, on des
 const PROJECT = 'tomecms-one-primary-test';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
 const CREDENTIAL = 'one-primary-secret-at-least-32-chars-x';
+// A media key is filed under its owner's UUID, so the owner has to have one (Home slides uploads a picture).
+const OWNER = '3a9e1c47-5b2d-4f60-9c1e-7d8b2a4f6e05';
 
 function docker(args: string[], timeout = 180_000) {
   const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
@@ -43,6 +46,8 @@ let origin = '';
 test.beforeAll(async () => {
   const port = await freePort();
   origin = `http://localhost:${port}`;
+  // The browser puts a file straight into the store, which answers only the origin it is told.
+  process.env.TOME_CMS_TEST_ORIGIN = origin;
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: 'development',
@@ -72,10 +77,10 @@ test.beforeAll(async () => {
   const { sql } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
   await sql`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
-    values ('one-primary-owner', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
+    values (${OWNER}, 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
-    values (true, 'one-primary-owner', 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
-  await sql`insert into categories (owner_id, name, is_default) values ('one-primary-owner', 'Uncategorized', true)`.execute(db);
+    values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
+  await sql`insert into categories (owner_id, name, is_default) values (${OWNER}, 'Uncategorized', true)`.execute(db);
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env, stdio: 'pipe' });
   let output = '';
@@ -123,14 +128,22 @@ test('every admin screen has at most one primary action, empty or filled, change
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
   await page.setViewportSize({ width: 1440, height: 1000 });
 
-  /** Opens a screen and waits until every island has hydrated, client:idle ones included, before counting. */
+  /**
+   * Opens a screen and waits until every island has hydrated, client:idle ones included, and what
+   * they fetch has arrived, before counting: a late island or list could add a primary after a count.
+   */
   const open = async (path: string, ready: string) => {
     await page.goto(`${origin}${path}`);
     await page.locator(ready).first().waitFor({ state: 'visible' });
     await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+    await page.waitForLoadState('networkidle');
   };
+  /** Counts at a desktop width and a phone's: a primary hidden or shown by a breakpoint counts too. */
   const count = async (screen: string, expected: number) => {
-    await expect(primaries(page), screen).toHaveCount(expected);
+    for (const width of [375, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect(primaries(page), `${screen} at ${width}`).toHaveCount(expected);
+    }
   };
 
   // Empty lists: the empty block's Create first holds the one primary; the head offers none.
@@ -149,30 +162,93 @@ test('every admin screen has at most one primary action, empty or filled, change
   await expect(page.locator('.stats-chart'), 'no blank chart').toHaveCount(0);
   await expect(page.locator('.stats-summary'), 'no figures at zero').toHaveCount(0);
 
-  // Navigation: nothing changed, no save row at all; one change, and Save menu is the primary.
+  // Navigation: an empty menu's Add item, in its empty block, is the primary, with no save row;
+  // one change, and Save menu is the primary and Add item goes back to the head as a secondary.
   await open('/admin/navigation', '.navigation-tabs');
-  await count('Navigation, unchanged', 0);
+  await count('Navigation, empty and unchanged', 1);
+  await expect(page.locator('.admin-empty .admin-button--primary')).toHaveText('Add item');
   await expect(page.locator('.navigation-save')).toHaveCount(0);
   await page.getByRole('button', { name: 'Add item' }).click();
   const dialog = page.locator('dialog.navigation-dialog');
   await dialog.waitFor({ state: 'visible' });
-  await count('Navigation, adding an item', 1);
+  // A modal dialog is its own screen: the page behind it is inert, so its one primary is the dialog's.
+  await expect(dialog.locator('.admin-button--primary'), 'Navigation, adding an item').toHaveCount(1);
   await dialog.getByRole('radio', { name: 'Home' }).check();
   await dialog.getByRole('button', { name: 'Add to menu' }).click();
   await dialog.waitFor({ state: 'hidden' });
   await count('Navigation, changed', 1);
   await expect(primaries(page)).toContainText('Save menu');
+  await expect(page.locator('.admin-page__head').getByRole('button', { name: 'Add item' })).toHaveClass(/admin-button--secondary/);
 
   await open('/admin/themes', '.theme-card');
   await count('Themes', 0);
   await expect(page.getByRole('button', { name: 'Use this theme' }).first()).toHaveClass(/admin-button--secondary/);
   await open('/admin/plugins', '.plugin-card');
   await count('Plugins', 0);
+  // An unchanged Save is a secondary button, disabled; a change makes it the screen's primary.
   await open('/admin/settings', '.admin-save-bar');
-  await count('Settings, unchanged', 1);
+  await count('Settings, unchanged', 0);
+  await expect(page.locator('.admin-save-bar .admin-save-button')).toHaveClass(/admin-button--secondary/);
+  await expect(page.locator('.admin-save-bar .admin-save-button')).toBeDisabled();
   await page.getByRole('textbox', { name: 'Site name' }).fill('Quiet Notes, again');
   await expect(page.locator('.admin-save-bar .admin-button--primary')).toBeEnabled();
   await count('Settings, changed', 1);
+
+  // Home slides: an empty list adds from its empty block; a new slide makes Save slides the one
+  // primary and Add slide a secondary in the head; once saved, neither is filled.
+  await open('/admin/slides', '.home-slides .admin-empty');
+  await count('Home slides, empty', 1);
+  await expect(page.locator('.admin-empty .admin-button--primary')).toHaveText('Add slide');
+  await page.getByRole('button', { name: 'Add slide' }).click();
+  const drawer = page.getByRole('dialog', { name: 'New slide' });
+  await drawer.getByRole('button', { name: 'Choose image' }).click();
+  const sharp = (await import('sharp')).default;
+  const lake = await sharp({ create: { width: 1800, height: 800, channels: 3, background: '#264653' } }).jpeg().toBuffer();
+  const picker = page.locator('dialog.media-picker');
+  await picker.locator('input[type="file"]').setInputFiles({ name: 'Lake.jpg', mimeType: 'image/jpeg', buffer: lake });
+  await expect(drawer.getByText('1800 × 800')).toBeVisible();
+  await drawer.getByLabel('Heading', { exact: true }).fill('Morning on the lake');
+  await drawer.getByRole('button', { name: 'Done' }).click();
+  await drawer.waitFor({ state: 'hidden' });
+  await count('Home slides, changed', 1);
+  await expect(primaries(page)).toContainText('Save slides');
+  await expect(page.locator('.admin-page__head').getByRole('button', { name: 'Add slide' })).toHaveClass(/admin-button--secondary/);
+  await page.getByRole('button', { name: 'Save slides' }).click();
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
+  await count('Home slides, saved', 0);
+
+  await open('/admin/media', '.media-upload');
+  await count('Media', 1);
+  await open('/admin/redirects', '.redirect-add');
+  await count('Redirects', 1);
+
+  // Security: Add a spare passkey is the one; renaming a key saves as a secondary beside it.
+  await open('/admin/security', '.security-key');
+  await count('Security', 1);
+  await page.getByRole('button', { name: 'Rename Recovery passkey' }).click();
+  await count('Security, renaming a passkey', 1);
+
+  await open('/admin/profile', '.admin-save-bar');
+  await count('Profile, unchanged', 0);
+  await page.getByRole('textbox', { name: 'Author name' }).fill('Quiet Owner');
+  await count('Profile, changed', 1);
+
+  await open('/admin/maintenance', '.maintenance-templates');
+  await count('Maintenance, unchanged', 0);
+  await page.locator('.maintenance-template input:not(:checked)').first().check();
+  await count('Maintenance, changed', 1);
+
+  // Categories: Create category is the one; renaming a row saves as a secondary.
+  await open('/admin/categories', '.category-row');
+  await count('Categories', 1);
+  await page.locator('#category-name').fill('Travel');
+  await page.getByRole('button', { name: 'Create category' }).click();
+  await page.getByRole('button', { name: 'Rename Travel' }).click();
+  await count('Categories, renaming', 1);
+
+  // A check-only installation has nothing to install, so System offers no primary.
+  await open('/admin/system', '.update-actions');
+  await count('System', 0);
 
   // One post and one page, through the editors, and the lists are no longer empty.
   const created = (url: string) => page.waitForResponse((r) => r.url().endsWith(url) && r.request().method() === 'POST' && r.ok());
@@ -196,4 +272,14 @@ test('every admin screen has at most one primary action, empty or filled, change
   await open('/admin/pages', '.admin-story-row');
   await count('Pages, filled', 1);
   await expect(page.locator('.admin-page__head .admin-button--primary')).toContainText('New page');
+
+  // A delete asks first, and its confirm is that dialog's one filled button, in the danger colour.
+  const menu = page.locator('.admin-story-menu').first();
+  await menu.locator('summary').click();
+  await menu.getByRole('button', { name: 'Delete' }).click();
+  const confirm = page.locator('dialog.ui-dialog[open]');
+  await expect(confirm.locator('.admin-button--primary')).toHaveCount(1);
+  await expect(confirm.locator('.admin-button--primary')).toHaveClass(/admin-button--danger/);
+  await page.keyboard.press('Escape');
+  await expect(confirm).toHaveCount(0);
 });

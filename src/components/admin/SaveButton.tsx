@@ -14,6 +14,8 @@ interface SaveButtonProps {
 
 /**
  * The state is on the button: a spinner while saving, "Saved" after, "Save" once something changes.
+ * Only a change makes it the screen's primary: unchanged or just saved, it is a secondary button,
+ * so an idle Save is never a faded fill beside the screen's real primary.
  * Both words sit in one grid cell so the button never changes width; the hidden one is
  * visibility: hidden and aria-hidden. A screen reader hears the change from the status beside it.
  */
@@ -23,7 +25,7 @@ export default function SaveButton({ describedBy, disabled = false, label, onCli
       <button
         aria-busy={state === 'saving'}
         aria-describedby={describedBy}
-        className="admin-button admin-button--primary admin-save-button"
+        className={`admin-button ${state === 'dirty' || state === 'saving' ? 'admin-button--primary' : 'admin-button--secondary'} admin-save-button`}
         data-state={state}
         disabled={disabled || state !== 'dirty'}
         onClick={onClick}

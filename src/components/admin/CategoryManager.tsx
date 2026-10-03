@@ -225,7 +225,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                       />
                     </label>
                     <div className="category-edit-actions">
-                      <button aria-busy={pendingActionIds.has(renameAction)} className="admin-button admin-button--primary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
+                      <button aria-busy={pendingActionIds.has(renameAction)} className="admin-button admin-button--secondary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
                       <button
                         className="admin-button"
                         disabled={pendingActionIds.has(renameAction)}

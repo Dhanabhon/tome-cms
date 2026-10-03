@@ -234,7 +234,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                     {copy.security.passkeyName}
                     <input aria-invalid={missingName === 'rename' || undefined} autoFocus className="admin-control" defaultValue={passkey.name} maxLength={80} name="name" onChange={() => nameTyped()} required />
                   </label>
-                  <button aria-busy={pressed(`rename:${passkey.id}`)} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.saveName}</button>
+                  <button aria-busy={pressed(`rename:${passkey.id}`)} className="admin-button admin-button--secondary" disabled={busy !== null} type="submit">{copy.security.saveName}</button>
                   <button
                     className="admin-button"
                     disabled={busy !== null}

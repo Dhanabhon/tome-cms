@@ -388,7 +388,8 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
     <section className="admin-page navigation-manager">
       <header className="admin-page__head">
         <div><p className="admin-eyebrow">{copy.nav.groupContent}</p><h1>{copy.navigation.heading}</h1><p>{copy.navigation.subheading}</p></div>
-        <button className="admin-button admin-button--secondary" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
+        {/* An empty menu offers Add item in its empty block instead, as the post list does. */}
+        {items.length > 0 && <button className="admin-button admin-button--secondary" disabled={loading || !!loadError || saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>}
       </header>
       <p className="navigation-status" role="status" aria-live="polite" aria-atomic="true">{loading ? copy.navigation.loading : status}</p>
       {loadError && <div className="admin-alert" role="alert">{loadError} <button className="admin-button" onClick={() => void load()} type="button">{copy.navigation.retry}</button></div>}
@@ -406,9 +407,11 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
           <div aria-busy={saving} aria-labelledby={`navigation-${locale}-tab`} id="navigation-language-panel" role="tabpanel" tabIndex={0}>
             {!items.length && (
               // One sentence, no title: the copy has none, and a sentence at 28px reads as a shout.
+              // Its Add item is the screen's primary until a change makes Save menu the one.
               <div className="admin-empty">
                 <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
                 <p>{copy.navigation.empty}</p>
+                <button className={`admin-button ${dirty[key] ? 'admin-button--secondary' : 'admin-button--primary'}`} disabled={saving} onClick={openAdd} ref={addButton} type="button">{copy.navigation.addItem}</button>
               </div>
             )}
             {items.length > 1 && <p className="navigation-hint" data-refused={drag?.action && 'refused' in drag.action ? '' : undefined} ref={hint}><span aria-live="polite">{drag ? dropHint(drag.action) : ''}</span>{!drag && (location === 'header' ? copy.navigation.dragHint : copy.navigation.dragHintFooter)}</p>}
@@ -460,7 +463,7 @@ export default function NavigationManager({ ownerLocale }: NavigationManagerProp
           </div>
         </div>
       </>}
-      <dialog aria-labelledby="navigation-add-title" className="navigation-dialog" onClose={() => addButton.current?.focus()} ref={dialog}>
+      <dialog aria-labelledby="navigation-add-title" className="navigation-dialog" onClose={() => requestAnimationFrame(() => addButton.current?.focus())} ref={dialog}>
         <form noValidate onSubmit={add}>
           <h2 id="navigation-add-title">{copy.navigation.addTitle}</h2>
           <fieldset className="navigation-kinds"><legend>{copy.navigation.target}</legend>{([{ value: 'home', label: copy.navigation.home }, { value: 'page', label: copy.navigation.page }, { value: 'custom', label: copy.navigation.customUrl }, ...(location === 'header' ? [{ value: 'group', label: copy.navigation.group }] as const : [])] as const).map((option) => <label key={option.value}><input checked={kind === option.value} name="navigation-kind" onChange={() => selectKind(option.value)} type="radio" value={option.value} /> {option.label}</label>)}</fieldset>

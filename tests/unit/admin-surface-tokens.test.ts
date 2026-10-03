@@ -175,9 +175,8 @@ test('the details dialog uses the admin controls', () => {
     assert.ok(at > -1, `the dialog has no ${control}`);
     assert.match(dialog.slice(at, at + 400), /className="admin-control/, `${control} is not an admin control`);
   }
-  // SaveButton draws the primary button itself.
+  // SaveButton draws its own button, primary once there is a change: admin-one-primary.test.ts renders it.
   assert.match(dialog, /<SaveButton/, 'save is not the shared save button');
-  assert.match(read('src/components/admin/SaveButton.tsx'), /className="admin-button admin-button--primary admin-save-button"/, 'save is not the primary button');
   assert.match(dialog, /className="admin-button admin-button--danger"/, 'delete is not the danger button');
 });
 
@@ -946,10 +945,8 @@ test('Stats chooses its language with the admin select, keeps its periods short,
   assert.match(read('src/pages/admin/stats.astro'), /quiet \? \(/);
 });
 
-test('System says it is checking once, and Navigation shows no save row until something changes', () => {
-  const update = read('src/components/admin/UpdateManager.tsx');
-  assert.doesNotMatch(update, /currentVersion \?\? copy\.updates\.checking/);
-  assert.match(update, /\{!busy && <p>\{progress\}<\/p>\}/);
+// System saying it is checking once is rendered, not read, in admin-one-primary.test.ts.
+test('Navigation shows no save row until something changes', () => {
   assert.match(read('src/components/admin/NavigationManager.tsx'), /\{\(dirty\[key\] \|\| pressed === 'save' \|\| savedOnce\) && <div className="navigation-save">/);
 });
 

@@ -162,6 +162,12 @@ test('six-step installer preserves safe values and registers a primary Passkey',
     await page.getByRole('button', { name: 'Check again' }).click();
 
     await page.getByRole('button', { name: 'Name your site' }).click();
+    // The installer's own select keeps 44px rows; the admin's are a control tall.
+    await page.locator('#timezone').click();
+    const options = page.locator('.ui-select__menu:not([hidden]) .ui-select__option');
+    await expect(options).toHaveCount(2);
+    expect(await options.evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().height))).toEqual([44, 44]);
+    await page.keyboard.press('Escape');
     await page.getByLabel('Site name').fill('Tome Notes');
     await page.getByLabel('Tagline').fill('Ideas worth keeping');
     await page.getByLabel('Admin path').fill('/api');

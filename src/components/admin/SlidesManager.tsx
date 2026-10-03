@@ -213,6 +213,8 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     edit(next);
     setMessage(draft.index === null ? text.added : fill(text.changed, { index: draft.index + 1 }));
     close();
+    // The first slide's Add was in the empty block, which has gone; the head's Add takes the focus.
+    if (!items.length) requestAnimationFrame(() => addButton.current?.focus());
   }
 
   function pick(asset: MediaAsset) {
@@ -288,7 +290,9 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
     <section className="admin-page navigation-manager home-slides">
       <header className="admin-page__head">
         <div><p className="admin-eyebrow">{copy.nav.groupContent}</p><h1>{text.heading}</h1><p>{text.subheading}</p></div>
-        <button className="admin-button admin-button--primary" disabled={loading || !!loadError || saving} onClick={() => open(null)} ref={addButton} type="button">{text.add}</button>
+        {/* As on Navigation: a list with slides adds from the head, as a secondary, so Save slides can
+            be the primary once something changes; an empty one adds from its empty block. */}
+        {items.length > 0 && <button className="admin-button admin-button--secondary" disabled={loading || !!loadError || saving} onClick={() => open(null)} ref={addButton} type="button">{text.add}</button>}
       </header>
       {!heroUsesSlides && (
         <div className="home-slides-notice">
@@ -313,6 +317,7 @@ export default function SlidesManager({ heroUsesSlides, ownerLocale, themesHref 
             <div className="admin-empty">
               <p className="admin-eyebrow">{copy.empty.eyebrow}</p>
               <p>{text.empty}</p>
+              <button className={`admin-button ${dirty[locale] ? 'admin-button--secondary' : 'admin-button--primary'}`} disabled={saving} onClick={() => open(null)} ref={addButton} type="button">{text.add}</button>
             </div>
           )}
           <ol aria-label={text.list} className="navigation-items" ref={list}>

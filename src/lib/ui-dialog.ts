@@ -44,9 +44,10 @@ let dismissActive: (() => void) | null = null;
  */
 const inAdmin = () => document.body.classList.contains('admin-body');
 
-function adminButtonClass(kind: 'cancel' | 'confirm' | 'secondary', tone: DialogTone) {
+export function adminButtonClass(kind: 'cancel' | 'confirm' | 'secondary', tone: DialogTone) {
   if (kind !== 'confirm') return `admin-button admin-button--secondary${kind === 'secondary' ? ' ui-dialog__button--secondary' : ''}`;
-  return tone === 'danger' ? 'admin-button admin-button--danger' : 'admin-button admin-button--primary';
+  // The confirm is the dialog's one filled button; a delete fills it with the danger colour.
+  return `admin-button admin-button--primary${tone === 'danger' ? ' admin-button--danger' : ''}`;
 }
 
 function button(label: string, kind: 'cancel' | 'confirm' | 'secondary', tone: DialogTone) {

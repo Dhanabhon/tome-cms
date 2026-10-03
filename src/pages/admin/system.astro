@@ -7,6 +7,7 @@ import { adminLoginPath } from '../../lib/admin';
 import { requireOwner } from '../../server/auth/session';
 import { getOwnerSettings, type SiteSettings } from '../../server/content/settings';
 import { HttpError } from '../../server/http/errors';
+import { getBuildInfo } from '../../server/update/current';
 
 let settings: SiteSettings | null = null;
 let userEmail: string | null = null;
@@ -44,7 +45,7 @@ const errorMessage = errorKey ? copy.updates[errorKey] : null;
     <AdminShell active="system" adminPath={settings.admin_path} locale={settings?.default_locale} siteName={settings.site_name} userEmail={userEmail}>
       <section class="admin-page admin-form-page">
         <header class="admin-page__head"><div><p class="admin-eyebrow">{copy.nav.groupConfig}</p><h1>{copy.updates.heading}</h1><p>{copy.updates.subheading}</p></div></header>
-        <UpdateManager client:load ownerLocale={ownerLocale} />
+        <UpdateManager client:load installedVersion={getBuildInfo().version} ownerLocale={ownerLocale} />
       </section>
     </AdminShell>
   )}

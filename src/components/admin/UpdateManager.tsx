@@ -13,6 +13,7 @@ import type { UpdaterStatus } from '../../server/update/updater-client';
 import type { UpdateUnavailableReason } from '../../server/update/service';
 import type { PublicUpdateJob } from '../../updater/state';
 import { atLeast, MIN_BUSY_MS } from '../../lib/busy';
+import Icon from '../Icon';
 
 type UpdateCheck = {
   checkedAt: string;
@@ -141,10 +142,12 @@ export function formatPublishedAt(value: string, copy: AdminCopy, locale?: PostL
 }
 
 interface UpdateManagerProps {
+  /** The running build's version, from the server: shown before the check returns, and when it fails. */
+  installedVersion?: string;
   ownerLocale?: PostLocale | null;
 }
 
-export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) {
+export default function UpdateManager({ installedVersion, ownerLocale }: UpdateManagerProps) {
   const copy = adminCopy(ownerLocale);
   const steps = buildSteps(copy);
   const [check, setCheck] = useState<UpdateCheck | null>(null);
@@ -335,7 +338,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
         <div className="update-summary">
           <p className="update-status" data-status={statusAttr} role="status" aria-live="polite">{copy.updates.releaseAvailability} {availabilityLabel}</p>
           <dl className="admin-facts">
-            {check && <div><dt>{copy.updates.installedVersion}</dt><dd>{check.currentVersion}</dd></div>}
+            {(check?.currentVersion ?? installedVersion) && <div><dt>{copy.updates.installedVersion}</dt><dd>{check?.currentVersion ?? installedVersion}</dd></div>}
             {check?.latest && <div><dt>{copy.updates.latestVersion}</dt><dd>{check.latest.manifest.version}</dd></div>}
             {check?.latest && <div><dt>{copy.updates.published}</dt><dd>{formatPublishedAt(check.latest.publishedAt, copy, ownerLocale)}</dd></div>}
           </dl>
@@ -343,7 +346,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
               runs the status line above already says so, and once is enough. */}
           {!busy && <p>{progress}</p>}
           {installError && <p className="update-error" role="alert">{installError}</p>}
-          {releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes} <span aria-hidden="true">↗</span></a>}
+          {releaseNotes && <a className="update-release-notes" href={releaseNotes} target="_blank" rel="noopener noreferrer">{copy.updates.readReleaseNotes}<Icon name="external" /></a>}
         </div>
         <div className="update-actions">
           <button aria-busy={checking} className="admin-button admin-button--secondary" disabled={busy || installing || !!watch} onClick={() => void load(true)} type="button">{copy.updates.checkAgain}</button>
@@ -370,7 +373,7 @@ export default function UpdateManager({ ownerLocale }: UpdateManagerProps = {}) 
         </header>
         <progress className="update-progress" max={8} value={job?.completedSteps ?? 0} aria-label={copy.updates.stepsCompleted} />
         <ol className="update-steps">{steps.map(([phase, label], index) => <li key={phase} aria-current={job?.phase === phase ? 'step' : undefined}>
-          {index < (job?.completedSteps ?? 0) && <span aria-label={copy.updates.completed}>✓ </span>}{label}
+          {index < (job?.completedSteps ?? 0) && <><Icon name="check" /><span className="sr-only">{copy.updates.completed} </span></>}{label}
         </li>)}</ol>
         {job?.phase === 'succeeded' && <p>{fill(copy.updates.installed, { version: job.targetVersion })}</p>}
         {job?.backupCreatedAt && <p>{copy.updates.backupCreated} <time dateTime={job.backupCreatedAt}>{formatBackupTime(job.backupCreatedAt, ownerLocale)}</time>.</p>}
