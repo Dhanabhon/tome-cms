@@ -12,11 +12,15 @@ import { isRestoreKeptInMaintenance, isUpdateRunning, readBusy, readRestore, rea
 const TRANSFER_APP_SINCE = '1.13.0';
 const STEP_MS = 60 * 60_000;
 const DIAGNOSTIC_LINES = 20;
+const RECEIPT_BYTES = 16 * 1024 ** 2;
 
-/** A step that did not say ok: its receipt's code (null with no receipt), its receipt, and its stderr. */
+/**
+ * A step that did not say ok. Either it refused, and its receipt names the code, or tome could not
+ * read its receipt, and `unreadable` says why. With its last lines of stderr.
+ */
 export class ContentStepFailure extends Error {
-  constructor(readonly code: string | null, readonly receipt: Record<string, unknown>, readonly stderr: string) {
-    super(`The content step failed (${code ?? 'no receipt'})`);
+  constructor(readonly code: string | null, readonly receipt: Record<string, unknown>, readonly stderr: readonly string[], readonly unreadable: string | null) {
+    super(`The content step failed (${code ?? unreadable})`);
   }
 }
 
@@ -44,25 +48,53 @@ export async function runContentStep(context: CliContext, id: string, label: str
   const { config } = context;
   const owner = await ownerOfBackupRoot(config.backupDirectory);
   const name = `${config.projectName}-tome-${id}-${label}`;
-  const result = await context.runCommand('docker', [
+  // Read line by line: a plan names every item, far past runCommand's 32 KiB. Past the bound, lines
+  // are dropped, never the step: stopping an import half-way is worse than not reading its answer.
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  let bytes = 0;
+  const code = await context.streamCommand('docker', [
     ...composePrefix(config), 'run', '--rm', '--name', name, '--no-deps', '--user', `${owner.uid}:${owner.gid}`,
     '--env', 'DATABASE_QUERY_TIMEOUT_MS=3600000', '--volume', `${config.backupDirectory}:/work`,
     'app', 'npm', 'run', '--silent', 'content', '--', ...step,
-  ], { timeoutMs: STEP_MS });
-  // A run cut off at its timeout may leave its container behind.
-  if (result.timedOut) await context.runCommand('docker', ['rm', '--force', name], { timeoutMs: 30_000 }).catch(() => undefined);
-  const lines = result.stdout.split('\n').filter(Boolean);
-  let receipt: unknown = null;
-  try {
-    receipt = lines.length === 1 ? JSON.parse(lines[0]!) : null;
-  } catch { /* no receipt */ }
-  const record = receipt !== null && typeof receipt === 'object' && !Array.isArray(receipt) ? receipt as Record<string, unknown> : {};
-  if (result.code === 0 && record.ok === true) return record;
-  throw new ContentStepFailure(record.ok === false && typeof record.code === 'string' ? record.code : null, record, result.stderr);
+  ], (line, stream) => {
+    if (stream === 'stderr') {
+      if (line.trim()) stderr.push(line);
+      if (stderr.length > DIAGNOSTIC_LINES) stderr.shift();
+      return;
+    }
+    bytes += Buffer.byteLength(line) + 1;
+    if (bytes <= RECEIPT_BYTES && line.trim()) stdout.push(line);
+  }, { timeoutMs: STEP_MS });
+  const { record, unreadable } = readReceipt(stdout, bytes);
+  if (code === 0 && record.ok === true) return record;
+  const refused = record.ok === false && typeof record.code === 'string' ? record.code : null;
+  // A run cut off, at its timeout or otherwise, may leave its container behind.
+  if (!refused) await context.runCommand('docker', ['rm', '--force', name], { timeoutMs: 30_000 }).catch(() => undefined);
+  throw new ContentStepFailure(refused, record, stderr, refused ? null : unreadable ?? `it exited with ${code}`);
 }
 
-/** Tells the owner why a step failed: its refusal's sentence, or what it printed, with every secret hidden. */
-export async function explainStepFailure(context: CliContext, failure: ContentStepFailure, step: 'export' | 'import'): Promise<void> {
+/** Exactly one JSON object on one line, or why not. */
+function readReceipt(lines: readonly string[], bytes: number): { record: Record<string, unknown>; unreadable: string | null } {
+  const none = (unreadable: string) => ({ record: {}, unreadable });
+  if (bytes > RECEIPT_BYTES) return none('it was longer than 16 MiB');
+  if (lines.length === 0) return none('it gave none');
+  if (lines.length > 1) return none('it gave more than one line');
+  let value: unknown;
+  try {
+    value = JSON.parse(lines[0]!);
+  } catch {
+    return none('it was cut off, or is not JSON');
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return none('it is not a receipt');
+  return { record: value as Record<string, unknown>, unreadable: null };
+}
+
+/**
+ * Tells the owner why a step failed: its refusal's sentence, or what it printed, with every secret
+ * hidden. After an import's apply step, an answer tome cannot read never says nothing was imported.
+ */
+export async function explainStepFailure(context: CliContext, failure: ContentStepFailure, step: 'export' | 'import', applying = false): Promise<void> {
   const nothing = `nothing was ${step}ed`;
   const sentence = failure.code === null ? null : explainContentRefusal(failure.code, failure.receipt);
   if (sentence) {
@@ -70,12 +102,19 @@ export async function explainStepFailure(context: CliContext, failure: ContentSt
     if (!sentence.endsWith(`${nothing}.`)) context.warn(`Nothing was ${step}ed.`);
     return;
   }
-  const code = failure.code === null ? '' : ` (${printable(failure.code)})`;
   const lines = await hiddenSecrets(context).then(
-    (secrets) => failure.stderr.split('\n').filter((line) => line.trim()).slice(-DIAGNOSTIC_LINES).map((line) => `  ${printable(redactLine(line, secrets))}`),
+    (secrets) => failure.stderr.map((line) => `  ${printable(redactLine(line, secrets))}`),
     () => ['  (not shown: the secrets in it could not be hidden)'],
   );
-  context.warn(`The ${step} step failed${code}, so ${nothing}.${lines.length ? ' What it said:' : ''}`);
+  const said = lines.length ? ' What it said:' : '';
+  if (failure.code !== null) {
+    context.warn(`The ${step} step failed (${printable(failure.code)}), so ${nothing}.${said}`);
+  } else if (applying) {
+    context.warn(`The import ran, but tome could not read its answer (${failure.unreadable}), so it may have finished. ` +
+      `Check the posts and pages in the admin, or run the same import with --dry-run to see what is still to import.${said}`);
+  } else {
+    context.warn(`The ${step} step failed, and tome could not read its answer (${failure.unreadable}).${said}`);
+  }
   for (const line of lines) context.warn(line);
 }
 

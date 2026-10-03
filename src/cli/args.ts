@@ -111,7 +111,8 @@ uses are not in it: a full backup has them. The site stays up.`,
 Adds the posts and pages in an archive from tome export, or in a directory laid out the same way,
 under /var/backups/tome-cms. Each keeps its status and dates. One whose address the site already has
 is skipped: nothing is overwritten. It prints what it will do first. Either everything is imported
-or nothing is.
+or nothing is. A directory is handed to the updater's user, even with --dry-run, so the import can
+read it.
 
 Options:
   --dry-run   Print what it would do, and import nothing.

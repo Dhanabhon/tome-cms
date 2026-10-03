@@ -23,10 +23,10 @@ async function scratch(t: { after: (fn: () => Promise<void>) => void }): Promise
  * A .tar.gz with exactly these entries, written header by header, so an archive can hold what no
  * one could make on this machine without root: an absolute path, `..`, a device.
  */
-function tarball(entries: Array<{ name: string; type?: string; body?: string; link?: string }>): Buffer {
+function tarball(entries: Array<{ name: string; type?: string; body?: string | Buffer; link?: string; uname?: string }>): Buffer {
   const blocks: Buffer[] = [];
   for (const entry of entries) {
-    const body = Buffer.from(entry.body ?? '');
+    const body = Buffer.isBuffer(entry.body) ? entry.body : Buffer.from(entry.body ?? '');
     const header = Buffer.alloc(512);
     const octal = (value: number, width: number) => `${value.toString(8).padStart(width - 1, '0')}\0`;
     header.write(entry.name, 0, 100, 'utf8');
@@ -38,6 +38,8 @@ function tarball(entries: Array<{ name: string; type?: string; body?: string; li
     header.write(entry.type ?? '0', 156);
     header.write(entry.link ?? '', 157, 100, 'utf8');
     header.write('ustar\0' + '00', 257);
+    header.write(entry.uname ?? '', 265, 32, 'utf8');
+    header.write(entry.uname ?? '', 297, 32, 'utf8');
     header.write(octal(1, 8), 329);
     header.write(octal(3, 8), 337);
     header.write(' '.repeat(8), 148);
@@ -130,39 +132,67 @@ test('something that is not a .tar.gz, or a listing tome cannot read, is refused
 });
 
 test('GNU tar\'s listing, as the server prints it, reads the same as this machine\'s', async (t) => {
-  // Captured from GNU tar 1.35 (as Ubuntu 24.04 ships), `tar -tvzf`, under LC_ALL=C (Thai escaped)
-  // and C.UTF-8 (Thai as it is). GNU lists an absolute or `..` name as it is, and says on stderr
-  // that it would strip it.
+  // Captured from GNU tar 1.35 (as Ubuntu 24.04 ships), `tar --numeric-owner -tvzf`, under LC_ALL=C
+  // (Thai escaped) and C.UTF-8 (Thai as it is). GNU lists an absolute or `..` name as it is, and says
+  // on stderr that it would strip it.
   const gnu = [
-    'drwx------ tomecms-updater/tomecms-updater 0 2026-10-03 12:00 ./',
-    '-rw------- tomecms-updater/tomecms-updater 1234 2026-10-03 12:00 ./manifest.json',
-    'drwx------ tomecms-updater/tomecms-updater 0 2026-10-03 12:00 ./posts/th/',
-    '-rw------- tomecms-updater/tomecms-updater   10 2026-10-03 12:00 ./posts/th/\\340\\270\\202\\340\\270\\231\\340\\270\\241\\340\\270\\233\\340\\270\\261\\340\\270\\207-\\340\\270\\242\\340\\270\\262\\340\\270\\241\\340\\270\\204\\340\\271\\210\\340\\270\\263.md',
-    `-rw------- 999/999 10 2026-10-03 12:00 ./posts/th/${thai}`,
-    '-rw------- root/root 5 2026-10-03 12:00 ./media/we ird\\\\name',
-    'hrw------- root/root 0 2026-10-03 12:00 ./media/hard link to ./manifest.json',
-    'lrwxrwxrwx root/root 0 2026-10-03 12:00 ./media/link -> /etc/shadow',
-    'prw-r--r-- root/root 0 2026-10-03 12:00 ./media/fifo',
-    'crw-rw-rw- root/root 1,3 2026-10-03 12:00 ./media/null',
+    'drwx------ 999/999           0 2026-10-03 12:00 ./',
+    '-rw------- 999/999        1234 2026-10-03 12:00 ./manifest.json',
+    'drwx------ 999/999           0 2026-10-03 12:00 ./posts/th/',
+    '-rw------- 999/999          10 2026-10-03 12:00 ./posts/th/\\340\\270\\202\\340\\270\\231\\340\\270\\241\\340\\270\\233\\340\\270\\261\\340\\270\\207-\\340\\270\\242\\340\\270\\262\\340\\270\\241\\340\\270\\204\\340\\271\\210\\340\\270\\263.md',
+    `-rw------- 999/999          10 2026-10-03 12:00 ./posts/th/${thai}`,
+    '-rw-r--r-- 0/0          100000 2026-09-21 14:13 media/big',
+    '-rw-r--r-- 0/0               1 2026-09-21 14:13 posts/en/a -> b.md',
+    '-rw-r--r-- 0/0               1 2026-09-21 14:13 posts/en/a\\nb.md',
+    '-rw------- 0/0               5 2026-10-03 12:00 ./media/we ird\\\\name',
+    'hrw------- 0/0               0 2026-10-03 12:00 ./media/hard link to ./manifest.json',
+    'lrwxrwxrwx 0/0               0 2026-10-03 12:00 ./media/link -> /etc/shadow',
+    'prw-r--r-- 0/0               0 2026-10-03 12:00 ./media/fifo',
+    'crw-r--r-- 0/0             1,3 2026-09-21 14:13 media/null',
   ];
-  const fixture = { runCommand, streamCommand: async (_e: string, _a: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void) => { for (const line of gnu) onLine(line, 'stdout'); return 0; } };
-  const entries = await listArchive(fixture, await archiveOf(t, []));
+  const fixture = (lines: string[]) => ({ runCommand, streamCommand: async (_e: string, _a: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void) => { for (const line of lines) onLine(line, 'stdout'); return 0; } });
+  const entries = await listArchive(fixture(gnu), await archiveOf(t, []));
   assert.deepEqual(entries, [
     { type: 'dir', name: './', size: 0 },
     { type: 'file', name: './manifest.json', size: 1234 },
     { type: 'dir', name: './posts/th/', size: 0 },
     { type: 'file', name: `./posts/th/${thai}`, size: 10 },
     { type: 'file', name: `./posts/th/${thai}`, size: 10 },
+    { type: 'file', name: 'media/big', size: 100_000 },
+    { type: 'file', name: 'posts/en/a -> b.md', size: 1 },
+    { type: 'file', name: 'posts/en/a\nb.md', size: 1 },
     { type: 'file', name: './media/we ird\\name', size: 5 },
     { type: 'other', name: './media/hard', size: 0 },
     { type: 'other', name: './media/link', size: 0 },
     { type: 'other', name: './media/fifo', size: 0 },
-    { type: 'other', name: './media/null', size: 0 },
+    { type: 'other', name: 'media/null', size: 0 },
   ]);
-  for (const name of ['/etc/x', '../y', 'a/../../z']) {
-    const line = { runCommand, streamCommand: async (_e: string, _a: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void) => { onLine(`-rw-r--r-- 0/0               1 2026-09-21 14:13 ${name}`, 'stdout'); return 0; } };
-    assert.equal(refusal(await listArchive(line, await archiveOf(t, []))), `That archive holds a path outside itself (${name}), so nothing was imported.`);
+  for (const name of ['/etc/x', '../escape', 'a/../../z']) {
+    const listed = await listArchive(fixture([`-rw-r--r-- 0/0               1 2026-09-21 14:13 ${name}`]), await archiveOf(t, []));
+    assert.equal(refusal(listed), `That archive holds a path outside itself (${name}), so nothing was imported.`);
   }
+  // Without --numeric-owner, GNU prints the archive's own owner names, unescaped: these shift every
+  // column after them. Such a line is refused, never read by guessing.
+  const named = '-rw-r--r-- a 1 2026-01-01 00:00 x/a 1 2026-01-01 00:00 x 1 2026-09-21 14:13 ../escape';
+  await assert.rejects(listArchive(fixture([named]), await archiveOf(t, [])), new ArchiveRefusal('That archive could not be read as a .tar.gz, so nothing was imported.'));
+});
+
+test('owner names with spaces cannot shift a name or a size past the checks, with this machine\'s tar', async (t) => {
+  const spaced = 'a 1 2026-01-01 00:00 x'; // what the owner columns would print, were they printed
+  for (const name of ['../x', '/etc/x']) {
+    const entries = await listArchive(real, await archiveOf(t, [{ name: 'manifest.json', body: '{}', uname: spaced }, { name, body: 'x', uname: spaced }]));
+    assert.equal(refusal(entries), `That archive holds a path outside itself (${name}), so nothing was imported.`, name);
+  }
+  const entries = await listArchive(real, await archiveOf(t, [
+    { name: 'media/big', body: Buffer.alloc(100_000), uname: spaced },
+    { name: 'posts/en/a -> b.md', body: 'x' },
+    { name: 'posts/en/a\nb.md', body: 'x' },
+  ]));
+  assert.deepEqual(entries, [
+    { type: 'file', name: 'media/big', size: 100_000 },
+    { type: 'file', name: 'posts/en/a -> b.md', size: 1 },
+    { type: 'file', name: 'posts/en/a\nb.md', size: 1 },
+  ]);
 });
 
 test('a Thai file name passes, and packs, lists and unpacks byte for byte', async (t) => {
@@ -206,4 +236,22 @@ test('tar runs as argv, unpacking without the archive\'s owners or permissions',
     await rm(target, { recursive: true, force: true });
   }
   assert.deepEqual(calls, [{ executable: 'tar', args: ['-xzf', '/var/backups/tome-cms/in.tar.gz', '-C', target, '--no-same-owner', '--no-same-permissions'], timeoutMs: 600_000 }]);
+});
+
+test('more than 2 GiB on disk after unpacking is refused, whatever the listing said', async (t) => {
+  const target = await scratch(t);
+  await writeFile(join(target, 'manifest.json'), '{}');
+  await truncate(join(target, 'manifest.json'), ARCHIVE_LIMITS.bytes + 1); // sparse
+  const quiet = { runCommand: async () => ({ code: 0, stdout: '', stderr: '' }), streamCommand };
+  await assert.rejects(extractArchive(quiet, 'in.tar.gz', target), new ArchiveRefusal('That archive is larger than 2 GiB, or holds more than 20,000 entries.'));
+});
+
+test('a pack that fails leaves no archive behind, and an archive already there is never touched', async (t) => {
+  const base = await scratch(t);
+  const out = join(base, 'out.tar.gz');
+  await assert.rejects(packDirectory(real, join(base, 'missing'), out));
+  assert.deepEqual(await readdir(base), [], 'the cut-off archive is gone');
+  await writeFile(out, 'an earlier export');
+  await assert.rejects(packDirectory(real, base, out), { code: 'EEXIST' });
+  assert.equal(await readFile(out, 'utf8'), 'an earlier export');
 });

@@ -97,6 +97,12 @@ test('anything outside the layout, a bad front matter and an oversized picture r
   await refused({ 'posts/en/a.md': md({ title: 'A', language: 'th' }) }, 'front_matter_invalid', 'posts/en/a.md');
   await assert.rejects(planImport(await archive(context, { 'posts/en/a.md': md({ title: 'A', language: 'th' }) }), OWNER, site()),
     (error) => error instanceof ArchiveInputError && error.field === 'language', 'the refusal names the field');
+  await assert.rejects(planImport(await archive(context, { 'posts/en/a.md': md({ title: 'A', categories: ['  '] }) }), OWNER, site()),
+    (error) => error instanceof ArchiveInputError && error.code === 'front_matter_invalid' && error.field === 'categories');
+  await assert.rejects(planImport(await archive(context, {
+    'posts/en/a.md': md({ title: 'A', slug: 'a', translation: 'g' }),
+    'posts/en/b.md': md({ title: 'B', slug: 'b', translation: 'g' }),
+  }), OWNER, site()), (error) => error instanceof ArchiveInputError && error.file === 'posts/en/b.md' && error.field === 'translation');
   await refused({ 'posts/en/a.md': md({ title: 'A' }), 'posts/en/a.tome.json': '{not json' }, 'content_invalid', 'posts/en/a.tome.json');
   await refused({ 'posts/en/a.md': md({ title: 'A' }), 'posts/en/a.tome.json': '{"type":"doc","content":"words"}' }, 'content_invalid', 'posts/en/a.tome.json');
   const huge = Buffer.alloc(9 * 1024 * 1024);

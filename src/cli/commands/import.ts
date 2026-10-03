@@ -40,12 +40,13 @@ export async function importContent(context: CliContext, options: { path: string
   }
   const id = context.requestId();
   const work = join(config.backupDirectory, `.work-${id}`);
+  let applying = false;
   try {
     const directory = input.isFile ? await unpack(context, input.real, work) : await checked(input.real);
     await chownTree(context.runCommand, directory, await ownerOfBackupRoot(config.backupDirectory));
     const step = ['import', '--dir', `/work/${basename(directory)}`];
     const plan = readPlan((await runContentStep(context, id, 'import-plan', [...step, '--plan'])).plan);
-    context.print(`Archive: ${printable(input.real)}`);
+    context.print(`${input.isFile ? 'Archive' : 'Directory'}: ${printable(input.real)}`);
     if (plan.create.length === 0) {
       context.print('Nothing to import: everything in it is already on the site.');
       return 0;
@@ -56,8 +57,16 @@ export async function importContent(context: CliContext, options: { path: string
       context.print('Nothing was done.');
       return 1;
     }
+    applying = true;
     const result = (await runContentStep(context, id, 'import-apply', [...step, '--apply'])).result;
-    printResult(context, readPlan(result), (result as { missingMedia?: unknown }).missingMedia);
+    let summary: ImportPlan;
+    try {
+      summary = readPlan(result);
+    } catch {
+      context.warn('The import finished, but tome could not read its summary. See what it added in the admin.');
+      return 0;
+    }
+    printResult(context, summary, (result as { missingMedia?: unknown }).missingMedia);
     return 0;
   } catch (error) {
     if (error instanceof ArchiveRefusal) {
@@ -65,7 +74,7 @@ export async function importContent(context: CliContext, options: { path: string
       return 1;
     }
     if (!(error instanceof ContentStepFailure)) throw error;
-    await explainStepFailure(context, error, 'import');
+    await explainStepFailure(context, error, 'import', applying);
     return 1;
   } finally {
     await rm(work, { recursive: true, force: true });

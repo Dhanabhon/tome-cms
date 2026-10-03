@@ -1,4 +1,5 @@
-import { stat, writeFile } from 'node:fs/promises';
+import { lstat, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import type { CliContext } from './main.js';
 import { findUnsafeEntry } from './ownership.js';
@@ -24,11 +25,13 @@ type Commands = Pick<CliContext, 'runCommand' | 'streamCommand'>;
 const tooLarge = () => new ArchiveRefusal('That archive is larger than 2 GiB, or holds more than 20,000 entries.');
 const unreadable = () => new ArchiveRefusal('That archive could not be read as a .tar.gz, so nothing was imported.');
 
-// `tar -tv` prints a line like `ls -l`: the mode, whose first letter is the type, then the owner, the
-// size and the time, and the name last. GNU: `-rw------- user/group 10 2026-10-03 12:00 name`.
-// bsdtar: `-rw-------  0 user group 10 Oct  3 12:00 name`, with the year in place of the time when old.
-const GNU_LINE = /^(\S)\S{9}\s+\S+\s+(\d+|\d+,\s*\d+)\s+\d{4}-\d\d-\d\d \d\d:\d\d(?::\d\d)? (.*)$/u;
-const BSD_LINE = /^(\S)\S{9}\s+\d+\s+\S+\s+\S+\s+(\d+|\d+,\s*\d+)\s+\w{3}\s+\d{1,2}\s+(?:\d\d:\d\d|\d{4}) (.*)$/u;
+// `tar --numeric-owner -tv` prints a line like `ls -l`: the mode, whose first letter is the type, the
+// owner as numbers, the size and the time, and the name last. GNU: `-rw------- 0/0 10 2026-10-03 12:00 name`.
+// bsdtar: `-rw-------  0 0      0 10 Oct  3 12:00 name`, with the year in place of the time when old.
+// Every field before the name is digits or tar's own text: an owner's name, which the archive sets and
+// tar does not escape, is never printed, so nothing in the archive can shift where the name starts.
+const GNU_LINE = /^(\S)\S{9} +\d+\/\d+ +(\d+|\d+,\d+) \d{4}-\d\d-\d\d \d\d:\d\d(?::\d\d)? (.*)$/u;
+const BSD_LINE = /^(\S)\S{9} +\d+ +\d+ +\d+ +(\d+|\d+, *\d+) \S+ +\d{1,2} +(?:\d\d:\d\d|\d{4}) (.*)$/u;
 const C_ESCAPES: Record<string, number> = { a: 7, b: 8, f: 12, n: 10, r: 13, t: 9, v: 11, '\\': 92 };
 
 /** One line of the listing, or null when it is not one tome can read. */
@@ -73,7 +76,7 @@ export async function listArchive(commands: Commands, path: string, maxEntries: 
   let unread = false;
   let code: number;
   try {
-    code = await commands.streamCommand('tar', ['-tvzf', path], (line, stream) => {
+    code = await commands.streamCommand('tar', ['--numeric-owner', '-tvzf', path], (line, stream) => {
       if (stream !== 'stdout' || stop.signal.aborted) return;
       const entry = parseLine(line);
       if (entry) entries.push(entry);
@@ -103,18 +106,37 @@ export function assertSafeEntries(entries: readonly ArchiveEntry[], limits: { by
 
 /**
  * Unpacks an archive whose listing passed, as root, owning nothing and keeping no permission bits,
- * then walks what it left: anything but a plain file or a directory is refused.
+ * then walks what it left: anything but a plain file or a directory is refused, and so is more than
+ * 2 GiB on disk, whatever sizes the listing gave.
  */
 export async function extractArchive(commands: Commands, path: string, directory: string): Promise<void> {
   const result = await commands.runCommand('tar', ['-xzf', path, '-C', directory, '--no-same-owner', '--no-same-permissions'], { timeoutMs: TAR_MS });
   if (result.code !== 0) throw unreadable();
   const unsafe = await findUnsafeEntry(directory);
   if (unsafe !== null) throw new ArchiveRefusal(`That archive holds a link or a special file (${printable(unsafe)}), so nothing was imported.`);
+  let total = 0;
+  for (const entry of await readdir(directory, { recursive: true, withFileTypes: true })) {
+    total += (await lstat(join(entry.parentPath, entry.name))).size;
+  }
+  if (total > ARCHIVE_LIMITS.bytes) throw tooLarge();
 }
 
-/** Packs a directory's contents into a new .tar.gz, made 0600 before tar writes a byte to it. */
+/**
+ * Packs a directory's contents into a new .tar.gz, made 0600 before tar writes a byte to it. An archive
+ * already there is never touched (EEXIST); one this call made is removed when tar fails, so a disk that
+ * filled up leaves no cut-off archive that looks like an export.
+ */
 export async function packDirectory(commands: Commands, directory: string, out: string): Promise<void> {
   await writeFile(out, '', { mode: 0o600, flag: 'wx' });
-  const result = await commands.runCommand('tar', ['-czf', out, '-C', directory, '.'], { timeoutMs: TAR_MS });
-  if (result.code !== 0) throw new Error(printable(result.stderr.trim()).slice(0, 200) || `tar exited with ${result.code}`);
+  let result;
+  try {
+    result = await commands.runCommand('tar', ['-czf', out, '-C', directory, '.'], { timeoutMs: TAR_MS });
+  } catch (error) {
+    await rm(out, { force: true });
+    throw error;
+  }
+  if (result.code !== 0) {
+    await rm(out, { force: true });
+    throw new Error(printable(result.stderr.trim()).slice(0, 200) || `tar exited with ${result.code}`);
+  }
 }

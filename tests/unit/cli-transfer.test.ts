@@ -83,15 +83,23 @@ function transferContext(site: Server, input: {
     overrides: {
       runCommand: async (executable, args, options) => {
         commands.push({ executable, args, timeoutMs: options.timeoutMs, workExists: existsSync(work(site.root)) });
-        if (executable === 'docker') return (input.docker ?? (() => receipt({ ok: true, plan })))(args);
+        if (executable === 'docker') return { code: 0, stdout: '', stderr: '' }; // docker rm --force
         if (executable === 'chown') return { code: 0, stdout: '', stderr: '' };
         return runCommand(executable, args, options);
       },
-      streamCommand,
+      // The one-shots are streamed, so their output is never cut at 32 KiB; tar's listing is real.
+      streamCommand: async (executable, args, onLine, options) => {
+        if (executable !== 'docker') return streamCommand(executable, args, onLine, options);
+        commands.push({ executable, args, timeoutMs: options?.timeoutMs ?? 0, workExists: existsSync(work(site.root)) });
+        const result = await (input.docker ?? (() => receipt({ ok: true, plan })))(args);
+        for (const line of result.stdout.split('\n')) if (line) onLine(line, 'stdout');
+        for (const line of result.stderr.split('\n')) if (line) onLine(line, 'stderr');
+        return result.code;
+      },
       ...input.overrides,
     },
   });
-  return { ...f, commands, docker: () => commands.filter((call) => call.executable === 'docker') };
+  return { ...f, commands, docker: () => commands.filter((call) => call.executable === 'docker' && call.args[0] === 'compose') };
 }
 
 function oneShot(site: Server, label: string, step: string[]): string[] {
@@ -274,11 +282,49 @@ test('a step that fails without a refusal shows its own diagnostics, with secret
   const f = transferContext(site, { docker: () => ({ code: 1, stdout: '', stderr: ` Container tomecms-run Creating\nError: connect to postgres://tomecms:${secret}@postgres failed\n` }) });
   assert.equal(await run(f, ['import', path, '--yes']), 1);
   assert.deepEqual(f.warned, [
-    'The import step failed, so nothing was imported. What it said:',
+    'The import step failed, and tome could not read its answer (it gave none). What it said:',
     '   Container tomecms-run Creating',
     '  Error: connect to postgres://tomecms:[redacted]@postgres failed',
   ]);
+  assert.deepEqual(f.commands.at(-1)!.args, ['rm', '--force', `tomecms-tome-${requestId}-import-plan`], 'a container left behind is removed');
   assert.equal(existsSync(work(site.root)), false);
+});
+
+test('a plan far over 32 KiB is read whole: 8,000 Thai items in a receipt of more than 1 MiB', async (t) => {
+  const site = await server(t);
+  const path = await archive(site, { 'manifest.json': '{}' });
+  const create = Array.from({ length: 8_000 }, (_, index) => ({ kind: 'post', locale: 'th', slug: `ขนมปัง-ยามค่ำ-${index}`, path: `posts/th/ขนมปัง-ยามค่ำ-${index}.md`, source: 'md' }));
+  const answer = receipt({ ok: true, plan: { ...plan, create, skip: [], groupsSplit: [] } });
+  assert.ok(Buffer.byteLength(answer.stdout) > 1024 ** 2, String(Buffer.byteLength(answer.stdout)));
+  const f = transferContext(site, { docker: () => answer });
+  assert.equal(await run(f, ['import', path, '--dry-run']), 0, f.err());
+  assert.equal(f.printed[1], 'To create: 8000 posts in Thai.');
+});
+
+test('an answer tome cannot read says so, and after the apply step never claims nothing was imported', async (t) => {
+  const site = await server(t);
+  const path = await archive(site, { 'manifest.json': '{}' });
+  const two = { code: 0, stdout: `${JSON.stringify({ ok: true, plan })}\n{"ok":true}\n`, stderr: '' };
+  const cut = { code: 0, stdout: JSON.stringify({ ok: true, plan }).slice(0, 500), stderr: '' };
+  const huge = { code: 0, stdout: `{"ok":true,"pad":"${'x'.repeat(16 * 1024 ** 2)}"}`, stderr: '' };
+  const cases: Array<[CommandResult, string]> = [[two, 'it gave more than one line'], [cut, 'it was cut off, or is not JSON'], [huge, 'it was longer than 16 MiB']];
+  for (const [answer, why] of cases) {
+    const planning = transferContext(site, { docker: () => answer });
+    assert.equal(await run(planning, ['import', path, '--yes']), 1, why);
+    assert.deepEqual(planning.warned, [`The import step failed, and tome could not read its answer (${why}).`], why);
+    const answers = [receipt({ ok: true, plan }), answer];
+    const applying = transferContext(site, { docker: () => answers.shift()! });
+    assert.equal(await run(applying, ['import', path, '--yes']), 1, why);
+    assert.deepEqual(applying.warned, [`The import ran, but tome could not read its answer (${why}), so it may have finished. ` +
+      'Check the posts and pages in the admin, or run the same import with --dry-run to see what is still to import.'], why);
+    assert.doesNotMatch(applying.err(), /nothing was imported/i);
+    assert.equal(existsSync(work(site.root)), false);
+  }
+  // It said ok, but its summary does not read: the import finished all the same.
+  const answers = [receipt({ ok: true, plan }), receipt({ ok: true, result: { created: 'lots' } })];
+  const odd = transferContext(site, { docker: () => answers.shift()! });
+  assert.equal(await run(odd, ['import', path, '--yes']), 0);
+  assert.deepEqual(odd.warned, ['The import finished, but tome could not read its summary. See what it added in the admin.']);
 });
 
 test('an archive outside the backup root, or with an unsafe entry, is refused before anything is unpacked or run', async (t) => {
