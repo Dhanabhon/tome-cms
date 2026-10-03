@@ -1,6 +1,8 @@
 // `tome`: short commands for looking after a managed TomeCMS server. Installed as /usr/local/bin/tome,
 // it runs as root, reads every path from the updater's configuration, and changes the server only
 // through the updater's socket. Exit codes: 0 success, 1 failure or refusal, 2 wrong usage.
+// Its builder commands (theme, plugin, check) are the other group: they work in a TomeCMS source
+// checkout, through `npm run tome`, need no root, and never read the updater's configuration.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
@@ -12,7 +14,8 @@ import { fetchLatestRelease, fetchTaggedRelease } from '../server/update/release
 import type { UpdateManifest } from '../update/contracts.js';
 import { parseUpdaterConfig, type UpdaterConfig } from '../updater/config.js';
 import { runCommand } from '../updater/process.js';
-import { parseCommand, UsageError } from './args.js';
+import { isBuildCommand, parseBuildCommand, parseCommand, UsageError } from './args.js';
+import { findCheckout } from './build/checkout.js';
 import { backup } from './commands/backup.js';
 import { logs } from './commands/logs.js';
 import { prune } from './commands/prune.js';
@@ -48,8 +51,13 @@ export async function tome(argv: readonly string[], input: {
   load: () => Promise<CliContext>;
   print: (line: string) => void;
   warn: (line: string) => void;
+  /** Where to look for a source checkout, for the builder commands; the working directory by default. */
+  cwd?: string;
 }): Promise<number> {
-  if (input.uid !== 0) {
+  if (isBuildCommand(argv[0])) return build(argv, { ...input, cwd: input.cwd ?? process.cwd() });
+  // The overview names both groups, so reading it needs no root.
+  const isOverview = argv[0] === '--help' || argv[0] === '-h';
+  if (input.uid !== 0 && !isOverview) {
     input.warn(`tome looks after the server, so it runs as root. Run it with sudo, for example: sudo tome ${argv[0] ?? 'status'}`);
     return 1;
   }
@@ -88,6 +96,28 @@ export async function tome(argv: readonly string[], input: {
     }
     return 1;
   }
+}
+
+/** The builder commands. Outside a checkout they refuse before reading or writing anything. */
+async function build(argv: readonly string[], input: { cwd: string; print: (line: string) => void; warn: (line: string) => void }): Promise<number> {
+  let command;
+  try {
+    command = parseBuildCommand(argv);
+  } catch (error) {
+    if (!(error instanceof UsageError)) throw error;
+    input.warn(`${error.message}\n\n${error.usage}`);
+    return 2;
+  }
+  if (command.name === 'help') {
+    input.print(command.text);
+    return 0;
+  }
+  if (findCheckout(input.cwd) === null) {
+    input.warn('Run this in a TomeCMS source checkout.');
+    return 1;
+  }
+  input.warn(`tome ${command.name} is not built yet.`);
+  return 1;
 }
 
 async function loadContext(): Promise<CliContext> {

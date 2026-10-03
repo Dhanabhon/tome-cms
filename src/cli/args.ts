@@ -12,6 +12,17 @@ export type Command =
   | { name: 'update'; version: string | null; yes: boolean }
   | { name: 'prune'; yes: boolean };
 
+export type ThemeSource = 'plain' | 'paper' | 'almanac';
+/** The hooks a new plugin can fill: every one the core declares but mcp, which only the core serves. */
+export type PluginHook = 'publicPage' | 'signIn' | 'editorSuggestions';
+
+/** The commands that build themes and plugins in a source checkout. They need no root. */
+export type BuildCommand =
+  | { name: 'help'; text: string }
+  | { name: 'theme new'; id: string; from: ThemeSource; dryRun: boolean }
+  | { name: 'plugin new'; id: string; hook: PluginHook; client: boolean; dryRun: boolean }
+  | { name: 'check' };
+
 /** Wrong usage: exit 2, with the usage of the command that was meant. */
 export class UsageError extends Error {
   constructor(message: string, readonly usage: string) {
@@ -21,16 +32,20 @@ export class UsageError extends Error {
 
 const overview = `Usage: sudo tome <command> [options]
 
-Looks after this TomeCMS server. Every command runs as root.
-
-Commands:
+Looks after this TomeCMS server. These commands run as root:
   status            The versions, the site, the containers, free disk and the newest backup.
   logs [service]    Recent logs of app (the default), postgres, seaweedfs or updater.
   backup            Back up the database, or everything with --full.
   update [version]  Install the newest release, or the version named.
   prune             List the old application images that can go; --yes removes them.
 
-Run "sudo tome <command> --help" for a command's options.
+These build themes and plugins in a TomeCMS source checkout, not on a server, and need no root.
+Run them there with "npm run tome -- <command>":
+  theme new <id>    Start a new theme from an existing one.
+  plugin new <id>   Start a new plugin.
+  check             Check every theme and plugin.
+
+Run "sudo tome <command> --help", or "npm run tome -- <command> --help", for a command's options.
 Exit codes: 0 success, 1 failure or refusal, 2 wrong usage.`;
 
 const usages = {
@@ -72,7 +87,35 @@ Options:
   -y, --yes   Remove them.`,
 } as const;
 
+const buildUsages = {
+  theme: `Usage: npm run tome -- theme new <id> [--from plain|paper|almanac] [--dry-run]
+
+Starts a new theme: copies src/themes/<from> to src/themes/<id>, renames it, and adds it to the
+theme lists. It runs in a TomeCMS source checkout, not on a server. An id is 2 to 31 lowercase
+letters and digits, starting with a letter.
+
+Options:
+  --from THEME   The theme to start from: plain (the default), paper or almanac.
+  --dry-run      Print the files and lines it would add, and write nothing.`,
+  plugin: `Usage: npm run tome -- plugin new <id> --hook publicPage|signIn|editorSuggestions [--client] [--dry-run]
+
+Starts a new plugin: writes src/plugins/<id>, which does nothing until its code is written, and
+adds it to the plugin lists. It starts switched off. It runs in a TomeCMS source checkout, not on
+a server. An id is 2 to 31 lowercase letters and digits, starting with a letter.
+
+Options:
+  --hook HOOK   Where it acts: publicPage (every page a reader sees), signIn (the admin's
+                sign-in) or editorSuggestions (suggestions in the editor).
+  --client      Also write client.ts, code that runs in the reader's browser.
+  --dry-run     Print the files and lines it would add, and write nothing.`,
+  check: `Usage: npm run tome -- check
+
+Checks every theme and plugin in this TomeCMS source checkout, and prints each problem as
+path:line: what is wrong. It changes nothing.`,
+} as const;
+
 type Name = keyof typeof usages;
+type BuildGroup = keyof typeof buildUsages;
 const help = { help: { type: 'boolean', short: 'h' } } as const;
 const yes = { yes: { type: 'boolean', short: 'y' } } as const;
 const options = {
@@ -83,6 +126,22 @@ const options = {
   prune: { ...help, ...yes },
 } satisfies Record<Name, ParseArgsConfig['options']>;
 const services: readonly LogService[] = ['app', 'postgres', 'seaweedfs', 'updater'];
+const dryRun = { 'dry-run': { type: 'boolean' } } as const;
+const buildOptions = {
+  theme: { ...help, ...dryRun, from: { type: 'string' } },
+  plugin: { ...help, ...dryRun, hook: { type: 'string' }, client: { type: 'boolean' } },
+  check: { ...help },
+} satisfies Record<BuildGroup, ParseArgsConfig['options']>;
+const themeSources: readonly ThemeSource[] = ['plain', 'paper', 'almanac'];
+const pluginHooks: readonly PluginHook[] = ['publicPage', 'signIn', 'editorSuggestions'];
+
+function parse(args: readonly string[], options: ParseArgsConfig['options'], usage: string) {
+  try {
+    return parseArgs({ args: [...args], options, allowPositionals: true, strict: true }) as { values: Record<string, string | boolean | undefined>; positionals: string[] };
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : 'Wrong usage.', usage);
+  }
+}
 
 export function parseCommand(argv: readonly string[]): Command {
   const [name, ...rest] = argv;
@@ -92,13 +151,7 @@ export function parseCommand(argv: readonly string[]): Command {
   }
   const command = name as Name;
   const usage = usages[command];
-  let parsed;
-  try {
-    parsed = parseArgs({ args: [...rest], options: options[command], allowPositionals: true, strict: true });
-  } catch (error) {
-    throw new UsageError(error instanceof Error ? error.message : 'Wrong usage.', usage);
-  }
-  const { values, positionals } = parsed as { values: Record<string, string | boolean | undefined>; positionals: string[] };
+  const { values, positionals } = parse(rest, options[command], usage);
   if (values.help) return { name: 'help', text: usage };
   const wrong = (message: string) => new UsageError(message, usage);
 
@@ -122,4 +175,37 @@ export function parseCommand(argv: readonly string[]): Command {
   if (command === 'status') return { name: 'status', json: values.json === true };
   if (command === 'backup') return { name: 'backup', full: values.full === true, yes: values.yes === true };
   return { name: 'prune', yes: values.yes === true };
+}
+
+/** Whether `name` is one of the builder commands, which run in a source checkout without root. */
+export function isBuildCommand(name: string | undefined): name is BuildGroup {
+  return name !== undefined && Object.hasOwn(buildUsages, name);
+}
+
+/** A builder command, from argv whose first word `isBuildCommand` accepts. */
+export function parseBuildCommand(argv: readonly string[]): BuildCommand {
+  const [group, ...rest] = argv as [BuildGroup, ...string[]];
+  const usage = buildUsages[group];
+  const { values, positionals } = parse(rest, buildOptions[group], usage);
+  if (values.help) return { name: 'help', text: usage };
+  const wrong = (message: string) => new UsageError(message, usage);
+
+  if (group === 'check') {
+    if (positionals.length) throw wrong(`Unexpected argument: ${positionals[0]}`);
+    return { name: 'check' };
+  }
+  const [verb, id, ...extra] = positionals;
+  if (verb !== 'new') throw wrong(verb ? `Unknown ${group} command: ${verb}` : `Say what to do: ${group} new <id>.`);
+  if (!id) throw wrong(`Name the new ${group}'s id.`);
+  if (extra.length) throw wrong(`Unexpected argument: ${extra[0]}`);
+  const isDryRun = values['dry-run'] === true;
+  if (group === 'theme') {
+    const from = String(values.from ?? 'plain');
+    if (!(themeSources as readonly string[]).includes(from)) throw wrong(`--from takes plain, paper or almanac, not ${from}.`);
+    return { name: 'theme new', id, from: from as ThemeSource, dryRun: isDryRun };
+  }
+  if (values.hook === undefined) throw wrong('Name the hook with --hook.');
+  const hook = String(values.hook);
+  if (!(pluginHooks as readonly string[]).includes(hook)) throw wrong(`--hook takes publicPage, signIn or editorSuggestions, not ${hook}.`);
+  return { name: 'plugin new', id, hook: hook as PluginHook, client: values.client === true, dryRun: isDryRun };
 }

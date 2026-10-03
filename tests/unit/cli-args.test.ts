@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
-import { parseCommand, UsageError } from '../../src/cli/args.js';
+import { isBuildCommand, parseBuildCommand, parseCommand, UsageError } from '../../src/cli/args.js';
 import { tome } from '../../src/cli/main.js';
 import { UpdaterUnreachableError } from '../../src/cli/socket.js';
 import { fakeContext } from '../helpers/cli-context.js';
@@ -86,4 +89,85 @@ test('an updater that does not answer is said plainly, and is a failure', async 
   assert.equal(code, 1);
   assert.match(f.err(), /updater did not answer/);
   assert.match(f.err(), /systemctl status tomecms-updater/);
+});
+
+test('the builder commands parse, with their options and defaults', () => {
+  assert.deepEqual(parseBuildCommand(['theme', 'new', 'ledger']), { name: 'theme new', id: 'ledger', from: 'plain', dryRun: false });
+  assert.deepEqual(parseBuildCommand(['theme', 'new', 'ledger', '--from', 'almanac', '--dry-run']), { name: 'theme new', id: 'ledger', from: 'almanac', dryRun: true });
+  assert.deepEqual(parseBuildCommand(['plugin', 'new', 'nimbus', '--hook', 'publicPage']), { name: 'plugin new', id: 'nimbus', hook: 'publicPage', client: false, dryRun: false });
+  assert.deepEqual(parseBuildCommand(['plugin', 'new', 'nimbus', '--hook=signIn', '--client', '--dry-run']), { name: 'plugin new', id: 'nimbus', hook: 'signIn', client: true, dryRun: true });
+  assert.deepEqual(parseBuildCommand(['plugin', 'new', 'nimbus', '--hook', 'editorSuggestions']), { name: 'plugin new', id: 'nimbus', hook: 'editorSuggestions', client: false, dryRun: false });
+  assert.deepEqual(parseBuildCommand(['check']), { name: 'check' });
+  for (const name of ['theme', 'plugin', 'check']) assert.equal(isBuildCommand(name), true, name);
+  for (const name of ['status', 'logs', 'backup', 'update', 'prune', '--help', undefined]) assert.equal(isBuildCommand(name), false, String(name));
+});
+
+test('wrong builder usage is refused with that command\'s usage', () => {
+  const cases: Array<[string[], RegExp]> = [
+    [['theme'], /Usage: npm run tome -- theme new/],
+    [['theme', 'make', 'ledger'], /Usage: npm run tome -- theme new/],
+    [['theme', 'new'], /Usage: npm run tome -- theme new/],
+    [['theme', 'new', 'a', 'b'], /Usage: npm run tome -- theme new/],
+    [['theme', 'new', 'ledger', '--from', 'ledger2'], /Usage: npm run tome -- theme new/],
+    [['theme', 'new', 'ledger', '--client'], /Usage: npm run tome -- theme new/],
+    [['plugin', 'new', 'nimbus'], /Usage: npm run tome -- plugin new/],
+    [['plugin', 'new', 'nimbus', '--hook', 'mcp'], /Usage: npm run tome -- plugin new/],
+    [['plugin', 'new', '--hook', 'signIn'], /Usage: npm run tome -- plugin new/],
+    [['check', 'paper'], /Usage: npm run tome -- check/],
+    [['check', '--dry-run'], /Usage: npm run tome -- check/],
+  ];
+  for (const [argv, usage] of cases) {
+    assert.throws(() => parseBuildCommand(argv), (error: unknown) => error instanceof UsageError && usage.test(error.usage), argv.join(' '));
+  }
+});
+
+test('--help explains each builder command, and the overview names them', () => {
+  const overview = parseCommand(['--help']);
+  for (const name of ['theme new', 'plugin new', 'check']) assert.match(overview.name === 'help' ? overview.text : '', new RegExp(`\\b${name}\\b`));
+  const expected: Array<[string[], RegExp[]]> = [
+    [['theme'], [/--from plain\|paper\|almanac/, /--dry-run/, /checkout/]],
+    [['theme', 'new'], [/--from plain\|paper\|almanac/, /--dry-run/]],
+    [['plugin', 'new'], [/--hook publicPage\|signIn\|editorSuggestions/, /--client/, /--dry-run/]],
+    [['check'], [/path:line/]],
+  ];
+  for (const [argv, patterns] of expected) {
+    for (const flag of ['--help', '-h']) {
+      const help = parseBuildCommand([...argv, flag]);
+      assert.equal(help.name, 'help');
+      for (const pattern of patterns) assert.match(help.name === 'help' ? help.text : '', pattern, `${argv.join(' ')} ${flag}`);
+    }
+  }
+});
+
+test('the builder commands need no root, and refuse outside a checkout before reading anything', async (t) => {
+  const outside = await mkdtemp(join(tmpdir(), 'tome-outside-'));
+  // A checkout with nothing in it: whatever a builder command does there, it cannot touch this repository.
+  const checkout = await mkdtemp(join(tmpdir(), 'tome-checkout-'));
+  t.after(() => Promise.all([outside, checkout].map((path) => rm(path, { recursive: true, force: true }))));
+  await writeFile(join(checkout, 'package.json'), JSON.stringify({ name: 'tome-cms' }));
+  await mkdir(join(checkout, 'src', 'themes'), { recursive: true });
+  await writeFile(join(checkout, 'src', 'themes', 'manifests.ts'), '');
+  for (const argv of [['theme', 'new', 'ledger'], ['plugin', 'new', 'nimbus', '--hook', 'signIn'], ['check']]) {
+    let loaded = false;
+    const f = fakeContext();
+    const io = { uid: 1000, load: async () => { loaded = true; return f.context; }, print: f.context.print, warn: f.context.warn };
+    assert.equal(await tome(argv, { ...io, cwd: outside }), 1, argv.join(' '));
+    assert.equal(f.err(), 'Run this in a TomeCMS source checkout.');
+    assert.equal(await tome(argv, { ...io, cwd: checkout }), 1, argv.join(' '));
+    assert.doesNotMatch(f.err(), /root|sudo/);
+    assert.equal(loaded, false, 'the updater\'s configuration is never read');
+    assert.equal(await tome([...argv, '--help'], { ...io, cwd: outside }), 0);
+    assert.equal(await tome([argv[0], '--wrong'], { ...io, cwd: outside }), 2);
+  }
+});
+
+test('the server commands still demand root, and the overview needs none', async () => {
+  const f = fakeContext();
+  const io = { uid: 1000, load: async () => f.context, print: f.context.print, warn: f.context.warn };
+  for (const name of ['status', 'logs', 'backup', 'update', 'prune']) {
+    assert.equal(await tome([name], io), 1, name);
+    assert.match(f.err(), new RegExp(`sudo tome ${name}`));
+  }
+  assert.equal(await tome(['--help'], io), 0);
+  assert.match(f.out(), /Usage: sudo tome <command>/);
 });
