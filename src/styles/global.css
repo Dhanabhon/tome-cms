@@ -166,7 +166,10 @@ html[data-notice-closed] .site-notice { display: none; }
   cursor: pointer;
 }
 
-.site-notice button:hover { background: color-mix(in oklch, currentColor 18%, transparent); }
+/* Only where a pointer really hovers: a phone keeps :hover after a tap. */
+@media (hover: hover) {
+  .site-notice button:hover { background: color-mix(in oklch, currentColor 18%, transparent); }
+}
 
 .site-notice button:focus-visible { outline: 2px solid currentColor; outline-offset: var(--space-3xs); }
 
@@ -222,7 +225,9 @@ html[data-notice-closed] .site-notice { display: none; }
   font-weight: 600;
   text-decoration: none;
 }
-.site-popup__action:hover { background: var(--color-accent-hover); }
+@media (hover: hover) {
+  .site-popup__action:hover { background: var(--color-accent-hover); }
+}
 .site-popup__decline {
   padding: var(--space-xs);
   border: 0;
@@ -520,7 +525,9 @@ p.file-card > :is(a, .file-card__link)::before {
 .file-card__meta { color: var(--color-muted); font-size: var(--text-xs); }
 
 /* Themes underline a link on hover; a card is not a word in a sentence. */
-p.file-card > a:hover { border-color: var(--color-rule-strong); text-decoration: none; }
+@media (hover: hover) {
+  p.file-card > a:hover { border-color: var(--color-rule-strong); text-decoration: none; }
+}
 
 p.file-card > a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 
@@ -570,7 +577,9 @@ figure.tome-video .tome-video__play img {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-a.tome-video__play:hover::before { opacity: 1; }
+@media (hover: hover) {
+  a.tome-video__play:hover::before { opacity: 1; }
+}
 /* A writer's text colour, by name; the shades are tokens with a light and a dark value. */
 .tome-color-red { color: var(--color-text-red); }
 .tome-color-orange { color: var(--color-text-orange); }
@@ -2367,6 +2376,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
 /* Negative tracking pushes a Thai cluster's stacked marks into the next glyph. */
 :lang(th) .article-title { letter-spacing: 0; }
+/* The prose headings a theme takes from the typography plugin are tracked in too (tailwind.config.mjs). */
+:lang(th) .prose :is(h2, h3) { letter-spacing: 0; }
 
 .admin-title-input {
   display: block;

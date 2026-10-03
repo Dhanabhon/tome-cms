@@ -73,7 +73,9 @@ pre[data-language]::before {
   font-weight: 500;
 }
 
-.code-block-editor__language:hover { border-color: var(--color-rule-strong); }
+@media (hover: hover) {
+  .code-block-editor__language:hover { border-color: var(--color-rule-strong); }
+}
 
 @media (pointer: coarse) {
   .code-block-editor__language { min-height: 44px; }

@@ -942,6 +942,9 @@ main:has(.post-feed__heading) .home-hero { display: none; }
  * the 38rem the audit worked out for IBM Plex Sans Thai ran to 81-85 characters a line. */
 .post-body > :is(p, ul, ol, blockquote, h2, h3) { max-inline-size: 33rem; }
 
+/* Inline code: a quiet tint in the line. The typography plugin's backticks are reset in tailwind.config.mjs. */
+.post-body :not(pre) > code { padding: 0.1em 0.35em; border-radius: var(--radius-sm); background: var(--color-paper-3); }
+
 /* A quotation is held by a hairline, not a stripe of the accent. */
 .post-body blockquote { border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
 

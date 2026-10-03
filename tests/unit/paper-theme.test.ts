@@ -232,3 +232,9 @@ test("the footer's rule runs the width of the header's, with the words held to t
   const footer = read('src/themes/paper/parts/Footer.astro');
   assert.match(footer, /<footer class="border-t border-line">\s*<div class="site-footer mx-auto w-full max-w-7xl px-5 py-7 text-sm text-muted sm:px-7">/);
 });
+
+test('inline code is a quiet tint in the line, not a word between backticks', () => {
+  const code = body('.post-body :not(pre) > code');
+  assert.match(code, /background: var\(--color-paper-3\)/);
+  assert.match(code, /border-radius: var\(--radius-sm\)/);
+});

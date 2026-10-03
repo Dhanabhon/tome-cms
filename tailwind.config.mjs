@@ -73,6 +73,10 @@ export default {
             '--tw-prose-th-borders': 'var(--color-rule-strong)',
             '--tw-prose-td-borders': 'var(--color-rule)',
             fontFamily: 'var(--font-body)',
+            // The plugin draws a backtick either side of inline code: a Markdown mark a reader should
+            // never see. The theme gives inline code its own quiet tint instead.
+            'code::before': { content: 'none' },
+            'code::after': { content: 'none' },
             h2: {
               fontSize: 'var(--text-xl)',
               fontWeight: '700',
