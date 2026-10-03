@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { thaiDeclarations } from '../helpers/css';
+
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const CSS = read('src/styles/global.css');
 const TOKENS = read('src/styles/installer-tokens.css');
@@ -431,7 +433,7 @@ test('an eyebrow is one rule, shared by the nav groups and the page heads', () =
   const eyebrow = ruleBody(CSS, '.admin-eyebrow,\n.admin-nav-group');
   assert.equal(declaration(eyebrow, 'text-transform'), 'uppercase');
   assert.equal(declaration(eyebrow, 'letter-spacing'), '0.12em');
-  assert.equal(declaration(eyebrow, 'font-size'), '0.6875rem');
+  assert.equal(declaration(eyebrow, 'font-size'), 'var(--text-xs)');
   assert.equal(declaration(eyebrow, 'color'), 'var(--color-muted)');
 });
 
@@ -727,4 +729,69 @@ test('the library takes several files into a chosen folder, and its button rings
 test("a theme card in use keeps Customize beside View site, with its mark alone at the start", () => {
   // The row spreads its items; the mark's auto margin takes the free space, so the two buttons sit together at the end.
   assert.equal(declaration(ruleBody(CSS, '.theme-card__mark'), 'margin-inline-end'), 'auto');
+});
+
+test("a page title's count is set on the scale, not inherited from the title", () => {
+  assert.equal(declaration(ruleBody(CSS, '.admin-page__head h1 .admin-count'), 'font-size'), 'var(--text-md)');
+});
+
+test('the plugin and theme grids fit a 320px screen: a column is never wider than the row', () => {
+  assert.equal(declaration(ruleBody(CSS, '.theme-grid'), 'grid-template-columns'), 'repeat(auto-fill, minmax(min(18rem, 100%), 1fr))');
+  assert.equal(declaration(ruleBody(CSS, '.plugin-grid'), 'grid-template-columns'), 'repeat(auto-fill, minmax(min(20rem, 100%), 1fr))');
+  // No grid in the admin's stylesheets asks for a fixed column a 320px screen (288px of content) cannot give.
+  for (const file of ['global.css', 'stats.css', 'ui-controls.css', 'overlays.css']) {
+    for (const [, size, unit] of read(`src/styles/${file}`).matchAll(/minmax\(([\d.]+)(rem|px), 1fr\)/g)) {
+      assert.ok(Number(size) * (unit === 'rem' ? 16 : 1) <= 288, `${file}: minmax(${size}${unit}, 1fr) overflows at 320`);
+    }
+  }
+});
+
+test('the switch shows its knob, says when it is busy, answers the pointer, and is a control tall to press', () => {
+  // The knob is muted on the paper-3 track, a pair theme-contrast.test.ts holds at 4.5 in both schemes;
+  // paper on paper-3 was 1.15:1, and in dark the knob was all but gone.
+  assert.equal(declaration(ruleBody(CSS, '.admin-switch input::after'), 'background'), 'var(--color-muted)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-switch input:checked::after'), 'background'), 'var(--color-paper)');
+  // The label is the hit area: a control's height, with the margin giving it back so the row keeps its size.
+  const label = ruleBody(CSS, '.admin-switch');
+  assert.equal(declaration(label, 'min-height'), 'var(--control-height)');
+  assert.equal(declaration(label, 'margin-block'), 'calc((1.375rem - var(--control-height)) / 2)');
+  assert.equal(declaration(ruleBody(CSS, '.admin-switch input'), 'height'), '1.375rem', 'the drawn switch keeps its size');
+  // Busy: a dimmed knob and a progress cursor, not the not-allowed of a switch that cannot move.
+  assert.equal(declaration(ruleBody(CSS, '.admin-switch input[aria-busy="true"]::after'), 'opacity'), '0.5');
+  assert.equal(declaration(ruleBody(CSS, '.admin-switch:has(input[aria-busy="true"]),\n.admin-switch input[aria-busy="true"]'), 'cursor'), 'progress');
+  assert.ok(CSS.indexOf('.admin-switch input[aria-busy="true"]') > CSS.indexOf('.admin-switch input:disabled {'), 'busy comes after disabled, so it wins');
+  // Hover and press.
+  assert.match(CSS, /@media \(hover: hover\) \{\s*\.admin-switch:hover input:not\(:checked, :disabled\) \{ border-color: var\(--color-ink-2\); \}/);
+  assert.match(CSS, /\.admin-switch:active input:not\(:disabled\)::after \{ scale: [\d.]+; \}/);
+});
+
+test('display headings in the admin lead at 1.2, and Thai drops their negative tracking', () => {
+  // DESIGN.md: the display headlines lead at 1.2, because Thai marks collide below it.
+  const headings: Array<[string, string]> = [
+    ['.admin-page__head h1', '.admin-page__head h1'],
+    ['.admin-empty h2', '.admin-empty h2'],
+    ['.admin-auth-context h2,\n.admin-auth-panel h1', '.admin-auth-panel h1'],
+    ['.security-page__head h1', '.security-page__head h1'],
+  ];
+  for (const [selector, target] of headings) {
+    const lineHeight = [...CSS.matchAll(new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'g'))]
+      .map(([, body]) => declaration(body, 'line-height')).filter(Boolean).at(-1);
+    assert.ok(Number(lineHeight) >= 1.2, `${selector} leads at ${lineHeight}`);
+    if (/letter-spacing:\s*-/.test(ruleBody(CSS, selector))) {
+      assert.match(thaiDeclarations(CSS, target), /letter-spacing: 0/, `${target} keeps its negative tracking in Thai`);
+    }
+  }
+  assert.match(thaiDeclarations(CSS, '.admin-auth-context h2'), /letter-spacing: 0/);
+});
+
+test('an eyebrow is never under 12px, and in Thai it is neither tracked nor tight', () => {
+  const STATS = read('src/styles/stats.css');
+  assert.equal(declaration(ruleBody(CSS, '.admin-eyebrow,\n.admin-nav-group'), 'font-size'), 'var(--text-xs)');
+  assert.match(CSS, /\.admin-page-head \{[^}]*font-size: var\(--text-xs\);/);
+  assert.match(STATS, /\.stats-table th \{[^}]*font-size: var\(--text-xs\);/);
+  assert.doesNotMatch(CSS + STATS, /font-size: 0\.6875rem/, 'no 11px type is left');
+  for (const target of ['.admin-eyebrow', '.admin-nav-group', '.admin-page-head', '.security-eyebrow']) {
+    assert.match(thaiDeclarations(CSS, target), /letter-spacing: 0; line-height: 1\.5/, `${target} in Thai`);
+  }
+  assert.match(thaiDeclarations(STATS, '.stats-table thead th'), /letter-spacing: 0; line-height: 1\.5/);
 });

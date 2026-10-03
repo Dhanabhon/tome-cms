@@ -102,6 +102,7 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-ink-2', 'color-surface', 4.5],
   ['color-muted', 'color-paper', 4.5],
   ['color-muted', 'color-paper-2', 4.5],
+  // Also the switch's knob when it is off, drawn on its paper-3 track.
   ['color-muted', 'color-paper-3', 4.5],
   ['color-muted', 'color-surface', 4.5],
 
@@ -124,6 +125,8 @@ const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['color-focus', 'color-paper', 4.5],
   ['color-focus', 'color-paper-2', 3],
   ['color-rule-strong', 'color-paper', 3],
+  // The switch's knob when it is on, drawn on the accent track.
+  ['color-paper', 'color-accent', 3],
   ['color-rule-strong', 'color-surface', 3],
 
   // Green also reports positive state. It is read as text on the two page surfaces
