@@ -142,7 +142,7 @@ Otherwise, stop the updater and the application, and copy the backup, which is u
 
 ## A restore that kept the site in maintenance
 
-`sudo tome restore` takes a safety backup first and puts it back when the restore fails, then opens the site again. In two cases it leaves the site in maintenance with the application stopped instead: when the safety backup cannot be put back, and when the restore found the application already stopped, which it then leaves stopped. `sudo tome status` shows it as a warning:
+`sudo tome restore` takes a safety backup first and puts it back when the restore fails, then opens the site again. In two cases it leaves the site in maintenance with the application stopped instead: when the safety backup cannot be put back, and when the restore found the application already stopped, as the next restore does after you set a failed one aside, which it then leaves stopped. `sudo tome status` shows it as a warning:
 
 ```text
 Warning: a restore failed (rollback_failed) and keeps the site in maintenance.
@@ -151,9 +151,9 @@ Warning: a restore failed (rollback_failed) and keeps the site in maintenance.
 What it means depends on the code in brackets:
 
 - **`rollback_failed`.** Neither the backup nor the safety backup could be put back. The app is stopped, maintenance is on, and the state of the database is unknown. That is why nothing writes to it.
-- **`restore_failed`, `interrupted` or `safety_backup_failed`.** The restore began on an application that was already stopped, as the case above leaves it, so it did not start it. The safety backup was put back or nothing was replaced, so the database is as it was before the restore, and the application stays stopped as it was found.
+- **`restore_failed` or `safety_backup_failed`.** The restore began on an application that was already stopped, as the case above leaves it, so it did not start it. The safety backup was put back or nothing was replaced, so the database is as it was before the restore, and the application stays stopped as it was found.
 
-Every other job is refused while this holds, with `An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.` The sentence is followed by the same steps, and so is `tome status`:
+Every other job is refused while this holds, with `An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.` The sentence is followed by the same steps, and so is `tome status`. `tome export` and `tome import` answer with `The site is in maintenance, or the updater is busy. Try again when it is done.` instead.
 
 1. From a checkout of v1.13.0 or newer, set the failed restore aside:
 
@@ -165,15 +165,23 @@ Every other job is refused while this holds, with `An earlier restore failed and
    sudo npm run updater:clear-failed
    ```
 
-   It keeps the restore's record beside the others, takes the site out of maintenance, and changes nothing else. The application stays stopped, and it prints the next command.
-2. Restore again, which starts the application. After `rollback_failed`, put the safety backup back. It is the path `tome status` prints as the safety backup, taken just before the restore:
+   It stops the updater service while it works and starts it again, keeps the restore's record beside the others, takes the site out of maintenance, and changes nothing else. The application stays stopped, so until step 2 the site shows errors, not the maintenance page: do step 2 promptly. It prints the paths you need, so copy them from its output, because `tome status` no longer shows a restore once it is set aside:
+
+   ```text
+   Set aside the restore of /var/backups/tome-cms/tomecms-20261001T100000000Z, whose safety backup could not be put back. Its record is kept as restore-job.20261003T110500000Z.json.
+   The site is out of maintenance. Nothing else was changed: the app is still stopped.
+   Next: sudo tome restore /var/backups/tome-cms/tomecms-20261003T110100000Z, to put the safety backup back, or the restore again.
+   ```
+
+   For a restore that failed on a site it found stopped, the first line says `which failed on a site it found stopped` in place of `whose safety backup could not be put back`, and the last is `Next: sudo tome restore <the backup>, to run the restore again.`
+2. Restore again, which starts the application. Run the command on the `Next:` line. After `rollback_failed` it names the safety backup, taken just before the restore:
 
    ```sh
    sudo tome restore /var/backups/tome-cms/tomecms-20261003T110100000Z
    ```
 
-   After the other codes the database is already as it was, so you can run the restore you meant again, with the backup path `tome status` prints. When there is no safety backup and you have no other plan, restore the newest backup.
+   After the other codes the database is already as it was, so the `Next:` line names the backup you meant to restore, and you run it again. When you have no other plan, restore the newest backup.
 
 3. Check the site: open the admin, your latest posts and a few pictures. After `rollback_failed` you are restoring over a database in an unknown state, so check it before you trust it, and restore an older backup if it is wrong.
 
-**A known gap.** A restore that began on a stopped application, as in step 2, is not remembered as such if the server itself dies in the middle of it, by a power cut or a reboot. When the updater starts again, it puts back the safety backup that restore took, which came from the database as it was found, and then starts the application on it. If that database was the unknown one from the earlier failure, the site is running on it. Check the site, as in step 3, before you trust it.
+**A known gap.** A restore that began on a stopped application, as in step 2, is not remembered as such. Any start of the updater that finds a restore cut off in the middle, whether by a crash, `sudo systemctl restart tomecms-updater`, a reboot or a power cut, treats it as one that began on a running application. If it was cut off while preparing maintenance or taking its safety backup (steps 2 and 3), nothing had been replaced, so the updater starts the application on the database it found, and puts nothing back. If it was cut off from step 4 on, the updater puts back the safety backup that restore took, which was made from the database as it was found, and starts the application on that. Either way, if that database was the unknown one from the earlier failure, the site is now running on it. Check the site, as in step 3, before you trust it.

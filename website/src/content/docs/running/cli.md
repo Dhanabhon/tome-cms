@@ -44,7 +44,7 @@ cd /opt/tome-cms-src
 
 That one command brings updater 1.5.0 and `tome`, which it installs as `/usr/local/bin/tome`. The updater needs 1.5.0 because `tome backup` and `tome prune` use two requests that earlier updaters do not have. At its end it prints `tome is installed at /usr/local/bin/tome. Try: sudo tome status`. [Upgrading the updater](/tome-cms/running/updating/#upgrading-the-updater) explains the rest, including what `--dry-run` does.
 
-`tome restore`, `tome export` and `tome import` come with 1.13.0, which brings updater 1.6.0. Update the application to 1.13.0 from "System", then upgrade the updater again from a checkout of v1.13.0, with the same commands as above. Until you do, `tome` says what is missing, for example `The updater is 1.5.0. Restore needs updater 1.6.0: run sudo npm run updater:upgrade from a v1.13.0 checkout.`
+`tome restore`, `tome export` and `tome import` come with 1.13.0, which brings updater 1.6.0. Update the application to 1.13.0 from "System", then upgrade the updater again from a checkout of v1.13.0, with the same commands as above. Until then the `tome` on the server is the old one, which does not know these commands: it prints its usage and exits 2. `sudo npm run updater:upgrade` from a v1.13.0 checkout installs both the new updater and the new `tome`.
 
 If `/usr/local/bin/tome` already exists and is not TomeCMS's own, the upgrade refuses before it stops anything and says to move that file aside.
 
@@ -213,7 +213,7 @@ What the backup has to be:
 - **Made by this TomeCMS or an older one.** A backup from a newer version is refused.
 - **Whole.** It has its `manifest.json`, every file matches its checksum, and it holds no link or special file.
 
-Once you have said yes, `tome` changes the owner of the backup directory to the updater's user, `tomecms-updater`. The updater runs as that user and could not read it otherwise. A backup copied in as root with `rsync -a` arrives owned by root, so this matters for a move. Nothing outside that directory changes.
+Once you have said yes, `tome` changes the owner of the backup directory to the updater's user, `tomecms-updater`. The updater runs as that user and could not read it otherwise. A backup copied in with `rsync -a` keeps the owner it had on the old server, which is not the updater's user here, so this matters for a move: `tome restore` sets the owner whatever it is. Nothing outside that directory changes.
 
 A backup that fails a check is refused with one sentence and exit code 1. `tome` checks what it can before it asks, and the updater checks everything again in the first step, every checksum included, while the site is still up. These are the refusals:
 
@@ -238,12 +238,12 @@ Then it follows the job, one line per step. The site is in maintenance from step
 1. **Check the backup.** The updater checks every file against the manifest. The site is still up.
 2. **Prepare maintenance.** It puts up the maintenance page and stops the application.
 3. **Create the safety backup.** It takes a full backup of the site as it is now. If this fails, nothing has been replaced.
-4. **Restore the backup.** It empties the database and puts the backup's back. With a full backup it also makes the media bucket equal to the backup's: it uploads every file the backup lists and deletes every file it does not.
+4. **Restore the backup.** It empties the database and puts the backup's back. With a full backup it also makes the media bucket equal to the backup's: it uploads every file the backup lists and deletes every TomeCMS file it does not list. A file TomeCMS did not write is left alone.
 5. **Apply database migrations.** Only when the backup is from an older version, so this number is skipped otherwise.
 6. **Restart TomeCMS.** Everyone is signed out, so you sign in again with your passkey. MCP connections are kept.
-7. **Check the restored site.** The restored posts, pages and media items must match the backup's counts.
+7. **Check the restored site.** The application is up and ready. Before the restart, the updater has already compared the restored posts, pages and media items with the backup's counts, and a difference makes the restore fail.
 
-**When a step from the fourth on fails**, the updater puts the safety backup back and opens the site as it was. `tome` says `The restore failed, so the safety backup was put back. See what happened with: sudo tome logs updater` and exits 1. The same happens when the updater itself is stopped in the middle, by a reboot for example: when it starts again it puts the site back as it was before and opens it. A site is not left half restored.
+**When a step from the fourth on fails**, the updater puts the safety backup back and opens the site as it was. `tome` says `The restore failed, so the safety backup was put back. See what happened with: sudo tome logs updater` and exits 1. The same happens when the updater itself is stopped in the middle, by a reboot for example. When it starts again, a restore cut off before step 4 has replaced nothing, so it just opens the site. One cut off from step 4 on has the safety backup put back first. A half restored database is never served.
 
 If the safety backup cannot be put back either, the site stays in maintenance with the application stopped, so that no one writes to a database in an unknown state. [Recovery](/tome-cms/running/recovery/#a-restore-that-kept-the-site-in-maintenance) has the steps out.
 
@@ -315,7 +315,7 @@ What it keeps and decides:
 - **Status and dates.** `status: published` makes a published item with its `published` date. A draft keeps its `planned` date. A file with no `status` is a draft. The updated time is the time of the import.
 - **Content.** When a `<slug>.tome.json` sits beside the `.md`, its exact document is used. Otherwise the `.md` body is converted, with the converter the admin's Markdown import uses. Every item is checked and cleaned the way a save from the editor is.
 - **Media.** Files are matched by checksum, so one the site already has is reused and not uploaded again. A file the content names that is missing from the archive shows as a line saying it is missing, and the end says how many.
-- **Categories.** They are matched by name, ignoring case, with no language. A name the site lacks is created, and `Uncategorized` becomes the site's default category.
+- **Categories.** They are matched by name, ignoring case, with no language. A name the site lacks is created, and `Uncategorized` is matched by name like any other, so it joins the site's default category while that is still called that.
 - **Translations.** Items that share a `translation` value form one new group. When one of them was skipped, the rest still form a group, and the plan says so.
 - **Author.** The site's owner.
 

@@ -93,7 +93,7 @@ A backup that passes ends with `Restore verified in disposable project tomecms-r
 
 ## Restoring a site
 
-On a managed server, from 1.13.0, `sudo tome restore` puts a backup back into the site. It takes a backup of the site as it is first, then replaces the database and, with a full backup, the media. If anything fails, it puts that safety backup back, so the site is never left half restored:
+On a managed server, from 1.13.0, `sudo tome restore` puts a backup back into the site. It takes a backup of the site as it is first, then replaces the database and, with a full backup, the media. If a step fails, it puts that safety backup back, so a half restored site is never served:
 
 ```sh
 sudo tome restore /var/backups/tome-cms/tomecms-20261001T100000000Z
@@ -101,7 +101,7 @@ sudo tome restore /var/backups/tome-cms/tomecms-20261001T100000000Z
 
 The backup has to sit directly in `/var/backups/tome-cms`, and it has to be made for this site's address by this TomeCMS or an older one. A backup holding a link or a special file is refused. `tome restore` changes the backup's owner to the updater's user, because the updater runs as that user. [The `tome` command](/tome-cms/running/cli/#tome-restore) shows the steps, every refusal and what happens when a step fails. Everyone is signed out afterwards, so you sign in again with your passkey, and the safety backup stays in `/var/backups/tome-cms/` until you remove it.
 
-A server needs the application at 1.13.0 and the updater at 1.6.0, which `sudo npm run updater:upgrade` brings, as [Updating](/tome-cms/running/updating/#upgrading-the-updater) shows. A build from source has no `tome`. There the restore is done by hand, with the application stopped, the way the restore check does it:
+A server needs the application at 1.13.0 and the updater at 1.6.0. `sudo npm run updater:upgrade` from a v1.13.0 checkout installs the updater and the new `tome` together, as [Updating](/tome-cms/running/updating/#upgrading-the-updater) shows. A build from source has no `tome`. There the restore is done by hand, with the application stopped, the way the restore check does it:
 
 - Restore `database.dump` into the site's PostgreSQL with `pg_restore`.
 - Put every file under `objects/` back into the bucket at its key, with the content type the manifest records.
@@ -120,7 +120,7 @@ The domain stays the same when you move, so your passkeys keep working. A restor
    sudo tome backup --full
    ```
 
-2. Install TomeCMS on the new server with the same domain, at the same version as the old site or newer, as [Installing on a VPS](/tome-cms/start/install/) describes.
+2. Install TomeCMS on the new server with the same domain, at the same version as the old site or newer, as [Installing on a VPS](/tome-cms/start/install/) describes. `tome restore` refuses a backup made for another address or by a newer version.
 3. Copy the backup into `/var/backups/tome-cms` on the new server, as root. `rsync -a` keeps the directory as it is:
 
    ```sh
@@ -128,7 +128,7 @@ The domain stays the same when you move, so your passkeys keep working. A restor
      root@new.example.com:/var/backups/tome-cms/
    ```
 
-   The copy has to land directly in that directory, not in a folder inside it. It arrives owned by root, and `tome restore` takes ownership of it for the updater's user.
+   The copy has to land directly in that directory, not in a folder inside it. `rsync -a` keeps the owner the copy had on the old server, and `tome restore` sets the owner to the updater's user whatever it is.
 4. On the new server, restore it:
 
    ```sh
