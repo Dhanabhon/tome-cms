@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { HOOK_METHODS, SIGN_IN_PAIR } from '../../src/cli/build/rules';
 import { ICONS } from '../../src/lib/icons';
 import { PLUGIN_MANIFESTS } from '../../src/plugins/manifests';
 import { loadPlugin } from '../../src/plugins/registry';
@@ -10,38 +11,26 @@ const SOURCE = readFileSync(new URL('../../src/components/admin/PluginManager.ts
 
 test('a manifest names a hook the plugin actually fills', async () => {
   // The screen says where a plugin acts without loading it, which only works while the
-  // manifest tells the truth. Nothing else checks that, so this does.
+  // manifest tells the truth. tome check reads that from the source; this holds it against the
+  // module the core actually loads.
   for (const manifest of PLUGIN_MANIFESTS) {
     assert.ok(manifest.hooks.length > 0, `${manifest.id} names no hook`);
     const plugin = await loadPlugin(manifest.id);
     assert.ok(plugin, `${manifest.id} is not in the registry`);
+    // tome check's table of what each hook needs.
+    for (const name of SIGN_IN_PAIR) assert.equal(typeof plugin[name], 'function', `${manifest.id} has no ${name}`);
     for (const hook of manifest.hooks) {
-      if (hook === 'signIn') {
-        assert.equal(typeof plugin.signInWidget, 'function', `${manifest.id} claims signIn without a widget`);
-        assert.equal(typeof plugin.verifySignIn, 'function', `${manifest.id} claims signIn without a check`);
-        continue;
-      }
-      if (hook === 'editorSuggestions') {
-        // Any kind of suggestion: likelihoods for the categories, a pick for the excerpt or
-        // for the description.
-        assert.ok(
-          typeof plugin.categoryLikelihoods === 'function' || typeof plugin.pickExcerpt === 'function'
-            || typeof plugin.pickDescription === 'function',
-          `${manifest.id} claims editorSuggestions and suggests nothing`,
-        );
-        continue;
-      }
+      const methods = HOOK_METHODS[hook];
+      assert.ok(methods, `${manifest.id} names a hook the core does not declare`);
       if (hook === 'mcp') {
         // The core serves MCP (src/pages/mcp.ts, src/server/mcp); the plugin is its switch.
         assert.equal(manifest.official, true, `${manifest.id} claims mcp and is not the core's`);
         continue;
       }
-      assert.equal(hook, 'publicPage', `${manifest.id} names a hook the core does not declare`);
-      // Either half of it: a band of words, browser code, or both.
+      // Any one of them: a band, a popup or browser code; likelihoods, an excerpt or a description.
       assert.ok(
-        typeof plugin.siteNotice === 'function' || typeof plugin.sitePopup === 'function'
-          || typeof plugin.publicClient === 'function',
-        `${manifest.id} claims publicPage and adds nothing to a public page`,
+        methods.length === 0 || methods.some((name) => typeof plugin[name as keyof typeof plugin] === 'function'),
+        `${manifest.id} claims ${hook} and implements none of ${methods.join(', ')}`,
       );
     }
   }

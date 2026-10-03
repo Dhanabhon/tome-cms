@@ -17,6 +17,7 @@ import { runCommand } from '../updater/process.js';
 import { isBuildCommand, parseBuildCommand, parseCommand, UsageError } from './args.js';
 import { findCheckout } from './build/checkout.js';
 import { backup } from './commands/backup.js';
+import { check } from './commands/check.js';
 import { logs } from './commands/logs.js';
 import { pluginNew } from './commands/plugin-new.js';
 import { prune } from './commands/prune.js';
@@ -123,9 +124,7 @@ async function build(argv: readonly string[], input: { cwd: string; print: (line
     switch (command.name) {
       case 'theme new': return themeNew(root, command, input);
       case 'plugin new': return pluginNew(root, command, input);
-      case 'check':
-        input.warn(`tome ${command.name} is not built yet.`);
-        return 1;
+      case 'check': return await check(root, input);
     }
   } catch (error) {
     input.warn(`tome stopped: ${error instanceof Error ? error.message : String(error)}`);

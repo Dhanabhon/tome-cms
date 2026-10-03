@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { rawColours } from '../../src/cli/build/rules';
+
 /**
  * Almanac's palette, measured rather than trusted, in both schemes.
  *
@@ -116,10 +118,8 @@ test('the dark palette is the same whether the system asks for it or the reader 
 });
 
 test('every colour Almanac draws with is a token: no raw colour outside the token blocks', () => {
-  const tokenBlocks = [LIGHT, DARK_SYSTEM, DARK_CHOSEN].map((selector) => block(selector));
-  let rest = CSS;
-  for (const tokens of tokenBlocks) rest = rest.replace(tokens, '');
-  assert.doesNotMatch(rest, /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch|oklab|lab|lch)\(/i);
+  // tome check's rule, which holds every theme to this.
+  assert.deepEqual(rawColours('src/themes/almanac/theme.css', CSS), []);
 });
 
 test("Trirong's faces are in Almanac's stylesheet and in no other", () => {

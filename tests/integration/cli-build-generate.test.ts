@@ -16,9 +16,9 @@ function node(cwd: string, args: readonly string[], env: NodeJS.ProcessEnv = {})
 }
 
 // The proof that what tome writes builds: generate a theme from each kind of source and a plugin
-// for each hook in a copy of the checkout, then type-check the whole site there. The copy shares
-// node_modules by a link, and is thrown away after.
-test('a theme and plugins made by tome new pass astro check', { timeout: 300_000 }, async (t) => {
+// for each hook in a copy of the checkout, then type-check the whole site there and run tome check
+// on it. The copy shares node_modules by a link, and is thrown away after.
+test('a theme and plugins made by tome new pass astro check and tome check', { timeout: 300_000 }, async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'tome-generate-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const path of ['src', 'package.json', 'tsconfig.json', 'tsconfig.updater.json', 'astro.config.mjs']) {
@@ -51,4 +51,9 @@ test('a theme and plugins made by tome new pass astro check', { timeout: 300_000
   });
   assert.equal(check.code, 0, check.output);
   assert.match(check.output, /- 0 errors/);
+
+  // And tome's own rules hold for everything it made.
+  const rules = node(root, ['--import', 'tsx', 'src/cli/main.ts', 'check']);
+  assert.equal(rules.code, 0, rules.output);
+  assert.match(rules.output, /^Checked 6 themes and 9 plugins: no problems\.$/m);
 });

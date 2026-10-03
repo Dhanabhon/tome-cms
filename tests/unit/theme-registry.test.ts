@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { serverImports } from '../../src/cli/build/rules';
 import { THEME_MANIFESTS } from '../../src/themes/manifests';
 import { DEFAULT_THEME_ID, isThemeId, THEME_IDS } from '../../src/themes/registry';
 
@@ -45,12 +46,11 @@ test('every theme exports the same four templates', () => {
 });
 
 test('a theme is given what it needs and cannot go looking for more', () => {
+  // tome check's rule: nothing from src/server/ or src/pages/.
   for (const id of directories) {
-    for (const file of readdirSync(new URL(`${id}/`, themesDir), { recursive: true, withFileTypes: true })) {
-      if (!file.isFile() || !/\.(astro|ts)$/.test(file.name)) continue;
-      const source = readFileSync(new URL(`${id}/${file.parentPath.split(`${id}/`)[1] ?? ''}/${file.name}`.replace('//', '/'), themesDir), 'utf8');
-      assert.doesNotMatch(source, /from '[^']*\/server\//, `${id}/${file.name} reaches into the server`);
-      assert.doesNotMatch(source, /from '[^']*\/pages\//, `${id}/${file.name} reaches into the routes`);
+    for (const file of readdirSync(new URL(`${id}/`, themesDir), { encoding: 'utf8', recursive: true })) {
+      if (!/\.(astro|ts)$/.test(file)) continue;
+      assert.deepEqual(serverImports(`src/themes/${id}/${file}`, read(`${id}/${file}`)), []);
     }
   }
 });
