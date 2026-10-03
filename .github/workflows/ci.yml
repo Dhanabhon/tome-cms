@@ -64,6 +64,11 @@ jobs:
       - name: Run the managed update harness
         run: npm run test:operations:update
 
+      # The restore job against real PostgreSQL and SeaweedFS: the restore, its fallback to the
+      # safety backup, and the rollback on boot after the updater dies mid-restore.
+      - name: Run the managed restore harness
+        run: npm run test:operations:restore
+
       # The installer and the updater list an image's migrations in a locked-down container.
       # That step failed on every server in 1.0.0, because nothing ran it against a real image.
       - name: Build the application image and list its migrations

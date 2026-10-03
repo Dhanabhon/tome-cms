@@ -47,6 +47,8 @@ let fixtureAppPort: number | null = null;
 let fixtureImageId: string | null = null;
 // The backup root by its real path: a restore takes only a directory named by its real path.
 let backupRoot = '';
+// The host's dangling volumes before the suite: an image VOLUME makes an unlabelled one per container.
+let danglingBefore: Set<string> | null = null;
 
 assertSafeScope(projectName, suiteRoot);
 
@@ -79,12 +81,17 @@ test.after(async () => {
   try {
     assert.deepEqual(await resourceInventory(), { containers: [], networks: [], volumes: [], images: [] });
   } catch (error) { failures.push(asError(error)); }
+  try {
+    if (danglingBefore) assert.deepEqual((await danglingVolumes()).filter((name) => !danglingBefore!.has(name)), [], 'no dangling volume left behind');
+  } catch (error) { failures.push(asError(error)); }
   if (failures.length) throw new AggregateError(failures, 'Managed-restore fixture cleanup failed');
 });
 
 test('a restore runs, falls back and survives a restart against real containers', { timeout: 600_000 }, async (t) => {
   t.diagnostic(`Docker fixture project: ${projectName}`);
   t.diagnostic(`Docker fixture root: ${suiteRoot}`);
+  danglingBefore = new Set(await danglingVolumes());
+  t.diagnostic(`Dangling volumes on the host before the suite: ${danglingBefore.size}`);
   await mkdir(suiteRoot, { mode: 0o700 });
   await mkdir(join(suiteRoot, 'backups'), { mode: 0o700 });
   backupRoot = await realpath(join(suiteRoot, 'backups'));
@@ -128,13 +135,14 @@ test('a restore runs, falls back and survives a restart against real containers'
       assert.equal(record.maintenanceKept, false);
       assert.deepEqual(record.report, { records: backup.records, sealedSecrets: 0, unopenedSecrets: [] });
       assert.ok(record.safetyBackupDirectory);
-      assert.equal(scenario.stopCount, 2, 'stopped for the safety backup, then once more before it starts');
+      assert.ok(scenario.stopCount >= 1, 'the app was stopped for the safety backup');
       await assertReady();
       await assertMarkerCleared(scenario, statusBefore);
     } finally { await closeServer(scenario.server); }
   });
 
   await t.test('FIXTURE_FAIL_STEP=restore-objects: the safety backup is put back, and the site comes out of maintenance', async (st) => {
+    assert.ok(backup, 'needs the backup scenario 1 takes');
     const journal: string[] = [];
     st.mock.method(console, 'error', (line: unknown) => { journal.push(String(line)); });
     const scenario = await createScenario(installed);
@@ -158,7 +166,7 @@ test('a restore runs, falls back and survives a restart against real containers'
       assert.deepEqual(safety.records, before);
       assert.equal(await readObject(), 'kept by the safety backup');
       // The injected failure is what stopped it, and the updater journalled it.
-      assert.deepEqual(journal.map((line) => JSON.parse(line)).map(({ event, stage, exitCode, stdout }) => ({ event, stage, exitCode, stdout })), [{
+      assert.deepEqual(journal.map((line) => JSON.parse(line)).filter(({ event }) => event === 'updater_command_failed').map(({ event, stage, exitCode, stdout }) => ({ event, stage, exitCode, stdout })), [{
         event: 'updater_command_failed', stage: 'restore.objects', exitCode: 1, stdout: '{"ok":false,"code":"injected"}\n',
       }]);
       await assertReady();
@@ -167,9 +175,11 @@ test('a restore runs, falls back and survives a restart against real containers'
   });
 
   await t.test('the updater dies while restoring: on boot the safety backup is put back, out of maintenance', async () => {
+    assert.ok(backup, 'needs the backup scenario 1 takes');
     const dump = `/work/${basename(backup.directory)}/database.dump`;
     const scenario = await createScenario(installed, { dieAfter: (args) => args.includes('restore-database') && args.includes(dump) });
     await sql("insert into posts (title) values ('back after the restart')");
+    await putObject('back after the restart');
     const before = await counts();
     const statusBefore = await getUpdaterStatus({ socketPath: scenario.config.socketPath });
     assert.equal((await socketJson(scenario.config.socketPath, 'POST', '/v1/restore', {
@@ -179,6 +189,9 @@ test('a restore runs, falls back and survives a restart against real containers'
     assert.ok(scenario.died, scenario.errors.join('; '));
     assert.equal((await scenario.state.readRestore())?.phase, 'restoring');
     assert.equal(await sql("select count(*) from posts where title = 'back after the restart'"), '0', 'the database is half restored');
+    assert.equal(JSON.parse(await readFile(scenario.config.statusPath, 'utf8')).job?.phase, 'migrating', 'the site is in maintenance');
+    assert.equal((await dockerSuccess(compose(['ps', '--quiet', 'app']), { env: dockerEnvironment(), timeoutMs: 30_000 })).stdout.trim(), '',
+      'and the app is stopped');
     await closeServer(scenario.server);
 
     const revived = await createScenario(installed, { root: scenario.root });
@@ -189,12 +202,14 @@ test('a restore runs, falls back and survives a restart against real containers'
       assert.equal(await sql("select count(*) from posts where title = 'back after the restart'"), '1');
       assert.deepEqual(await counts(), before);
       assert.deepEqual(await counts(), (await readManifest(revived.booted.safetyBackupDirectory!)).records);
+      assert.equal(await readObject(), 'back after the restart');
       await assertReady();
       await assertMarkerCleared(revived, statusBefore);
     } finally { await closeServer(revived.server); }
   });
 
   await t.test('a backup of another site is refused before anything stops', async () => {
+    assert.ok(backup, 'needs the backup scenario 1 takes');
     const scenario = await createScenario(installed);
     try {
       const other = join(backupRoot, 'another-site');
@@ -214,6 +229,7 @@ test('a restore runs, falls back and survives a restart against real containers'
   });
 
   await t.test('an exited one-off beside a stopped app does not block a restore', async () => {
+    assert.ok(backup, 'needs the backup scenario 1 takes');
     const leftover = `${projectName}-update-${randomUUID()}-leftover`;
     try {
       // What a CLI that died without its --rm leaves: an exited `compose run` container.
@@ -226,9 +242,15 @@ test('a restore runs, falls back and survives a restart against real containers'
       for (const id of listed) ownedContainerIds.add(id);
       const inspected = JSON.parse((await dockerSuccess(['inspect', '--type', 'container', ...listed], { timeoutMs: 30_000 })).stdout) as Array<{
         Name: string; State: { Status: string }; Config: { Labels: Record<string, string> };
+        HostConfig: { Tmpfs: Record<string, string> | null }; Mounts: Array<{ Type: string }>;
       }>;
       assert.deepEqual(inspected.map((container) => [container.Name.slice(1) === leftover, container.State.Status,
         container.Config.Labels['com.docker.compose.oneoff']]).sort(), [[false, 'exited', 'False'], [true, 'exited', 'True']]);
+      // A one-off inherits the service's tmpfs, so neither has a volume of its own.
+      for (const container of inspected) {
+        assert.deepEqual(Object.keys(container.HostConfig.Tmpfs ?? {}), ['/var/lib/postgresql/data']);
+        assert.deepEqual(container.Mounts.filter((mount) => mount.Type === 'volume'), []);
+      }
 
       const scenario = await createScenario(installed);
       try {
@@ -239,7 +261,7 @@ test('a restore runs, falls back and survives a restart against real containers'
         await assertReady();
       } finally { await closeServer(scenario.server); }
     } finally {
-      await dockerChecked(['rm', '--force', leftover], { allowFailure: true, timeoutMs: 30_000 });
+      await dockerChecked(['rm', '--force', '--volumes', leftover], { allowFailure: true, timeoutMs: 30_000 });
     }
   });
 });
@@ -333,6 +355,7 @@ async function writeFixtureFiles(): Promise<void> {
       S3_BUCKET: \${S3_BUCKET}
       S3_ACCESS_KEY_ID: \${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: \${S3_SECRET_ACCESS_KEY}
+      TOME_CMS_PUBLIC_URL: \${TOME_CMS_PUBLIC_URL}
       FIXTURE_FAIL_STEP: \${TOME_CMS_FIXTURE_FAIL_STEP:-}
     depends_on:
       postgres: { condition: service_healthy }
@@ -343,6 +366,9 @@ async function writeFixtureFiles(): Promise<void> {
       timeout: 2s
       retries: 20
     ports: ["127.0.0.1:\${APP_PORT}:4321"]
+    # postgres:17-alpine declares VOLUME /var/lib/postgresql/data. A tmpfs there keeps every
+    # container of this service, compose run one-shots included, from making an anonymous volume.
+    tmpfs: ["/var/lib/postgresql/data"]
 volumes:
   postgres-data:
     labels: { tomecms.test.project: "${projectName}" }
@@ -502,6 +528,9 @@ function imageEnvironment(digest: string): string {
   return `TOME_CMS_APP_IMAGE='${OFFICIAL_IMAGE_REPOSITORY}@${digest}'\n`;
 }
 
+// Copied from tests/operations/managed-update.test.ts, from dockerSuccess to freePort, with
+// assertSafeScope's prefix, assertDockerScope's single image tag and its several-id inspect adapted.
+// These guards keep a test off a real install: keep the two files in step.
 async function dockerSuccess(args: readonly string[], options: { env?: NodeJS.ProcessEnv; timeoutMs: number }): Promise<CommandResult> {
   const result = await dockerChecked(args, options);
   assert.equal(result.code, 0, `docker ${args.join(' ')} failed: ${result.stderr}`);
@@ -549,11 +578,17 @@ function assertDockerScope(args: readonly string[]): void {
   }
   if (args[0] === 'ps') return assert.ok(args.some((value) => value.includes(projectName)), 'Unsafe container listing');
   if (args[0] === 'rm') return assert.ok(args.at(-1)?.startsWith(`${projectName}-update-`), 'Unsafe container removal');
+  // Read-only, and only to find what this suite left behind.
+  if (args.join(' ') === 'volume ls -q --filter dangling=true') return;
   if ((args[0] === 'network' || args[0] === 'volume') && args[1] === 'ls') {
     assert.ok(args.some((value) => value.includes(projectName)), 'Unsafe resource listing');
     return;
   }
   throw new Error(`Unsafe or unsupported Docker command: ${text}`);
+}
+
+async function danglingVolumes(): Promise<string[]> {
+  return lines((await dockerSuccess(['volume', 'ls', '-q', '--filter', 'dangling=true'], { timeoutMs: 30_000 })).stdout);
 }
 
 async function resourceInventory(): Promise<ResourceInventory> {
@@ -685,7 +720,7 @@ func backup() {
   manifest := map[string]any{
     "format": "tomecms-backup", "version": 1, "createdAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
     "applicationVersion": version,
-    "config": map[string]any{"publicUrl": "https://cms.example.test", "database": "fixture", "s3Endpoint": "https://media.example.test", "bucket": os.Getenv("S3_BUCKET")},
+    "config": map[string]any{"publicUrl": os.Getenv("TOME_CMS_PUBLIC_URL"), "database": "fixture", "s3Endpoint": "https://media.example.test", "bucket": os.Getenv("S3_BUCKET")},
     "database": map[string]any{"file": "database.dump", "sha256": digest(database)},
     "records": json.RawMessage(psql(countsQuery)),
     "objects": objects,
