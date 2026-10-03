@@ -26,6 +26,8 @@ export interface StatusReport {
     id: string; phase: string; startedAt: string; errorCode: string | null; backupDirectory: string;
     safetyBackupDirectory: string | null; maintenanceKept: boolean; stuck: boolean;
   } | null;
+  /** Why the restore record could not be read, when the rest of the updater could. */
+  restoreError: string | null;
 }
 
 const services = ['app', 'postgres', 'seaweedfs'];
@@ -49,6 +51,7 @@ export async function status(context: CliContext, options: { json: boolean }): P
     newestBackup,
     runningBackup: read?.runningBackup ?? null,
     restore: read?.restore ?? null,
+    restoreError: read?.restoreError ?? null,
   };
   if (options.json) context.print(JSON.stringify(report));
   else printReport(context, report);
@@ -57,18 +60,22 @@ export async function status(context: CliContext, options: { json: boolean }): P
 
 /** The updater's side, or why it could not be read: this is the screen for a sick server, so nothing here stops it. */
 async function readUpdater(context: CliContext): Promise<{
-  status: UpdaterStatus; runningBackup: StatusReport['runningBackup']; restore: StatusReport['restore'];
+  status: UpdaterStatus; runningBackup: StatusReport['runningBackup']; restore: StatusReport['restore']; restoreError: string | null;
 } | { error: string }> {
   try {
-    const [status, backup, restore] = await Promise.all([readStatus(context.socket), readBackup(context.socket), readRestore(context.socket)]);
+    // The restore is read on its own: a record the updater cannot read (a 500) must not hide the versions.
+    const [status, backup, restoreRead] = await Promise.all([readStatus(context.socket), readBackup(context.socket),
+      readRestore(context.socket).then((record) => ({ record, error: null }), (error: unknown) => ({ record: null, error: errorText(error) }))]);
+    const restore = restoreRead.record;
     const shown = isRestoreRunning(restore) || isRestoreKeptInMaintenance(restore) ? {
       id: restore!.id, phase: restore!.phase, startedAt: restore!.startedAt, errorCode: restore!.errorCode,
       backupDirectory: restore!.backupDirectory, safetyBackupDirectory: restore!.safetyBackupDirectory,
-      maintenanceKept: restore!.maintenanceKept, stuck: await isRestoreStuck(context.socket, restore),
+      maintenanceKept: restore!.maintenanceKept, stuck: await isRestoreStuck(context.socket, restore).catch(() => false),
     } : null;
-    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null, restore: shown };
+    const restoreFields = { restore: shown, restoreError: restoreRead.error };
+    if (!backup || backup.phase === 'succeeded' || backup.phase === 'failed') return { status, runningBackup: null, ...restoreFields };
     const stuck = await isBackupStuck(context.socket, backup);
-    return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck }, restore: shown };
+    return { status, runningBackup: { id: backup.id, kind: backup.kind, phase: backup.phase, startedAt: backup.startedAt, stuck }, ...restoreFields };
   } catch (error) {
     if (error instanceof UpdaterUnreachableError) {
       return { error: `did not answer at ${context.config.socketPath}. Check it with: sudo systemctl status tomecms-updater` };
@@ -76,6 +83,10 @@ async function readUpdater(context: CliContext): Promise<{
     const reason = error instanceof UnexpectedAnswerError ? error.message : `could not be read (${error instanceof Error ? error.message : String(error)})`;
     return { error: `${reason}. Check it with: sudo tome logs updater` };
   }
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 async function readSite(context: CliContext): Promise<StatusReport['site']> {
@@ -179,7 +190,9 @@ function printReport(context: CliContext, report: StatusReport): void {
   else if (running) print(`Backup running: ${running.kind}, at "${running.phase}" since ${localTime(running.startedAt)}`);
 
   const restore = report.restore;
-  if (restore?.maintenanceKept) {
+  if (report.restoreError) {
+    print(`Restore: could not be read (${printable(report.restoreError)}). Check it with: sudo tome logs updater`);
+  } else if (restore?.maintenanceKept) {
     print(`Warning: a restore failed (${printable(restore.errorCode ?? 'unknown')}) and keeps the site in maintenance.`);
     for (const line of manualRecovery(restore)) print(`  ${line}`);
   } else if (restore?.stuck) {
