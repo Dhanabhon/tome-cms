@@ -123,10 +123,11 @@ test('every admin screen has at most one primary action, empty or filled, change
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
   await page.setViewportSize({ width: 1440, height: 1000 });
 
-  /** Opens a screen and waits for its islands to be drawn before counting. */
+  /** Opens a screen and waits until every island has hydrated, client:idle ones included, before counting. */
   const open = async (path: string, ready: string) => {
     await page.goto(`${origin}${path}`);
     await page.locator(ready).first().waitFor({ state: 'visible' });
+    await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
   };
   const count = async (screen: string, expected: number) => {
     await expect(primaries(page), screen).toHaveCount(expected);
@@ -168,7 +169,10 @@ test('every admin screen has at most one primary action, empty or filled, change
   await open('/admin/plugins', '.plugin-card');
   await count('Plugins', 0);
   await open('/admin/settings', '.admin-save-bar');
-  await count('Settings', 1);
+  await count('Settings, unchanged', 1);
+  await page.getByRole('textbox', { name: 'Site name' }).fill('Quiet Notes, again');
+  await expect(page.locator('.admin-save-bar .admin-button--primary')).toBeEnabled();
+  await count('Settings, changed', 1);
 
   // One post and one page, through the editors, and the lists are no longer empty.
   const created = (url: string) => page.waitForResponse((r) => r.url().endsWith(url) && r.request().method() === 'POST' && r.ok());

@@ -830,9 +830,10 @@ test('a hover fill is paper-3 under ink, never the paper-2 that barely shows on 
     .filter(({ selector, body }) => selector.includes(':hover') && /background(?:-color)?:\s*var\(--color-paper-2\)/.test(body))
     .map(({ file, selector }) => `${file}: ${selector}`);
   assert.deepEqual(faint, []);
-  for (const selector of ['.media-row:hover', '.ui-datetime .ui-datetime__grid .ui-datetime__day:hover', '.ui-theme__option:hover']) {
-    const bodies = ADMIN_RULES.filter((rule) => rule.selector === selector).map(({ body }) => body);
-    assert.ok(bodies.some((body) => declaration(body, 'background') === 'var(--color-paper-3)' && declaration(body, 'color') === 'var(--color-ink)'), selector);
+  for (const selector of ['.media-row:hover', '.ui-datetime .ui-datetime__grid .ui-datetime__day', '.ui-theme__option:hover']) {
+    const bodies = ADMIN_RULES.filter((rule) => rule.selector.startsWith(selector) && rule.selector.includes(':hover')).map(({ body }) => body).join(';');
+    assert.equal(declaration(bodies, 'background'), 'var(--color-paper-3)', selector);
+    assert.equal(declaration(bodies, 'color'), 'var(--color-ink)', selector);
   }
 });
 
@@ -935,7 +936,8 @@ test("a form page's footer shares the page column's edges", () => {
 test('Stats chooses its language with the admin select, keeps its periods short, and shows one empty block for a quiet period', () => {
   const filters = read('src/components/admin/stats/StatsFilters.astro');
   assert.match(filters, /<UiSelect[\s\S]{0,400}?name="lang"[\s\S]{0,300}?submitOnChange/);
-  assert.match(filters, /aria-label=\{copy\.stats\.ranges\[range\]\}/);
+  // The accessible name begins with the visible label (WCAG 2.5.3), then the full name.
+  assert.match(filters, /aria-label=\{`\$\{copy\.stats\.rangesShort\[range\]\}, \$\{copy\.stats\.ranges\[range\]\}`\}/);
   assert.match(filters, /\{copy\.stats\.rangesShort\[range\]\}/);
   const stats = read('src/styles/stats.css');
   assert.equal(declaration(ruleBody(stats, '.stats-segments'), 'flex-wrap'), 'nowrap');
@@ -949,4 +951,42 @@ test('System says it is checking once, and Navigation shows no save row until so
   assert.doesNotMatch(update, /currentVersion \?\? copy\.updates\.checking/);
   assert.match(update, /\{!busy && <p>\{progress\}<\/p>\}/);
   assert.match(read('src/components/admin/NavigationManager.tsx'), /\{\(dirty\[key\] \|\| pressed === 'save' \|\| savedOnce\) && <div className="navigation-save">/);
+});
+
+/** A selector list split at its top-level commas, so `:not(a, b)` stays whole. */
+function selectors(list: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const char of list) {
+    if (char === '(') depth += 1;
+    if (char === ')') depth -= 1;
+    if (char === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  return [...parts, current.trim()];
+}
+
+test('a hover leaves a chosen, unavailable or pressed-out control as it is', () => {
+  // Every hover sits late in the file, in the hover block, so at equal specificity it beats the
+  // state rules above it. It has to exclude those states itself.
+  const hovers = ADMIN_RULES.filter(({ context }) => context.some((at) => at.includes('(hover: hover)')))
+    .flatMap(({ selector }) => selectors(selector)).filter((selector) => selector.includes(':hover'));
+  const days = hovers.filter((selector) => selector.includes('.ui-datetime__day'));
+  assert.ok(days.length > 0, 'the date picker has a hover');
+  for (const day of days) assert.match(day, /:not\(\[data-selected\], :disabled/, day);
+  // A button or chip that can be disabled: its hover says nothing to a disabled one.
+  const buttons = hovers.filter((selector) => /\.admin-button|\.admin-chip|-delete|-remove/.test(selector));
+  assert.ok(buttons.length > 3);
+  for (const button of buttons) assert.match(button, /:not\(:disabled\)/, button);
+  assert.ok(hovers.includes('.admin-nav__link:not([aria-current]):hover'), 'the current language is not hovered');
+});
+
+test("the installer's select options keep their 44px rows; the admin's are a control tall", () => {
+  assert.equal(declaration(ruleBody(UI, '.ui-select__option'), 'min-height'), '2.75rem');
+  assert.equal(declaration(ruleBody(CSS, '.admin-body .ui-select__option'), 'min-height'), 'var(--control-height)');
 });

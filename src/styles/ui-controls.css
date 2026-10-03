@@ -70,7 +70,8 @@
 .ui-select__option {
   display: flex;
   width: 100%;
-  min-height: var(--control-height);
+  /* The installer's touch target; the admin sets its own control height in global.css. */
+  min-height: 2.75rem;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);

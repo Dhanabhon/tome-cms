@@ -1804,7 +1804,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* The select drops the same kind of menu, and shares its stylesheet with the installer --
  * so the admin's corners are set here rather than in ui-controls.css. */
 .admin-body .ui-select__menu { border-radius: var(--radius-card); }
-.admin-body .ui-select__option { border-radius: var(--radius-sm); }
+/* An option is a control tall in the admin; the installer keeps its 44px rows (ui-controls.css). */
+.admin-body .ui-select__option { min-height: var(--control-height); border-radius: var(--radius-sm); }
 
 /* The date-time field: a button in the control's shape, and a panel in the menu's. */
 .ui-datetime { position: relative; }
@@ -2587,8 +2588,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 
   .admin-button:hover:not(:disabled),
   .admin-control:hover { background: var(--admin-button-hover, var(--color-paper-3)); }
-  .admin-button--ghost:hover { color: var(--color-ink); }
-  .admin-page__head .admin-button--secondary:hover { color: var(--color-ink); background: var(--color-paper-3); }
+  .admin-button--ghost:hover:not(:disabled) { color: var(--color-ink); }
+  .admin-page__head .admin-button--secondary:hover:not(:disabled) { color: var(--color-ink); background: var(--color-paper-3); }
 
   .admin-auth-brand:hover { opacity: 0.72; }
   .admin-auth-nav__link:hover { text-decoration: underline; text-underline-offset: var(--space-2xs); }
@@ -2613,10 +2614,14 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   .media-category-row .media-category:hover { background: transparent; color: var(--color-link); }
   .media-category-menu.admin-story-menu summary:hover { background: var(--color-paper-3); color: var(--color-ink); }
 
-  .ui-datetime .ui-datetime__grid .ui-datetime__day:hover { background: var(--color-paper-3); color: var(--color-ink); }
+  /* Late in the file, so a hover must leave a chosen or unavailable day as it is: the same
+   * specificity would otherwise repaint the chosen day off its accent and a disabled one as pickable.
+   * A day from the next month keeps its muted figure. */
+  .ui-datetime .ui-datetime__grid .ui-datetime__day:not([data-selected], :disabled):hover { background: var(--color-paper-3); }
+  .ui-datetime .ui-datetime__grid .ui-datetime__day:not([data-selected], :disabled, [data-outside]):hover { color: var(--color-ink); }
 
   .navigation-grip--pointer:hover { color: var(--color-ink); }
-  .admin-chip:hover { border-color: var(--color-accent); background: var(--color-paper-3); }
+  .admin-chip:hover:not(:disabled) { border-color: var(--color-accent); background: var(--color-paper-3); }
   .security-key__delete:hover:not(:disabled),
   .profile-avatar-remove:hover:not(:disabled),
   .admin-cover-remove:hover:not(:disabled),

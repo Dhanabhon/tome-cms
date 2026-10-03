@@ -16,8 +16,9 @@ const { base, copy, languages = true, query } = Astro.props;
 
 <div class="stats-filters">
   <nav aria-label={copy.stats.rangeLabel} class="stats-segments">
+    {/* The name starts with what is shown, so "7d" said aloud still finds the link, and goes on to say it in full. */}
     {STATS_RANGES.map((range) => (
-      <a aria-current={query.range === range ? 'true' : undefined} aria-label={copy.stats.ranges[range]} href={statsHref(base, query, { page: 1, range })}>
+      <a aria-current={query.range === range ? 'true' : undefined} aria-label={`${copy.stats.rangesShort[range]}, ${copy.stats.ranges[range]}`} href={statsHref(base, query, { page: 1, range })}>
         {copy.stats.rangesShort[range]}
       </a>
     ))}
