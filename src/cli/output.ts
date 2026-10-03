@@ -131,6 +131,30 @@ export function explainError(code: string | null, job: 'update' | 'backup' | 're
   return (code && sentences[code]) ?? `The update failed${code ? ` (${code})` : ''}. ${logs}`;
 }
 
+/** The one sentence for a site that cannot export or import right now. */
+export const TRANSFER_BUSY = 'The site is in maintenance, or the updater is busy. Try again when it is done.';
+
+/**
+ * What a refusal from the image's export or import step means, from its receipt's code and the file
+ * and field it names; null for a code that is not a refusal, but a failure.
+ */
+export function explainContentRefusal(code: string, detail: { file?: unknown; field?: unknown; mediaId?: unknown }): string | null {
+  const shown = (value: unknown, otherwise: string) => typeof value === 'string' && value ? printable(value) : otherwise;
+  const file = shown(detail.file, 'A file');
+  const sentences: Record<string, string> = {
+    media_too_large: `${file} is larger than the File Manager accepts for its kind.`,
+    front_matter_invalid: `${file} has front matter TomeCMS cannot read: ${shown(detail.field, 'the block between the --- lines')}.`,
+    media_type_unsupported: `${file} is not a picture or a document the File Manager accepts.`,
+    content_invalid: `${file} holds content TomeCMS cannot accept, such as a slug that is too long or a document that does not read.`,
+    layout_invalid: `${file} does not fit the archive's layout: manifest.json, media/, and posts/ or pages/ in th/ or en/.`,
+    manifest_invalid: 'manifest.json does not read as a TomeCMS Markdown archive\'s.',
+    site_busy: TRANSFER_BUSY,
+    site_not_installed: 'This site is not set up yet. Finish setting it up in the browser first.',
+    media_missing: `A media file the content uses (${shown(detail.mediaId, 'unknown')}) is missing from storage, so nothing was exported.`,
+  };
+  return Object.hasOwn(sentences, code) ? sentences[code]! : null;
+}
+
 /**
  * The way out of a restore that ended with the site in maintenance and the app stopped (its record's
  * `maintenanceKept`): every job is refused until `updater:clear-failed` sets it aside.

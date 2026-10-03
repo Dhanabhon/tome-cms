@@ -11,13 +11,22 @@ import { printable } from './output.js';
  * be resolved.
  */
 export async function assertUnderBackupRoot(root: string, path: string): Promise<string> {
-  const real = await realpath(path);
-  // Only the backup itself is handed to the updater's user, so a directory between it and the root
-  // would be one the updater may not be able to enter.
-  if (dirname(real) !== await realpath(root) || !(await stat(real)).isDirectory()) {
-    throw new Error('Not a backup directory in the backup root');
-  }
+  const { real, isDirectory } = await inBackupRoot(root, path);
+  if (!isDirectory) throw new Error('Not a backup directory in the backup root');
   return real;
+}
+
+/**
+ * What a path names, by its real path, when that is directly in the backup root: a backup, an
+ * archive, or a directory laid out like one. It throws as `assertUnderBackupRoot` does.
+ */
+export async function inBackupRoot(root: string, path: string): Promise<{ real: string; isDirectory: boolean; isFile: boolean }> {
+  const real = await realpath(path);
+  // Only the thing itself is handed to the updater's user, so a directory between it and the root
+  // would be one the updater may not be able to enter.
+  if (dirname(real) !== await realpath(root)) throw new Error('Not in the backup root');
+  const metadata = await stat(real);
+  return { real, isDirectory: metadata.isDirectory(), isFile: metadata.isFile() };
 }
 
 /**

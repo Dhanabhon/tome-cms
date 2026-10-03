@@ -36,9 +36,9 @@ export interface ArchiveManifest {
   media: Record<string, ArchiveMediaFile>;
 }
 
-/** A refusal of something in an archive, by its code and the file it is about. */
+/** A refusal of something in an archive, by its code, the file it is about and, for front matter, the field. */
 export class ArchiveInputError extends Error {
-  constructor(readonly code: string, readonly file: string) {
+  constructor(readonly code: string, readonly file: string, readonly field?: string) {
     super(`${code}: ${file}`);
   }
 }
@@ -137,6 +137,10 @@ export function readFrontMatter(source: string, file: string): { frontMatter: Pa
     throw new ArchiveInputError('front_matter_invalid', file);
   }
   const parsed = readSchema.safeParse(value);
-  if (!parsed.success) throw new ArchiveInputError('front_matter_invalid', file);
+  if (!parsed.success) {
+    // The first field it could not read; none when the block is not a mapping at all.
+    const field = parsed.error.issues[0]?.path[0];
+    throw new ArchiveInputError('front_matter_invalid', file, typeof field === 'string' ? field : undefined);
+  }
   return { frontMatter: parsed.data, body: source.slice(match[0].length).replace(/^\r?\n/, '') };
 }

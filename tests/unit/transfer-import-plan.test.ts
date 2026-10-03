@@ -95,6 +95,8 @@ test('anything outside the layout, a bad front matter and an oversized picture r
   await refused({ 'posts/en/a.tome.json': '{}' }, 'layout_invalid', 'posts/en/a.tome.json');
   await refused({ 'posts/en/a.md': '---\ntitle: A\nstatus: live\n---\n' }, 'front_matter_invalid', 'posts/en/a.md');
   await refused({ 'posts/en/a.md': md({ title: 'A', language: 'th' }) }, 'front_matter_invalid', 'posts/en/a.md');
+  await assert.rejects(planImport(await archive(context, { 'posts/en/a.md': md({ title: 'A', language: 'th' }) }), OWNER, site()),
+    (error) => error instanceof ArchiveInputError && error.field === 'language', 'the refusal names the field');
   await refused({ 'posts/en/a.md': md({ title: 'A' }), 'posts/en/a.tome.json': '{not json' }, 'content_invalid', 'posts/en/a.tome.json');
   await refused({ 'posts/en/a.md': md({ title: 'A' }), 'posts/en/a.tome.json': '{"type":"doc","content":"words"}' }, 'content_invalid', 'posts/en/a.tome.json');
   const huge = Buffer.alloc(9 * 1024 * 1024);

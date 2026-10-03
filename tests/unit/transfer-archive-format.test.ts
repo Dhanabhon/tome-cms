@@ -53,12 +53,15 @@ test('a field of the wrong type is refused, naming the file', () => {
   for (const field of ['published: 12', 'show_cover: "yes"', 'categories: Baking', 'language: fr', 'status: live', 'published: soon']) {
     assert.throws(
       () => readFrontMatter(`---\ntitle: X\n${field}\n---\n`, file),
-      (error) => error instanceof ArchiveInputError && error.code === 'front_matter_invalid' && error.file === file,
+      (error) => error instanceof ArchiveInputError && error.code === 'front_matter_invalid' && error.file === file &&
+        error.field === field.split(':')[0],
       field,
     );
   }
-  for (const source of ['no front matter', '---\nslug: x\n---\n', '---\ntitle: [unclosed\n---\n', '---\n- a list\n---\n']) {
-    assert.throws(() => readFrontMatter(source, file), ArchiveInputError, source);
+  // tome names the field it could not read; a missing title is one, a block that is not YAML has none.
+  assert.throws(() => readFrontMatter('---\nslug: x\n---\n', file), (error) => error instanceof ArchiveInputError && error.field === 'title');
+  for (const source of ['no front matter', '---\ntitle: [unclosed\n---\n', '---\n- a list\n---\n']) {
+    assert.throws(() => readFrontMatter(source, file), (error) => error instanceof ArchiveInputError && error.field === undefined, source);
   }
 });
 

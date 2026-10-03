@@ -203,8 +203,8 @@ async function readItem(
   const path = entry.md;
   const text = (await readArchiveFile(root, path)).toString('utf8');
   const { frontMatter, body } = readFrontMatter(text, path);
-  if (frontMatter.language && frontMatter.language !== entry.locale) throw new ArchiveInputError('front_matter_invalid', path);
-  if (frontMatter.categories?.some((name) => !name.trim() || name.trim().length > 80)) throw new ArchiveInputError('front_matter_invalid', path);
+  if (frontMatter.language && frontMatter.language !== entry.locale) throw new ArchiveInputError('front_matter_invalid', path, 'language');
+  if (frontMatter.categories?.some((name) => !name.trim() || name.trim().length > 80)) throw new ArchiveInputError('front_matter_invalid', path, 'categories');
 
   const ids = new Map<string, string>();
   const pictures = new Map<string, string>();
@@ -313,7 +313,7 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
     }
     taken.add(address);
     // A group holds one edition in each language.
-    if (members.created.some(({ locale }) => locale === item.locale)) throw new ArchiveInputError('front_matter_invalid', item.path);
+    if (members.created.some(({ locale }) => locale === item.locale)) throw new ArchiveInputError('front_matter_invalid', item.path, 'translation');
     members.created.push(item);
     plan.create.push({ kind: item.kind, locale: item.locale, slug: item.slug, path: item.path, source: item.source });
   }

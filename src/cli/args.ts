@@ -11,7 +11,9 @@ export type Command =
   | { name: 'backup'; full: boolean; yes: boolean }
   | { name: 'update'; version: string | null; yes: boolean }
   | { name: 'prune'; yes: boolean }
-  | { name: 'restore'; directory: string; yes: boolean };
+  | { name: 'restore'; directory: string; yes: boolean }
+  | { name: 'export' }
+  | { name: 'import'; path: string; dryRun: boolean; yes: boolean };
 
 export type ThemeSource = 'plain' | 'paper' | 'almanac';
 /** The hooks a new plugin can fill: every one the core declares but mcp, which only the core serves. */
@@ -40,6 +42,8 @@ Looks after this TomeCMS server. These commands run as root:
   update [version]  Install the newest release, or the version named.
   prune             List the old application images that can go; --yes removes them.
   restore <backup>  Put a backup back into this site, replacing everything on it.
+  export            Write every post and page, with their media, to a Markdown archive.
+  import <archive>  Add the posts and pages in a Markdown archive, skipping any already here.
 
 These build themes and plugins in a TomeCMS source checkout, not on a server, and need no root.
 Run them there with "npm run tome -- <command>":
@@ -96,6 +100,22 @@ takes a safety backup first, and puts it back if the restore fails.
 
 Options:
   -y, --yes   Do not ask first.`,
+  export: `Usage: sudo tome export
+
+Writes every post and page, in every language and status, with the media they use, to
+/var/backups/tome-cms/markdown-<time>.tar.gz. Each is a Markdown file with its fields at the top,
+beside a .tome.json file that keeps its exact content. Settings, menus, accounts and media nothing
+uses are not in it: a full backup has them. The site stays up.`,
+  import: `Usage: sudo tome import <archive> [--dry-run] [--yes]
+
+Adds the posts and pages in an archive from tome export, or in a directory laid out the same way,
+under /var/backups/tome-cms. Each keeps its status and dates. One whose address the site already has
+is skipped: nothing is overwritten. It prints what it will do first. Either everything is imported
+or nothing is.
+
+Options:
+  --dry-run   Print what it would do, and import nothing.
+  -y, --yes   Do not ask first.`,
 } as const;
 
 const buildUsages = {
@@ -129,6 +149,7 @@ type Name = keyof typeof usages;
 type BuildGroup = keyof typeof buildUsages;
 const help = { help: { type: 'boolean', short: 'h' } } as const;
 const yes = { yes: { type: 'boolean', short: 'y' } } as const;
+const dryRun = { 'dry-run': { type: 'boolean' } } as const;
 const options = {
   status: { ...help, json: { type: 'boolean' } },
   logs: { ...help, lines: { type: 'string', short: 'n' }, follow: { type: 'boolean', short: 'f' } },
@@ -136,9 +157,10 @@ const options = {
   update: { ...help, ...yes },
   prune: { ...help, ...yes },
   restore: { ...help, ...yes },
+  export: { ...help },
+  import: { ...help, ...yes, ...dryRun },
 } satisfies Record<Name, ParseArgsConfig['options']>;
 const services: readonly LogService[] = ['app', 'postgres', 'seaweedfs', 'updater'];
-const dryRun = { 'dry-run': { type: 'boolean' } } as const;
 const buildOptions = {
   theme: { ...help, ...dryRun, from: { type: 'string' } },
   plugin: { ...help, ...dryRun, hook: { type: 'string' }, client: { type: 'boolean' } },
@@ -188,7 +210,13 @@ export function parseCommand(argv: readonly string[]): Command {
     if (positionals.length > 1) throw wrong('Name one backup directory.');
     return { name: 'restore', directory: positionals[0], yes: values.yes === true };
   }
+  if (command === 'import') {
+    if (!positionals[0]) throw wrong('Name the archive to import.');
+    if (positionals.length > 1) throw wrong('Name one archive.');
+    return { name: 'import', path: positionals[0], dryRun: values['dry-run'] === true, yes: values.yes === true };
+  }
   if (positionals.length) throw wrong(`Unexpected argument: ${positionals[0]}`);
+  if (command === 'export') return { name: 'export' };
   if (command === 'status') return { name: 'status', json: values.json === true };
   if (command === 'backup') return { name: 'backup', full: values.full === true, yes: values.yes === true };
   return { name: 'prune', yes: values.yes === true };

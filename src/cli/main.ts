@@ -19,6 +19,8 @@ import { isBuildCommand, parseBuildCommand, parseCommand, UsageError } from './a
 import { findCheckout } from './build/checkout.js';
 import { backup } from './commands/backup.js';
 import { check } from './commands/check.js';
+import { exportContent } from './commands/export.js';
+import { importContent } from './commands/import.js';
 import { logs } from './commands/logs.js';
 import { pluginNew } from './commands/plugin-new.js';
 import { prune } from './commands/prune.js';
@@ -30,14 +32,19 @@ import { exitQuietlyOnClosedPipe, unixSocketClient, UpdaterUnreachableError, typ
 
 const CONFIG_PATH = '/etc/tome-cms/updater.json';
 
+export interface StreamOptions { timeoutMs?: number; signal?: AbortSignal }
+
 /** Everything a command touches, so tests can put their own in its place. */
 export interface CliContext {
   config: UpdaterConfig;
   socket: SocketClient;
   /** Runs a command to its end and keeps its output (`docker compose ps`). Argv only, never a shell. */
   runCommand: typeof runCommand;
-  /** Runs a command and hands over each line of output as it comes (the logs). Its exit code. */
-  streamCommand: (executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void) => Promise<number>;
+  /**
+   * Runs a command and hands over each line of output as it comes (the logs, an archive's listing).
+   * Its exit code; a timeout ends it with a failure, and the signal stops it, rejecting.
+   */
+  streamCommand: (executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void, options?: StreamOptions) => Promise<number>;
   fetch: typeof fetch;
   /** The newest stable release (null), or the one named, checked as System checks it. */
   release: (version: string | null) => Promise<{ manifest: Pick<UpdateManifest, 'version' | 'compatibility' | 'releaseNotesUrl'> }>;
@@ -95,6 +102,8 @@ export async function tome(argv: readonly string[], input: {
       case 'update': return await update(context, command);
       case 'prune': return await prune(context, command);
       case 'restore': return await restore(context, command);
+      case 'export': return await exportContent(context);
+      case 'import': return await importContent(context, command);
     }
   } catch (error) {
     if (error instanceof UpdaterUnreachableError) {
@@ -162,9 +171,9 @@ async function loadContext(): Promise<CliContext> {
 
 const streams = new Set<ChildProcess>();
 
-export function streamCommand(executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void): Promise<number> {
+export function streamCommand(executable: string, args: readonly string[], onLine: (line: string, stream: 'stdout' | 'stderr') => void, options: StreamOptions = {}): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(executable, args, { shell: false, stdio: ['ignore', 'pipe', 'pipe'], timeout: options.timeoutMs, signal: options.signal });
     streams.add(child);
     createInterface({ input: child.stdout }).on('line', (line) => onLine(line, 'stdout'));
     createInterface({ input: child.stderr }).on('line', (line) => onLine(line, 'stderr'));

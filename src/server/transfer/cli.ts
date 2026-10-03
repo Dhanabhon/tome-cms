@@ -160,7 +160,7 @@ async function importContent(dir: string, mode: 'plan' | 'apply'): Promise<Recei
     const { applyImport } = await import('./import-apply');
     return { result: await applyImport(directory, settings.owner_id) };
   } catch (error) {
-    if (error instanceof ArchiveInputError) throw new StepError(error.code, { file: error.file });
+    if (error instanceof ArchiveInputError) throw new StepError(error.code, { file: error.file, ...(error.field ? { field: error.field } : {}) });
     throw error;
   } finally {
     s3.destroy();
