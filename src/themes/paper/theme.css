@@ -66,6 +66,8 @@ body.paper { background: var(--color-paper); }
 .site-header__mobile li:has(> ul) { flex-basis: 100%; }
 .site-header__mobile li > ul { flex-direction: column; flex-wrap: nowrap; gap: 0; margin-inline-start: var(--space-2xs); padding-inline-start: var(--space-md); border-inline-start: var(--rule-hair) solid var(--color-rule); }
 .public-navigation__group { display: block; padding-block: var(--space-sm) var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+/* Thai has no capitals, and tracking only pries its clusters apart. */
+:lang(th) .public-navigation__group { letter-spacing: 0; text-transform: none; }
 
 /* On a wide screen a sub-menu is a panel under its parent, opened by its summary: the ▾ beside
  * a link parent, or a group's own label. It floats over the page, so it is a surface with the
@@ -484,7 +486,8 @@ body.paper { background: var(--color-paper); }
 
 /* The byline, then when and how long. A card too narrow for one line puts the second group on
  * a line of its own, and every separator sits in the gap before its item -- so the one that
- * would open that line lands outside the paragraph, where the inline clip removes it. */
+ * would open that line lands outside the paragraph, where the inline clip removes it. The inset
+ * is margin, not padding: overflow clips at the padding box, so a padded line kept the dot. */
 .post-card__meta {
   display: flex;
   flex-wrap: wrap;
@@ -493,7 +496,8 @@ body.paper { background: var(--color-paper); }
   /* Pushed to the bottom of the frame, so cards along a row end level however long a
    * title runs. */
   margin-block-start: auto;
-  padding: var(--space-sm) var(--space-md) var(--space-md);
+  margin-inline: var(--space-md);
+  padding: var(--space-sm) 0 var(--space-md);
   overflow-x: clip;
   color: var(--color-muted);
   font-size: var(--text-sm);
@@ -843,6 +847,9 @@ body.paper { background: var(--color-paper); }
   .hero-title { font-size: var(--text-4xl); }
   .site-wordmark { font-size: var(--text-xl); }
 }
+
+/* Negative tracking pushes a Thai cluster's stacked marks into the next glyph. Latin keeps it. */
+:lang(th) :is(.hero-title, .card-title, .site-wordmark) { letter-spacing: 0; }
 
 /*
  * The reading progress bar.

@@ -4,6 +4,8 @@ import { test } from 'node:test';
 
 import { transform } from 'lightningcss';
 
+import { thaiDeclarations } from '../helpers/css';
+
 /**
  * Almanac's stylesheet as production serves it: through the minifier Vite builds with. The dev
  * server does not minify, so a declaration the minifier folds into a form Chrome drops passes
@@ -75,4 +77,14 @@ test('the "More in" arrow moves only for a reader who has not asked for less mot
   const calm = inside(/prefers-reduced-motion:\s*no-preference/);
   assert.match(calm, /\.almanac-article__more[^{]*\{[^}]*transition:transform/);
   assert.doesNotMatch(outside(/prefers-reduced-motion:\s*no-preference/), /\.almanac-article__more[^{]*\{[^}]*transition/);
+});
+
+test("Thai headings in Almanac have room for the marks, and a menu group is neither tracked nor in capitals", () => {
+  const source = readFileSync(new URL(`../../${FILE}`, import.meta.url), 'utf8');
+  assert.match(thaiDeclarations(source, ':is(h1, h2, h3)'), /line-height: 1\.4/);
+  assert.match(thaiDeclarations(source, '.almanac-nav__group'), /letter-spacing: 0; text-transform: none/);
+  // The minifier keeps the language scope, so production draws what the source says.
+  assert.match(minified, /:lang\(th\)/);
+  // Latin keeps today's values.
+  assert.match(source, /\.almanac :is\(h1, h2, h3\) \{[^}]*line-height: 1\.25;/);
 });
