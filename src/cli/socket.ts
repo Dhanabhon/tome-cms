@@ -1,6 +1,7 @@
 import { request } from 'node:http';
 
-import type { BackupJob, PublicUpdateJob } from '../updater/state.js';
+import type { BackupJob, PublicUpdateJob, RestoreJob } from '../updater/state.js';
+import { manualRecovery } from './output.js';
 
 export interface SocketAnswer {
   status: number;
@@ -37,6 +38,7 @@ export const socketTimeouts = { timeoutMs: 10_000, pruneTimeoutMs: 600_000 } as 
 const responseLimit = 64 * 1024;
 const updateTerminal = new Set(['succeeded', 'rolled_back', 'failed_manual_recovery']);
 const backupTerminal = new Set(['succeeded', 'failed']);
+const restoreTerminal = new Set(['succeeded', 'failed']);
 
 export function unixSocketClient(socketPath: string, timeouts: { timeoutMs: number; pruneTimeoutMs: number } = socketTimeouts): SocketClient {
   return (method, path, body) => new Promise((resolve, reject) => {
@@ -87,6 +89,26 @@ export async function readBackup(socket: SocketClient): Promise<BackupJob | null
   return body as BackupJob;
 }
 
+/** The last restore, or null before the first (and from an updater before 1.6.0, which has no such route). */
+export async function readRestore(socket: SocketClient): Promise<RestoreJob | null> {
+  const answer = await socket('GET', '/v1/restore');
+  if (answer.status === 404) return null;
+  const body = answer.body as Partial<RestoreJob> | null;
+  if (answer.status !== 200 || typeof body?.id !== 'string' || typeof body.phase !== 'string') {
+    throw new UnexpectedAnswerError('/v1/restore', answer);
+  }
+  return body as RestoreJob;
+}
+
+export function isRestoreRunning(restore: Pick<RestoreJob, 'phase'> | null): boolean {
+  return restore !== null && !restoreTerminal.has(restore.phase);
+}
+
+/** A restore that ended with the site in maintenance and the app stopped, which refuses every job. */
+export function isRestoreKeptInMaintenance(restore: Pick<RestoreJob, 'phase' | 'maintenanceKept'> | null): boolean {
+  return restore?.phase === 'failed' && restore.maintenanceKept === true;
+}
+
 export function isBackupRunning(backup: Pick<BackupJob, 'phase'> | null): boolean {
   return backup !== null && !backupTerminal.has(backup.phase);
 }
@@ -110,8 +132,8 @@ export async function postJob(socket: SocketClient, sleep: (ms: number) => Promi
   for (let attempt = 1; ; attempt += 1) {
     const answer = await socket('POST', path, body);
     if (answer.status !== 409 || errorCodeOf(answer) !== 'update_in_progress' || attempt === 5) return answer;
-    const [status, backup] = await Promise.all([readStatus(socket), readBackup(socket)]);
-    if (isUpdateRunning(status.job) || isBackupRunning(backup)) return answer;
+    const [status, backup, restore] = await Promise.all([readStatus(socket), readBackup(socket), readRestore(socket)]);
+    if (isUpdateRunning(status.job) || isBackupRunning(backup) || isRestoreRunning(restore)) return answer;
     await sleep(200);
   }
 }
@@ -180,9 +202,13 @@ export async function refusal(socket: SocketClient, answer: SocketAnswer): Promi
     // A prune holds the lock too, and leaves no record; tome status shows only an update or a backup.
     const job = await readStatus(socket).then((status) => status.job, () => null);
     const shown = isUpdateRunning(job) || isBackupRunning(backup) ? '; sudo tome status shows it' : '';
-    return `An update, a backup or an image clean-up is running. Wait for it to finish, then try again${shown}.`;
+    return `An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again${shown}.`;
   }
   if (code === 'manual_recovery_required') {
+    const restore = await readRestore(socket).catch(() => null);
+    if (isRestoreKeptInMaintenance(restore)) {
+      return ['An earlier restore failed and keeps the site in maintenance, so nothing else can run until it is recovered.', ...manualRecovery(restore!)].join('\n');
+    }
     return 'The last update needs manual recovery before anything else can run. Follow "Troubleshooting" in the TomeCMS documentation.';
   }
   return null;

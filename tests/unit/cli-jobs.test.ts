@@ -122,6 +122,7 @@ test('a 409 just after the last job ended is the lock being let go a tick late, 
         { status: 200, body: backupRecord('succeeded') }, // nothing runs: try again
         { status: 200, body: backupRecord('succeeded', { id: requestId }) },
       ],
+      'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
       'GET /v1/status': [statusAnswer(updateJob('succeeded'))],
       'POST /v1/backup': [{ status: 409, body: { error: 'update_in_progress' } }, { status: 202, body: { id: requestId, phase: 'quiescing' } }],
     },
@@ -136,25 +137,27 @@ test('a 409 while an update runs is reported as busy, without retrying', async (
   const f = fakeContext({
     routes: {
       'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
+      'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
       'GET /v1/status': [statusAnswer(updateJob('migrating'))],
       'POST /v1/backup': [{ status: 409, body: { error: 'update_in_progress' } }],
     },
   });
   assert.equal(await run(f, ['backup', '--yes']), 1);
   assert.equal(posts(f, '/v1/backup').length, 1);
-  assert.equal(f.err(), 'An update, a backup or an image clean-up is running. Wait for it to finish, then try again; sudo tome status shows it.');
+  assert.equal(f.err(), 'An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again; sudo tome status shows it.');
 });
 
 test('a 409 that no record explains is an image clean-up, which tome status does not show', async () => {
   const f = fakeContext({
     routes: {
       'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
+      'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
       'GET /v1/status': [statusAnswer(updateJob('succeeded'))],
       'POST /v1/backup': [{ status: 409, body: { error: 'update_in_progress' } }],
     },
   });
   assert.equal(await run(f, ['backup', '--yes']), 1);
-  assert.equal(f.err(), 'An update, a backup or an image clean-up is running. Wait for it to finish, then try again.');
+  assert.equal(f.err(), 'An update, a backup, a restore or an image clean-up is running. Wait for it to finish, then try again.');
 });
 
 test('a backup whose record stops with no job running is reported as stuck, with the way out', async () => {
@@ -336,12 +339,13 @@ test('update refused because an update is running reports busy', async () => {
     routes: {
       'GET /v1/status': [statusAnswer(null), statusAnswer(updateJob('downloading'))],
       'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
+      'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
       'POST /v1/apply': [{ status: 409, body: { error: 'update_in_progress' } }],
     },
     overrides: { release: release('1.11.0') },
   });
   assert.equal(await run(f, ['update', '1.11.0', '--yes']), 1);
-  assert.match(f.err(), /An update, a backup or an image clean-up is running\..*sudo tome status shows it/);
+  assert.match(f.err(), /An update, a backup, a restore or an image clean-up is running\..*sudo tome status shows it/);
 });
 
 test('update refuses a release whose contracts this server does not have, newest or named', async () => {
@@ -436,8 +440,9 @@ test('prune with nothing to remove, an unreadable listing, and a busy updater', 
       'POST /v1/prune': [{ status: 409, body: { error: 'update_in_progress' } }],
       'GET /v1/status': [statusAnswer(updateJob('backing_up'))],
       'GET /v1/backup': [{ status: 404, body: { error: 'not_found' } }],
+      'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
     },
   });
   assert.equal(await run(busy, ['prune']), 1);
-  assert.match(busy.err(), /An update, a backup or an image clean-up is running\..*sudo tome status shows it/);
+  assert.match(busy.err(), /An update, a backup, a restore or an image clean-up is running\..*sudo tome status shows it/);
 });

@@ -1,4 +1,5 @@
 import { redactDiagnosticText } from '../updater/process.js';
+import type { RestoreJob } from '../updater/state.js';
 
 // Plain text only: no colour codes, so the output reads the same in a terminal, a pipe or a log.
 
@@ -55,6 +56,16 @@ const backupSteps: Record<string, string> = {
   backing_up: 'Create the backup',
   restarting: 'Restart TomeCMS',
 };
+// Every step a restore can take; `migrating` only when the backup is older, so its number may be skipped.
+const restoreSteps: Record<string, string> = {
+  verifying: 'Check the backup',
+  quiescing: 'Prepare maintenance',
+  safety_backup: 'Create the safety backup',
+  restoring: 'Restore the backup',
+  migrating: 'Apply database migrations',
+  restarting: 'Restart TomeCMS',
+  checking: 'Check the restored site',
+};
 
 /** The line for an update job's phase, "[2/8] Verify the official update", or null at its end. */
 export function updateStep(phase: string, completedSteps: number, totalSteps: number): string | null {
@@ -65,13 +76,23 @@ export function updateStep(phase: string, completedSteps: number, totalSteps: nu
 
 /** The line for a backup's phase, "[2/3] Create the backup", or null at its end. */
 export function backupStep(phase: string): string | null {
-  const names = Object.keys(backupSteps);
+  return numberedStep(backupSteps, phase);
+}
+
+/** The line for a restore's phase, "[3/7] Create the safety backup", or null at its end. */
+export function restoreStep(phase: string): string | null {
+  if (phase === 'rolling_back') return 'Putting the safety backup back';
+  return numberedStep(restoreSteps, phase);
+}
+
+function numberedStep(steps: Record<string, string>, phase: string): string | null {
+  const names = Object.keys(steps);
   const index = names.indexOf(phase);
-  return index < 0 ? null : `[${index + 1}/${names.length}] ${backupSteps[phase]}`;
+  return index < 0 ? null : `[${index + 1}/${names.length}] ${steps[phase]}`;
 }
 
 /** What an updater error code means, and what to do about it. */
-export function explainError(code: string | null, job: 'update' | 'backup', disk: { backupDirectory: string; minimumFreeBytes: number }): string {
+export function explainError(code: string | null, job: 'update' | 'backup' | 'restore', disk: { backupDirectory: string; minimumFreeBytes: number }): string {
   const logs = 'See what happened with: sudo tome logs updater';
   if (code === 'insufficient_disk_space') {
     return `Not enough free disk space where backups go (${disk.backupDirectory}): it needs ${formatBytes(disk.minimumFreeBytes)}. ` +
@@ -81,6 +102,20 @@ export function explainError(code: string | null, job: 'update' | 'backup', disk
     if (code === 'preflight_failed') return `The backup did not start: the server is not as the updater expects (its files, or the running app's image). Nothing was stopped. ${logs}`;
     if (code === 'health_failed') return 'The backup was taken, but the site did not become ready again afterwards. See why with: sudo tome logs app';
     return `The backup failed. The site was started again. ${logs}`;
+  }
+  if (job === 'restore') {
+    const sentences: Record<string, string> = {
+      backup_invalid: `The backup did not pass its checks (a file is missing, or does not match its checksum), so nothing was changed. ${logs}`,
+      backup_other_site: 'That backup is from another site, and a restore keeps the site\'s address, so nothing was changed.',
+      backup_too_new: 'That backup is from a newer TomeCMS than this site runs, so nothing was changed. Update the site first: sudo tome update',
+      app_too_old: 'This site runs a TomeCMS older than 1.13.0, which cannot restore, so nothing was changed. Update it first: sudo tome update',
+      safety_backup_failed: `The safety backup before the restore failed, so nothing was replaced. ${logs}`,
+      restore_failed: `The restore failed, so the safety backup was put back. ${logs}`,
+      rollback_failed: `The restore failed, and the safety backup could not be put back either. The site stays in maintenance. ${logs}`,
+      interrupted: `The updater stopped in the middle of the restore. When it started again, it put the site back as it was before. ${logs}`,
+      preflight_failed: `The restore did not start: the server is not as the updater expects (its files, or the app's image). Nothing was changed. ${logs}`,
+    };
+    return (code && sentences[code]) ?? `The restore failed${code ? ` (${code})` : ''}. ${logs}`;
   }
   const sentences: Record<string, string> = {
     release_unavailable: 'The release could not be fetched from GitHub. Check the server\'s network, then try again.',
@@ -94,6 +129,31 @@ export function explainError(code: string | null, job: 'update' | 'backup', disk
     manual_recovery_required: 'The updater needs manual recovery. Follow "Troubleshooting" in the TomeCMS documentation.',
   };
   return (code && sentences[code]) ?? `The update failed${code ? ` (${code})` : ''}. ${logs}`;
+}
+
+/**
+ * The way out of a restore that ended with the site in maintenance and the app stopped (its record's
+ * `maintenanceKept`): every job is refused until `updater:clear-failed` sets it aside.
+ */
+export function manualRecovery(restore: Pick<RestoreJob, 'errorCode' | 'backupDirectory' | 'safetyBackupDirectory'>): string[] {
+  const states: Record<string, string> = {
+    rollback_failed: 'Neither the backup nor the safety backup could be put back, so no one knows what state the database is in.',
+    restore_failed: 'The safety backup was put back, so the database is as it was before the restore. The restore found the app stopped, so it left it so.',
+    safety_backup_failed: 'Nothing was replaced, so the database is as it was before the restore. The restore found the app stopped, so it left it so.',
+  };
+  const safety = restore.safetyBackupDirectory === null ? null : printable(restore.safetyBackupDirectory);
+  return [
+    'The site stays in maintenance, and the app is stopped.',
+    (restore.errorCode && states[restore.errorCode]) ?? 'No one knows what state the database is in.',
+    `The backup it was restoring: ${printable(restore.backupDirectory)}`,
+    safety ? `The safety backup, taken just before: ${safety}` : 'There is no safety backup.',
+    'To recover:',
+    '  1. From a checkout of v1.13.0 or newer, run: sudo npm run updater:clear-failed',
+    '     It sets the failed restore aside and takes the site out of maintenance. The app stays stopped.',
+    safety
+      ? `  2. Then put the safety backup back, which starts the app: sudo tome restore ${safety}`
+      : '  2. Then restore the newest backup, which starts the app (sudo tome status shows it): sudo tome restore <newest backup>',
+  ];
 }
 
 /**

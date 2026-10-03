@@ -22,6 +22,7 @@ import { check } from './commands/check.js';
 import { logs } from './commands/logs.js';
 import { pluginNew } from './commands/plugin-new.js';
 import { prune } from './commands/prune.js';
+import { restore } from './commands/restore.js';
 import { status } from './commands/status.js';
 import { themeNew } from './commands/theme-new.js';
 import { update } from './commands/update.js';
@@ -93,6 +94,7 @@ export async function tome(argv: readonly string[], input: {
       case 'backup': return await backup(context, command);
       case 'update': return await update(context, command);
       case 'prune': return await prune(context, command);
+      case 'restore': return await restore(context, command);
     }
   } catch (error) {
     if (error instanceof UpdaterUnreachableError) {

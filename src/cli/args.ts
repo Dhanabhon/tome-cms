@@ -10,7 +10,8 @@ export type Command =
   | { name: 'logs'; service: LogService; lines: number; follow: boolean }
   | { name: 'backup'; full: boolean; yes: boolean }
   | { name: 'update'; version: string | null; yes: boolean }
-  | { name: 'prune'; yes: boolean };
+  | { name: 'prune'; yes: boolean }
+  | { name: 'restore'; directory: string; yes: boolean };
 
 export type ThemeSource = 'plain' | 'paper' | 'almanac';
 /** The hooks a new plugin can fill: every one the core declares but mcp, which only the core serves. */
@@ -38,6 +39,7 @@ Looks after this TomeCMS server. These commands run as root:
   backup            Back up the database, or everything with --full.
   update [version]  Install the newest release, or the version named.
   prune             List the old application images that can go; --yes removes them.
+  restore <backup>  Put a backup back into this site, replacing everything on it.
 
 These build themes and plugins in a TomeCMS source checkout, not on a server, and need no root.
 Run them there with "npm run tome -- <command>":
@@ -85,6 +87,15 @@ The installed image and the one before it are always kept.
 
 Options:
   -y, --yes   Remove them.`,
+  restore: `Usage: sudo tome restore <backup> [--yes]
+
+Puts a backup back into this site: its database, and its media unless it holds the database only.
+Everything on the site is replaced. The backup is a directory under /var/backups/tome-cms, one that
+tome backup made or one copied in from another server, made for this site's address. The updater
+takes a safety backup first, and puts it back if the restore fails.
+
+Options:
+  -y, --yes   Do not ask first.`,
 } as const;
 
 const buildUsages = {
@@ -124,6 +135,7 @@ const options = {
   backup: { ...help, ...yes, full: { type: 'boolean' } },
   update: { ...help, ...yes },
   prune: { ...help, ...yes },
+  restore: { ...help, ...yes },
 } satisfies Record<Name, ParseArgsConfig['options']>;
 const services: readonly LogService[] = ['app', 'postgres', 'seaweedfs', 'updater'];
 const dryRun = { 'dry-run': { type: 'boolean' } } as const;
@@ -170,6 +182,11 @@ export function parseCommand(argv: readonly string[]): Command {
       try { parseStableVersion(version); } catch { throw wrong(`Not a release version: ${version}. Name one such as 1.11.0.`); }
     }
     return { name: 'update', version, yes: values.yes === true };
+  }
+  if (command === 'restore') {
+    if (!positionals[0]) throw wrong('Name the backup directory to restore.');
+    if (positionals.length > 1) throw wrong('Name one backup directory.');
+    return { name: 'restore', directory: positionals[0], yes: values.yes === true };
   }
   if (positionals.length) throw wrong(`Unexpected argument: ${positionals[0]}`);
   if (command === 'status') return { name: 'status', json: values.json === true };

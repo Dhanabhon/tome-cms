@@ -22,6 +22,8 @@ test('each command takes its own options, with the documented defaults', () => {
   assert.deepEqual(parseCommand(['update', '1.11.0', '-y']), { name: 'update', version: '1.11.0', yes: true });
   assert.deepEqual(parseCommand(['prune']), { name: 'prune', yes: false });
   assert.deepEqual(parseCommand(['prune', '--yes']), { name: 'prune', yes: true });
+  assert.deepEqual(parseCommand(['restore', '/var/backups/tome-cms/x']), { name: 'restore', directory: '/var/backups/tome-cms/x', yes: false });
+  assert.deepEqual(parseCommand(['restore', 'x', '--yes']), { name: 'restore', directory: 'x', yes: true });
 });
 
 test('wrong usage is refused with that command\'s usage', () => {
@@ -39,6 +41,9 @@ test('wrong usage is refused with that command\'s usage', () => {
     [['update', '1.2'], /Usage: sudo tome update/],
     [['update', '1.0.0', '1.0.1'], /Usage: sudo tome update/],
     [['prune', '--dry-run'], /Usage: sudo tome prune/],
+    [['restore'], /Usage: sudo tome restore/],
+    [['restore', 'a', 'b'], /Usage: sudo tome restore/],
+    [['restore', 'a', '--full'], /Usage: sudo tome restore/],
   ];
   for (const [argv, usage] of cases) {
     assert.throws(() => parseCommand(argv), (error: unknown) => error instanceof UsageError && usage.test(error.usage), argv.join(' '));
@@ -48,10 +53,11 @@ test('wrong usage is refused with that command\'s usage', () => {
 test('--help explains tome and each command', () => {
   const overview = parseCommand(['--help']);
   assert.equal(overview.name, 'help');
-  for (const name of ['status', 'logs', 'backup', 'update', 'prune']) assert.match(overview.name === 'help' ? overview.text : '', new RegExp(`\\b${name}\\b`));
+  for (const name of ['status', 'logs', 'backup', 'update', 'prune', 'restore']) assert.match(overview.name === 'help' ? overview.text : '', new RegExp(`\\b${name}\\b`));
   const expected: Record<string, RegExp[]> = {
     status: [/--json/], logs: [/-n, --lines/, /-f, --follow/, /updater/], backup: [/--full/, /--yes/, /maintenance/],
     update: [/\[version\]/, /--yes/], prune: [/--yes/, /dry run/i],
+    restore: [/<backup>/, /--yes/, /safety backup/, /replaced/],
   };
   for (const [name, patterns] of Object.entries(expected)) {
     for (const flag of ['--help', '-h']) {
@@ -189,7 +195,7 @@ test('inside a checkout, only that checkout\'s own src/cli/main.ts runs the buil
 test('the server commands still demand root, and the overview needs none', async () => {
   const f = fakeContext();
   const io = { uid: 1000, load: async () => f.context, print: f.context.print, warn: f.context.warn };
-  for (const name of ['status', 'logs', 'backup', 'update', 'prune']) {
+  for (const name of ['status', 'logs', 'backup', 'update', 'prune', 'restore']) {
     assert.equal(await tome([name], io), 1, name);
     assert.match(f.err(), new RegExp(`sudo tome ${name}`));
   }
