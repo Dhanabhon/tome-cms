@@ -165,7 +165,8 @@ async function putBack(run: Run, backupDirectory: string, manifest: BackupManife
 }
 
 /**
- * Puts the safety backup back, through the same steps, and starts the app on it. If that fails too,
+ * Puts the safety backup back, through the same steps, and starts the app on it, unless the restore
+ * found the app stopped: then it is left stopped, with the marker kept. If putting it back fails too,
  * the restore ends `rollback_failed` with the marker kept and the app left stopped: no one may write
  * to a database in a state no one knows.
  */

@@ -508,14 +508,14 @@ test('a 409 while a restore runs is busy and not tried again; once none runs, it
   assert.equal(posts(late).length, 2);
 });
 
-test('a restore that rolls back shows the step, and an interrupted one that kept maintenance says the safety backup is back', async (t) => {
+test('a restore that rolls back shows the step, and one that kept maintenance says the safety backup is back', async (t) => {
   const site = server(t);
   const f = restoreContext(site, {
     routes: {
       'GET /v1/restore': [
         { status: 200, body: restoreRecord(site, 'restoring') },
         { status: 200, body: restoreRecord(site, 'rolling_back') },
-        { status: 200, body: restoreRecord(site, 'failed', { errorCode: 'interrupted', safetyBackupDirectory: safety, maintenanceKept: true }) },
+        { status: 200, body: restoreRecord(site, 'failed', { errorCode: 'restore_failed', safetyBackupDirectory: safety, maintenanceKept: true }) },
       ],
     },
   });
