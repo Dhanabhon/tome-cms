@@ -269,7 +269,17 @@ const intro = themeSettings.intro || tagline;
   preloadFonts: ['/fonts/google-sans-latin-400-normal.woff2', '/fonts/google-sans-thai-400-normal.woff2'],
 ```
 
-Name the faces the first screen is drawn in, so they do not swap in late. The page preloads exactly that list. A theme with no `preloadFonts` preloads nothing, and its faces load when its stylesheet asks for them. `tome check` reports a path that is not a `.woff2` file in `public/fonts/`, and `tome theme new` copies the list with the theme.
+Each path is `/fonts/<file>.woff2`: a `.woff2` file directly in `public/fonts/`, with no subfolder. The page preloads each one as a font, so a stylesheet or an icon listed there would be fetched and thrown away. Name the faces the first screen is drawn in, so they do not swap in late, and no more: every file listed is downloaded on every page.
+
+`preloadFonts` is optional. A theme without it preloads nothing, and its faces load when its stylesheet asks for them.
+
+`tome check` reads the list, and reports a path that is not a `.woff2` file in `public/fonts/`, at the line it is written on:
+
+```text
+src/themes/ledger/theme.ts:9: preloads "/fonts/ledger.css", which is not a .woff2 file in public/fonts/
+```
+
+`tome theme new` copies the list into the new theme's `theme.ts`, so a theme made from Almanac or Paper starts with that theme's fonts preloaded. Change the list when the new theme draws its first screen in other faces.
 
 ## Registering a theme
 

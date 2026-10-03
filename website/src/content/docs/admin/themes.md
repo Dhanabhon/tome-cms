@@ -7,7 +7,7 @@ sidebar:
 
 "Themes", under "Appearance" in "Configuration", chooses which theme your public site uses, and whether readers see it light or dark. Three themes come with TomeCMS: Paper, which a new site starts with, Plain, a sparer one, and Almanac, a warmer one with serif headings. Every control on this screen applies the moment you use it, so there is no save bar at the bottom. Only the "Customize" drawer has a "Save" of its own.
 
-![The Themes screen, with a count of 2. The Paper card shows a small preview of the site's home page with the headline "Ideas, carefully published.", the description "Paper surfaces and hairline rules: the look TomeCMS ships with.", and "In use", "Customize" and "View site" under it. The Plain card shows a one-column preview and a "Use this theme" button. Below are the card "Where themes come from" and the "Appearance" card, where "Site appearance" is "System" and "Let visitors choose light or dark" is ticked.](../../../assets/screenshots/en/themes.png)
+![The Themes screen, with a count of 3. The Paper card shows a small preview of the site's home page with the headline "Ideas, carefully published.", the description "Paper surfaces and hairline rules: the look TomeCMS ships with.", and "In use", "Customize" and "View site" under it. The Plain card shows a one-column preview and a "Use this theme" button. The Almanac card, on a second row, shows a preview with a tinted hero band reading "Collected in TomeCMS. Ready for the world to see." and a "Use this theme" button. Below are the card "Where themes come from" and the "Appearance" card, where "Site appearance" is "System" and "Let visitors choose light or dark" is ticked.](../../../assets/screenshots/en/themes.png)
 
 ## Choosing a theme
 
@@ -15,7 +15,7 @@ Each theme has a card, and the top of the card is a preview: the theme drawing y
 
 The card of the theme in use says "In use". "View site" opens the public site in a new tab. On any other card, "Use this theme" switches the site to it straight away, and the screen names the theme now in use, as in "Your site now uses Plain."
 
-Paper shows a band at the top of the home page, a grid of cards for the posts, and an author block at the end of each post. Plain shows the tagline, the categories and a single column of titles with their dates and excerpts, in the reader's system font. It has no hero, so "Home slides" do not show with it, and it has nothing to customize.
+Paper shows a band at the top of the home page, a grid of cards for the posts, and an author block at the end of each post. Plain shows the tagline, the categories and a single column of titles with their dates and excerpts, set in Google Sans on a wide frame. It has no hero, so "Home slides" do not show with it, and it has nothing to customize.
 
 Almanac is described under [Customizing Almanac](#customizing-almanac) below.
 
