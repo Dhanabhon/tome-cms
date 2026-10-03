@@ -16,10 +16,10 @@ import { join } from 'node:path';
 //   5. fonts.css is the source's face, written by scripts/sync-fonts.mjs. It is not copied: the
 //      new stylesheet imports the source's, so it loads the same files under public/fonts.
 //
-// A name the core selects the theme's markup by is not the theme's to rename, whichever rule would
-// reach it: src/styles/code.css draws a bare <pre> inside `.plain-body`, so a copy of Plain keeps
-// that class and its code blocks keep their frame. `coreNames` finds such names. Hidden files, a
-// stray .DS_Store, are not copied.
+// A name the core uses is not the theme's to rename, whichever rule would reach it:
+// src/styles/code.css draws a bare <pre> inside `.plain-body`, so a copy of Plain keeps that class
+// and its code blocks keep their frame. `coreNames` finds such names. Hidden files, a stray
+// .DS_Store, are not copied.
 
 /** A file of the new theme: its path inside the theme's directory, and its text. */
 export interface ThemeFile {
@@ -39,29 +39,20 @@ export function copyTheme(root: string, from: string, id: string): ThemeFile[] {
     .map((path) => ({ path, text: renameThemeFile(path, readFileSync(join(directory, path), 'utf8'), from, id, keep) }));
 }
 
-// Where the core keeps the code that draws or finds a theme's markup.
-const CORE = ['src/styles', 'src/components', 'src/layouts', 'src/lib'];
-
 /**
- * The names starting with the theme `from`'s id that core code selects by: a class selector
- * (`.plain-body pre`, `body.almanac`, `querySelector('.almanac-hero')`) or a word of a class
- * attribute. A copy keeps these as they are.
+ * The words starting with the theme `from`'s id that core code uses: the id itself or `<from>-…`,
+ * as a whole word, in any file of src/ but the themes' and tome's own. However the core spells a
+ * class -- a selector, a class attribute in any quotes, class:list, classList.add -- it is one of
+ * these words, so a copy keeps them all. That keeps some words that are no class ('text/plain'), and
+ * a kept class only means the copy shares a name; a missed one would leave core markup unstyled.
  */
 export function coreNames(root: string, from: string): Set<string> {
-  const name = `${from}(?:-[\\w-]*)?`;
-  // In a stylesheet `body.almanac` is a selector; in code `settings.almanac` is not.
-  const css = new RegExp(`\\.(${name})(?![\\w-])`, 'g');
-  const code = new RegExp(`(?<![\\w$)\\]])\\.(${name})(?![\\w-])`, 'g');
-  const words = new RegExp(`^${name}$`);
+  const word = new RegExp(`(?<![\\w-])${from}(?:-[\\w-]*)?(?![\\w-])`, 'g');
+  const source = join(root, 'src');
   const names = new Set<string>();
-  for (const directory of CORE.map((each) => join(root, each)).filter((each) => existsSync(each))) {
-    for (const path of files(directory)) {
-      const text = readFileSync(join(directory, path), 'utf8');
-      for (const [, found] of text.matchAll(path.endsWith('.css') ? css : code)) names.add(found);
-      for (const [, value] of text.matchAll(/\b(?:class|className)="([^"]*)"/g)) {
-        for (const word of value.split(/\s+/)) if (words.test(word)) names.add(word);
-      }
-    }
+  for (const path of existsSync(source) ? files(source) : []) {
+    if (/^(themes|cli)[\\/]/.test(path)) continue;
+    for (const [found] of readFileSync(join(source, path), 'utf8').matchAll(word)) names.add(found);
   }
   return names;
 }

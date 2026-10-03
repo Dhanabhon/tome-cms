@@ -50,12 +50,18 @@ test('names the theme owns are renamed in its CSS and its templates; the core\'s
 });
 
 test('the body class carries the new id, and so does a data attribute that names the theme', () => {
-  assert.match(renamed('plain', 'Shell.astro').after, /<body class="zzdemo">/);
-  assert.match(renamed('paper', 'Shell.astro').after, /<body class="zzdemo flex min-h-screen flex-col">/);
+  // The rules themselves, with no core names to keep.
+  const bare = (from: string, path: string) => renameThemeFile(path, readFileSync(join(themes, from, path), 'utf8'), from, 'zzdemo');
+  assert.match(bare('plain', 'Shell.astro'), /<body class="zzdemo">/);
+  assert.match(bare('paper', 'Shell.astro'), /<body class="zzdemo flex min-h-screen flex-col">/);
+  assert.match(bare('plain', 'theme.css'), /^\.zzdemo \{$/m);
+  assert.ok(bare('paper', 'theme.css').includes('html:has(> body.zzdemo),\nbody.zzdemo {'));
+  // As copied from the real tree. Core code says "plain" ('text/plain') and "paper", so a copy of
+  // either keeps the source's body class, which is safe; nothing outside says "almanac".
   assert.match(renamed('almanac', 'Shell.astro').after, /<body class="zzdemo">/);
-  assert.match(renamed('plain', 'theme.css').after, /^\.zzdemo \{$/m);
-  assert.ok(renamed('paper', 'theme.css').after.includes('html:has(> body.zzdemo),\nbody.zzdemo {'));
   assert.ok(renamed('almanac', 'theme.css').after.includes(':root:has(> body.zzdemo, .zzdemo-article) {'));
+  assert.match(renamed('plain', 'Shell.astro').after, /<body class="plain">/);
+  assert.match(renamed('paper', 'Shell.astro').after, /<body class="paper flex min-h-screen flex-col">/);
   // No theme has one today; the rule is there for the first that does.
   assert.equal(renameThemeFile('Shell.astro', '<main data-look="paper" data-paper="paper">', 'paper', 'zzdemo'), '<main data-look="zzdemo" data-paper="zzdemo">');
 });
@@ -173,8 +179,8 @@ test('when registering fails, the new theme\'s directory is removed', async (t) 
 });
 
 test('a name the core selects a theme\'s markup by is kept, so a plain copy\'s bare <pre> is still drawn by code.css', () => {
-  assert.deepEqual([...coreNames(repository, 'plain')], ['plain-body']);
-  assert.deepEqual([...coreNames(repository, 'paper')], []);
+  assert.ok(coreNames(repository, 'plain').has('plain-body'));
+  // Nothing outside the theme and the CLI says "almanac", so a copy of Almanac is renamed whole.
   assert.deepEqual([...coreNames(repository, 'almanac')], []);
   const files = copyTheme(repository, 'plain', 'zzdemo');
   const text = (path: string) => files.find((file) => file.path === path)!.text;
@@ -186,29 +192,40 @@ test('a name the core selects a theme\'s markup by is kept, so a plain copy\'s b
   assert.match(text('Post.astro'), /<article class="zzdemo-page zzdemo-article">/);
 });
 
-test('core names are found in styles, components, layouts and lib, by selector or class attribute, and kept by every rule', async (t) => {
+test('core names are any word of the theme\'s, in any file of src outside the themes and the CLI, however it is written', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'tome-core-names-'));
   t.after(() => rm(root, { recursive: true, force: true }));
+  // One shape per name, so a name missing from the set says which shape was missed.
   const core = {
-    'src/styles/a.css': 'body.almanac main { margin: 0; }\n.almanac-card:hover { color: red; }',
-    'src/components/B.tsx': 'export const B = () => <p className="almanac-note other">x</p>;',
-    'src/layouts/C.astro': '<div class="wrap almanac-frame" />',
-    'src/lib/d.ts': "document.querySelector('.almanac-hero');\nconst kind = 'text/almanac-ish'; settings.almanac;",
+    'src/styles/a.css': '.almanac-card:hover { color: red; }',
+    'src/components/Style.astro': '<p>x</p>\n<style>\n  body.almanac main { margin: 0; }\n  div[data-k].almanac-b { color: red; }\n</style>',
+    'src/components/List.astro': '<div class:list={["almanac-g", { open }]} />',
+    'src/components/Quotes.tsx': "export const Q = () => <p className='almanac-d'>x</p>;",
+    'src/components/Expression.tsx': "export const E = () => <p className={'almanac-e'}>x</p>;",
+    'src/components/Template.tsx': 'export const T = ({ x }: { x: string }) => <p className={`${x} almanac-c`}>x</p>;',
+    'src/components/Selector.tsx': 'export const css = "div[data-k].almanac-m > span { color: red; }";',
+    'src/lib/dom.ts': "element.classList.add('almanac-h');\nother.className = 'almanac-i';",
+    'src/pages/index.astro': "<main class={'almanac-j'} />",
+    'src/plugins/zz/client.ts': "mount.closest('.almanac-k');",
+    'src/server/page.ts': "export const wrap = 'almanac-l';",
+    // Not core, and not names: the theme itself, the CLI, and words that only contain the id.
     'src/themes/elsewhere.css': '.almanac-grid {}',
+    'src/cli/z.ts': "'almanac-cli'",
+    'src/lib/words.ts': 'const almanacs = 1; const almanac_x = 2; const y = "--x-almanac-n";',
   };
   for (const [path, text] of Object.entries(core)) {
     await mkdir(join(root, path, '..'), { recursive: true });
     await writeFile(join(root, path), text);
   }
   const keep = coreNames(root, 'almanac');
-  assert.deepEqual([...keep].sort(), ['almanac', 'almanac-card', 'almanac-frame', 'almanac-hero', 'almanac-note']);
+  assert.deepEqual([...keep].sort(), ['almanac', ...'bcdeghijklm'.split('').map((letter) => `almanac-${letter}`), 'almanac-card'].sort());
   assert.equal(
     renameThemeFile('theme.css', '.almanac { x: 1; }\n.almanac-card, .almanac-grid { y: 2; }', 'almanac', 'zzdemo', keep),
     '.almanac { x: 1; }\n.almanac-card, .zzdemo-grid { y: 2; }',
   );
   assert.equal(
-    renameThemeFile('Shell.astro', '<body class="almanac"><div class="almanac-frame almanac-grid">', 'almanac', 'zzdemo', keep),
-    '<body class="almanac"><div class="almanac-frame zzdemo-grid">',
+    renameThemeFile('Shell.astro', '<body class="almanac"><div class="almanac-j almanac-grid">', 'almanac', 'zzdemo', keep),
+    '<body class="almanac"><div class="almanac-j zzdemo-grid">',
   );
 });
 
