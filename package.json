@@ -37,6 +37,7 @@
     "updater:upgrade": "node --import tsx scripts/updater-upgrade.ts",
     "check:inventory": "node --import tsx scripts/check-migration-inventory.ts",
     "test:operations:update": "node --import tsx --test tests/operations/managed-update.test.ts",
+    "test:operations:restore": "node --import tsx --test tests/operations/managed-restore.test.ts",
     "astro": "astro",
     "fonts:sync": "node scripts/sync-fonts.mjs",
     "docs:check-search": "node website/scripts/check-search.mjs",
