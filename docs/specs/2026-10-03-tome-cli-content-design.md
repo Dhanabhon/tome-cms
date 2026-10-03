@@ -160,7 +160,8 @@ job takes the same lock as apply, backup and prune, and `/v1/busy` reports it. T
 **The layout:**
 ```
 manifest.json              {"format":"tomecms-markdown","version":1,"createdAt","applicationVersion",
-                            "publicUrl","counts":{"posts","pages","media"}}
+                            "publicUrl","counts":{"posts","pages","media"},
+                            "media":{"<media id>":{"path":"media/<object key>","name","type","sha256","size"}}}
 posts/<locale>/<slug>.md
 posts/<locale>/<slug>.tome.json
 pages/<locale>/<slug>.md
