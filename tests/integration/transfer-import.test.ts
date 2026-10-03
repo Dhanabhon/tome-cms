@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, before, test } from 'node:test';
 
-import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { sql } from 'kysely';
 import sharp from 'sharp';
 
@@ -288,3 +288,62 @@ test('a picture over the limit refuses the whole input before anything is writte
   assert.deepEqual(await rowCounts(), counts);
   assert.deepEqual(await objectKeys(), keys);
 });
+
+test('an English page is created in English, and an empty published document is refused by its file', async () => {
+  const root = await tempDirectory();
+  await writeTree(root, { 'pages/en/contact.md': '---\ntitle: Contact\nstatus: published\n---\n\nWrite to us.\n' });
+  const result = await m.applyImport(root, OWNER);
+  assert.deepEqual(result.create, [{ kind: 'page', locale: 'en', slug: 'contact', path: 'pages/en/contact.md', source: 'md' }]);
+  const page = await m.db.selectFrom('pages').select(['locale', 'status']).where('slug', '=', 'contact').executeTakeFirstOrThrow();
+  assert.deepEqual(page, { locale: 'en', status: 'published' });
+
+  const empty = await tempDirectory();
+  await writeTree(empty, { 'posts/en/empty.md': '---\ntitle: Empty\nstatus: published\n---\n' });
+  const counts = await rowCounts();
+  await assert.rejects(m.applyImport(empty, OWNER), refusal('content_invalid', 'posts/en/empty.md'));
+  assert.deepEqual(await rowCounts(), counts);
+});
+
+test('a .pdf that is not a PDF is refused when it is uploaded, and the files uploaded before it are taken back', async () => {
+  const root = await tempDirectory();
+  await writeTree(root, {
+    'posts/en/guide.md': '---\ntitle: Guide\n---\n\n![a](../../media/a.png)\n\n[The guide](../../media/guide.pdf)\n\n![b](../../media/guide.pdf)\n',
+    'media/a.png': await sharp({ create: { width: 2, height: 2, channels: 3, background: '#444444' } }).png().toBuffer(),
+    'media/guide.pdf': 'not a pdf at all',
+  });
+  const counts = await rowCounts();
+  const keys = await objectKeys();
+  await assert.rejects(m.applyImport(root, OWNER), refusal('media_type_unsupported', 'media/guide.pdf'));
+  assert.deepEqual(await rowCounts(), counts);
+  assert.deepEqual(await objectKeys(), keys);
+});
+
+test('a clean-up delete that fails names the object left behind, and the others are still removed', async (context) => {
+  const root = await tempDirectory();
+  const picture = (color: string) => sharp({ create: { width: 2, height: 2, channels: 3, background: color } }).png().toBuffer();
+  await writeTree(root, {
+    'posts/en/a.md': '---\ntitle: A\nslug: a-cleanup\n---\n\n![a](../../media/one.png)\n\n![b](../../media/two.png)\n',
+    'posts/en/b.md': `---\ntitle: B\nslug: ${'x'.repeat(400)}\n---\n\nWords.\n`,
+    'media/one.png': await picture('#555555'),
+    'media/two.png': await picture('#666666'),
+  });
+  const keys = await objectKeys();
+  const send = m.s3.send.bind(m.s3);
+  let refused: string | undefined;
+  context.mock.method(m.s3, 'send', (command: unknown) => {
+    if (command instanceof DeleteObjectCommand && refused === undefined) {
+      refused = command.input.Key!;
+      return Promise.reject(new Error('injected'));
+    }
+    return send(command as Parameters<typeof send>[0]);
+  });
+  const logged = context.mock.method(console, 'error', () => undefined);
+  await assert.rejects(m.applyImport(root, OWNER), refusal('content_invalid', 'posts/en/b.md'));
+  context.mock.restoreAll();
+  assert.ok(refused, 'a delete was refused');
+  assert.deepEqual(logged.mock.calls.map((call) => String(call.arguments[0])),
+    [`The uploaded files could not all be removed: These objects are left in the bucket: ${refused}`]);
+  assert.deepEqual(await objectKeys(), [...keys, refused].sort(), 'only the one that failed is left');
+  await send(new DeleteObjectCommand({ Bucket: 'tomecms-test-media', Key: refused }));
+});
+
