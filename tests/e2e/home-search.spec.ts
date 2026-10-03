@@ -313,3 +313,132 @@ for (const theme of ['paper', 'plain'] as const) {
     });
   }
 }
+
+// Paper's home and its header, as a reader meets them (1.14.0). Each test sets the hero and the
+// name it needs, and leaves them as the file found them: the text hero, and "Search Test".
+test.describe('paper', () => {
+  test.beforeEach(() => useTheme('paper'));
+  test.afterEach(async () => {
+    const { writeThemeSettings } = await import('../../src/server/themes/store');
+    await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'text' } });
+    psql(`update site_settings set site_name = 'Search Test'`);
+  });
+
+  test('a chosen category is shown like a search: no hero band, and a heading that names it', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${origin}/en?category=Notes`);
+    await expect(page.locator('.home-hero'), 'no band above a category').toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 2, name: 'Notes', exact: true })).toBeVisible();
+
+    // Chosen by its pill, which swaps the list in place: the band still gives way to it.
+    await page.goto(`${origin}/en`);
+    await expect(page.locator('.home-hero')).toBeVisible();
+    await page.getByRole('navigation', { name: 'Categories' }).getByRole('link', { name: 'Notes' }).click();
+    await expect(page.getByRole('heading', { level: 2, name: 'Notes', exact: true })).toBeVisible();
+    await expect(page.locator('.home-hero')).toBeHidden();
+  });
+
+  test('an empty category offers the way back to every post', async ({ page }) => {
+    test.setTimeout(120_000);
+    psql(`insert into categories (owner_id, name, is_default) values ('${OWNER}', 'Bare', false) on conflict do nothing`);
+    await page.goto(`${origin}/en?category=Bare`);
+    // A category nobody has filed under is not listed, so its address is the only way in.
+    await expect(page.getByText('No posts in this category yet.')).toBeVisible();
+    await expect(page.locator('.post-feed').getByRole('link', { name: 'All posts' })).toHaveAttribute('href', '/en');
+  });
+
+  test('the home has one h1 whatever the band, and none of them hides it', async ({ page }) => {
+    test.setTimeout(120_000);
+    const { writeThemeSettings } = await import('../../src/server/themes/store');
+    await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'off' } });
+    for (const path of ['/en', '/en?q=note', '/en?category=Notes']) {
+      await page.goto(`${origin}${path}`);
+      await expect(page.locator('h1'), path).toHaveCount(1);
+      await expect(page.locator('h1'), path).toHaveText('Search Test');
+    }
+  });
+
+  test('on a phone the brand is whole beside the language, which is its code', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 375, height: 812 });
+    // The name the audit saw cut to "The Nigh…" beside the full language name.
+    psql(`update site_settings set site_name = 'The Night Bakery'`);
+    for (const [path, code] of [['/en', 'EN'], ['/th', 'TH']] as const) {
+      await page.goto(`${origin}${path}`);
+      const cut = await page.locator('.site-header .site-wordmark').evaluate((link) => {
+        const name = link.querySelector('.site-brand__name')!.getBoundingClientRect();
+        return link.scrollWidth > link.clientWidth || name.right > link.getBoundingClientRect().right + 0.5;
+      });
+      expect(cut, `${path}: the brand is not cut short`).toBe(false);
+      const trigger = await page.locator('.site-header .language-switcher__trigger').boundingBox();
+      expect(trigger!.width, `${path}: the language button is the width of its code`).toBeLessThan(100);
+      const shown = await page.locator('.site-header .language-switcher__trigger').evaluate((trigger) => getComputedStyle(trigger, '::before').content);
+      expect(shown, `${path}: the language as its code`).toBe(`"${code}"`);
+    }
+  });
+
+  test('the words on a slide read at 4.5:1 over its picture, where they sit', async ({ page }) => {
+    test.setTimeout(120_000);
+    // A slide wants a picture in the library. The row has no object behind it: the browser is
+    // handed a flat mid-tone for it below, the colour the audit measured the slide words on.
+    const { sql } = await import('kysely');
+    const { db } = await import('../../src/server/db/client');
+    const [image] = (await sql<{ id: string }>`insert into media_items (owner_id, folder_id, object_key, original_name, mime_type,
+        size_bytes, width, height, checksum_sha256, alt_text, state)
+      values (${OWNER}, null, 'seed/slide.webp', 'slide.webp', 'image/webp', 1000, 1600, 900, ${`${'c'.repeat(43)}=`}, 'A field', 'ready')
+      returning id`.execute(db)).rows;
+    const { homeSlidesSchema } = await import('../../src/lib/home-slides');
+    const { replaceSlides } = await import('../../src/server/content/slides');
+    await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [{
+      mediaId: image.id, heading: 'Warm bread before the street wakes.', body: 'Notes from a small bakery, set down while the oven cools.',
+      align: 'start', overlay: 'soft', button: null,
+    }] }));
+    const { writeThemeSettings } = await import('../../src/server/themes/store');
+    await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slides' } });
+    await page.route('**/media/**', (route) => route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="#8a9b7a"/></svg>',
+    }));
+    const sharp = (await import('sharp')).default;
+    const luminance = ([r, g, b]: number[]) => {
+      const linear = (v: number) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+    };
+
+    // The server holds a language's live slides for five seconds, and the tests above read the home.
+    await expect(async () => {
+      await page.goto(`${origin}/en`);
+      await expect(page.locator('.hero-slide img')).toHaveCount(1, { timeout: 500 });
+    }).toPass({ timeout: 15_000 });
+
+    for (const width of [375, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${origin}/en`);
+      await expect(page.locator('.hero-slide img')).toHaveJSProperty('complete', true);
+      for (const part of ['.hero-slide__heading', '.hero-slide__body']) {
+        const words = page.locator(part);
+        // The words' own colour, as the browser resolves it, read back through a canvas.
+        const ink = await words.evaluate((element) => {
+          const context = document.createElement('canvas').getContext('2d')!;
+          context.fillStyle = getComputedStyle(element).color;
+          context.fillRect(0, 0, 1, 1);
+          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+        });
+        // What is behind them: the same box with the letters made clear, at its lightest pixel. Only
+        // the letters: the scrim may be the words' own background.
+        const box = (await words.boundingBox())!;
+        await page.addStyleTag({ content: '.hero-slide__words * { color: transparent !important; }' });
+        const shot = await page.screenshot({ clip: box });
+        await page.reload();
+        await expect(page.locator('.hero-slide img')).toHaveJSProperty('complete', true);
+        const { data, info } = await sharp(shot).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+        let lightest = 0;
+        for (let at = 0; at < data.length; at += info.channels) lightest = Math.max(lightest, luminance([data[at], data[at + 1], data[at + 2]]));
+        const ratio = (luminance(ink) + 0.05) / (lightest + 0.05);
+        expect(ratio, `${part} at ${width}px`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [] }));
+  });
+});

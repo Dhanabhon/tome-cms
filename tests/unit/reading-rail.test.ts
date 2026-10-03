@@ -106,8 +106,11 @@ test('the rail is a column of 2px ticks at the inline end, hidden where there is
   assert.match(PAPER, /@media \(pointer: coarse\) \{[^}]*\.reading-rail__link \{[^}]*min-block-size: 2\.75rem/);
   assert.match(PAPER, /@media \(max-width: 63\.999rem\) \{[^}]*\.reading-rail \{ display: none; \}/);
   assert.match(PAPER, /@media \(min-width: 64rem\) \{[^}]*\.reading-progress\[data-rail\] \{ display: none; \}/);
-  assert.match(ruleBody(PAPER, '.reading-rail__link:is(:hover, :focus-visible)::before'), /background: var\(--color-ink\)/);
-  assert.match(PAPER, /\.reading-rail__link:is\(:hover, :focus-visible\) \.reading-rail__label/);
+  // Keyboard focus shows the tick and its label anywhere; a hover only where a pointer hovers.
+  assert.match(ruleBody(PAPER, '.reading-rail__link:focus-visible::before'), /background: var\(--color-ink\)/);
+  assert.match(PAPER, /\.reading-rail__link:focus-visible \.reading-rail__label/);
+  assert.match(PAPER, /@media \(hover: hover\) \{\s*\.reading-rail__link:hover::before \{ background: var\(--color-ink\); \}/);
+  assert.match(PAPER, /@media \(hover: hover\) \{\s*\.reading-rail__link:hover \.reading-rail__label \{ opacity: 1; \}/);
   assert.match(PAPER, /@media \(prefers-reduced-motion: no-preference\) \{[^@]*html:has\(\.reading-rail\) \{ scroll-behavior: smooth; \}/);
   assert.match(PAPER, /\.post-body :is\(h2, h3\) \{ scroll-margin-block-start:/);
 });

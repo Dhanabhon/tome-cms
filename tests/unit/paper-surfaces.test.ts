@@ -6,11 +6,12 @@ import { thaiDeclarations } from '../helpers/css';
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
-test('Paper paints its page white and its header cream, as the admin does', () => {
+test('Paper leaves its page the cream every theme has, header included (1.14.0)', () => {
   const shell = read('src/themes/paper/Shell.astro');
   assert.match(shell, /<body class="paper flex min-h-screen flex-col">/);
   const css = read('src/themes/paper/theme.css');
-  assert.match(css, /html:has\(> body\.paper\),\s*body\.paper \{ background: var\(--color-paper\); \}/);
+  // It used to repaint the html and body white, as the admin's content area is.
+  assert.doesNotMatch(css, /body\.paper \{ background/);
   assert.match(css, /\.site-header \{ background: var\(--color-paper-2\); \}/);
   // The sticky variant keeps the header cream too, rather than painting it white.
   assert.doesNotMatch(css, /\.site-header\[data-sticky\] \{[^}]*background: var\(--color-paper\);/);
@@ -40,8 +41,8 @@ test("a card's meta line clips at its words, so the separator before a wrapped l
   const meta = /\n\.post-card__meta \{([^}]*)\}/.exec(css)?.[1] ?? '';
   // overflow clips at the padding box: with the inset as padding, the dot hung into it and showed.
   assert.match(meta, /overflow-x: clip;/);
-  assert.match(meta, /padding: var\(--space-sm\) 0 var\(--space-md\);/);
-  assert.match(meta, /margin-inline: var\(--space-md\);/);
+  assert.match(meta, /padding: var\(--space-sm\) 0 0;/);
+  assert.doesNotMatch(meta, /padding-inline/);
 });
 
 test('Thai display type in Paper is not tracked in, and a menu group is not set in capitals', () => {

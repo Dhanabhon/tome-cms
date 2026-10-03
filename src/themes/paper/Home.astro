@@ -65,6 +65,8 @@ const copy = locale === 'th'
     unavailable: 'Published posts are temporarily unavailable.',
   };
 
+// Never an empty h1: a site with no name yet is called what the route calls it.
+const name = siteName.trim() || 'TomeCMS';
 // The byline a post carries on the feed: the author when the profile names one, the site
 // when it does not.
 const byline = profile?.name || siteName;
@@ -80,7 +82,9 @@ const slides = hero === 'slider' ? posts.filter(({ cover_image }) => cover_image
 // The owner's own slides: a still banner for one, the slider for more, and the text hero when
 // none is live, as covers falls back when no post has a cover.
 // A search shows its results first: whoever typed one wants them, not the banner above them.
-const band = query ? 'none'
+// A category is the same: a reader who chose one wants its posts, not six hundred pixels of
+// slider above them.
+const band = query || activeCategory ? 'none'
   : hero === 'slides'
     ? ownSlides.length > 1 ? 'slides' : ownSlides.length === 1 ? 'banner' : 'text'
     : slides.length > 1 ? 'slider' : hero === 'slider' ? 'text' : hero;
@@ -91,6 +95,9 @@ const olderHref = nextCursor
 const shared = publicCopy(locale);
 // The reader's words go into a sentence as text, whatever they contain.
 const saying = (template: string) => template.replace('{query}', () => query ?? '');
+// The category as the site names it, not as the address happened to spell it.
+const categoryName = activeCategory
+  && (categories.find(({ name: category }) => isCurrent(category))?.name ?? activeCategory);
 const dateFormatter = new Intl.DateTimeFormat(dateLocale(locale), {
   day: 'numeric',
   month: 'short',
@@ -101,16 +108,6 @@ const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at
 const readTime = (post: Post) => {
   const minutes = postReadingMinutes(post);
   return locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
-};
-// A post without a cover keeps the cover's space, so the titles along a row start level,
-// and its first letter fills it rather than an empty box. A grapheme, not a code unit:
-// a Thai letter carries its vowel and tone marks with it. A vowel written before its
-// consonant (เ แ โ ใ ไ) is a grapheme of its own and alone reads as a stray stroke, so
-// it takes its consonant along.
-const graphemes = new Intl.Segmenter(locale, { granularity: 'grapheme' });
-const initial = (title: string) => {
-  const [first = '', second = ''] = [...graphemes.segment(title.trim())].map(({ segment }) => segment);
-  return /^[เ-ไ]$/u.test(first) ? first + second : first;
 };
 ---
 
@@ -198,9 +195,9 @@ const initial = (title: string) => {
   </section>
 )}
 
-{(band === 'text' || band === 'animated') && (
+{(band === 'text' || band === 'animated') ? (
   <section class="home-hero" data-hero={band === 'animated' ? 'moving' : undefined}>
-    <div class="mx-auto max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
+    <div class="mx-auto max-w-7xl px-5 pt-12 pb-16 sm:px-7 sm:pt-16 sm:pb-20">
       <h1 class="hero-title max-w-xl">{headline}</h1>
       {tagline && (
         <p class="lead mt-6 max-w-md">
@@ -209,6 +206,8 @@ const initial = (title: string) => {
       )}
     </div>
   </section>
+) : (
+  <h1 class="sr-only">{name}</h1>
 )}
 
 <section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">
@@ -236,11 +235,11 @@ const initial = (title: string) => {
 
   <!-- Everything a category changes, so a chosen pill can swap it whole. -->
   <div class="post-feed" data-post-feed={endless ? "" : undefined}>
-    {query && (
-      <p class="post-search__status" role="status">
-        <span>{saying(shared.searchResults)}</span> <span aria-hidden="true">·</span> <a href={home}>{shared.clearSearch}</a>
-      </p>
-    )}
+    {query ? (
+      <div class="post-search__status" role="status">
+        <h2 class="post-feed__heading">{saying(shared.searchResults)}</h2> <a href={home}>{shared.clearSearch}</a>
+      </div>
+    ) : categoryName && <h2 class="post-feed__heading">{categoryName}</h2>}
     {posts.length > 0 ? (
       <div class="post-grid" data-post-grid style={gridStyle}>
         {posts.map((post, index) => {
@@ -250,7 +249,7 @@ const initial = (title: string) => {
               <div class="post-card__cover" aria-hidden="true">
                 {post.cover_image
                   ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
-                  : <span>{initial(post.title)}</span>}
+                  : <span>{post.categories?.[0]?.name ?? name}</span>}
               </div>
               <h2 class="card-title post-card__title">
                 <a href={postPath(post)}>{post.title}</a>
@@ -271,7 +270,7 @@ const initial = (title: string) => {
         })}
       </div>
     ) : !loadError && (
-      <p class="text-muted">{query ? saying(shared.noResults) : activeCategory ? copy.emptyCategory : copy.empty}</p>
+      <p class="post-feed__empty">{query ? saying(shared.noResults) : activeCategory ? <>{copy.emptyCategory} <a href={home}>{copy.all}</a></> : copy.empty}</p>
     )}
 
     {olderHref && (
@@ -283,7 +282,7 @@ const initial = (title: string) => {
     )}
 
     {loadError && (
-      <p class="border-l-2 border-error pl-4 text-sm text-muted" role="alert">
+      <p class="post-feed__error" role="alert">
         {copy.unavailable}
       </p>
     )}

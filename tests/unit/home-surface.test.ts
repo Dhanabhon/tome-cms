@@ -23,19 +23,19 @@ test('the homepage opens with a page head, not a painted band', () => {
   assert.doesNotMatch(HOME, /text-white/);
   assert.match(HOME, /class="home-hero"/);
   const hero = ruleBody('.home-hero');
-  assert.match(hero, /background: var\(--color-paper\);/);
+  // The hero is the page itself, cream like it (1.14.0), with a hairline under it.
+  assert.doesNotMatch(hero, /background/);
   assert.match(hero, /border-block-end: var\(--rule-hair\) solid var\(--color-rule\)/);
 });
 
-test('a post card is a surface that does not clip its focus ring', () => {
+test('a post card is a hairline over its post, and does not clip its focus ring', () => {
   const card = ruleBody('.post-card');
-  assert.match(card, /background: var\(--color-paper\)/);
-  assert.match(card, /border: var\(--rule-hair\) solid var\(--color-rule\)/);
-  assert.match(card, /border-radius: var\(--radius-lg\)/);
+  // Not a rounded white box any more (1.14.0): one hairline above it, on the page's cream.
+  assert.match(card, /border-block-start: var\(--rule-hair\) solid var\(--color-rule\)/);
+  assert.doesNotMatch(card, /background|border-radius/);
   // The title's link stretches over the card and rings itself 8px outside its own box.
-  // A card that clips would cut that ring off, which is why the cover rounds its own corners.
+  // A card that clips would cut that ring off.
   assert.doesNotMatch(card, /overflow\s*:\s*(hidden|clip)/);
-  assert.match(ruleBody('.post-card__cover'), /border-start-start-radius/);
 });
 
 test('a chip is a ring when chosen, and the date wears a clock', () => {

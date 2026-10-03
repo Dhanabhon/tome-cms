@@ -21,13 +21,31 @@
   border-block-start: var(--rule-hair) solid var(--color-rule);
 }
 
-/* Paper sets the page as the admin does: the content on white paper, the navigation on cream
- * paper-2. global.css paints the whole document cream for every theme, so Paper repaints its
- * own -- the html too, or an overscroll and a page shorter than the window would show cream
- * under the white body. The header is cream whether or not it is sticky, and the footer is
- * left on the white with its own top rule. */
-html:has(> body.paper),
-body.paper { background: var(--color-paper); }
+/* Paper reads as paper: the cream page global.css already gives every theme, hairlines where
+ * other themes draw boxes, and one face for every word. White is kept for what is raised off the
+ * page -- a field, a pill, a panel that opens.
+ *
+ * Its tokens are written over the core's names, and only on a Paper page or the admin's draft
+ * preview of a Paper article, so the admin keeps its own pair of faces and its own white ink.
+ * Google Sans carries Thai as well as Latin (public/fonts.css), so IBM Plex Sans Thai is not
+ * asked for. In the dark the ink is a tinted near-white rather than pure white, which glares on
+ * the green-black page; it still reads at well over 4.5:1 on every surface, and
+ * tests/unit/paper-theme.test.ts measures it. Dark is declared twice, for the reason
+ * installer-tokens.css gives. */
+:root:has(> body.paper, .post-page) {
+  --font-display: "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):has(> body.paper, .post-page) {
+    --color-ink: oklch(96% 0.008 140);
+  }
+}
+
+:root[data-theme='dark']:has(> body.paper, .post-page) {
+  --color-ink: oklch(96% 0.008 140);
+}
 
 .site-header { background: var(--color-paper-2); }
 
@@ -43,13 +61,28 @@ body.paper { background: var(--color-paper); }
  * The order of the three lives here and not in the core sheet: this is one theme's header.
  * `plain` draws its own, and the admin draws none. The theme button comes last, at the far
  * end of the row, after the language. */
-.site-header .language-switcher { order: 2; flex: 0 0 auto; margin-inline-start: 0; }
+/* The language is set at the nav's size, not louder than it. On a phone it is its code alone, so
+ * the wordmark beside it is not cut short; its full name stays the button's accessible name. */
+.site-header .language-switcher { order: 2; flex: 0 0 auto; margin-inline-start: 0; font-size: var(--text-sm); }
+
+/* Three classes deep: the switcher's own scoped rules weigh two, and which sheet loads last is not
+ * something to lean on. */
+@media (max-width: 39.999rem) {
+  .site-header .language-switcher .language-switcher__trigger { width: auto; }
+  .site-header .language-switcher .language-switcher__trigger > span { display: none; }
+  .site-header .language-switcher .language-switcher__trigger::before { content: 'EN'; }
+  .site-header .language-switcher .language-switcher__trigger:lang(th)::before { content: 'TH'; }
+}
 
 .site-header .ui-theme { order: 3; }
 
 .site-header__mobile { order: 4; flex-basis: 100%; min-width: 0; }
 
-.site-header__mobile summary { min-height: 44px; padding-block: var(--space-sm); cursor: pointer; font-size: var(--text-sm); font-weight: 500; }
+/* The Menu wears the sub-menu's own chevron, not the browser's triangle. */
+.site-header__mobile summary { display: flex; align-items: center; gap: var(--space-3xs); min-height: 44px; padding-block: var(--space-sm); cursor: pointer; font-size: var(--text-sm); font-weight: 500; list-style: none; }
+.site-header__mobile summary::-webkit-details-marker { display: none; }
+.site-header__mobile summary .icon { width: 1rem; height: 1rem; transition: transform var(--dur-short) var(--ease-out); }
+.site-header__mobile[open] > summary .icon { transform: rotate(180deg); }
 
 .public-navigation { min-width: 0; max-width: 100%; }
 
@@ -59,7 +92,11 @@ body.paper { background: var(--color-paper); }
 
 .public-navigation a { display: block; min-height: 44px; max-width: 100%; padding-block: var(--space-sm); overflow-x: auto; color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-underline-offset: var(--space-2xs); }
 
-.public-navigation a:hover, .public-navigation a[aria-current], .public-navigation summary[aria-current] > span { text-decoration: underline; }
+.public-navigation a[aria-current], .public-navigation summary[aria-current] > span { text-decoration: underline; }
+
+@media (hover: hover) {
+  .public-navigation a:hover { text-decoration: underline; }
+}
 
 /* On a phone a parent takes its own row and its sub-items stack under it, indented and held by
  * a hairline, always shown: the Menu is already the one tap. A group is a small label. */
@@ -119,15 +156,28 @@ body.paper { background: var(--color-paper); }
 
 .public-navigation .site-submenu[data-align="end"] { inset-inline: auto 0; }
 .public-navigation .site-submenu a { padding-inline: var(--space-sm); border-radius: var(--radius-sm); }
-.public-navigation .site-submenu a:hover { background: var(--color-paper-2); }
+@media (hover: hover) {
+  .public-navigation .site-submenu a:hover { background: var(--color-paper-2); }
+}
 
+/* The rule above the footer is on the full-width <footer>, as the header's is; this is the inner
+ * line that holds the words to the content edge. */
 .site-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md) var(--space-xl); }
 
 .site-footer p { overflow-wrap: anywhere; }
 
 /* The site name and the product's name are words in the footer's own colour; they say they are links on hover. */
 .site-footer p a { color: inherit; text-decoration: none; }
-.site-footer p a:hover { text-decoration: underline; text-underline-offset: var(--space-2xs); }
+@media (hover: hover) {
+  .site-footer p a:hover { text-decoration: underline; text-underline-offset: var(--space-2xs); }
+}
+.site-footer p a:active { color: var(--color-ink); }
+
+/* An inline link's padding grows what a finger can hit without moving the line: 14px type on a
+ * 20px line, and 12px above and below, is 44. */
+@media (pointer: coarse) {
+  .site-footer p a { padding-block: var(--space-sm); }
+}
 
 .site-footer__credit { margin-inline-start: auto; }
 
@@ -182,19 +232,24 @@ body.paper { background: var(--color-paper); }
   color: var(--color-muted);
   transition: color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
 }
-.author-block__links--icons a:hover { background: color-mix(in oklch, var(--color-link) 10%, transparent); color: var(--color-link); }
+@media (hover: hover) {
+  .author-block__links--icons a:hover { background: color-mix(in oklch, var(--color-link) 10%, transparent); color: var(--color-link); }
+}
 
 @media (max-width: 31.999rem) {
   .author-block { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* The homepage opens the way every admin screen does: the title on the page's own paper with
- * a hairline under it, rather than a painted band. The header above it is the cream; the
- * hero is the page, so the hairline carries the separation in both colour schemes. */
+ * a hairline under it, rather than a painted band. The hero is the page, so the hairline carries
+ * the separation in both colour schemes. */
 .home-hero {
-  background: var(--color-paper);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
+
+/* A category chosen by its pill swaps the feed in place, and the feed brings its heading: the
+ * band gives way to the list, as it does when the category's address is opened. */
+main:has(.post-feed__heading) .home-hero { display: none; }
 
 /* The hero as the newest covers.
  *
@@ -251,10 +306,12 @@ body.paper { background: var(--color-paper); }
   overflow-wrap: anywhere;
 }
 
-/* Over the picture at its end, where a thumb already is on a phone. */
+/* Over the picture at its end, where a thumb already is on a phone, and over a slide's words:
+ * their scrim runs the slide's full width, under the buttons rather than over them. */
 .hero-slider__controls {
   display: flex;
   position: absolute;
+  z-index: 2;
   inset: auto var(--space-lg) var(--space-lg) auto;
   gap: var(--space-2xs);
 }
@@ -271,7 +328,11 @@ body.paper { background: var(--color-paper); }
   cursor: pointer;
 }
 
-.hero-slider__step:hover { background: var(--color-hero); }
+@media (hover: hover) {
+  .hero-slider__step:hover { background: var(--color-hero); }
+}
+
+.hero-slider__step:active { translate: 0 1px; }
 
 .hero-slider__step:focus-visible { outline: 2px solid var(--color-on-dark); outline-offset: var(--space-3xs); }
 
@@ -303,20 +364,34 @@ body.paper { background: var(--color-paper); }
 }
 
 .hero-slide::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
-.hero-slide[data-overlay='none']::after { content: none; }
-.hero-slide[data-overlay='soft']::after { background: linear-gradient(to top, color-mix(in oklch, var(--color-hero) 85%, transparent), transparent 75%); }
+.hero-slide:is([data-overlay='none'], [data-overlay='soft'])::after { content: none; }
 .hero-slide[data-overlay='strong']::after { background: color-mix(in oklch, var(--color-hero) 62%, transparent); }
 
+/* The words run the slide's full width, and their padding brings them in to the content edge --
+ * where the wordmark, the pills and the grid start -- rather than to a column of their own.
+ *
+ * Soft is drawn behind the words themselves: it fades in over their top padding and is near-opaque
+ * from the first line down. It used to be a gradient of the slide, which faded out at a fixed
+ * height, so a heading on a phone (where the band grows to hold the words) and every line of a
+ * centred slide sat on its thin end, at about 3:1 over a mid-tone picture. Following the words,
+ * they read at 4.5:1 or better over any picture lighter than white, and the e2e measures it. */
 .hero-slide__words {
   display: grid;
   position: relative;
   z-index: 1;
   justify-items: start;
   gap: var(--space-xs);
-  width: min(100%, 48rem);
-  margin-inline: auto;
-  padding: var(--space-2xl) var(--space-lg) var(--space-lg);
+  padding-block: var(--space-2xl) var(--space-lg);
+  padding-inline: calc(max(0px, (100% - 80rem) / 2) + 1.25rem);
   color: var(--color-on-dark);
+}
+
+.hero-slide[data-overlay='soft'] .hero-slide__words {
+  background: linear-gradient(to bottom, transparent, color-mix(in oklch, var(--color-hero) 85%, transparent) var(--space-2xl));
+}
+
+@media (min-width: 37.5rem) {
+  .hero-slide__words { padding-inline: calc(max(0px, (100% - 80rem) / 2) + 1.75rem); }
 }
 
 .hero-slide[data-align='center'] .hero-slide__words { justify-items: center; text-align: center; }
@@ -331,11 +406,12 @@ body.paper { background: var(--color-paper); }
   font-size: var(--text-xl);
   font-weight: 700;
   line-height: 1.25;
+  max-width: 48rem;
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
 
-.hero-slide__body { max-width: 36rem; margin: 0; color: var(--color-on-dark-muted); overflow-wrap: anywhere; }
+.hero-slide__body { max-width: 36rem; margin: 0; color: var(--color-on-dark); overflow-wrap: anywhere; }
 
 .hero-slide__button {
   display: inline-flex;
@@ -350,7 +426,10 @@ body.paper { background: var(--color-paper); }
   text-decoration: none;
 }
 
-.hero-slide__button:hover { background: var(--color-paper-2); }
+@media (hover: hover) {
+  .hero-slide__button:hover { background: var(--color-paper-2); }
+}
+.hero-slide__button:active { translate: 0 1px; }
 .hero-slide__button:focus-visible { outline: 2px solid var(--color-on-dark); outline-offset: var(--space-3xs); }
 
 /* Fading: each slide fades as the track carries it in and out, drawn from the scroll itself,
@@ -376,7 +455,8 @@ body.paper { background: var(--color-paper); }
 @media (min-width: 48rem) {
   .hero-slider__slide img { aspect-ratio: 21 / 9; }
   .hero-slider__title { font-size: var(--text-2xl); letter-spacing: -0.5px; }
-  .hero-slide { align-content: center; aspect-ratio: 21 / 9; }
+  /* The words stay at the foot of the slide at every width, on the scrim that follows them. */
+  .hero-slide { aspect-ratio: 21 / 9; }
   .hero-slide__heading { font-size: var(--text-2xl); letter-spacing: -0.5px; }
 }
 
@@ -417,58 +497,57 @@ body.paper { background: var(--color-paper); }
     )),
     1fr
   ));
-  gap: var(--space-lg);
+  gap: var(--space-xl) var(--space-lg);
 }
 
-/* One link, the title's, stretched over the whole card: the cover, the title and the byline
- * are one target and one tab stop, and the focus ring goes round the card. The card does not
- * clip -- that ring is drawn outside its box -- so the cover rounds its own top corners. */
+/* A card is not a box: it is a hairline across the column with the post under it, the way a
+ * newspaper rules its items. One link, the title's, is stretched over the whole card: the cover,
+ * the title and the byline are one target and one tab stop, and the focus ring goes round it. */
 .post-card {
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: var(--rule-hair) solid var(--color-rule);
-  border-radius: var(--radius-lg);
-  background: var(--color-paper);
-  transition: border-color var(--dur-short) var(--ease-out);
+  padding-block-start: var(--space-md);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
 }
-
-.post-card:hover { border-color: var(--color-rule-strong); }
 
 /* The cover's space is kept when a post has none, so the titles along a row start level.
  * Its margin, not the title's: .card-title zeroes the title's margin further down. */
 .post-card__cover {
-  container-type: inline-size;
   display: grid;
   place-items: center;
   aspect-ratio: 2 / 1;
   overflow: hidden;
-  border-start-start-radius: calc(var(--radius-lg) - var(--rule-hair));
-  border-start-end-radius: calc(var(--radius-lg) - var(--rule-hair));
   background: var(--color-paper-3);
 }
 
-.post-card__cover img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--dur-long) var(--ease-out); }
+.post-card__cover img { width: 100%; height: 100%; object-fit: cover; }
 
-.post-card:hover .post-card__cover img { transform: scale(1.03); }
-
-/* Without a cover, the title's first letter, large and faint. A quarter of the cover's width
- * is as large as it goes: a Thai letter with a tone mark stacked above it and a vowel below
- * spans 1.5 times its font size, and at a quarter it still clears both edges. */
+/* Without a cover, a flat band in the cover's shape with the post's category on it: a row of
+ * them is a row of names, where it used to be the same huge letter over and over. One line, cut
+ * short rather than wrapped, so a long Thai name never pushes the title down. */
 .post-card__cover span {
-  color: color-mix(in oklch, var(--color-muted) 35%, var(--color-paper-3));
+  max-inline-size: 100%;
+  padding-inline: var(--space-md);
+  overflow: hidden;
+  color: var(--color-muted);
   font-family: var(--font-display);
-  font-size: 25cqi;
-  font-weight: 700;
-  line-height: 1;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.post-card__title { padding: var(--space-md) var(--space-md) 0; overflow-wrap: anywhere; }
+.post-card__title { padding: var(--space-md) 0 0; overflow-wrap: anywhere; }
 
-.post-card__title a::after { content: ''; position: absolute; inset: 0; border-radius: var(--radius-lg); }
+.post-card__title a::after { content: ''; position: absolute; inset: 0; }
 
-.post-card:hover .post-card__title a { color: var(--color-link); }
+/* One effect, and only where a pointer really hovers: the title takes the link colour. */
+@media (hover: hover) {
+  .post-card:hover .post-card__title a { color: var(--color-link); }
+}
 
 .post-card__title a:focus-visible { outline: none; }
 
@@ -477,7 +556,6 @@ body.paper { background: var(--color-paper); }
 .post-card__excerpt {
   display: -webkit-box;
   margin: var(--space-xs) 0 0;
-  padding-inline: var(--space-md);
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -486,8 +564,8 @@ body.paper { background: var(--color-paper); }
 
 /* The byline, then when and how long. A card too narrow for one line puts the second group on
  * a line of its own, and every separator sits in the gap before its item -- so the one that
- * would open that line lands outside the paragraph, where the inline clip removes it. The inset
- * is margin, not padding: overflow clips at the padding box, so a padded line kept the dot. */
+ * would open that line lands outside the paragraph, where the inline clip removes it. The line
+ * has no inline padding: overflow clips at the padding box, so a padded line kept the dot. */
 .post-card__meta {
   display: flex;
   flex-wrap: wrap;
@@ -496,8 +574,7 @@ body.paper { background: var(--color-paper); }
   /* Pushed to the bottom of the frame, so cards along a row end level however long a
    * title runs. */
   margin-block-start: auto;
-  margin-inline: var(--space-md);
-  padding: var(--space-sm) 0 var(--space-md);
+  padding: var(--space-sm) 0 0;
   overflow-x: clip;
   color: var(--color-muted);
   font-size: var(--text-sm);
@@ -567,8 +644,9 @@ body.paper { background: var(--color-paper); }
 /* The categories, as pills over the grid. All posts leads and is current until a category is
  * chosen; the current pill fills with ink, so the filter in force reads at a glance. A name
  * too long for the column is cut short rather than wrapped onto a second line. */
-/* The controls row: categories on the left, the search at the right end. Under 40rem the
- * search takes the full width above the pills, where a thumb finds it first. */
+/* The controls row: categories on the left, the search at the right end. Under 64rem the
+ * search takes the full width above the pills, where a thumb finds it first: at a tablet's width
+ * the row could not hold both, and the search sat alone at the right of an empty line. */
 .post-controls { display: flex; flex-wrap: wrap-reverse; align-items: center; justify-content: space-between; gap: var(--space-md) var(--space-lg); margin: 0 0 var(--space-xl); }
 
 .post-filter { min-width: 0; }
@@ -582,7 +660,7 @@ body.paper { background: var(--color-paper); }
  * and opacity are animated here. */
 .post-search:focus-within { flex-basis: 20rem; }
 
-@media (max-width: 39.999rem) { .post-search, .post-search:focus-within { flex-basis: 100%; max-width: none; } }
+@media (max-width: 63.999rem) { .post-search, .post-search:focus-within { flex-basis: 100%; max-width: none; } }
 
 .post-search input {
   width: 100%;
@@ -601,7 +679,9 @@ body.paper { background: var(--color-paper); }
 
 .post-search input::placeholder { color: var(--color-placeholder); opacity: 1; }
 
-.post-search input:hover { border-color: var(--color-rule-strong); }
+@media (hover: hover) {
+  .post-search input:hover { border-color: var(--color-rule-strong); }
+}
 
 /* One line, not two: the site-wide focus outline would ring the field outside its own accent
  * border. The inset line thickens the border to two pixels without moving the text. The outline
@@ -625,18 +705,44 @@ body.paper { background: var(--color-paper); }
 
 .post-search__submit .icon { width: 1.125rem; height: 1.125rem; }
 
-.post-search__submit:hover,
 .post-search__submit:focus-visible { background: var(--color-paper-3); color: var(--color-ink); }
+
+@media (hover: hover) {
+  .post-search__submit:hover { background: var(--color-paper-3); color: var(--color-ink); }
+}
+
+.post-search__submit:active { translate: 0 1px; }
 
 .post-search__submit:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
-/* What the list is: the words searched for, and the way back. It is inside the feed, so choosing
- * a category, which swaps the feed, takes it away with the list it described. */
-.post-search__status { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-xs); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
+/* 44 across and 44 down for a finger, still inside the field's own height. */
+@media (pointer: coarse) {
+  .post-search__submit { inset-block: calc((var(--control-height) - 2.75rem) / 2); inset-inline-end: calc((var(--control-height) - 2.75rem) / 2); }
+}
+
+/* What the list is: the category, or the words searched for and the way back. It is inside the
+ * feed, so choosing a category, which swaps the feed, brings the heading of the list it brings. */
+.post-feed__heading { margin: 0; font-family: var(--font-display); font-size: var(--text-title); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+
+.post-feed > .post-feed__heading { margin-block-end: var(--space-lg); }
+
+.post-search__status { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-md); margin: 0 0 var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
+
+.post-search__status .post-feed__heading { color: var(--color-ink); }
 
 .post-search__status a { color: var(--color-link); font-weight: 500; }
 
-.post-search__status a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .post-search__status a:hover { text-decoration: underline; }
+}
+
+/* An empty list says so, and offers the way back to every post. */
+.post-feed__empty { margin: 0; color: var(--color-muted); }
+
+.post-feed__empty a { color: var(--color-link); font-weight: 500; }
+
+/* The feed could not be read: a hairline box, with no stripe down its side. */
+.post-feed__error { margin: 0; padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-error); color: var(--color-muted); font-size: var(--text-sm); }
 
 .post-filter ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0; padding: 0; list-style: none; }
 
@@ -660,8 +766,19 @@ body.paper { background: var(--color-paper); }
   transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
 }
 
-.post-filter a:hover,
-.post-more button:hover { border-color: var(--color-rule-strong); }
+@media (hover: hover) {
+  .post-filter a:hover,
+  .post-more button:hover { border-color: var(--color-rule-strong); }
+}
+
+.post-filter a:active,
+.post-more button:active { translate: 0 1px; }
+
+/* On a touch screen a pill is as tall as the search field beside it. */
+@media (pointer: coarse) {
+  .post-filter a,
+  .post-more button { padding-block: 0; line-height: calc(var(--control-height) - 2 * var(--rule-hair)); }
+}
 
 /* Chosen is a ring, not a fill: the same way the file library marks the folder you are in. */
 .post-filter a[aria-current="page"] {
@@ -689,14 +806,15 @@ body.paper { background: var(--color-paper); }
 
 .post-more > a { color: var(--color-link); font-weight: 500; }
 
-.post-more > a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .post-more > a:hover { text-decoration: underline; }
+}
 
 .post-more[data-state] > a { display: none; }
 
 .post-more[data-state="loading"]::before { content: attr(data-loading); }
 
 @media (prefers-reduced-motion: reduce) {
-  .post-card__cover img,
   .post-feed,
   .post-filter a,
   .post-search input,
@@ -729,7 +847,9 @@ body.paper { background: var(--color-paper); }
   text-decoration: none;
 }
 
-.post-back:hover { color: var(--color-ink); text-decoration: underline; }
+@media (hover: hover) {
+  .post-back:hover { color: var(--color-ink); text-decoration: underline; }
+}
 
 /* The head ends in a hairline, the way the homepage's and every admin screen's does. */
 .post-head {
@@ -752,7 +872,9 @@ body.paper { background: var(--color-paper); }
 
 .post-meta a { color: var(--color-link); }
 
-.post-meta a:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .post-meta a:hover { text-decoration: underline; }
+}
 
 /* The clock sits with the date it introduces, at the date's size and colour. */
 .post-meta__when { display: inline-flex; align-items: center; gap: var(--space-2xs); }
@@ -764,11 +886,19 @@ body.paper { background: var(--color-paper); }
   width: 100%;
   margin-block-start: var(--space-xl);
   aspect-ratio: 16 / 9;
-  border-radius: var(--radius-lg);
   object-fit: cover;
 }
 
 .post-body { margin-block-start: var(--space-xl); }
+
+/* The running text keeps a reading measure, about 70 characters, inside the column a cover and a
+ * code block still use in full. In rem, not ch: a ch is a Latin zero, and measures Thai badly.
+ * 33rem is counted, not computed: Google Sans sets about 7.5px a character at the body size, so
+ * the 38rem the audit worked out for IBM Plex Sans Thai ran to 81-85 characters a line. */
+.post-body > :is(p, ul, ol, blockquote, h2, h3) { max-inline-size: 33rem; }
+
+/* A quotation is held by a hairline, not a stripe of the accent. */
+.post-body blockquote { border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }
 
 /* A new part: three dots, no line. It stays an hr, which is what a screen reader hears as a
  * break; the dots are only how it is drawn. The trailing letter-space of the last dot is taken
@@ -849,7 +979,7 @@ body.paper { background: var(--color-paper); }
 }
 
 /* Negative tracking pushes a Thai cluster's stacked marks into the next glyph. Latin keeps it. */
-:lang(th) :is(.hero-title, .card-title, .site-wordmark) { letter-spacing: 0; }
+:lang(th) :is(.hero-title, .card-title, .site-wordmark, .hero-slide__heading, .hero-slider__title) { letter-spacing: 0; }
 
 /*
  * The reading progress bar.
@@ -947,7 +1077,11 @@ body.paper { background: var(--color-paper); }
 .reading-rail__link--h2 { --rail-grow: calc(2.5 / 1.5); --rail-reach: 1rem; }
 .reading-rail__link--h3 { --rail-grow: 1.75; --rail-reach: 0.25rem; }
 
-.reading-rail__link:is(:hover, :focus-visible)::before { background: var(--color-ink); }
+.reading-rail__link:focus-visible::before { background: var(--color-ink); }
+
+@media (hover: hover) {
+  .reading-rail__link:hover::before { background: var(--color-ink); }
+}
 
 /* Headings already read are ink, the ones ahead stay muted, and the one being read is the accent,
  * longer and thicker. Last, so a hover on the current tick does not turn it back to ink. The
@@ -979,7 +1113,11 @@ body.paper { background: var(--color-paper); }
   pointer-events: none;
 }
 
-.reading-rail__link:is(:hover, :focus-visible) .reading-rail__label { opacity: 1; }
+.reading-rail__link:focus-visible .reading-rail__label { opacity: 1; }
+
+@media (hover: hover) {
+  .reading-rail__link:hover .reading-rail__label { opacity: 1; }
+}
 
 /* The current tick is longer, so its label moves out by the growth rather than lie over it. A
  * coarse pointer's link is wider than its tick already, and has the room. */

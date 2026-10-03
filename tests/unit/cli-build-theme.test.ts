@@ -62,7 +62,7 @@ test('the body class carries the new id, and so does a data attribute that names
   assert.match(bare('plain', 'Shell.astro'), /<body class="zzdemo">/);
   assert.match(bare('paper', 'Shell.astro'), /<body class="zzdemo flex min-h-screen flex-col">/);
   assert.match(bare('plain', 'theme.css'), /^\.zzdemo \{$/m);
-  assert.ok(bare('paper', 'theme.css').includes('html:has(> body.zzdemo),\nbody.zzdemo {'));
+  assert.ok(bare('paper', 'theme.css').includes(':root:has(> body.zzdemo, .post-page) {'));
   // As copied from the real tree. The bare id is the theme's own, whatever words core code uses
   // ('text/plain', a 'paper' default), so every copy's body carries the new id.
   assert.match(renamed('almanac', 'Shell.astro').after, /<body class="zzdemo">/);
@@ -70,7 +70,7 @@ test('the body class carries the new id, and so does a data attribute that names
   assert.match(renamed('plain', 'Shell.astro').after, /<body class="zzdemo">/);
   assert.match(renamed('plain', 'theme.css').after, /^\.zzdemo \{$/m);
   assert.match(renamed('paper', 'Shell.astro').after, /<body class="zzdemo flex min-h-screen flex-col">/);
-  assert.ok(renamed('paper', 'theme.css').after.includes('html:has(> body.zzdemo),\nbody.zzdemo {'));
+  assert.ok(renamed('paper', 'theme.css').after.includes(':root:has(> body.zzdemo, .post-page) {'));
   // No theme has one today; the rule is there for the first that does.
   assert.equal(renameThemeFile('Shell.astro', '<main data-look="paper" data-paper="paper">', 'paper', 'zzdemo'), '<main data-look="zzdemo" data-paper="zzdemo">');
 });

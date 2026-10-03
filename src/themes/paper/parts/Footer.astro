@@ -22,14 +22,16 @@ const links = items.filter(isLink);
 const [creditBefore, creditAfter] = copy.poweredBy.split('{tomecms}');
 ---
 
-<footer class="site-footer mx-auto w-full max-w-7xl border-t border-line px-5 py-7 text-sm text-muted sm:px-7">
-  {links.length > 0 && (
-    <nav aria-label={copy.footerNavigation} class="public-navigation">
-      <ul>{links.map((item) => <li><SiteNavLink copy={copy} currentPath={Astro.url.pathname} item={item} /></li>)}</ul>
-    </nav>
-  )}
-  <p>
-    &copy; {currentYear(locale)} <a href={localePath(locale)}>{siteName}</a>. {copy.allRightsReserved}
-  </p>
-  {showPoweredBy && <p class="site-footer__credit">{creditBefore}<a href={OFFICIAL_REPOSITORY_URL} rel="noopener noreferrer" target="_blank">TomeCMS<span class="sr-only"> {copy.opensInNewTab}</span></a>{creditAfter}</p>}
+<footer class="border-t border-line">
+  <div class="site-footer mx-auto w-full max-w-7xl px-5 py-7 text-sm text-muted sm:px-7">
+    {links.length > 0 && (
+      <nav aria-label={copy.footerNavigation} class="public-navigation">
+        <ul>{links.map((item) => <li><SiteNavLink copy={copy} currentPath={Astro.url.pathname} item={item} /></li>)}</ul>
+      </nav>
+    )}
+    <p>
+      &copy; {currentYear(locale)} <a href={localePath(locale)}>{siteName}</a>. {copy.allRightsReserved}
+    </p>
+    {showPoweredBy && <p class="site-footer__credit">{creditBefore}<a href={OFFICIAL_REPOSITORY_URL} rel="noopener noreferrer" target="_blank">TomeCMS<span class="sr-only"> {copy.opensInNewTab}</span></a>{creditAfter}</p>}
+  </div>
 </footer>

@@ -25,7 +25,8 @@ test('an article stands in a named frame, not a row of utilities', () => {
   assert.match(ruleBody('.post-page'), /width: min\(100%, 48rem\)/);
   // The head ends where the body begins, the way every other head in the product does.
   assert.match(ruleBody('.post-head'), /border-block-end: var\(--rule-hair\) solid var\(--color-rule\)/);
-  assert.equal(ruleBody('.post-cover').match(/border-radius: var\(--radius-lg\)/)?.length, 1);
+  // Paper's covers are square-cornered (1.14.0): the page is paper, not a set of rounded cards.
+  assert.doesNotMatch(ruleBody('.post-cover'), /border-radius/);
 });
 
 test('the article draws its marks and shares the chip', () => {
