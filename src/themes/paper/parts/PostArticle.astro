@@ -75,7 +75,7 @@ const copy = publicCopy(post.locale);
     )}
   </header>
   {cover && (
-    <img class="post-cover" src={cover} alt={post.title} fetchpriority="high" width="1200" height="675" />
+    <img class="post-cover" src={cover} alt="" fetchpriority="high" width="1200" height="675" />
   )}
   <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link" set:html={bodyHtml} />
   {headings.length > 0 && <div data-rail-end aria-hidden="true"></div>}

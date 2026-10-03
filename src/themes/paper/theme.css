@@ -173,10 +173,11 @@
 }
 .site-footer p a:active { color: var(--color-ink); }
 
-/* An inline link's padding grows what a finger can hit without moving the line: 14px type on a
- * 20px line, and 12px above and below, is 44. */
+/* On a touch screen a link in a line of the footer is a box of a field's height, so the line grows to
+ * hold it. Padding on the inline link grew the target without moving the line, and so reached over
+ * the line above and below: two stacked lines' targets overlapped. */
 @media (pointer: coarse) {
-  .site-footer p a { padding-block: var(--space-sm); }
+  .site-footer p a { display: inline-flex; align-items: center; min-block-size: var(--control-height); }
 }
 
 .site-footer__credit { margin-inline-start: auto; }
@@ -312,8 +313,13 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   display: flex;
   position: absolute;
   z-index: 2;
-  inset: auto var(--space-lg) var(--space-lg) auto;
+  /* At the content's end edge, where the grid, the search and the footer end. */
+  inset: auto calc(max(0px, (100% - 80rem) / 2) + 1.25rem) var(--space-lg) auto;
   gap: var(--space-2xs);
+}
+
+@media (min-width: 37.5rem) {
+  .hero-slider__controls { inset-inline-end: calc(max(0px, (100% - 80rem) / 2) + 1.75rem); }
 }
 
 .hero-slider__step {
@@ -862,6 +868,16 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   .post-more > a:hover { text-decoration: underline; }
 }
 
+.post-more > a:active { translate: 0 1px; }
+
+/* The small text links -- Older posts, Clear search, and All posts under an empty list -- are a
+ * field's height on a touch screen. */
+@media (pointer: coarse) {
+  .post-more > a,
+  .post-search__status a,
+  .post-feed__empty a { display: inline-flex; align-items: center; min-block-size: var(--control-height); }
+}
+
 .post-more[data-state] > a { display: none; }
 
 .post-more[data-state="loading"]::before { content: attr(data-loading); }
@@ -957,6 +973,11 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 
 /* Inline code: a quiet tint in the line. The typography plugin's backticks are reset in tailwind.config.mjs. */
 .post-body :not(pre) > code { padding: 0.1em 0.35em; border-radius: var(--radius-sm); background: var(--color-paper-3); }
+
+/* A code block (src/styles/code.css) and a file card (global.css) are ruled above and below, not
+ * rounded boxes: the page is hairlines, and they were the only boxes on it. */
+.post-body :is(pre, pre.code-block) { border-inline: 0; border-radius: 0; }
+.post-body p.file-card > :is(a, .file-card__link) { padding-inline: 0; border-inline: 0; border-radius: 0; border-color: var(--color-rule-strong); background: transparent; }
 
 /* A quotation is held by a hairline, not a stripe of the accent. */
 .post-body blockquote { border-inline-start: var(--rule-hair) solid var(--color-rule-strong); }

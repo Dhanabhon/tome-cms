@@ -8,7 +8,7 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 
 test('Paper leaves its page the cream every theme has, header included (1.14.0)', () => {
   const shell = read('src/themes/paper/Shell.astro');
-  assert.match(shell, /<body class="paper flex min-h-screen flex-col">/);
+  assert.match(shell, /<body class="paper flex min-h-svh flex-col">/);
   const css = read('src/themes/paper/theme.css');
   // It used to repaint the html and body white, as the admin's content area is.
   assert.doesNotMatch(css, /body\.paper \{ background/);

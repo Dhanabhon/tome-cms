@@ -167,7 +167,10 @@ for (const theme of ['paper', 'plain'] as const) {
     await expect(page).toHaveURL(`${origin}/en?q=compost`);
     await expect(cards(page, theme), 'the one post whose body says compost').toHaveCount(1);
     await expect(cards(page, theme).first()).toContainText('Gardening in winter');
-    await expect(page.getByRole('status').filter({ hasText: 'Results for' })).toHaveText(/Results for “compost”.*Clear search/);
+    await expect(page.getByRole('status').filter({ hasText: 'Results for' })).toContainText('Results for “compost”');
+    await expect(page.getByRole('link', { name: 'Clear search' })).toBeVisible();
+    // Paper names the list in a heading, which is not inside the status, so it is not read out twice.
+    if (theme === 'paper') await expect(page.getByRole('heading', { level: 2, name: 'Results for “compost”' })).toBeVisible();
     await expect(searchBox(page), 'the words stay in the box').toHaveValue('compost');
     expect(await robots(page), 'a search is not something to index').toBe('noindex, follow');
     if (theme === 'paper') await expect(page.locator('.home-hero'), 'the results come first, not the hero').toHaveCount(0);
@@ -241,7 +244,7 @@ test('paper: choosing a category leaves the search, in the list and in the box',
   await page.goto(`${origin}/en?q=note`);
   // The feed may already have fetched the older two behind the first six, so the count is not asked.
   await expect(page.locator('.post-card').first()).toContainText('Field note');
-  await expect(page.getByText('Results for “note”')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Results for “note”' })).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Categories' }).getByRole('link', { name: 'Notes' }).click();
   await expect(page).toHaveURL(`${origin}/en?category=Notes`);

@@ -169,8 +169,7 @@ test('the home always has an h1, and a category is shown like a search: no band,
   assert.match(HOME, /<h2 class="post-feed__heading">/);
   // A pill swaps the feed in place, heading and all; the band above it goes with that.
   assert.match(CSS, /main:has\(\.post-feed__heading\) \.home-hero \{ display: none; \}/);
-  // The text hero is heavier at the foot than at the head.
-  assert.match(HOME, /class="mx-auto max-w-7xl px-5 pt-12 pb-16 sm:px-7 sm:pt-16 sm:pb-20"/);
+  // The text hero's foot and head: 'the text hero is heavier at its foot' below.
   // An empty category offers the way back.
   assert.match(HOME, /activeCategory \? <>\{copy\.emptyCategory\} <a href=\{home\}>\{copy\.all\}<\/a><\/>/);
 });
@@ -251,4 +250,64 @@ test("an article's edge is the header's on a phone, and the missing page's every
   // The header and the 404 block are px-5, and px-7 from the 600px (37.5rem) breakpoint.
   assert.match(body('.post-page'), /padding: var\(--space-xl\) 1\.25rem var\(--space-3xl\)/);
   assert.match(within('@media (min-width: 37.5rem)', '.post-page'), /padding-inline: 1\.75rem/);
+});
+
+test('the text hero is heavier at its foot than its head, at every width', () => {
+  const band = /<div class="mx-auto max-w-7xl px-5 (pt-\d+) (pb-\d+) sm:px-7 sm:(pt-\d+) sm:(pb-\d+)">/.exec(HOME);
+  assert.ok(band, 'the text band');
+  const size = (utility: string) => Number(utility.split('-')[1]);
+  assert.ok(size(band[2]) >= 1.3 * size(band[1]), `${band[1]} ${band[2]}`);
+  assert.ok(size(band[4]) >= 1.3 * size(band[3]), `sm: ${band[3]} ${band[4]}`);
+});
+
+test('a search names its list in a heading, and says what it found in a status of its own', () => {
+  // A live region around the h2 read the heading out again on every swap.
+  assert.match(HOME, /<div class="post-search__status">\s*<h2 class="post-feed__heading">\{saying\(shared\.searchResults\)\}<\/h2>/);
+  assert.match(HOME, /<p class="sr-only" role="status">\{saying\(shared\.searchResults\)\}<\/p>/);
+  assert.doesNotMatch(HOME, /<div class="post-search__status" role="status">/);
+  // During a search no pill is the list on screen, "All posts" included.
+  assert.match(HOME, /<li><a href=\{home\} aria-current=\{activeCategory \|\| query \? undefined : 'page'\}>\{copy\.all\}<\/a><\/li>/);
+});
+
+test('on a touch screen the small links are a full target that never overlaps the next, and they answer a press', () => {
+  const coarse = RULES.filter(({ context }) => context.some((at) => /\(pointer: coarse\)/.test(at)));
+  for (const selector of ['.site-footer p a', '.post-more > a', '.post-search__status a', '.post-feed__empty a']) {
+    const rule = coarse.find((candidate) => candidate.selector.split(/,\s*/).includes(selector));
+    assert.ok(rule, `${selector} is not sized for a finger`);
+    // Padding on an inline link reaches over the line above and below; a box of its own does not.
+    assert.match(rule.body, /display: inline-flex/, selector);
+    assert.match(rule.body, /min-block-size: var\(--control-height\)/, selector);
+    assert.doesNotMatch(rule.body, /padding-block/, selector);
+  }
+  assert.ok(RULES.some((rule) => rule.selector.split(/,\s*/).includes('.post-more > a:active')), 'Older posts has no pressed state');
+});
+
+test('the shell fills the small viewport, so a phone toolbar does not push the footer below the fold', () => {
+  assert.match(read('src/themes/paper/Shell.astro'), /<body class="paper flex min-h-svh flex-col">/);
+});
+
+test('in a category view a coverless card shows a plain tile, not the category the heading already names', () => {
+  assert.match(HOME, /: !activeCategory && <span>\{post\.categories\?\.\[0\]\?\.name \?\? name\}<\/span>\}/);
+});
+
+test('the header is read in the order it is drawn: the language, then the theme', () => {
+  const header = read('src/themes/paper/parts/Header.astro');
+  assert.ok(header.indexOf('<LanguageSwitcher') < header.indexOf('<ThemeToggle'), 'Tab reached the theme button before the language to its left');
+});
+
+test("the post's cover does not say the title again", () => {
+  assert.match(read('src/themes/paper/parts/PostArticle.astro'), /<img class="post-cover" src=\{cover\} alt="" /);
+});
+
+test("the slider's buttons end at the content edge, where the grid and the footer do", () => {
+  assert.match(body('.hero-slider__controls'), /inset: auto calc\(max\(0px, \(100% - 80rem\) \/ 2\) \+ 1\.25rem\) var\(--space-lg\) auto/);
+  assert.match(within('@media (min-width: 37.5rem)', '.hero-slider__controls'), /inset-inline-end: calc\(max\(0px, \(100% - 80rem\) \/ 2\) \+ 1\.75rem\)/);
+});
+
+test('a code block and a file card are ruled above and below, not rounded boxes', () => {
+  assert.match(body('.post-body :is(pre, pre.code-block)'), /border-inline: 0; border-radius: 0/);
+  const card = body('.post-body p.file-card > :is(a, .file-card__link)');
+  assert.match(card, /border-inline: 0/);
+  assert.match(card, /border-radius: 0/);
+  assert.match(card, /border-color: var\(--color-rule-strong\)/);
 });

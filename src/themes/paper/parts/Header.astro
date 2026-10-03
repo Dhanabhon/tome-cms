@@ -43,10 +43,10 @@ const currentPath = Astro.url.pathname;
       </nav>
     )}
     {items.some(({ children }) => children.length) && <SubmenuScript />}
-    {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     {languageOptions.length > 1 && (
       <LanguageSwitcher currentLocale={locale} options={languageOptions} />
     )}
+    {allowVisitorTheme && <ThemeToggle initial={theme} labels={THEME_LABELS[locale]} name="tome-theme-site" />}
     {items.length > 0 && (
       <details class="site-header__mobile">
         <summary><span>{copy.menu}</span><Icon name="down" /></summary>
