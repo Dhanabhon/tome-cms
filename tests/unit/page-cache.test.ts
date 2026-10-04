@@ -259,3 +259,13 @@ test('a failing or nonsensical nextScheduled still answers the page, but does no
     assert.equal(renders, 2);
   }
 });
+
+test('an invalidation during the schedule lookup means the page is not stored', async () => {
+  let renders = 0;
+  const render = async () => { renders += 1; return html('x'); };
+  const nextScheduled = async () => { invalidatePageCache(); return null; };
+  await serve('/en', render, { nextScheduled });
+  const second = await serve('/en', render, { nextScheduled });
+  assert.equal(second.headers.get('x-tome-cache'), 'miss');
+  assert.equal(renders, 2);
+});

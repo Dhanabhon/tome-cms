@@ -132,6 +132,8 @@ export async function servePublicPage(input: {
   }
   if (known) drop(key);
 
+  // From before the schedule is read: a write that lands during that query must stop this page being kept.
+  const started = generation;
   // Asked before the render: a post that goes public while the page is drawn may be missing from it,
   // and this moment is then already behind us, so the page is not served again.
   let scheduled: Date | null | undefined;
@@ -143,7 +145,6 @@ export async function servePublicPage(input: {
   // No usable answer means no expiry we can trust: the page is served but not kept.
   const trusted = scheduled === null || (scheduled instanceof Date && !Number.isNaN(scheduled.getTime()));
 
-  const started = generation;
   const response = await input.render();
   if (!storable(response)) return response;
 
