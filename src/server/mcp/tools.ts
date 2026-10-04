@@ -13,6 +13,7 @@ import { createPost, listPostTranslations, updatePost } from '../content/posts';
 import { getSiteSettings } from '../content/site-settings';
 import { db } from '../db/client';
 import { HttpError } from '../http/errors';
+import { invalidatePageCache } from '../http/page-cache';
 import { getBuildInfo } from '../update/current';
 import { isUpdateWriteBlocked } from '../update/maintenance';
 import { mcpConfig, type McpConfig } from './config';
@@ -251,6 +252,8 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       ? await createPost(ownerId, { ...common, categoryIds: categories.ids, coverMediaId: args.coverMediaId ?? null, sourcePostId: args.translationOf })
       : await createPage(ownerId, { ...common, sourcePageId: args.translationOf });
     touched(token, args.kind, created.id, 'write');
+    // A writer: what it wrote may be on a public page (today drafts are not, but a later tool may publish).
+    invalidatePageCache();
     logWrite(requestId, 'create_draft', token, args.kind, created.id);
     return respond({ id: created.id, updatedAt: created.updated_at, warnings: [...warnings, ...categories.warnings] });
   }));
@@ -301,6 +304,8 @@ function registerWriteTools(server: McpServer, config: McpConfig, token: Verifie
       : await updatePage(ownerId, common);
     await markAiWritten(ownerId, args.kind, updated.id, updated.updated_at);
     touched(token, args.kind, updated.id, 'write');
+    // A writer: what it wrote may be on a public page (today drafts are not, but a later tool may publish).
+    invalidatePageCache();
     logWrite(requestId, 'update_draft', token, args.kind, updated.id);
     return respond({
       id: updated.id,

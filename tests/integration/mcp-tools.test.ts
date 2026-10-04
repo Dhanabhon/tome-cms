@@ -27,6 +27,7 @@ const oauth = await import('../../src/server/mcp/oauth');
 const { createPost, updatePost, updatePostStatus, deletePost, getPost } = await import('../../src/server/content/posts');
 const { createPage, updatePageStatus } = await import('../../src/server/content/pages');
 const { HttpError } = await import('../../src/server/http/errors');
+const { pageCacheGeneration } = await import('../../src/server/http/page-cache');
 const snapshots = await import('../../src/server/mcp/snapshots');
 const presence = await import('../../src/server/mcp/presence');
 const { setUpdateStatusPathForTest } = await import('../../src/server/mcp/tools');
@@ -208,9 +209,11 @@ test('get_site tells the AI about the site and nothing secret', async () => {
 
 let aiDraftId: string;
 test('create_draft makes a draft with the categories that exist, and joins a translation', async () => {
+  const generationBefore = pageCacheGeneration();
   const created = await ok(writer, 'create_draft', {
     kind: 'post', locale: 'th', title: 'ร่าง AI', body: '## หัวข้อ\n\nเนื้อหา', categories: ['notes', 'Missing'],
   });
+  assert.ok(pageCacheGeneration() > generationBefore, 'a write clears the page cache');
   assert.match(created.id, /^[0-9a-f-]{36}$/);
   assert.ok(created.updatedAt);
   assert.match(created.warnings.join(' '), /Missing/);
@@ -227,7 +230,9 @@ test('create_draft makes a draft with the categories that exist, and joins a tra
   const translated = await ok(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'ฉบับไทย', body: 'สวัสดี', translationOf: english.id });
   assert.equal((await getPost(OWNER, translated.id))!.translation_group_id, english.translation_group_id);
 
+  const generationBeforeRefusal = pageCacheGeneration();
   await refused(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'x', body: '{{tome:block 1}}' }, /block/);
+  assert.equal(pageCacheGeneration(), generationBeforeRefusal, 'a refused write leaves the page cache alone');
   const page = await ok(writer, 'create_draft', { kind: 'page', locale: 'en', title: 'About the AI', body: 'A page.' });
   assert.equal((await db.selectFrom('pages').select('status').where('id', '=', page.id).executeTakeFirstOrThrow()).status, 'draft');
   // The site is English by default; a page asked for in Thai is Thai, as a post already is.
@@ -266,7 +271,9 @@ test('get_post returns Markdown with its blocks, in parts when long', async () =
 
 test('update_draft writes, keeping the draft as it was before the AI began', async () => {
   const original = await createPost(OWNER, postInput('Owner wrote this', { type: 'doc', content: [paragraph('Original body')] }));
+  const generationBefore = pageCacheGeneration();
   const first = await ok(writer, 'update_draft', { kind: 'post', id: original.id, updatedAt: original.updated_at, body: 'AI body one' });
+  assert.ok(pageCacheGeneration() > generationBefore, 'a write clears the page cache');
   const afterFirst = (await getPost(OWNER, original.id))!;
   assert.equal(first.updatedAt, afterFirst.updated_at);
   assert.equal(afterFirst.title, 'Owner wrote this', 'fields not sent are kept');
