@@ -14,9 +14,10 @@ import { requireInstalledOwner } from '../../../server/auth/session';
 import { getPost } from '../../../server/content/posts';
 import { getSiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
+import { listReadyImagesByIds } from '../../../server/media/service';
 import type { Post, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
 
-let post: Post | null = null;
+let post: (Post & { coverImage: { alt_text: string | null } | null }) | null = null;
 let settings: SiteSettings | null = null;
 let profile: PublicAuthorProfile | null = null;
 let errorKey: 'postNotFound' | 'signInToPreviewPost' | 'previewUnavailable' | null = null;
@@ -34,7 +35,10 @@ try {
     const storedSettings = await getSiteSettings();
     if (!storedSettings || storedSettings.owner_id !== current.user.id) throw new HttpError(404, '');
     adminPath = storedSettings.admin_path;
-    post = await getPost(current.user.id, id.data);
+    const draft = await getPost(current.user.id, id.data);
+    // The live page describes its cover with the library's alt text, so the preview does too.
+    const [coverImage] = draft?.cover_media_id ? await listReadyImagesByIds(current.user.id, [draft.cover_media_id]) : [];
+    post = draft && { ...draft, coverImage: coverImage ?? null };
     if (!post) {
       Astro.response.status = 404;
       errorKey = 'postNotFound';

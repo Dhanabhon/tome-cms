@@ -182,3 +182,9 @@ test('on a touch screen a footer link is a box a finger can hit, as wide as it i
   }
   assert.match(rule('.almanac-footer__nav a'), /min-inline-size: var\(--almanac-field\)/);
 });
+
+test("the article's cover says what its picture shows, not the title again", () => {
+  const post = read('src/themes/almanac/Post.astro');
+  assert.match(post, /<img class="almanac-article__cover" src=\{cover\} alt=\{coverAlt\} /);
+  assert.doesNotMatch(post, /alt=\{post\.title\}/);
+});

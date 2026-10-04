@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { documentTitle, getPublicSiteUrl } from '../../src/lib/seo';
@@ -19,4 +20,24 @@ test('a page title is followed by the site name, but a written meta title stands
   assert.equal(documentTitle({ siteName: 'Site', title: 'A post' }), 'A post | Site');
   assert.equal(documentTitle({ metaTitle: 'Written for search', siteName: 'Site', title: 'A post' }), 'Written for search');
   assert.equal(documentTitle({ metaTitle: '  ', siteName: 'Site', title: 'A post' }), 'A post | Site');
+});
+
+const route = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+
+test('a post and a page hand their meta title to the layout apart from their title', () => {
+  for (const path of ['src/pages/[locale]/blog/[slug].astro', 'src/pages/[locale]/[slug].astro']) {
+    const source = route(path);
+    assert.match(source, /metaTitle=\{(post|page)\?\.meta_title\}/, path);
+    assert.doesNotMatch(source, /title=\{(post|page)\?\.meta_title/, `${path} folded the meta title into the title, which the site name is then added after`);
+  }
+});
+
+test("the home page names the default language's home as x-default", () => {
+  assert.match(route('src/pages/[locale]/index.astro'), /xDefaultHref=\{settings \? localePath\(settings\.default_locale\) : undefined\}/);
+});
+
+test("a draft preview describes the cover as the live page does", () => {
+  const preview = route('src/pages/admin/preview/[id].astro');
+  assert.match(preview, /listReadyImagesByIds\(current\.user\.id, \[draft\.cover_media_id\]\)/);
+  assert.match(preview, /coverImage: coverImage \?\? null/);
 });

@@ -21,7 +21,7 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     <span>{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></span>
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
-  {/* The title is the h1 just above it; the picture says nothing a reader has not heard. */}
+  {/* The picture is described by the alt text it has in the library, and is decoration without one: the title is the h1 just above it, and saying it again would only be heard twice. */}
   {cover && <img src={cover} alt={coverAlt} fetchpriority="high" width="1200" height="675" />}
   <div class="plain-body" set:html={demoteH1(bodyHtml)} />
   {profile?.bio && (
