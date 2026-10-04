@@ -7,7 +7,7 @@ import VideoScript from '../components/VideoScript.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
-import { getPublicSiteUrl } from '../lib/seo';
+import { getPublicSiteUrl, organizationSchema, personSchema } from '../lib/seo';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
 import { publicAdditions } from '../server/plugins/public';
@@ -25,6 +25,8 @@ import '../styles/global.css';
 type AlternateLink = { href: string; hreflang: 'th' | 'en' | 'x-default' };
 
 interface Props {
+  /** The author's profile addresses, which an article's structured data names as the same person. */
+  authorLinks?: string[];
   authorName?: string;
   title?: string;
   description?: string;
@@ -69,6 +71,7 @@ const brand = settings ? siteBrand(settings, resolveMediaUrl) : NO_BRAND;
 const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const {
   alternates,
+  authorLinks = [],
   authorName,
   canonicalPath,
   description = defaultDescription,
@@ -113,10 +116,8 @@ const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString
 const homeUrl = siteUrl.toString();
 const absoluteImage = image ? new URL(image, siteUrl).toString() : null;
 const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
-const publisher = { '@type': 'Organization', name: siteName, url: homeUrl };
-const author = authorName
-  ? { '@type': 'Person', name: authorName }
-  : publisher;
+const publisher = organizationSchema(siteName, siteUrl, brand);
+const author = authorName ? personSchema(authorName, authorLinks) : publisher;
 const seoAlternates: AlternateLink[] = [
   ...(alternates ?? []).map(({ href, locale }) => ({ href: new URL(href, siteUrl).toString(), hreflang: locale })),
   ...(xDefaultHref

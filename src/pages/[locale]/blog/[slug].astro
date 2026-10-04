@@ -72,6 +72,7 @@ const copy = publicCopy(locale);
 
 <BaseLayout
   alternates={availableLocales}
+  authorLinks={profile?.links.map(({ url }) => url)}
   authorName={profile?.name}
   canonicalPath={post ? postPath(post) : undefined}
   description={post ? postDescription(post, fallbackDescription) : fallbackDescription}
