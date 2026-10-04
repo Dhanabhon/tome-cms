@@ -230,6 +230,16 @@ test('create_draft makes a draft with the categories that exist, and joins a tra
   await refused(writer, 'create_draft', { kind: 'post', locale: 'th', title: 'x', body: '{{tome:block 1}}' }, /block/);
   const page = await ok(writer, 'create_draft', { kind: 'page', locale: 'en', title: 'About the AI', body: 'A page.' });
   assert.equal((await db.selectFrom('pages').select('status').where('id', '=', page.id).executeTakeFirstOrThrow()).status, 'draft');
+  // The site is English by default; a page asked for in Thai is Thai, as a post already is.
+  const thaiPage = await ok(writer, 'create_draft', { kind: 'page', locale: 'th', title: 'หน้าเกี่ยวกับ', body: 'หน้าหนึ่ง' });
+  assert.equal((await db.selectFrom('pages').select('locale').where('id', '=', thaiPage.id).executeTakeFirstOrThrow()).locale, 'th');
+  assert.equal((await db.selectFrom('pages').select('locale').where('id', '=', page.id).executeTakeFirstOrThrow()).locale, 'en');
+  // The admin's "New page" sends no locale, and still gets the site's.
+  const plain = await createPage(OWNER, {
+    contentJson: { type: 'doc', content: [paragraph('x')] }, excerpt: '', metaDescription: null, metaTitle: null,
+    slug: '', status: 'draft', title: 'No locale given',
+  });
+  assert.equal(plain.locale, 'en');
 });
 
 test('get_post returns Markdown with its blocks, in parts when long', async () => {

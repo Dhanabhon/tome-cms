@@ -132,9 +132,9 @@ export async function insertPageIn(
     const settings = await trx.selectFrom('site_settings').select('default_locale')
       .where('id', '=', true).where('owner_id', '=', ownerId).executeTakeFirst();
     if (!settings) throw new HttpError(503, 'Site settings are unavailable.');
-    // An import names its own language with its group. Every other new page takes the default,
-    // as it always has, whatever `locale` it was sent.
-    locale = options.groupId && input.locale ? input.locale : settings.default_locale;
+    // A new page is in the language it was given (MCP, an import), else the site's: the admin's
+    // "New page" gives none. A translation is the branch above.
+    locale = input.locale ?? settings.default_locale;
     if (!options.groupId) await trx.insertInto('page_translation_groups').values({ id: translationGroupId, owner_id: ownerId }).execute();
   }
 
