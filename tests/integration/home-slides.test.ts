@@ -102,8 +102,8 @@ test('slides are kept per language, refused when they point outside the site, an
   assert.deepEqual((await getPublicSlidesSnapshot('th')).slides, [], 'saving an empty list empties it, and the cache is told');
 
   // A slide ends with no write: the snapshot in the 5 s cache must not outlive that moment.
-  await save('th', [{ mediaId: lake, heading: 'Ending', endsAt: new Date(Date.now() + 1_500).toISOString() }]);
+  await save('th', [{ mediaId: lake, heading: 'Ending', endsAt: new Date(Date.now() + 2_500).toISOString() }]);
   assert.deepEqual((await getPublicSlidesSnapshot('th')).slides.map((slide) => slide.heading), ['Ending'], 'live until its end');
-  await new Promise((resolve) => setTimeout(resolve, 1_700));
+  await new Promise((resolve) => setTimeout(resolve, 2_700));
   assert.deepEqual((await getPublicSlidesSnapshot('th')).slides, [], 'read afresh once the slide has ended, not served from the cache');
 });
