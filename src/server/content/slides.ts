@@ -136,10 +136,10 @@ export function invalidatePublicSlidesCache(): void {
   cacheGeneration++;
 }
 
-async function queryPublicSlides(locale: PageLocale, now: Date): Promise<PublicSlidesSnapshot> {
+async function queryPublicSlides(locale: PageLocale, now: Date): Promise<{ nextEdge: number | null; snapshot: PublicSlidesSnapshot }> {
   const settings = await db.selectFrom('site_settings').select(['owner_id', 'updated_at'])
     .where('id', '=', true).executeTakeFirst();
-  if (!settings) return { lastModified: new Date(0), slides: [] };
+  if (!settings) return { nextEdge: null, snapshot: { lastModified: new Date(0), slides: [] } };
   const rows = await db.selectFrom('home_slides')
     .innerJoin('media_items', (join) => join
       .onRef('media_items.id', '=', 'home_slides.media_id')
@@ -155,11 +155,14 @@ async function queryPublicSlides(locale: PageLocale, now: Date): Promise<PublicS
     .slice(0, SHOWN_HOME_SLIDES);
 
   let modified = settings.updated_at.getTime();
+  let nextEdge: number | null = null;
   for (const row of rows) {
     modified = Math.max(modified, row.updated_at.getTime());
     // A start or an end that has passed changed what is live without writing a row.
     for (const edge of [row.starts_at, row.ends_at]) {
-      if (edge && edge.getTime() <= now.getTime()) modified = Math.max(modified, edge.getTime());
+      if (!edge) continue;
+      if (edge.getTime() <= now.getTime()) modified = Math.max(modified, edge.getTime());
+      else if (row.enabled && (nextEdge === null || edge.getTime() < nextEdge)) nextEdge = edge.getTime();
     }
   }
 
@@ -189,15 +192,17 @@ async function queryPublicSlides(locale: PageLocale, now: Date): Promise<PublicS
       overlay: row.overlay,
     };
   });
-  return { lastModified: new Date(modified), slides };
+  return { nextEdge, snapshot: { lastModified: new Date(modified), slides } };
 }
 
 export async function getPublicSlidesSnapshot(locale: PageLocale): Promise<PublicSlidesSnapshot> {
   const cached = cache.get(locale);
   if (cached && cached.expiresAt > Date.now()) return cached.snapshot;
   const generation = cacheGeneration;
-  const snapshot = await queryPublicSlides(locale, new Date());
-  if (generation === cacheGeneration) cache.set(locale, { expiresAt: Date.now() + 5_000, snapshot });
+  const { nextEdge, snapshot } = await queryPublicSlides(locale, new Date());
+  // A slide's start or end changes what is live with no write, so a snapshot never outlives the next one.
+  const expiresAt = Math.min(Date.now() + 5_000, nextEdge ?? Infinity);
+  if (generation === cacheGeneration) cache.set(locale, { expiresAt, snapshot });
   return snapshot;
 }
 
