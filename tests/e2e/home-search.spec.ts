@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './own-worker';
+import { clearPageCache, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * Searching the posts from the homepage, in both bundled themes, as a reader does it.
@@ -30,8 +31,11 @@ function docker(args: string[], timeout = 180_000) {
 }
 
 function psql(statement: string) {
-  return docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+  const result = docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
     '-U', 'tomecms_test', '-d', 'tomecms_test', '-c', statement], 60_000);
+  // A write behind the app's back: without this the page it drew before is served again.
+  clearPageCache(owner);
+  return result;
 }
 
 async function freePort(): Promise<number> {
@@ -48,6 +52,7 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 
 test.beforeAll(async () => {
   const port = await freePort();
@@ -133,6 +138,11 @@ test.beforeAll(async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`Search test server never became ready.\n${output}`);
+});
+
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
 });
 
 test.afterAll(async () => {
@@ -324,6 +334,7 @@ test.describe('paper', () => {
   test.afterEach(async () => {
     const { writeThemeSettings } = await import('../../src/server/themes/store');
     await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'text' } });
+    clearPageCache(owner);
     psql(`update site_settings set site_name = 'Search Test'`);
   });
 
@@ -358,6 +369,7 @@ test.describe('paper', () => {
     test.setTimeout(120_000);
     const { writeThemeSettings } = await import('../../src/server/themes/store');
     await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'off' } });
+    clearPageCache(owner);
     for (const path of ['/en', '/en?q=note', '/en?category=Notes']) {
       await page.goto(`${origin}${path}`);
       await expect(page.locator('h1'), path).toHaveCount(1);
@@ -403,6 +415,7 @@ test.describe('paper', () => {
     await replaceSlides(OWNER, homeSlidesSchema.parse({ locale: 'en', slides: [slide('Warm bread before the street wakes.'), slide('Second')] }));
     const { writeThemeSettings } = await import('../../src/server/themes/store');
     await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slides' } });
+    clearPageCache(owner);
     let fill = '#ffffff';
     await page.route('**/media/**', (route) => route.fulfill({
       contentType: 'image/svg+xml',
@@ -421,7 +434,9 @@ test.describe('paper', () => {
       await expect(page.locator('.hero-slide img').first()).toHaveJSProperty('complete', true);
     };
     // The server holds a language's live slides for five seconds, and the tests above read the home.
+    // A home page drawn inside those seconds would be kept without its slides, so each try draws afresh.
     await expect(async () => {
+      clearPageCache(owner);
       await page.goto(`${origin}/en`);
       await expect(page.locator('.hero-slide img')).toHaveCount(2, { timeout: 500 });
     }).toPass({ timeout: 15_000 });

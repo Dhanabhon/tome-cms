@@ -2,6 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
 import { expect, test } from './own-worker';
+import { clearPageCache, ownerFrom, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * The site's own logo, name and icon, as a reader meets them.
@@ -39,6 +40,7 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 let serverEnv: NodeJS.ProcessEnv = {};
 
 test.beforeAll(async () => {
@@ -101,6 +103,11 @@ test.beforeAll(async () => {
   throw new Error(`Brand test server never became ready.\n${output}`);
 });
 
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
+});
+
 test.afterAll(async () => {
   server?.kill('SIGTERM');
   try {
@@ -130,6 +137,7 @@ test('the header wears the logo, hides the name only behind it, and swaps it in 
   const dark = await put('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><rect width="120" height="40" fill="#eee"/></svg>');
   const brand = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`;
   await db.updateTable('site_settings').set({ brand_logo: brand({ height: 40, key: light, mime: 'image/svg+xml', width: 120 }) }).execute();
+  clearPageCache(owner);
 
   await page.goto(`${origin}/en`);
   const home = page.locator('header a[href="/en"]').first();
@@ -138,11 +146,13 @@ test('the header wears the logo, hides the name only behind it, and swaps it in 
   await expect(home.locator('img.site-brand__logo--light'), 'decoration while the name is there').toHaveAttribute('alt', '');
 
   await db.updateTable('site_settings').set({ hide_site_name: true }).execute();
+  clearPageCache(owner);
   await page.reload();
   await expect(home.locator('.site-brand__name')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Brand Test' }).first(), 'the link keeps a name').toBeVisible();
 
   await db.updateTable('site_settings').set({ brand_logo_dark: brand({ height: 40, key: dark, mime: 'image/svg+xml', width: 120 }) }).execute();
+  clearPageCache(owner);
   await page.reload();
   const shown = async () => page.evaluate(() => [...document.querySelectorAll('header img.site-brand__logo')]
     .filter((image) => getComputedStyle(image).display !== 'none').map((image) => image.className));
@@ -155,6 +165,7 @@ test('the header wears the logo, hides the name only behind it, and swaps it in 
 
   // Without a logo the name comes back, whatever the switch still says.
   await db.updateTable('site_settings').set({ brand_logo: null }).execute();
+  clearPageCache(owner);
   await page.reload();
   await expect(home.locator('.site-brand__name')).toHaveText('Brand Test');
 });
@@ -168,6 +179,7 @@ test('a public page wears the site icon, and the admin keeps TomeCMS\'s', async 
     svgKey: null,
   };
   await db.updateTable('site_settings').set({ brand_icon: sql`${JSON.stringify(icon)}::jsonb` }).execute();
+  clearPageCache(owner);
   await page.goto(`${origin}/en`);
   await expect(page.locator('link[rel="icon"][sizes="32x32"]')).toHaveAttribute('href', new RegExp(`${icon.png32Key}$`));
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', new RegExp(`${icon.png180Key}$`));
@@ -183,6 +195,7 @@ test('the owner uploads a logo and an icon, and hides the name behind the logo',
   const sharp = (await import('sharp')).default;
   // What the two tests above left on the row is not this test's starting point.
   await db.updateTable('site_settings').set({ brand_icon: null, brand_logo: null, brand_logo_dark: null, hide_site_name: false }).execute();
+  clearPageCache(owner);
 
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
@@ -193,6 +206,8 @@ test('the owner uploads a logo and an icon, and hides the name behind the logo',
   await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  // The enrolment ended the session that clears the page cache: this one does it from now on.
+  owner = await ownerFrom(context, origin);
 
   await page.goto(`${origin}/admin/settings`);
   const hide = page.getByRole('checkbox', { name: 'Hide the site name in the header' });

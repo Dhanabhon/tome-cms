@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import { contentSlug } from '../../src/lib/slug';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 import { expect, test } from './own-worker';
+import { clearPageCache, signInOwner, type Owner } from './page-cache-reset';
 import { everyState } from './touch-targets';
 
 /**
@@ -57,6 +58,7 @@ const LONG = 'The oven is already warm by the time the street goes quiet, and th
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 
 /** The site every shot reads, written through the functions the admin uses. */
 async function seed(imageId: string, fileId: string) {
@@ -241,6 +243,11 @@ test.beforeAll(async () => {
   throw new Error(`Touch server never became ready.\n${output}`);
 });
 
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
+});
+
 test.afterAll(async () => {
   server?.kill('SIGTERM');
   try {
@@ -275,6 +282,7 @@ test('every control in the three themes is at least 44 × 44 under a coarse poin
   const failures: string[] = [];
   for (const theme of ['paper', 'almanac', 'plain'] as const) {
     await sql`update site_settings set theme_id = ${theme}`.execute(db);
+    clearPageCache(owner);
     for (const [name, path] of SCREENS) {
       await page.goto(`${origin}${path}`);
       await page.waitForLoadState('networkidle');
@@ -285,10 +293,12 @@ test('every control in the three themes is at least 44 × 44 under a coarse poin
   // short newest title is one line, the case a site meets: measured once more with the title cut down.
   await sql`update site_settings set theme_id = 'plain'`.execute(db);
   await sql`update posts set title = 'Bread' where slug = 'all-the-blocks'`.execute(db);
+  clearPageCache(owner);
   await page.goto(`${origin}/en`);
   await page.waitForLoadState('networkidle');
   expect(await page.locator('.plain-lead h2 a').evaluate((link) => link.getClientRects().length), 'the premise: a one-line lead title').toBe(1);
   for (const line of await everyState(page, ALLOWED)) failures.push(`plain home, one-line lead: ${line}`);
   await sql`update posts set title = 'A loaf, a bowl and every block there is' where slug = 'all-the-blocks'`.execute(db);
+  clearPageCache(owner);
   expect(failures, failures.join('\n')).toEqual([]);
 });

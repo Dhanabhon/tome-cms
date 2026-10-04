@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import type { BrowserContext, Locator, Page } from '@playwright/test';
 
 import { expect, test } from './own-worker';
+import { clearPageCache, ownerFrom, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * Every drawer, modal and menu arrives and leaves as motion, and nothing behind it moves.
@@ -43,8 +44,11 @@ function docker(args: string[], timeout = 180_000) {
 }
 
 function psql(statement: string) {
-  return docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+  const result = docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
     '-U', 'tomecms_test', '-d', 'tomecms_test', '-c', statement], 60_000);
+  // A write behind the app's back: without this the page it drew before is served again.
+  clearPageCache(owner);
+  return result;
 }
 
 /** The same row `writePluginSettings` would leave, without opening a pool to leave it. */
@@ -78,6 +82,8 @@ async function signIn(context: BrowserContext, page: Page) {
   await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  // The enrolment ended the session that clears the page cache: this one does it from now on.
+  owner = await ownerFrom(context, origin);
 }
 
 interface Snapshot {
@@ -319,6 +325,7 @@ async function exercise(page: Page, { close, edge, exit = 'helper', name, open, 
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 
 test.beforeAll(async () => {
   const port = await freePort();
@@ -401,6 +408,11 @@ test.beforeAll(async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`Overlay test server never became ready.\n${output}`);
+});
+
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
 });
 
 test.afterAll(async () => {

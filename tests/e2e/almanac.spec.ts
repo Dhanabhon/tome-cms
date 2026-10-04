@@ -8,6 +8,7 @@ import { publicCopy } from '../../src/lib/i18n';
 import { THEME_LABELS } from '../../src/lib/theme';
 import { tone } from '../../src/themes/almanac/tone';
 import { expect, test } from './own-worker';
+import { clearPageCache, ownerFrom, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * Almanac as a reader meets it: the warm theme, its home page, its post and its page.
@@ -53,8 +54,11 @@ function docker(args: string[], timeout = 180_000) {
 }
 
 function psql(statement: string) {
-  return docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+  const result = docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
     '-U', 'tomecms_test', '-d', 'tomecms_test', '-c', statement], 60_000);
+  // A write behind the app's back: without this the page it drew before is served again.
+  clearPageCache(owner);
+  return result;
 }
 
 async function freePort(): Promise<number> {
@@ -71,6 +75,7 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 let draftId = '';
 /** The category ids a card's tone comes from, by name. */
 const categoryIds: Record<string, string> = {};
@@ -146,6 +151,11 @@ test.beforeAll(async () => {
   throw new Error(`Almanac test server never became ready.\n${output}`);
 });
 
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
+});
+
 test.afterAll(async () => {
   server?.kill('SIGTERM');
   try {
@@ -217,6 +227,8 @@ async function signIn(context: BrowserContext, page: Page) {
   await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
   await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  // The enrolment ended the session that clears the page cache: this one does it from now on.
+  owner = await ownerFrom(context, origin);
 }
 
 test('Almanac is the site: its hero, its pills, six cards, its serif, one h1', async ({ page }) => {

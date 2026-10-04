@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './own-worker';
+import { clearPageCache, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * What a plugin adds to a public page, measured in the reader's browser.
@@ -34,8 +35,11 @@ function docker(args: string[], timeout = 180_000) {
 }
 
 function psql(statement: string) {
-  return docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+  const result = docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
     '-U', 'tomecms_test', '-d', 'tomecms_test', '-c', statement], 60_000);
+  // A write behind the app's back: without this the page it drew before is served again.
+  clearPageCache(owner);
+  return result;
 }
 
 /** The same row `writePluginSettings` would leave, without opening a pool to leave it. */
@@ -60,6 +64,7 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 
 test.beforeAll(async () => {
   const port = await freePort();
@@ -128,6 +133,11 @@ test.beforeAll(async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`Plugin test server never became ready.\n${output}`);
+});
+
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
 });
 
 test.afterAll(async () => {

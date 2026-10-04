@@ -2,6 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
 import { expect, test } from './own-worker';
+import { clearPageCache, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * A theme is told how to draw the feed, and the feed is drawn that way.
@@ -38,6 +39,7 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 let serverEnv: NodeJS.ProcessEnv = {};
 
 test.beforeAll(async () => {
@@ -118,6 +120,11 @@ test.beforeAll(async () => {
   throw new Error(`Sign-in test server never became ready.\n${output}`);
 });
 
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, 'signin-test-owner');
+});
+
 test.afterAll(async () => {
   server?.kill('SIGTERM');
   try {
@@ -155,9 +162,11 @@ test('what a theme is told is what the feed does', async ({ page }) => {
   expect(await feed()).toEqual({ cards: 6, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { postsPerLoad: '12' } });
+  clearPageCache(owner);
   expect(await feed(), 'the page holds what the theme was told to hold').toEqual({ cards: 12, endless: true, olderLink: true });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { infiniteScroll: 'off' } });
+  clearPageCache(owner);
   expect(await feed(), 'off leaves the link a reader without JavaScript already follows')
     .toEqual({ cards: 12, endless: false, olderLink: true });
   expect((await readThemeSettings('paper')).postsPerLoad, 'writing one control does not clear the other').toBe('12');
@@ -169,6 +178,7 @@ test('what a theme is told is what the feed does', async ({ page }) => {
 
   // A row edited by hand, or a release that dropped a choice, must not reach a template.
   await query`update site_settings set theme_settings = '{"paper":{"postsPerLoad":"99"}}'::jsonb`.execute(db);
+  clearPageCache(owner);
   expect(await readThemeSettings('paper'), 'a stored value the theme no longer offers is not a value')
     .toEqual({ authorLinks: 'text', gridColumns: '3', hero: 'text', heroEvery: '6', heroHeadline: '', heroMove: 'slide', heroTurn: 'on', infiniteScroll: 'on', postsPerLoad: '6', readingProgress: 'off', stickyHeader: 'off' });
 });
@@ -194,6 +204,7 @@ test('how many cards go across is asked for, not fixed', async ({ page }) => {
   const seen: Record<string, number[]> = {};
   for (const choice of ['2', '3', '4']) {
     await writeThemeSettings('signin-test-owner', { id: 'paper', values: { gridColumns: choice } });
+    clearPageCache(owner);
     seen[choice] = [];
     for (const width of [1440, 1024, 375]) {
       await page.setViewportSize({ width, height: 900 });
@@ -234,6 +245,7 @@ test('the hero is the owner\'s, in the language the page is read in', async ({ p
   expect((await hero('/th')).headline, 'the Thai page says it in Thai').toBe('เขียนไว้อย่างตั้งใจ เผยแพร่อย่างพิถีพิถัน');
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { heroHeadline: 'ทดสอบหัวข้อของเจ้าของ' } });
+  clearPageCache(owner);
   expect((await hero('/th')).headline, "and the owner's words win").toBe('ทดสอบหัวข้อของเจ้าของ');
   await expect(
     writeThemeSettings('signin-test-owner', { id: 'paper', values: { heroHeadline: 'x'.repeat(61) } }),
@@ -242,9 +254,11 @@ test('the hero is the owner\'s, in the language the page is read in', async ({ p
 
   // Sixty of the same letter is not a headline, but it must not run out of the band either.
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { heroHeadline: 'W'.repeat(60) } });
+  clearPageCache(owner);
   expect((await hero('/en')).overflows, 'an unbreakable headline breaks anyway').toBe(false);
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'animated', heroHeadline: '' } });
+  clearPageCache(owner);
   expect(await hero('/en')).toMatchObject({ shown: true, moving: 'moving', animation: 'post-card-in' });
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -252,8 +266,10 @@ test('the hero is the owner\'s, in the language the page is read in', async ({ p
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'off' } });
+  clearPageCache(owner);
   expect(await hero('/en')).toMatchObject({ shown: false, headline: null });
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'text' } });
+  clearPageCache(owner);
 });
 
 test('the hero of covers rotates, and lets itself be stopped', async ({ page }) => {
@@ -261,6 +277,7 @@ test('the hero of covers rotates, and lets itself be stopped', async ({ page }) 
   const { writeThemeSettings } = await import('../../src/server/themes/store');
   await page.setViewportSize({ width: 1440, height: 900 });
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'slider' } });
+  clearPageCache(owner);
 
   const asked: string[] = [];
   const listen = (request: { resourceType: () => string; url: () => string }) => {
@@ -317,6 +334,7 @@ test('the hero of covers rotates, and lets itself be stopped', async ({ page }) 
   const { sql: query } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
   await query`update posts set cover_media_id = null`.execute(db);
+  clearPageCache(owner);
   await page.goto(`${origin}/en`);
   expect(await page.evaluate(() => ({
     slider: Boolean(document.querySelector('[data-hero-slider]')),
@@ -324,6 +342,7 @@ test('the hero of covers rotates, and lets itself be stopped', async ({ page }) 
   })), 'no covers falls back to text rather than standing empty').toEqual({ slider: false, text: true });
   await query`update posts set cover_media_id = (select id from media_items limit 1)`.execute(db);
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { hero: 'text' } });
+  clearPageCache(owner);
 });
 
 test('the cards slide in, and never at the cost of the first paint', async ({ page }) => {
@@ -384,9 +403,11 @@ test('a reader is not served the feed they switched off', async ({ page }) => {
   };
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { infiniteScroll: 'on' } });
+  clearPageCache(owner);
   expect(await fetchesFeed(), 'on: the feed arrives').toBe(true);
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { infiniteScroll: 'off' } });
+  clearPageCache(owner);
   // It was fetched in both states until the import became dynamic: the page's own script
   // carried the feed's code, so switching the setting off changed the markup and not the
   // bytes. This fails if a static import comes back.
@@ -400,10 +421,12 @@ test('the reading progress bar is drawn from the scroll position', async ({ page
   const article = `${origin}/en/blog/post-0`;
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'off' } });
+  clearPageCache(owner);
   await page.goto(article, { waitUntil: 'networkidle' });
   await expect(bar, 'a bar nobody asked for is not on the page').toHaveCount(0);
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'on' } });
+  clearPageCache(owner);
   await page.goto(article, { waitUntil: 'networkidle' });
   await expect(bar).toHaveCount(1);
 
@@ -430,6 +453,7 @@ test('the reading rail lists a post\'s headings at the side, and the bar takes i
   const filler = '<p>Body line to read past.</p>'.repeat(40);
   await query`update posts set content_html = ${`<h2>First part</h2>${filler}<h3>Second, smaller</h3>${filler}<h2>Third part</h2>${filler}`} where slug = 'post-1'`.execute(db);
   await query`update posts set content_html = ${`<h2>Only heading</h2>${filler}`} where slug = 'post-2'`.execute(db);
+  clearPageCache(owner);
   const article = `${origin}/en/blog/post-1`;
   const rail = page.locator('nav.reading-rail');
   const links = rail.getByRole('link');
@@ -439,6 +463,7 @@ test('the reading rail lists a post\'s headings at the side, and the bar takes i
   }, selector);
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'rail' } });
+  clearPageCache(owner);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(article, { waitUntil: 'networkidle' });
   await expect(rail).toHaveAttribute('aria-label', 'On this page');
@@ -503,10 +528,12 @@ test('the reading rail lists a post\'s headings at the side, and the bar takes i
 
   // The bar is still the bar, and off is still nothing.
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'on' } });
+  clearPageCache(owner);
   await page.goto(article, { waitUntil: 'networkidle' });
   await expect(rail).toHaveCount(0);
   expect(await displayed('.reading-progress'), 'the bar, at every width').not.toBe('none');
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'off' } });
+  clearPageCache(owner);
   await page.goto(article, { waitUntil: 'networkidle' });
   await expect(rail).toHaveCount(0);
   await expect(page.locator('.reading-progress')).toHaveCount(0);
@@ -522,6 +549,7 @@ test('the rail marks the heading the reader is at, after an instant jump up, and
   // empty heading the rail must not list.
   await query`update posts set content_html = ${`<h2>First part</h2>${filler}<h3>Second, smaller</h3>${filler}<h2></h2><h2>Third part</h2><p>Short end.</p>`} where slug = 'post-1'`.execute(db);
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { readingProgress: 'rail' } });
+  clearPageCache(owner);
   // No smooth scrolling: every jump is instant, which is where the order of observer entries used to decide.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -562,10 +590,12 @@ test('the header can be asked to stay in view', async ({ page }) => {
   };
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { stickyHeader: 'off' } });
+  clearPageCache(owner);
   await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
   expect(await afterScrolling(), 'a header nobody pinned scrolls away').toBeLessThan(0);
 
   await writeThemeSettings('signin-test-owner', { id: 'paper', values: { stickyHeader: 'on' } });
+  clearPageCache(owner);
   await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
   expect(await afterScrolling(), 'and a pinned one stays at the top').toBe(0);
 
@@ -588,10 +618,12 @@ test('a post keeps its title the one h1 in Paper and in Plain, aligned headings 
   const { sql: query } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
   await query`update posts set content_html = ${'<h1 style="text-align: center">Centred part</h1><p>Text.</p><h1>Plain part</h1><p>More.</p>'} where slug = 'post-2'`.execute(db);
+  clearPageCache(owner);
   const { rows: [before] } = await query<{ theme_id: string | null }>`select theme_id from site_settings`.execute(db);
   try {
     for (const theme of ['paper', 'plain']) {
       await query`update site_settings set theme_id = ${theme}`.execute(db);
+      clearPageCache(owner);
       await page.goto(`${origin}/en/blog/post-2`, { waitUntil: 'networkidle' });
       await expect(page.locator('h1'), `${theme}: the title is the one h1`).toHaveCount(1);
       await expect(page.getByRole('heading', { level: 2, name: 'Centred part' }), `${theme}: the aligned one is an h2`).toHaveCount(1);
@@ -599,5 +631,6 @@ test('a post keeps its title the one h1 in Paper and in Plain, aligned headings 
     }
   } finally {
     await query`update site_settings set theme_id = ${before?.theme_id ?? null}`.execute(db);
+    clearPageCache(owner);
   }
 });

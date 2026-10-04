@@ -5,6 +5,7 @@ import { createServer } from 'node:net';
 import type { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './own-worker';
+import { clearPageCache, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * Header sub-menus as a reader meets them, in Paper and in Plain.
@@ -38,8 +39,11 @@ function docker(args: string[], timeout = 180_000) {
 }
 
 function psql(statement: string) {
-  return docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+  const result = docker(['exec', '-T', 'postgres', 'psql', '--quiet', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
     '-U', 'tomecms_test', '-d', 'tomecms_test', '-c', statement], 60_000);
+  // A write behind the app's back: without this the page it drew before is served again.
+  clearPageCache(owner);
+  return result;
 }
 
 async function freePort(): Promise<number> {
@@ -56,6 +60,7 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 
 test.beforeAll(async () => {
   const port = await freePort();
@@ -97,8 +102,7 @@ test.beforeAll(async () => {
       values (true, '${OWNER}', 'Submenu Site', 'en', 'UTC', '/admin');`);
 
   // Three live pages, and a header with a link parent, a group and a last parent whose long
-  // sub-items would run past the window's edge at 1024 px. The pool is closed again before the
-  // server opens its own, as public-plugins.spec.ts explains.
+  // sub-items would run past the window's edge at 1024 px.
   const { createPage } = await import('../../src/server/content/pages');
   const page = async (title: string, slug: string) => (await createPage(OWNER, {
     excerpt: '', title, slug, metaTitle: null, metaDescription: null, status: 'published',
@@ -128,8 +132,6 @@ test.beforeAll(async () => {
       link('Everything else we have put together', '/more'),
     ] },
   ] });
-  const { closeDatabase } = await import('../../src/server/db/client');
-  await closeDatabase();
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env: serverEnv, stdio: 'pipe' });
@@ -148,8 +150,20 @@ test.beforeAll(async () => {
   throw new Error(`Sub-menu test server never became ready.\n${output}`);
 });
 
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
+});
+
 test.afterAll(async () => {
   server?.kill('SIGTERM');
+  // Kept open until now: the owner's sign-in after the seed needs it.
+  try {
+    const { closeDatabase } = await import('../../src/server/db/client');
+    await closeDatabase();
+  } catch {
+    // The pool may never have opened.
+  }
   docker(['down', '--volumes', '--remove-orphans'], 90_000);
 });
 
