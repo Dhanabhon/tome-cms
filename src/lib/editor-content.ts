@@ -131,6 +131,24 @@ export function withoutImageTitles(html: string): string {
   return html.replace(/<img\b[^>]*>/g, (tag) => tag.replace(/\stitle="[^"]*"/, ''));
 }
 
+const escapeAttribute = (value: string) => value
+  .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+
+/**
+ * Stored HTML with each library picture that was saved with its file name for alt text described
+ * by what the library says now, or by nothing. The editor once wrote the name when a picture had no
+ * alt text. Alt text anyone wrote is left as it is: only a match for that file's own name is
+ * replaced. Like the transforms beside it, it reads the sanitizer's double-quoted, escaped output.
+ */
+export function withLibraryAlts(html: string, media: ReadonlyArray<{ alt_text: string | null; id: string; original_name: string }>): string {
+  const byId = new Map(media.map((item) => [item.id, item]));
+  return html.replace(/<img\b[^>]*>/g, (tag) => {
+    const item = byId.get(/\ssrc="\/media\/([0-9a-f-]{36})"/.exec(tag)?.[1] ?? '');
+    if (!item || !tag.includes(` alt="${escapeAttribute(item.original_name)}"`)) return tag;
+    return tag.replace(/ alt="[^"]*"/, () => ` alt="${escapeAttribute(item.alt_text ?? '')}"`);
+  });
+}
+
 /**
  * An article that opens with a picture, with no cover drawn above it: that picture is what the
  * reader's screen is waiting on, so it is fetched first rather than lazily. Only an opening
