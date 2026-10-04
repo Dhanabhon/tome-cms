@@ -15,7 +15,7 @@ interface Props extends ThemePostProps {}
 
 const { categories, post, preview, profile, settings, themeSettings } = Astro.props;
 const copy = publicCopy(post.locale);
-const { cover, bodyHtml } = articleCover(post);
+const { cover, coverAlt, bodyHtml } = articleCover(post);
 // The title is the page's one h1, whatever heading level the body was written in.
 const body = demoteH1(bodyHtml);
 const [category] = categories;
@@ -43,7 +43,7 @@ const lead = post.excerpt || post.meta_description;
       <span><span aria-hidden="true" class="almanac-article__dot">·</span>{copy.minutesRead.replace('{minutes}', String(postReadingMinutes(post)))}</span>
     </p>
   </header>
-  {cover && <img class="almanac-article__cover" src={cover} alt={post.title} width="1200" height="675" loading="eager" fetchpriority="high" />}
+  {cover && <img class="almanac-article__cover" src={cover} alt={coverAlt} width="1200" height="675" loading="eager" fetchpriority="high" />}
   <div class="almanac-prose" set:html={body} />
   {category && (
     <footer class="almanac-article__end">

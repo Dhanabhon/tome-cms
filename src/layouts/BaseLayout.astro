@@ -7,7 +7,7 @@ import VideoScript from '../components/VideoScript.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
-import { getPublicSiteUrl } from '../lib/seo';
+import { documentTitle, getPublicSiteUrl } from '../lib/seo';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
 import { publicAdditions } from '../server/plugins/public';
@@ -30,6 +30,8 @@ interface Props {
   description?: string;
   headline?: string;
   image?: string | null;
+  /** The owner's own title for search, used in place of `title` and without the site's name. */
+  metaTitle?: string | null;
   modifiedTime?: string | null;
   publishedTime?: string | null;
   robots?: string;
@@ -74,6 +76,7 @@ const {
   description = defaultDescription,
   headline,
   image,
+  metaTitle,
   modifiedTime,
   publishedTime,
   robots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
@@ -112,7 +115,7 @@ const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();
 const absoluteImage = image ? new URL(image, siteUrl).toString() : null;
-const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
+const pageTitle = documentTitle({ metaTitle, siteName, title });
 const publisher = { '@type': 'Organization', name: siteName, url: homeUrl };
 const author = authorName
   ? { '@type': 'Person', name: authorName }

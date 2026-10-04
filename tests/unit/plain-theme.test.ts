@@ -221,10 +221,10 @@ test("a post's running text spans the article's column, with no measure in ch", 
   assert.doesNotMatch(PLAIN, /\dch\b/, 'no measure in ch, which counts Thai badly');
 });
 
-test('the cover stands off the first paragraph, and does not say the title again', () => {
+test('the cover stands off the first paragraph, and says what its picture shows, not the title again', () => {
   assert.match(top('.plain-article > img'), /margin-block-end: var\(--space-lg\);/);
   const post = read('Post.astro');
-  assert.match(post, /<img src=\{cover\} alt="" /);
+  assert.match(post, /<img src=\{cover\} alt=\{coverAlt\} /);
   assert.doesNotMatch(post, /alt=\{post\.title\}/);
 });
 

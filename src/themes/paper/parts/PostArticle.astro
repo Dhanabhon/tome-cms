@@ -3,14 +3,15 @@ import { demoteH1 } from '../../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../../lib/i18n';
 import { articleCover } from '../../../lib/post-cover';
 import { readingRail } from '../../../lib/reading-rail';
-import type { Post, PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
+import type { ThemePostProps } from '../../contract';
+import type { PostCategoryBadge, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
 import AuthorBlock from './AuthorBlock.astro';
 import Icon from '../../../components/Icon.astro';
 
 interface Props {
   /** The theme's `authorLinks` setting: words, icons, or both. */
   authorLinks?: string;
-  post: Post;
+  post: ThemePostProps['post'];
   categories?: PostCategoryBadge[];
   preview?: boolean;
   profile?: PublicAuthorProfile | null;
@@ -20,7 +21,7 @@ interface Props {
 }
 
 const { authorLinks, categories = [], post, preview = false, profile, readingPosition, settings } = Astro.props;
-const { cover, bodyHtml: coverHtml } = articleCover(post);
+const { cover, coverAlt, bodyHtml: coverHtml } = articleCover(post);
 // The title is the page's one h1, whatever heading level the body was written in.
 const demotedHtml = demoteH1(coverHtml);
 // The rail and the anchors it links to come from one pass over the body. A post it has nothing
@@ -75,7 +76,7 @@ const copy = publicCopy(post.locale);
     )}
   </header>
   {cover && (
-    <img class="post-cover" src={cover} alt="" fetchpriority="high" width="1200" height="675" />
+    <img class="post-cover" src={cover} alt={coverAlt} fetchpriority="high" width="1200" height="675" />
   )}
   <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link" set:html={bodyHtml} />
   {headings.length > 0 && <div data-rail-end aria-hidden="true"></div>}

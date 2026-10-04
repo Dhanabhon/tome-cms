@@ -12,3 +12,13 @@ export function getPublicSiteUrl(request: Request, configuredSite?: URL) {
     : requestUrl.protocol;
   return new URL(`${protocol}//${forwardedHost || requestUrl.host}`);
 }
+
+/**
+ * What the browser tab and a search result call a page. A meta title is the owner's own line for
+ * search, written to fit the space a result has, so it is used as written; any other title is
+ * followed by the site's name.
+ */
+export function documentTitle({ metaTitle, siteName, title }: { metaTitle?: string | null; siteName: string; title: string }) {
+  if (metaTitle?.trim()) return metaTitle.trim();
+  return title === siteName ? title : `${title} | ${siteName}`;
+}

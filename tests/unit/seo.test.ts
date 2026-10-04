@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getPublicSiteUrl } from '../../src/lib/seo';
+import { documentTitle, getPublicSiteUrl } from '../../src/lib/seo';
 
 test('public URLs prefer the configured canonical origin', () => {
   const previous = process.env.TOME_CMS_PUBLIC_URL;
@@ -12,4 +12,11 @@ test('public URLs prefer the configured canonical origin', () => {
     if (previous === undefined) delete process.env.TOME_CMS_PUBLIC_URL;
     else process.env.TOME_CMS_PUBLIC_URL = previous;
   }
+});
+
+test('a page title is followed by the site name, but a written meta title stands alone', () => {
+  assert.equal(documentTitle({ siteName: 'Site', title: 'Site' }), 'Site');
+  assert.equal(documentTitle({ siteName: 'Site', title: 'A post' }), 'A post | Site');
+  assert.equal(documentTitle({ metaTitle: 'Written for search', siteName: 'Site', title: 'A post' }), 'Written for search');
+  assert.equal(documentTitle({ metaTitle: '  ', siteName: 'Site', title: 'A post' }), 'A post | Site');
 });

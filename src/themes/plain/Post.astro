@@ -8,7 +8,7 @@ interface Props extends ThemePostProps {}
 
 const { categories, post, preview, profile, settings } = Astro.props;
 const copy = publicCopy(post.locale);
-const { cover, bodyHtml } = articleCover(post);
+const { cover, coverAlt, bodyHtml } = articleCover(post);
 const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone });
 const when = preview ? post.updated_at : post.published_at ?? post.created_at;
 ---
@@ -22,7 +22,7 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
   {/* The title is the h1 just above it; the picture says nothing a reader has not heard. */}
-  {cover && <img src={cover} alt="" fetchpriority="high" width="1200" height="675" />}
+  {cover && <img src={cover} alt={coverAlt} fetchpriority="high" width="1200" height="675" />}
   <div class="plain-body" set:html={demoteH1(bodyHtml)} />
   {profile?.bio && (
     <footer class="plain-author">

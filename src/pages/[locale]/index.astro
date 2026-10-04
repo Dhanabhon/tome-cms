@@ -94,6 +94,7 @@ const activeTheme = await resolveTheme(settings?.theme_id);
   locale={locale}
   robots={loadError ? 'noindex, nofollow' : cursor || query ? 'noindex, follow' : undefined}
   title={query ? publicCopy(locale).searchResults.replace('{query}', () => query) : undefined}
+  xDefaultHref={settings ? localePath(settings.default_locale) : undefined}
   stats={loadError ? undefined : { kind: 'home' }}
 >
   <activeTheme.Home

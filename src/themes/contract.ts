@@ -137,8 +137,9 @@ export interface ThemePostProps {
   /** The admin looking at a draft: it is dated by its last save, not by a publication. */
   preview?: boolean;
   locale: PostLocale;
-  /** Never null: a post that is missing is a system state, and the route says so itself. */
-  post: Post;
+  /** Never null: a post that is missing is a system state, and the route says so itself. A
+   *  published post brings its cover's library entry, which is what describes the cover. */
+  post: Post & { coverImage?: { alt_text: string | null } | null };
   profile: PublicAuthorProfile | null;
   settings: Pick<SiteSettings, 'site_name' | 'timezone'>;
 }

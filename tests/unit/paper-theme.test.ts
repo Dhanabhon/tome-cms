@@ -296,8 +296,10 @@ test('the header is read in the order it is drawn: the language, then the theme'
   assert.ok(header.indexOf('<LanguageSwitcher') < header.indexOf('<ThemeToggle'), 'Tab reached the theme button before the language to its left');
 });
 
-test("the post's cover does not say the title again", () => {
-  assert.match(read('src/themes/paper/parts/PostArticle.astro'), /<img class="post-cover" src=\{cover\} alt="" /);
+test("the post's cover says what its picture shows, not the title again", () => {
+  const article = read('src/themes/paper/parts/PostArticle.astro');
+  assert.match(article, /<img class="post-cover" src=\{cover\} alt=\{coverAlt\} /);
+  assert.doesNotMatch(article, /alt=\{post\.title\}/);
 });
 
 test("the slider's buttons end at the content edge, where the grid and the footer do", () => {
