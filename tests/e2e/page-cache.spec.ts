@@ -162,15 +162,18 @@ test('pages come from the cache, an edit shows at once, a scheduled post appears
   expect(await after.text()).toContain('Fresh bread');
 
   // 3. The home page is kept without the scheduled post, and shows it once its moment has passed.
-  // Set here, not in the seed, so the sign-in above cannot use up its twenty seconds.
+  // The dev server compiles the home route on its first request, which can take longer than the
+  // schedule's margin under load: warm it with a search, which is never kept.
+  expect((await request.get(`${origin}/en?q=warm`)).status()).toBe(200);
+  // Set here, not in the seed, so the sign-in and the warm-up cannot use up its margin.
   const { sql } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
-  await sql`update posts set published_at = now() + interval '20 seconds' where id = ${scheduledId}`.execute(db);
+  await sql`update posts set published_at = now() + interval '45 seconds' where id = ${scheduledId}`.execute(db);
   const before = await request.get(`${origin}/en`);
   expect(before.headers()['x-tome-cache']).toBe('miss');
   expect(await before.text()).not.toContain('Scheduled bread');
   expect((await request.get(`${origin}/en`)).headers()['x-tome-cache'], 'kept until then').toBe('hit');
-  await expect.poll(async () => (await request.get(`${origin}/en`)).text(), { timeout: 60_000, intervals: [2_000] }).toContain('Scheduled bread');
+  await expect.poll(async () => (await request.get(`${origin}/en`)).text(), { timeout: 90_000, intervals: [2_000] }).toContain('Scheduled bread');
 
   // 4. Maintenance, switched on from its screen: a reader gets 503 and nothing is kept; the owner sees the site.
   await page.goto(`${origin}/admin/maintenance`);

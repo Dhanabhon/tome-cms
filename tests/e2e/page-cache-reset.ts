@@ -53,5 +53,6 @@ export function clearPageCache(owner: Owner | undefined): void {
   const result = spawnSync('curl', ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '-X', 'PUT',
     '-H', `origin: ${origin}`, '-H', `cookie: ${cookie}`, '-H', 'content-type: application/json',
     '--data', '{"enabled":false}', `${origin}/api/admin/maintenance/state`], { encoding: 'utf8', timeout: 30_000 });
-  if (result.stdout !== '200') throw new Error(`Clearing the page cache answered ${result.stdout || result.stderr}.`);
+  if (result.error) throw new Error(`Clearing the page cache could not run curl: ${result.error.message}`);
+  if (result.stdout !== '200') throw new Error(`Clearing the page cache answered ${result.stdout || 'nothing'}. ${result.stderr ?? ''}`.trim());
 }
