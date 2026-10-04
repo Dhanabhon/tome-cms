@@ -281,5 +281,14 @@ test('every control in the three themes is at least 44 × 44 under a coarse poin
       for (const line of await everyState(page, ALLOWED)) failures.push(`${theme} ${name}: ${line}`);
     }
   }
+  // Plain sets its newest post's title large, and the seed's wraps to two lines, tall enough on its own. A
+  // short newest title is one line, the case a site meets: measured once more with the title cut down.
+  await sql`update site_settings set theme_id = 'plain'`.execute(db);
+  await sql`update posts set title = 'Bread' where slug = 'all-the-blocks'`.execute(db);
+  await page.goto(`${origin}/en`);
+  await page.waitForLoadState('networkidle');
+  expect(await page.locator('.plain-lead h2 a').evaluate((link) => link.getClientRects().length), 'the premise: a one-line lead title').toBe(1);
+  for (const line of await everyState(page, ALLOWED)) failures.push(`plain home, one-line lead: ${line}`);
+  await sql`update posts set title = 'A loaf, a bowl and every block there is' where slug = 'all-the-blocks'`.execute(db);
   expect(failures, failures.join('\n')).toEqual([]);
 });

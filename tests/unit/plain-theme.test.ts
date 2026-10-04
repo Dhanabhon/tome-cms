@@ -283,10 +283,13 @@ test('below 64rem the tabs are one row that scrolls sideways, with the rule unde
   assert.match(top('.plain-filter a:focus-visible'), /outline-offset: -2px;/);
 });
 
-test('header, footer, back and paging links are a full target on a touch screen', () => {
-  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a, .plain-wordmark', COARSE);
+test('header, footer, back, paging and search-status links are a full target on a touch screen', () => {
+  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more, .plain-search-status, .plain-empty) a, .plain-wordmark', COARSE);
   assert.match(touch, /display: inline-flex;/);
   assert.match(touch, /min-height: var\(--plain-field\);/);
+  assert.match(touch, /min-inline-size: var\(--plain-field\);/, 'a short word such as TH is a full target across too');
+  // A post's title grows by padding on its inline link, which moves nothing around it.
+  assert.match(top(':is(.plain-lead, .plain-grid) h2 a', COARSE), /padding-block: var\(--space-sm\);/);
   assert.match(top('.plain-nav .site-submenu a', COARSE), /padding-block: var\(--space-sm\);/);
   // And a press shows on them, with a mouse as with a finger, as on the tabs and the search button.
   assert.match(top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more) a:active, .plain-wordmark:active'), /translate: 0 1px;/);
