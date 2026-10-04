@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
 import {
-  invalidatePageCache, PAGE_CACHE_MAX_BYTES, PAGE_CACHE_MAX_ENTRY_BYTES, PAGE_CACHE_TTL_MS, pageCacheKey,
+  ENTRY_OVERHEAD_BYTES, invalidatePageCache, PAGE_CACHE_MAX_BYTES, PAGE_CACHE_MAX_ENTRY_BYTES, PAGE_CACHE_TTL_MS, pageCacheKey,
   resetPageCacheForTest, servePublicPage,
 } from '../../src/server/http/page-cache';
 
@@ -29,7 +29,16 @@ test('the key is the path and the two known parameters, sorted; anything else is
   assert.equal(pageCacheKey(url('/en?category=')), '/en', 'an empty value is absent');
   assert.equal(pageCacheKey(url('/en/blog/bread')), '/en/blog/bread');
   assert.equal(pageCacheKey(url('/th/about')), '/th/about');
+  assert.equal(pageCacheKey(url('/th?cursor=a')), '/th?cursor=a');
+  assert.equal(pageCacheKey(url('/th/?category=B')), '/th/?category=B');
   for (const path of ['/rss.xml', '/sitemap.xml', '/robots.txt']) assert.equal(pageCacheKey(url(path)), path);
+});
+
+test('only the home page keeps the parameters; posts, pages and feeds key to the bare path', () => {
+  assert.equal(pageCacheKey(url('/robots.txt?category=x')), '/robots.txt');
+  assert.equal(pageCacheKey(url('/sitemap.xml?cursor=x&category=y')), '/sitemap.xml');
+  assert.equal(pageCacheKey(url('/en/blog/a?cursor=y')), '/en/blog/a');
+  assert.equal(pageCacheKey(url('/th/about?category=z')), '/th/about');
 });
 
 test('search, and every path outside the public list, has no key', () => {
@@ -159,7 +168,8 @@ test('the cache keeps to its cap, dropping the least recently used, and refuses 
   await serve('/en/blog/huge', async () => { renders += 1; return html(big); });
   assert.equal(renders, 2, 'an entry over the per-entry cap is not stored');
 
-  const size = PAGE_CACHE_MAX_ENTRY_BYTES - 1024;
+  // Leave room under the per-entry cap for the key, headers, ETag and overhead the entry is charged.
+  const size = PAGE_CACHE_MAX_ENTRY_BYTES - 2048;
   const count = Math.floor(PAGE_CACHE_MAX_BYTES / size) + 2;
   const body = 'y'.repeat(size);
   for (let index = 0; index < count; index += 1) await serve(`/en/blog/p${index}`, async () => html(body));
@@ -176,4 +186,76 @@ test('stored headers keep what the page set, minus set-cookie, date and content-
   assert.equal(hit.headers.get('link'), '</fonts/a.woff2>; rel=preload');
   assert.equal(hit.headers.get('date'), null);
   assert.notEqual(hit.headers.get('content-length'), '1');
+});
+
+test('many tiny entries are charged their overhead, so they reach the cap and evict', async () => {
+  const count = Math.floor(PAGE_CACHE_MAX_BYTES / ENTRY_OVERHEAD_BYTES) + 2;
+  const body = 'z'.repeat(100);
+  for (let index = 0; index < count; index += 1) await serve(`/en?category=c${index}`, async () => html(body));
+  // By body bytes alone these would be about 3 MB; with their overhead the first ones are out.
+  assert.equal((await serve('/en?category=c0', async () => html(body))).headers.get('x-tome-cache'), 'miss');
+  assert.equal((await serve(`/en?category=c${count - 1}`, async () => html(body))).headers.get('x-tome-cache'), 'hit');
+});
+
+test('a hit refreshes recency, so the entry that keeps being read outlives older ones', async () => {
+  const size = PAGE_CACHE_MAX_ENTRY_BYTES - 2048;
+  const body = 'y'.repeat(size);
+  const count = Math.floor(PAGE_CACHE_MAX_BYTES / size) + 2;
+  // A miss would store p0 afresh and hide an eviction, so count how often it is drawn: only once.
+  let firstRenders = 0;
+  const first = async () => { firstRenders += 1; return html(body); };
+  await serve('/en/blog/p0', first);
+  for (let index = 1; index < count; index += 1) {
+    await serve(`/en/blog/p${index}`, async () => html(body));
+    await serve('/en/blog/p0', first);
+  }
+  assert.equal(firstRenders, 1, 'p0 was never evicted while it kept being read');
+  assert.equal((await serve('/en/blog/p1', async () => html(body))).headers.get('x-tome-cache'), 'miss');
+});
+
+test('If-None-Match compares weakly, takes a list, and accepts *', async () => {
+  const etag = (await serve('/en', async () => html('x'))).headers.get('etag')!;
+  const status = async (value: string) => (await serve('/en', async () => html('x'), { headers: { 'If-None-Match': value } })).status;
+  assert.equal(await status(`W/${etag}`), 304, 'weak form');
+  assert.equal(await status(`"nope", ${etag}`), 304, 'a list holding ours');
+  assert.equal(await status(`"nope",W/${etag}`), 304, 'a list holding the weak form');
+  assert.equal(await status('*'), 304, 'star');
+  assert.equal(await status('"nope"'), 200, 'another tag');
+  assert.equal(await status(`${etag.slice(0, -2)}"`), 200, 'a near miss');
+});
+
+test('a HEAD miss stores the full page for the GET that follows', async () => {
+  const head = await serve('/en', async () => html('<p>full</p>'), { method: 'HEAD' });
+  assert.equal(await head.text(), '');
+  const get = await serve('/en', async () => html('unused'));
+  assert.equal(get.headers.get('x-tome-cache'), 'hit');
+  assert.equal(await get.text(), '<p>full</p>');
+});
+
+test('a scheduled post that went public during the render means the page is not served again', async () => {
+  let clock = 1_000_000;
+  const now = () => clock;
+  let renders = 0;
+  const render = async () => { renders += 1; clock += 5_000; return html('x'); };
+  // The next post is due at clock+1s, and the render takes 5s: what it drew may lack that post.
+  const due = new Date(clock + 1_000);
+  // Like the real query, it names the next moment still ahead: once the render is over, that one has passed.
+  const nextScheduled = async () => (clock < due.getTime() ? due : null);
+  const first = await serve('/en', render, { now, nextScheduled });
+  assert.equal(await first.text(), 'x');
+  await serve('/en', render, { now, nextScheduled });
+  assert.equal(renders, 2);
+});
+
+test('a failing or nonsensical nextScheduled still answers the page, but does not keep it', async () => {
+  for (const nextScheduled of [async () => { throw new Error('db down'); }, async () => new Date('nope')]) {
+    resetPageCacheForTest();
+    let renders = 0;
+    const render = async () => { renders += 1; return html('ok'); };
+    const first = await serve('/en', render, { nextScheduled });
+    assert.equal(first.status, 200);
+    assert.equal(await first.text(), 'ok');
+    await serve('/en', render, { nextScheduled });
+    assert.equal(renders, 2);
+  }
 });

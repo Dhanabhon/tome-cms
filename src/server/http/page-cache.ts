@@ -12,6 +12,9 @@ import { createHash } from 'node:crypto';
 export const PAGE_CACHE_TTL_MS = 5 * 60_000;
 export const PAGE_CACHE_MAX_BYTES = 32 * 1024 * 1024;
 export const PAGE_CACHE_MAX_ENTRY_BYTES = 2 * 1024 * 1024;
+// What an entry costs beyond its body, key, headers and ETag: the Map slot, the objects and the arrays.
+// Measured at 0.9 KB or so; charging a round kilobyte keeps a flood of tiny pages inside the cap.
+export const ENTRY_OVERHEAD_BYTES = 1024;
 
 const LOCALIZED_HOME = /^\/(?:th|en)\/?$/;
 const LOCALIZED_POST = /^\/(?:th|en)\/blog\/[^/]+\/?$/;
@@ -22,6 +25,8 @@ const DROPPED_HEADERS = new Set(['set-cookie', 'date', 'content-length']);
 
 interface Entry {
   body: Uint8Array<ArrayBuffer>;
+  // What this entry is charged against the cap, see entryCost.
+  cost: number;
   etag: string;
   expiresAt: number;
   headers: Array<[string, string]>;
@@ -36,6 +41,8 @@ export function pageCacheKey(url: URL): string | null {
   const path = url.pathname;
   if (!(FEEDS.has(path) || LOCALIZED_HOME.test(path) || LOCALIZED_POST.test(path) || LOCALIZED_PAGE.test(path))) return null;
   if (url.searchParams.has('q')) return null;
+  // Only the home page reads these parameters; on any other path they would just mint entries.
+  if (!LOCALIZED_HOME.test(path)) return path;
   const kept = KEPT_PARAMETERS
     .map((name): [string, string] => [name, url.searchParams.get(name) ?? ''])
     .filter(([, value]) => value !== '');
@@ -60,18 +67,34 @@ export function resetPageCacheForTest(): void {
 function drop(key: string): void {
   const entry = entries.get(key);
   if (!entry) return;
-  totalBytes -= entry.body.byteLength;
+  totalBytes -= entry.cost;
   entries.delete(key);
 }
 
 function keep(key: string, entry: Entry): void {
   drop(key);
   entries.set(key, entry);
-  totalBytes += entry.body.byteLength;
+  totalBytes += entry.cost;
   for (const oldest of entries.keys()) {
     if (totalBytes <= PAGE_CACHE_MAX_BYTES) break;
     drop(oldest);
   }
+}
+
+// The real memory an entry holds, not only its body: a flood of tiny pages must still reach the cap.
+function entryCost(key: string, body: Uint8Array, etag: string, headers: Array<[string, string]>): number {
+  const headerBytes = headers.reduce((sum, [name, value]) => sum + name.length + value.length, 0);
+  return body.byteLength + key.length + etag.length + headerBytes + ENTRY_OVERHEAD_BYTES;
+}
+
+// RFC 9110 13.1.2: If-None-Match compares weakly, takes a list, and `*` matches any stored page.
+// Cloudflare weakens a strong ETag when it compresses, so browsers send W/"..." back.
+function matchesEtag(header: string | null, etag: string): boolean {
+  if (!header) return false;
+  return header.split(',').some((candidate) => {
+    const value = candidate.trim();
+    return value === '*' || value.replace(/^W\//, '') === etag;
+  });
 }
 
 function storable(response: Response): boolean {
@@ -85,7 +108,7 @@ function answer(entry: Entry, request: Request, state: 'hit' | 'miss'): Response
   headers.set('ETag', entry.etag);
   headers.set('Cache-Control', 'no-cache');
   headers.set('X-Tome-Cache', state);
-  if (request.headers.get('if-none-match') === entry.etag) return new Response(null, { status: 304, headers });
+  if (matchesEtag(request.headers.get('if-none-match'), entry.etag)) return new Response(null, { status: 304, headers });
   return new Response(request.method === 'HEAD' ? null : entry.body, { status: 200, headers });
 }
 
@@ -109,20 +132,32 @@ export async function servePublicPage(input: {
   }
   if (known) drop(key);
 
+  // Asked before the render: a post that goes public while the page is drawn may be missing from it,
+  // and this moment is then already behind us, so the page is not served again.
+  let scheduled: Date | null | undefined;
+  try {
+    scheduled = await input.nextScheduled();
+  } catch {
+    scheduled = undefined;
+  }
+  // No usable answer means no expiry we can trust: the page is served but not kept.
+  const trusted = scheduled === null || (scheduled instanceof Date && !Number.isNaN(scheduled.getTime()));
+
   const started = generation;
   const response = await input.render();
   if (!storable(response)) return response;
 
   const body = new Uint8Array(await response.arrayBuffer());
   const headers = [...response.headers].filter(([name]) => !DROPPED_HEADERS.has(name.toLowerCase()));
-  const scheduled = await input.nextScheduled();
+  const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
   const entry: Entry = {
     body,
-    etag: `"${createHash('sha256').update(body).digest('hex')}"`,
+    cost: entryCost(key, body, etag, headers),
+    etag,
     expiresAt: Math.min(now() + PAGE_CACHE_TTL_MS, scheduled ? scheduled.getTime() : Number.POSITIVE_INFINITY),
     headers,
   };
   // An edit landed while this page was being drawn: what it drew may be the old version.
-  if (generation === started && body.byteLength <= PAGE_CACHE_MAX_ENTRY_BYTES) keep(key, entry);
+  if (trusted && generation === started && entry.cost <= PAGE_CACHE_MAX_ENTRY_BYTES && entry.expiresAt > now()) keep(key, entry);
   return answer(entry, request, 'miss');
 }
