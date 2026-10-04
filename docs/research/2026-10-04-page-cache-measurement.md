@@ -10,7 +10,7 @@ for the measurement; the scripts live outside it.
 - **Mode:** a production build in both cases (`npm run build`, then `node dist/server/entry.mjs`),
   `NODE_ENV=production`, `HOST=127.0.0.1`, `PORT=4400`. The client and the server share the machine,
   so these are best-case numbers with no network between them.
-- **Before:** a throwaway worktree at `82e999e6` (1.15.0). **After:** this branch, `feature/release-1.16.0`.
+- **Before:** a throwaway worktree at `82e999e6` (1.15.0). **After:** the 1.16.0 release candidate, `2b6cdaf2`.
 - **Same data:** one database seeded once with the content `tests/e2e/theme-shots.spec.ts` writes
   (ten English posts, five Thai editions, pages, navigation, slides for both languages, Paper theme).
   1.16.0 has no migration, so both builds ran against the same database, one after the other.
@@ -41,7 +41,7 @@ No request failed in any run (`Failed requests: 0`).
 | Post | 1109.98 | 5421.96 | **4.9x** |
 
 The spec's target was 5x or more for a cached home page and post. The home page clears it; the post
-is just under, at 4.9x on the median and 5.3x on the best run each. Within each series the runs climb
+is just under, at 4.9x on the median and 4.95x on the best run against the best run. Within each series the runs climb
 from the first to the third, on both builds, so some of the spread is the machine warming up rather
 than the code.
 
@@ -70,10 +70,16 @@ post `all-the-blocks`: 3.8, 3.5, 3.5, 3.6, 3.6 ms. On the after build the same p
 0.6 to 0.7 ms once it is kept.
 
 So a hit is about 0.7 to 1.3 ms, against 3.5 to 4.7 ms for a page drawn from the database on a
-machine with the database next door. A miss on the after build took 7 to 12 ms (16 and 35 ms for the
-first two), longer than the same request on the before build (3.5 to 6 ms). Five samples a cell and
-one machine: it is a hint that a miss now carries the cost of the expiry lookups and the store, not
-a measurement of how much.
+machine with the database next door. A miss on the after build took longer than the same request on
+the before build:
+
+- **Home:** misses 7.4 to 12.2 ms across four categories, and 34.6 ms for the first of all, against
+  4.3 to 6.2 ms on the before build (12.7 ms for its first).
+- **Post:** misses 8.7 to 10.0 ms across four posts, and 15.9 ms for the first, against 3.5 to
+  3.6 ms on the before build (6.0 ms for its first).
+
+Five samples a page and one machine: it is a hint that a miss now carries the cost of the expiry
+lookups and the store, not a measurement of how much.
 
 ## For context: daedalus, 1.3.3
 
