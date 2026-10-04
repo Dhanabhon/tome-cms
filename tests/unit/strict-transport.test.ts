@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+import type { APIContext, MiddlewareNext } from 'astro';
 
 import { STRICT_TRANSPORT, withStrictTransport } from '../../src/server/http/strict-transport';
 
@@ -43,8 +44,40 @@ test('the body and status survive', async () => {
   assert.equal(await response.text(), 'body');
 });
 
-test('every response the middleware answers goes through it', () => {
-  const middleware = readFileSync(new URL('../../src/middleware.ts', import.meta.url), 'utf8');
-  assert.match(middleware, /withStrictTransport\(/);
-  assert.match(middleware, /export const onRequest: MiddlewareHandler = async \(context, next\) => withStrictTransport\(/);
+// The wiring, checked on a real answer: /health/live is answered by the middleware itself.
+async function middlewareHeader(publicUrl: string): Promise<{ header: string | null; body: string }> {
+  const keys = [
+    'DATABASE_URL',
+    'TOME_CMS_PUBLIC_URL',
+    'TOME_CMS_AUTH_SECRET',
+    'TOME_CMS_CONTEXT_SECRET',
+    'TOME_CMS_RECOVERY_PEPPER',
+  ] as const;
+  const saved = new Map(keys.map((key) => [key, process.env[key]]));
+  for (const key of keys) delete process.env[key];
+  process.env.TOME_CMS_PUBLIC_URL = publicUrl;
+
+  try {
+    const { onRequest } = await import('../../src/middleware');
+    const next: MiddlewareNext = async () => new Response('next');
+    const response = await onRequest({
+      locals: {},
+      request: new Request('http://localhost:4321/health/live'),
+      url: new URL('http://localhost:4321/health/live'),
+    } as APIContext, next);
+    return { header: response?.headers.get('strict-transport-security') ?? null, body: (await response?.text()) ?? '' };
+  } finally {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test('the middleware answers an https site with the header', async () => {
+  assert.deepEqual(await middlewareHeader(HTTPS), { header: 'max-age=31536000', body: 'next' });
+});
+
+test('the middleware answers a plain-http site without it', async () => {
+  assert.deepEqual(await middlewareHeader('http://localhost:4321'), { header: null, body: 'next' });
 });
