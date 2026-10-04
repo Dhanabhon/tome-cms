@@ -87,6 +87,20 @@ Edit `.env.local` in the checkout, then run `./scripts/deploy-vps.sh` again. The
 
 Once the site is installed, keep its secrets. A new `TOME_CMS_RECOVERY_PEPPER` stops every saved recovery code from working, and a new `TOME_CMS_CONTEXT_SECRET` leaves plugins' secret settings unreadable. Backups carry no credentials, so keep a private copy of `.env.local`, stored apart from them.
 
+## The page cache
+
+TomeCMS keeps each public page it has drawn in memory, so the next reader of the same address is answered without the database. It holds the home pages (with a category or a later page), posts, pages, the feed, the sitemap and `robots.txt`; never a search, the admin, the API or media, and nothing while the site is closed for maintenance.
+
+An edit shows at once: every change saved in the admin, and every draft an AI writes through MCP, empties the cache. A scheduled post appears at its time. A home slide also appears and disappears at its own start and end. Whatever happens, nothing is kept longer than five minutes. Posts brought in with `sudo tome import` run outside the app, so they show within those five minutes. So does a plugin switched off with `npm run plugin:disable`, which also runs outside the app.
+
+To see it at work, ask for a page twice and look for `X-Tome-Cache`:
+
+```sh
+curl -sI https://cms.example.com/en | grep -i x-tome-cache
+```
+
+The first answer says `miss`, the next `hit`. There is nothing to set up.
+
 ## What never to commit
 
 Never commit `.env.local`, credentials, database dumps or object storage backups. The repository's `.gitignore` already leaves out `.env.local`, and the deploy helper writes the file readable by its owner only.
