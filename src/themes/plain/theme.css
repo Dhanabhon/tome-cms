@@ -379,10 +379,13 @@ html:has(> body.plain) { background: var(--color-paper); }
 :is(.plain-nav, .plain-foot, .plain-back, .plain-more) a { display: inline-block; }
 :is(.plain-nav, .plain-foot, .plain-back, .plain-more) a:active, .plain-wordmark:active { translate: 0 1px; }
 
-/* A finger's target: each of them is as tall as a field; a sub-menu's row is as tall again with its
- * padding. */
+/* A finger's target: each of them is as tall as a field and at least as wide (a short word keeps its
+ * place at the start); a sub-menu's row is as tall again with its padding. A post's title in the
+ * grid grows by padding on the inline link, which reaches into its card's own padding and moves
+ * nothing: the card has no other target for it to cover. */
 @media (pointer: coarse) {
-  :is(.plain-nav, .plain-foot, .plain-back, .plain-more) a, .plain-wordmark { display: inline-flex; gap: var(--space-2xs); align-items: center; min-height: var(--plain-field); }
+  :is(.plain-nav, .plain-foot, .plain-back, .plain-more, .plain-search-status, .plain-empty) a, .plain-wordmark { display: inline-flex; gap: var(--space-2xs); align-items: center; min-height: var(--plain-field); min-inline-size: var(--plain-field); }
   .plain-nav .site-submenu a { padding-block: var(--space-sm); }
+  .plain-grid h2 a { padding-block: var(--space-sm); }
 }
 .plain-author p { margin: 0; color: var(--color-muted); }

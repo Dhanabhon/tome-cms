@@ -98,6 +98,13 @@
   .public-navigation a:hover { text-decoration: underline; }
 }
 
+/* On a touch screen the wordmark is a field's height, and a menu link at least a field's width: its
+ * words stay at the start, where the Menu's list lines them up, and the box reaches past them. */
+@media (pointer: coarse) {
+  .site-wordmark { display: flex; align-items: center; min-block-size: var(--control-height); }
+  .public-navigation a { min-inline-size: var(--control-height); }
+}
+
 /* On a phone a parent takes its own row and its sub-items stack under it, indented and held by
  * a hairline, always shown: the Menu is already the one tap. A group is a small label. */
 .site-header__mobile li:has(> ul) { flex-basis: 100%; }
@@ -885,9 +892,10 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 
 .post-more > a:active { translate: 0 1px; }
 
-/* The small text links -- Older posts, Clear search, and All posts under an empty list -- are a
- * field's height on a touch screen. */
+/* The small text links -- Older posts, Clear search, All posts under an empty list, and the author
+ * in a post's meta line -- are a field's height on a touch screen. */
 @media (pointer: coarse) {
+  .post-meta a,
   .post-more > a,
   .post-search__status a,
   .post-feed__empty a { display: inline-flex; align-items: center; min-block-size: var(--control-height); }

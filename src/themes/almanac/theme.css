@@ -196,6 +196,13 @@
 
 .almanac-nav a { display: block; min-height: var(--almanac-field); max-width: 100%; padding-block: var(--space-sm); overflow-x: auto; color: var(--color-ink); font-size: var(--text-sm); white-space: nowrap; text-decoration: none; text-underline-offset: var(--space-2xs); }
 
+/* On a touch screen the name is a field's height, and a menu link at least a field's width: its words
+ * stay at the start, where the Menu's list lines them up, and the box reaches past them. */
+@media (pointer: coarse) {
+  .almanac-brand { display: flex; align-items: center; min-block-size: var(--almanac-field); }
+  .almanac-nav a { min-inline-size: var(--almanac-field); }
+}
+
 .almanac-nav a[aria-current],
 .almanac-nav summary[aria-current] > span { text-decoration: underline; text-decoration-color: var(--color-accent); text-decoration-thickness: 2px; }
 
