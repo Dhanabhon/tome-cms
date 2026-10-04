@@ -45,6 +45,7 @@ const THAI_TITLE = 'ขนมปังยามค่ำ กลิ่นหอ�
 const EMPTY_CATEGORY = 'Empty Shelf';
 const POST = '/en/blog/all-the-blocks';
 const COVER_POST = '/en/blog/why-we-bake-at-night';
+const LONG_COVER_TITLE = 'A title that is long enough to need two lines on a phone';
 
 const SCREENS: ReadonlyArray<readonly [name: string, path: string]> = [
   ['home', '/en'],
@@ -59,6 +60,9 @@ const SCREENS: ReadonlyArray<readonly [name: string, path: string]> = [
   ['home-th', '/th'],
   ['post-th', `/th/blog/${encodeURIComponent(THAI_SLUG)}`],
 ];
+
+// Paper's covers slider, which the "slides" setting the seed leaves on would hide.
+const PAPER_ONLY: ReadonlyArray<readonly [name: string, path: string]> = [['home-covers', '/en']];
 
 function docker(args: string[], timeout = 180_000) {
   const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
@@ -112,7 +116,8 @@ async function seed(imageId: string, fileId: string) {
     { type: 'attachment', attrs: { mediaId: fileId } },
     paragraph('Last, a plain paragraph so the page does not end on a figure.'),
   );
-  // Newest first. The first has every kind of block and no cover; the second and third have covers.
+  // Newest first. The first has every kind of block and no cover; the second, third and fourth have covers, and the
+  // fourth's title is the long one Paper's covers slider has to keep clear of its buttons.
   const posts: Array<{ slug: string; title: string; categories: string[]; cover: boolean; excerpt: string; content: EditorDocument }> = [
     { slug: 'all-the-blocks', title: 'A loaf, a bowl and every block there is', categories: [recipes.id], cover: false,
       excerpt: 'Headings, lists, a quotation, code, a picture and a file, in one post.', content: everyBlock },
@@ -120,7 +125,7 @@ async function seed(imageId: string, fileId: string) {
       excerpt: 'The dough is calmer after dark, and so is the baker.', content: body(paragraph(`${LONG}${LONG}`), heading(2, 'The first hour'), paragraph('Flour, water and patience.')) },
     { slug: 'evening-bread', title: 'Evening bread', categories: [thai.id], cover: true,
       excerpt: 'A loaf for the end of the day.', content: body(paragraph('A short note about a loaf, written in the evening.')) },
-    { slug: 'a-title-that-needs-two-lines-to-say-everything', title: 'A title that is long enough to need two lines on a phone, bread included', categories: [fieldNotes.id], cover: false,
+    { slug: 'a-title-that-needs-two-lines-to-say-everything', title: 'A title that is long enough to need two lines on a phone, bread included', categories: [fieldNotes.id], cover: true,
       excerpt: 'Long titles are where a theme shows its edges.', content: body(paragraph('The title is the point of this post.')) },
     { slug: 'butter-and-patience', title: 'Butter and patience', categories: [], cover: false,
       excerpt: 'A post filed under the default category.', content: body(paragraph('Butter keeps; patience does not.')) },
@@ -325,6 +330,42 @@ async function measureOf(page: Page) {
   });
 }
 
+/** One screen at every width and scheme: a shot of each, and the measures of the light one. */
+async function shoot(page: Page, theme: string, name: string, path: string, measured: Record<string, unknown>, only?: { element: string; ready: (page: Page) => Promise<void> }) {
+  for (const width of WIDTHS) {
+    for (const scheme of SCHEMES) {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+      await page.setViewportSize({ width, height: width > 400 ? 900 : 844 });
+      const response = await page.goto(`${origin}${path}`);
+      // A screen that is not what its name says (a post that 404s) is a broken seed, not a shot.
+      expect(response?.status(), `${theme} ${name} ${width} ${scheme}`).toBe(name === '404' ? 404 : 200);
+      // A concrete element first (Plain's empty category has no heading), then quiet: the dev server can re-optimise and reload a page
+      // after it loads, and a shot taken in that gap is of a page about to be replaced.
+      await expect(page.locator('main').first()).toBeAttached({ timeout: 30_000 });
+      await page.waitForLoadState('networkidle');
+      await page.evaluate(() => document.fonts.ready);
+      await only?.ready(page);
+      await page.waitForTimeout(300);
+      // A full-page shot resizes the viewport, and the track's snap puts a scrolled slider back on its first slide.
+      const file = join(OUT, theme, `${name}-${width}-${scheme}.png`);
+      await (only ? page.locator(only.element).screenshot({ path: file }) : page.screenshot({ path: file, fullPage: true }));
+      if (scheme === 'light') measured[`${name}-${width}`] = await measureOf(page);
+    }
+  }
+}
+
+/** Brings the covers slider to the slide whose title is the long one, which is not the first. Reduced motion keeps the rotation from moving it. */
+async function showLongCover(page: Page) {
+  await page.locator('.hero-slider').evaluate(async (track, longTitle) => {
+    const index = [...track.children].findIndex((slide) => slide.textContent?.includes(longTitle));
+    if (index < 0) throw new Error('The long cover is not in the slider.');
+    const left = index * track.clientWidth;
+    track.scrollTo({ left });
+    // Resolves once the snap has landed, never on a fixed wait.
+    while (Math.abs(track.scrollLeft - left) > 1) await new Promise((resolve) => requestAnimationFrame(resolve));
+  }, LONG_COVER_TITLE);
+}
+
 test('the three themes, every screen, five widths, both schemes', async ({ page }) => {
   test.setTimeout(1_800_000);
   const { sql } = await import('kysely');
@@ -334,24 +375,13 @@ test('the three themes, every screen, five widths, both schemes', async ({ page 
     mkdirSync(join(OUT, theme), { recursive: true });
     await sql`update site_settings set theme_id = ${theme}`.execute(db);
     measure[theme] = {};
-    for (const [name, path] of SCREENS) {
-      for (const width of WIDTHS) {
-        for (const scheme of SCHEMES) {
-          await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
-          await page.setViewportSize({ width, height: width > 400 ? 900 : 844 });
-          const response = await page.goto(`${origin}${path}`);
-          // A screen that is not what its name says (a post that 404s) is a broken seed, not a shot.
-          expect(response?.status(), `${theme} ${name} ${width} ${scheme}`).toBe(name === '404' ? 404 : 200);
-          // A concrete element first (Plain's empty category has no heading), then quiet: the dev server can re-optimise and reload a page
-          // after it loads, and a shot taken in that gap is of a page about to be replaced.
-          await expect(page.locator('main').first()).toBeAttached({ timeout: 30_000 });
-          await page.waitForLoadState('networkidle');
-          await page.evaluate(() => document.fonts.ready);
-          await page.waitForTimeout(300);
-          await page.screenshot({ path: join(OUT, theme, `${name}-${width}-${scheme}.png`), fullPage: true });
-          if (scheme === 'light') measure[theme][`${name}-${width}`] = await measureOf(page);
-        }
-      }
+    for (const [name, path] of SCREENS) await shoot(page, theme, name, path, measure[theme]);
+    if (theme === 'paper') {
+      // The covers slider is a setting of Paper's, and the seed leaves "your slides" on.
+      const { writeThemeSettings } = await import('../../src/server/themes/store');
+      await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slider' } });
+      for (const [name, path] of PAPER_ONLY) await shoot(page, theme, name, path, measure[theme], { element: '.home-hero--slider', ready: showLongCover });
+      await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slides' } });
     }
   }
   writeFileSync(join(OUT, 'measure.json'), JSON.stringify(measure, null, 2));

@@ -263,7 +263,7 @@ main:has(.post-feed__heading) .home-hero { display: none; }
  * the photograph is not ours. So the caption sits on a scrim that reaches near-opaque ink
  * where the words are, and the words are the one colour that pairs with it.
  */
-.home-hero--slider { position: relative; border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-3); }
+.home-hero--slider { --hero-step: 2.75rem; position: relative; border-block-end: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-3); }
 
 .hero-slider {
   display: flex;
@@ -323,11 +323,25 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   .hero-slider__controls { inset-inline-end: calc(max(0px, (100% - 80rem) / 2) + 1.75rem); }
 }
 
+/* Below 64rem a long cover title ran under the three buttons over the picture's end. The caption
+ * keeps their room at its end; on a phone that would leave the title under half the slide, so there
+ * it keeps their height below the words instead, and the title sits above them. "Your slides" moves
+ * its buttons under the words at these widths (below), so it needs neither. */
+@media (max-width: 63.999rem) {
+  .home-hero--slider:not(.home-hero--slides) .hero-slider__caption { padding-inline-end: calc(3 * var(--hero-step) + 2 * var(--space-2xs) + 1.75rem + var(--space-sm)); }
+}
+
+@media (max-width: 37.499rem) {
+  .home-hero--slider:not(.home-hero--slides) .hero-slider__caption { padding-inline-end: var(--space-lg); padding-block-end: calc(var(--hero-step) + 2 * var(--space-lg)); }
+  /* The 16:7 picture is under 170px tall on a phone: three lines of title and a row of buttons do not fit in it. */
+  .home-hero--slider:not(.home-hero--slides) .hero-slider__slide img { aspect-ratio: 4 / 3; }
+}
+
 .hero-slider__step {
   display: grid;
   place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--hero-step);
+  height: var(--hero-step);
   border: var(--rule-hair) solid color-mix(in oklch, var(--color-on-dark) 40%, transparent);
   border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-hero) 60%, transparent);
@@ -490,7 +504,7 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   /* The three buttons sit at the bottom end of a slider, so centred or end words stop above them.
    * Words at the start never reach them -- 48rem at most, from the content edge -- so their scrim is
    * no taller than they are. */
-  .home-hero--slides[data-hero-slider] .hero-slide:not([data-align='start']) .hero-slide__words { padding-block-end: calc(2.75rem + var(--space-lg) * 2); }
+  .home-hero--slides[data-hero-slider] .hero-slide:not([data-align='start']) .hero-slide__words { padding-block-end: calc(var(--hero-step) + var(--space-lg) * 2); }
 
   .hero-slide::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
   .hero-slide:is([data-overlay='none'], [data-overlay='soft'])::after { content: none; }

@@ -206,7 +206,7 @@ test('below 64rem the slide words sit under a whole picture; from 64rem over it,
   // Words at the start never reach the slider's buttons at the end, so only centred or end words
   // stop above them; the start's scrim is no taller than its words.
   assert.equal(within(SLIDES_OVER, '.home-hero--slides[data-hero-slider] .hero-slide__words'), '');
-  assert.match(within(SLIDES_OVER, ".home-hero--slides[data-hero-slider] .hero-slide:not([data-align='start']) .hero-slide__words"), /padding-block-end: calc\(2\.75rem \+ var\(--space-lg\) \* 2\)/);
+  assert.match(within(SLIDES_OVER, ".home-hero--slides[data-hero-slider] .hero-slide:not([data-align='start']) .hero-slide__words"), /padding-block-end: calc\(var\(--hero-step\) \+ var\(--space-lg\) \* 2\)/);
   // The scrim runs the slide's full width: the slider's buttons stay above it, seen and pressable.
   const layer = (selector: string) => Number(/z-index: (\d+)/.exec(body(selector))?.[1] ?? 0);
   assert.ok(layer('.hero-slider__controls') > layer('.hero-slide__words'));
@@ -316,4 +316,15 @@ test('a code block and a file card are ruled above and below, not rounded boxes'
 test('the © is drawn in the system face, where Google Sans draws it as a small raised mark', () => {
   assert.match(read('src/themes/paper/parts/Footer.astro'), /<span class="copyright-mark">&copy;<\/span>/);
   assert.match(CSS, /\.copyright-mark \{ font-family: var\(--font-system\); \}/);
+});
+
+test("below 64rem the covers slider's title keeps room for its three buttons", () => {
+  assert.match(CSS, /\.home-hero--slider \{[^}]*--hero-step: 2\.75rem;/);
+  assert.match(CSS, /\.hero-slider__step \{[^}]*width: var\(--hero-step\);[^}]*height: var\(--hero-step\);/);
+  const below = /@media \(max-width: 63\.999rem\) \{\s*\.home-hero--slider:not\(\.home-hero--slides\) \.hero-slider__caption \{ padding-inline-end: calc\(3 \* var\(--hero-step\) \+ 2 \* var\(--space-2xs\) \+ 1\.75rem \+ var\(--space-sm\)\); \}/;
+  assert.match(CSS, below);
+  const phone = /@media \(max-width: 37\.499rem\) \{\s*\.home-hero--slider:not\(\.home-hero--slides\) \.hero-slider__caption \{ padding-inline-end: var\(--space-lg\); padding-block-end: calc\(var\(--hero-step\) \+ 2 \* var\(--space-lg\)\); \}/;
+  assert.match(CSS, phone);
+  // The 16:7 picture is too short on a phone to hold three lines of title and the buttons.
+  assert.match(CSS, /@media \(max-width: 37\.499rem\) \{[^@]*\.home-hero--slider:not\(\.home-hero--slides\) \.hero-slider__slide img \{ aspect-ratio: 4 \/ 3; \}/);
 });
