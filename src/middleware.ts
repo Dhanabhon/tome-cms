@@ -3,6 +3,7 @@ import type { APIContext, MiddlewareHandler, MiddlewareNext } from 'astro';
 import { adminSignInPath, matchAdminPath, normalizeAdminPath } from './lib/admin';
 import type { OwnerSession } from './server/auth/session';
 import type { SiteSettings } from './server/content/site-settings';
+import { withStrictTransport } from './server/http/strict-transport';
 
 const SETUP_PATHS = new Set([
   '/install',
@@ -178,7 +179,7 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
 };
 
 /** Reads are remembered for the request (see server/request-memo); a request that may write reads fresh. */
-export const onRequest: MiddlewareHandler = async (context, next) => {
+async function answer(context: APIContext, next: MiddlewareNext): Promise<Response> {
   // Reads are never refused, so they do not wait on (or need) the runtime configuration the guard reads.
   if (context.request.method !== 'GET' && context.request.method !== 'HEAD') {
     const { getServerEnv } = await import('./server/env');
@@ -189,4 +190,11 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   if (context.request.method !== 'GET' && context.request.method !== 'HEAD') return (await preparedHeadlessRequest(context, next)) as Response;
   const { withRequestMemo } = await import('./server/request-memo');
   return withRequestMemo(async () => (await preparedHeadlessRequest(context, next)) as Response);
-};
+}
+
+/** Every answer, refusals and redirects included, carries HSTS on an https: site. */
+export const onRequest: MiddlewareHandler = async (context, next) => withStrictTransport(
+  await answer(context, next),
+  // Read raw, not through getServerEnv: /health/live answers before runtime configuration is loaded.
+  process.env.TOME_CMS_PUBLIC_URL,
+);

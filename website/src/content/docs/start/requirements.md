@@ -86,6 +86,8 @@ The CMS origin has to be a host name, not an IP address. The owner signs in with
 
 Moving a trial site to your own domain later works, with one catch: the owner's passkey stays with the old name and does not sign in on the new one. Point the new names at the server, run `prepare-vps.sh` and then `./scripts/deploy-vps.sh --force` with the new addresses, and sign in with [a recovery code](/tome-cms/running/recovery/#with-a-recovery-code), which creates a passkey for the new name. Keep a code at hand before you switch. Media addresses are worked out each time a page is served, so images follow the new media origin by themselves.
 
+The CMS origin answers with `Strict-Transport-Security: max-age=31536000`. A browser that has opened the site once over HTTPS then goes straight to HTTPS for a year, even for an address typed as `http://`, so a network in between cannot keep it on plain HTTP. The header has no `includeSubDomains` and no `preload`, so it says nothing about your other host names, and the media origin does not send it. A proxy in front, such as Cloudflare, may add its own HSTS; that does no harm.
+
 ## The reverse proxy
 
 The proxy is yours to provide, with its certificates, unless [`prepare-vps.sh`](/tome-cms/start/prepare-server/) sets up Caddy for you. Point each origin at its port on the server:
