@@ -13,7 +13,8 @@ test('a Thai title is saved under a Thai address, through every layer that check
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const { createPost, updatePost } = await import('../../src/server/content/posts');
-  const { createPage } = await import('../../src/server/content/pages');
+  const { createPage, updatePage } = await import('../../src/server/content/pages');
+  const { HttpError } = await import('../../src/server/http/errors');
   const { getPublishedPage, getPublishedPost } = await import('../../src/server/content/published');
   const { SLUG } = await import('../../src/lib/slug');
   context.after(closeDatabase);
@@ -65,4 +66,24 @@ test('a Thai title is saved under a Thai address, through every layer that check
   });
   assert.ok(/\p{Script=Thai}/u.test(page.slug), page.slug);
   assert.ok(await getPublishedPage('th', page.slug), 'and a reader finds the page too');
+
+  // A slug stored as one Thai run, which ICU would split, stays where it is through a save.
+  const whole = await createPost('thai-owner', { ...base, slug: 'สวัสดีครับ', title: 'Whole' });
+  assert.equal(whole.slug, 'สวัสดีครับ');
+  const resaved = await updatePost('thai-owner', { ...base, id: whole.id, slug: whole.slug, title: 'Whole, retitled', updatedAt: whole.updated_at });
+  assert.equal(resaved.slug, 'สวัสดีครับ');
+  const wholePage = await createPage('thai-owner', {
+    contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'สวัสดีครับ', status: 'published', title: 'หน้า',
+  });
+  assert.equal(wholePage.slug, 'สวัสดีครับ');
+  const resavedPage = await updatePage('thai-owner', {
+    id: wholePage.id, contentJson: content, excerpt: '', metaDescription: null, metaTitle: null,
+    slug: wholePage.slug, status: 'published', title: 'หน้า ใหม่', updatedAt: wholePage.updated_at,
+  });
+  assert.equal(resavedPage.slug, 'สวัสดีครับ');
+  // A valid slug is still a reserved one for a page.
+  await assert.rejects(
+    createPage('thai-owner', { contentJson: content, excerpt: '', metaDescription: null, metaTitle: null, slug: 'blog', status: 'draft', title: 'x' }),
+    (error) => error instanceof HttpError && /reserved/.test(error.message),
+  );
 });

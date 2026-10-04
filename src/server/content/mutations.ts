@@ -89,7 +89,13 @@ export function prepareContent(
   return content;
 }
 
+/**
+ * The slug a save stores. One that is already valid is kept as it was given: `contentSlug` re-splits
+ * Thai with ICU, so a run stored whole (an import, or typed by hand) moved on every save.
+ */
 export function normalizedContentSlug(prefix: 'page' | 'post', requested: string, title: string, id: string): string {
+  const given = requested.normalize('NFC').trim();
+  if (given.length <= SLUG_LENGTH && SLUG.test(given)) return given;
   return contentSlug(requested || title) || `${prefix}-${id.slice(0, 8)}`;
 }
 
