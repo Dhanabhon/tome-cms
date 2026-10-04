@@ -3,6 +3,7 @@ import type { APIContext, MiddlewareHandler, MiddlewareNext } from 'astro';
 import { adminSignInPath, matchAdminPath, normalizeAdminPath } from './lib/admin';
 import type { OwnerSession } from './server/auth/session';
 import type { SiteSettings } from './server/content/site-settings';
+import { invalidatePageCache, servePublicPage } from './server/http/page-cache';
 import { withStrictTransport } from './server/http/strict-transport';
 
 const SETUP_PATHS = new Set([
@@ -178,6 +179,32 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
   return routeConfiguredAdmin(context, next, settings);
 };
 
+/** An admin write that succeeded may have changed what a reader sees: the cached pages go. */
+export function afterWrite(pathname: string, response: Response): Response {
+  if (pathname.startsWith('/api/admin/') && response.status >= 200 && response.status < 300) invalidatePageCache();
+  return response;
+}
+
+/**
+ * A reader's page is answered from the page cache when it can be. A hit comes before the setup,
+ * maintenance and admin checks inside `render`, which is safe: none of those situations ever
+ * stores a page (the maintenance page and the owner's view are no-store or private).
+ */
+export async function cacheablePublicAnswer(
+  context: Pick<APIContext, 'request' | 'url'>,
+  render: () => Promise<Response>,
+  deps: { bundled?: boolean; nextScheduled?: () => Promise<Date | null> } = {},
+): Promise<Response> {
+  return servePublicPage({
+    request: context.request,
+    url: context.url,
+    // Read raw, like HSTS: a hit must not wait on (or need) the runtime configuration.
+    bundled: deps.bundled ?? (process.env.TOME_CMS_FRONTEND_MODE ?? 'bundled') === 'bundled',
+    render,
+    nextScheduled: deps.nextScheduled ?? (async () => (await import('./server/content/live')).nextScheduledPublish()),
+  });
+}
+
 /** Reads are remembered for the request (see server/request-memo); a request that may write reads fresh. */
 async function answer(context: APIContext, next: MiddlewareNext): Promise<Response> {
   // Reads are never refused, so they do not wait on (or need) the runtime configuration the guard reads.
@@ -187,9 +214,11 @@ async function answer(context: APIContext, next: MiddlewareNext): Promise<Respon
     const refused = crossSiteRefusal(context.request, new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin);
     if (refused) return refused;
   }
-  if (context.request.method !== 'GET' && context.request.method !== 'HEAD') return (await preparedHeadlessRequest(context, next)) as Response;
+  if (context.request.method !== 'GET' && context.request.method !== 'HEAD') {
+    return afterWrite(context.url.pathname, (await preparedHeadlessRequest(context, next)) as Response);
+  }
   const { withRequestMemo } = await import('./server/request-memo');
-  return withRequestMemo(async () => (await preparedHeadlessRequest(context, next)) as Response);
+  return withRequestMemo(async () => cacheablePublicAnswer(context, async () => (await preparedHeadlessRequest(context, next)) as Response));
 }
 
 /** Every answer, refusals and redirects included, carries HSTS on an https: site. */
