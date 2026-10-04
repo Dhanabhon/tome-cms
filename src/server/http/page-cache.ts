@@ -132,6 +132,10 @@ export async function servePublicPage(input: {
   }
   if (known) drop(key);
 
+  // A HEAD may be answered from a page already kept, but never fills the cache: Astro's endpoints
+  // answer a HEAD with the headers and no body, and that empty page would be served to every GET after it.
+  if (request.method === 'HEAD') return input.render();
+
   // From before the schedule is read: a write that lands during that query must stop this page being kept.
   const started = generation;
   // Asked before the render: a post that goes public while the page is drawn may be missing from it,

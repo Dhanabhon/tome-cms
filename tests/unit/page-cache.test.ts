@@ -83,8 +83,9 @@ test('a matching If-None-Match gets 304 with no body; HEAD gets no body', async 
   const notModified = await serve('/en', async () => html('x'), { headers: { 'If-None-Match': etag } });
   assert.equal(notModified.status, 304);
   assert.equal(await notModified.text(), '');
-  const head = await serve('/en', async () => html('x'), { method: 'HEAD' });
+  const head = await serve('/en', async () => html('unused'), { method: 'HEAD' });
   assert.equal(head.status, 200);
+  assert.equal(head.headers.get('x-tome-cache'), 'hit', 'a HEAD after a GET is answered from the cache');
   assert.equal(await head.text(), '');
 });
 
@@ -224,12 +225,19 @@ test('If-None-Match compares weakly, takes a list, and accepts *', async () => {
   assert.equal(await status(`${etag.slice(0, -2)}"`), 200, 'a near miss');
 });
 
-test('a HEAD miss stores the full page for the GET that follows', async () => {
-  const head = await serve('/en', async () => html('<p>full</p>'), { method: 'HEAD' });
-  assert.equal(await head.text(), '');
-  const get = await serve('/en', async () => html('unused'));
-  assert.equal(get.headers.get('x-tome-cache'), 'hit');
-  assert.equal(await get.text(), '<p>full</p>');
+test('a HEAD miss never fills the cache, so the GET after it still gets the full page', async () => {
+  // How Astro answers a HEAD for an endpoint: the headers, and no body.
+  const endpointHead = async () => new Response(null, { status: 200, headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=300' } });
+  const endpointGet = async () => new Response('<urlset/>', { status: 200, headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=300' } });
+  const head = await serve('/sitemap.xml', endpointHead, { method: 'HEAD' });
+  assert.equal(head.headers.get('x-tome-cache'), null, 'a HEAD miss is passed through untouched');
+  assert.equal(head.headers.get('etag'), null);
+  const first = await serve('/sitemap.xml', endpointGet);
+  assert.equal(first.headers.get('x-tome-cache'), 'miss');
+  assert.equal(await first.text(), '<urlset/>');
+  const second = await serve('/sitemap.xml', endpointGet);
+  assert.equal(second.headers.get('x-tome-cache'), 'hit');
+  assert.equal(await second.text(), '<urlset/>');
 });
 
 test('a scheduled post that went public during the render means the page is not served again', async () => {
