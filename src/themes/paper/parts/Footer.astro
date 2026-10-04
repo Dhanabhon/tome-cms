@@ -30,7 +30,7 @@ const [creditBefore, creditAfter] = copy.poweredBy.split('{tomecms}');
       </nav>
     )}
     <p>
-      &copy; {currentYear(locale)} <a href={localePath(locale)}>{siteName}</a>. {copy.allRightsReserved}
+      <span class="copyright-mark">&copy;</span> {currentYear(locale)} <a href={localePath(locale)}>{siteName}</a>. {copy.allRightsReserved}
     </p>
     {showPoweredBy && <p class="site-footer__credit">{creditBefore}<a href={OFFICIAL_REPOSITORY_URL} rel="noopener noreferrer" target="_blank">TomeCMS<span class="sr-only"> {copy.opensInNewTab}</span></a>{creditAfter}</p>}
   </div>

@@ -92,6 +92,9 @@
   --font-body: "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* Code, in a block and inline: the reader's own monospace, so nothing is downloaded for it. */
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* The reader's own interface face, for a glyph a web font draws badly: Google Sans's © is a small
+   * raised mark, so a footer's © alone is set in this. */
+  --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 
   --space-3xs: 0.125rem;
   --space-2xs: 0.25rem;

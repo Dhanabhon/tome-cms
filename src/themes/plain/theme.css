@@ -28,6 +28,7 @@ html:has(> body.plain) { background: var(--color-paper); }
   --plain-field: 2.5rem;
   /* The lead's excerpt and a grid title: between the scale's base and md. */
   --plain-text-lead: 1.125rem;
+  --plain-text-h2: 1.75rem;
   display: flex;
   flex-direction: column;
   min-height: 100svh;
@@ -64,6 +65,7 @@ html:has(> body.plain) { background: var(--color-paper); }
 .plain-foot { margin-block-start: auto; border-block-start: var(--rule-hair) solid var(--color-rule); color: var(--color-muted); font-size: var(--text-sm); }
 
 .plain-foot p { overflow-wrap: anywhere; }
+.copyright-mark { font-family: var(--font-system); }
 .plain-foot__credit { margin-inline-start: auto; }
 
 @media (max-width: 39.999rem) {
@@ -296,7 +298,7 @@ html:has(> body.plain) { background: var(--color-paper); }
 .plain-more { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-sm) var(--space-lg); margin-block-start: var(--space-xl); }
 
 .plain-back { margin: 0 0 var(--space-md); font-size: var(--text-sm); }
-.plain-article h1 { margin: 0 0 var(--space-sm); font-size: var(--text-title); font-weight: 700; line-height: 1.2; text-wrap: balance; }
+.plain-article h1 { margin: 0 0 var(--space-sm); font-size: var(--text-title); font-weight: 700; line-height: 1.2; text-wrap: pretty; }
 /* Thai stacks marks above and below the letter: tracking pulls a cluster's marks into the next
  * one, and 1.2 brings a wrapped title's two lines into each other. Latin keeps both. */
 :lang(th) :is(.plain-wordmark, .plain-lead h2, .plain-article h1) { letter-spacing: 0; }
@@ -317,8 +319,8 @@ html:has(> body.plain) { background: var(--color-paper); }
 .plain-body h2, .plain-body h3 { margin-block-start: var(--space-xl); line-height: 1.3; }
 /* Tailwind's preflight sets every heading to the body's size and weight and takes a list's
  * markers and indent away. Paper and Almanac get them back from a prose class; this is Plain's. */
-.plain-body h2 { font-size: var(--text-xl); font-weight: 700; }
-.plain-body h3 { font-size: var(--text-md); font-weight: 700; }
+.plain-body h2 { font-size: var(--plain-text-h2); font-weight: 700; }
+.plain-body h3 { font-size: var(--text-xl); font-weight: 700; }
 .plain-body :is(h4, h5, h6) { font-weight: 600; }
 .plain-body :is(ul, ol) { padding-inline-start: var(--space-lg); }
 .plain-body ul { list-style: disc; }

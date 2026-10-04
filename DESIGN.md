@@ -231,7 +231,7 @@ rings. It also rejects a literal `bg-white` anywhere in `src/`.
 
 Typography uses two families. Google Sans carries the display roles -- the post title the writer types and the reader gets, the hero, and the card and section headings -- and IBM Plex Sans Thai carries the interface and the running text. A headline set in the interface face at 54px read as an app header rather than as a headline, so the pair is the point. Keep hierarchy mapped to these token rows before adding decorative type styles.
 
-Code, in a block and inline, is set in `--font-mono`: the reader's own monospace, so nothing is downloaded for it.
+Code, in a block and inline, is set in `--font-mono`: the reader's own monospace, so nothing is downloaded for it. `--font-system` is the reader's own interface face, for a single glyph a web font draws badly, such as the © in a footer set in Google Sans.
 
 The display headlines lead at 1.2. Thai stacks marks above and below the letter, and a Latin headline's 1.0 to 1.04 brought a wrapped title's two lines into each other wherever a descender on the first met a tone mark on the second. Weight range spans bold, regular, semi-bold, medium. Sizes range from 12px to 64px.
 

@@ -101,9 +101,9 @@ const rule = (selector: string) => {
 test("a post's headings are headings: h2 and h3 sized off the scale and bold, h4 to h6 semi-bold", () => {
   // Tailwind's preflight sets every heading to the body's size and weight; Paper and Almanac
   // put theirs back inside a prose class, and Plain's body had nothing.
-  assert.match(rule('.plain-body h2'), /font-size: var\(--text-xl\);/);
+  assert.match(rule('.plain-body h2'), /font-size: var\(--plain-text-h2\);/);
   assert.match(rule('.plain-body h2'), /font-weight: 700;/);
-  assert.match(rule('.plain-body h3'), /font-size: var\(--text-md\);/);
+  assert.match(rule('.plain-body h3'), /font-size: var\(--text-xl\);/);
   assert.match(rule('.plain-body h3'), /font-weight: 700;/);
   assert.match(rule('.plain-body :is(h4, h5, h6)'), /font-weight: 600;/);
   // The margin and the leading they already had stay.
@@ -195,9 +195,9 @@ test('every word in Plain is Google Sans, Latin and Thai, through the font token
     assert.doesNotMatch(family, /Plex/, `--${name} still names Plex`);
   }
   assert.match(top('.plain'), /font-family: var\(--font-body\);/);
-  // A family is named only in the token block: no literal anywhere else.
+  // A family is named only in the token block: no literal anywhere else. The © alone takes the system face.
   for (const rule of RULES.filter(({ selector }) => selector !== ':root:has(> body.plain, .plain-article)')) {
-    assert.doesNotMatch(rule.body, /font-family:(?! var\(--font-(body|display|mono)\)| inherit)/, `${rule.selector} names a face`);
+    assert.doesNotMatch(rule.body, /font-family:(?! var\(--font-(body|display|mono|system)\)| inherit)/, `${rule.selector} names a face`);
   }
   for (const file of ['Shell.astro', 'theme.css', 'index.ts', 'theme.ts']) {
     assert.doesNotMatch(read(file), /system font|reader's own font/i, `${file} describes the old face`);
@@ -228,6 +228,10 @@ test('the cover stands off the first paragraph, and does not say the title again
   assert.doesNotMatch(post, /alt=\{post\.title\}/);
 });
 
+test('a body h2 is 28px off Plain\'s own token, a clear step above h3', () => {
+  assert.match(css, /--plain-text-h2: 1\.75rem;/);
+});
+
 test("Plain's code block is a rule above and below: no radius, no side borders", () => {
   const block = top('.plain-body :is(pre, pre.code-block)');
   assert.match(block, /border-inline: 0;/);
@@ -242,14 +246,19 @@ test('a hover is only a hover where a pointer really hovers', () => {
   for (const rule of hovers) assert.ok(rule.context.includes(HOVER), `${rule.selector} hovers on a tap`);
 });
 
-test('the lead runs across the frame, and an article title and a grid title wrap in balanced lines', () => {
+test('the lead and the article title run across the frame, and a grid title wraps in balanced lines', () => {
   // 1.14.1: balance halved a long lead title across the frame; pretty fills the line and only keeps
   // a last word company.
   assert.match(top('.plain-lead h2'), /text-wrap: pretty;/);
   assert.doesNotMatch(top('.plain-lead p'), /max-width/);
-  for (const selector of ['.plain-article h1', '.plain-grid h2']) {
-    assert.match(top(selector), /text-wrap: balance;/, selector);
-  }
+  // 1.15.0: the article title fills its line too; only the narrow grid titles balance.
+  assert.match(top('.plain-article h1'), /text-wrap: pretty;/);
+  assert.match(top('.plain-grid h2'), /text-wrap: balance;/);
+});
+
+test('the © is drawn in the system face, where Google Sans draws it as a small raised mark', () => {
+  assert.match(read('Shell.astro'), /<span class="copyright-mark">&copy;<\/span>/);
+  assert.match(css, /\.copyright-mark \{ font-family: var\(--font-system\); \}/);
 });
 
 test('type sizes come off the scale, with a lead size of Plain\'s own', () => {

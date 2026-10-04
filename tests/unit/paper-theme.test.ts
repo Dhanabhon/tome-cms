@@ -312,3 +312,8 @@ test('a code block and a file card are ruled above and below, not rounded boxes'
   assert.match(card, /border-radius: 0/);
   assert.match(card, /border-color: var\(--color-rule-strong\)/);
 });
+
+test('the © is drawn in the system face, where Google Sans draws it as a small raised mark', () => {
+  assert.match(read('src/themes/paper/parts/Footer.astro'), /<span class="copyright-mark">&copy;<\/span>/);
+  assert.match(CSS, /\.copyright-mark \{ font-family: var\(--font-system\); \}/);
+});

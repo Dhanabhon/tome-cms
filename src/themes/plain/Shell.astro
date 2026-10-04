@@ -47,7 +47,7 @@ const languages = alternates.filter(({ locale: option }) => option !== locale);
         {links.map((item) => <SiteNavLink copy={copy} currentPath={currentPath} item={item} />)}
       </nav>
     )}
-    <p>&copy; {currentYear(locale)} {siteName}.</p>
+    <p><span class="copyright-mark">&copy;</span> {currentYear(locale)} {siteName}.</p>
     {showPoweredBy && <p class="plain-foot__credit">{poweredByText(copy)}</p>}
   </footer>
 </body>
