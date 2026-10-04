@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { EditorDocument } from '../../src/types/cms';
 
-test('the next scheduled moment is the earliest future published_at of a published post or page', async (context) => {
+test('the next scheduled moment is the earliest of a post or page going public and an enabled home slide starting or ending', async (context) => {
   assert.equal(process.env.NODE_ENV, 'test');
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test', 'use only the disposable Foundation database');
   const { db, closeDatabase } = await import('../../src/server/db/client');
@@ -11,6 +11,8 @@ test('the next scheduled moment is the earliest future published_at of a publish
   const { createPost } = await import('../../src/server/content/posts');
   const { createPage } = await import('../../src/server/content/pages');
   const { nextScheduledPublish } = await import('../../src/server/content/live');
+  const { replaceSlides } = await import('../../src/server/content/slides');
+  const { homeSlidesSchema } = await import('../../src/lib/home-slides');
   context.after(closeDatabase);
 
   await migrateToLatest();
@@ -37,4 +39,23 @@ test('the next scheduled moment is the earliest future published_at of a publish
   const next = await nextScheduledPublish();
   assert.ok(next);
   assert.equal(next.getTime(), inAnHour.getTime(), 'the page, an hour away, comes first; the draft does not count');
+
+  // A home slide starts and ends with no write, so its edges expire a cached home page too.
+  const lake = (await db.insertInto('media_items').values({
+    owner_id: 'sched-owner', folder_id: null, checksum_sha256: `${'A'.repeat(43)}=`, alt_text: 'A lake at dawn', state: 'ready',
+    delete_error_code: null, object_key: 'owners/sched-owner/2026/09/lake.jpg', original_name: 'lake.jpg',
+    mime_type: 'image/jpeg', size_bytes: 400_000, width: 2400, height: 1350,
+  }).returning('id').executeTakeFirstOrThrow()).id;
+  const saveSlide = (slide: Record<string, unknown>) => replaceSlides('sched-owner', homeSlidesSchema.parse({ locale: 'en', slides: [{ mediaId: lake, ...slide }] }));
+
+  const inHalfAnHour = new Date(Date.now() + 1_800_000);
+  await saveSlide({ startsAt: inHalfAnHour.toISOString() });
+  assert.equal((await nextScheduledPublish())?.getTime(), inHalfAnHour.getTime(), 'a slide starting in 30 minutes comes before the page');
+
+  const inTwentyMinutes = new Date(Date.now() + 1_200_000);
+  await saveSlide({ endsAt: inTwentyMinutes.toISOString() });
+  assert.equal((await nextScheduledPublish())?.getTime(), inTwentyMinutes.getTime(), 'a live slide that ends in 20 minutes');
+
+  await saveSlide({ enabled: false, startsAt: new Date(Date.now() + 600_000).toISOString() });
+  assert.equal((await nextScheduledPublish())?.getTime(), inAnHour.getTime(), 'a disabled slide never goes live, so its start is not a moment');
 });

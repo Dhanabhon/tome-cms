@@ -23,17 +23,22 @@ export function live(alias: string) {
 }
 
 /**
- * When the next scheduled post or page goes public, or null when none is waiting.
+ * The next moment a public page changes on its own, or null when none is waiting.
  *
- * The page cache's one expiry no write announces: a scheduled post appears when its moment comes,
- * and nothing is written then, so a cached home page, feed or sitemap must not outlive it.
+ * The page cache's one expiry no write announces: a scheduled post or page appears when its moment
+ * comes, and an enabled home slide goes live or ends at its start or end, and nothing is written
+ * then. A cached home page, feed or sitemap must not outlive that moment.
  */
 export async function nextScheduledPublish(): Promise<Date | null> {
   const result = await sql<{ next: Date | null }>`
-    select min(published_at) as next from (
-      select published_at from posts where status = 'published' and published_at > now()
+    select min(moment) as next from (
+      select published_at as moment from posts where status = 'published' and published_at > now()
       union all
       select published_at from pages where status = 'published' and published_at > now()
+      union all
+      select starts_at from home_slides where enabled and starts_at > now()
+      union all
+      select ends_at from home_slides where enabled and ends_at > now()
     ) as scheduled
   `.execute(db);
   return result.rows[0]?.next ?? null;
