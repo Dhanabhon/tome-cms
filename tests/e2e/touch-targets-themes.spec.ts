@@ -1,12 +1,10 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
-import type { Page } from '@playwright/test';
-
 import { contentSlug } from '../../src/lib/slug';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 import { expect, test } from './own-worker';
-import { smallTargets } from './touch-targets';
+import { everyState } from './touch-targets';
 
 /**
  * Every control in the three public themes -- Paper, Almanac and Plain -- is at least 44 × 44 CSS px
@@ -269,25 +267,6 @@ const ALLOWED: readonly string[] = [
   '.post-card__title a',
 ];
 
-/**
- * The small targets as the page loads, and then with each menu open in turn (its parent menus too): what a
- * closed <details> holds is not shown, so it is measured where a finger meets it, open. One at a time, as
- * the header's sub-menus share a name and so only one of them is ever open.
- */
-async function everyState(page: Page): Promise<string[]> {
-  const found = new Set(await smallTargets(page, ALLOWED));
-  const menus = await page.locator('details').count();
-  for (let index = 0; index < menus; index += 1) {
-    await page.evaluate((only) => {
-      const all = [...document.querySelectorAll('details')];
-      for (const details of all) details.open = false;
-      for (let details: Element | null = all[only]; details; details = details.parentElement?.closest('details') ?? null) (details as HTMLDetailsElement).open = true;
-    }, index);
-    for (const line of await smallTargets(page, ALLOWED)) found.add(line);
-  }
-  return [...found];
-}
-
 test('every control in the three themes is at least 44 × 44 under a coarse pointer', async ({ page }) => {
   test.setTimeout(300_000);
   const { sql } = await import('kysely');
@@ -299,7 +278,7 @@ test('every control in the three themes is at least 44 × 44 under a coarse poin
     for (const [name, path] of SCREENS) {
       await page.goto(`${origin}${path}`);
       await page.waitForLoadState('networkidle');
-      for (const line of await everyState(page)) failures.push(`${theme} ${name}: ${line}`);
+      for (const line of await everyState(page, ALLOWED)) failures.push(`${theme} ${name}: ${line}`);
     }
   }
   expect(failures, failures.join('\n')).toEqual([]);

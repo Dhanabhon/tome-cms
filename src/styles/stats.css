@@ -14,6 +14,10 @@
 .stats-segments a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .stats-segments a[aria-current='true'] { border-block-end-color: var(--color-accent); color: var(--color-ink); font-weight: 600; }
 .stats-segments a:active { color: var(--color-focus); }
+/* On a touch screen a period is at least a field wide, its short label centred over its underline. */
+@media (pointer: coarse) {
+  .stats-segments a { min-inline-size: var(--control-height); text-align: center; }
+}
 
 /* Three figures on one row, ruled above and below, a rule between: the page's lead. */
 .stats-summary { display: grid; margin: var(--space-xl) 0 var(--space-xs); border-block: var(--rule-hair) solid var(--color-rule); }

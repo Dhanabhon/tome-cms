@@ -376,6 +376,12 @@ html[data-notice-closed] .site-notice { display: none; }
 .admin-check > label { display: contents; }
 .admin-check input { width: 1.125rem; height: 1.125rem; margin-block-start: var(--space-3xs); }
 .admin-check small { grid-column: 2; }
+/* On a touch screen the label is a row of its own after all, a field tall, so the box and its words are
+ * one target a finger can find; subgrid keeps them on the two columns the hint lines up with. */
+@media (pointer: coarse) {
+  .admin-check > label { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; min-block-size: var(--control-height); }
+  .admin-check input { margin-block-start: 0; }
+}
 /* The logo, dark logo and icon fields on Settings. Each preview sits on the surface it will be
  * seen on, in either admin theme -- --color-sample-light and --color-hero do not turn with it. */
 .brand-fields { display: grid; gap: var(--space-lg); margin-block-end: var(--space-md); }
@@ -786,6 +792,15 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .editor-menu {
   max-width: calc(100vw - 1rem);
   z-index: 50;
+}
+/* A finger's buttons are a field wide, and eleven of them are wider than a phone: a bar's row wraps
+ * rather than clipping the last ones out of reach. The bar keeps the width it would have on one line,
+ * capped at the screen's, so it is the same width wherever it is placed: shrinking to fit the room
+ * left of it, it measured narrower than it drew and was placed past the screen's edge. The slash
+ * menu, a listbox of its own width, is not a bar. */
+@media (pointer: coarse) {
+  .editor-menu:not([role='listbox']) { width: max-content; }
+  .editor-menu:not([role='listbox']) > div:first-child { flex-wrap: wrap; }
 }
 
 /* The colour button: an A over a bar in the colour in force, and its row of swatches. */
@@ -2435,8 +2450,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
   .notice-back a:hover { text-decoration: underline; }
 }
 
+/* The text links -- the way back, the footer's credits, a note's link, View on site and Read release
+ * notes -- are a field's height on a touch screen. */
 @media (pointer: coarse) {
-  .notice-back a { display: inline-flex; min-block-size: var(--control-height); align-items: center; }
+  :is(.notice-back, .admin-footer, .admin-card--note p, .navigation-save) a, .update-release-notes { display: inline-flex; min-block-size: var(--control-height); align-items: center; }
 }
 
 .admin-title-input::placeholder { color: var(--color-placeholder); opacity: 1; }
