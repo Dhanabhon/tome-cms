@@ -48,10 +48,10 @@ test("an article's and a page's title is as bold as the home page's lead", () =>
   assert.equal(weight('\\.plain-article h1'), weight('\\.plain-lead h2'));
 });
 
-test('the grid is one column, two from 40rem and three from 64rem, each item under a hairline', () => {
-  assert.match(css, /\.plain-grid \{[^}]*grid-template-columns: 1fr/);
-  assert.match(css, /@media \(min-width: 40rem\) \{[^}]*\.plain-grid \{ grid-template-columns: repeat\(2, 1fr\)/);
-  assert.match(css, /@media \(min-width: 64rem\) \{[^}]*\.plain-grid \{ grid-template-columns: repeat\(3, 1fr\)/);
+test('the grid fits as many 18rem columns as the frame holds, and its posts share the width, each under a hairline', () => {
+  // auto-fit, not auto-fill: two posts on a wide screen are halves, never two thirds and an empty third.
+  assert.match(css, /\.plain-grid \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(min\(18rem, 100%\), 1fr\)\)/);
+  assert.doesNotMatch(css, /\.plain-grid \{ grid-template-columns: repeat\([23], 1fr\)/);
   assert.match(css, /\.plain-grid > li \{[^}]*border-block-start: var\(--rule-hair\) solid var\(--color-rule\)/);
   assert.match(css, /-webkit-line-clamp: 3;\s*line-clamp: 3;/);
 });
@@ -215,14 +215,10 @@ test('the shell is at least a small viewport tall, so a phone toolbar does not l
   assert.doesNotMatch(PLAIN, /100vh/);
 });
 
-test("a post's running text keeps a reading measure in rem, not ch", () => {
-  const measure = /max-inline-size: ([\d.]+)rem;/.exec(top('.plain-body > :is(p:not(.file-card), ul, ol, blockquote, h2, h3)'))?.[1];
-  assert.ok(measure, 'the prose has a measure');
-  // About 68 characters of 16px Google Sans, counted in a screenshot.
-  assert.ok(Number(measure) >= 30 && Number(measure) <= 33, `${measure}rem`);
+test("a post's running text spans the article's column, with no measure in ch", () => {
+  // 1.14.1: the owner wants the words as wide as the pictures beside them, so no narrower cap.
+  assert.doesNotMatch(PLAIN, /\.plain-body > :is\([^)]*\) \{ max-inline-size/);
   assert.doesNotMatch(PLAIN, /\dch\b/, 'no measure in ch, which counts Thai badly');
-  // A file card is a <p>, and is as wide as the picture and the code beside it.
-  assert.doesNotMatch(PLAIN, /\.plain-body > :is\(p,/);
 });
 
 test('the cover stands off the first paragraph, and does not say the title again', () => {
@@ -246,8 +242,12 @@ test('a hover is only a hover where a pointer really hovers', () => {
   for (const rule of hovers) assert.ok(rule.context.includes(HOVER), `${rule.selector} hovers on a tap`);
 });
 
-test('the lead, an article title and a grid title wrap in balanced lines', () => {
-  for (const selector of ['.plain-lead h2', '.plain-article h1', '.plain-grid h2']) {
+test('the lead runs across the frame, and an article title and a grid title wrap in balanced lines', () => {
+  // 1.14.1: balance halved a long lead title across the frame; pretty fills the line and only keeps
+  // a last word company.
+  assert.match(top('.plain-lead h2'), /text-wrap: pretty;/);
+  assert.doesNotMatch(top('.plain-lead p'), /max-width/);
+  for (const selector of ['.plain-article h1', '.plain-grid h2']) {
     assert.match(top(selector), /text-wrap: balance;/, selector);
   }
 });

@@ -141,9 +141,9 @@
 
 /* The core's 404 title is drawn tight for Google Sans at 700; in Almanac it is a title like the
  * theme's own, Trirong at 600 with no tracking, at a post title's size. The block is on the
- * article's column: the same 35em of the same 18px (.almanac-article). */
+ * article's column: the same 44em of the same 18px (.almanac-article). */
 .almanac .article-title { font-size: var(--text-title); font-weight: 600; letter-spacing: 0; }
-.almanac .notice-page { inline-size: min(100% - 2 * var(--almanac-gutter), 35em); max-inline-size: none; padding-inline: 0; font-size: 1.125rem; }
+.almanac .notice-page { inline-size: min(100% - 2 * var(--almanac-gutter), 44em); max-inline-size: none; padding-inline: 0; font-size: 1.125rem; }
 
 /* The header: the brand with the menu right after it, and the search at the row's end. */
 .almanac-header { position: relative; border-block-end: var(--rule-hair) solid var(--color-rule); }
@@ -605,12 +605,12 @@ main:has(.almanac-feed__heading:not(.sr-only)) :is(.almanac-hero__lead, .almanac
   .almanac-header :not([popover]), .almanac-footer :not([popover]) { transition: none !important; animation: none !important; }
 }
 
-/* A post and a page: one column of reading, 35em of the body's 18 px, centred: about 70 characters
- * a line (36em was counted at 73-77). Not ch, which is the width of a "0" and counts running text, and Thai, short. The head
+/* A post and a page: one column of reading, 44em of the body's 18 px (792 px), centred. 35em read
+ * as a narrow strip in the middle of a wide screen (the owner's call, 1.14.1). The head
  * and the end are sized from the root; only the body reads at 18 px. The gutter's fallback is for
  * the admin's draft preview, which has no Almanac body to set it. */
 .almanac-article {
-  inline-size: min(100% - 2 * var(--almanac-gutter, 1.25rem), 35em);
+  inline-size: min(100% - 2 * var(--almanac-gutter, 1.25rem), 44em);
   margin-inline: auto;
   padding-block: var(--space-xl) var(--space-2xl);
   color: var(--color-ink);

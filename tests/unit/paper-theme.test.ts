@@ -143,8 +143,9 @@ test('every hover sits inside (hover: hover), so a tap leaves nothing behind', (
   assert.deepEqual(loose, []);
 });
 
-test('the prose caps its measure in rem, and the quote and the error notice lose their stripes', () => {
-  assert.match(body('.post-body > :is(p, ul, ol, blockquote, h2, h3)'), /max-inline-size: 33rem/);
+test('the prose spans the post column like its pictures, and the quote and the error notice lose their stripes', () => {
+  // 1.14.1: the owner wants the words to reach the picture's right edge, so no narrower measure.
+  assert.doesNotMatch(read('src/themes/paper/theme.css'), /\.post-body > :is\([^)]*\) \{ max-inline-size/);
   assert.match(body('.post-body blockquote'), /border-inline-start: var\(--rule-hair\) solid var\(--color-rule-strong\)/);
   assert.doesNotMatch(HOME, /border-l-2/);
   assert.match(body('.post-feed__error'), /border: var\(--rule-hair\) solid/);

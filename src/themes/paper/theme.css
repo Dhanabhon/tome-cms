@@ -965,11 +965,8 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 
 .post-body { margin-block-start: var(--space-xl); }
 
-/* The running text keeps a reading measure, about 70 characters, inside the column a cover and a
- * code block still use in full. In rem, not ch: a ch is a Latin zero, and measures Thai badly.
- * 33rem is counted, not computed: Google Sans sets about 7.5px a character at the body size, so
- * the 38rem the audit worked out for IBM Plex Sans Thai ran to 81-85 characters a line. */
-.post-body > :is(p, ul, ol, blockquote, h2, h3) { max-inline-size: 33rem; }
+/* The running text spans the post's column, as its cover and its pictures do: a narrower measure
+ * left the words stopping short of the picture above them (the owner's call, 1.14.1). */
 
 /* Inline code: a quiet tint in the line. The typography plugin's backticks are reset in tailwind.config.mjs. */
 .post-body :not(pre) > code { padding: 0.1em 0.35em; border-radius: var(--radius-sm); background: var(--color-paper-3); }
