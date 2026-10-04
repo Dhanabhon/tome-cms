@@ -1,5 +1,7 @@
 import { sql } from 'kysely';
 
+import { db } from '../db/client';
+
 /**
  * What "published" means to a reader: said so, dated, and the date has come.
  *
@@ -18,4 +20,21 @@ export function live(alias: string) {
   return sql<boolean>`${sql.ref(`${alias}.status`)} = 'published'
     and ${sql.ref(`${alias}.published_at`)} is not null
     and ${sql.ref(`${alias}.published_at`)} <= now()`;
+}
+
+/**
+ * When the next scheduled post or page goes public, or null when none is waiting.
+ *
+ * The page cache's one expiry no write announces: a scheduled post appears when its moment comes,
+ * and nothing is written then, so a cached home page, feed or sitemap must not outlive it.
+ */
+export async function nextScheduledPublish(): Promise<Date | null> {
+  const result = await sql<{ next: Date | null }>`
+    select min(published_at) as next from (
+      select published_at from posts where status = 'published' and published_at > now()
+      union all
+      select published_at from pages where status = 'published' and published_at > now()
+    ) as scheduled
+  `.execute(db);
+  return result.rows[0]?.next ?? null;
 }
