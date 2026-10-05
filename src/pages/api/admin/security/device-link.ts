@@ -55,10 +55,11 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
   }
 };
 
-export const DELETE: APIRoute = async ({ clientAddress, request }) => {
+export const DELETE: APIRoute = async ({ request }) => {
   const requestId = randomUUID();
   try {
-    await mutationGuard(request, clientAddress);
+    // Cancelling can only spend a link, so it does not draw on the owner's sign-in budget.
+    assertSameOrigin(request, configuredOrigin);
     const current = await requireInstalledOwner(request.headers);
     // Cancelling only takes power away, so an older session may do it.
     await cancelDeviceEnrollments(current.user.id);

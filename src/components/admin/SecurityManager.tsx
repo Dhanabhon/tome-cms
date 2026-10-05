@@ -57,14 +57,18 @@ interface DeviceLink {
   qr: string;
 }
 
-/** The QR is the link in black on white, drawn as SVG so it stays sharp at any size. */
+/**
+ * The QR is the link in black on white, drawn as SVG so it stays sharp at any size. The margin is
+ * 16 units: four modules of cellSize 4, the quiet zone a scanner needs. The SVG paints its own white
+ * behind it, so the code is dark on white in both themes.
+ */
 async function qrDataUrl(url: string): Promise<string> {
   try {
     const { default: qrcode } = await import('qrcode-generator');
     const code = qrcode(0, 'M');
     code.addData(url);
     code.make();
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(code.createSvgTag({ cellSize: 4, margin: 2, scalable: true }))}`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(code.createSvgTag({ cellSize: 4, margin: 16, scalable: true }))}`;
   } catch {
     // The link still works without its picture.
     return '';
@@ -270,13 +274,16 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         setMessage(describeReauthFailure(assertion, copy, copy.security.linkNotCreated));
         return;
       }
+      // Counted from a fresh load, so a list that was stale or not yet loaded cannot make the first
+      // focus read as a device that came in.
+      const knownPasskeys = (await loadPasskeys()).length;
       const response = await fetch('/api/admin/security/device-link', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } });
       const payload = await responsePayload(response);
       const expiresAt = typeof payload.expiresAt === 'string' ? Date.parse(payload.expiresAt) : Number.NaN;
       if (!response.ok || typeof payload.url !== 'string' || Number.isNaN(expiresAt)) {
         throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCreated);
       }
-      setDeviceLink({ url: payload.url, expiresAt, knownPasskeys: passkeys.length, qr: await qrDataUrl(payload.url) });
+      setDeviceLink({ url: payload.url, expiresAt, knownPasskeys, qr: await qrDataUrl(payload.url) });
     } catch (error) {
       setMessage(describePasskeyException(error, copy, error instanceof Error ? error.message : copy.security.linkNotCreated));
     } finally {

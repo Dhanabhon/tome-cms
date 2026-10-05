@@ -13,5 +13,9 @@ export default defineConfig({
   security: { checkOrigin: false },
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
-  vite: { cacheDir: process.env.TOME_CMS_VITE_CACHE_DIR ?? defaultViteCacheDir },
+  vite: {
+    cacheDir: process.env.TOME_CMS_VITE_CACHE_DIR ?? defaultViteCacheDir,
+    // Without this the dev server re-optimises on the first QR import and reloads the page mid-test.
+    optimizeDeps: { include: ['qrcode-generator'] },
+  },
 });

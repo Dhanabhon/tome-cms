@@ -263,7 +263,7 @@ const en = {
     providers: {
       google: { name: 'Google Password Manager', hint: 'Use Chrome signed in to the same Google account on another computer.' },
       icloud: { name: 'iCloud Keychain', hint: 'Use Safari or any browser on an iPhone, iPad or Mac with the same Apple Account.' },
-      'chrome-mac': { name: 'Chrome on this Mac', hint: 'Only in Chrome on the Mac that made it.' },
+      'chrome-mac': { name: 'Chrome on a Mac', hint: 'Only in Chrome on the Mac that made it.' },
       'windows-hello': { name: 'Windows Hello', hint: 'Only on the Windows PC that made it.' },
       '1password': { name: '1Password', hint: 'On any device where 1Password is installed and unlocked.' },
       bitwarden: { name: 'Bitwarden', hint: 'On any device where Bitwarden is installed and unlocked.' },
@@ -1459,7 +1459,7 @@ const th: typeof en = {
     providers: {
       google: { name: 'Google Password Manager', hint: 'ใช้ Chrome ที่ลงชื่อเข้าใช้บัญชี Google เดียวกันบนคอมพิวเตอร์เครื่องอื่น' },
       icloud: { name: 'iCloud Keychain', hint: 'ใช้ Safari หรือเบราว์เซอร์ใดก็ได้บน iPhone, iPad หรือ Mac ที่ใช้ Apple Account เดียวกัน' },
-      'chrome-mac': { name: 'Chrome บน Mac เครื่องนี้', hint: 'ใช้ได้เฉพาะใน Chrome บน Mac เครื่องที่สร้างไว้' },
+      'chrome-mac': { name: 'Chrome บน Mac', hint: 'ใช้ได้เฉพาะใน Chrome บน Mac เครื่องที่สร้างไว้' },
       'windows-hello': { name: 'Windows Hello', hint: 'ใช้ได้เฉพาะบนเครื่อง Windows ที่สร้างไว้' },
       '1password': { name: '1Password', hint: 'ใช้ได้บนทุกอุปกรณ์ที่ติดตั้ง 1Password และปลดล็อกไว้' },
       bitwarden: { name: 'Bitwarden', hint: 'ใช้ได้บนทุกอุปกรณ์ที่ติดตั้ง Bitwarden และปลดล็อกไว้' },

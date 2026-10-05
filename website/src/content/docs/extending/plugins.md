@@ -76,7 +76,7 @@ Then it prints the next steps: `npm run dev`, switch the plugin on under Plugins
 | `publicPage` | "Every public page" | At least one of `siteNotice`, `sitePopup` and `publicClient` |
 | `editorSuggestions` | "Suggestions while writing" | At least one of `categoryLikelihoods`, `pickExcerpt` and `pickDescription` |
 
-The `Plugin` type requires `signInWidget` and `verifySignIn` of every plugin. One that does not guard the sign-in returns `null` from the first and `{ outcome: 'passed' }` from the second, as the lightbox does.
+The `Plugin` type requires `signInWidget` and `verifySignIn` of every plugin. One that does not guard the recovery-code form returns `null` from the first and `{ outcome: 'passed' }` from the second, as the lightbox does.
 
 Every method is given the plugin's settings. The public page methods are also given the page they are asked about, as a `PublicPage`: its `kind`, which is `home`, `page` or `post`, and its `locale`. A plugin decides from these whether it has anything to add there, and returns `null` when it has not.
 
@@ -84,15 +84,15 @@ Every method is given the plugin's settings. The public page methods are also gi
 
 A plugin returns data, and the core decides how it looks and what follows from it. Nothing a plugin returns is written into a page as HTML.
 
-- `signInWidget` returns the class name and data attributes of a container, a script to load, and the name of the form field the widget writes its answer into. The sign-in form renders it.
+- `signInWidget` returns the class name and data attributes of a container, a script to load, and the name of the form field the widget writes its answer into. The recovery-code form renders it.
 - `siteNotice` returns words and at most one link, with the band's colours as `#rrggbb` and a key that closing it is remembered under, both optional. The core draws the band, with a close button when there is a key, and drops a link that is neither on the site nor `https`.
 - `sitePopup` returns a heading, words, one link and an image from the File Manager by its id, with when it opens (`trigger`, after `delaySeconds` or as the reader leaves), the language of its words, and a key that closing it is remembered under. The core drops the whole popup when its heading or its link's label is empty, when the link is neither on the site nor `https`, or when the key is not 1 to 80 letters, digits and hyphens. It draws the image only while it is still a ready image in the owner's File Manager.
-- `verifySignIn` says what it found: `passed`, `refused` or `unavailable`, with a `detail` for the log. The core decides what follows. A refused attempt is refused. An unavailable one, where the third party could not be asked, is logged and goes on to the passkey, and a plugin that throws counts as unavailable. So a plugin that breaks, or a service that is down, does not lock the owner out.
+- `verifySignIn` says what it found: `passed`, `refused` or `unavailable`, with a `detail` for the log. The core decides what follows. A refused attempt is refused. An unavailable one, where the third party could not be asked, is logged and the recovery code is checked as usual, and a plugin that throws counts as unavailable. So a plugin that breaks, or a service that is down, does not lock the owner out.
 - `categoryLikelihoods` returns how likely the article belongs under each category, by category id. `pickExcerpt` and `pickDescription` choose one of the passages the core offered. The core decides which likelihoods become suggestions, keeps a passage only if it is one it offered, and treats `null` as "did not answer".
 
 The core draws the band and the popup. It also closes a band that has a key, and remembers that it was closed, so a plugin's `siteNotice` needs no browser code of its own. The code that opens a popup is not in the core: it is in `src/plugins/popup/client.ts`, and it loads only through the popup plugin's `publicClient`. A plugin of yours that returns `sitePopup` also returns `publicClient` for the same pages and ships a `client.ts` that opens it. Without one, the popup is drawn and never opens.
 
-The core also limits how many plugins act at once. One plugin stands in front of the sign-in, and a page carries at most one band and one popup. When several are switched on, the first in the registry's order that answers is the one used.
+The core also limits how many plugins act at once. One plugin stands in front of the recovery-code form, and a page carries at most one band and one popup. When several are switched on, the first in the registry's order that answers is the one used.
 
 `publicClient` is the one hook that runs a plugin's own code in every reader's browser. It returns `null`, or an object whose `dataset` reaches the browser as `data-*` attributes on a hidden mount point. The core then loads `src/plugins/<id>/client.ts` with a dynamic import and calls its default export with that mount point. A plugin that is off, or that returns `null` for the page, sends the reader nothing. This much is allowed only because plugins ship in the repository and are reviewed in the same commits as everything else.
 
@@ -172,7 +172,7 @@ import type { Plugin, PluginSettings, PublicPage, SignInVerdict, SignInWidget } 
 
 export { manifest } from './plugin';
 
-/** Nothing to add to the sign-in: this plugin is about the page a reader sees. */
+/** Nothing to add to the recovery-code form: this plugin is about the page a reader sees. */
 export function signInWidget(): SignInWidget | null {
   return null;
 }
