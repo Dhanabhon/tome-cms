@@ -2,6 +2,19 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.16.1 - 2026-10-05
+
+Search engines learn who writes a post and whose site it is, and pictures stop showing their file names.
+
+### Added
+
+- An article's structured data names the author's profiles (`sameAs`) and the site's logo.
+
+### Fixed
+
+- A picture with no alt text is decoration (`alt=""`), never its file name.
+- A picture no longer carries its file name as a `title`, on the site and in the content API, including posts and pages saved before.
+
 ## 1.16.0 - 2026-10-05
 
 Public pages come from memory, and an edit still shows at once.
