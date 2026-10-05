@@ -148,7 +148,7 @@ test('a device link is stored, issued, cancelled and consumed only for the insta
   assert.ok(second.expiresAt.getTime() > Date.now());
   await cancelDeviceEnrollments('owner');
   await assert.rejects(authorizeEnrollmentContext(second.context), /invalid or expired/i);
-  await assert.rejects(issueDeviceEnrollment('other'), 'only the installed owner can be issued a link');
+  await assert.rejects(issueDeviceEnrollment('other'), /invalid or expired/i, 'only the installed owner can be issued a link');
 
   // The admin API: a fresh owner session creates a link, a stale one cannot; cancelling needs no freshness.
   const signed = `${ownerSession.token}.${await makeSignature(ownerSession.token, authContext.secret)}`;
