@@ -8,6 +8,7 @@ import type { Page } from '@playwright/test';
 import { contentSlug } from '../../src/lib/slug';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 import { expect, test } from './own-worker';
+import { clearPageCache, signInOwner, type Owner } from './page-cache-reset';
 
 /**
  * Shoots the three public themes -- Paper, Plain and Almanac -- and measures the few boxes a design
@@ -20,7 +21,8 @@ import { expect, test } from './own-worker';
  * nothing written there would survive the next one.
  *
  * Without THEME_SHOTS it skips, so the suite never pays for it. The site is written through the
- * functions the admin uses, so nobody has to sign in: this file spends no /recovery sign-in.
+ * functions the admin uses; the owner signs in once, through /recovery, only so that each change of
+ * theme or setting can clear the page cache (see page-cache-reset), or every theme is shot as the first.
  */
 
 test.use({ stack: 'theme-shots', reducedMotion: 'reduce' });
@@ -93,6 +95,7 @@ const LONG = 'The oven is already warm by the time the street goes quiet, and th
 
 let server: ChildProcess | undefined;
 let origin = '';
+let owner: Owner | undefined;
 
 /** The site every shot reads, written through the functions the admin uses. */
 async function seed(imageId: string, fileId: string) {
@@ -277,6 +280,11 @@ test.beforeAll(async () => {
   throw new Error(`Shots server never became ready.\n${output}`);
 });
 
+// The owner, signed in once, for the writes that clear the page cache: see page-cache-reset.
+test.beforeAll(async ({ browser }) => {
+  owner = await signInOwner(browser, origin, OWNER);
+});
+
 test.afterAll(async () => {
   server?.kill('SIGTERM');
   try {
@@ -374,14 +382,17 @@ test('the three themes, every screen, five widths, both schemes', async ({ page 
   for (const theme of THEMES) {
     mkdirSync(join(OUT, theme), { recursive: true });
     await sql`update site_settings set theme_id = ${theme}`.execute(db);
+    clearPageCache(owner);
     measure[theme] = {};
     for (const [name, path] of SCREENS) await shoot(page, theme, name, path, measure[theme]);
     if (theme === 'paper') {
       // The covers slider is a setting of Paper's, and the seed leaves "your slides" on.
       const { writeThemeSettings } = await import('../../src/server/themes/store');
       await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slider' } });
+      clearPageCache(owner);
       for (const [name, path] of PAPER_ONLY) await shoot(page, theme, name, path, measure[theme], { element: '.home-hero--slider', ready: showLongCover });
       await writeThemeSettings(OWNER, { id: 'paper', values: { hero: 'slides' } });
+      clearPageCache(owner);
     }
   }
   writeFileSync(join(OUT, 'measure.json'), JSON.stringify(measure, null, 2));

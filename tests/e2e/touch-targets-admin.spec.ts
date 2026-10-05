@@ -1,14 +1,20 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
+import type { Locator, Page } from '@playwright/test';
+
+import type { EditorNode } from '../../src/types/cms';
 import { expect, test } from './own-worker';
 import { everyState } from './touch-targets';
 
 /**
  * Every control in the admin is at least 44 × 44 CSS px under a coarse pointer: the fifteen screens
- * admin-shots.spec.ts shoots, the mobile navigation, the post editor and its formatting bar. Runs on
- * the mobile project (a Pixel 5, hasTouch), where (pointer: coarse) matches; a mouse sees none of the
- * rules this holds to. It signs in once: /recovery allows five sign-ins per spec file.
+ * admin-shots.spec.ts shoots, the mobile navigation, the post editor and its formatting bar, and the
+ * editor's open states -- the image and table bars, the slash menu, the settings drawer, the link
+ * dialog, the media picker, a folder's menu and the confirm dialog it opens. On a phone, and again on
+ * a tablet held upright (768, the admin's wider layout). Runs on the mobile project (a Pixel 5,
+ * hasTouch), where (pointer: coarse) matches at either width; a mouse sees none of the rules this
+ * holds to. It signs in once: /recovery allows five sign-ins per spec file.
  */
 
 test.use({ stack: 'touch-admin' });
@@ -54,6 +60,40 @@ async function freePort(): Promise<number> {
 
 let server: ChildProcess | undefined;
 let origin = '';
+/** The draft with a picture and a table, and the library folder, the editor's open states need. */
+let draftId = '';
+let folderId = '';
+
+/** A draft with a picture and a table in it, and a folder in the library, written as the admin would. */
+async function seed() {
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const [folder] = (await sql<{ id: string }>`insert into media_folders (owner_id, name) values (${OWNER}, 'Workshop')
+    returning id`.execute(db)).rows;
+  folderId = folder.id;
+  // A library row with no object behind it: the browser is handed a picture for it below.
+  const [image] = (await sql<{ id: string }>`insert into media_items (owner_id, folder_id, object_key, original_name, mime_type,
+      size_bytes, width, height, checksum_sha256, alt_text, state)
+    values (${OWNER}, null, 'seed/desk.webp', 'desk.webp', 'image/webp', 1000, 1600, 900, ${`${'a'.repeat(43)}=`}, 'A desk in a corner', 'ready')
+    returning id`.execute(db)).rows;
+  const paragraph = (text: string): EditorNode => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+  const cell = (type: 'tableCell' | 'tableHeader', text: string): EditorNode => ({ type, content: [paragraph(text)] });
+  const { createPost } = await import('../../src/server/content/posts');
+  const draft = await createPost(OWNER, {
+    title: 'A desk, a lamp and a table', slug: 'a-desk-a-lamp-and-a-table', excerpt: '', categoryIds: [], coverMediaId: null,
+    metaTitle: null, metaDescription: null, status: 'draft',
+    contentJson: { type: 'doc', content: [
+      paragraph('The desk still fits in one corner of the room.'),
+      { type: 'image', attrs: { src: `/media/${image.id}`, alt: 'A desk in a corner', mediaId: image.id } },
+      { type: 'table', content: [
+        { type: 'tableRow', content: [cell('tableHeader', 'Tool'), cell('tableHeader', 'Where')] },
+        { type: 'tableRow', content: [cell('tableCell', 'Lamp'), cell('tableCell', 'Left')] },
+      ] },
+      paragraph('Last, a plain paragraph so the post does not end on a table.'),
+    ] },
+  });
+  draftId = draft.id;
+}
 
 test.beforeAll(async () => {
   const port = await freePort();
@@ -91,6 +131,7 @@ test.beforeAll(async () => {
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
     values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
   await sql`insert into categories (owner_id, name, is_default) values (${OWNER}, 'Uncategorized', true)`.execute(db);
+  await seed();
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env, stdio: 'pipe' });
   let output = '';
@@ -119,8 +160,110 @@ test.afterAll(async () => {
   docker(['down', '--volumes', '--remove-orphans'], 90_000);
 });
 
+// The picture is not in the object store; the media route, and the store's own address, would answer 404.
+// Only those two: the admin's own /api/admin/media calls go through.
+test.beforeEach(async ({ page }) => {
+  const picture = '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="#8a9b7a"/></svg>';
+  await page.route((url) => url.pathname.startsWith('/media/') || url.port === '59000',
+    (route) => route.fulfill({ contentType: 'image/svg+xml', body: picture }));
+});
+
+/** A tablet held upright: the admin's wider layout, still under a finger. */
+const TABLET = { width: 768, height: 1024 } as const;
+
+/** The editor as Tiptap hands it to its element, for a selection no finger can make exactly. */
+type EditorElement = HTMLElement & { editor?: {
+  commands: { focus(at: 'end'): boolean };
+  chain(): { focus(): { setTextSelection(range: { from: number; to: number }): { run(): boolean } } };
+} };
+
+/**
+ * A dialog rises in as a CSS animation, scaled a little short of its size until it lands, and a box
+ * mid-way is a scaled one: it is measured at rest. everyState waits on transitions only.
+ */
+async function settle(dialog: Locator) {
+  await dialog.waitFor({ state: 'visible' });
+  await dialog.evaluate((element) => Promise.all(element.getAnimations({ subtree: true })
+    .map((animation) => animation.finished.catch(() => undefined))));
+}
+
+/**
+ * The editor's open states, one at a time, on the seeded draft: the image's bar and the picker it
+ * opens, the table's bar, the slash menu, the settings drawer, and the link dialog.
+ */
+async function editorStates(page: Page, measure: (name: string) => Promise<void>) {
+  await page.goto(`${origin}/admin/edit/${draftId}`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.waitForLoadState('networkidle');
+  const canvas = page.locator('.ProseMirror').first();
+
+  // A press on the picture chooses it, and its bar comes.
+  await canvas.locator('img').first().click();
+  const imageBar = page.getByRole('group', { name: 'Image', exact: true });
+  await imageBar.waitFor({ state: 'visible' });
+  await measure('editor, image bar');
+  await imageBar.getByRole('button', { name: 'Replace picture' }).click();
+  const picker = page.locator('dialog.media-picker');
+  await picker.getByRole('button', { name: /^Select desk\.webp,/ }).waitFor({ state: 'visible' });
+  await settle(picker);
+  await measure('editor, media picker');
+  await picker.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(picker).toBeHidden();
+
+  // The caret in a cell brings the table's bar.
+  await canvas.locator('td').first().click();
+  const tableBar = page.getByRole('group', { name: 'Table', exact: true });
+  await tableBar.waitFor({ state: 'visible' });
+  await measure('editor, table bar');
+
+  // A slash at the start of a new line at the end. End scrolls rather than moving the caret in Chromium
+  // on macOS; the editor's own command does not.
+  await canvas.evaluate((element: EditorElement) => element.editor?.commands.focus('end'));
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('/');
+  const slash = page.locator('.editor-menu[role="listbox"]');
+  await slash.waitFor({ state: 'visible' });
+  await measure('editor, slash menu');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Backspace');
+  await expect(slash).toBeHidden();
+
+  // Words chosen in the first line, and the formatting bar's Link opens the link dialog.
+  await canvas.evaluate((element: EditorElement) => element.editor?.chain().focus().setTextSelection({ from: 1, to: 9 }).run());
+  await page.getByRole('button', { name: 'Link', exact: true }).click();
+  const linkDialog = page.getByRole('dialog', { name: 'Add a link' });
+  await settle(linkDialog);
+  await measure('editor, link dialog');
+  await page.keyboard.press('Escape');
+  await expect(linkDialog).toBeHidden();
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const drawer = page.locator('dialog.admin-editor-settings');
+  await settle(drawer);
+  await measure('editor, settings drawer');
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+}
+
+/** The library opened on the folder, its menu open, and the confirm dialog its Delete asks with. */
+async function folderStates(page: Page, measure: (name: string) => Promise<void>) {
+  await page.goto(`${origin}/admin/media?folder=${folderId}`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.waitForLoadState('networkidle');
+  const menu = page.locator('details.media-category-menu').filter({ visible: true }).first();
+  await menu.locator('summary').click();
+  await expect(menu).toHaveAttribute('open', '');
+  await measure('media, folder menu');
+  await menu.getByRole('button', { name: 'Delete', exact: true }).click();
+  const confirm = page.locator('.ui-dialog');
+  await settle(confirm);
+  await measure('media, confirm dialog');
+  await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(confirm).toBeHidden();
+}
+
 test('every admin control is at least 44 × 44 under a coarse pointer', async ({ context, page }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(900_000);
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -136,8 +279,12 @@ test('every admin control is at least 44 × 44 under a coarse pointer', async ({
 
   expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'the premise: a coarse pointer').toBe(true);
   const failures: string[] = [];
+  let width = 'phone';
   const measure = async (name: string) => {
-    for (const line of await everyState(page, ALLOWED)) failures.push(`${name}: ${line}`);
+    for (const line of await everyState(page, ALLOWED)) failures.push(`${width} ${name}: ${line}`);
+    if (width !== 'tablet') return;
+    const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+    if (scroll > inner) failures.push(`${width} ${name}: scrolls sideways, ${scroll} > ${inner}`);
   };
 
   // One post and one page, through the editors, so the lists have a card, a row and their menus to
@@ -167,15 +314,30 @@ test('every admin control is at least 44 × 44 under a coarse pointer', async ({
   await pageSaved;
   await page.locator('.admin-save-state[data-state="saved"]').waitFor({ timeout: 15_000 });
 
-  for (const [name, path] of SCREENS) {
-    await page.goto(`${origin}${path}`);
-    await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
-    await page.waitForLoadState('networkidle');
-    await measure(name);
-  }
-  // The navigation is the same dialog on every screen, so it is opened and measured once.
-  await page.locator('[data-nav-open]').click();
-  await page.locator('dialog.admin-mobile-nav[open]').waitFor({ state: 'visible' });
-  await measure('navigation menu');
+  const screens = async () => {
+    for (const [name, path] of SCREENS) {
+      await page.goto(`${origin}${path}`);
+      await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+      await page.waitForLoadState('networkidle');
+      await measure(name);
+    }
+    // The navigation is the same dialog on every screen, so it is opened and measured once, where its button shows.
+    const opener = page.locator('[data-nav-open]');
+    if (await opener.isVisible()) {
+      await opener.click();
+      await page.locator('dialog.admin-mobile-nav[open]').waitFor({ state: 'visible' });
+      await measure('navigation menu');
+      await page.keyboard.press('Escape');
+    }
+    await editorStates(page, measure);
+    await folderStates(page, measure);
+  };
+  await screens();
+
+  // A tablet is still a finger, and at 768 the admin lays out wider.
+  await page.setViewportSize(TABLET);
+  width = 'tablet';
+  expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'the premise: a coarse pointer at 768').toBe(true);
+  await screens();
   expect(failures, failures.join('\n')).toEqual([]);
 });

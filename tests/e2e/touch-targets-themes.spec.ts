@@ -1,6 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 
+import type { Page } from '@playwright/test';
+
 import { contentSlug } from '../../src/lib/slug';
 import type { EditorDocument, EditorNode } from '../../src/types/cms';
 import { expect, test } from './own-worker';
@@ -9,8 +11,9 @@ import { everyState } from './touch-targets';
 
 /**
  * Every control in the three public themes -- Paper, Almanac and Plain -- is at least 44 × 44 CSS px
- * under a coarse pointer. Runs on the mobile project (a Pixel 5, hasTouch), where (pointer: coarse)
- * matches; a mouse sees none of the rules this holds to.
+ * under a coarse pointer, on a phone and on a tablet held upright (768, the themes' desktop navigation).
+ * Runs on the mobile project (a Pixel 5, hasTouch), where (pointer: coarse) matches at either width; a
+ * mouse sees none of the rules this holds to.
  *
  * The stack and the seed are theme-shots.spec.ts's, so the screens measured are the ones shot. The
  * site is written through the functions the admin uses: this file spends no /recovery sign-in.
@@ -274,21 +277,36 @@ const ALLOWED: readonly string[] = [
   '.post-card__title a',
 ];
 
-test('every control in the three themes is at least 44 × 44 under a coarse pointer', async ({ page }) => {
-  test.setTimeout(300_000);
+/** A tablet held upright: the themes' desktop navigation and its sub-menu panels, still under a finger. */
+const TABLET = { width: 768, height: 1024 } as const;
+
+/** The small targets on every screen of the three themes, at the viewport the page has; at a tablet's, also any sideways scroll. */
+async function measureThemes(page: Page, label: string, failures: string[]) {
   const { sql } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
-  expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'the premise: a coarse pointer').toBe(true);
-  const failures: string[] = [];
+  const wide = page.viewportSize()?.width === TABLET.width;
   for (const theme of ['paper', 'almanac', 'plain'] as const) {
     await sql`update site_settings set theme_id = ${theme}`.execute(db);
     clearPageCache(owner);
     for (const [name, path] of SCREENS) {
       await page.goto(`${origin}${path}`);
       await page.waitForLoadState('networkidle');
-      for (const line of await everyState(page, ALLOWED)) failures.push(`${theme} ${name}: ${line}`);
+      for (const line of await everyState(page, ALLOWED)) failures.push(`${label} ${theme} ${name}: ${line}`);
+      if (wide) {
+        const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+        if (scroll > inner) failures.push(`${label} ${theme} ${name}: scrolls sideways, ${scroll} > ${inner}`);
+      }
     }
   }
+}
+
+test('every control in the three themes is at least 44 × 44 under a coarse pointer', async ({ page }) => {
+  test.setTimeout(600_000);
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'the premise: a coarse pointer').toBe(true);
+  const failures: string[] = [];
+  await measureThemes(page, 'phone', failures);
   // Plain sets its newest post's title large, and the seed's wraps to two lines, tall enough on its own. A
   // short newest title is one line, the case a site meets: measured once more with the title cut down.
   await sql`update site_settings set theme_id = 'plain'`.execute(db);
@@ -300,5 +318,10 @@ test('every control in the three themes is at least 44 × 44 under a coarse poin
   for (const line of await everyState(page, ALLOWED)) failures.push(`plain home, one-line lead: ${line}`);
   await sql`update posts set title = 'A loaf, a bowl and every block there is' where slug = 'all-the-blocks'`.execute(db);
   clearPageCache(owner);
+
+  // A tablet is still a finger, and at 768 each theme shows its desktop navigation and sub-menu panels.
+  await page.setViewportSize(TABLET);
+  expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'the premise: a coarse pointer at 768').toBe(true);
+  await measureThemes(page, 'tablet', failures);
   expect(failures, failures.join('\n')).toEqual([]);
 });

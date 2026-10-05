@@ -1,7 +1,10 @@
 import type { Page } from '@playwright/test';
 
-/** What a finger presses. A link inside running text is exempt (WCAG 2.5.8), as is anything not shown. */
-export const TARGET_SELECTOR = 'a[href], button, [role="button"], input:not([type="hidden"]), select, textarea, summary, [tabindex="0"]';
+/**
+ * What a finger presses. A link inside running text is exempt (WCAG 2.5.8), as is anything not shown.
+ * An option is pressed too: the editor's slash menu is a listbox whose options take no focus.
+ */
+export const TARGET_SELECTOR = 'a[href], button, [role="button"], [role="option"], input:not([type="hidden"]), select, textarea, summary, [tabindex="0"]';
 export const RUNNING_TEXT = '.prose, .plain-body, .almanac-prose';
 export const MIN = 44;
 
