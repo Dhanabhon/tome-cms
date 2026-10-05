@@ -132,6 +132,9 @@ test('recovery is one-time, revokes sessions, replaces credentials, and preserve
     clientAddress: '127.0.0.10',
   } as Parameters<typeof DELETE>[0]);
   assert.equal((await callDelete('replacement')).status, 409);
+  const { GET } = await import('../../src/pages/api/admin/security/passkeys');
+  const listed = await (await GET({ request: new Request('http://localhost:4321/api/admin/security/passkeys', { headers }) } as Parameters<typeof GET>[0])).json() as { passkeys: Array<{ provider?: string | null }> };
+  assert.equal(listed.passkeys[0]?.provider, null, 'a passkey with no known AAGUID names no provider');
   await (await getCurrentAdapter(authContext.adapter)).create({
     model: 'passkey',
     forceAllowId: true,

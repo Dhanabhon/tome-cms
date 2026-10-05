@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
+import { passkeyProvider } from '../../../../lib/passkey-providers';
 import { requireFreshOwnerSession } from '../../../../server/auth/fresh-session';
 import { assertSameOrigin } from '../../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../../server/auth/rate-limit';
@@ -62,7 +63,7 @@ export const GET: APIRoute = async ({ request }) => {
     assertSameOrigin(request, configuredOrigin);
     const current = await requireInstalledOwner(request.headers);
     const passkeys = await db.selectFrom('passkey')
-      .select(['id', 'name', 'createdAt', 'last_used_at'])
+      .select(['id', 'name', 'createdAt', 'last_used_at', 'aaguid', 'transports'])
       .where('userId', '=', current.user.id)
       .orderBy('createdAt', 'asc')
       .execute();
@@ -71,6 +72,7 @@ export const GET: APIRoute = async ({ request }) => {
       name: passkey.name ?? 'Passkey',
       createdAt: passkey.createdAt,
       lastUsedAt: passkey.last_used_at,
+      provider: passkeyProvider(passkey.aaguid, passkey.transports),
     })) }, { headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId } });
   } catch (error) {
     return handleError(request, error, requestId);

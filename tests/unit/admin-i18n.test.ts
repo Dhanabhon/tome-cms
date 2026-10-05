@@ -33,8 +33,9 @@ test('every Thai entry that contains words is actually translated', () => {
   // pasted into the Thai catalogue, which is how half-translated UIs happen.
   // Entries that are pure interpolation ('{width} x {height}') carry no words
   // to translate and are exempt — but nothing else is.
+  // Passkey provider names are brand names and stay in Latin in Thai.
   for (const [path, value] of th) {
-    if (!translatable(value)) continue;
+    if (!translatable(value) || /^security\.providers\.[\w-]+\.name$/.test(path)) continue;
     assert.match(value, /[฀-๿]/, `${path} carries no Thai characters: ${value}`);
   }
 });

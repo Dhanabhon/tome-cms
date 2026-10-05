@@ -4,6 +4,7 @@ import { adminCopy, fill, type AdminCopy } from '../../lib/admin-i18n';
 import { atLeast } from '../../lib/busy';
 import { authClient } from '../../lib/auth-client';
 import { describePasskeyException, describePasskeyFailure, describeReauthFailure } from '../../lib/passkey-failure';
+import type { PasskeyProvider } from '../../lib/passkey-providers';
 import type { PostLocale } from '../../types/cms';
 import Icon from '../Icon';
 
@@ -12,6 +13,7 @@ interface PasskeyView {
   name: string;
   createdAt: string | null;
   lastUsedAt: string | null;
+  provider: PasskeyProvider | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,7 +29,7 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
   }
 }
 
-function parsePasskeys(value: unknown): PasskeyView[] {
+function parsePasskeys(value: unknown, copy: AdminCopy): PasskeyView[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!isRecord(item) || typeof item.id !== 'string' || typeof item.name !== 'string') return [];
@@ -36,6 +38,7 @@ function parsePasskeys(value: unknown): PasskeyView[] {
       name: item.name,
       createdAt: typeof item.createdAt === 'string' ? item.createdAt : null,
       lastUsedAt: typeof item.lastUsedAt === 'string' ? item.lastUsedAt : null,
+      provider: typeof item.provider === 'string' && Object.hasOwn(copy.security.providers, item.provider) ? item.provider as PasskeyProvider : null,
     }];
   });
 }
@@ -101,7 +104,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     }
     if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.passkeysUnavailable);
     setNeedsSignIn(false);
-    const loaded = parsePasskeys(payload.passkeys);
+    const loaded = parsePasskeys(payload.passkeys, copy);
     setPasskeys(loaded);
     return loaded;
   }, []);
@@ -362,6 +365,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
                   <div className="security-key__head">
                     <span className="security-key__name">{passkey.name}</span>
                     <span className="security-key__meta">{fill(copy.security.created, { created: formatDate(passkey.createdAt, copy, ownerLocale), used: formatDate(passkey.lastUsedAt, copy, ownerLocale) })}</span>
+                    {passkey.provider ? <span className="security-key__meta">{copy.security.providers[passkey.provider].name} {'\u2014'} {copy.security.providers[passkey.provider].hint}</span> : null}
                   </div>
                   <div className="security-key__actions">
                     <button
