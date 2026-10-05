@@ -80,6 +80,10 @@ test('a refused challenge says so, and says where the way out is', () => {
     assert.equal(describePasskeyFailure(refusal, copy, 'fallback', 'unauthorized'), copy.auth.challengeRefused);
     assert.notEqual(copy.auth.challengeRefused, copy.auth.originRejected);
     assert.match(copy.auth.challengeRefused, /npm run plugin:disable/);
+    // A check that never loads would leave only "wait" on the screen: that line names the way out too.
+    assert.match(copy.security.waitForCheck, /npm run plugin:disable turnstile/);
+    // The switch dialog says where the check now stands.
+    assert.doesNotMatch(`${copy.plugins.turnstileOn} ${copy.plugins.turnstileOff}`, /sign-in|เข้าสู่ระบบ/);
   }
   assert.equal(
     describePasskeyFailure({ error: { status: 403 } }, adminCopy('en'), 'fallback', 'unauthorized'),

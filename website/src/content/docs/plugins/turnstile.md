@@ -38,7 +38,7 @@ The challenge appears only while both keys are stored.
 
 ## Recovering with it on
 
-The recovery-code form shows the challenge above the "Recovery code" field. Wait for it to finish before you press "Continue securely": pressed earlier, the form says "Wait for the check to finish." and sends nothing. When you press it, the server first sends Cloudflare the challenge's answer and waits up to five seconds for a reply.
+The recovery-code form shows the challenge above the "Recovery code" field. Wait for it to finish before you press "Continue securely": pressed earlier, the form says "Wait for the check to finish. If it never appears, run npm run plugin:disable turnstile on the server." and sends nothing. When you press it, the server first sends Cloudflare the challenge's answer and waits up to five seconds for a reply.
 
 | Cloudflare says | What happens |
 | --- | --- |

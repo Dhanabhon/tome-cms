@@ -305,7 +305,7 @@ const en = {
     unsupportedDevice: 'Passkeys are not available in this browser. Open this page on a supported device.',
     useRecoveryCode: 'Use a recovery code',
     useRecoveryCodeHint: 'Enter one unused code from your latest set. Each code works once.',
-    waitForCheck: 'Wait for the check to finish.',
+    waitForCheck: 'Wait for the check to finish. If it never appears, run npm run plugin:disable turnstile on the server.',
     waitingForPasskey: 'Waiting for passkey…',
   },
   plugins: {
@@ -346,8 +346,8 @@ const en = {
     sourceBody: "Plugins come with TomeCMS. You can't install new ones from here; a developer can add one in the code, as the documentation explains.",
     sourceTitle: 'Where plugins come from',
     subheading: 'Extras that plug into the places TomeCMS opens for them. Each one is off until you set it up.',
-    turnstileOff: 'The sign-in page stops showing the check.',
-    turnstileOn: 'The sign-in page shows a Cloudflare check.',
+    turnstileOff: 'The recovery-code form stops showing the check.',
+    turnstileOn: 'The recovery-code form shows a Cloudflare check before it takes a code.',
   },
   mcp: {
     address: 'Address to connect to',
@@ -1487,7 +1487,7 @@ const th: typeof en = {
     unsupportedDevice: 'เบราว์เซอร์นี้ไม่รองรับ passkey เปิดหน้านี้บนอุปกรณ์ที่รองรับแทน',
     useRecoveryCode: 'ใช้รหัสกู้คืน',
     useRecoveryCodeHint: 'กรอกรหัสที่ยังไม่ได้ใช้หนึ่งรหัสจากชุดล่าสุดของคุณ แต่ละรหัสใช้ได้ครั้งเดียว',
-    waitForCheck: 'รอให้การตรวจสอบเสร็จก่อน',
+    waitForCheck: 'รอให้การตรวจสอบเสร็จก่อน ถ้าตัวตรวจสอบไม่ขึ้นเลย ให้รันคำสั่ง npm run plugin:disable turnstile บนเซิร์ฟเวอร์',
     waitingForPasskey: 'กำลังรอ passkey…',
   },
   plugins: {
@@ -1528,8 +1528,8 @@ const th: typeof en = {
     sourceBody: 'ปลั๊กอินมาพร้อมกับ TomeCMS ติดตั้งเพิ่มจากหน้านี้ไม่ได้ นักพัฒนาเพิ่มเองได้ในโค้ด ดูวิธีในเอกสาร',
     sourceTitle: 'ปลั๊กอินมาจากไหน',
     subheading: 'ส่วนเสริมที่เสียบเข้ากับจุดที่ TomeCMS เปิดไว้ให้ ทุกตัวจะปิดอยู่จนกว่าคุณจะตั้งค่า',
-    turnstileOff: 'หน้าเข้าสู่ระบบจะไม่แสดงการตรวจสอบนี้อีก',
-    turnstileOn: 'หน้าเข้าสู่ระบบจะแสดงการตรวจสอบของ Cloudflare',
+    turnstileOff: 'ฟอร์มรหัสกู้คืนจะไม่แสดงการตรวจสอบนี้อีก',
+    turnstileOn: 'ฟอร์มรหัสกู้คืนจะแสดงการตรวจสอบของ Cloudflare ก่อนรับรหัส',
   },
   mcp: {
     address: 'ที่อยู่สำหรับเชื่อมต่อ',

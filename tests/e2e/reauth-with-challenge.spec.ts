@@ -256,7 +256,7 @@ test('the sign-in page has no challenge, and the recovery form waits for one and
   const send = page.getByRole('button', { name: 'Continue securely' });
   await send.click();
   // Before the check has answered, nothing is sent: the request could only be refused.
-  await expect(page.getByRole('alert')).toHaveText('Wait for the check to finish.');
+  await expect(page.getByRole('alert')).toHaveText(/^Wait for the check to finish\. If it never appears, run npm run plugin:disable turnstile on the server\.$/);
   expect(starts).toEqual([]);
 
   // The check answers, as Turnstile does: a hidden field in the form.
@@ -270,7 +270,7 @@ test('the sign-in page has no challenge, and the recovery form waits for one and
   // The spent token is gone, so pressing again waits for a fresh one instead of resending it.
   expect(await page.evaluate(() => (window as unknown as { __resets: number }).__resets)).toBe(1);
   await send.click();
-  await expect(page.getByRole('alert')).toHaveText('Wait for the check to finish.');
+  await expect(page.getByRole('alert')).toHaveText(/^Wait for the check to finish\. If it never appears, run npm run plugin:disable turnstile on the server\.$/);
   expect(starts).toEqual(['one-use-token']);
 
   // The check is a row of its own above the field and its button, which keep their line at desktop width.
