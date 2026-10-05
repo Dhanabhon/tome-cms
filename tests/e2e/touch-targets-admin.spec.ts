@@ -321,8 +321,10 @@ test('every admin control is at least 44 × 44 under a coarse pointer', async ({
       await page.waitForLoadState('networkidle');
       await measure(name);
     }
-    // The navigation is the same dialog on every screen, so it is opened and measured once, where its button shows.
+    // The navigation is the same dialog on every screen, so it is opened and measured once. A phone
+    // always has its button; a tablet may show the sidebar instead, and then there is no dialog to open.
     const opener = page.locator('[data-nav-open]');
+    if (width === 'phone') await expect(opener, 'a phone has the navigation button').toBeVisible();
     if (await opener.isVisible()) {
       await opener.click();
       await page.locator('dialog.admin-mobile-nav[open]').waitFor({ state: 'visible' });
