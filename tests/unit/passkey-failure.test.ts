@@ -42,9 +42,9 @@ test('401 says what the flow was refused, not what the flow assumed', () => {
   // Adding a spare is the one flow that does need a session, so it keeps the old sentence.
   const security = readFileSync(new URL('../../src/components/admin/SecurityManager.tsx', import.meta.url), 'utf8');
   assert.match(security, /copy\.security\.spareNotAdded, copy\.auth\.sessionExpired\)/);
-  // All four of its passkey checks (sign-in, new codes, a spare, a rename or delete) go through describeReauthFailure,
+  // All five of its passkey checks (sign-in, new codes, a spare, a rename or delete, a device link) go through describeReauthFailure,
   // which names the credential on 401.
-  assert.equal(security.match(/describeReauthFailure\(/g)?.length, 4, 'every sign-in path names the credential');
+  assert.equal(security.match(/describeReauthFailure\(/g)?.length, 5, 'every sign-in path names the credential');
   for (const locale of ['en', 'th'] as const) {
     const text = adminCopy(locale);
     assert.ok(text.auth.passkeyNotRegistered.trim());
@@ -141,5 +141,5 @@ test('every screen that asks a signed-in owner for a passkey again words a refus
   const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
   assert.match(read('src/components/admin/UpdateManager.tsx'), /describeReauthFailure\(assertion/);
   const security = read('src/components/admin/SecurityManager.tsx');
-  assert.equal((security.match(/describeReauthFailure\(/g) ?? []).length, 4, 'the sign-in fallback, new recovery codes, a spare, and a rename or delete');
+  assert.equal((security.match(/describeReauthFailure\(/g) ?? []).length, 5, 'the sign-in fallback, new recovery codes, a spare, a rename or delete, and a device link');
 });

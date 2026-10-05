@@ -45,6 +45,27 @@ function formatDate(value: string | null, copy: AdminCopy, locale: PostLocale | 
   return new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+interface DeviceLink {
+  url: string;
+  expiresAt: number;
+  /** A `data:` URL of the QR code; empty when the QR library could not load. */
+  qr: string;
+}
+
+/** The QR is the link in black on white, drawn as SVG so it stays sharp at any size. */
+async function qrDataUrl(url: string): Promise<string> {
+  try {
+    const { default: qrcode } = await import('qrcode-generator');
+    const code = qrcode(0, 'M');
+    code.addData(url);
+    code.make();
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(code.createSvgTag({ cellSize: 4, margin: 2, scalable: true }))}`;
+  } catch {
+    // The link still works without its picture.
+    return '';
+  }
+}
+
 interface SecurityManagerProps {
   ownerLocale?: PostLocale | null;
 }
@@ -63,6 +84,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   const renameButtons = useRef(new Map<string, HTMLButtonElement>());
   const [missingName, setMissingName] = useState<'add' | 'rename' | null>(null);
   const addField = useRef<HTMLInputElement>(null);
+  const [deviceLink, setDeviceLink] = useState<DeviceLink | null>(null);
 
   /** Renaming closes back onto the button that opened it, so the keyboard keeps its place. */
   const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
@@ -207,6 +229,76 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     }
   }
 
+  // While a link is showing: the new device appears in the list when the owner comes back to this
+  // window, and the link goes when it expires.
+  useEffect(() => {
+    if (!deviceLink) return;
+    const refresh = () => { void loadPasskeys().catch(() => setMessage(copy.security.passkeysTemporarilyUnavailable)); };
+    window.addEventListener('focus', refresh);
+    const expiry = window.setTimeout(() => {
+      setDeviceLink(null);
+      setMessage(copy.security.linkExpired);
+    }, Math.max(0, deviceLink.expiresAt - Date.now()));
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.clearTimeout(expiry);
+    };
+  }, [deviceLink, loadPasskeys]);
+
+  async function createLink() {
+    if (busy) return;
+    setBusy('link');
+    setMessage('');
+    try {
+      // The server only makes a link for a session verified in the last few minutes.
+      const assertion = await authClient.signIn.passkey();
+      if (assertion.error || !assertion.data) {
+        setMessage(describeReauthFailure(assertion, copy, copy.security.linkNotCreated));
+        return;
+      }
+      const response = await fetch('/api/admin/security/device-link', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } });
+      const payload = await responsePayload(response);
+      const expiresAt = typeof payload.expiresAt === 'string' ? Date.parse(payload.expiresAt) : Number.NaN;
+      if (!response.ok || typeof payload.url !== 'string' || Number.isNaN(expiresAt)) {
+        throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCreated);
+      }
+      setDeviceLink({ url: payload.url, expiresAt, qr: await qrDataUrl(payload.url) });
+    } catch (error) {
+      setMessage(describePasskeyException(error, copy, error instanceof Error ? error.message : copy.security.linkNotCreated));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function cancelLink() {
+    if (busy) return;
+    setBusy('cancel');
+    setMessage('');
+    try {
+      const response = await fetch('/api/admin/security/device-link', { method: 'DELETE', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } });
+      if (!response.ok) {
+        const payload = await responsePayload(response);
+        throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCancelled);
+      }
+      setDeviceLink(null);
+      setMessage(copy.security.linkCancelled);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : copy.security.linkNotCancelled);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function copyLink() {
+    if (!deviceLink) return;
+    try {
+      await navigator.clipboard.writeText(deviceLink.url);
+      setMessage(copy.security.linkCopied);
+    } catch {
+      setMessage(copy.security.copyBlockedLink);
+    }
+  }
+
   async function copyCodes() {
     try {
       await navigator.clipboard.writeText(recoveryCodes.join('\n'));
@@ -291,6 +383,26 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
           </label>
           <button aria-busy={pressed('add')} className="admin-button admin-button--primary" disabled={busy !== null} type="submit">{copy.security.addSpare}</button>
         </form>
+      </section>
+
+      <section className="admin-card" aria-labelledby="device-title">
+        <header className="admin-card__head">
+          <h2 id="device-title">{copy.security.deviceHeading}</h2>
+          <p>{copy.security.deviceHint}</p>
+        </header>
+        {deviceLink ? (
+          <div className="security-link">
+            <div className="security-link__row">
+              <input aria-label={copy.security.linkLabel} className="admin-control" onFocus={(event) => event.currentTarget.select()} readOnly value={deviceLink.url} />
+              <button className="admin-button" onClick={() => void copyLink()} type="button">{copy.security.copyLink}</button>
+            </div>
+            {deviceLink.qr && <img alt={copy.security.qrAlt} className="security-link__qr" height={176} src={deviceLink.qr} width={176} />}
+            <p className="security-link__meta">{fill(copy.security.linkExpires, { time: new Intl.DateTimeFormat(ownerLocale === 'th' ? 'th-TH' : 'en', { timeStyle: 'short' }).format(deviceLink.expiresAt) })}</p>
+            <button aria-busy={pressed('cancel')} className="admin-button admin-button--secondary" disabled={busy !== null} onClick={() => void cancelLink()} type="button">{copy.security.cancelLink}</button>
+          </div>
+        ) : (
+          <button aria-busy={pressed('link')} className="admin-button admin-button--secondary" disabled={busy !== null} onClick={() => void createLink()} type="button">{copy.security.createLink}</button>
+        )}
       </section>
 
       <section className="admin-card" aria-labelledby="recovery-codes-title">
