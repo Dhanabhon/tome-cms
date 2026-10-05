@@ -125,11 +125,11 @@ export function demoteH1(html: string): string {
  * Stored HTML without the title a picture was once given. The editor set it to the file's name,
  * which a reader saw as a tooltip and a search engine read as words about the page; the sanitizer
  * no longer keeps it, and this takes it off what was saved before. It reads the sanitizer's own
- * output, where an attribute is always double-quoted and a quote inside it is an entity, so a real
- * title follows a closing quote (or the tag name), never the words of an alt that ends in ` title=`.
+ * output, where an attribute is always double-quoted and a quote inside it is an entity, so it
+ * reads the tag one whole attribute at a time and a value that happens to say ` title=` is left alone.
  */
 export function withoutImageTitles(html: string): string {
-  return html.replace(/<img\b[^>]*>/g, (tag) => tag.replace(/(?<=["g])\stitle="[^"]*"/, ''));
+  return html.replace(/<img\b[^>]*>/g, (tag) => tag.replace(/\s([\w-]+)="[^"]*"/g, (attribute, name) => (name === 'title' ? '' : attribute)));
 }
 
 const escapeAttribute = (value: string) => value

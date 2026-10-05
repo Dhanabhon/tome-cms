@@ -17,8 +17,16 @@ test('a post saved before has the file names taken off its pictures when it is r
   assert.doesNotMatch(bodyHtml, /IMG_2041/);
 });
 
-test('an alt that ends in the word title= is left whole', () => {
-  const tag = '<img src="/media/a1" alt="P title=" decoding="async" />';
-  assert.equal(withoutImageTitles(tag), tag);
-  assert.equal(withoutImageTitles('<img src="/media/a1" alt="P title=" title="x.jpg" />'), '<img src="/media/a1" alt="P title=" />');
+test('only a real title attribute is taken off a picture, whatever the alt says', () => {
+  const cases: Array<[string, string]> = [
+    ['<img src="/m/a" alt="big dog title=" decoding="async" />', '<img src="/m/a" alt="big dog title=" decoding="async" />'],
+    ['<img src="/m/a" alt="sing title=" decoding="async" />', '<img src="/m/a" alt="sing title=" decoding="async" />'],
+    ['<img src="/m/a" alt="eg title=" loading="lazy" />', '<img src="/m/a" alt="eg title=" loading="lazy" />'],
+    ['<img src="/m/a" alt="big title=" title="x.jpg" />', '<img src="/m/a" alt="big title=" />'],
+    ['<img src="/m/a" alt="P title=" decoding="async" />', '<img src="/m/a" alt="P title=" decoding="async" />'],
+    ['<img src="/m/a" alt=" title=" decoding="async" />', '<img src="/m/a" alt=" title=" decoding="async" />'],
+    ['<img title="x.jpg" src="/m/a" alt="c" />', '<img src="/m/a" alt="c" />'],
+    ['<img src="a" title="b" alt="c">', '<img src="a" alt="c">'],
+  ];
+  for (const [stored, expected] of cases) assert.equal(withoutImageTitles(stored), expected, stored);
 });
