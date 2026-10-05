@@ -27,7 +27,7 @@ There are two ways to use it:
 Work as root. On a server that logs you in as another account, run `sudo -i` first. Get the release once, into the folder the install uses as well, and run the script from it:
 
 ```sh
-git clone --depth 1 --branch v1.16.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.16.2 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
 ```
@@ -118,7 +118,7 @@ To run one step by hand instead, use the commands it runs:
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.16.1
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.16.2
 ```
 
 The installer refuses to run over an install it already started. If it stopped after writing its files, [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) says what to do instead.
