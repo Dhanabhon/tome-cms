@@ -118,7 +118,7 @@ test('Published query services paginate, enrich, and isolate the installed site'
     await trx.insertInto('posts').values([
       { ...postBase, id: postIds.one, translation_group_id: groups.one, locale: 'th', title: 'One', slug: 'one', status: 'published', owner_id: 'owner-a' },
       { ...postBase, id: postIds.two, translation_group_id: groups.two, locale: 'th', title: 'Two', slug: 'two', status: 'published', owner_id: 'owner-a' },
-      { ...postBase, id: postIds.three, translation_group_id: groups.three, locale: 'th', title: 'Three', slug: 'three', status: 'published', owner_id: 'owner-a', cover_media_id: mediaId, content_json: imageContent, content_html: `<img src="/media/${mediaId}" alt="Green cover">` },
+      { ...postBase, id: postIds.three, translation_group_id: groups.three, locale: 'th', title: 'Three', slug: 'three', status: 'published', owner_id: 'owner-a', cover_media_id: mediaId, content_json: imageContent, content_html: `<img src="/media/${mediaId}" alt="Green cover" title="photo.jpg">` },
       { ...postBase, id: postIds.threeEn, translation_group_id: groups.three, locale: 'en', title: 'Three EN', slug: 'three-en', status: 'published', owner_id: 'owner-a' },
       { ...postBase, id: postIds.twoEnDraft, translation_group_id: groups.two, locale: 'en', title: 'Two EN draft', slug: 'two-en-draft', status: 'draft', owner_id: 'owner-a' },
       { ...postBase, id: postIds.draft, translation_group_id: groups.draft, locale: 'th', title: 'Draft', slug: 'draft', status: 'draft', owner_id: 'owner-a' },
@@ -160,7 +160,7 @@ test('Published query services paginate, enrich, and isolate the installed site'
   };
   await db.insertInto('pages').values([
     { ...pageBase, id: pageIds.one, translation_group_id: pageGroups.one, locale: 'th', title: 'About', slug: 'about', status: 'published', owner_id: 'owner-a' },
-    { ...pageBase, id: pageIds.two, translation_group_id: pageGroups.two, locale: 'th', title: 'Contact', slug: 'contact', status: 'published', owner_id: 'owner-a', content_json: imageContent, content_html: `<img src="/media/${mediaId}" alt="Green cover">` },
+    { ...pageBase, id: pageIds.two, translation_group_id: pageGroups.two, locale: 'th', title: 'Contact', slug: 'contact', status: 'published', owner_id: 'owner-a', content_json: imageContent, content_html: `<img src="/media/${mediaId}" alt="Green cover" title="photo.jpg">` },
     { ...pageBase, id: pageIds.draft, translation_group_id: pageGroups.draft, locale: 'th', title: 'Secret', slug: 'secret', status: 'draft', owner_id: 'owner-a' },
     { ...pageBase, id: pageIds.foreign, translation_group_id: pageGroups.foreign, locale: 'th', title: 'Foreign', slug: 'foreign-page', status: 'published', owner_id: 'owner-b' },
   ]).execute();
@@ -197,12 +197,17 @@ test('Published query services paginate, enrich, and isolate the installed site'
   );
   assert.equal(await getPublishedPost('th', 'draft'), null);
   assert.equal((await getPublishedPost('th', 'three'))?.id, postIds.three);
+  // Saved before 1.16.1, a picture carries its file name as a title; the API leaves it off.
+  assert.doesNotMatch(first.items[0]!.content_html, /title=/);
+  assert.match(first.items[0]!.content_html, /alt="Green cover"/);
 
   const firstPages = await listPublishedPages({ locale: 'th', limit: 1 });
   const secondPages = await listPublishedPages({ locale: 'th', limit: 1, cursor: firstPages.nextCursor! });
   assert.deepEqual([...firstPages.items, ...secondPages.items].map(({ id }) => id), [pageIds.two, pageIds.one]);
   assert.deepEqual(firstPages.items[0]?.media.map(({ id }) => id), [mediaId]);
   assert.equal(await getPublishedPage('th', 'secret'), null);
+  assert.doesNotMatch(firstPages.items[0]!.content_html, /title=/);
+  assert.match(firstPages.items[0]!.content_html, /alt="Green cover"/);
 
   const categorySnapshot = await listPublishedCategories('th');
   assert.deepEqual(categorySnapshot.items, [

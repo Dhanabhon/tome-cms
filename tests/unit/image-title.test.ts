@@ -16,3 +16,9 @@ test('a post saved before has the file names taken off its pictures when it is r
   const { bodyHtml } = articleCover({ cover_image: '/media/c', show_cover: true, content_html: stored });
   assert.doesNotMatch(bodyHtml, /IMG_2041/);
 });
+
+test('an alt that ends in the word title= is left whole', () => {
+  const tag = '<img src="/media/a1" alt="P title=" decoding="async" />';
+  assert.equal(withoutImageTitles(tag), tag);
+  assert.equal(withoutImageTitles('<img src="/media/a1" alt="P title=" title="x.jpg" />'), '<img src="/media/a1" alt="P title=" />');
+});

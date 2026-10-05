@@ -41,3 +41,14 @@ test("a draft preview describes the cover as the live page does", () => {
   assert.match(preview, /listReadyImagesByIds\(current\.user\.id, \[draft\.cover_media_id\]\)/);
   assert.match(preview, /coverImage: coverImage \?\? null/);
 });
+
+test('the layout hands the owner\'s logo and profile links to the structured data, and a post passes the links', () => {
+  const layout = route('src/layouts/BaseLayout.astro');
+  assert.match(layout, /organizationSchema\(siteName, siteUrl, brand\)/);
+  assert.match(layout, /personSchema\(authorName, authorLinks\)/);
+  assert.match(route('src/pages/[locale]/blog/[slug].astro'), /authorLinks=\{profile\?\.links\.map\(\(\{ url \}\) => url\)\}/);
+});
+
+test('structured data cannot close its script tag', () => {
+  assert.match(route('src/components/blog/SEOHead.astro'), /JSON\.stringify\(structuredData\)\.replaceAll\('<', '\\\\u003c'\)/);
+});
