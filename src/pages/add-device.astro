@@ -1,0 +1,38 @@
+---
+import AddDevicePasskey from '../components/admin/AddDevicePasskey';
+import AdminLayout from '../layouts/AdminLayout.astro';
+import { adminCopy } from '../lib/admin-i18n';
+import { normalizeAdminPath } from '../lib/admin';
+import { getSiteSettings } from '../server/content/site-settings';
+
+let adminPath = '/admin';
+let ownerSettings: Awaited<ReturnType<typeof getSiteSettings>> = null;
+try {
+  ownerSettings = await getSiteSettings();
+  adminPath = normalizeAdminPath(ownerSettings?.admin_path ?? '/admin');
+} catch {
+  // The page still draws when settings cannot be read; the API reports infrastructure failures safely.
+}
+const ownerLocale = ownerSettings?.default_locale ?? null;
+const copy = adminCopy(ownerLocale);
+const suppliedContext = Astro.url.searchParams.get('context') ?? '';
+const initialContext = suppliedContext.length <= 2_048 ? suppliedContext : '';
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+---
+
+<AdminLayout lang={ownerLocale ?? 'en'} title={copy.addDevice.title}>
+  <main class="security-page">
+    <header class="security-page__head">
+      <a class="admin-auth-brand" href="/" aria-label={copy.auth.tomecmsHome}>
+        <img class="tomecms-logo" src="/brand/tomecms-logo-color.png" alt="TomeCMS" width="2172" height="724" />
+      </a>
+      <div>
+        <p class="security-eyebrow">{copy.addDevice.eyebrow}</p>
+        <h1>{copy.addDevice.heading}</h1>
+        <p>{copy.addDevice.hint}</p>
+      </div>
+    </header>
+    <AddDevicePasskey client:only="react" adminPath={adminPath} ownerLocale={ownerLocale} initialContext={initialContext} />
+  </main>
+</AdminLayout>

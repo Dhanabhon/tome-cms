@@ -100,7 +100,7 @@ test('the gate closes pages, feeds and the content API, and leaves everything el
   }
   for (const path of [
     '/admin', '/admin/maintenance', '/backstage', '/api/admin/maintenance', '/api/auth/session', '/install',
-    '/api/install/status', '/recovery', '/api/recovery/enroll', '/health/live', '/health/ready', '/_astro/page.js',
+    '/api/install/status', '/recovery', '/add-device', '/api/recovery/enroll', '/health/live', '/health/ready', '/_astro/page.js',
     '/media/0f8fad5b-d9cb-469f-a165-70867728950e', '/favicon.svg', '/api/v1/content/openapi.json',
     '/api/v1/content/preview/a-token', '/maintenance', '/robots.txt',
   ]) assert.equal(maintenanceRoute(path), null, path);

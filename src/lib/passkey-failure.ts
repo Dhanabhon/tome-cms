@@ -62,6 +62,15 @@ export function describePasskeyFailure(value: unknown, copy: AdminCopy, fallback
   return fallback;
 }
 
+/**
+ * A device link the server no longer honours: it answers a bad, expired or already-used context
+ * with a bare 400. better-auth's own 400s carry a code -- a dismissed prompt, a duplicate -- so a
+ * 400 without one is the link.
+ */
+export function isExpiredLinkFailure(value: unknown): boolean {
+  return readPasskeyStatus(value) === 400 && readPasskeyCode(value) === undefined;
+}
+
 /** A thrown failure means the request never landed, which for fetch is a TypeError. */
 export function describePasskeyException(error: unknown, copy: AdminCopy, fallback: string): string {
   return error instanceof TypeError ? copy.auth.networkError : fallback;

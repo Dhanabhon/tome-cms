@@ -110,3 +110,26 @@ test('legacy health and prepared recovery paths do not load headless runtime con
     }
   }
 });
+
+test('the add-device page is reserved and reaches the page without headless runtime configuration', async () => {
+  assert.ok(RESERVED_ADMIN_PATHS.has('/add-device'));
+  assert.equal(normalizeAdminPath('/add-device'), '/admin');
+  const keys = ['DATABASE_URL', 'TOME_CMS_PUBLIC_URL', 'TOME_CMS_AUTH_SECRET', 'TOME_CMS_CONTEXT_SECRET', 'TOME_CMS_RECOVERY_PEPPER'] as const;
+  const saved = new Map(keys.map((key) => [key, process.env[key]]));
+  for (const key of keys) delete process.env[key];
+  try {
+    const { preparedHeadlessRequest } = await import('../../src/middleware');
+    const next: MiddlewareNext = async () => new Response('next');
+    const response = await preparedHeadlessRequest({
+      locals: {},
+      request: new Request('http://localhost:4321/add-device?context=x'),
+      url: new URL('http://localhost:4321/add-device?context=x'),
+    } as APIContext, next);
+    assert.equal(await response?.text(), 'next');
+  } finally {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

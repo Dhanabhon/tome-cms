@@ -59,6 +59,7 @@ function isSetupBypass(pathname: string): boolean {
 
 function isHeadlessStablePath(pathname: string): boolean {
   return pathname === '/recovery'
+    || pathname === '/add-device'
     || pathname === '/api/recovery'
     || pathname.startsWith('/api/recovery/');
 }

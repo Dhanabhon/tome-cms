@@ -10,6 +10,7 @@ export const RESERVED_ADMIN_PATHS: ReadonlySet<string> = new Set([
   '/th',
   '/en',
   '/recovery',
+  '/add-device',
   // MCP's routes: an admin here would shadow the OAuth server and the endpoint itself.
   '/oauth',
   '/mcp',
