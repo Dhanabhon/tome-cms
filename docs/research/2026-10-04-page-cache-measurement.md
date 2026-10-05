@@ -92,10 +92,15 @@ Measured earlier on the 1 GB test VPS, behind the real network path.
 
 ## daedalus after 1.16.0
 
-Filled in by the owner after the update, with the same two `ab` commands against the public address
-(`-c4 -n200`, three runs each, one request to warm each URL first).
+Measured by the owner on 2026-10-05, on the server itself against the app (`ab -c4 -n200 -H "Host:
+dhanabhon.com" http://127.0.0.1:4321/...`), after a request had already put each page in the cache
+(`X-Tome-Cache: hit`). One run each; every request answered 200.
 
-| Page | Run 1 | Run 2 | Run 3 | Median |
-|---|---:|---:|---:|---:|
-| Home | | | | |
-| Post | | | | |
+| Page | 1.3.3 | 1.16.0 | Ratio |
+|---|---:|---:|---:|
+| Home `/en` | 25.4 | 215.2 | 8.5x |
+| Post `/en/blog/ep-1-why-i-built-my-own-cms` | 36.4 | 172.2 | 4.7x |
+
+The two may not be quite like for like: these went straight to the app on the server, leaving out
+Caddy and the network, and how the 1.3.3 runs were taken is only recorded as above. A first try at the post
+used a misspelt slug and measured a 404, which is never cached (39.7 req/s); it is not counted.
