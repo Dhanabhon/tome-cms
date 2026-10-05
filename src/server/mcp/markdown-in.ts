@@ -33,20 +33,22 @@ function sourceBlocks(source: EditorDocument | null): EditorNode[] {
 function trimEdges(run: EditorNode[]): EditorNode[] {
   const nodes = [...run];
   // True when the end node went altogether, so the next one in is trimmed too.
-  const trim = (index: number, spaces: RegExp): boolean => {
+  // trimStart and trimEnd take the same whitespace as \s, in linear time: /\s+$/ backtracks
+  // quadratically over a long run of spaces followed by a word, on the main thread.
+  const trim = (index: number, cut: (text: string) => string): boolean => {
     const node = nodes[index];
     if (node?.type === 'hardBreak') {
       nodes.splice(index, 1);
       return true;
     }
     if (node?.type !== 'text') return false;
-    const text = (node.text ?? '').replace(spaces, '');
+    const text = cut(node.text ?? '');
     if (text) nodes[index] = { ...node, text };
     else nodes.splice(index, 1);
     return !text;
   };
-  while (nodes.length && trim(0, /^\s+/)) { /* trimmed */ }
-  while (nodes.length && trim(nodes.length - 1, /\s+$/)) { /* trimmed */ }
+  while (nodes.length && trim(0, (text) => text.trimStart())) { /* trimmed */ }
+  while (nodes.length && trim(nodes.length - 1, (text) => text.trimEnd())) { /* trimmed */ }
   return nodes;
 }
 

@@ -55,3 +55,10 @@ test('what is left can still be drawn', async () => {
   const metadata = await sharp(Buffer.from(sanitizeSvg(HOSTILE))).metadata();
   assert.deepEqual([metadata.format, metadata.width, metadata.height], ['svg', 120, 40]);
 });
+
+test('a style whose text would be markup refuses the whole file', () => {
+  // Entities and CDATA in a style element are read as the characters they hold, and written back so.
+  for (const css of ['&lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;style&gt;', '<![CDATA[</style><script>alert(1)</script><style>]]>']) {
+    assert.equal(sanitizeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><style>${css}</style></svg>`), '');
+  }
+});

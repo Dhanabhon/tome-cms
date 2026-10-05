@@ -184,3 +184,58 @@ test('a Passkey registered by recovery can sign its owner back in', async ({ con
   const passkey = await db.selectFrom('passkey').select(['last_used_at', 'counter']).executeTakeFirstOrThrow();
   expect(passkey.last_used_at, 'the Passkey is marked used').not.toBeNull();
 });
+
+test('an owner whose session has gone stale still adds a spare Passkey, after checking one', async ({ context, page }) => {
+  test.setTimeout(120_000);
+
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const settings = await getSiteSettings();
+  const enrollment = await issueRecoveryEnrollment(settings!.owner_id);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  const before = (await db.selectFrom('passkey').select('id').execute()).length;
+
+  // The server only takes a spare from a session verified in the last five minutes, so the
+  // screen has to ask for a Passkey first. An older session is what an owner usually has.
+  await sql`update session set "createdAt" = now() - interval '10 minutes'`.execute(db);
+
+  await page.goto(`${origin}/admin/security`);
+  // A press before the island hydrates lands on nothing.
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.locator('#new-passkey-name').fill('Laptop spare');
+
+  // A spare goes on a second device: the server excludes the keys it already knows, so the
+  // device that answered the check cannot also hold the spare. Swap devices once the check is
+  // done, before the screen asks for the new key.
+  let spareDevice = '';
+  await page.route('**/api/auth/passkey/generate-register-options**', async (route) => {
+    await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId });
+    ({ authenticatorId: spareDevice } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: { protocol: 'ctap2', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    }));
+    await route.continue();
+  });
+  await page.locator('.security-add button[type="submit"]').click();
+
+  await expect(page.getByText('Spare passkey added.')).toBeVisible({ timeout: 30_000 });
+  expect((await db.selectFrom('passkey').select('id').execute()).length, 'the spare is stored').toBe(before + 1);
+  const credentials = await cdp.send('WebAuthn.getCredentials', { authenticatorId: spareDevice });
+  expect(credentials.credentials, 'the second device holds the spare').toHaveLength(1);
+});

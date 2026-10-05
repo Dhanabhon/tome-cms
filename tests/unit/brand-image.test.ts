@@ -63,4 +63,5 @@ test('what cannot be used is refused, and says why', async () => {
   await refused(prepareBrandImage('icon', await png(120, 120)), 400, 'brand_icon_small');
   await refused(prepareBrandImage('logo', Buffer.alloc(MAX_BRAND_BYTES + 1)), 413, 'brand_too_large');
   await refused(prepareBrandImage('logo', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>')), 400, 'brand_svg_unusable');
+  await refused(prepareBrandImage('logo', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><style>&lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;style&gt;</style></svg>')), 400, 'brand_svg_unusable');
 });

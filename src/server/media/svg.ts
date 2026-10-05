@@ -47,8 +47,12 @@ export function insideOnlyCss(css: string): string {
  * outside. This is for the other way in: the file opened at its own address, where it is a
  * document and this is the only guard -- TomeCMS does not set the headers the media origin
  * sends.
+ *
+ * Empty when nothing of it may be: a style element's text is written back as read, its entities
+ * decoded, so a `<` in it would be markup in the file rather than CSS.
  */
 export function sanitizeSvg(source: string): string {
+  let styleHasMarkup = false;
   const sanitized = sanitizeHtml(source, {
     allowedTags: ELEMENTS,
     allowedAttributes: { '*': ATTRIBUTES },
@@ -65,7 +69,12 @@ export function sanitizeSvg(source: string): string {
           .map(([name, value]) => [name, name === 'style' ? insideOnlyCss(value) : value])),
       }),
     },
+    exclusiveFilter: (frame) => {
+      if (frame.tag === 'style' && frame.text.includes('<')) styleHasMarkup = true;
+      return false;
+    },
   });
+  if (styleHasMarkup) return '';
   // sanitize-html passes a style element's text through untouched, so it is read here.
   return sanitized
     .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/g, (_, open: string, css: string, close: string) => `${open}${insideOnlyCss(css)}${close}`)

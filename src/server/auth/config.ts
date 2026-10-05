@@ -11,6 +11,7 @@ import {
   recordPasskeyUse,
   resolveEnrollmentUserByReference,
 } from './enrollment';
+import { FRESH_SESSION_SECONDS } from './fresh-session';
 import { isSupportedPasskeyOrigin } from './origin';
 import { consumeRecoveryEnrollmentReference } from './recovery';
 
@@ -102,7 +103,14 @@ export const auth = betterAuth({
           }
           return;
         }
-        if (ctx.context.session?.user.id !== user.id) throw new Error('Installed owner session required.');
+        const current = ctx.context.session;
+        if (current?.user.id !== user.id) throw new Error('Installed owner session required.');
+        // A spare is a lasting credential that can come with a new session, so it asks for the same
+        // fresh verification as the recovery codes, updates and MCP consent it would reach. The
+        // session was just read from the database; this may run inside the createSession
+        // transaction, so it is checked here rather than with a second connection.
+        const sessionAge = Date.now() - new Date(current.session.createdAt).getTime();
+        if (!(sessionAge <= FRESH_SESSION_SECONDS * 1000)) throw new Error('Fresh owner verification required.');
         await assertInstalledOwner({ userId: user.id, fallbackAdapter: ctx.context.adapter });
       },
     },

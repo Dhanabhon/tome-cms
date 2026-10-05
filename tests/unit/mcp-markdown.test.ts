@@ -106,3 +106,11 @@ test('a picture an AI writes inside a line of words stands on its own between th
   assert.deepEqual(document.content?.map((node) => node.type), ['paragraph', 'image', 'paragraph']);
   assert.deepEqual(document.content?.map((node) => node.content?.[0]?.text ?? null), ['ก่อนรูป', null, 'หลังรูป']);
 });
+
+// /\s+$/ took seconds per 100,000 spaces here, on the main thread, outside the worker's time limit.
+test('a long run of spaces before a picture is trimmed without stalling the server', async () => {
+  const started = Date.now();
+  const { document } = await markdownToDocument(`x${'\t'.repeat(200_000)}y![a](/media/${MEDIA})`, null);
+  assert.ok(Date.now() - started < 5_000, `took ${Date.now() - started} ms`);
+  assert.deepEqual(document.content?.map((node) => node.type), ['paragraph', 'image']);
+});

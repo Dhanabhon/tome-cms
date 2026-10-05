@@ -122,6 +122,12 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setBusy('add');
     setMessage('');
     try {
+      // The server only takes a spare from a session verified in the last few minutes.
+      const assertion = await authClient.signIn.passkey();
+      if (assertion.error || !assertion.data) {
+        setMessage(describeReauthFailure(assertion, copy, copy.security.spareNotAdded));
+        return;
+      }
       const result = await authClient.passkey.addPasskey({ name: newName.trim() });
       if (result.error || !result.data) {
         // Adding a spare is the one flow here that does need a session, so 401 means what it says.
