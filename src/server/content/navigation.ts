@@ -13,7 +13,8 @@ import {
 import { db } from '../db/client';
 import type { Database, NavigationItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
-import { live } from './live';
+import { pageCacheGeneration } from '../http/page-cache';
+import { live, nextScheduledPublish } from './live';
 import { buildPublicNavigation } from './public-navigation';
 
 const label = z.string().trim().min(1).max(80);
@@ -166,7 +167,7 @@ export interface PublicNavigationSnapshot {
 }
 
 // ponytail: this five-second cache is process-local; replace it only when TomeCMS runs multiple app processes.
-const cache = new Map<PageLocale, { expiresAt: number; snapshot: PublicNavigationSnapshot }>();
+const cache = new Map<PageLocale, { expiresAt: number; pageGeneration: number; snapshot: PublicNavigationSnapshot }>();
 let cacheGeneration = 0;
 
 export function invalidatePublicNavigationCache(): void {
@@ -204,10 +205,16 @@ async function queryPublicNavigation(locale: PageLocale): Promise<PublicNavigati
 
 export async function getPublicNavigationSnapshot(locale: PageLocale): Promise<PublicNavigationSnapshot> {
   const cached = cache.get(locale);
-  if (cached && cached.expiresAt > Date.now()) return cached.snapshot;
+  if (cached && cached.expiresAt > Date.now() && cached.pageGeneration === pageCacheGeneration()) return cached.snapshot;
   const generation = cacheGeneration;
-  const snapshot = await queryPublicNavigation(locale);
-  if (generation === cacheGeneration) cache.set(locale, { expiresAt: Date.now() + 5_000, snapshot });
+  // Any write that empties the page cache retires this snapshot too, or the fresh render after it
+  // would draw the old menu and be kept for five minutes.
+  const pageGeneration = pageCacheGeneration();
+  const [snapshot, scheduled] = await Promise.all([queryPublicNavigation(locale), nextScheduledPublish().catch(() => undefined)]);
+  // A scheduled page joins the menu at its moment with no write, so a snapshot never outlives the
+  // next one. Without that moment it is served but not kept.
+  const expiresAt = Math.min(Date.now() + 5_000, scheduled?.getTime() ?? Infinity);
+  if (scheduled !== undefined && generation === cacheGeneration) cache.set(locale, { expiresAt, pageGeneration, snapshot });
   return snapshot;
 }
 

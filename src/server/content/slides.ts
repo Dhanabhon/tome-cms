@@ -7,8 +7,9 @@ import type { HomeSlide, HomeSlideMedia, PageLocale, PublicHomeSlide } from '../
 import { db } from '../db/client';
 import type { Database, HomeSlideTable } from '../db/types';
 import { HttpError } from '../http/errors';
+import { pageCacheGeneration } from '../http/page-cache';
 import { stableMediaPath } from '../media/url';
-import { live } from './live';
+import { live, nextScheduledPublish } from './live';
 
 function homeSlide(row: Selectable<HomeSlideTable>): HomeSlide {
   const { owner_id: _ownerId, ...slide } = row;
@@ -128,7 +129,7 @@ export interface PublicSlidesSnapshot {
 }
 
 // ponytail: process-local like the menu's; replace it only when TomeCMS runs more than one app process.
-const cache = new Map<PageLocale, { expiresAt: number; snapshot: PublicSlidesSnapshot }>();
+const cache = new Map<PageLocale, { expiresAt: number; pageGeneration: number; snapshot: PublicSlidesSnapshot }>();
 let cacheGeneration = 0;
 
 export function invalidatePublicSlidesCache(): void {
@@ -197,12 +198,20 @@ async function queryPublicSlides(locale: PageLocale, now: Date): Promise<{ nextE
 
 export async function getPublicSlidesSnapshot(locale: PageLocale): Promise<PublicSlidesSnapshot> {
   const cached = cache.get(locale);
-  if (cached && cached.expiresAt > Date.now()) return cached.snapshot;
+  if (cached && cached.expiresAt > Date.now() && cached.pageGeneration === pageCacheGeneration()) return cached.snapshot;
   const generation = cacheGeneration;
-  const { nextEdge, snapshot } = await queryPublicSlides(locale, new Date());
-  // A slide's start or end changes what is live with no write, so a snapshot never outlives the next one.
-  const expiresAt = Math.min(Date.now() + 5_000, nextEdge ?? Infinity);
-  if (generation === cacheGeneration) cache.set(locale, { expiresAt, snapshot });
+  // A slide shows a picture's words and links to pages, and those writes never call this module. Any
+  // write that empties the page cache retires this snapshot too, or the fresh render after it would
+  // draw the old slides and be kept for five minutes.
+  const pageGeneration = pageCacheGeneration();
+  const [{ nextEdge, snapshot }, scheduled] = await Promise.all([
+    queryPublicSlides(locale, new Date()),
+    nextScheduledPublish().catch(() => undefined),
+  ]);
+  // A slide's start or end, or a linked page's moment, changes what is live with no write, so a
+  // snapshot never outlives the next one. Without that moment it is served but not kept.
+  const expiresAt = Math.min(Date.now() + 5_000, nextEdge ?? Infinity, scheduled?.getTime() ?? Infinity);
+  if (scheduled !== undefined && generation === cacheGeneration) cache.set(locale, { expiresAt, pageGeneration, snapshot });
   return snapshot;
 }
 
