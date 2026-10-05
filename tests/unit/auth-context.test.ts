@@ -31,6 +31,16 @@ test('signed enrollment contexts verify only for their intended purpose', () => 
   assert.throws(() => verifyEnrollmentContext(context, 'recovery', secret, now), /invalid or expired/i);
 });
 
+test('a device context verifies for its own purpose and for none other', () => {
+  const device = { ...claims, purpose: 'device' as const };
+  const context = signEnrollmentContext(device, secret);
+  assert.deepEqual(verifyEnrollmentContext(context, 'device', secret, now), device);
+  assert.deepEqual(verifyEnrollmentContext(context, undefined, secret, now), device);
+  for (const other of ['install', 'recovery'] as const) {
+    assert.throws(() => verifyEnrollmentContext(context, other, secret, now), /invalid or expired/i);
+  }
+});
+
 test('signed enrollment contexts reject tampering and malformed input', () => {
   const context = signEnrollmentContext(claims, secret);
   const [payload, signature] = context.split('.');

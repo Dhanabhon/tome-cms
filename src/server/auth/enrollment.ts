@@ -21,14 +21,15 @@ import {
   type EnrollmentPurpose,
 } from './context';
 
+const enrollmentPurposeSchema = z.enum(['install', 'recovery', 'device']);
+
 const createEnrollmentSchema = z.object({
   email: z.email(),
-  purpose: z.enum(['install', 'recovery']),
+  purpose: enrollmentPurposeSchema,
   pendingUserId: z.string().min(1),
 }).strict();
 
 const enrollmentReferenceSchema = z.uuid();
-const enrollmentPurposeSchema = z.enum(['install', 'recovery']);
 
 interface EnrollmentUser {
   id: string;
@@ -218,6 +219,7 @@ export async function resolveEnrollmentUser(input: {
 export async function authorizeEnrollmentContext(context?: string | null): Promise<{
   reference: string;
   user: EnrollmentUser;
+  purpose: EnrollmentPurpose;
 }> {
   if (!context) invalidEnrollment();
   const claims = readClaims(context);
@@ -238,10 +240,16 @@ export async function authorizeEnrollmentContext(context?: string | null): Promi
   if (claims.purpose === 'install') {
     query = query.where(({ exists, not, selectFrom }) => not(exists(selectFrom('site_settings').select('id'))));
   }
+  // A device link is the installed owner's alone; it means nothing before install or for anyone else.
+  if (claims.purpose === 'device') {
+    query = query.where(({ exists, selectFrom }) => exists(
+      selectFrom('site_settings').select('id').whereRef('site_settings.owner_id', '=', 'enrollment.pending_user_id'),
+    ));
+  }
 
   const user = await query.executeTakeFirst();
   if (!user) invalidEnrollment();
-  return { reference: claims.id, user };
+  return { reference: claims.id, user, purpose: claims.purpose };
 }
 
 export async function resolveEnrollmentUserByReference(input: {
@@ -269,6 +277,10 @@ export async function resolveEnrollmentUserByReference(input: {
   if (purpose.data === 'install') {
     const installed = await db.selectFrom('site_settings').select('id').executeTakeFirst();
     if (installed) invalidEnrollment();
+  }
+  if (purpose.data === 'device') {
+    const settings = await db.selectFrom('site_settings').select('owner_id').executeTakeFirst();
+    if (settings?.owner_id !== enrollment.id) invalidEnrollment();
   }
   return { id: enrollment.id, name: enrollment.name, email: enrollment.email };
 }
@@ -303,6 +315,14 @@ export async function assertEnrollmentReference<Options extends BetterAuthOption
   if (!pendingUser || pendingUser.email !== enrollment.email) invalidEnrollment();
   if (purpose.data === 'install' && await adapter.count({ model: 'siteSettings' }) > 0) {
     invalidEnrollment();
+  }
+  if (purpose.data === 'device') {
+    const owner = await adapter.findOne<AdapterSiteOwner>({
+      model: 'siteSettings',
+      where: [{ field: 'ownerId', value: input.pendingUserId }],
+      select: ['ownerId'],
+    });
+    if (!owner) invalidEnrollment();
   }
   return purpose.data;
 }

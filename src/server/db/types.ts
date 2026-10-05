@@ -111,7 +111,7 @@ export interface PasskeyTable {
 export interface InstallationEnrollmentTable {
   id: string;
   context_hash: string;
-  purpose: 'install' | 'recovery';
+  purpose: 'install' | 'recovery' | 'device';
   pending_user_id: string;
   email: string;
   expires_at: RequiredTimestamp;

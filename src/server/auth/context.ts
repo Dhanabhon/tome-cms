@@ -4,12 +4,12 @@ import { z } from 'zod';
 
 export const ENROLLMENT_TTL_SECONDS = 10 * 60;
 
-export type EnrollmentPurpose = 'install' | 'recovery';
+export type EnrollmentPurpose = 'install' | 'recovery' | 'device';
 
 const claimsSchema = z.object({
   v: z.literal(1),
   id: z.uuid(),
-  purpose: z.enum(['install', 'recovery']),
+  purpose: z.enum(['install', 'recovery', 'device']),
   exp: z.number().int().positive(),
 }).strict();
 
