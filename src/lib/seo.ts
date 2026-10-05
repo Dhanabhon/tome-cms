@@ -1,3 +1,27 @@
+import type { SiteBrand } from './site-brand';
+
+/**
+ * Who wrote an article, for a search engine. The profiles the owner lists in Settings, which only
+ * ever hold web addresses, say this is the same person found there.
+ */
+export function personSchema(name: string, sameAs: readonly string[]) {
+  return { '@type': 'Person', name, ...(sameAs.length ? { sameAs } : {}) };
+}
+
+/**
+ * The site as the publisher of what it shows. Its logo is the square site icon, which is the size
+ * a search engine asks for, or the header logo when there is no icon; a site with neither has none.
+ */
+export function organizationSchema(name: string, siteUrl: URL, brand: Pick<SiteBrand, 'icon' | 'logo'>) {
+  const logo = brand.icon?.png180 ?? brand.logo?.url;
+  return {
+    '@type': 'Organization',
+    ...(logo ? { logo: new URL(logo, siteUrl).toString() } : {}),
+    name,
+    url: siteUrl.toString(),
+  };
+}
+
 export function getPublicSiteUrl(request: Request, configuredSite?: URL) {
   if (configuredSite) return new URL('/', configuredSite);
 

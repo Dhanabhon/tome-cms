@@ -191,7 +191,9 @@ export function isImageAsset(asset: MediaAsset): asset is MediaAsset & { height:
 
 /** What a picture from the library says about itself in the editor: its alt text, or failing that its file name. */
 export function pictureAttrs(asset: MediaAsset) {
-  return { alt: asset.alt_text || asset.original_name, mediaId: asset.id, src: asset.publicUrl, title: asset.original_name };
+  // The editor cannot author alt text: a picture is described by the library, or is decoration.
+  // Its file name stays a title, which tells the author which file it is; a reader never gets it.
+  return { alt: asset.alt_text || '', mediaId: asset.id, src: asset.publicUrl, title: asset.original_name };
 }
 
 /**

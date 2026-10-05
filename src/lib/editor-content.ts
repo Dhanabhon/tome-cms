@@ -68,7 +68,7 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     h3: ['style'],
     // The transform below gives every image these two. sanitize-html filters after it transforms,
     // so they are allowed here as well, with no value but the one the transform writes.
-    img: ['src', 'alt', 'title', 'width', 'height', { name: 'decoding', values: ['async'] }, { name: 'loading', values: ['lazy'] }],
+    img: ['src', 'alt', 'width', 'height', { name: 'decoding', values: ['async'] }, { name: 'loading', values: ['lazy'] }],
     p: ['style'],
     // The transform below keeps only a label the picker has; the attribute itself has no
     // value list, because sanitize-html leaves a bare `data-language` behind for a wrong one.
@@ -119,6 +119,34 @@ export const sanitizedContentHtmlSchema: z.ZodType<string> = z
  */
 export function demoteH1(html: string): string {
   return html.replace(/<(\/?)h1(?=[\s>])/g, '<$1h2');
+}
+
+/**
+ * Stored HTML without the title a picture was once given. The editor set it to the file's name,
+ * which a reader saw as a tooltip and a search engine read as words about the page; the sanitizer
+ * no longer keeps it, and this takes it off what was saved before. It reads the sanitizer's own
+ * output, where an attribute is always double-quoted and a quote inside it is an entity.
+ */
+export function withoutImageTitles(html: string): string {
+  return html.replace(/<img\b[^>]*>/g, (tag) => tag.replace(/\stitle="[^"]*"/, ''));
+}
+
+const escapeAttribute = (value: string) => value
+  .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+
+/**
+ * Stored HTML with each library picture that was saved with its file name for alt text described
+ * by what the library says now, or by nothing. The editor once wrote the name when a picture had no
+ * alt text. Alt text anyone wrote is left as it is: only a match for that file's own name is
+ * replaced. Like the transforms beside it, it reads the sanitizer's double-quoted, escaped output.
+ */
+export function withLibraryAlts(html: string, media: ReadonlyArray<{ alt_text: string | null; id: string; original_name: string }>): string {
+  const byId = new Map(media.map((item) => [item.id, item]));
+  return html.replace(/<img\b[^>]*>/g, (tag) => {
+    const item = byId.get(/\ssrc="\/media\/([0-9a-f-]{36})"/.exec(tag)?.[1] ?? '');
+    if (!item || !tag.includes(` alt="${escapeAttribute(item.original_name)}"`)) return tag;
+    return tag.replace(/ alt="[^"]*"/, () => ` alt="${escapeAttribute(item.alt_text ?? '')}"`);
+  });
 }
 
 /**

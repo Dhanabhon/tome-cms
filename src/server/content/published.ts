@@ -11,6 +11,7 @@ import { db } from '../db/client';
 import { cursorQueryHash, decodeCursor, encodeCursor, type CursorQuery } from '../http/cursor';
 import { listReadyImagesByIds, type ReadyImage } from '../media/service';
 import { listPublishedCategoriesForOwner } from './categories';
+import { withLibraryAlts } from '../../lib/editor-content';
 import { editorMediaIds } from './editor';
 import { pageFromRow } from './pages';
 import { postFromRow } from './posts';
@@ -136,6 +137,7 @@ export async function enrichPosts(ownerId: string, posts: Post[]): Promise<Publi
     return {
       ...post,
       categories: categories.get(post.translation_group_id) ?? [],
+      content_html: withLibraryAlts(post.content_html, contentMedia),
       coverImage,
       lastModified: newer(
         post.updated_at,
@@ -178,6 +180,7 @@ export async function enrichPages(ownerId: string, pages: Page[]): Promise<Publi
     });
     return {
       ...page,
+      content_html: withLibraryAlts(page.content_html, contentMedia),
       lastModified: newer(
         page.updated_at,
         translationDates.get(page.translation_group_id),

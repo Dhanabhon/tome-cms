@@ -1,4 +1,4 @@
-import { withLeadImage } from './editor-content';
+import { withLeadImage, withoutImageTitles } from './editor-content';
 
 /**
  * What an article leads with. A shown cover leads and the body is untouched; with no cover, or a
@@ -13,5 +13,6 @@ export function articleCover(post: {
   content_html: string;
 }): { cover: string | null; coverAlt: string; bodyHtml: string } {
   const cover = post.show_cover ? post.cover_image : null;
-  return { cover, coverAlt: post.coverImage?.alt_text ?? '', bodyHtml: cover ? post.content_html : withLeadImage(post.content_html) };
+  const html = withoutImageTitles(post.content_html);
+  return { cover, coverAlt: post.coverImage?.alt_text ?? '', bodyHtml: cover ? html : withLeadImage(html) };
 }
