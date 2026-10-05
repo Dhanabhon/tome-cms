@@ -16,6 +16,8 @@ media_url="${S3_ENDPOINT:-}"
 cms_host=""
 media_host=""
 target_user="${SUDO_USER:-}"
+# sudo run from a root shell sets SUDO_USER=root, which names no account.
+[[ "$target_user" != root ]] || target_user=""
 create_user=false
 firewall=true
 proxy=true

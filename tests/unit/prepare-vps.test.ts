@@ -103,8 +103,14 @@ test('run by root with no account named, nothing about an account stops it', () 
   assert.doesNotMatch(result.stderr, /account|--user/);
 });
 
+test('sudo from a root shell sets SUDO_USER to root, and that names no account', () => {
+  const result = prepare(['--dry-run', '--cms-url', cms, '--media-url', media], { SUDO_USER: 'root' });
+  assert.doesNotMatch(result.stderr, /should not run as root|account|--user/);
+});
+
 test('--user root is still refused, with the options that fix it', () => {
-  refused(['--dry-run', '--cms-url', cms, '--media-url', media], /--create-user --user tomecms/, { SUDO_USER: 'root' });
+  refused(['--dry-run', '--user', 'root', '--cms-url', cms, '--media-url', media], /should not run as root.*--create-user --user tomecms/);
+  refused(['--dry-run', '--user', 'root', '--cms-url', cms, '--media-url', media], /should not run as root/, { SUDO_USER: 'root' });
 });
 
 test('without the proxy, no address is needed', () => {
