@@ -2,6 +2,23 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.17.0 - 2026-10-06
+
+Adding a second device takes a one-time link, the Security screen says where each passkey lives, and the Turnstile check moves to the recovery-code form. One migration.
+
+### Added
+
+- Add a device: a signed-in device makes a link (and QR code) that works once, for 10 minutes; the new device opens it, creates a passkey of its own and is signed in. Every other passkey stays.
+- The Security screen names where each passkey lives (Google Password Manager, iCloud Keychain, Windows Hello, a password manager or a security key) and where else it works.
+
+### Changed
+
+- The Turnstile plugin guards the recovery-code form instead of the passkey sign-in; the form waits for its token, resets it after a failure, and a refusal is logged with Cloudflare's reasons.
+
+### Fixed
+
+- `prepare-vps.sh` runs under `sudo` from a root shell.
+
 ## 1.16.4 - 2026-10-06
 
 The weaknesses set aside in 1.16.3, closed, and a tidier recovery page.

@@ -12,6 +12,7 @@ TomeCMS has no password to reset. The owner signs in with a passkey, so the way 
 Both ways back are set up under "Security" in the admin.
 
 - "Add a spare passkey" registers a second passkey, on another device. The sign-in page takes either one.
+- "Add a device" makes a one-time link, and a QR code of it, for another computer, phone or tablet. Open it there within 10 minutes and press "Create a passkey": that device gets a passkey of its own and is signed in, and your other passkeys stay. It works wherever your first passkey lives, so it is the way to add a device that cannot reach it. Each passkey in the list says where it lives, such as Google Password Manager or iCloud Keychain.
 - The ten recovery codes from [the first-run wizard](/tome-cms/start/first-run/) each work once. To replace the set, press "Verify and create new codes" under "Recovery codes". The admin asks for a passkey first, then shows ten new codes, once. Every unused code of the old set stops working at that moment.
 
 ## With a recovery code
