@@ -2,6 +2,20 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.16.0 - 2026-10-05
+
+Public pages come from memory, and an edit still shows at once.
+
+### Added
+
+- A public page cache in the app: the home pages, posts, pages, the feed, the sitemap and `robots.txt` are answered from memory once drawn. Every change saved in the admin, and every draft an AI writes through MCP, empties it; a scheduled post or a home slide's start or end expires it on time; nothing is kept longer than five minutes. `X-Tome-Cache` says `hit` or `miss`. Nothing to set up.
+
+### Changed
+
+- A post or page with a meta title of its own is titled by it as written, without the site's name after it (also for `og:title` and `twitter:title`).
+- The home pages name the default language's home as `x-default`.
+- An article's cover carries the alt text its picture has in the media library, on Paper, Plain and Almanac, and in the draft preview.
+
 ## 1.15.0 - 2026-10-04
 
 HSTS, two content fixes, and the design and touch-screen details the 1.14.0 review left open.
