@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { auth } from '../../../server/auth/config';
-import { EnrollmentContextError, verifyEnrollmentContext } from '../../../server/auth/context';
+import { EnrollmentContextError, verifyEnrollmentContext, type EnrollmentPurpose } from '../../../server/auth/context';
 import {
   authorizeEnrollmentContext,
   classifyAuthIdentity,
@@ -64,11 +64,14 @@ export const ALL: APIRoute = async (context) => {
   }
 
   let authRequest = request;
-  // An enrollment registers the first Passkey, or the one replacing a Passkey that is gone.
+  // An enrollment registers the first Passkey, the one replacing a Passkey that is gone, or one
+  // for another device.
   const enrolling = request.method === 'GET' && url.pathname === registrationOptionsPath && url.searchParams.has('context');
+  let enrollingPurpose: EnrollmentPurpose | undefined;
   if (enrolling) {
     try {
-      const { reference } = await authorizeEnrollmentContext(url.searchParams.get('context'));
+      const { reference, purpose } = await authorizeEnrollmentContext(url.searchParams.get('context'));
+      enrollingPurpose = purpose;
       url.searchParams.set('context', reference);
       authRequest = new Request(url, {
         headers: request.headers,
@@ -92,7 +95,9 @@ export const ALL: APIRoute = async (context) => {
     action = current ? 'signin' : 'install';
     if (recoveryContext) {
       try {
-        verifyEnrollmentContext(recoveryContext, 'recovery', env.TOME_CMS_CONTEXT_SECRET);
+        // A device link registers without a session just as a recovery does, so it shares the header and the bucket.
+        const { purpose } = verifyEnrollmentContext(recoveryContext, undefined, env.TOME_CMS_CONTEXT_SECRET);
+        if (purpose !== 'recovery' && purpose !== 'device') throw new EnrollmentContextError();
         action = 'recovery';
         const headers = new Headers(request.headers);
         headers.delete(recoveryContextHeader);
@@ -151,7 +156,9 @@ export const ALL: APIRoute = async (context) => {
     }
   }
   const response = await auth.handler(authRequest);
-  if (!enrolling) return response;
+  // A device link keeps the exclusion: a browser that already holds this site's passkey should
+  // refuse to make a duplicate rather than add a second one for the same device.
+  if (enrollingPurpose !== 'install' && enrollingPurpose !== 'recovery') return response;
   const { withoutExcludedCredentials } = await import('../../../server/auth/allowed-credentials');
   return withoutExcludedCredentials(response);
 };

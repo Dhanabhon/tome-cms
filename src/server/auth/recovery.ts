@@ -55,7 +55,7 @@ async function invalidateRecoveryEnrollments(ownerId: string, trx: Transaction<D
     .execute();
 }
 
-async function lockInstalledOwner(ownerId: string, trx: Transaction<Database>) {
+export async function lockInstalledOwner(ownerId: string, trx: Transaction<Database>) {
   return trx.selectFrom('site_settings as settings')
     .innerJoin('user as owner', 'owner.id', 'settings.owner_id')
     .select(['owner.id as id', 'owner.email as email'])

@@ -55,7 +55,9 @@ test('a recovery may register over the Passkey it is recovering from', () => {
   // registered", and the owner whose Passkey is gone has no way left to make a new one.
   const route = readFileSync(new URL('../../src/pages/api/auth/[...all].ts', import.meta.url), 'utf8');
   assert.match(route, /const enrolling = request\.method === 'GET' && url\.pathname === registrationOptionsPath && url\.searchParams\.has\('context'\)/);
-  assert.match(route, /if \(!enrolling\) return response;/);
+  // Only install and recovery drop it; a device link keeps it, so a browser that already holds
+  // this site's Passkey refuses a duplicate.
+  assert.match(route, /if \(enrollingPurpose !== 'install' && enrollingPurpose !== 'recovery'\) return response;/);
   // Adding a spare has no enrollment context, so it keeps the exclusion it needs.
   assert.doesNotMatch(route, /withoutExcludedCredentials\(response\)[\s\S]*?\n  return response;/);
 });

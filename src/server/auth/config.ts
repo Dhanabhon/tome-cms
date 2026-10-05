@@ -3,6 +3,7 @@ import { betterAuth } from 'better-auth';
 
 import { pool } from '../db/client';
 import { getServerEnv } from '../env';
+import { consumeDeviceEnrollmentReference } from './device-link';
 import {
   assertEnrollmentReference,
   assertInstalledOwner,
@@ -96,6 +97,16 @@ export const auth = betterAuth({
           if (purpose === 'recovery') {
             if (ctx.body.createSession !== true) throw new Error('Recovery registration must create a session.');
             await consumeRecoveryEnrollmentReference({
+              reference: context,
+              ownerId: user.id,
+              fallbackAdapter: ctx.context.adapter,
+            });
+          }
+          // A device link adds a passkey and lands the new device signed in. It is spent here,
+          // in the registration transaction, so the same link cannot register a second device.
+          if (purpose === 'device') {
+            if (ctx.body.createSession !== true) throw new Error('Device registration must create a session.');
+            await consumeDeviceEnrollmentReference({
               reference: context,
               ownerId: user.id,
               fallbackAdapter: ctx.context.adapter,
