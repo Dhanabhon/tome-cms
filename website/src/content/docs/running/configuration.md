@@ -96,7 +96,7 @@ An edit shows at once: every change saved in the admin, and every draft an AI wr
 To see it at work, ask for a page twice and look for `X-Tome-Cache`:
 
 ```sh
-curl -sI https://cms.example.com/en | grep -i x-tome-cache
+curl -s -o /dev/null -D - https://cms.example.com/en | grep -i x-tome-cache
 ```
 
 The first answer says `miss`, the next `hit`. There is nothing to set up.

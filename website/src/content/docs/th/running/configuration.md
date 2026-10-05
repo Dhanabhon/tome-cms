@@ -96,7 +96,7 @@ TomeCMS เก็บหน้าสาธารณะที่สร้างเ
 ดูว่าแคชทำงานได้ด้วยการขอหน้าเดิมสองครั้งแล้วดู `X-Tome-Cache`
 
 ```sh
-curl -sI https://cms.example.com/en | grep -i x-tome-cache
+curl -s -o /dev/null -D - https://cms.example.com/en | grep -i x-tome-cache
 ```
 
 ครั้งแรกจะเป็น `miss` ครั้งถัดไปเป็น `hit` ไม่ต้องตั้งค่าอะไร
