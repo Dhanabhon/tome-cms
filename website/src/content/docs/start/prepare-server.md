@@ -27,7 +27,7 @@ There are two ways to use it:
 Work as root. On a server that logs you in as another account, run `sudo -i` first. Get the release once, into the folder the install uses as well, and run the script from it:
 
 ```sh
-git clone --depth 1 --branch v1.16.3 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.16.4 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
 ```
@@ -75,6 +75,8 @@ Each step says whether it changed something or found it done, so running the scr
 
 Caddy forwards the CMS origin to `127.0.0.1:4321` and the media origin to `127.0.0.1:9000`. It passes the `Host` header on unchanged and accepts uploads of up to 25 MB, the two settings [the reverse proxy](/tome-cms/start/requirements/#the-reverse-proxy) needs.
 
+On the media origin it also takes the `response-content-type` and `response-content-disposition` query parameters (and the other `response-*` ones) off every request, because the storage would otherwise let a link hand a file over as a web page. It sends `X-Content-Type-Options: nosniff` with every file, and a sandboxing `Content-Security-Policy` with every `.svg`, so a logo or icon opened at its own address runs nothing. A server prepared before 1.16.4 gets these by running the script again from the 1.16.4 tag.
+
 The Caddyfile's first line marks it as the script's, and the script rewrites it each time it runs. It stops rather than overwrite a Caddyfile someone else changed. If you want to keep changes of your own, run the script with `--no-proxy`.
 
 If nginx or Apache already holds port 80 or 443, the script names it and stops. Run it with `--no-proxy` to keep that server, and set it up as [the reverse proxy](/tome-cms/start/requirements/#the-reverse-proxy) describes.
@@ -118,7 +120,7 @@ To run one step by hand instead, use the commands it runs:
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.16.3
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.16.4
 ```
 
 The installer refuses to run over an install it already started. If it stopped after writing its files, [Recovery](/tome-cms/running/recovery/#recovering-a-managed-installation) says what to do instead.

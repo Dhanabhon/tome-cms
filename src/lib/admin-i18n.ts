@@ -1911,7 +1911,8 @@ const th: typeof en = {
   },
   recovery: {
     eyebrow: 'การกู้คืนบัญชี',
-    heading: 'กลับเข้าสู่พื้นที่ทำงานของคุณ',
+    // A word joiner (U+2060) keeps พื้นที่ทำงาน on one line wherever the heading wraps.
+    heading: 'กลับเข้าสู่พื้นที่\u2060ทำงานของคุณ',
     hint: 'ใช้รหัสกู้คืนที่บันทึกไว้หนึ่งรหัส หรือลิงก์ใช้ครั้งเดียวที่สร้างบนเซิร์ฟเวอร์ TomeCMS โดยตรง',
     title: 'กู้คืนการเข้าถึง',
   },

@@ -29,6 +29,20 @@ media.example.com {
 \trequest_body {
 \t\tmax_size 25MB
 \t}
+\t# Storage honours these on any request, so a link could hand a file over inline or as a
+\t# web page. TomeCMS never sends them; its uploads are signed without them.
+\turi query {
+\t\t-response-content-type
+\t\t-response-content-disposition
+\t\t-response-content-encoding
+\t\t-response-content-language
+\t\t-response-cache-control
+\t\t-response-expires
+\t}
+\theader X-Content-Type-Options nosniff
+\t# A logo or icon opened at its own address is a document, and nothing in it may run.
+\t@svg path *.svg
+\theader @svg Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 \treverse_proxy 127.0.0.1:9000
 }
 `;

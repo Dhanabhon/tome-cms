@@ -108,6 +108,20 @@ $2 {
 	request_body {
 		max_size 25MB
 	}
+	# Storage honours these on any request, so a link could hand a file over inline or as a
+	# web page. TomeCMS never sends them; its uploads are signed without them.
+	uri query {
+		-response-content-type
+		-response-content-disposition
+		-response-content-encoding
+		-response-content-language
+		-response-cache-control
+		-response-expires
+	}
+	header X-Content-Type-Options nosniff
+	# A logo or icon opened at its own address is a document, and nothing in it may run.
+	@svg path *.svg
+	header @svg Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 	reverse_proxy 127.0.0.1:9000
 }
 EOF

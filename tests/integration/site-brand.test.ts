@@ -19,7 +19,7 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
   const { getSiteSettings } = await import('../../src/server/content/settings');
   const { brandOf, removeBrandImage, storeBrandImage } = await import('../../src/server/content/brand');
   const { s3, s3Bucket } = await import('../../src/server/media/storage');
-  const { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
+  const { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand } = await import('@aws-sdk/client-s3');
   const { knownObjects } = await import('../../scripts/reset-installation.mjs');
   const sharp = (await import('sharp')).default;
   context.after(closeDatabase);
@@ -46,6 +46,8 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
   assert.ok(logo);
   assert.match(logo.key, new RegExp(`^owners/${OWNER}/\\d{4}/\\d{2}/[0-9a-f-]{36}\\.svg$`));
   assert.equal((await head(logo.key))?.ContentType, 'image/svg+xml');
+  // Opened at its own address, an SVG is a document; downloaded, it runs nothing. <img> ignores this.
+  assert.equal((await head(logo.key))?.ContentDisposition, 'attachment');
   const stored = await (await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: logo.key }))).Body!.transformToString();
   assert.ok(!stored.includes('script'), 'stored as made safe');
   assert.ok(first.brand.logo?.url.endsWith(logo.key));
@@ -64,6 +66,8 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
   const icon = (await row()).brand_icon as { png180Key: string; png32Key: string; svgKey: string };
   for (const key of [icon.svgKey, icon.png32Key, icon.png180Key]) assert.ok(await head(key), `${key} was not stored`);
   assert.equal((await head(icon.png180Key))?.ContentType, 'image/png');
+  assert.equal((await head(icon.svgKey))?.ContentDisposition, 'attachment');
+  assert.equal((await head(icon.png180Key))?.ContentDisposition, undefined, 'a picture opens in the browser as before');
   await removeBrandImage(OWNER, 'icon');
   for (const key of [icon.svgKey, icon.png32Key, icon.png180Key]) assert.equal(await head(key), null, `${key} was left behind`);
   assert.equal((await row()).brand_icon, null);
@@ -86,4 +90,21 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
   assert.equal(brandOf((await getSiteSettings())!).showSiteName, false);
   await removeBrandImage(OWNER, 'logo');
   assert.equal(brandOf((await getSiteSettings())!).showSiteName, true);
+
+  // An SVG stored before 1.16.4 has no download header; the backfill gives it one, and keeps
+  // what it is and how long it may be cached.
+  const old = await storeBrandImage(OWNER, 'logo', HOSTILE);
+  const oldKey = ((await row()).brand_logo as { key: string }).key;
+  const body = await (await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: oldKey }))).Body!.transformToString();
+  await s3.send(new PutObjectCommand({ Body: body, Bucket: s3Bucket, CacheControl: 'public, max-age=31536000, immutable', ContentType: 'image/svg+xml', Key: oldKey }));
+  assert.equal((await head(oldKey))?.ContentDisposition, undefined, 'set up as stored before 1.16.4');
+  const { backfillBrandSvgDownloads } = await import('../../src/server/content/brand');
+  assert.equal(await backfillBrandSvgDownloads(), 1);
+  const after = await head(oldKey);
+  assert.deepEqual([after?.ContentDisposition, after?.ContentType, after?.CacheControl],
+    ['attachment', 'image/svg+xml', 'public, max-age=31536000, immutable']);
+  assert.equal(await (await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: oldKey }))).Body!.transformToString(), body);
+  assert.equal(await backfillBrandSvgDownloads(), 0, 'a second run changes nothing');
+
+  assert.ok(old.brand.logo);
 });

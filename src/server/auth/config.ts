@@ -52,7 +52,7 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: false },
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [publicUrl.origin],
-  disabledPaths: ['/passkey/delete-passkey'],
+  disabledPaths: ['/passkey/delete-passkey', '/passkey/update-passkey'],
   user: { additionalFields: { role: { type: 'string', required: true, defaultValue: 'owner', input: false } } },
   session: {
     additionalFields: {

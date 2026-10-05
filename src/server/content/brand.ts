@@ -1,11 +1,12 @@
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 import { editableBrand, siteBrand, storedBrandKeys, type SiteBrand, type StoredBrandIcon, type StoredBrandImage } from '../../lib/site-brand';
 import { prepareBrandImage, type BrandKind, type PreparedFile } from '../media/brand-image';
+import { dispositionForType } from '../media/disposition';
 import { createBrandObjectKey } from '../media/keys';
 import { s3, s3Bucket } from '../media/storage';
 import { resolveMediaUrl } from '../media/url';
-import { writeSiteBrand, type BrandColumn, type SiteSettings } from './settings';
+import { getSiteSettings, writeSiteBrand, type BrandColumn, type SiteSettings } from './settings';
 
 const COLUMN: Record<BrandKind, BrandColumn> = { icon: 'brand_icon', logo: 'brand_logo', 'logo-dark': 'brand_logo_dark' };
 /** A key is never reused, so what is behind one never changes. */
@@ -26,7 +27,11 @@ export function editableBrandOf(settings: SiteSettings): SiteBrand {
 
 async function put(ownerId: string, file: PreparedFile, written: string[]): Promise<string> {
   const key = createBrandObjectKey(ownerId, file.extension);
-  await s3.send(new PutObjectCommand({ Body: file.body, Bucket: s3Bucket, CacheControl: IMMUTABLE, ContentType: file.contentType, Key: key }));
+  const disposition = dispositionForType(file.contentType);
+  await s3.send(new PutObjectCommand({
+    Body: file.body, Bucket: s3Bucket, CacheControl: IMMUTABLE, ContentType: file.contentType, Key: key,
+    ...(disposition ? { ContentDisposition: disposition } : {}),
+  }));
   written.push(key);
   return key;
 }
@@ -69,4 +74,28 @@ export async function removeBrandImage(ownerId: string, kind: BrandKind): Promis
   const { previous, settings } = await writeSiteBrand(ownerId, COLUMN[kind], null);
   await removeObjects(storedBrandKeys(previous));
   return { brand: editableBrandOf(settings), updatedAt: settings.updated_at.toISOString() };
+}
+
+/**
+ * An SVG stored before 1.16.4 went up without the download header. This copies each one onto
+ * itself with it, keeping its type and cache rule; one already carrying it is left alone, so
+ * running it again costs a HEAD per SVG. Returns how many it changed.
+ */
+export async function backfillBrandSvgDownloads(): Promise<number> {
+  const settings = await getSiteSettings();
+  if (!settings) return 0;
+  const keys = [settings.brand_logo, settings.brand_logo_dark, settings.brand_icon]
+    .flatMap(storedBrandKeys)
+    .filter((key) => key.endsWith('.svg'));
+  let changed = 0;
+  for (const key of keys) {
+    const head = await s3.send(new HeadObjectCommand({ Bucket: s3Bucket, Key: key }));
+    if (head.ContentDisposition === dispositionForType('image/svg+xml')) continue;
+    await s3.send(new CopyObjectCommand({
+      Bucket: s3Bucket, Key: key, CopySource: `${s3Bucket}/${key}`, MetadataDirective: 'REPLACE',
+      CacheControl: IMMUTABLE, ContentType: 'image/svg+xml', ContentDisposition: dispositionForType('image/svg+xml'),
+    }));
+    changed += 1;
+  }
+  return changed;
 }

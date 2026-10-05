@@ -103,6 +103,8 @@ The proxy also has to tell the application who is connecting, by setting or addi
 
 Two ways of getting this wrong are worth knowing. A proxy that leaves the header out makes every visitor count as the proxy, so ten failed sign-ins, or sixty searches, from anyone use up everyone's allowance. A proxy that passes a visitor's own header through untouched, which nginx does without the line above, lets that visitor choose the address the limits count. Behind a CDN the proxy sees the CDN's address unless it is set up to trust the CDN's header, and the limits then count the CDN's address.
 
+On the media origin, a proxy of your own should do three more things, as the Caddy that `prepare-vps.sh` writes does from 1.16.4. Drop the `response-*` query parameters (`response-content-type`, `response-content-disposition` and the rest) from every request: the storage honours them for anyone, so a link could otherwise hand an image over as a web page. Send `X-Content-Type-Options: nosniff` with every file. And send `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` with every `.svg`, so a logo or icon opened at its own address runs nothing. TomeCMS's own uploads never use those parameters.
+
 ## Ports and the firewall
 
 Compose binds PostgreSQL (`5432`), SeaweedFS (`9000`) and the application (`4321`) to `127.0.0.1` only. Nothing reaches them from outside except through the proxy, so the firewall needs only SSH, HTTP and HTTPS open.

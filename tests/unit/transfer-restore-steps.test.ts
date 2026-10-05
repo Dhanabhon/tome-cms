@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 
-import { DeleteObjectsCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 
 import { createObjectKey } from '../../src/server/media/keys';
 import { splitDatabaseUrl } from '../../src/server/transfer/database-url';
@@ -145,4 +145,32 @@ test('a backup file must be a regular file inside the backup, never a link out o
   await assert.rejects(backupFile(backup, 'manifest.json'), { code: 'backup_invalid' }, 'a linked manifest');
   await writeFile(join(backup, 'kept.json'), '{}');
   assert.ok((await backupFile(backup, 'kept.json')).endsWith('kept.json'), 'a plain file inside is accepted');
+});
+
+test('a restored SVG goes back as a download, as the brand settings stored it', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'tomecms-transfer-svg-'));
+  context.after(() => rm(root, { force: true, recursive: true }));
+  const owner = randomUUID();
+  const svg = createObjectKey(owner, 'image/png').replace(/\.png$/, '.svg');
+  const png = createObjectKey(owner, 'image/png');
+  for (const key of [svg, png]) {
+    await mkdir(dirname(join(root, 'objects', ...key.split('/'))), { recursive: true });
+    await writeFile(join(root, 'objects', ...key.split('/')), 'x');
+  }
+  const puts = new Map<string, string | undefined>();
+  const client = {
+    async send(command: unknown) {
+      if (command instanceof ListObjectsV2Command) return { Contents: [], IsTruncated: false };
+      if (command instanceof PutObjectCommand) puts.set(command.input.Key!, command.input.ContentDisposition);
+      if (command instanceof HeadObjectCommand) return { ContentDisposition: puts.get(command.input.Key!) };
+      return {};
+    },
+  } as unknown as S3Client;
+  const manifest = { objects: [
+    { key: svg, contentType: 'image/svg+xml', sizeBytes: 1, sha256: '0'.repeat(64) },
+    { key: png, contentType: 'image/png', sizeBytes: 1, sha256: '0'.repeat(64) },
+  ] } as unknown as Manifest;
+  await syncBucketToManifest(client, 'bucket', root, manifest, new Map());
+  assert.equal(puts.get(svg), 'attachment');
+  assert.equal(puts.get(png), undefined);
 });

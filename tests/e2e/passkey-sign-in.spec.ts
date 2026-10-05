@@ -238,4 +238,57 @@ test('an owner whose session has gone stale still adds a spare Passkey, after ch
   expect((await db.selectFrom('passkey').select('id').execute()).length, 'the spare is stored').toBe(before + 1);
   const credentials = await cdp.send('WebAuthn.getCredentials', { authenticatorId: spareDevice });
   expect(credentials.credentials, 'the second device holds the spare').toHaveLength(1);
+
+  // Renaming and deleting ask for a Passkey too, so an old session still does both.
+  await sql`update session set "createdAt" = now() - interval '10 minutes'`.execute(db);
+  await page.getByRole('button', { name: 'Rename Laptop spare' }).click();
+  await page.locator('.security-key__edit input[name="name"]').fill('Laptop');
+  await page.getByRole('button', { name: 'Save name' }).click();
+  await expect(page.getByText('Passkey renamed.')).toBeVisible({ timeout: 30_000 });
+  expect((await db.selectFrom('passkey').select('name').where('name', '=', 'Laptop').execute()).length, 'the spare is renamed').toBe(1);
+
+  await sql`update session set "createdAt" = now() - interval '10 minutes'`.execute(db);
+  const kept = (await db.selectFrom('passkey').select('id').execute()).length;
+  await page.getByRole('button', { name: 'Delete Recovery passkey' }).first().click();
+  await expect(page.getByText('Passkey deleted.')).toBeVisible({ timeout: 30_000 });
+  expect((await db.selectFrom('passkey').select('id').execute()).length, 'one Passkey is gone').toBe(kept - 1);
+});
+
+test('the Thai recovery page keeps its heading words whole and its button beside the field', async ({ page }) => {
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  await sql`update site_settings set default_locale = 'th'`.execute(db);
+  try {
+    for (const width of [932, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${origin}/recovery`);
+      const field = page.locator('#recovery-code');
+      await expect(field).toBeVisible();
+
+      // "พื้นที่ทำงาน" is one word to a reader; a line must not end between its halves.
+      const heading = page.locator('.security-page__head h1');
+      const lines = await heading.evaluate((h1) => {
+        const text = h1.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(text, text.data.indexOf('พื้นที่'));
+        range.setEnd(text, text.data.indexOf('ของคุณ'));
+        return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+      });
+      expect(lines, `${width}px: the heading breaks inside พื้นที่ทำงาน`).toBe(1);
+
+      // The line under the heading stands clear of the heading's lowest vowels.
+      const headingBox = (await heading.boundingBox())!;
+      const hintBox = (await page.locator('.security-page__head h1 + p').boundingBox())!;
+      expect(hintBox.y - (headingBox.y + headingBox.height), `${width}px: the hint touches the heading`).toBeGreaterThanOrEqual(8);
+
+      if (width >= 672) {
+        // Side by side, the button sits on the field's line, not on its label's.
+        const fieldBox = (await field.boundingBox())!;
+        const buttonBox = (await page.locator('.security-form button[type="submit"]').boundingBox())!;
+        expect(Math.abs((buttonBox.y + buttonBox.height) - (fieldBox.y + fieldBox.height)), `${width}px: the button is off the field's line`).toBeLessThanOrEqual(1);
+      }
+    }
+  } finally {
+    await sql`update site_settings set default_locale = 'en'`.execute(db);
+  }
 });

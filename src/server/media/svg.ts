@@ -35,9 +35,15 @@ const internal = (value: string) => value.trim().startsWith('#');
  */
 export function insideOnlyCss(css: string): string {
   if (/\\|image-set\s*\(/i.test(css)) return '';
+  // Until nothing changes: taking out `@im@import x;port` would otherwise join the outer halves.
+  let rest = css;
+  for (let previous = ''; previous !== rest;) {
+    previous = rest;
+    rest = rest.replace(/@import[^;]*;?/gi, '');
+  }
   // The lookahead reads past spaces and a quote to the first real character, so `url( #g )`
   // is a reference inside the file and `url("https://…")` is not.
-  return css.replace(/@import[^;]*;?/gi, '').replace(/url\((?!\s*['"]?\s*#)[^)]*\)/gi, 'none');
+  return rest.replace(/url\((?!\s*['"]?\s*#)[^)]*\)/gi, 'none');
 }
 
 /**
@@ -49,10 +55,12 @@ export function insideOnlyCss(css: string): string {
  * sends.
  *
  * Empty when nothing of it may be: a style element's text is written back as read, its entities
- * decoded, so a `<` in it would be markup in the file rather than CSS.
+ * decoded, so a `<` in it would be markup in the file rather than CSS; and an element inside a
+ * style would end it early, leaving the CSS after it unread.
  */
 export function sanitizeSvg(source: string): string {
   let styleHasMarkup = false;
+  let openStyles = 0;
   const sanitized = sanitizeHtml(source, {
     allowedTags: ELEMENTS,
     allowedAttributes: { '*': ATTRIBUTES },
@@ -69,14 +77,22 @@ export function sanitizeSvg(source: string): string {
           .map(([name, value]) => [name, name === 'style' ? insideOnlyCss(value) : value])),
       }),
     },
+    onOpenTag: (name) => {
+      if (openStyles) styleHasMarkup = true;
+      if (name === 'style') openStyles += 1;
+    },
+    onCloseTag: (name) => {
+      if (name === 'style' && openStyles) openStyles -= 1;
+    },
     exclusiveFilter: (frame) => {
       if (frame.tag === 'style' && frame.text.includes('<')) styleHasMarkup = true;
       return false;
     },
   });
   if (styleHasMarkup) return '';
-  // sanitize-html passes a style element's text through untouched, so it is read here.
+  // sanitize-html passes a style element's text through untouched and decoded, so it is read
+  // here, and its `&` escaped: written raw, `&#117;` in the CSS would be read again as `u`.
   return sanitized
-    .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/g, (_, open: string, css: string, close: string) => `${open}${insideOnlyCss(css)}${close}`)
+    .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/g, (_, open: string, css: string, close: string) => `${open}${insideOnlyCss(css).replace(/&/g, '&amp;')}${close}`)
     .trim();
 }

@@ -11,7 +11,7 @@ import { Client } from 'pg';
 import { PLUGIN_MANIFESTS } from '../../plugins/manifests';
 import { isDocumentType, type SupportedDocumentType } from '../../lib/media';
 import type { BackupManifest, BackupRecordCounts } from '../../update/backup';
-import { contentDisposition } from '../media/disposition';
+import { contentDisposition, dispositionForType } from '../media/disposition';
 import { isTomeObjectKey } from '../media/keys';
 import { isSealed, openSecret } from '../plugins/secrets';
 import { splitDatabaseUrl } from './database-url';
@@ -145,7 +145,7 @@ export async function syncBucketToManifest(
   const paths = new Map<string, string>();
   for (const { key } of manifest.objects) paths.set(key, await backupFile(backup, join('objects', ...key.split('/'))));
   for (const object of manifest.objects) {
-    const disposition = dispositions.get(object.key);
+    const disposition = dispositions.get(object.key) ?? dispositionForType(object.contentType);
     // Read whole, as the File Manager's puts are: a stream goes up aws-chunked, and SeaweedFS keeps
     // that as the object's Content-Encoding. Each is 25 MiB at most.
     const body = await readFile(paths.get(object.key)!);
@@ -161,7 +161,7 @@ export async function syncBucketToManifest(
     }));
   }
   for (const object of manifest.objects) {
-    const disposition = dispositions.get(object.key);
+    const disposition = dispositions.get(object.key) ?? dispositionForType(object.contentType);
     if (!disposition) continue;
     const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: object.key }));
     if (head.ContentDisposition !== disposition) throw new Error('Restored document headers do not match the database.');

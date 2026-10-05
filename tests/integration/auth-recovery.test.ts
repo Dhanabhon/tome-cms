@@ -137,6 +137,18 @@ test('recovery is one-time, revokes sessions, replaces credentials, and preserve
     forceAllowId: true,
     data: { id: 'second', name: 'Second', publicKey: 'second-key', userId: 'owner', credentialID: 'second-credential', counter: 0, deviceType: 'singleDevice', backedUp: false, transports: '', createdAt: new Date(), aaguid: null },
   });
+  // Deleting or renaming a Passkey asks for a session checked in the last five minutes, as a spare does.
+  const { PATCH } = await import('../../src/pages/api/admin/security/passkeys');
+  const callRename = (id: string) => PATCH({
+    request: new Request('http://localhost:4321/api/admin/security/passkeys', { method: 'PATCH', headers, body: JSON.stringify({ id, name: 'Renamed' }) }),
+    clientAddress: '127.0.0.10',
+  } as Parameters<typeof PATCH>[0]);
+  await db.updateTable('session').set({ createdAt: new Date(Date.now() - 10 * 60_000) }).where('id', '=', replacementSession.id).execute();
+  assert.equal((await callDelete('replacement')).status, 403, 'a stale session deletes nothing');
+  assert.equal((await callRename('second')).status, 403, 'a stale session renames nothing');
+  assert.equal((await db.selectFrom('passkey').select('name').where('id', '=', 'second').executeTakeFirstOrThrow()).name, 'Second');
+  await db.updateTable('session').set({ createdAt: new Date() }).where('id', '=', replacementSession.id).execute();
+  assert.equal((await callRename('second')).status, 200);
   assert.equal((await callDelete('replacement')).status, 200);
   assert.deepEqual((await db.selectFrom('passkey').select('id').where('userId', '=', 'owner').execute()).map(({ id }) => id), ['second']);
   assert.deepEqual(await db.selectFrom('session').select('id').where('userId', '=', 'owner').execute(), [], 'deleting a Passkey cascades its bound sessions');
@@ -150,4 +162,12 @@ test('recovery is one-time, revokes sessions, replaces credentials, and preserve
   } as Parameters<typeof ALL>[0]);
   assert.equal(publicDelete.status, 404, 'the vendor delete route cannot bypass the final-Passkey invariant');
   assert.ok(await db.selectFrom('passkey').select('id').where('id', '=', 'second').executeTakeFirst());
+  const publicRename = await ALL({
+    request: new Request('http://localhost:4321/api/auth/passkey/update-passkey', {
+      method: 'POST', headers, body: JSON.stringify({ id: 'second', name: 'Lost phone' }),
+    }),
+    clientAddress: '127.0.0.10',
+  } as Parameters<typeof ALL>[0]);
+  assert.equal(publicRename.status, 404, 'the vendor rename route cannot bypass the recent-check rule');
+  assert.equal((await db.selectFrom('passkey').select('name').where('id', '=', 'second').executeTakeFirstOrThrow()).name, 'Renamed');
 });

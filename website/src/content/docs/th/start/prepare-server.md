@@ -27,7 +27,7 @@ VPS ที่เพิ่งสร้างยังไม่มีสิ่ง�
 ทำงานในฐานะ root ถ้าเซิร์ฟเวอร์ให้ล็อกอินด้วยบัญชีอื่น ให้รัน `sudo -i` ก่อน ดึง release ลงมาครั้งเดียว ไว้ในโฟลเดอร์ที่การติดตั้งใช้ด้วย แล้วรันสคริปต์จากโฟลเดอร์นั้น
 
 ```sh
-git clone --depth 1 --branch v1.16.3 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.16.4 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ./scripts/prepare-vps.sh --cms-url https://cms.example.com --media-url https://media.example.com
 ```
@@ -75,6 +75,8 @@ cd /opt/tome-cms-src
 
 Caddy ส่ง origin ของ CMS ต่อไปที่ `127.0.0.1:4321` และ origin ของมีเดียไปที่ `127.0.0.1:9000` ส่ง header `Host` ต่อไปตามเดิม และรับไฟล์อัปโหลดได้ถึง 25 MB ครบทั้งสองข้อที่[การตั้ง reverse proxy](/tome-cms/th/start/requirements/#ตั้ง-reverse-proxy)ต้องการ
 
+ฝั่ง origin ของมีเดีย Caddy ยังตัด query parameter `response-content-type`, `response-content-disposition` และ `response-*` ตัวอื่นออกจากทุก request เพราะ storage ยอมให้ลิงก์สั่งเปลี่ยนไฟล์ให้กลายเป็นหน้าเว็บได้ ส่ง `X-Content-Type-Options: nosniff` กับทุกไฟล์ และส่ง `Content-Security-Policy` แบบ sandbox กับไฟล์ `.svg` ทุกไฟล์ โลโก้หรือไอคอนที่เปิดตรงจากที่อยู่ของมันจึงรันอะไรไม่ได้ เซิร์ฟเวอร์ที่เตรียมไว้ก่อน 1.16.4 จะได้ค่าเหล่านี้เมื่อรันสคริปต์อีกครั้งจาก tag 1.16.4
+
 บรรทัดแรกของ Caddyfile บอกว่าไฟล์นี้เป็นของสคริปต์ และสคริปต์จะเขียนทับทุกครั้งที่รัน ถ้ามีคนอื่นแก้ Caddyfile ไว้ สคริปต์จะหยุดแทนที่จะเขียนทับ ถ้าต้องการเก็บสิ่งที่แก้เอง ให้รันสคริปต์ด้วย `--no-proxy`
 
 ถ้า nginx หรือ Apache ใช้พอร์ต 80 หรือ 443 อยู่แล้ว สคริปต์จะบอกชื่อโปรแกรมนั้นแล้วหยุด ให้รันด้วย `--no-proxy` เพื่อใช้ตัวเดิม แล้วตั้งค่าตามหน้า[การตั้ง reverse proxy](/tome-cms/th/start/requirements/#ตั้ง-reverse-proxy)
@@ -118,7 +120,7 @@ sudo /usr/local/sbin/tomecms-first-boot
 ```sh
 sudo /opt/tome-cms-src/scripts/prepare-vps.sh --create-user --user tomecms --cms-url https://cms.example.com --media-url https://media.example.com
 cd /opt/tome-cms-src && sudo npm ci
-sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.16.3
+sudo TOME_CMS_PUBLIC_URL=https://cms.example.com S3_ENDPOINT=https://media.example.com ./scripts/install-managed-vps.sh --version 1.16.4
 ```
 
 ตัวติดตั้งไม่ยอมรันทับการติดตั้งที่มันเริ่มไว้แล้ว ถ้ามันหยุดไปหลังจากเขียนไฟล์แล้ว หน้า[กลับเข้าหน้าผู้ดูแล](/tome-cms/th/running/recovery/#กู้คืนการติดตั้งแบบ-managed) บอกว่าต้องทำอะไรแทน

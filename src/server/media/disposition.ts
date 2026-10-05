@@ -15,3 +15,11 @@ export function contentDisposition(name: string, type: SupportedDocumentType): s
   const fallback = /^[ -~]+$/.test(name) && !/["\\]/.test(name) ? name : `file.${documentExtension(type)}`;
   return `${type === 'application/pdf' ? 'inline' : 'attachment'}; filename="${fallback}"; filename*=UTF-8''${encodeFilename(name)}`;
 }
+
+/**
+ * The header an object is stored with from its type alone: an SVG is downloaded. Opened at its
+ * own address it is a document that can run what the sanitizer missed; `<img>` and an icon link
+ * ignore the header.
+ */
+export const dispositionForType = (contentType: string): string | undefined =>
+  contentType === 'image/svg+xml' ? 'attachment' : undefined;

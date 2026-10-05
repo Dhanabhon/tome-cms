@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
+import { requireFreshOwnerSession } from '../../../../server/auth/fresh-session';
 import { assertSameOrigin } from '../../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../../server/auth/rate-limit';
 import { HttpError, requireInstalledOwner } from '../../../../server/auth/session';
@@ -81,6 +82,8 @@ export const PATCH: APIRoute = async ({ clientAddress, request }) => {
   try {
     await mutationGuard(request, clientAddress);
     const current = await requireInstalledOwner(request.headers);
+    // As a spare does: an old cookie on a shared computer may not take a Passkey away or rename one.
+    await requireFreshOwnerSession(current);
     const parsed = renameSchema.safeParse(await parseBody(request));
     if (!parsed.success) throw new PasskeyRequestError(400, 'Choose a Passkey and enter a name up to 80 characters.');
     const updated = await db.updateTable('passkey')
@@ -101,6 +104,8 @@ export const DELETE: APIRoute = async ({ clientAddress, request }) => {
   try {
     await mutationGuard(request, clientAddress);
     const current = await requireInstalledOwner(request.headers);
+    // As a spare does: an old cookie on a shared computer may not take a Passkey away or rename one.
+    await requireFreshOwnerSession(current);
     const parsed = deleteSchema.safeParse(await parseBody(request));
     if (!parsed.success) throw new PasskeyRequestError(400, 'Choose a valid Passkey.');
 

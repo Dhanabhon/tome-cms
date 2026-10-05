@@ -62,3 +62,26 @@ test('a style whose text would be markup refuses the whole file', () => {
     assert.equal(sanitizeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><style>${css}</style></svg>`), '');
   }
 });
+
+const svgWith = (style: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><style>${style}</style><rect width="10" height="10"/></svg>`;
+
+test('an @import cut in two by another one does not grow back', () => {
+  // Taking out the inner one would join the outer one's halves.
+  assert.equal(insideOnlyCss('@im@import x;port url(https://evil.test/a.css);.a{}'), '.a{}');
+  assert.ok(!sanitizeSvg(svgWith('@im@import x;port url(https://evil.test/a.css);.a{}')).includes('@import'));
+});
+
+test('a style element\'s text goes out escaped, so an entity is read once and not twice', async () => {
+  // &amp;#117; is the text "&#117;" here; written raw, the browser would read it again as "u".
+  const clean = sanitizeSvg(svgWith('.a{fill:&amp;#117;rl(https://evil.test/x)} .b{font-family:"A&amp;B"}'));
+  assert.ok(clean.includes('&amp;#117;rl('), 'the reference was written back as markup');
+  assert.ok(clean.includes('"A&amp;B"'), 'an ampersand in CSS was not escaped');
+  const metadata = await sharp(Buffer.from(clean)).metadata();
+  assert.equal(metadata.format, 'svg', 'an ampersand in CSS left a file that cannot be drawn');
+});
+
+test('an element inside a style refuses the whole file', () => {
+  // A nested style would end the outer one early, and the CSS after it would go out unread.
+  assert.equal(sanitizeSvg(svgWith('.a{}<style>.b{}</style>@import url(https://evil.test/y.css);')), '');
+  assert.equal(sanitizeSvg(svgWith('<g/>.a{}')), '');
+});

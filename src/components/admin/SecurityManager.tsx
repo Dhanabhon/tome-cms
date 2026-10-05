@@ -159,6 +159,12 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     setBusy(action);
     setMessage('');
     try {
+      // As with a spare, the server only renames or deletes for a session verified in the last few minutes.
+      const assertion = await authClient.signIn.passkey();
+      if (assertion.error || !assertion.data) {
+        setMessage(describeReauthFailure(assertion, copy, copy.security.passkeyUpdateFailed));
+        return false;
+      }
       const response = await atLeast(fetch('/api/admin/security/passkeys', {
         method,
         headers: { 'Content-Type': 'application/json' },
