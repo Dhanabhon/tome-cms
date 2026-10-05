@@ -185,4 +185,11 @@ test('a device link is stored, issued, cancelled and consumed only for the insta
     clientAddress: '127.0.0.22',
   } as Parameters<typeof DELETE>[0]);
   assert.equal(anonymous.status, 401);
+
+  // A recovery means the owner's credentials may be in someone else's hands, so it spends any
+  // device link still waiting: one made with a stolen session must not outlive the recovery.
+  const pending = await issueDeviceEnrollment('owner');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  await issueRecoveryEnrollment('owner');
+  await assert.rejects(authorizeEnrollmentContext(pending.context), /invalid or expired/i);
 });

@@ -46,11 +46,14 @@ export function verifyRecoveryCodeHash(code: string, expectedHash: string): bool
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-async function invalidateRecoveryEnrollments(ownerId: string, trx: Transaction<Database>): Promise<void> {
+// A recovery means the owner's credentials may be in someone else's hands. A device link made
+// with a stolen session would otherwise outlive the recovery and add a passkey after it, so it
+// is spent here along with any earlier recovery link.
+async function invalidateEnrollmentsBeforeRecovery(ownerId: string, trx: Transaction<Database>): Promise<void> {
   await trx.updateTable('installation_enrollments')
     .set({ consumed_at: sql<Date>`CURRENT_TIMESTAMP` })
     .where('pending_user_id', '=', ownerId)
-    .where('purpose', '=', 'recovery')
+    .where('purpose', 'in', ['recovery', 'device'])
     .where('consumed_at', 'is', null)
     .execute();
 }
@@ -84,7 +87,7 @@ async function issueRecoveryEnrollmentInTransaction(
   trx: Transaction<Database>,
 ): Promise<{ context: string; expiresAt: Date }> {
   await trx.deleteFrom('session').where('userId', '=', ownerId).execute();
-  await invalidateRecoveryEnrollments(ownerId, trx);
+  await invalidateEnrollmentsBeforeRecovery(ownerId, trx);
   return createEnrollment({ email, pendingUserId: ownerId, purpose: 'recovery' }, trx);
 }
 
