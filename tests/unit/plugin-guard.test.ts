@@ -54,18 +54,21 @@ test('a missing token is refused, and a missing secret is not the visitor\'s pro
   assert.equal((await verifySignIn({ remoteIp: null, settings: { secretKey: '  ' }, token: 't' })).outcome, 'unavailable');
 });
 
-test('the guard stands on the attempt and nowhere near the way back in', () => {
+test('the guard stands on the recovery code, after the rate limit and before the code is read', () => {
+  const start = read('src/pages/api/recovery/start.ts');
+  const limit = start.indexOf("enforceRateLimit('recovery'");
+  const guard = start.indexOf('guardSignIn(');
+  const code = start.indexOf('request.json()');
+  assert.ok(limit > 0 && limit < guard && guard < code, 'rate limit, then the challenge, then the code');
+  assert.match(start, /token: request\.headers\.get\('X-TomeCMS-Plugin-Token'\)/);
+  assert.match(start, /verdict\?\.outcome === 'refused'/);
+  assert.match(start, /return problem\(request, 403, [^\n]*requestId, 'challenge_refused'\);/);
+  // The reason is Cloudflare's codes; the token is never written down.
+  assert.match(start, /console\.warn\(`Recovery challenge refused \[\$\{verdict\.pluginId\}\]: \$\{verdict\.detail/);
+  assert.match(start, /console\.warn\(`Recovery challenge unavailable/);
+  // Registration is how a recovery ends. A challenge across it would be a second wall across the exit.
   const gate = read('src/pages/api/auth/[...all].ts');
-  assert.match(gate, /request\.method === 'POST' && url\.pathname === '\/api\/auth\/passkey\/verify-authentication'/);
-  // Only a caller with no session meets it. A cookie is not a session, so the test is `current`,
-  // which the database answers, and never the cookie's presence.
-  assert.match(gate, /if \(identity !== 'installed-owner' && request\.method === 'POST' && url\.pathname === '\/api\/auth\/passkey\/verify-authentication'\) \{\s+const \{ getSiteSettings \}/);
-  // Registration is how a recovery ends. A challenge across it would be a wall across the exit.
-  const guarded = gate.slice(gate.indexOf('guardSignIn'), gate.indexOf('if (action) {'));
-  assert.doesNotMatch(guarded, /verify-registration|registrationVerificationPath/);
-  assert.match(gate, /verdict\?\.outcome === 'refused'/);
-  assert.match(gate, /verdict\?\.outcome === 'unavailable'/);
-  assert.match(gate, /console\.warn\(`Sign-in challenge unavailable/);
+  assert.doesNotMatch(gate, /guardSignIn|challenge_refused/);
 });
 
 test('a refused challenge says so, and says where the way out is', () => {

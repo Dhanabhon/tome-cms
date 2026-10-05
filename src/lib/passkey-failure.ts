@@ -78,11 +78,9 @@ export function describePasskeyException(error: unknown, copy: AdminCopy, fallba
 
 /**
  * A passkey asked for again by an owner who is already signed in: installing an update, new
- * recovery codes, the Security screen's own sign-in. A challenge only refuses such a check when
- * the session is gone, and only the sign-in page can pass one, so the way on is to sign in again,
- * not "try again, or switch the plugin off".
+ * recovery codes, the Security screen's own sign-in. A 401 there is a passkey this site does not
+ * know, not a session to reload.
  */
 export function describeReauthFailure(value: unknown, copy: AdminCopy, fallback: string): string {
-  if (readPasskeyCode(value) === 'challenge_refused') return copy.auth.sessionExpired;
   return describePasskeyFailure(value, copy, fallback, copy.auth.passkeyNotRegistered);
 }

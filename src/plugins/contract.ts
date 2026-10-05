@@ -51,7 +51,8 @@ export interface PluginSetting {
  * set and the core supplies the words. tests/unit/plugin-admin.test.ts holds each plugin to
  * what it declared: a plugin that names a hook has to implement it.
  *
- * 'signIn' is the admin's sign-in. 'publicPage' is every page a reader sees, and is the
+ * 'signIn' is the recovery-code form (it was the passkey sign-in until 1.17.0; the name stayed).
+ * 'publicPage' is every page a reader sees, and is the
  * larger of the two: see the note on publicClient.
  */
 export type PluginHookId = 'editorSuggestions' | 'mcp' | 'publicPage' | 'signIn';
@@ -75,7 +76,7 @@ export interface PluginManifest {
 }
 
 /**
- * What to put in the sign-in form.
+ * What to put in the recovery-code form.
  *
  * Data, not markup: the plugin describes and the form renders, so nothing a plugin returns
  * is ever written into the page as HTML, and the form keeps deciding what its own fields
@@ -93,7 +94,7 @@ export interface SignInWidget {
  * What a plugin found, not what should happen about it.
  *
  * `unavailable` is the case that matters: the third party could not be asked. Whether that
- * should stop someone signing in is a policy about this product's tolerance for locking its
+ * should stop someone recovering access is a policy about this product's tolerance for locking its
  * owner out, and the core decides it in one place rather than letting each plugin restate
  * it -- or quietly disagree.
  */

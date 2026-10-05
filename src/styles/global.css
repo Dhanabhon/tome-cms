@@ -2334,6 +2334,8 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .security-form { display: grid; gap: var(--space-md); align-items: end; }
 /* The card's rule above stands a button at the top of its row; beside a field it belongs on the field's line. */
 .security-form > button { align-self: end; }
+/* A challenge reads before the code it guards, on a row of its own, so the field and its button keep their line. */
+.security-form > .security-form__check { grid-column: 1 / -1; min-width: 0; }
 .security-list { display: grid; gap: var(--space-md); }
 /* A passkey reads as a thing before it reads as a field: which key, then when it was
  * last used, then the box that renames it. */

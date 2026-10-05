@@ -23,24 +23,34 @@ test('a challenge is offered only when the check behind it can be made', () => {
   });
 });
 
-test('the form reads the answer out of itself', () => {
-  const form = read('src/components/admin/PasskeySignIn.tsx');
+test('the recovery-code form reads the answer out of itself, waits for it, and never sends it twice', () => {
+  const form = read('src/components/admin/RecoveryPasskey.tsx');
   // Turnstile writes its answer into a hidden input in the form it is in, so the submit
   // handler takes it from its own FormData -- no global, and nothing here knows what it means.
   assert.match(form, /new FormData\(event\.currentTarget\)\.get\(widget\.tokenField\)/);
-  assert.match(form, /'X-TomeCMS-Plugin-Token': token/);
-  // Nothing is sent when there is no widget, so a form without one is the form it was.
-  assert.match(form, /token \? \{ fetchOptions: \{ headers: \{ 'X-TomeCMS-Plugin-Token': token \} \} \} : undefined/);
+  // Pressed before the check has answered: say so, and send nothing.
+  assert.match(form, /if \(widget && !token\) \{\s+setError\(copy\.security\.waitForCheck\);\s+return;/);
+  assert.match(form, /\.\.\.\(token \? \{ 'X-TomeCMS-Plugin-Token': token \} : \{\}\)/);
+  // A token is spent once it is sent, so every attempt that did not end in a passkey asks for a fresh one.
+  assert.match(form, /window\.turnstile\?\.reset\?\.\(\)/);
+  // A refusal is told apart from the origin guard's 403 by its code.
+  assert.match(form, /describePasskeyFailure\(\{ code: payload\.code, status: response\.status \}/);
   // The island is told what to draw. It does not import a plugin, so no plugin's code
-  // reaches a browser signing in to an installation that is not using it.
+  // reaches a browser on an installation that is not using it.
   assert.doesNotMatch(form, /from '\.\.\/\.\.\/plugins\/(?!contract)/);
-  assert.doesNotMatch(form, /turnstile|cloudflare/i);
+  assert.doesNotMatch(form, /cloudflare/i);
 });
 
-test('the sign-in page resolves the widget on the server, and only one of them', () => {
-  const page = read('src/pages/admin/index.astro');
-  assert.match(page, /const signInWidget = settings && authRequired \? await activeSignInWidget\(settings\.owner_id\) : null;/);
-  assert.match(page, /widget=\{signInWidget\?\.widget \?\? null\}/);
+test('the sign-in form carries no challenge, and the recovery page resolves one on the server', () => {
+  // A passkey cannot be guessed or phished; the sign-in asks the plugin nothing.
+  const signIn = read('src/components/admin/PasskeySignIn.tsx');
+  assert.doesNotMatch(signIn, /widget|Plugin-Token/i);
+  assert.doesNotMatch(read('src/pages/admin/index.astro'), /activeSignInWidget|signInWidget/);
+  assert.doesNotMatch(read('src/pages/api/auth/[...all].ts'), /guardSignIn|Plugin-Token/);
+
+  const page = read('src/pages/recovery.astro');
+  assert.match(page, /await activeSignInWidget\(ownerSettings\.owner_id\)/);
+  assert.match(page, /widget=\{widget\}/);
   // Two challenges on one form is two tokens, two verdicts, and a question about what
   // happens when they disagree that the owner did not mean to ask.
   const resolver = read('src/server/plugins/sign-in.ts');

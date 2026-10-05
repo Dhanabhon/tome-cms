@@ -29,11 +29,15 @@ type LimitedAddress = Parameters<typeof enforceRateLimit>[1];
 const proxyAddress: LimitedAddress = '172.18.0.1';
 void proxyAddress;
 
-test('the sign-in challenge is told the sender too, and the app never lists its domains', () => {
+test('the recovery challenge is told the sender too, and the app never lists its domains', () => {
   const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+  const start = read('src/pages/api/recovery/start.ts');
+  assert.match(start, /remoteIp: sender/);
+  assert.match(start, /const sender = senderAddress\(request, clientAddress\)/);
   const gate = read('src/pages/api/auth/[...all].ts');
-  assert.match(gate, /remoteIp: senderAddress\(request, context\.clientAddress\)/);
-  assert.equal(gate.replace(/senderAddress\([^)]*\)/g, '').includes('clientAddress'), false, 'a raw address is used somewhere in the route');
+  for (const [route, source] of [['auth', gate], ['recovery start', start]]) {
+    assert.equal(source.replace(/senderAddress\([^)]*\)/g, '').replace(/\{ clientAddress, request \}/, '').includes('clientAddress'), false, `a raw address is used somewhere in ${route}`);
+  }
   // `senderAddress` believes X-Forwarded-For only because Astro hands over the socket's address.
   // Listing the domains makes Astro believe the header first, and the sender writes its first entry.
   assert.doesNotMatch(read('astro.config.mjs'), /allowedDomains/);

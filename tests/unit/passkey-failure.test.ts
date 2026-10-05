@@ -115,7 +115,7 @@ test('a spare Passkey is named in the owner’s language until the owner names i
 test('a recovery code that starts nothing is refused in the owner’s words, not the server’s', () => {
   const recovery = readFileSync(new URL('../../src/components/admin/RecoveryPasskey.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(recovery, /payload\.detail/, 'the server’s English detail is not shown');
-  assert.match(recovery, /describePasskeyFailure\(\{ status: response\.status \}, copy, copy\.security\.recoveryNotStarted, copy\.security\.recoveryNotStarted\)/);
+  assert.match(recovery, /describePasskeyFailure\(\{ code: payload\.code, status: response\.status \}, copy, copy\.security\.recoveryNotStarted, copy\.security\.recoveryNotStarted\)/);
   const th = adminCopy('th');
   const refused = (status: number) => describePasskeyFailure({ status }, th, th.security.recoveryNotStarted, th.security.recoveryNotStarted);
   assert.equal(refused(400), th.security.recoveryNotStarted, 'a wrong code');
@@ -123,14 +123,11 @@ test('a recovery code that starts nothing is refused in the owner’s words, not
   assert.equal(refused(500), th.auth.serverError, 'the server');
 });
 
-test('a check asked for while signed in, refused by the challenge, means the session is gone', async () => {
+test('a check asked for while signed in names a passkey the site does not know', async () => {
   const { describeReauthFailure } = await import('../../src/lib/passkey-failure');
   const { adminCopy } = await import('../../src/lib/admin-i18n');
   for (const locale of ['en', 'th'] as const) {
     const copy = adminCopy(locale);
-    // Only the sign-in page can pass a challenge; "try again, or switch the plugin off" sends an owner
-    // to disable a security control when all they need is to sign in again.
-    assert.equal(describeReauthFailure({ error: { code: 'challenge_refused', status: 403 } }, copy, 'fallback'), copy.auth.sessionExpired);
     assert.equal(describeReauthFailure({ error: { status: 429 } }, copy, 'fallback'), copy.auth.tooManyAttempts);
     assert.equal(describeReauthFailure({ error: { status: 401 } }, copy, 'fallback'), copy.auth.passkeyNotRegistered);
     assert.equal(describeReauthFailure({ error: { code: 'ERROR_CEREMONY_ABORTED' } }, copy, 'fallback'), 'fallback');

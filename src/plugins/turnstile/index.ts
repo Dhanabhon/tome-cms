@@ -8,7 +8,7 @@ import { verifyTurnstileToken } from './verify';
  * Cloudflare Turnstile.
  *
  * The widget is offered only when the check behind it can also be made: a site key without
- * a secret key would put a box on the sign-in form that nobody is able to verify, which
+ * a secret key would put a box on the recovery-code form that nobody is able to verify, which
  * looks like security and is decoration.
  */
 export function signInWidget(settings: PluginSettings): SignInWidget | null {

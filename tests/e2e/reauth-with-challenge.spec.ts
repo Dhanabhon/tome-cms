@@ -6,17 +6,17 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { expect, test } from './own-worker';
 
 /**
- * A passkey check by an owner who is already signed in is not a sign-in attempt.
+ * The challenge plugin (Turnstile) stands on the recovery-code form, and never on a passkey.
  *
- * A sign-in challenge (the Turnstile plugin) stands in front of `verify-authentication`, and the
- * sign-in page is the only screen that can pass it a token. Installing an update and making new
- * recovery codes ask the owner for a passkey again, through the same call, with no token to
- * give -- so with the challenge on they were refused, the passkey was fine, and the update
- * screen said "the check did not finish, it may have been cancelled" and turned the release
- * status into "check unavailable". Nothing in a test over an unchallenged site could see it.
+ * Until 1.17.0 it stood in front of `verify-authentication`. That refused an update and new
+ * recovery codes on 1.1.0 (a signed-in owner has no token to give), and on 2026-10-06 it refused
+ * the owner's own working passkey on a second PC: the form never waited for the token, never
+ * reset a spent one, and a slow first passkey unlock let it expire. A passkey cannot be guessed;
+ * a recovery code is the one secret a person types, so the check moved there.
  *
- * Each signIn() here is one of the five /recovery sign-ins the server allows a spec file in half an
- * hour, and a sixth is answered 429. This file makes four, so a new test that signs in has one to spare.
+ * Each signIn() and each real POST /api/recovery/start here is one of the five recovery attempts
+ * the server allows a spec file in half an hour, and a sixth is answered 429. This file makes
+ * four, so a new test that spends one has one to spare.
  */
 
 test.use({ stack: 'reauth-with-challenge' });
@@ -90,8 +90,9 @@ test.beforeAll(async () => {
     values ('signin-test-owner', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
     values (true, 'signin-test-owner', 'Select Test', 'en', 'UTC', '/admin')`.execute(db);
-  // The sign-in challenge switched on, as an owner does under Plugins. Its secret is never used
-  // here: a request without a token is refused before anything is sent to Cloudflare.
+  // The challenge switched on, as an owner does under Plugins. Its secret is never used here: a
+  // request without a token is refused before anything is sent to Cloudflare, and the browser
+  // never reaches Cloudflare either (see challengeScript).
   const { writePluginSettings } = await import('../../src/server/plugins/store');
   await writePluginSettings('signin-test-owner', { enabled: true, id: 'turnstile', values: { secretKey: 'reauth-test-secret', siteKey: 'reauth-test-site-key' } });
 
@@ -128,7 +129,20 @@ test.skip(
   'One browser is enough: nothing here depends on the viewport, and the virtual authenticator needs Chromium anyway.',
 );
 
+/** Turnstile's script, as far as these tests need it: a 300×65 box, and a reset that clears the answer. */
+async function challengeScript(context: BrowserContext) {
+  await context.route('https://challenges.cloudflare.com/**', (route) => route.fulfill({
+    contentType: 'text/javascript',
+    body: `
+      window.__resets = 0;
+      window.turnstile = { reset() { window.__resets += 1; document.querySelectorAll('[name="cf-turnstile-response"]').forEach((input) => input.remove()); } };
+      document.querySelectorAll('.cf-turnstile').forEach((box) => { box.style.width = '300px'; box.style.height = '65px'; });
+    `,
+  }));
+}
+
 async function signIn(context: BrowserContext, page: Page) {
+  await challengeScript(context);
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -173,7 +187,7 @@ async function pressInstall(page: Page) {
 
 const verification = (page: Page) => page.waitForResponse((response) => response.url().endsWith('/api/auth/passkey/verify-authentication'));
 
-test('a signed-in owner can install an update while a sign-in challenge is on', async ({ context, page }) => {
+test('a signed-in owner can install an update while the challenge plugin is on', async ({ context, page }) => {
   test.setTimeout(120_000);
   await signIn(context, page);
   await openSystemScreen(page);
@@ -187,7 +201,7 @@ test('a signed-in owner can install an update while a sign-in challenge is on', 
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('a signed-in owner can make new recovery codes while a sign-in challenge is on', async ({ context, page }) => {
+test('a signed-in owner can make new recovery codes while the challenge plugin is on', async ({ context, page }) => {
   test.setTimeout(120_000);
   await signIn(context, page);
   await page.goto(`${origin}/admin/security`);
@@ -198,41 +212,78 @@ test('a signed-in owner can make new recovery codes while a sign-in challenge is
   await expect(page.getByText('New recovery codes created.')).toBeVisible();
 });
 
-const verifyWithoutToken = (cookie?: string) => fetch(`${origin}/api/auth/passkey/verify-authentication`, {
-  body: JSON.stringify({ response: { id: 'nobody' } }),
-  headers: { 'content-type': 'application/json', origin, ...(cookie ? { cookie } : {}) },
-  method: 'POST',
-});
-
-test('the challenge still stands in front of a caller with no session', async () => {
-  // A cookie is not a session. One that is made up is a caller with none, and skipping the
-  // challenge for anything that carries a cookie would leave it standing in front of nobody.
+test('the passkey sign-in asks the plugin nothing, and a recovery code without the check is refused', async () => {
+  // A cookie is not a session; a made-up one is a caller with none. Neither meets a challenge any more:
+  // whatever refuses them is better-auth's own answer about a passkey it does not know.
   for (const cookie of [undefined, 'better-auth.session_token=forged']) {
-    const answer = await verifyWithoutToken(cookie);
-    expect(answer.status, cookie ?? 'no cookie').toBe(403);
-    expect(await answer.json()).toMatchObject({ code: 'challenge_refused' });
+    const answer = await fetch(`${origin}/api/auth/passkey/verify-authentication`, {
+      body: JSON.stringify({ response: { id: 'nobody' } }),
+      headers: { 'content-type': 'application/json', origin, ...(cookie ? { cookie } : {}) },
+      method: 'POST',
+    });
+    expect(answer.status, cookie ?? 'no cookie').not.toBe(403);
+    expect(await answer.text()).not.toContain('challenge_refused');
   }
+  const recovery = await fetch(`${origin}/api/recovery/start`, {
+    body: JSON.stringify({ code: 'not-a-recovery-code' }),
+    headers: { 'content-type': 'application/json', origin },
+    method: 'POST',
+  });
+  expect(recovery.status).toBe(403);
+  expect(await recovery.json()).toMatchObject({ code: 'challenge_refused' });
 });
 
-test('a refused passkey is named on the update screen, and the release status stays true', async ({ context, page }) => {
-  test.setTimeout(120_000);
-  await signIn(context, page);
-  await openSystemScreen(page);
-  // What the browser holds while it is signed in, to show again once the session is gone.
-  const stale = (await context.cookies()).map(({ name, value }) => `${name}=${value}`).join('; ');
-  // A screen left open until the session lapsed: the check is now a sign-in, and the challenge applies.
-  const signedOut = await page.request.post(`${origin}/api/auth/sign-out`, { data: {}, headers: { origin } });
-  expect(signedOut.ok()).toBe(true);
-  await pressInstall(page);
-  // The session is gone, and the one way on is to sign in again, not to switch the challenge off.
-  await expect(page.getByRole('alert')).toContainText('The sign-in session expired. Reload the page and try again.');
-  // The check itself worked, so it does not say it failed.
-  await expect(page.locator('.update-status')).toHaveText('Release availability: Update available');
-  await expect(page.getByText('TomeCMS 1.1.0 is available.')).toBeVisible();
-  // The cookie that was a session a moment ago is not one now, and the database is what says so.
-  const replay = await verifyWithoutToken(stale);
-  expect(replay.status).toBe(403);
-  expect(await replay.json()).toMatchObject({ code: 'challenge_refused' });
+test('the sign-in page has no challenge, and the recovery form waits for one and never resends it', async ({ context, page }) => {
+  await challengeScript(context);
+  const challengeRequests: string[] = [];
+  page.on('request', (request) => { if (request.url().startsWith('https://challenges.cloudflare.com/')) challengeRequests.push(request.url()); });
+  await page.goto(`${origin}/admin`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
+  await expect(page.locator('.cf-turnstile')).toHaveCount(0);
+  expect(challengeRequests, 'the sign-in page loads nothing from Cloudflare').toEqual([]);
+
+  // Every attempt the form makes, answered as the server answers a refused check.
+  const starts: (string | null)[] = [];
+  await page.route('**/api/recovery/start', async (route) => {
+    starts.push(route.request().headers()['x-tomecms-plugin-token'] ?? null);
+    await route.fulfill({ contentType: 'application/problem+json', json: { code: 'challenge_refused', status: 403 }, status: 403 });
+  });
+  await page.goto(`${origin}/recovery`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.waitForFunction(() => 'turnstile' in window);
+  await page.getByLabel('Recovery code').fill('aaaa-bbbb-cccc');
+  const send = page.getByRole('button', { name: 'Continue securely' });
+  await send.click();
+  // Before the check has answered, nothing is sent: the request could only be refused.
+  await expect(page.getByRole('alert')).toHaveText('Wait for the check to finish.');
+  expect(starts).toEqual([]);
+
+  // The check answers, as Turnstile does: a hidden field in the form.
+  await page.locator('.cf-turnstile').evaluate((box) => {
+    const input = Object.assign(document.createElement('input'), { name: 'cf-turnstile-response', type: 'hidden', value: 'one-use-token' });
+    box.append(input);
+  });
+  await send.click();
+  await expect(page.getByRole('alert')).toHaveText(/^The check before recovery was not passed\..*npm run plugin:disable turnstile$/);
+  expect(starts).toEqual(['one-use-token']);
+  // The spent token is gone, so pressing again waits for a fresh one instead of resending it.
+  expect(await page.evaluate(() => (window as unknown as { __resets: number }).__resets)).toBe(1);
+  await send.click();
+  await expect(page.getByRole('alert')).toHaveText('Wait for the check to finish.');
+  expect(starts).toEqual(['one-use-token']);
+
+  // The check is a row of its own above the field and its button, which keep their line at desktop width.
+  for (const width of [375, 932]) {
+    await page.setViewportSize({ width, height: 900 });
+    const check = (await page.locator('.cf-turnstile').boundingBox())!;
+    const field = (await page.getByLabel('Recovery code').boundingBox())!;
+    const button = (await send.boundingBox())!;
+    expect(check.y + check.height, `${width}: the check sits above the field`).toBeLessThanOrEqual(field.y);
+    if (width === 932) expect(Math.abs((button.y + button.height) - (field.y + field.height)), 'the button stays on the field\'s line').toBeLessThan(2);
+    else expect(button.y, '375: the button wraps below the field').toBeGreaterThanOrEqual(field.y + field.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), `${width}: no sideways scroll`).toBeLessThanOrEqual(width);
+  }
 });
 
 test('the last update says how long the site was offline and what the backup held', async ({ context, page }) => {

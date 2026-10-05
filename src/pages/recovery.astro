@@ -4,12 +4,17 @@ import AdminLayout from '../layouts/AdminLayout.astro';
 import { adminCopy } from '../lib/admin-i18n';
 import { normalizeAdminPath } from '../lib/admin';
 import { getSiteSettings } from '../server/content/site-settings';
+import { activeSignInWidget } from '../server/plugins/sign-in';
+import type { SignInWidget } from '../plugins/contract';
 
 let adminPath = '/admin';
 let ownerSettings: Awaited<ReturnType<typeof getSiteSettings>> = null;
+let widget: SignInWidget | null = null;
 try {
   ownerSettings = await getSiteSettings();
   adminPath = normalizeAdminPath(ownerSettings?.admin_path ?? '/admin');
+  // The challenge, if the owner switched one on, stands on the recovery code: the one secret a person types.
+  if (ownerSettings) widget = (await activeSignInWidget(ownerSettings.owner_id))?.widget ?? null;
 } catch {
   // Recovery remains available when settings cannot be read; the API reports infrastructure failures safely.
 }
@@ -33,6 +38,6 @@ Astro.response.headers.set('Referrer-Policy', 'no-referrer');
         <p>{copy.recovery.hint}</p>
       </div>
     </header>
-    <RecoveryPasskey client:only="react" adminPath={adminPath} ownerLocale={ownerLocale} initialContext={initialContext} />
+    <RecoveryPasskey client:only="react" adminPath={adminPath} ownerLocale={ownerLocale} initialContext={initialContext} widget={widget} />
   </main>
 </AdminLayout>

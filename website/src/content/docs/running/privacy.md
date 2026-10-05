@@ -59,7 +59,7 @@ Signing in to the admin uses cookies: one that holds your session, and a short-l
 
 By default the public pages load nothing from anyone else. The fonts are served by the site itself, and the images you upload come from your own object storage.
 
-- Cloudflare Turnstile, when you switch it on, loads Cloudflare's script on the admin's sign-in form and nowhere else. Readers never meet it.
+- Cloudflare Turnstile, when you switch it on, loads Cloudflare's script on the recovery-code form at `/recovery` and nowhere else. Readers never meet it.
 - "Jev (TypeSafe AI)" sends a post's text to TypeSafe AI only when you press one of its buttons in the editor, such as "Suggest from the text". Nothing a reader does reaches it.
 
 On the bundled site, a post or page can hold a YouTube or Vimeo video, and the page loads nothing from either until the reader presses play. Before that, the video is a poster and a link to the clip. The poster is the site's own file: the server fetched it once, when the video was added, and keeps it in the File Manager. Pressing play puts the player in the poster's place, from YouTube's no-cookie host, `www.youtube-nocookie.com`, or from Vimeo in its do-not-track mode, `player.vimeo.com` with `dnt=1`. From then on the reader is dealing with YouTube or Vimeo, which sees the reader's address and runs its own player. TomeCMS itself sets no cookie and writes nothing to the browser for a video.

@@ -72,7 +72,7 @@ Then it prints the next steps: `npm run dev`, switch the plugin on under Plugins
 
 | Hook | On the Plugins screen | Methods |
 | --- | --- | --- |
-| `signIn` | "Admin sign-in" | `signInWidget` and `verifySignIn` |
+| `signIn` | "Recovery-code form" | `signInWidget` and `verifySignIn` |
 | `publicPage` | "Every public page" | At least one of `siteNotice`, `sitePopup` and `publicClient` |
 | `editorSuggestions` | "Suggestions while writing" | At least one of `categoryLikelihoods`, `pickExcerpt` and `pickDescription` |
 
@@ -245,4 +245,4 @@ npm run plugin:disable totop -- --forget
 
 The first switches the plugin off and keeps its settings, and prints `totop is off.` The second clears its settings as well, which the admin cannot do, since a blank field there keeps what is stored. A plugin that was never saved on this site gets `totop was not switched on.` An id that is not installed gets the usage line and the list of installed ids.
 
-This is the way back in when a plugin stands between you and the admin, such as a sign-in challenge that will not load. [Getting back in](/tome-cms/running/recovery/) has the steps for Turnstile.
+This is the way back in when a plugin stands between you and the admin, such as a recovery challenge that will not load. [Getting back in](/tome-cms/running/recovery/) has the steps for Turnstile.

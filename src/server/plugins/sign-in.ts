@@ -16,7 +16,7 @@ interface ActivePlugin {
 }
 
 /**
- * The one plugin standing in front of the sign-in.
+ * The one plugin standing in front of the recovery-code form.
  *
  * One, not a list: two challenges on one form is two tokens, two verdicts and a question
  * about what happens when they disagree, and the owner who switched both on did not mean

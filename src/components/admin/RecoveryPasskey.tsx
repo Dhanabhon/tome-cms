@@ -1,15 +1,23 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { normalizeAdminPath } from '../../lib/admin';
 import { adminCopy } from '../../lib/admin-i18n';
 import { authClient } from '../../lib/auth-client';
 import { describePasskeyException, describePasskeyFailure } from '../../lib/passkey-failure';
+import type { SignInWidget } from '../../plugins/contract';
 import type { PostLocale } from '../../types/cms';
+
+declare global {
+  // What a challenge script may leave behind to be asked for a fresh answer. Optional: nothing here depends on one.
+  interface Window { turnstile?: { reset?: () => void } }
+}
 
 interface RecoveryPasskeyProps {
   ownerLocale?: PostLocale | null;
   adminPath?: string;
   initialContext?: string;
+  /** What an enabled plugin asked to put in this form, if one did. See src/plugins. */
+  widget?: SignInWidget | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -31,7 +39,7 @@ function webAuthnAvailable(): boolean {
     && typeof navigator.credentials?.create === 'function';
 }
 
-export default function RecoveryPasskey({ adminPath = '/admin', initialContext = '', ownerLocale }: RecoveryPasskeyProps) {
+export default function RecoveryPasskey({ adminPath = '/admin', initialContext = '', ownerLocale, widget }: RecoveryPasskeyProps) {
   const copy = adminCopy(ownerLocale);
   const [code, setCode] = useState('');
   const [context, setContext] = useState(initialContext);
@@ -39,6 +47,15 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
   const [error, setError] = useState('');
   const [missing, setMissing] = useState(false);
   const codeField = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!widget || document.querySelector(`script[src="${widget.script}"]`)) return;
+    const script = document.createElement('script');
+    script.async = true;
+    script.defer = true;
+    script.src = widget.script;
+    document.head.append(script);
+  }, [widget]);
 
   async function register(recoveryContext: string): Promise<boolean> {
     if (!webAuthnAvailable()) {
@@ -81,19 +98,26 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
       codeField.current?.focus();
       return;
     }
+    // Sent before the check has answered, the request could only be refused.
+    const token = widget ? String(new FormData(event.currentTarget).get(widget.tokenField) ?? '') : '';
+    if (widget && !token) {
+      setError(copy.security.waitForCheck);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       const response = await fetch('/api/recovery/start', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'X-TomeCMS-Plugin-Token': token } : {}) },
         body: JSON.stringify({ code }),
       });
       const payload = await responsePayload(response);
       const nextContext = typeof payload.context === 'string' ? payload.context : '';
       if (!response.ok || !nextContext) {
-        // The status says which failure it was; the server's detail is English for API callers.
-        setError(describePasskeyFailure({ status: response.status }, copy, copy.security.recoveryNotStarted, copy.security.recoveryNotStarted));
+        // The status says which failure it was, and the code tells a refused check from the origin
+        // guard's 403; the server's detail is English for API callers.
+        setError(describePasskeyFailure({ code: payload.code, status: response.status }, copy, copy.security.recoveryNotStarted, copy.security.recoveryNotStarted));
         return;
       }
       setContext(nextContext);
@@ -105,6 +129,8 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
     } catch {
       setError(copy.security.recoveryNotStartedLater);
     } finally {
+      // The token went out with the attempt and is good for one check, so a retry needs a fresh one.
+      if (token) window.turnstile?.reset?.();
       setBusy(false);
     }
   }
@@ -128,6 +154,14 @@ export default function RecoveryPasskey({ adminPath = '/admin', initialContext =
           <h2>{copy.security.useRecoveryCode}</h2>
           <p>{copy.security.useRecoveryCodeHint}</p>
         </header>
+        {widget && (
+          <div className="security-form__check">
+            <div
+              className={widget.container.className}
+              {...Object.fromEntries(Object.entries(widget.container.dataset).map(([key, value]) => [`data-${key}`, value]))}
+            />
+          </div>
+        )}
         <label className="admin-field" htmlFor="recovery-code">
           {copy.security.codeLabel}
           <input

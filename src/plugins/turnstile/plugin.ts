@@ -3,8 +3,8 @@ import type { PluginManifest } from '../contract';
 /** Kept apart from the hooks so the admin can name the plugin without loading it. */
 export const manifest: PluginManifest = {
   description: {
-    en: 'Puts a Cloudflare Turnstile challenge in front of the admin sign-in.',
-    th: 'วางแบบทดสอบ Cloudflare Turnstile ไว้หน้าการเข้าสู่ระบบของผู้ดูแล',
+    en: 'Puts a Cloudflare Turnstile challenge on the recovery-code form.',
+    th: 'วางแบบทดสอบ Cloudflare Turnstile ไว้ที่ฟอร์มรหัสกู้คืน',
   },
   brand: 'cloudflare',
   hooks: ['signIn'],

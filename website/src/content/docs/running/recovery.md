@@ -53,15 +53,15 @@ The time is in UTC. Open the link on the device that is to hold the new passkey,
 
 The command reads its settings from the file `TOME_CMS_ENV_FILE` names, or else from `.env.local` in the checkout, or else from `/etc/tome-cms/tome-cms.env`. When it can read none of them, it stops with `No readable TomeCMS environment file found. Set TOME_CMS_ENV_FILE or create .env.local.`
 
-## When the sign-in challenge will not load
+## When the recovery challenge will not load
 
-With the Cloudflare Turnstile plugin on, the sign-in form shows a challenge. If it will not load in your browser, switch the plugin off from the checkout:
+With the Cloudflare Turnstile plugin on, the recovery-code form shows a challenge above "Recovery code", and "Continue securely" waits for it. If it will not load in your browser, make a link on the server as above, which does not pass through the form, or switch the plugin off from the checkout:
 
 ```sh
 npm run plugin:disable turnstile
 ```
 
-This keeps the plugin's settings. Run `npm run plugin:disable turnstile -- --forget` to clear them as well. The challenge guards signing in, never creating a passkey, so `/recovery` works whether the plugin is on or not.
+This keeps the plugin's settings. Run `npm run plugin:disable turnstile -- --forget` to clear them as well. The challenge guards the recovery code alone. Signing in with a passkey and creating the passkey a recovery ends with never meet it.
 
 ## Starting over
 
