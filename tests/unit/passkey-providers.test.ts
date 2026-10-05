@@ -44,9 +44,20 @@ test('a known AAGUID wins over security-key transports', () => {
   assert.equal(passkeyProvider('bada5566-a7aa-401f-bd96-45619a55120d', 'usb'), '1password');
 });
 
+test('a null or empty AAGUID is unknown, so usb or nfc still means a security key', () => {
+  assert.equal(passkeyProvider(null, 'usb'), 'security-key');
+  assert.equal(passkeyProvider(null, 'nfc'), 'security-key');
+  assert.equal(passkeyProvider('', 'nfc'), 'security-key');
+});
+
+test('transports are trimmed and case-insensitive', () => {
+  assert.equal(passkeyProvider(ZEROS, 'nfc, USB'), 'security-key');
+  assert.equal(passkeyProvider(ZEROS, ' Usb '), 'security-key');
+});
+
 test('missing inputs show nothing', () => {
   assert.equal(passkeyProvider(null, null), null);
-  assert.equal(passkeyProvider(null, 'usb'), null);
+  assert.equal(passkeyProvider(null, 'internal'), null);
   assert.equal(passkeyProvider(ZEROS, null), null);
 });
 

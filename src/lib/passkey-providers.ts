@@ -25,8 +25,7 @@ const BY_AAGUID = new Map<string, PasskeyProvider>(
 
 /** Where a passkey lives, from its AAGUID; an unknown one reached over usb or nfc is a security key. */
 export function passkeyProvider(aaguid: string | null, transports: string | null): PasskeyProvider | null {
-  if (!aaguid) return null;
-  const known = BY_AAGUID.get(aaguid.toLowerCase());
+  const known = aaguid ? BY_AAGUID.get(aaguid.toLowerCase()) : undefined;
   if (known) return known;
-  return (transports ?? '').split(',').some((transport) => transport === 'usb' || transport === 'nfc') ? 'security-key' : null;
+  return (transports ?? '').split(',').map((transport) => transport.trim().toLowerCase()).some((transport) => transport === 'usb' || transport === 'nfc') ? 'security-key' : null;
 }
