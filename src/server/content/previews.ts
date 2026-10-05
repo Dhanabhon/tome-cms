@@ -7,6 +7,7 @@ import { db } from '../db/client';
 import { HttpError } from '../http/errors';
 import { pageFromRow } from './pages';
 import { postFromRow } from './posts';
+import type { Page, Post } from '../../types/cms';
 import { enrichPages, enrichPosts, type PublishedPage, type PublishedPost } from './published';
 
 export const PREVIEW_TOKEN_TTL_MS = 30 * 60 * 1_000;
@@ -92,4 +93,17 @@ export async function getPreviewContent(rawToken: string): Promise<PreviewConten
   if (!row) return null;
   const content = (await enrichPages(token.owner_id, [pageFromRow(row)]))[0];
   return content ? { contentType: 'page', content } : null;
+}
+
+// The admin's own draft preview is drawn like the public page, so a picture saved under its file
+// name is described by the library's alt text there too. It stays owner-only: callers read the
+// draft through the signed-in owner and nothing here is cached.
+export async function draftPreviewPost(ownerId: string, post: Post): Promise<PublishedPost> {
+  const [content] = await enrichPosts(ownerId, [post]);
+  return content;
+}
+
+export async function draftPreviewPage(ownerId: string, page: Page): Promise<PublishedPage> {
+  const [content] = await enrichPages(ownerId, [page]);
+  return content;
 }

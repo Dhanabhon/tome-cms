@@ -38,8 +38,9 @@ test("the home page names the default language's home as x-default", () => {
 
 test("a draft preview describes the cover as the live page does", () => {
   const preview = route('src/pages/admin/preview/[id].astro');
-  assert.match(preview, /listReadyImagesByIds\(current\.user\.id, \[draft\.cover_media_id\]\)/);
-  assert.match(preview, /coverImage: coverImage \?\? null/);
+  // The cover comes with the rest of what the public page is given: enrichPosts looks it up.
+  assert.match(preview, /draftPreviewPost\(current\.user\.id, draft\)/);
+  assert.match(route('src/server/content/previews.ts'), /enrichPosts\(ownerId, \[post\]\)/);
 });
 
 test('the layout hands the owner\'s logo and profile links to the structured data, and a post passes the links', () => {

@@ -11,13 +11,13 @@ import { adminHref } from '../../../lib/admin';
 import { documentHasVideo } from '../../../lib/editor-video';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import { requireInstalledOwner } from '../../../server/auth/session';
+import { draftPreviewPost } from '../../../server/content/previews';
 import { getPost } from '../../../server/content/posts';
 import { getSiteSettings } from '../../../server/content/settings';
 import { HttpError } from '../../../server/http/errors';
-import { listReadyImagesByIds } from '../../../server/media/service';
-import type { Post, PublicAuthorProfile, SiteSettings } from '../../../types/cms';
+import type { PublicAuthorProfile, SiteSettings } from '../../../types/cms';
 
-let post: (Post & { coverImage: { alt_text: string | null } | null }) | null = null;
+let post: Awaited<ReturnType<typeof draftPreviewPost>> | null = null;
 let settings: SiteSettings | null = null;
 let profile: PublicAuthorProfile | null = null;
 let errorKey: 'postNotFound' | 'signInToPreviewPost' | 'previewUnavailable' | null = null;
@@ -36,9 +36,8 @@ try {
     if (!storedSettings || storedSettings.owner_id !== current.user.id) throw new HttpError(404, '');
     adminPath = storedSettings.admin_path;
     const draft = await getPost(current.user.id, id.data);
-    // The live page describes its cover with the library's alt text, so the preview does too.
-    const [coverImage] = draft?.cover_media_id ? await listReadyImagesByIds(current.user.id, [draft.cover_media_id]) : [];
-    post = draft && { ...draft, coverImage: coverImage ?? null };
+    // The live page describes its cover and its pictures with the library's alt text, so the preview does too.
+    post = draft && await draftPreviewPost(current.user.id, draft);
     if (!post) {
       Astro.response.status = 404;
       errorKey = 'postNotFound';

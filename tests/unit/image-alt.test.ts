@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { withLibraryAlts } from '../../src/lib/editor-content';
@@ -36,4 +37,10 @@ test('the alt text put in is escaped as an attribute', () => {
 
 test('alt text with a dollar sign is put in as written', () => {
   assert.equal(withLibraryAlts(stored('x.png'), [{ alt_text: 'From $5, $& more', id: ID, original_name: 'x.png' }]), stored('From $5, $&amp; more'));
+});
+
+test('both admin draft previews read their content through the helper that describes old pictures', () => {
+  const read = (path: string) => readFileSync(new URL(`../../src/pages/admin/${path}`, import.meta.url), 'utf8');
+  assert.match(read('preview/[id].astro'), /draftPreviewPost\(/);
+  assert.match(read('pages/preview/[id].astro'), /draftPreviewPage\(/);
 });

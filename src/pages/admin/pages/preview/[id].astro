@@ -10,11 +10,12 @@ import { adminHref } from '../../../../lib/admin';
 import { documentHasVideo } from '../../../../lib/editor-video';
 import { requireInstalledOwner } from '../../../../server/auth/session';
 import { getPage } from '../../../../server/content/pages';
+import { draftPreviewPage } from '../../../../server/content/previews';
 import { getSiteSettings } from '../../../../server/content/settings';
 import { HttpError } from '../../../../server/http/errors';
-import type { Page, PageLocale } from '../../../../types/cms';
+import type { PageLocale } from '../../../../types/cms';
 
-let page: Page | null = null;
+let page: Awaited<ReturnType<typeof draftPreviewPage>> | null = null;
 let errorKey: 'pageNotFound' | 'signInToPreviewPage' | 'previewUnavailable' | null = null;
 let serverMessage: string | null = null;
 let adminPath = '/admin';
@@ -34,7 +35,9 @@ try {
     adminPath = settings.admin_path;
     ownerLocale = settings.default_locale;
     themeId = settings.theme_id;
-    page = await getPage(current.user.id, id.data);
+    const draft = await getPage(current.user.id, id.data);
+    // The live page describes its pictures with the library's alt text, so the preview does too.
+    page = draft && await draftPreviewPage(current.user.id, draft);
     if (!page) {
       Astro.response.status = 404;
       errorKey = 'pageNotFound';
