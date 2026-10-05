@@ -11,14 +11,27 @@ import { AsyncLocalStorage } from 'node:async_hooks';
  *
  * Callers share what was read, so it is theirs to read, never to change.
  */
-const scope = new AsyncLocalStorage<Map<string, Promise<unknown>>>();
+const scope = new AsyncLocalStorage<{ degraded: boolean; reads: Map<string, Promise<unknown>> }>();
 
 export function withRequestMemo<T>(run: () => Promise<T>): Promise<T> {
-  return scope.run(new Map(), run);
+  return scope.run({ degraded: false, reads: new Map() }, run);
+}
+
+/**
+ * A read that failed and was drawn around -- a page without its menu, its hero -- still answers
+ * this reader, but the page cache must not keep it and serve it to everyone else for five minutes.
+ */
+export function markRenderDegraded(): void {
+  const store = scope.getStore();
+  if (store) store.degraded = true;
+}
+
+export function renderDegraded(): boolean {
+  return scope.getStore()?.degraded ?? false;
 }
 
 export function memoForRequest<T>(key: string, load: () => Promise<T>): Promise<T> {
-  const store = scope.getStore();
+  const store = scope.getStore()?.reads;
   if (!store) return load();
   const known = store.get(key) as Promise<T> | undefined;
   if (known) return known;

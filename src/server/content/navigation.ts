@@ -14,6 +14,7 @@ import { db } from '../db/client';
 import type { Database, NavigationItemTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { pageCacheGeneration } from '../http/page-cache';
+import { markRenderDegraded } from '../request-memo';
 import { live, nextScheduledPublish } from './live';
 import { buildPublicNavigation } from './public-navigation';
 
@@ -223,6 +224,7 @@ export async function getPublicNavigation(locale: PageLocale): Promise<PublicNav
     return (await getPublicNavigationSnapshot(locale)).navigation;
   } catch (error) {
     console.error('Public navigation query failed:', error);
+    markRenderDegraded();
     return { footer: [], header: [] };
   }
 }

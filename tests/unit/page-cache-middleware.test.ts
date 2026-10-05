@@ -3,6 +3,7 @@ import { beforeEach, test } from 'node:test';
 
 import { afterWrite, cacheablePublicAnswer } from '../../src/middleware';
 import { pageCacheGeneration, resetPageCacheForTest } from '../../src/server/http/page-cache';
+import { markRenderDegraded, withRequestMemo } from '../../src/server/request-memo';
 
 beforeEach(() => resetPageCacheForTest());
 
@@ -62,4 +63,21 @@ test('an admin write between two reads makes the second render again', async () 
   afterWrite('/api/admin/posts/abc', new Response(null, { status: 200 }));
   assert.equal(await (await ask('/en')).text(), 'page 2');
   assert.equal(renders(), 2);
+});
+
+test('a degraded render is not kept, and an interleaved whole render beside it is', async () => {
+  let renders = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const ask = (path: string, render: () => Promise<Response>) => {
+    const url = new URL(`http://localhost:4321${path}`);
+    return withRequestMemo(() => cacheablePublicAnswer({ request: new Request(url) , url }, async () => { renders += 1; return render(); }, { bundled: true, nextScheduled: async () => null }));
+  };
+  const failing = ask('/en', async () => { await gate; markRenderDegraded(); return new Response('no menu', { headers: { 'Content-Type': 'text/html' } }); });
+  const whole = ask('/th', async () => { release(); await new Promise((resolve) => setTimeout(resolve, 0)); return new Response('whole', { headers: { 'Content-Type': 'text/html' } }); });
+  await Promise.all([failing, whole]);
+  const again = await ask('/en', async () => new Response('menu', { headers: { 'Content-Type': 'text/html' } }));
+  assert.equal(await again.text(), 'menu', 'the page without its menu was not kept');
+  assert.equal((await ask('/th', async () => new Response('other', { headers: { 'Content-Type': 'text/html' } }))).headers.get('X-Tome-Cache'), 'hit');
+  assert.equal(renders, 3);
 });

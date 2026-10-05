@@ -4,6 +4,7 @@ import { adminSignInPath, matchAdminPath, normalizeAdminPath } from './lib/admin
 import type { OwnerSession } from './server/auth/session';
 import type { SiteSettings } from './server/content/site-settings';
 import { invalidatePageCache, servePublicPage } from './server/http/page-cache';
+import { renderDegraded, withRequestMemo } from './server/request-memo';
 import { withStrictTransport } from './server/http/strict-transport';
 
 const SETUP_PATHS = new Set([
@@ -193,7 +194,7 @@ export function afterWrite(pathname: string, response: Response): Response {
 export async function cacheablePublicAnswer(
   context: Pick<APIContext, 'request' | 'url'>,
   render: () => Promise<Response>,
-  deps: { bundled?: boolean; nextScheduled?: () => Promise<Date | null> } = {},
+  deps: { bundled?: boolean; nextScheduled?: () => Promise<Date | null>; degraded?: () => boolean } = {},
 ): Promise<Response> {
   return servePublicPage({
     request: context.request,
@@ -202,6 +203,7 @@ export async function cacheablePublicAnswer(
     bundled: deps.bundled ?? (process.env.TOME_CMS_FRONTEND_MODE ?? 'bundled') === 'bundled',
     render,
     nextScheduled: deps.nextScheduled ?? (async () => (await import('./server/content/live')).nextScheduledPublish()),
+    degraded: deps.degraded ?? renderDegraded,
   });
 }
 
@@ -217,7 +219,6 @@ async function answer(context: APIContext, next: MiddlewareNext): Promise<Respon
   if (context.request.method !== 'GET' && context.request.method !== 'HEAD') {
     return afterWrite(context.url.pathname, (await preparedHeadlessRequest(context, next)) as Response);
   }
-  const { withRequestMemo } = await import('./server/request-memo');
   return withRequestMemo(async () => cacheablePublicAnswer(context, async () => (await preparedHeadlessRequest(context, next)) as Response));
 }
 

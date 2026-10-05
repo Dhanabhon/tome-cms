@@ -118,6 +118,8 @@ export async function servePublicPage(input: {
   bundled: boolean;
   render: () => Promise<Response>;
   nextScheduled: () => Promise<Date | null>;
+  /** Whether the render drew around a read that failed. Asked once the body is read: a layout reads while it streams. */
+  degraded?: () => boolean;
   now?: () => number;
 }): Promise<Response> {
   const { request } = input;
@@ -153,6 +155,8 @@ export async function servePublicPage(input: {
   if (!storable(response)) return response;
 
   const body = new Uint8Array(await response.arrayBuffer());
+  // A page without its menu or its hero is this reader's, not the next five minutes' of readers.
+  if (input.degraded?.()) return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
   const headers = [...response.headers].filter(([name]) => !DROPPED_HEADERS.has(name.toLowerCase()));
   const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
   const entry: Entry = {

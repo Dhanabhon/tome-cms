@@ -12,10 +12,10 @@ const get = (path: string, headers: Record<string, string> = {}, method = 'GET')
 const html = (body: string, init: ResponseInit = {}) => new Response(body, { status: 200, headers: { 'Content-Type': 'text/html' }, ...init });
 const never = async () => null;
 
-async function serve(path: string, render: () => Promise<Response>, options: { headers?: Record<string, string>; method?: string; nextScheduled?: () => Promise<Date | null>; now?: () => number; bundled?: boolean } = {}) {
+async function serve(path: string, render: () => Promise<Response>, options: { headers?: Record<string, string>; method?: string; nextScheduled?: () => Promise<Date | null>; now?: () => number; bundled?: boolean; degraded?: () => boolean } = {}) {
   return servePublicPage({
     request: get(path, options.headers, options.method), url: url(path), bundled: options.bundled ?? true,
-    render, nextScheduled: options.nextScheduled ?? never, now: options.now,
+    render, nextScheduled: options.nextScheduled ?? never, now: options.now, degraded: options.degraded,
   });
 }
 
@@ -276,4 +276,34 @@ test('an invalidation during the schedule lookup means the page is not stored', 
   const second = await serve('/en', render, { nextScheduled });
   assert.equal(second.headers.get('x-tome-cache'), 'miss');
   assert.equal(renders, 2);
+});
+
+test('a render drawn around a failed read reaches its reader untouched, and the next request renders again', async () => {
+  let renders = 0;
+  const render = async () => { renders += 1; return html(`<p>${renders}</p>`, { headers: { 'Content-Type': 'text/html', 'X-Own': 'kept' } }); };
+  const degraded = await serve('/en', render, { degraded: () => true });
+  assert.equal(await degraded.text(), '<p>1</p>');
+  assert.equal(degraded.status, 200);
+  assert.equal(degraded.headers.get('x-own'), 'kept');
+  assert.equal(degraded.headers.get('x-tome-cache'), null, 'not a miss: nothing was kept');
+  assert.equal(degraded.headers.get('etag'), null);
+  const next = await serve('/en', render, { degraded: () => false });
+  assert.equal(await next.text(), '<p>2</p>', 'rendered again, not a hit');
+  assert.equal(next.headers.get('x-tome-cache'), 'miss');
+  const third = await serve('/en', render, { degraded: () => false });
+  assert.equal(third.headers.get('x-tome-cache'), 'hit', 'a whole render is still kept');
+  assert.equal(await third.text(), '<p>2</p>');
+  assert.equal(renders, 2);
+});
+
+test('a read that fails while the body streams still keeps the page out', async () => {
+  // A layout's reads run while Astro streams the body, after the Response itself exists.
+  let failed = false;
+  const render = async () => new Response(new ReadableStream({
+    pull(controller) { failed = true; controller.enqueue(new TextEncoder().encode('<p>no menu</p>')); controller.close(); },
+  }), { status: 200, headers: { 'Content-Type': 'text/html' } });
+  assert.equal(await (await serve('/th', render, { degraded: () => failed })).text(), '<p>no menu</p>');
+  failed = false;
+  const next = await serve('/th', async () => html('<p>whole</p>'), { degraded: () => failed });
+  assert.equal(await next.text(), '<p>whole</p>');
 });

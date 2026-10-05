@@ -8,6 +8,7 @@ import { db } from '../db/client';
 import type { Database, HomeSlideTable } from '../db/types';
 import { HttpError } from '../http/errors';
 import { pageCacheGeneration } from '../http/page-cache';
+import { markRenderDegraded } from '../request-memo';
 import { stableMediaPath } from '../media/url';
 import { live, nextScheduledPublish } from './live';
 
@@ -221,6 +222,7 @@ export async function getPublicSlides(locale: PageLocale): Promise<PublicHomeSli
     return (await getPublicSlidesSnapshot(locale)).slides;
   } catch (error) {
     console.error('Public slides query failed:', error);
+    markRenderDegraded();
     return [];
   }
 }
