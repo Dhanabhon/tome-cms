@@ -48,6 +48,8 @@ function formatDate(value: string | null, copy: AdminCopy, locale: PostLocale | 
 interface DeviceLink {
   url: string;
   expiresAt: number;
+  /** How many passkeys there were when the link was made. */
+  knownPasskeys: number;
   /** A `data:` URL of the QR code; empty when the QR library could not load. */
   qr: string;
 }
@@ -89,17 +91,19 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   /** Renaming closes back onto the button that opened it, so the keyboard keeps its place. */
   const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
 
-  const loadPasskeys = useCallback(async () => {
+  const loadPasskeys = useCallback(async (): Promise<PasskeyView[]> => {
     const response = await fetch('/api/admin/security/passkeys', { headers: { Accept: 'application/json' } });
     const payload = await responsePayload(response);
     if (response.status === 401 || response.status === 403) {
       setNeedsSignIn(true);
       setPasskeys([]);
-      return;
+      return [];
     }
     if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.passkeysUnavailable);
     setNeedsSignIn(false);
-    setPasskeys(parsePasskeys(payload.passkeys));
+    const loaded = parsePasskeys(payload.passkeys);
+    setPasskeys(loaded);
+    return loaded;
   }, []);
 
   useEffect(() => {
@@ -233,7 +237,14 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   // window, and the link goes when it expires.
   useEffect(() => {
     if (!deviceLink) return;
-    const refresh = () => { void loadPasskeys().catch(() => setMessage(copy.security.passkeysTemporarilyUnavailable)); };
+    // A longer list than when the link was made means the device came in: the link is spent.
+    const refresh = () => {
+      void loadPasskeys().then((loaded) => {
+        if (loaded.length <= deviceLink.knownPasskeys) return;
+        setDeviceLink(null);
+        setMessage(copy.security.deviceAdded);
+      }).catch(() => setMessage(copy.security.passkeysTemporarilyUnavailable));
+    };
     window.addEventListener('focus', refresh);
     const expiry = window.setTimeout(() => {
       setDeviceLink(null);
@@ -262,7 +273,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
       if (!response.ok || typeof payload.url !== 'string' || Number.isNaN(expiresAt)) {
         throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCreated);
       }
-      setDeviceLink({ url: payload.url, expiresAt, qr: await qrDataUrl(payload.url) });
+      setDeviceLink({ url: payload.url, expiresAt, knownPasskeys: passkeys.length, qr: await qrDataUrl(payload.url) });
     } catch (error) {
       setMessage(describePasskeyException(error, copy, error instanceof Error ? error.message : copy.security.linkNotCreated));
     } finally {

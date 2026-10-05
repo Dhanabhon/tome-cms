@@ -16,6 +16,8 @@ interface AddDevicePasskeyProps {
   ownerLocale?: PostLocale | null;
   adminPath?: string;
   initialContext?: string;
+  /** False when the page already found the link dead; the form never shows. */
+  usable?: boolean;
 }
 
 /** The ways a device link can end without a new passkey, beyond a retryable error. */
@@ -27,12 +29,12 @@ function webAuthnAvailable(): boolean {
     && typeof navigator.credentials?.create === 'function';
 }
 
-export default function AddDevicePasskey({ adminPath = '/admin', initialContext = '', ownerLocale }: AddDevicePasskeyProps) {
+export default function AddDevicePasskey({ adminPath = '/admin', initialContext = '', ownerLocale, usable = true }: AddDevicePasskeyProps) {
   const copy = adminCopy(ownerLocale);
   const [name, setName] = useState(() => guessDeviceName(navigator, copy.addDevice.deviceNames));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [verdict, setVerdict] = useState<Verdict>(initialContext ? null : 'expired');
+  const [verdict, setVerdict] = useState<Verdict>(initialContext && usable ? null : 'expired');
   const safeAdminPath = normalizeAdminPath(adminPath);
 
   async function register(event: FormEvent<HTMLFormElement>) {

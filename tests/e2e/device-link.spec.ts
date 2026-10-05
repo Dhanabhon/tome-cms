@@ -180,28 +180,28 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
     await contextB.close();
   }
 
-  // The link showing on A is spent. When the window comes back to the front the list catches up.
+  // The link showing on A is spent. When the window comes back to the front the list catches up,
+  // sees a passkey it did not know, and takes the link and its QR away.
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.locator('.security-key')).toHaveCount(2);
+  await expect(page.getByText('Device added.')).toBeVisible();
+  await expect(link).toHaveCount(0);
+  await expect(qr).toHaveCount(0);
 
-  // A spent link is a dead one: a fresh browser sees the expired message and no button.
+  // A spent link is a dead one: a fresh browser sees the expired message at once, and no button.
   const contextC = await browser.newContext();
   try {
     const pageC = await contextC.newPage();
     await pageC.goto(url);
     await pageC.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
-    // The page learns a link is dead when the browser asks for the passkey, not on load.
-    await pageC.getByRole('button', { name: 'Create a passkey' }).click();
     await expect(pageC.getByText('This link has expired or was already used.')).toBeVisible();
     await expect(pageC.getByRole('button', { name: 'Create a passkey' })).toHaveCount(0);
   } finally {
     await contextC.close();
   }
 
-  // Nothing tells A the link was spent, so it stays on screen until its owner cancels it or it
-  // expires. Then a second link. A device that already holds this site's passkey (A itself) is told so,
+  // A second link. A device that already holds this site's passkey (A itself) is told so,
   // and the link stays good.
-  await page.getByRole('button', { name: 'Cancel link' }).click();
   await page.getByRole('button', { name: 'Create a link' }).click();
   await expect(link).toBeVisible({ timeout: 30_000 });
   const second = await link.inputValue();
@@ -231,12 +231,25 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
     const pageD = await contextD.newPage();
     await pageD.goto(second);
     await pageD.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
-    // The page learns a link is dead when the browser asks for the passkey, not on load.
-    await pageD.getByRole('button', { name: 'Create a passkey' }).click();
     await expect(pageD.getByText('This link has expired or was already used.')).toBeVisible();
     await expect(pageD.getByRole('button', { name: 'Create a passkey' })).toHaveCount(0);
   } finally {
     await contextD.close();
   }
   expect((await db.selectFrom('passkey').select('id').execute()).length, 'no further passkey was added').toBe(2);
+
+  // Last, because issuing a recovery ends the owner's sessions. A recovery context is accepted by
+  // the same registration, so this page must refuse it on sight: finishing it would replace every
+  // passkey.
+  const recovery = await issueRecoveryEnrollment(settings!.owner_id);
+  const contextE = await browser.newContext();
+  try {
+    const pageE = await contextE.newPage();
+    await pageE.goto(`${origin}/add-device?context=${encodeURIComponent(recovery.context)}`);
+    await pageE.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+    await expect(pageE.getByText('This link has expired or was already used.')).toBeVisible();
+    await expect(pageE.getByRole('button', { name: 'Create a passkey' })).toHaveCount(0);
+  } finally {
+    await contextE.close();
+  }
 });

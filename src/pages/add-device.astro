@@ -3,6 +3,8 @@ import AddDevicePasskey from '../components/admin/AddDevicePasskey';
 import AdminLayout from '../layouts/AdminLayout.astro';
 import { adminCopy } from '../lib/admin-i18n';
 import { normalizeAdminPath } from '../lib/admin';
+import { EnrollmentContextError } from '../server/auth/context';
+import { authorizeEnrollmentContext } from '../server/auth/enrollment';
 import { getSiteSettings } from '../server/content/site-settings';
 
 let adminPath = '/admin';
@@ -17,6 +19,17 @@ const ownerLocale = ownerSettings?.default_locale ?? null;
 const copy = adminCopy(ownerLocale);
 const suppliedContext = Astro.url.searchParams.get('context') ?? '';
 const initialContext = suppliedContext.length <= 2_048 ? suppliedContext : '';
+// Judged on load, read-only: the link is not spent. Only a device link is usable here; a
+// recovery or install context would be accepted by the same registration and a recovery
+// replaces every passkey. An outage is not a verdict, so the press decides.
+let usable = initialContext !== '';
+if (usable) {
+  try {
+    usable = (await authorizeEnrollmentContext(initialContext)).purpose === 'device';
+  } catch (error) {
+    if (error instanceof EnrollmentContextError) usable = false;
+  }
+}
 Astro.response.headers.set('Cache-Control', 'no-store');
 Astro.response.headers.set('Referrer-Policy', 'no-referrer');
 ---
@@ -33,6 +46,6 @@ Astro.response.headers.set('Referrer-Policy', 'no-referrer');
         <p>{copy.addDevice.hint}</p>
       </div>
     </header>
-    <AddDevicePasskey client:only="react" adminPath={adminPath} ownerLocale={ownerLocale} initialContext={initialContext} />
+    <AddDevicePasskey client:only="react" adminPath={adminPath} ownerLocale={ownerLocale} initialContext={initialContext} usable={usable} />
   </main>
 </AdminLayout>
