@@ -287,6 +287,7 @@ test('a render drawn around a failed read reaches its reader untouched, and the 
   assert.equal(degraded.headers.get('x-own'), 'kept');
   assert.equal(degraded.headers.get('x-tome-cache'), null, 'not a miss: nothing was kept');
   assert.equal(degraded.headers.get('etag'), null);
+  assert.equal(degraded.headers.get('cache-control'), 'no-store', 'no CDN or browser keeps it either');
   const next = await serve('/en', render, { degraded: () => false });
   assert.equal(await next.text(), '<p>2</p>', 'rendered again, not a hit');
   assert.equal(next.headers.get('x-tome-cache'), 'miss');
@@ -301,8 +302,11 @@ test('a read that fails while the body streams still keeps the page out', async 
   let failed = false;
   const render = async () => new Response(new ReadableStream({
     pull(controller) { failed = true; controller.enqueue(new TextEncoder().encode('<p>no menu</p>')); controller.close(); },
-  }), { status: 200, headers: { 'Content-Type': 'text/html' } });
-  assert.equal(await (await serve('/th', render, { degraded: () => failed })).text(), '<p>no menu</p>');
+  }, { highWaterMark: 0 }), { status: 200, headers: { 'Content-Type': 'text/html' } });
+  // highWaterMark 0: nothing is pulled, so nothing fails, until the cache reads the body.
+  const drawn = await serve('/th', render, { degraded: () => failed });
+  assert.equal(drawn.headers.get('cache-control'), 'no-store');
+  assert.equal(await drawn.text(), '<p>no menu</p>');
   failed = false;
   const next = await serve('/th', async () => html('<p>whole</p>'), { degraded: () => failed });
   assert.equal(await next.text(), '<p>whole</p>');

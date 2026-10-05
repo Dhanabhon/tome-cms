@@ -155,8 +155,13 @@ export async function servePublicPage(input: {
   if (!storable(response)) return response;
 
   const body = new Uint8Array(await response.arrayBuffer());
-  // A page without its menu or its hero is this reader's, not the next five minutes' of readers.
-  if (input.degraded?.()) return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+  // A page without its menu or its hero is this reader's, not the next five minutes' of readers --
+  // and no CDN or browser cache's either.
+  if (input.degraded?.()) {
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', 'no-store');
+    return new Response(body, { status: response.status, statusText: response.statusText, headers });
+  }
   const headers = [...response.headers].filter(([name]) => !DROPPED_HEADERS.has(name.toLowerCase()));
   const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
   const entry: Entry = {
