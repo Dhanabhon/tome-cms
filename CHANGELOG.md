@@ -2,6 +2,21 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.16.4 - 2026-10-06
+
+The weaknesses set aside in 1.16.3, closed, and a tidier recovery page.
+
+### Security
+
+- Deleting or renaming a Passkey needs an owner session verified in the last five minutes, and the Security screen asks for a Passkey first; better-auth's own rename route is off.
+- The media proxy that `prepare-vps.sh` writes drops the `response-*` query parameters, sends `nosniff`, and sends a sandboxing `Content-Security-Policy` with every SVG. Run the script again from the release to get it.
+- SVG logos and icons are stored with `Content-Disposition: attachment`, older ones included, and a restore keeps it.
+- The SVG sanitizer stops a split `@import` from growing back, escapes `&` in a style's text, and refuses an element inside a style.
+
+### Fixed
+
+- The recovery page's heading fills the column and keeps "พื้นที่ทำงาน" whole, the line under it has room, and its button sits on the field's line.
+
 ## 1.16.3 - 2026-10-05
 
 Security fixes from a scan of the whole repository.
