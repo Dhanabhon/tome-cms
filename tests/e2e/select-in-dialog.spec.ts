@@ -452,6 +452,14 @@ test('the footer thanks the writer, and a link is named after its site or with a
   await page.getByLabel('Name for link 2').fill('My notes');
   await page.getByLabel('Link 2 URL').fill('https://notes.example');
 
+  // Side by side, each "Remove" sits on its fields' line, not a line lower: the fields keep an
+  // empty line under them for an error, and the button used to line up with that.
+  for (const index of [1, 2]) {
+    const url = (await page.getByLabel(`Link ${index} URL`).boundingBox())!;
+    const remove = (await page.getByRole('button', { name: `Remove link ${index}` }).boundingBox())!;
+    expect(Math.abs((remove.y + remove.height / 2) - (url.y + url.height / 2)), `link ${index}: Remove is off its fields' line`).toBeLessThanOrEqual(1);
+  }
+
   const saved = page.waitForResponse((response) => response.url().endsWith('/api/admin/profile') && response.request().method() !== 'GET');
   await page.getByRole('button', { name: /^Save$/ }).click();
   expect((await saved).ok(), 'the profile was saved').toBe(true);

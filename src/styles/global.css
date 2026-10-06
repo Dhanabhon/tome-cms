@@ -458,7 +458,12 @@ html[data-notice-closed] .site-notice { display: none; }
 /* A label, a URL and a remove button need about 29rem between them; the card has that
  * from roughly 48rem of window, sidebar or no sidebar. */
 @media (min-width: 48rem) {
-  .profile-link { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: end; }
+  /* Each field is a label, its control and a line kept for an error. The fields share those three
+   * rows, so "Remove" can sit on the controls' row; lined up by the bottom, it sat with the empty
+   * error line, a line below the fields. */
+  .profile-link { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; grid-template-rows: auto auto auto; row-gap: var(--space-2xs); }
+  .profile-link > .admin-field { grid-row: 1 / span 3; grid-template-rows: subgrid; }
+  .profile-link > button { grid-row: 2; align-self: center; }
   /* A name of the owner's own sits between the list and the address. */
   .profile-link--named { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) auto; }
 }
