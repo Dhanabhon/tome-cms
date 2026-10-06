@@ -89,6 +89,7 @@ export async function enrichPosts(ownerId: string, posts: Post[]): Promise<Publi
         'assignment.created_at as assignment_created_at',
         'category.id',
         'category.name',
+        'category.slug',
         'category.is_default',
         'category.updated_at as category_updated_at',
       ])
@@ -111,7 +112,7 @@ export async function enrichPosts(ownerId: string, posts: Post[]): Promise<Publi
   const categoryDates = new Map<string, Date>();
   for (const row of categoryRows) {
     const items = categories.get(row.translation_group_id) ?? [];
-    items.push({ id: row.id, name: row.name });
+    items.push({ id: row.id, name: row.name, slug: row.slug });
     categories.set(row.translation_group_id, items);
     categoryDates.set(row.translation_group_id, newer(
       categoryDates.get(row.translation_group_id), row.assignment_created_at, row.category_updated_at,
@@ -380,7 +381,7 @@ export async function listPublishedPostCategories(translationGroupId: string): P
     .innerJoin('categories as category', (join) => join
       .onRef('category.id', '=', 'assignment.category_id')
       .onRef('category.owner_id', '=', 'assignment.owner_id'))
-    .select(['category.id', 'category.name'])
+    .select(['category.id', 'category.name', 'category.slug'])
     .where('assignment.owner_id', '=', settings.owner_id)
     .where('assignment.translation_group_id', '=', translationGroupId)
     .orderBy('category.is_default', 'desc')

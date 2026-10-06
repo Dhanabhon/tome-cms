@@ -103,6 +103,8 @@ test('OpenAPI describes only the complete public content contract', () => {
     'PostListResponse',
     'PageListResponse',
   ]) assert.ok(document.components.schemas[name], `${name} is reusable`);
+  // 1.20.0: a category names the address of its page; added, so older clients keep working.
+  assert.deepEqual((document.components.schemas.PublicCategory as { required?: string[] }).required, ['id', 'name', 'slug']);
 
   for (const name of ['BadRequest', 'NotFound', 'ServerError', 'ServiceUnavailable']) {
     assert.deepEqual(

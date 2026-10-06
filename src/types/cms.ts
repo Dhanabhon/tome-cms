@@ -22,6 +22,10 @@ export interface PostCategory {
   id: string;
   owner_id: string;
   name: string;
+  /** The address of the category's page, /<locale>/category/<slug>; unique per owner. */
+  slug: string;
+  description_th: string;
+  description_en: string;
   is_default: boolean;
   created_at: string;
   updated_at: string;
@@ -41,6 +45,7 @@ export interface PostCategoryAssignment {
 export interface PostCategoryBadge {
   id: string;
   name: string;
+  slug: string;
 }
 
 export type Json =
@@ -386,6 +391,7 @@ export interface PublicTranslation {
 export interface PublicCategory {
   id: string;
   name: string;
+  slug: string;
 }
 
 export interface PublicSeo {

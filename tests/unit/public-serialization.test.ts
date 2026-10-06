@@ -77,14 +77,14 @@ test('public contracts validate queries and serialize only explicit fields', () 
 
   const publicPost = serializePublicPost({
     ...post,
-    categories: [{ id: '8229dd4f-7f40-4557-ab52-fe1d83594321', name: 'News' }],
+    categories: [{ id: '8229dd4f-7f40-4557-ab52-fe1d83594321', name: 'News', slug: 'news' }],
     coverImage: media,
     lastModified: new Date(post.updated_at),
     media: [media],
     translations: [{ href: '/en/blog/hello-world', locale: 'en' }],
   });
   assert.deepEqual(publicPost, {
-    categories: [{ id: '8229dd4f-7f40-4557-ab52-fe1d83594321', name: 'News' }],
+    categories: [{ id: '8229dd4f-7f40-4557-ab52-fe1d83594321', name: 'News', slug: 'news' }],
     contentHtml: '<p>Hello</p>',
     contentJson: post.content_json,
     coverImage: {

@@ -45,10 +45,11 @@ test('an export writes every post and page as Markdown and an exact copy, with t
     id: true, owner_id: owner, site_name: 'Export', default_locale: 'th', timezone: 'UTC', admin_path: '/admin', author_avatar_media_id: null,
   }).execute();
   await db.insertInto('categories').values([
-    { owner_id: owner, name: 'Baking', is_default: false },
-    { owner_id: owner, name: 'ขนม', is_default: false },
+    { owner_id: owner, name: 'Baking', slug: 'bread-and-cakes', description_th: 'ขนมปังและเค้ก', description_en: 'Bread and cakes.', is_default: false },
+    { owner_id: owner, name: 'ขนม', slug: 'ขนม', is_default: false },
   ]).execute();
   const categories = await db.selectFrom('categories').select(['id', 'name']).execute();
+  await db.insertInto('categories').values({ owner_id: owner, name: 'Unused', slug: 'unused', is_default: false }).execute();
   const baking = categories.find(({ name }) => name === 'Baking')!;
 
   const picture = { id: randomUUID(), key: createObjectKey(owner, 'image/png'), bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]) };
@@ -182,6 +183,11 @@ test('an export writes every post and page as Markdown and an exact copy, with t
       [guide.id]: listed(guide, 'คู่มือ.pdf', 'application/pdf'),
       [poster.id]: listed(poster, 'poster.webp', 'image/webp'),
     },
+    // Front matter names a category; its address and descriptions travel here, once each.
+    categories: [
+      { name: 'Baking', slug: 'bread-and-cakes', descriptionTh: 'ขนมปังและเค้ก', descriptionEn: 'Bread and cakes.' },
+      { name: 'ขนม', slug: 'ขนม', descriptionTh: '', descriptionEn: '' },
+    ],
   }, 'every file by its id, the video poster too, and nothing unused');
 
   const read = async (path: string) => readFrontMatter(await readFile(join(root, path), 'utf8'), path);

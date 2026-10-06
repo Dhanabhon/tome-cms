@@ -132,6 +132,8 @@ test.beforeAll(async () => {
   await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path, hide_from_search)
     values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin', true)`.execute(db);
   await sql`insert into categories (owner_id, name, is_default) values (${OWNER}, 'Uncategorized', true)`.execute(db);
+  // A category of the owner's own, so its row's buttons and its edit form are there to measure.
+  await sql`insert into categories (owner_id, name, slug, is_default) values (${OWNER}, 'Travel', 'travel', false)`.execute(db);
   await seed();
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env, stdio: 'pipe' });
@@ -246,6 +248,17 @@ async function editorStates(page: Page, measure: (name: string) => Promise<void>
   await expect(drawer).toBeHidden();
 }
 
+/** A category's edit form: its name, its address and a description in each language. */
+async function categoryStates(page: Page, measure: (name: string) => Promise<void>) {
+  await page.goto(`${origin}/admin/categories`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Edit Travel' }).click();
+  await page.locator('form.category-edit').waitFor({ state: 'visible' });
+  await measure('categories, editing');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+}
+
 /** The library opened on the folder, its menu open, and the confirm dialog its Delete asks with. */
 async function folderStates(page: Page, measure: (name: string) => Promise<void>) {
   await page.goto(`${origin}/admin/media?folder=${folderId}`);
@@ -335,6 +348,7 @@ test('every admin control is at least 44 × 44 under a coarse pointer', async ({
     }
     await editorStates(page, measure);
     await folderStates(page, measure);
+    await categoryStates(page, measure);
   };
   await screens();
 

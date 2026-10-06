@@ -41,7 +41,7 @@ async function seedSite(): Promise<void> {
   await m.db.insertInto('site_settings').values({
     id: true, owner_id: OWNER, site_name: 'Import', default_locale: 'th', timezone: 'UTC', admin_path: '/admin', author_avatar_media_id: null,
   }).execute();
-  await m.db.insertInto('categories').values({ owner_id: OWNER, name: 'Uncategorized', is_default: true }).execute();
+  await m.db.insertInto('categories').values({ owner_id: OWNER, name: 'Uncategorized', slug: 'uncategorized', is_default: true }).execute();
 }
 
 async function objectKeys(): Promise<string[]> {
@@ -102,7 +102,7 @@ test('an export imported into an empty site comes back whole: content, status, d
   const poster = await createMediaFromBytes(OWNER, posterBytes, 'poster.webp');
   const guide = await createMediaFromBytes(OWNER, guideBytes, 'คู่มือ.pdf');
   const [baking, khanom] = await m.db.insertInto('categories').values([
-    { owner_id: OWNER, name: 'Baking', is_default: false },
+    { owner_id: OWNER, name: 'Baking', slug: 'bread-and-cakes', description_th: 'ขนมปังและเค้ก', description_en: 'Bread and cakes.', is_default: false },
     { owner_id: OWNER, name: 'ขนม', is_default: false },
   ]).returning('id').execute();
 
@@ -152,7 +152,8 @@ test('an export imported into an empty site comes back whole: content, status, d
     const assigned = await m.db.selectFrom('post_category_assignments').innerJoin('categories', 'categories.id', 'post_category_assignments.category_id')
       .select(['translation_group_id', 'name']).orderBy('name').execute();
     const media = await m.db.selectFrom('media_items').select(['id', 'object_key', 'original_name', 'mime_type', 'checksum_sha256', 'size_bytes', 'width', 'height']).execute();
-    return { posts, pages, assigned, media };
+    const categories = await m.db.selectFrom('categories').select(['name', 'slug', 'description_th', 'description_en', 'is_default']).orderBy('name').execute();
+    return { posts, pages, assigned, media, categories };
   };
   const before = await editions();
 
@@ -208,6 +209,7 @@ test('an export imported into an empty site comes back whole: content, status, d
   for (const slug of ['ขนมปัง-ยาม-ค่ำ', 'next-loaf']) {
     assert.deepEqual(names(now.assigned, nowGroup(slug)), names(before.assigned, beforeGroup(slug)), `${slug}'s categories`);
   }
+  assert.deepEqual(now.categories, before.categories, 'each category with its address and descriptions');
   const englishNow = now.posts.find((row) => row.slug === 'bread-at-night')!;
   assert.equal(englishNow.cover_media_id, newId.get(picture.id), 'the cover');
   assert.equal((englishNow.content_json.content![2]!.attrs as { mediaId: string }).mediaId, newId.get(poster.id), "the video's poster");
@@ -239,6 +241,11 @@ test('hand-written Markdown with no exact copy: no status is a draft, and a publ
   assert.deepEqual(result.create.map(({ slug, source }) => [slug, source]), [['notes', 'md'], ['out-now', 'md']]);
   assert.deepEqual(result.categoriesToCreate, ['Rye']);
   assert.equal(result.missingMedia, 1, 'the picture with no file');
+  assert.deepEqual(
+    await m.db.selectFrom('categories').select(['slug', 'description_en']).where('name', '=', 'Rye').executeTakeFirstOrThrow(),
+    { slug: 'rye', description_en: '' },
+    'no manifest, so the name gives the address',
+  );
 
   const notes = await m.db.selectFrom('posts').selectAll().where('slug', '=', 'notes').executeTakeFirstOrThrow();
   assert.equal(notes.status, 'draft');
@@ -383,4 +390,32 @@ test('a slug that is not one is made one, and the plan names the slug the write 
   assert.deepEqual(result.create, planned.create);
   assert.ok(await m.db.selectFrom('posts').select('id').where('slug', '=', 'rye-spelt-loaves').executeTakeFirst());
   assert.deepEqual((await planImport(root, OWNER)).create, [], 'a second plan skips it');
+});
+
+test("a category's address from the archive is kept when it is free, and made from the name when it is taken or not one", async () => {
+  await m.db.insertInto('categories').values({ owner_id: OWNER, name: 'Sourdough', slug: 'taken', is_default: false }).execute();
+  const root = await tempDirectory();
+  const manifest = {
+    format: 'tomecms-markdown', version: 1, createdAt: '2026-10-07T00:00:00.000Z', applicationVersion: '1.20.0',
+    publicUrl: 'https://old.example', counts: { posts: 1, pages: 0, media: 0 }, media: {},
+    categories: [
+      { name: 'Pastry', slug: 'ขนม-อบ', descriptionTh: 'ขนมอบ', descriptionEn: 'Baked sweets.' },
+      { name: 'Flatbread', slug: 'taken', descriptionTh: '', descriptionEn: 'Thin.' },
+      { name: 'Oddities', slug: 'Not A Slug', descriptionTh: '', descriptionEn: '' },
+    ],
+  };
+  await writeTree(root, {
+    'manifest.json': JSON.stringify(manifest),
+    'posts/en/mixed.md': '---\ntitle: Mixed\ncategories: [pastry, Flatbread, Oddities, Plain]\n---\n\nWords.\n',
+  });
+  const result = await m.applyImport(root, OWNER);
+  assert.deepEqual(result.categoriesToCreate, ['pastry', 'Flatbread', 'Oddities', 'Plain']);
+  const rows = await m.db.selectFrom('categories').select(['name', 'slug', 'description_th', 'description_en'])
+    .where('name', 'in', ['pastry', 'Flatbread', 'Oddities', 'Plain']).orderBy('name').execute();
+  assert.deepEqual(rows, [
+    { name: 'Flatbread', slug: 'flatbread', description_th: '', description_en: 'Thin.' },
+    { name: 'Oddities', slug: 'oddities', description_th: '', description_en: '' },
+    { name: 'Plain', slug: 'plain', description_th: '', description_en: '' },
+    { name: 'pastry', slug: 'ขนม-อบ', description_th: 'ขนมอบ', description_en: 'Baked sweets.' },
+  ]);
 });

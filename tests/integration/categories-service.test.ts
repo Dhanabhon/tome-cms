@@ -19,8 +19,8 @@ test('Category services preserve shared membership, ownership, and fallback', as
     createCategory,
     deleteCategory,
     listCategories,
-    renameCategory,
     replacePostCategories,
+    updateCategory,
   } = await import('../../src/server/content/categories');
   const { HttpError } = await import('../../src/server/http/errors');
   context.after(closeDatabase);
@@ -73,10 +73,10 @@ test('Category services preserve shared membership, ownership, and fallback', as
   // The admin post list reads a whole page of rows through this one call.
   const absentGroup = randomUUID();
   const grouped = await categoriesByPostGroup('owner-a', [firstGroup, secondGroup, absentGroup, firstGroup]);
-  assert.deepEqual(grouped.get(firstGroup), [{ id: alpha.id, name: 'Alpha' }]);
+  assert.deepEqual(grouped.get(firstGroup), [{ id: alpha.id, name: 'Alpha', slug: 'alpha' }]);
   assert.deepEqual(
     grouped.get(secondGroup),
-    [{ id: alpha.id, name: 'Alpha' }, { id: zeta.id, name: 'Zeta' }],
+    [{ id: alpha.id, name: 'Alpha', slug: 'alpha' }, { id: zeta.id, name: 'Zeta', slug: 'zeta' }],
     'a group keeps every assignment, ordered default first then by name',
   );
   assert.equal(grouped.has(absentGroup), false, 'a group with no assignments is absent rather than empty');
@@ -105,7 +105,7 @@ test('Category services preserve shared membership, ownership, and fallback', as
     (error: unknown) => error instanceof HttpError && error.status === 409,
   );
 
-  const beta = await renameCategory('owner-a', zeta.id, '  Beta  ');
+  const beta = await updateCategory('owner-a', zeta.id, { name: '  Beta  ' });
   assert.equal(beta.name, 'Beta');
   assert.deepEqual(await deleteCategory('owner-a', alpha.id), { affectedPostGroups: 2 });
   assert.deepEqual(await categoryIdsForPost('owner-a', firstTh), [fallback.id]);

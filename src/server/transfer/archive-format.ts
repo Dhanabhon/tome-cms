@@ -22,6 +22,14 @@ export interface ArchiveMediaFile {
   size: number;
 }
 
+/** A category as front matter cannot say it: front matter names it, this carries the rest. */
+export interface ArchiveCategory {
+  name: string;
+  slug: string;
+  descriptionTh: string;
+  descriptionEn: string;
+}
+
 export interface ArchiveManifest {
   format: 'tomecms-markdown';
   version: 1;
@@ -34,6 +42,11 @@ export interface ArchiveManifest {
    * a video's poster by nothing else, so this is how an import finds them.
    */
   media: Record<string, ArchiveMediaFile>;
+  /**
+   * The address and descriptions of each category the posts are in, but Uncategorized. An archive
+   * made before 1.20 has none, and an import then makes each address from the name.
+   */
+  categories?: ArchiveCategory[];
 }
 
 /** A refusal of something in an archive, by its code, the file it is about and, for front matter, the field. */
@@ -80,6 +93,13 @@ const manifestSchema = z.object({
     sha256: z.string().regex(/^[A-Za-z0-9+/]{43}=$/),
     size: count,
   })),
+  // The slug is checked where it is used: one that is not a slug, or is taken, is made from the name.
+  categories: z.array(z.object({
+    name: z.string().trim().min(1).max(80),
+    slug: z.string(),
+    descriptionTh: z.string().trim().max(160),
+    descriptionEn: z.string().trim().max(160),
+  })).optional(),
 }).refine((manifest) => manifest.counts.media === Object.keys(manifest.media).length);
 
 export function readManifest(source: string): ArchiveManifest {

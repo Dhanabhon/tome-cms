@@ -99,6 +99,7 @@ export async function applyImport(root: string, ownerId: string, site?: SiteRead
   const { createPostSchema, insertPostIn } = await import('../content/posts');
   const { createPageSchema, insertPageIn } = await import('../content/pages');
   const { lockOwner } = await import('../content/navigation');
+  const { insertCategory } = await import('../content/categories');
 
   const uploaded: string[] = [];
   try {
@@ -123,9 +124,10 @@ export async function applyImport(root: string, ownerId: string, site?: SiteRead
     await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
       const categories = new Map(detail.categories);
-      // Raw inserts: createCategory opens a transaction of its own.
+      // In this transaction: createCategory opens one of its own.
       for (const name of plan.categoriesToCreate) {
-        const row = await trx.insertInto('categories').values({ owner_id: ownerId, name, is_default: false }).returning('id').executeTakeFirstOrThrow();
+        const archived = detail.archiveCategories.get(name.toLowerCase());
+        const row = await insertCategory(trx, ownerId, { ...archived, name });
         categories.set(name.toLowerCase(), row.id);
       }
       const groups = new Map<string, string>();

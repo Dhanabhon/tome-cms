@@ -238,13 +238,13 @@ test('every admin screen has at most one primary action, empty or filled, change
   await page.locator('.maintenance-template input:not(:checked)').first().check();
   await count('Maintenance, changed', 1);
 
-  // Categories: Create category is the one; renaming a row saves as a secondary.
+  // Categories: Create category is the one; editing a row saves as a secondary.
   await open('/admin/categories', '.category-row');
   await count('Categories', 1);
   await page.locator('#category-name').fill('Travel');
   await page.getByRole('button', { name: 'Create category' }).click();
-  await page.getByRole('button', { name: 'Rename Travel' }).click();
-  await count('Categories, renaming', 1);
+  await page.getByRole('button', { name: 'Edit Travel' }).click();
+  await count('Categories, editing', 1);
 
   // A check-only installation has nothing to install, so System offers no primary.
   await open('/admin/system', '.update-actions');

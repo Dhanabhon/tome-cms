@@ -5,14 +5,13 @@ import { z } from 'zod';
 
 import { assertSameOrigin } from '../../../../server/auth/origin';
 import { requireInstalledOwner } from '../../../../server/auth/session';
-import { createCategory, deleteCategory, listCategories, renameCategory } from '../../../../server/content/categories';
+import { categoryUpdateSchema, createCategory, deleteCategory, listCategories, updateCategory } from '../../../../server/content/categories';
 import { getServerEnv } from '../../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../../server/http/errors';
 import { parseJson } from '../../../../server/http/json';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 const createSchema = z.object({ name: z.string().trim().min(1).max(80) }).strict();
-const updateSchema = z.object({ id: z.uuid(), name: z.string().trim().min(1).max(80) }).strict();
 const deleteSchema = z.object({ id: z.uuid() }).strict();
 
 function guardOrigin(request: Request): void {
@@ -58,8 +57,8 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     const current = await requireInstalledOwner(request.headers);
     guardOrigin(request);
-    const input = await parseJson(request, updateSchema);
-    return success({ category: await renameCategory(current.user.id, input.id, input.name) }, requestId);
+    const { id, ...input } = await parseJson(request, categoryUpdateSchema);
+    return success({ category: await updateCategory(current.user.id, id, input) }, requestId);
   } catch (error) {
     return adminErrorResponse(error, requestId);
   }

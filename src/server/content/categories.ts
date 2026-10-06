@@ -1,19 +1,36 @@
-import { sql, type Transaction } from 'kysely';
+import { randomUUID } from 'node:crypto';
 
+import { sql, type Selectable, type Transaction } from 'kysely';
+import { z } from 'zod';
+
+import { contentSlug, SLUG_LENGTH } from '../../lib/slug';
 import type { PostCategory, PostCategoryBadge, PostCategorySummary, PostLocale } from '../../types/cms';
 import { db } from '../db/client';
-import type { Database } from '../db/types';
+import type { CategoryTable, Database } from '../db/types';
 import { HttpError } from '../http/errors';
 import { live } from './live';
+import { normalizedContentSlugSchema } from './mutations';
 
-function category(row: {
-  id: string;
-  owner_id: string;
-  name: string;
-  is_default: boolean;
-  created_at: Date;
-  updated_at: Date;
-}): PostCategory {
+/** How long each language's description may be, in characters. */
+export const CATEGORY_DESCRIPTION_LENGTH = 160;
+
+const description = z.string().trim().max(CATEGORY_DESCRIPTION_LENGTH);
+
+/**
+ * An edit from the category manager. The slug is checked by `updateCategory`, not here: one the
+ * category already has is kept whatever it looks like, and only a changed one is held to the rules.
+ */
+export const categoryUpdateSchema = z.object({
+  id: z.uuid(),
+  name: z.string().trim().min(1).max(80),
+  slug: z.string().max(SLUG_LENGTH * 2).optional(),
+  descriptionTh: description.optional(),
+  descriptionEn: description.optional(),
+}).strict();
+
+export type CategoryUpdate = Omit<z.infer<typeof categoryUpdateSchema>, 'id'>;
+
+function category(row: Selectable<CategoryTable>): PostCategory {
   return { ...row, created_at: row.created_at.toISOString(), updated_at: row.updated_at.toISOString() };
 }
 
@@ -30,10 +47,77 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }
 
+const SLUG_TAKEN = () => new HttpError(409, 'That Category address is already in use.', { code: 'slug_taken' });
+
+/** The unique violation was the address's, not the name's. */
+function isSlugViolation(error: unknown): boolean {
+  return isUniqueViolation(error) && (error as { constraint?: unknown }).constraint === 'categories_owner_slug_key';
+}
+
 // ponytail: serialize Category mutations per owner; split locks only if measured editor throughput needs it.
 async function lockOwner(trx: Transaction<Database>, ownerId: string): Promise<void> {
   const owner = await trx.selectFrom('user').select('id').where('id', '=', ownerId).forUpdate().executeTakeFirst();
   if (!owner) throw new HttpError(404, 'Owner not found.');
+}
+
+/**
+ * The address a name gives, free for this owner: the rules migration 033 filled every category
+ * with -- contentSlug, short enough for a -N, `category-` and the id's start when nothing is left --
+ * then -2, -3 and so on past the ones taken. Call it with the owner locked.
+ */
+async function freeCategorySlug(trx: Transaction<Database>, ownerId: string, name: string, id: string): Promise<string> {
+  const base = contentSlug(name).slice(0, SLUG_LENGTH - 6).replace(/-+$/, '') || `category-${id.replaceAll('-', '').slice(0, 8)}`;
+  // A slug is letters, digits and hyphens, so the base needs no escaping in a LIKE.
+  const rows = await trx.selectFrom('categories').select('slug')
+    .where('owner_id', '=', ownerId).where('id', '!=', id)
+    .where((eb) => eb.or([eb('slug', '=', base), eb('slug', 'like', `${base}-%`)]))
+    .execute();
+  const taken = new Set(rows.map(({ slug }) => slug));
+  let slug = base;
+  for (let suffix = 2; taken.has(slug); suffix += 1) slug = `${base}-${suffix}`;
+  return slug;
+}
+
+async function slugIsFree(trx: Transaction<Database>, ownerId: string, slug: string, id: string): Promise<boolean> {
+  return !await trx.selectFrom('categories').select('id')
+    .where('owner_id', '=', ownerId).where('slug', '=', slug).where('id', '!=', id).executeTakeFirst();
+}
+
+/**
+ * A new category, inside a transaction that holds the owner. A slug it is given (an import's) is
+ * kept when it is one and free; otherwise the name gives one.
+ */
+export async function insertCategory(
+  trx: Transaction<Database>,
+  ownerId: string,
+  input: { name: string; slug?: string; descriptionTh?: string; descriptionEn?: string },
+): Promise<Selectable<CategoryTable>> {
+  const id = randomUUID();
+  const requested = normalizedContentSlugSchema.safeParse(input.slug ?? '');
+  const slug = requested.success && await slugIsFree(trx, ownerId, requested.data, id)
+    ? requested.data
+    : await freeCategorySlug(trx, ownerId, input.name, id);
+  return trx.insertInto('categories')
+    .values({
+      id,
+      owner_id: ownerId,
+      name: input.name,
+      slug,
+      description_th: input.descriptionTh ?? '',
+      description_en: input.descriptionEn ?? '',
+      is_default: false,
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+}
+
+/** The installer's Uncategorized, at the address a migrated one has. A second call does nothing. */
+export async function insertDefaultCategory(trx: Transaction<Database>, ownerId: string): Promise<void> {
+  await sql`
+    insert into categories (owner_id, name, slug, is_default)
+    values (${ownerId}, 'Uncategorized', 'uncategorized', true)
+    on conflict (owner_id) where is_default do nothing
+  `.execute(trx);
 }
 
 export async function listCategories(ownerId: string): Promise<PostCategorySummary[]> {
@@ -66,6 +150,7 @@ export async function listPublishedCategoriesForOwner(
     .select([
       'category.id',
       'category.name',
+      'category.slug',
       'category.is_default',
       'category.updated_at as category_updated_at',
       'assignment.created_at as assignment_created_at',
@@ -81,7 +166,7 @@ export async function listPublishedCategoriesForOwner(
   const items = new Map<string, PostCategoryBadge>();
   let modified = baseline.getTime();
   for (const row of rows) {
-    if (!items.has(row.id)) items.set(row.id, { id: row.id, name: row.name });
+    if (!items.has(row.id)) items.set(row.id, { id: row.id, name: row.name, slug: row.slug });
     modified = Math.max(
       modified,
       row.category_updated_at.getTime(),
@@ -97,10 +182,7 @@ export async function createCategory(ownerId: string, requestedName: string): Pr
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
-      return trx.insertInto('categories')
-        .values({ owner_id: ownerId, name, is_default: false })
-        .returningAll()
-        .executeTakeFirstOrThrow();
+      return insertCategory(trx, ownerId, { name });
     });
     return category(row);
   } catch (error) {
@@ -109,21 +191,43 @@ export async function createCategory(ownerId: string, requestedName: string): Pr
   }
 }
 
-export async function renameCategory(ownerId: string, id: string, requestedName: string): Promise<PostCategory> {
-  const name = nameForWrite(requestedName);
+/**
+ * A name, and an address and descriptions when they are given. A rename keeps the address, so
+ * links to the category keep working; an empty one is made from the name again. An address the
+ * category already has is kept as it is, even one a stricter rule would now refuse.
+ */
+export async function updateCategory(ownerId: string, id: string, input: CategoryUpdate): Promise<PostCategory> {
+  const name = nameForWrite(input.name);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
-      const current = await trx.selectFrom('categories').select('is_default')
+      const current = await trx.selectFrom('categories').select(['is_default', 'slug'])
         .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!current) throw new HttpError(404, 'Category not found.');
       if (current.is_default) throw new HttpError(409, 'Uncategorized is protected.');
-      return trx.updateTable('categories').set({ name })
+      const given = input.slug?.normalize('NFC').trim();
+      let slug = current.slug;
+      if (given === '') slug = await freeCategorySlug(trx, ownerId, name, id);
+      else if (given !== undefined && given !== current.slug) {
+        if (!normalizedContentSlugSchema.safeParse(given).success) {
+          throw new HttpError(400, 'Use lowercase letters, digits, Thai and single hyphens in the Category address.', { code: 'slug_invalid' });
+        }
+        if (!await slugIsFree(trx, ownerId, given, id)) throw SLUG_TAKEN();
+        slug = given;
+      }
+      return trx.updateTable('categories')
+        .set({
+          name,
+          slug,
+          ...(input.descriptionTh !== undefined ? { description_th: input.descriptionTh.trim() } : {}),
+          ...(input.descriptionEn !== undefined ? { description_en: input.descriptionEn.trim() } : {}),
+        })
         .where('id', '=', id).where('owner_id', '=', ownerId)
         .returningAll().executeTakeFirstOrThrow();
     });
     return category(row);
   } catch (error) {
+    if (isSlugViolation(error)) throw SLUG_TAKEN();
     if (isUniqueViolation(error)) throw new HttpError(409, 'That Category name is already in use.');
     throw error;
   }
@@ -242,7 +346,7 @@ export async function categoriesByPostGroup(
     .innerJoin('categories as category', (join) => join
       .onRef('category.id', '=', 'assignment.category_id')
       .onRef('category.owner_id', '=', 'assignment.owner_id'))
-    .select(['assignment.translation_group_id', 'category.id', 'category.name'])
+    .select(['assignment.translation_group_id', 'category.id', 'category.name', 'category.slug'])
     .where('assignment.owner_id', '=', ownerId)
     .where('assignment.translation_group_id', 'in', [...new Set(groupIds)])
     .orderBy('category.is_default', 'desc')
@@ -251,7 +355,7 @@ export async function categoriesByPostGroup(
     .execute();
   for (const row of rows) {
     const items = groups.get(row.translation_group_id) ?? [];
-    items.push({ id: row.id, name: row.name });
+    items.push({ id: row.id, name: row.name, slug: row.slug });
     groups.set(row.translation_group_id, items);
   }
   return groups;

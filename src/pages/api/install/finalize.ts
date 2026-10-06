@@ -9,6 +9,7 @@ import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/rate-limit';
 import { storeRecoveryCodes } from '../../../server/auth/recovery';
 import { getSession } from '../../../server/auth/session';
+import { insertDefaultCategory } from '../../../server/content/categories';
 import { db } from '../../../server/db/client';
 import { getServerEnv } from '../../../server/env';
 import { senderAddress } from '../../../server/http/sender-address';
@@ -119,11 +120,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
         author_bio_th: '',
         author_bio_en: '',
       }).execute();
-      await sql`
-        insert into categories (owner_id, name, is_default)
-        values (${ownerId}, 'Uncategorized', true)
-        on conflict (owner_id) where is_default do nothing
-      `.execute(trx);
+      await insertDefaultCategory(trx, ownerId);
 
       const recoveryCodes = await storeRecoveryCodes(ownerId, trx);
 

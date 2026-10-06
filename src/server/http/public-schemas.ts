@@ -74,6 +74,8 @@ export const publicTranslationSchema: z.ZodType<PublicTranslation> = z.object({
 export const publicCategorySchema: z.ZodType<PublicCategory> = z.object({
   id: z.uuid(),
   name: z.string().min(1).max(80),
+  /** The end of the category page's address, /<locale>/category/<slug>. */
+  slug: z.string().min(1).max(160),
 }).strict();
 
 export const publicSeoSchema: z.ZodType<PublicSeo> = z.object({

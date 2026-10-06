@@ -104,6 +104,20 @@ test('a manifest that does not hold together is refused', () => {
   refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], path: `../${KEY}` } } });
   refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], path: `media/../${KEY}` } } });
   refused({ ...manifest, media: { [MEDIA_ID]: { ...manifest.media[MEDIA_ID], size: '1024' } } });
+  const category = { name: 'Baking', slug: 'baking', descriptionTh: '', descriptionEn: '' };
+  refused({ ...manifest, categories: [{ ...category, descriptionEn: 'a'.repeat(161) }] });
+  refused({ ...manifest, categories: [{ ...category, name: '' }] });
+  refused({ ...manifest, categories: [{ name: 'Baking' }] });
+});
+
+test("a manifest carries each category's address and descriptions, and one from before 1.20 has none", () => {
+  const categories = [
+    { name: 'ขนม', slug: 'ขนม', descriptionTh: 'ขนมไทย', descriptionEn: 'Thai sweets.' },
+    // An address that is not one still reads: the import makes one from the name.
+    { name: 'Odd', slug: 'Not A Slug', descriptionTh: '', descriptionEn: 'a'.repeat(160) },
+  ];
+  assert.deepEqual(readManifest(JSON.stringify({ ...manifest, categories })), { ...manifest, categories });
+  assert.equal(readManifest(JSON.stringify(manifest)).categories, undefined);
 });
 
 test('a manifest from an untrusted archive names only files the export could have written', () => {

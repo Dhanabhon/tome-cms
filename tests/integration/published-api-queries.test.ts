@@ -70,8 +70,8 @@ test('Published query services paginate, enrich, and isolate the installed site'
   }).execute();
 
   const [uncategorized, news, draftOnly, foreignCategory] = await db.insertInto('categories').values([
-    { owner_id: 'owner-a', name: 'Uncategorized', is_default: true },
-    { owner_id: 'owner-a', name: 'News', is_default: false },
+    { owner_id: 'owner-a', name: 'Uncategorized', slug: 'uncategorized', is_default: true },
+    { owner_id: 'owner-a', name: 'News', slug: 'news', is_default: false },
     { owner_id: 'owner-a', name: 'Draft only', is_default: false },
     { owner_id: 'owner-b', name: 'Foreign', is_default: false },
   ]).returningAll().execute();
@@ -180,7 +180,7 @@ test('Published query services paginate, enrich, and isolate the installed site'
   );
   assert.deepEqual([first.hasMore, second.hasMore, third.hasMore], [true, true, false]);
   assert.equal(third.nextCursor, null);
-  assert.deepEqual(first.items[0]?.categories, [{ id: news.id, name: 'News' }]);
+  assert.deepEqual(first.items[0]?.categories, [{ id: news.id, name: 'News', slug: 'news' }]);
   assert.equal(first.items[0]?.coverImage?.id, mediaId);
   assert.deepEqual(first.items[0]?.media.map(({ id }) => id), [mediaId]);
   assert.deepEqual(first.items[0]?.translations, [
@@ -211,8 +211,8 @@ test('Published query services paginate, enrich, and isolate the installed site'
 
   const categorySnapshot = await listPublishedCategories('th');
   assert.deepEqual(categorySnapshot.items, [
-    { id: uncategorized.id, name: 'Uncategorized' },
-    { id: news.id, name: 'News' },
+    { id: uncategorized.id, name: 'Uncategorized', slug: 'uncategorized' },
+    { id: news.id, name: 'News', slug: 'news' },
   ]);
   const navigation = await getPublicNavigationSnapshot('th');
   assert.deepEqual(navigation.navigation, {
@@ -303,9 +303,10 @@ test('Published query services paginate, enrich, and isolate the installed site'
     assert.equal((await request('/api/v1/content/pages/contact?locale=th')).status, 200);
 
     const categories = await request('/api/v1/content/categories?locale=th');
+    // Each carries its address, and a renamed one keeps the address it had.
     assert.deepEqual(
-      (await categories.json() as { data: Array<{ name: string }> }).data.map(({ name }) => name),
-      ['Uncategorized', 'Updates'],
+      (await categories.json() as { data: Array<{ name: string; slug: string }> }).data.map(({ name, slug }) => [name, slug]),
+      [['Uncategorized', 'uncategorized'], ['Updates', 'news']],
     );
     // The server answers from its own five-second menu cache, so the group is saved before its first read.
     const [group] = await db.insertInto('navigation_items').values({

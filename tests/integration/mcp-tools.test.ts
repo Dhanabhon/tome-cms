@@ -152,7 +152,7 @@ before(async () => {
     id: true, owner_id: OWNER, site_name: 'Tools', default_locale: 'en', timezone: 'Asia/Bangkok', admin_path: '/admin', author_avatar_media_id: null,
   }).execute();
   defaultCategoryId = (await db.insertInto('categories').values({ owner_id: OWNER, name: 'Uncategorized', is_default: true }).returning('id').executeTakeFirstOrThrow()).id;
-  notesId = (await db.insertInto('categories').values({ owner_id: OWNER, name: 'Notes', is_default: false }).returning('id').executeTakeFirstOrThrow()).id;
+  notesId = (await db.insertInto('categories').values({ owner_id: OWNER, name: 'Notes', slug: 'notes', is_default: false }).returning('id').executeTakeFirstOrThrow()).id;
   imageId = await image(OWNER, 'Sunrise');
   otherImageId = await image(OTHER, 'Elsewhere');
   await writePluginSettings(OWNER, { enabled: true, id: 'mcp', values: {} });
@@ -539,6 +539,7 @@ test('search_content finds drafts by status, and lists carry a cursor', async ()
 
   const categories = await ok(reader, 'list_categories', {});
   assert.deepEqual(categories.items.map((item: { name: string }) => item.name).sort(), ['Notes', 'Uncategorized']);
+  assert.deepEqual(categories.items.find((item: { name: string }) => item.name === 'Notes'), { id: notesId, name: 'Notes', slug: 'notes' });
 });
 
 test('list_media gives an id, a name, alt text, a size and an address, and nothing else', async () => {

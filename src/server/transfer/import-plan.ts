@@ -10,7 +10,7 @@ import type { EditorDocument, EditorNode } from '../../types/cms';
 import { parseEditorContent, ValidationError } from '../content/editor';
 import { parseMarkdownPost } from '../content/markdown-import';
 import { detectImageType } from '../media/image';
-import { ArchiveInputError, readFrontMatter, readManifest, type ArchiveManifest, type FrontMatter } from './archive-format';
+import { ArchiveInputError, readFrontMatter, readManifest, type ArchiveCategory, type ArchiveManifest, type FrontMatter } from './archive-format';
 
 /*
  * What `tome import` would do with an archive from `tome export`, or a directory written the same
@@ -76,6 +76,8 @@ export interface PlanDetail {
   reuse: Map<string, string>;
   /** Each category on the site, by its name in lower case. */
   categories: Map<string, string>;
+  /** The manifest's word on each category, by its name in lower case: its address and descriptions. */
+  archiveCategories: Map<string, ArchiveCategory>;
 }
 
 /** Two files with the same bytes are one file to the library. */
@@ -377,7 +379,8 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
   }
   const upload = [...used.values()].filter((file) => !reuse.has(fileKey(file)));
   plan.media = { upload: upload.length, reuse: reuse.size };
-  return { plan, detail: { items, files, upload, reuse, categories } };
+  const archiveCategories = new Map((manifest?.categories ?? []).map((entry) => [entry.name.toLowerCase(), entry]));
+  return { plan, detail: { items, files, upload, reuse, categories, archiveCategories } };
 }
 
 /** What an import of this directory would do. Nothing is written. */

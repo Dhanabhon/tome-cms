@@ -26,7 +26,7 @@ export function serializePublicMedia(row: ReadyImage): PublicMedia {
 }
 
 export function serializePublicCategory(row: PostCategoryBadge): PublicCategory {
-  return publicCategorySchema.parse({ id: row.id, name: row.name });
+  return publicCategorySchema.parse({ id: row.id, name: row.name, slug: row.slug });
 }
 
 function serializeTranslations(rows: readonly PostAlternate[]) {

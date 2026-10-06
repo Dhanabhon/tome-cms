@@ -12,7 +12,7 @@ import type { Database, MediaItemTable, PageTable, PostTable } from '../db/types
 import { isTomeObjectKey, isUuid } from '../media/keys';
 import { getBuildInfo } from '../update/current';
 import {
-  ARCHIVE_FORMAT, itemPath, mediaLink, mediaPath, writeFrontMatter, type ArchiveManifest, type FrontMatter,
+  ARCHIVE_FORMAT, itemPath, mediaLink, mediaPath, writeFrontMatter, type ArchiveCategory, type ArchiveManifest, type FrontMatter,
 } from './archive-format';
 import { documentToReadableMarkdown } from './readable-markdown';
 
@@ -51,6 +51,8 @@ interface Site {
   posts: Post[];
   pages: Page[];
   categories: Map<string, string[]>;
+  /** Each category the posts are in, but Uncategorized, by name. */
+  categoryDetails: Map<string, ArchiveCategory>;
   media: Map<string, Media>;
 }
 
@@ -74,10 +76,17 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
   const pages = await trx.selectFrom('pages').select(EDITION).orderBy('id').execute();
   const assigned = await trx.selectFrom('post_category_assignments')
     .innerJoin('categories', 'categories.id', 'post_category_assignments.category_id')
-    .select(['post_category_assignments.translation_group_id as group', 'categories.name'])
+    .select([
+      'post_category_assignments.translation_group_id as group', 'categories.name', 'categories.slug',
+      'categories.description_th', 'categories.description_en', 'categories.is_default',
+    ])
     .orderBy('categories.name').execute();
   const categories = new Map<string, string[]>();
-  for (const { group, name } of assigned) categories.set(group, [...categories.get(group) ?? [], name]);
+  const categoryDetails = new Map<string, ArchiveCategory>();
+  for (const { group, name, slug, description_th: descriptionTh, description_en: descriptionEn, is_default: isDefault } of assigned) {
+    categories.set(group, [...categories.get(group) ?? [], name]);
+    if (!isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
+  }
 
   const ids = new Set<string>();
   for (const post of posts) {
@@ -90,7 +99,7 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
     .where('owner_id', '=', settings.owner_id).where('state', '=', 'ready').where('id', 'in', [...ids])
     .orderBy('id').execute() : [];
   for (const { object_key: key } of rows) if (!isTomeObjectKey(key)) throw new Error('A media item has an unsupported object key.');
-  return { posts, pages, categories, media: new Map(rows.map((row) => [row.id, row])) };
+  return { posts, pages, categories, categoryDetails, media: new Map(rows.map((row) => [row.id, row])) };
 }
 
 /** The exact document, with each library file's address pointing into the archive instead. */
@@ -182,6 +191,7 @@ export async function exportSite(outDir: string): Promise<ExportReceipt> {
     publicUrl: getServerEnv().TOME_CMS_PUBLIC_URL,
     counts,
     media,
+    categories: [...site.categoryDetails.values()],
   };
   // Last, so a directory with a manifest is a whole export.
   await writeNew(join(outDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

@@ -2927,7 +2927,10 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 }
 .category-actions { justify-content: end; }
 .category-edit { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-md); align-items: end; min-width: 0; }
-.category-manager :is(button, input):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+/* The name, the address and the two descriptions, one under another at the width a name field
+ * has on the create form: they are a few words and a sentence, not a page of text. */
+.category-edit__fields { display: grid; gap: var(--space-md); min-width: 0; max-width: 36rem; }
+.category-manager :is(button, input, textarea):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 @media (max-width: 39.999rem) {
   .admin-page__actions,

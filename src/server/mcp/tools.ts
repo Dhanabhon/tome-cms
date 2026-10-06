@@ -170,7 +170,7 @@ function registerReadTools(server: McpServer, config: McpConfig, token: Verified
     inputSchema: z.object({}),
     annotations: read,
   }, async () => guard(requestId, 'list_categories', async () => respond({
-    items: (await listCategories(ownerId)).map(({ id, name }) => ({ id, name })),
+    items: (await listCategories(ownerId)).map(({ id, name, slug }) => ({ id, name, slug })),
   })));
 
   server.registerTool('list_media', {

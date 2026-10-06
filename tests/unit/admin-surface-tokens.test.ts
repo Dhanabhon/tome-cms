@@ -219,7 +219,7 @@ test('a category row is handled with icons that keep their words', () => {
   for (const name of ['pencil', 'trash']) {
     assert.match(manager, new RegExp(`<Icon name="${name}" />`), `no ${name} icon`);
   }
-  for (const label of ['renameLabelFor', 'deleteLabelFor']) {
+  for (const label of ['editLabelFor', 'deleteLabelFor']) {
     assert.match(manager, new RegExp(`title=\\{fill\\(copy\\.categories\\.${label}`), `${label} lost its title`);
   }
 });
@@ -240,9 +240,16 @@ test('an empty submit marks and focuses the field it is about, and lets go as th
   const categories = read('src/components/admin/CategoryManager.tsx');
   assert.match(categories, /setNameMissing\('create'\);[^]*?createField\.current\?\.focus\(\)/, 'an empty new name is focused');
   assert.match(categories, /setNameMissing\('rename'\);[^]*?renameField\.current\?\.focus\(\)/, 'an empty rename is focused');
-  for (const form of ['create', 'rename']) {
+  // A refused address is the slug field's: marked and focused the same way.
+  assert.match(categories, /setNameMissing\('slug'\);[^]*?slugField\.current\?\.focus\(\)/, 'a refused address is focused');
+  for (const form of ['create', 'rename', 'slug']) {
     assert.match(categories, new RegExp(`aria-invalid=\\{nameMissing === '${form}' \\|\\| undefined\\}`), `${form} field is not marked`);
-    assert.match(categories, new RegExp(`if \\(nameMissing === '${form}'\\) \\{ setNameMissing\\(null\\); setError\\(''\\); \\}`), `typing does not clear ${form}`);
+  }
+  assert.match(categories, /if \(nameMissing === 'create'\) \{ setNameMissing\(null\); setError\(''\); \}/, 'typing does not clear create');
+  // The edit form's fields share one change handler, which lets go of the field it was told about.
+  assert.match(categories, /if \(field && nameMissing === field\) \{ setNameMissing\(null\); setError\(''\); \}/, 'typing does not clear an edit field');
+  for (const field of ['rename', 'slug']) {
+    assert.match(categories, new RegExp(`onChange=\\{\\(event\\) => changeEdit\\(\\{ \\w+: event\\.target\\.value \\}, '${field}'\\)\\}`), `typing in ${field} does not clear it`);
   }
 });
 
