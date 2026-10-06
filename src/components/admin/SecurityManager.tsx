@@ -310,8 +310,9 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
       const knownIds = new Set((await loadPasskeys()).map((passkey) => passkey.id));
       const response = await fetch('/api/admin/security/device-link', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } });
       const payload = await responsePayload(response);
-      const expiresAt = typeof payload.expiresAt === 'string' ? Date.parse(payload.expiresAt) : Number.NaN;
-      if (!response.ok || typeof payload.url !== 'string' || Number.isNaN(expiresAt)) {
+      // The time left, laid on this device's own clock: the server's clock and this one may differ.
+      const expiresAt = typeof payload.expiresInSeconds === 'number' ? Date.now() + payload.expiresInSeconds * 1_000 : Number.NaN;
+      if (!response.ok || typeof payload.url !== 'string' || !Number.isFinite(expiresAt)) {
         throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCreated);
       }
       setDeviceLink({ url: payload.url, expiresAt, knownIds, qr: await qrDataUrl(payload.url) });

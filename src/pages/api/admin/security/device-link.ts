@@ -47,7 +47,10 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
     await requireFreshOwnerSession(current);
     const { context, expiresAt } = await issueDeviceEnrollment(current.user.id);
     const url = `${configuredOrigin}/add-device?context=${encodeURIComponent(context)}`;
-    return Response.json({ url, expiresAt: expiresAt.toISOString() }, {
+    // The screen counts down from the time left rather than from expiresAt, so a device whose clock
+    // is off still shows the link for as long as the server will take it.
+    const expiresInSeconds = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1_000));
+    return Response.json({ url, expiresAt: expiresAt.toISOString(), expiresInSeconds }, {
       headers: { 'Cache-Control': 'no-store', 'X-Request-ID': requestId },
     });
   } catch (error) {

@@ -206,6 +206,9 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
 
   // A second link. A device that already holds this site's passkey (A itself) is told so,
   // and the link stays good.
+  // A's clock runs a quarter of an hour fast from here: the screen counts the time the server
+  // gives it, so the link stays up instead of expiring the moment it appears.
+  await page.clock.setFixedTime(new Date(Date.now() + 15 * 60_000));
   await page.getByRole('button', { name: 'Create a link' }).click();
   await expect(link).toBeVisible({ timeout: 30_000 });
   const second = await link.inputValue();

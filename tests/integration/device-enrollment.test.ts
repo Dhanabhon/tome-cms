@@ -163,7 +163,10 @@ test('a device link is stored, issued, cancelled and consumed only for the insta
   const created = await callLink('POST', POST);
   assert.equal(created.status, 200);
   assert.equal(created.headers.get('Cache-Control'), 'no-store');
-  const link = await created.json() as { url: string; expiresAt: string };
+  const link = await created.json() as { url: string; expiresAt: string; expiresInSeconds: number };
+  // The screen counts down from this, not from its own clock, which may be minutes off the server's.
+  assert.ok(Number.isInteger(link.expiresInSeconds), 'the time left is whole seconds');
+  assert.ok(link.expiresInSeconds > 9 * 60 && link.expiresInSeconds <= 10 * 60, `ten minutes left, not ${link.expiresInSeconds}`);
   const linkUrl = new URL(link.url);
   assert.equal(`${linkUrl.origin}${linkUrl.pathname}`, 'http://localhost:4321/add-device');
   const linkContext = linkUrl.searchParams.get('context')!;
