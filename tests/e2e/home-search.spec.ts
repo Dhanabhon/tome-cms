@@ -369,6 +369,16 @@ test.describe('category pages', () => {
         description: 'Posts in Notes from Search Test.',
         robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
       });
+      // A list of the site's posts, not the site: its own name and description, inside the site with the site's.
+      const collection = await page.evaluate(() => [...document.querySelectorAll('script[type="application/ld+json"]')]
+        .map((script) => JSON.parse(script.textContent ?? '{}')).filter((item) => item['@type'] === 'CollectionPage' || item['@type'] === 'WebSite'));
+      expect(collection).toHaveLength(1);
+      expect(collection[0]).toMatchObject({
+        '@type': 'CollectionPage', description: 'Posts in Notes from Search Test.', name: 'Notes', url: `${origin}/en/category/notes`,
+        isPartOf: { '@type': 'WebSite', description: 'A quiet place for thoughtful notes on design, software, and the work between.', name: 'Search Test' },
+      });
+      // Its views are counted as the home's were, before it had a page of its own.
+      await expect(page.locator('template[data-stats]')).toHaveAttribute('data-kind', 'home');
 
       // The owner's description, under the heading and in the head; the other language's when this one has none.
       psql(`update categories set description_en = 'Short notes from the garden.', description_th = 'บันทึกสั้น ๆ จากสวน' where slug = '${THAI_CATEGORY}'`);
@@ -442,7 +452,15 @@ test.describe('category pages', () => {
       publishedAt: '2000-01-01T00:00:00.000Z', id: '00000000-0000-4000-8000-000000000000' });
     const answer = await fetch(`${origin}/en/category/${THAI_SLUG}?cursor=${past}`);
     expect(answer.status).toBe(404);
-    expect(await answer.text()).toContain('Category not found');
+    const missing = await answer.text();
+    expect(missing).toContain('Category not found');
+    expect(missing, 'nothing counted').not.toContain('data-stats');
+    // A cursor that does not verify is a list that could not be read, as the home says it -- not a missing category.
+    const bad = await fetch(`${origin}/en/category/${THAI_SLUG}?cursor=not-a-cursor`);
+    expect(bad.status).toBe(400);
+    const unread = await bad.text();
+    expect(unread).toContain('Published posts are temporarily unavailable.');
+    expect(unread).not.toContain('Category not found');
   });
 
   test('the old ?category= address moves to the page for good, and only when the page answers', async () => {
@@ -455,7 +473,16 @@ test.describe('category pages', () => {
     expect(await at('/en?category=Notes')).toEqual({ cache: null, location: '/en/category/notes', status: 301 });
     expect(await at('/en?category=notes'), 'case-blind, as the list matched').toMatchObject({ location: '/en/category/notes', status: 301 });
     expect(await at('/en?category=Notes'), 'and never kept as a page').toEqual({ cache: null, location: '/en/category/notes', status: 301 });
-    expect(await at('/en?category=Notes&cursor=abc'), 'the old list\'s page does not carry over').toMatchObject({ location: '/en/category/notes', status: 301 });
+    // A later page of the old list is the home as before: a theme made before 1.20 still pages that way,
+    // and sending it to the category's first page would bring the reader back to it.
+    const { cursorQueryHash, encodeCursor } = await import('../../src/server/http/cursor');
+    const later = encodeCursor({ v: 1, resource: 'posts', queryHash: cursorQueryHash({ category: 'Notes', limit: 6, locale: 'en' }),
+      publishedAt: new Date().toISOString(), id: '00000000-0000-4000-8000-000000000000' });
+    const paged = await fetch(`${origin}/en?category=Notes&cursor=${later}`, { redirect: 'manual' });
+    expect(paged.status).toBe(200);
+    const pagedHtml = await paged.text();
+    expect(pagedHtml).toContain('<meta name="robots" content="noindex, follow"');
+    expect(pagedHtml).toContain(`<link rel="canonical" href="${origin}/en"`);
     expect(await at(`/th?category=${THAI_SLUG}`)).toMatchObject({ location: `/th/category/${THAI_SLUG}`, status: 301 });
     expect((await at('/th?category=Notes')).status, 'Notes has no Thai post: the home as before').toBe(200);
     expect((await at('/en?category=Uncategorized')).status, 'the default category has no page').toBe(200);

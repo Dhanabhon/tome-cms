@@ -58,6 +58,33 @@ export function breadcrumbList({ category, homeName, homeUrl, name, robots, type
 }
 
 /**
+ * A category's page for a search engine: a collection of the site's posts, described by the
+ * category's own description, and part of the site, which keeps its own description. Not the
+ * site itself, which is what the home page says it is.
+ */
+export function collectionPageSchema({ description, homeUrl, locale, name, publisher, siteDescription, siteName, url }: {
+  description: string;
+  homeUrl: string;
+  locale: PostLocale;
+  name: string;
+  publisher: Record<string, unknown>;
+  siteDescription: string;
+  siteName: string;
+  url: string;
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    description,
+    inLanguage: locale,
+    isPartOf: { '@type': 'WebSite', description: siteDescription, name: siteName, url: homeUrl },
+    name,
+    publisher,
+    url,
+  };
+}
+
+/**
  * What a category's page says of itself to a search result: the owner's description in the page's
  * language, or the other language's, or a line made from the category's and the site's names.
  */

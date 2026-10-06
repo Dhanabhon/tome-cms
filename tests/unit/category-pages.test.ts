@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { categoryHref, categoryPath, categoryRedirect, slugFromParam } from '../../src/lib/i18n';
 import { listOf } from '../../src/lib/post-feed';
-import { breadcrumbList, categoryDescription } from '../../src/lib/seo';
+import { breadcrumbList, categoryDescription, collectionPageSchema } from '../../src/lib/seo';
 import { categorySitemapEntries } from '../../src/lib/xml';
 import { isBundledFrontendPath, maintenanceRoute } from '../../src/middleware';
 import { pageCacheKey } from '../../src/server/http/page-cache';
@@ -149,4 +149,25 @@ test('a list\'s later pages hang off its own address: the home keeps its filter 
   assert.equal(listHref('/th', { activeCategory: 'Uncategorized', query: 'x y' }, 'c1'), '/th?category=Uncategorized&q=x+y&cursor=c1');
   assert.equal(listHref('/th', { activeCategory: THAI, category: page, query: undefined }), `/th/category/${ENCODED_THAI}`);
   assert.equal(listHref('/th', { activeCategory: THAI, category: page, query: undefined }, 'c1'), `/th/category/${ENCODED_THAI}?cursor=c1`);
+});
+
+test('a category\'s page is a CollectionPage with its own description, part of the site with the site\'s', () => {
+  const publisher = { '@type': 'Organization', name: 'Site', url: 'https://example.com/' };
+  assert.deepEqual(collectionPageSchema({
+    description: 'Notes from the field.', homeUrl: 'https://example.com/', locale: 'en', name: 'Field Notes', publisher,
+    siteDescription: 'A quiet site.', siteName: 'Site', url: 'https://example.com/en/category/field-notes',
+  }), {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    description: 'Notes from the field.',
+    inLanguage: 'en',
+    isPartOf: { '@type': 'WebSite', description: 'A quiet site.', name: 'Site', url: 'https://example.com/' },
+    name: 'Field Notes',
+    publisher,
+    url: 'https://example.com/en/category/field-notes',
+  });
+  // Only a category's own page: a post is handed a category for its trail, and stays a BlogPosting.
+  const layout = readFileSync(new URL('../../src/layouts/BaseLayout.astro', import.meta.url), 'utf8');
+  assert.match(layout, /: type === 'page'[\s\S]*: category\s[\s\S]*collectionPageSchema\(/);
+  assert.match(layout, /const pageData = robots\.includes\('noindex'\)\s*\? undefined/, 'none when hidden or missing');
 });

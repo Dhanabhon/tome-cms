@@ -35,14 +35,19 @@ if (query && !maySearch(Astro.request, Astro.clientAddress)) {
   });
 }
 // An old link to the home filtered by a category goes to that category's page, for good, when the
-// page answers in this language; the page of the list it asked for does not carry over. Anything
-// else -- an unknown name, the default category, a search -- is the home as it always was.
-if (category && !query) {
+// page answers in this language. Anything else -- an unknown name, the default category, a search --
+// is the home as it always was; so is a later page of that list, which a theme made before 1.20
+// still links to (sending it to the category's first page would bring the reader back to it).
+// The read is kept for the chips below, so the list is not asked for twice.
+let categoriesRead: ReturnType<typeof listPublishedCategories> | undefined;
+if (category && !query && !cursor) {
   try {
-    const moved = categoryRedirect(locale, category, (await listPublishedCategories(locale)).items);
+    categoriesRead = listPublishedCategories(locale);
+    const moved = categoryRedirect(locale, category, (await categoriesRead).items);
     if (moved) return Astro.redirect(moved, 301);
   } catch (error) {
     console.error('Category redirect lookup failed:', error);
+    categoriesRead = undefined;
   }
 }
 let posts: ThemeHomePost[] = [];
@@ -73,7 +78,7 @@ const slidesRead = getPublicSlides(locale);
 try {
   const [page, published] = await Promise.all([
     listPublishedPosts({ category, cursor, limit: PAGE_SIZE, locale, q: query, take }),
-    listPublishedCategories(locale),
+    categoriesRead ?? listPublishedCategories(locale),
   ]);
   posts = page.items;
   nextCursor = page.nextCursor;

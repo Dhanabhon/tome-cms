@@ -89,6 +89,9 @@ try {
 const profile = category && settings ? await getPublicAuthorProfile(settings, locale) : null;
 const activeTheme = await resolveTheme(settings?.theme_id);
 const copy = publicCopy(locale);
+// Only a page no category answers at is "not found": a cursor that does not verify (400) or a failed
+// read is a list that could not be shown, said as the home says it.
+const missing = !category && Astro.response.status === 404;
 const xDefaultHref = alternates.find((alternate) => alternate.locale === settings?.default_locale)?.href;
 ---
 
@@ -99,7 +102,8 @@ const xDefaultHref = alternates.find((alternate) => alternate.locale === setting
   description={metaDescription}
   locale={locale}
   robots={loadError ? 'noindex, nofollow' : !category || cursor ? 'noindex, follow' : undefined}
-  title={category?.name ?? (loadError ? copy.unavailable : copy.categoryNotFound)}
+  stats={category ? { kind: 'home' } : undefined}
+  title={category?.name ?? (missing ? copy.categoryNotFound : copy.unavailable)}
   xDefaultHref={xDefaultHref}
 >
   {category ? (
@@ -122,8 +126,8 @@ const xDefaultHref = alternates.find((alternate) => alternate.locale === setting
     />
   ) : (
     <section class="notice-page mx-auto max-w-3xl px-5 py-20 sm:px-7">
-      <p class="notice-status">{loadError ? copy.unavailable : String(Astro.response.status)}</p>
-      <h1 class="article-title">{loadError ? copy.postsUnavailable : copy.categoryNotFound}</h1>
+      <p class="notice-status">{missing ? '404' : copy.unavailable}</p>
+      <h1 class="article-title">{missing ? copy.categoryNotFound : copy.postsUnavailable}</h1>
       <p class="notice-back"><a href={localePath(locale)}>{copy.returnToAllPosts}</a></p>
     </section>
   )}
