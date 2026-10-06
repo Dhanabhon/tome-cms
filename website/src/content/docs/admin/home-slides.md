@@ -9,7 +9,7 @@ sidebar:
 
 The slides show with the Paper theme, once its "Hero" setting under "Themes" is "Your slides". Until then, the screen says so above the list and offers "Open Themes". One slide shows as a still banner, and two or more turn as a slider. Whether they turn by themselves, and how fast, are Paper settings too. The Plain and Almanac themes have no slide hero, so they show no slides.
 
-![The Home slides screen. A notice says the slides show once the theme's hero is set to Your slides, beside "Open Themes". Below, the "English" tab is chosen and holds one slide, a green picture with the heading "Quiet Notes", marked "On the home page". Under the list are "Save slides", "No unsaved changes in this language" and "View the saved slides on the site".](../../../assets/screenshots/en/slides.png)
+![The Home slides screen, with "Add slide" at the top. A notice says the slides show on the home page once the theme's hero is set to Your slides, beside "Open Themes". Below, the "English" tab is chosen and holds one slide, a green picture with the heading "Quiet Notes", marked "On the home page", with a pencil, arrows and a bin. Under the list are "Save slides" and "View the saved slides on the site".](../../../assets/screenshots/en/slides.png)
 
 ## Adding a slide
 

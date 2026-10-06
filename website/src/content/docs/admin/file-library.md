@@ -7,11 +7,11 @@ sidebar:
 
 "File Manager", under "Content", holds every image and document you have uploaded to the site. The editor, "Home slides", "Profile", the maintenance page and the "Popup" plugin pick their images from it, and a post or page links to its documents there. A file you upload from one of those screens lands here as well.
 
-![The File Manager with "Search files" and "Upload file" at the top, the type choices "All", "Images", "PDF", "Documents", "Spreadsheets", "Slides" and "ZIP", the folders "All files" and "Unsorted" with a "Folder name" field and "Create folder", and three JPEG pictures of 1600 × 900 pixels, each with its name and size.](../../../assets/screenshots/en/media.png)
+![The File Manager with "Search files" and "Upload files" at the top, the type choices "All", "Images", "PDF", "Documents", "Spreadsheets", "Slides" and "ZIP" with the grid and list buttons beside them, the folders "All files" and "Unsorted" with a "Folder name" field and "Create folder", and three JPEG pictures of 1600 × 900 pixels, each with its name and size.](../../../assets/screenshots/en/media.png)
 
 ## Uploading
 
-Choose the folder the file belongs in first, then press "Upload file" and pick it. A file uploaded from "All files" goes to "Unsorted". The screen shows "Uploading…" with how far it has got, and the new file appears first, since the File Manager lists the newest first.
+Choose the folder the file belongs in first, then press "Upload files" and pick it. A file uploaded from "All files" goes to "Unsorted". The screen shows "Uploading…" with how far it has got, and the new file appears first, since the File Manager lists the newest first.
 
 | Kind | Types | Largest |
 | --- | --- | --- |

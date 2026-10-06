@@ -9,11 +9,11 @@ sidebar:
 
 Until the first reader is counted, the screen shows the report at zero under a notice headed "Nobody counted yet". The notice explains that numbers appear once someone opens a published post or page, and that the browser you use for the admin is not counted. To see a number, open your site on your phone or in another browser. In the meantime the read ratio shows a dash, and each list and table below says "Nothing was viewed in this period."
 
-![The Stats screen for "Last 30 days" and "All languages": 631 views, up 42%, 201 reads, up 46%, and a read ratio of 32%, up 1 point. Below are a bar chart of views and reads per day, then "Where readers came from" with "Direct" and news.example, "Devices" with "Computer" and "Phone", "Countries" with Thailand and United States above the DB-IP credit, "Languages" with English, and a table of "Posts and pages" with one post.](../../../assets/screenshots/en/stats.png)
+![The Stats screen with "30d" chosen among "7d", "30d", "90d" and "12m", and "All languages": 631 views, up 42%, 201 reads, up 46%, and a read ratio of 32%, up 1 point. Below are a bar chart of views and reads per day with "Show the numbers" under it, then "Where readers came from" with "Direct" and news.example, "Devices" with "Computer" and "Phone", "Countries" with Thailand and United States above the DB-IP credit, "Languages" with English, and a table of "Posts and pages" with one post.](../../../assets/screenshots/en/stats.png)
 
 ## Choosing what to see
 
-The first row picks the period: "Last 7 days", "Last 30 days", "Last 90 days" or "Last 12 months". It opens on 30 days, and each period ends today, in the site's time zone. The second row narrows everything to "Thai" or "English", or shows "All languages". Every choice is kept in the page's address, so a bookmark or a shared link opens the same view.
+The tabs at the top pick the period: "7d", "30d", "90d" or "12m", which a screen reader reads in full, as "Last 7 days" and so on. It opens on 30 days, and each period ends today, in the site's time zone. The menu beside them narrows everything to "Thai" or "English", or shows "All languages". Every choice is kept in the page's address, so a bookmark or a shared link opens the same view.
 
 ## The totals
 

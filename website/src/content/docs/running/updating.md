@@ -9,7 +9,7 @@ A managed install, from 1.0.0 on, installs an update from the admin. A build fro
 
 Under "System", the admin shows your version next to "Installed version:" and checks the official repository on GitHub for a newer stable release. On a build from source that screen says "Updating from the admin is off", and "Update mode:" reads "Notify only": it tells you about a new version but cannot install it.
 
-![The System screen. "System updates" shows an "Update status" card with "Release availability: Up to date", "Installed version: 0.12.1", "Latest stable version: 0.12.1", "Published: Sep 26, 2026" and "TomeCMS is up to date.", a "Read release notes" link, and a "Check again" button. Below it, an "Updating from the admin is off" card says "This server can tell you about new versions but cannot install them. To update, follow the update guide on the server.", with "Update mode:" reading "Notify only".](../../../assets/screenshots/en/system.png)
+![The System screen. "System updates" shows "Update status" with "Release availability: Up to date", "Installed version: 1.18.0", "Latest stable version: 1.18.0", "Published: Oct 6, 2026" and "TomeCMS is up to date.", a "Read release notes" link, and a "Check again" button under it. Below, "Updating from the admin is off" says "This server can tell you about new versions but cannot install them. To update, follow the update guide on the server.", with "Update mode:" reading "Notify only".](../../../assets/screenshots/en/system.png)
 
 ## Updating a managed install
 

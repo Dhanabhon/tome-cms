@@ -56,7 +56,7 @@ Press "Save". When you change the site name, the language, the time zone or this
 
 "Profile" is the author the site shows with your writing. Nothing here is required.
 
-![The Profile screen with three cards. "Identity" has an empty "Author name", a "Choose profile picture" button and "No profile picture selected". "Bio" has two empty fields, one marked English and one marked Thai. "Links" says links you add appear under your author bio, above an "Add link" button. "Save" is at the bottom.](../../../assets/screenshots/en/profile.png)
+![The Profile screen in three parts. "Identity" has an empty "Author name", a "Choose profile picture" button and "No profile picture selected". "Bio" has two empty fields, one marked English and one marked Thai. "Links" says links you add appear under your author bio, above an "Add link" button. "Save" is at the bottom.](../../../assets/screenshots/en/profile.png)
 
 1. Under "Identity", type the "Author name", up to 120 characters. "Choose profile picture" picks an image from the File Manager, and the bin beside it, "Remove profile picture", takes it off. While the image is your profile picture, the File Manager will not delete it.
 2. Under "Bio", write a short biography in English and in Thai, up to 1,000 characters each. Each post shows the one in the language the reader is reading.
@@ -89,4 +89,4 @@ If your session has ended while the screen is open, it asks you to "Verify the T
 
 "Maintenance", under "Settings", closes the public site while you work on it and shows visitors a page of your choosing. [Maintenance mode](/tome-cms/running/maintenance/) walks through the screen.
 
-![The Maintenance screen. "Status" says the site is open to everyone, with the switch "Close the site for maintenance" off. "Template" offers "Minimal", which is chosen, "Logo", "Image" and "Countdown". "Words" has the "English" tab chosen, with "Down for maintenance" and "We'll be back soon." shown in grey. "Back around" has an empty "Date and time". "Save" and "Preview" are at the bottom.](../../../assets/screenshots/en/maintenance.png)
+![The Maintenance screen. "Status" says the site is open to everyone, with the switch "Close the site for maintenance" off. "Template" offers "Minimal", which is chosen, "Logo", "Image" and "Countdown", each with a small drawing of the page. "Words" has the "English" tab chosen beside "ไทย", with "Down for maintenance" and "We'll be back soon." shown in grey. "Back around" has an empty "Date and time" that says "Choose a date". "Preview" and "Save" are at the bottom.](../../../assets/screenshots/en/maintenance.png)

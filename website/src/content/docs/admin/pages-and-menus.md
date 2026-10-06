@@ -37,7 +37,7 @@ With the "Jev (TypeSafe AI)" plugin on, the drawer offers a line for the excerpt
 
 Choose "Header menu" or "Footer" first, then the language, "ไทย" or "English", to see that menu.
 
-![The Navigation screen with the "Header menu" and "English" tabs chosen. The English menu has two items, "Home" pointing at Home · /en and "About" pointing at that page, both "Visible", with a "Save menu" button below.](../../../assets/screenshots/en/navigation.png)
+![The Navigation screen with "Add item" at the top, and the "Header menu" and "English" tabs chosen. A line says how to drag a row by its handle. The English menu has two items, "Home" pointing at Home · /en and "About" pointing at that page, both "Visible", each with arrows to move it and a bin.](../../../assets/screenshots/en/navigation.png)
 
 ### Adding an item
 
