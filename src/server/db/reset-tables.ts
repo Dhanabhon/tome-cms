@@ -38,6 +38,7 @@ const PLAN: Readonly<Record<keyof Database, 'preserve' | 'truncate'>> = {
   home_slides: 'truncate',
   media_folders: 'truncate',
   media_items: 'truncate',
+  media_variants: 'truncate',
   media_upload_reservations: 'truncate',
   preview_tokens: 'truncate',
   // Forwarding addresses for articles a reset removes: nothing left for them to point at.

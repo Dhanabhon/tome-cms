@@ -34,6 +34,7 @@ export interface Database {
   home_slides: HomeSlideTable;
   media_folders: MediaFolderTable;
   media_items: MediaItemTable;
+  media_variants: MediaVariantTable;
   media_upload_reservations: MediaUploadReservationTable;
   preview_tokens: PreviewTokenTable;
   content_redirects: ContentRedirectTable;
@@ -236,6 +237,10 @@ export interface CategoryTable {
   id: Generated<string>;
   owner_id: string;
   name: string;
+  /** The address of the category's page, /<locale>/category/<slug>; unique per owner. A trigger fills `category-<id>` when an insert names none. */
+  slug: Generated<string>;
+  description_th: Generated<string>;
+  description_en: Generated<string>;
   is_default: Generated<boolean>;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -329,6 +334,15 @@ export interface MediaItemTable {
   delete_error_code: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+/** A smaller copy of an image, made at upload; the original stays in media_items. */
+export interface MediaVariantTable {
+  media_id: string;
+  width: 480 | 960 | 1600;
+  object_key: string;
+  size_bytes: number;
+  created_at: Generated<Date>;
 }
 
 export interface MediaUploadReservationTable {
