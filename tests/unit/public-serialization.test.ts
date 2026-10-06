@@ -133,7 +133,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
   };
   // The share image is for the page's own head; the API names the brand as it always has.
   const share = { height: 630, mimeType: 'image/jpeg' as const, url: 'https://media.test/f.jpg', width: 1200 };
-  const publicSite = serializePublicSite({
+  const siteRow: Parameters<typeof serializePublicSite>[0] = {
     admin_path: '/private-admin',
     allow_visitor_theme: true,
     show_powered_by: true,
@@ -160,8 +160,9 @@ test('public contracts validate queries and serialize only explicit fields', () 
     id: true,
     installed_at: new Date('2026-09-01T00:00:00.000Z'),
     owner_id: 'private-owner',
-    // The API keeps one description, the default language's, which is also kept here.
-    site_description: 'A public description',
+    // The API keeps one description, the default language's own. The single column is left from
+    // before there were two and goes stale when the default language changes, so it is not read.
+    site_description: 'A stale description',
     site_description_en: 'An English description',
     site_description_th: 'A public description',
     site_name: 'TomeCMS',
@@ -169,7 +170,12 @@ test('public contracts validate queries and serialize only explicit fields', () 
     theme: 'system' as const,
     timezone: 'Asia/Bangkok',
     updated_at: new Date('2026-09-08T04:00:00.000Z'),
-  }, media, { ...brand, share });
+  };
+  const publicSite = serializePublicSite(siteRow, media, { ...brand, share });
+  // With nothing in the default language, the other language's says more than nothing.
+  assert.equal(serializePublicSite({ ...siteRow, site_description_th: ' ' }, media, { ...brand, share }).description, 'An English description');
+  assert.equal(serializePublicSite({ ...siteRow, default_locale: 'en' }, media, { ...brand, share }).description, 'An English description');
+  assert.equal(serializePublicSite({ ...siteRow, site_description_th: '', site_description_en: '' }, media, { ...brand, share }).description, '');
   assert.deepEqual(publicSite, {
     author: {
       avatar: {

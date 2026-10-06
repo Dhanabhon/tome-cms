@@ -1,5 +1,6 @@
 import type { PostAlternate, PostCategoryBadge, PublicCategory, PublicHomeSlide, PublicMedia, PublicNavigation, PublicNavigationItem, PublicPage, PublicPost, PublicSite } from '../../types/cms';
 import type { PublishedPage, PublishedPost } from '../content/published';
+import { siteDescriptionFor } from '../../lib/seo';
 import type { SiteBrand } from '../../lib/site-brand';
 import type { SiteSettings } from '../content/settings';
 import type { ReadyImage } from '../media/service';
@@ -85,7 +86,8 @@ export function serializePublicSite(row: SiteSettings, avatar: ReadyImage | null
     } : null,
     brand,
     defaultLocale: row.default_locale,
-    description: row.site_description,
+    // The default language's, or the other's when it has none; never the stock line pages fall back to.
+    description: siteDescriptionFor(row, row.default_locale, ''),
     name: row.site_name,
     supportedLocales: ['th', 'en'],
     tagline: row.tagline,
