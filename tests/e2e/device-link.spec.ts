@@ -265,8 +265,11 @@ test('a link that dies while the passkey is being made shows the expired message
   test.setTimeout(120_000);
   const { getSiteSettings } = await import('../../src/server/content/site-settings');
   const { cancelDeviceEnrollments, issueDeviceEnrollment } = await import('../../src/server/auth/device-link');
+  const { db } = await import('../../src/server/db/client');
   const settings = await getSiteSettings();
   const ownerId = settings!.owner_id;
+  const ownerPasskeys = async () => (await db.selectFrom('passkey').select('id').where('userId', '=', ownerId).execute()).length;
+  const passkeysBefore = await ownerPasskeys();
   const { context: linkContext } = await issueDeviceEnrollment(ownerId);
 
   const contextB = await browser.newContext();
@@ -289,4 +292,5 @@ test('a link that dies while the passkey is being made shows the expired message
   } finally {
     await contextB.close();
   }
+  expect(await ownerPasskeys(), 'the dead link added no passkey').toBe(passkeysBefore);
 });
