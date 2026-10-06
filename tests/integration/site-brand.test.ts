@@ -5,12 +5,12 @@ const OWNER = '5b0e1f3c-2d4a-4e6b-8c9d-0a1b2c3d4e5f';
 const HOSTILE = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><script>alert(1)</script><rect width="120" height="40" fill="#2e7d5b"/></svg>');
 
 /**
- * A logo and an icon, stored, replaced and removed against the real bucket.
+ * A logo, an icon and a share image, stored, replaced and removed against the real bucket.
  *
  * The order is the whole point -- check, store, record, then delete what was replaced -- and
  * only a bucket that is really there can say whether anything was left behind.
  */
-test('a logo and an icon are stored, replaced and removed, and nothing is left behind', async (context) => {
+test('a logo, an icon and a share image are stored, replaced and removed, and nothing is left behind', async (context) => {
   assert.equal(process.env.NODE_ENV, 'test');
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test',
     'use only the disposable Foundation database');
@@ -38,7 +38,7 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
     }
   };
   const bucket = async () => ((await s3.send(new ListObjectsV2Command({ Bucket: s3Bucket }))).Contents ?? []).map(({ Key }) => Key).sort();
-  const row = async () => db.selectFrom('site_settings').select(['brand_icon', 'brand_logo']).executeTakeFirstOrThrow();
+  const row = async () => db.selectFrom('site_settings').select(['brand_icon', 'brand_logo', 'brand_share']).executeTakeFirstOrThrow();
 
   // An SVG is stored as made safe, under a key backup and reset accept.
   const first = await storeBrandImage(OWNER, 'logo', HOSTILE);
@@ -107,4 +107,28 @@ test('a logo and an icon are stored, replaced and removed, and nothing is left b
   assert.equal(await backfillBrandSvgDownloads(), 0, 'a second run changes nothing');
 
   assert.ok(old.brand.logo);
+
+  // A share image is cropped and stored as a JPEG, under a key a reset accounts for; replacing
+  // it deletes what it replaced, removing it deletes it, and an SVG is refused with nothing kept.
+  const photo = await sharp({ create: { background: '#345678', channels: 3, height: 1000, width: 1600 } }).jpeg().toBuffer();
+  const shared = await storeBrandImage(OWNER, 'share', photo);
+  const shareKey = async () => ((await row()).brand_share as { key: string } | null)?.key ?? null;
+  const firstShare = await shareKey();
+  assert.ok(firstShare);
+  assert.match(firstShare, new RegExp(`^owners/${OWNER}/\\d{4}/\\d{2}/[0-9a-f-]{36}\\.jpg$`));
+  assert.equal((await head(firstShare))?.ContentType, 'image/jpeg');
+  assert.deepEqual([shared.brand.share?.width, shared.brand.share?.height, shared.brand.share?.mimeType], [1200, 630, 'image/jpeg']);
+  assert.ok((await knownObjects(db)).some(({ key }: { key: string }) => key === firstShare), 'a reset accounts for the share image');
+  assert.equal((await getPublishedSite())?.brand.share?.url, shared.brand.share?.url, 'the page head is given the same image');
+  await storeBrandImage(OWNER, 'share', photo);
+  assert.equal(await head(firstShare), null, 'the replaced share image is gone');
+  const secondShare = await shareKey();
+  const kept = await bucket();
+  await assert.rejects(storeBrandImage(OWNER, 'share', HOSTILE), (error: unknown) =>
+    (error as { details?: { code?: string } }).details?.code === 'brand_type');
+  assert.deepEqual(await bucket(), kept, 'a refused SVG leaves nothing');
+  assert.equal(await shareKey(), secondShare);
+  await removeBrandImage(OWNER, 'share');
+  assert.equal(await head(secondShare!), null, 'a removed share image is gone');
+  assert.equal(await shareKey(), null);
 });

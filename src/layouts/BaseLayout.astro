@@ -7,7 +7,7 @@ import VideoScript from '../components/VideoScript.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
-import { documentTitle, getPublicSiteUrl, organizationSchema, personSchema } from '../lib/seo';
+import { documentTitle, getPublicSiteUrl, openGraphImage, organizationSchema, personSchema } from '../lib/seo';
 import { HIDDEN_FROM_SEARCH } from '../lib/search-visibility';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
@@ -121,6 +121,9 @@ const siteUrl = getPublicSiteUrl(Astro.request, Astro.site);
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const homeUrl = siteUrl.toString();
 const absoluteImage = image ? new URL(image, siteUrl).toString() : null;
+// What a shared link shows. The article's structured data keeps to its own cover: the share
+// image is the site's, not a picture of the article.
+const shareImage = openGraphImage({ cover: image, coverAlt: headline ?? title, share: brand.share, siteName, siteUrl });
 const pageTitle = documentTitle({ metaTitle, siteName, title });
 const publisher = organizationSchema(siteName, siteUrl, brand);
 const author = authorName ? personSchema(authorName, authorLinks) : publisher;
@@ -182,8 +185,7 @@ const structuredData = robots.includes('noindex')
       description={description}
       canonical={canonical}
       icon={brand.icon}
-      image={absoluteImage}
-      imageAlt={headline ?? title}
+      image={shareImage}
       locale={locale}
       modifiedTime={modifiedTime}
       publishedTime={publishedTime}

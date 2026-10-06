@@ -401,6 +401,9 @@ html[data-notice-closed] .site-notice { display: none; }
 .brand-preview--dark figcaption { color: var(--color-on-dark-muted); font-size: var(--text-xs); }
 .brand-preview--icon { grid-auto-flow: column; }
 .brand-preview--icon img { max-height: none; }
+/* The card as a shared link draws it: edge to edge, at its own shape. */
+.brand-preview--share { padding: 0; overflow: hidden; }
+.brand-preview--share img { width: 16rem; max-width: 100%; height: auto; max-height: none; object-fit: cover; }
 /* The ring belongs to the box, not to the sentence beside it: :focus-within drew a 2px
  * frame around the whole block -- label, hint and all -- and it fired on a mouse click
  * as well as a keyboard one. :focus-visible on the input is where a checkbox says it

@@ -20,20 +20,28 @@ export type BrandMime = z.infer<typeof brandMime>;
 export type StoredBrandImage = z.infer<typeof storedBrandImageSchema>;
 export type StoredBrandIcon = z.infer<typeof storedBrandIconSchema>;
 
-/** What site_settings holds about the site's own logo, name and icon. */
+/** What site_settings holds about the site's own logo, name, icon and share image. */
 export interface StoredBrand {
   brand_icon: StoredBrandIcon | null;
   brand_logo: StoredBrandImage | null;
   brand_logo_dark: StoredBrandImage | null;
+  brand_share: StoredBrandImage | null;
   hide_site_name: boolean;
 }
 
 export interface BrandImage { height: number; mimeType: BrandMime; url: string; width: number }
 export interface BrandIcon { png180: string; png32: string; svg: string | null }
-export interface SiteBrand { icon: BrandIcon | null; logo: BrandImage | null; logoDark: BrandImage | null; showSiteName: boolean }
+export interface SiteBrand {
+  icon: BrandIcon | null;
+  logo: BrandImage | null;
+  logoDark: BrandImage | null;
+  /** The picture a shared link shows when the page has no cover of its own. Never drawn on the page. */
+  share: BrandImage | null;
+  showSiteName: boolean;
+}
 export interface IconLink { href: string; rel: 'apple-touch-icon' | 'icon'; sizes?: string; type?: string }
 
-export const NO_BRAND: SiteBrand = { icon: null, logo: null, logoDark: null, showSiteName: true };
+export const NO_BRAND: SiteBrand = { icon: null, logo: null, logoDark: null, share: null, showSiteName: true };
 
 /** A brand column's value, or nothing: a value of any other shape reads as nothing stored. */
 export function parseStoredImage(value: unknown): StoredBrandImage | null {
@@ -64,6 +72,7 @@ export function siteBrand(stored: StoredBrand, resolve: (key: string) => string)
     icon: icon ? { png180: resolve(icon.png180Key), png32: resolve(icon.png32Key), svg: icon.svgKey ? resolve(icon.svgKey) : null } : null,
     logo,
     logoDark: logo ? brandImage(stored.brand_logo_dark, resolve) : null,
+    share: brandImage(stored.brand_share, resolve),
     showSiteName: !logo || !stored.hide_site_name,
   };
 }

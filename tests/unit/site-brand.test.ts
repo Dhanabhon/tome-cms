@@ -8,7 +8,7 @@ const dark = { ...logo, key: 'owners/o/2026/09/b.svg' };
 const icon = { png180Key: 'owners/o/2026/09/c.png', png32Key: 'owners/o/2026/09/d.png', svgKey: 'owners/o/2026/09/e.svg' };
 const resolve = (key: string) => `https://media.test/${key}`;
 const stored = (overrides: Partial<StoredBrand>): StoredBrand => ({
-  brand_icon: null, brand_logo: null, brand_logo_dark: null, hide_site_name: false, ...overrides,
+  brand_icon: null, brand_logo: null, brand_logo_dark: null, brand_share: null, hide_site_name: false, ...overrides,
 });
 
 test('the name leaves the header only while a logo stands in for it', () => {
@@ -38,6 +38,14 @@ test('keys become addresses, and nothing else of the key leaks', () => {
     png180: `https://media.test/${icon.png180Key}`, png32: `https://media.test/${icon.png32Key}`, svg: `https://media.test/${icon.svgKey}`,
   });
   assert.deepEqual(siteBrand(stored({}), resolve), NO_BRAND);
+});
+
+test('a share image is an address of its own, with or without a logo', () => {
+  const share = { height: 630, key: 'owners/o/2026/10/f.jpg', mime: 'image/jpeg' as const, width: 1200 };
+  const expected = { height: 630, mimeType: 'image/jpeg', url: `https://media.test/${share.key}`, width: 1200 };
+  assert.deepEqual(siteBrand(stored({ brand_share: share }), resolve).share, expected);
+  assert.deepEqual(editableBrand(stored({ brand_logo: logo, brand_share: share }), resolve).share, expected);
+  assert.equal(NO_BRAND.share, null);
 });
 
 test('every object a stored value names is found, and garbage names none', () => {

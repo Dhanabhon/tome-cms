@@ -175,6 +175,8 @@ export interface SiteSettingsTable {
   /** { key, mime, width, height } or null -- see migrations/020_site_brand. */
   brand_logo: unknown;
   brand_logo_dark: unknown;
+  /** { key, mime, width, height } or null, always a 1200 x 630 JPEG -- see migrations/032. */
+  brand_share: unknown;
   /** { svgKey, png32Key, png180Key } or null. */
   brand_icon: unknown;
   hide_site_name: Generated<boolean>;

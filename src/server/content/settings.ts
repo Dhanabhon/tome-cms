@@ -46,12 +46,13 @@ export const profileMutationSchema = z.object({
 
 export type SiteSettingsMutation = z.infer<typeof siteSettingsMutationSchema>;
 export type ProfileMutation = z.infer<typeof profileMutationSchema>;
-type ParsedColumns = 'author_links' | 'brand_icon' | 'brand_logo' | 'brand_logo_dark' | 'maintenance_copy';
+type ParsedColumns = 'author_links' | 'brand_icon' | 'brand_logo' | 'brand_logo_dark' | 'brand_share' | 'maintenance_copy';
 export type SiteSettings = Omit<Selectable<SiteSettingsTable>, ParsedColumns> & {
   author_links: AuthorLink[];
   brand_icon: StoredBrandIcon | null;
   brand_logo: StoredBrandImage | null;
   brand_logo_dark: StoredBrandImage | null;
+  brand_share: StoredBrandImage | null;
   maintenance_copy: MaintenanceCopy;
 };
 
@@ -62,6 +63,7 @@ function normalizeSettings(row: Selectable<SiteSettingsTable>): SiteSettings {
     brand_icon: parseStoredIcon(row.brand_icon),
     brand_logo: parseStoredImage(row.brand_logo),
     brand_logo_dark: parseStoredImage(row.brand_logo_dark),
+    brand_share: parseStoredImage(row.brand_share),
     maintenance_copy: parseMaintenanceCopy(row.maintenance_copy),
   };
 }
@@ -149,7 +151,7 @@ export async function updateOwnerProfile(ownerId: string, input: ProfileMutation
   return row ? normalizeSettings(row) : missingOrStale(ownerId);
 }
 
-export type BrandColumn = 'brand_icon' | 'brand_logo' | 'brand_logo_dark';
+export type BrandColumn = 'brand_icon' | 'brand_logo' | 'brand_logo_dark' | 'brand_share';
 
 /**
  * One brand column set, and what it held before, so the caller can delete what it replaced.

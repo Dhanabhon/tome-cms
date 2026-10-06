@@ -65,3 +65,30 @@ test('what cannot be used is refused, and says why', async () => {
   await refused(prepareBrandImage('logo', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>')), 400, 'brand_svg_unusable');
   await refused(prepareBrandImage('logo', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><style>&lt;/style&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;style&gt;</style></svg>')), 400, 'brand_svg_unusable');
 });
+
+test('a share image is cropped to the size LINE, Facebook and X draw, as a JPEG without its metadata', async () => {
+  const wide = await sharp({ create: { background: '#2e7d5b', channels: 3, height: 1500, width: 3000 } })
+    .withMetadata({ exif: { IFD0: { Copyright: 'Somebody' } } })
+    .png()
+    .toBuffer();
+  const prepared = await prepareBrandImage('share', wide);
+  if (prepared.kind === 'icon') throw new Error('a share image');
+  assert.deepEqual([prepared.kind, prepared.width, prepared.height, prepared.mime], ['share', 1200, 630, 'image/jpeg']);
+  assert.deepEqual([prepared.source.contentType, prepared.source.extension], ['image/jpeg', 'jpg']);
+  const metadata = await sharp(prepared.source.body).metadata();
+  assert.deepEqual([metadata.format, metadata.width, metadata.height], ['jpeg', 1200, 630]);
+  assert.equal(metadata.exif, undefined, 'what the camera or the editor wrote is not passed on');
+  // A tall picture is cropped too, never letterboxed.
+  const tall = await prepareBrandImage('share', await png(400, 900));
+  if (tall.kind === 'icon') throw new Error('a share image');
+  assert.deepEqual([tall.width, tall.height], [1200, 630]);
+});
+
+test('a share image is never an SVG: the sites it is for do not draw one', async () => {
+  await refused(prepareBrandImage('share', SVG), 415, 'brand_type');
+  await refused(prepareBrandImage('share', Buffer.from('GIF89a\x01\x00\x01\x00')), 415, 'brand_type');
+  const blank = () => sharp({ create: { background: '#fff', channels: 3, height: 630, width: 1200 } });
+  for (const bytes of [await blank().jpeg().toBuffer(), await blank().webp().toBuffer()]) {
+    assert.equal((await prepareBrandImage('share', bytes)).kind, 'share');
+  }
+});

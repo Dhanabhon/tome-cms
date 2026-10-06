@@ -5,7 +5,7 @@ import type { SiteBrand } from '../../lib/site-brand';
 import Icon from '../Icon';
 import { atLeast } from '../../lib/busy';
 
-type Kind = 'icon' | 'logo' | 'logo-dark';
+type Kind = 'icon' | 'logo' | 'logo-dark' | 'share';
 type Action = 'remove' | 'upload';
 
 interface SiteBrandFieldsProps {
@@ -21,6 +21,7 @@ const ACCEPT: Record<Kind, string> = {
   icon: 'image/png,image/svg+xml',
   logo: 'image/png,image/jpeg,image/webp,image/svg+xml',
   'logo-dark': 'image/png,image/jpeg,image/webp,image/svg+xml',
+  share: 'image/png,image/jpeg,image/webp',
 };
 
 /** What the server's refusal codes say, in the owner's language. */
@@ -32,8 +33,8 @@ const REFUSALS: Record<string, keyof AdminCopy['brand']> = {
 };
 
 /**
- * The site's logo, its dark logo and its icon: each chosen, previewed where it will be seen,
- * and removed. Each applies on its own request, so there is nothing here for Save to lose.
+ * The site's logo, its dark logo, its icon and its share image: each chosen, previewed where it
+ * will be seen, and removed. Each applies on its own request, so there is nothing here for Save to lose.
  */
 export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChange }: SiteBrandFieldsProps) {
   const [brand, setBrand] = useState(initialBrand);
@@ -43,6 +44,7 @@ export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChang
     icon: useRef<HTMLInputElement>(null),
     logo: useRef<HTMLInputElement>(null),
     'logo-dark': useRef<HTMLInputElement>(null),
+    share: useRef<HTMLInputElement>(null),
   };
   // Only the control that was pressed says it is working; the others are only disabled.
   const pressed = (kind: Kind, action: Action) => busy?.kind === kind && busy.action === action;
@@ -57,7 +59,8 @@ export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChang
         : { headers: { 'content-type': 'application/json' }, method: 'DELETE' }));
       const result = await response.json().catch(() => ({})) as { brand?: SiteBrand; code?: string; updatedAt?: string };
       if (!response.ok || !result.brand || !result.updatedAt) {
-        const refusal = result.code ? REFUSALS[result.code] : undefined;
+        // A share image is refused as a type for being an SVG, which the general line allows.
+        const refusal = kind === 'share' && result.code === 'brand_type' ? 'shareTypeRefused' : result.code ? REFUSALS[result.code] : undefined;
         throw new Error(refusal ? copy.brand[refusal] : action === 'upload' ? copy.brand.uploadFailed : copy.brand.removeFailed);
       }
       setBrand(result.brand);
@@ -116,6 +119,9 @@ export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChang
           <img alt="" height={32} src={brand.icon.png32} width={32} />
           <img alt="" height={90} src={brand.icon.png180} width={90} />
         </figure>
+      ))}
+      {field('share', copy.brand.share, copy.brand.shareHint, brand.share && (
+        <figure className="brand-preview brand-preview--share"><img alt="" height={brand.share.height} src={brand.share.url} width={brand.share.width} /></figure>
       ))}
     </div>
   );

@@ -8,7 +8,7 @@ import { s3, s3Bucket } from '../media/storage';
 import { resolveMediaUrl } from '../media/url';
 import { getSiteSettings, writeSiteBrand, type BrandColumn, type SiteSettings } from './settings';
 
-const COLUMN: Record<BrandKind, BrandColumn> = { icon: 'brand_icon', logo: 'brand_logo', 'logo-dark': 'brand_logo_dark' };
+const COLUMN: Record<BrandKind, BrandColumn> = { icon: 'brand_icon', logo: 'brand_logo', 'logo-dark': 'brand_logo_dark', share: 'brand_share' };
 /** A key is never reused, so what is behind one never changes. */
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 
@@ -43,7 +43,7 @@ async function removeObjects(keys: string[]): Promise<void> {
 }
 
 /**
- * A logo, a dark logo or an icon, in this order: checked, stored, recorded, and only then is
+ * A logo, a dark logo, an icon or a share image, in this order: checked, stored, recorded, and only then is
  * what it replaced deleted. A failure before the record deletes what this request stored.
  */
 export async function storeBrandImage(ownerId: string, kind: BrandKind, bytes: Buffer): Promise<BrandResult> {

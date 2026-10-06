@@ -435,8 +435,11 @@ export interface PublicAuthor {
 
 export interface PublicSite {
   author: PublicAuthor | null;
-  /** The site's logo, dark logo and icon as addresses, and whether its name is beside the logo. */
-  brand: SiteBrand;
+  /**
+   * The site's logo, dark logo and icon as addresses, and whether its name is beside the logo.
+   * Not the share image: that is for the head of the site's own pages.
+   */
+  brand: Omit<SiteBrand, 'share'>;
   defaultLocale: PostLocale;
   description: string;
   name: string;

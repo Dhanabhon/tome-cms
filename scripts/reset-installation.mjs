@@ -71,9 +71,9 @@ async function inventory(database) {
 export async function knownObjects(database) {
   const media = await database.selectFrom('media_items').select(['id', 'object_key']).execute();
   const reservations = await database.selectFrom('media_upload_reservations').select(['id', 'object_key']).execute();
-  // The site's logos and icon live in the same bucket, and the settings row accounts for them.
-  const brand = (await database.selectFrom('site_settings').select(['brand_logo', 'brand_logo_dark', 'brand_icon']).execute())
-    .flatMap((row) => [row.brand_logo, row.brand_logo_dark, row.brand_icon].flatMap(storedBrandKeys))
+  // The site's logos, icon and share image live in the same bucket, and the settings row accounts for them.
+  const brand = (await database.selectFrom('site_settings').select(['brand_logo', 'brand_logo_dark', 'brand_icon', 'brand_share']).execute())
+    .flatMap((row) => [row.brand_logo, row.brand_logo_dark, row.brand_icon, row.brand_share].flatMap(storedBrandKeys))
     .map((object_key) => ({ id: 'site_settings', object_key }));
   const objects = new Map();
   for (const row of [...media, ...reservations, ...brand]) {

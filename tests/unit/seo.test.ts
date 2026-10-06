@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { documentTitle, getPublicSiteUrl } from '../../src/lib/seo';
+import { documentTitle, getPublicSiteUrl, openGraphImage } from '../../src/lib/seo';
 
 test('public URLs prefer the configured canonical origin', () => {
   const previous = process.env.TOME_CMS_PUBLIC_URL;
@@ -52,4 +52,20 @@ test('the layout hands the owner\'s logo and profile links to the structured dat
 
 test('structured data cannot close its script tag', () => {
   assert.match(route('src/components/blog/SEOHead.astro'), /JSON\.stringify\(structuredData\)\.replaceAll\('<', '\\\\u003c'\)/);
+});
+
+test('a shared page shows its own cover, then the site\'s share image, then nothing', () => {
+  const siteUrl = new URL('https://example.com/');
+  const share = { height: 630, mimeType: 'image/jpeg' as const, url: 'https://media.example.com/owners/o/share.jpg', width: 1200 };
+  assert.deepEqual(
+    openGraphImage({ cover: '/media/cover-id', coverAlt: 'A post', share, siteName: 'Site', siteUrl }),
+    { alt: 'A post', url: 'https://example.com/media/cover-id' },
+    'a cover wins, and its size is not claimed when it is not known',
+  );
+  assert.deepEqual(
+    openGraphImage({ cover: null, coverAlt: 'A page', share, siteName: 'Site', siteUrl }),
+    { alt: 'Site', height: 630, url: share.url, width: 1200 },
+    'without a cover the share image stands in, named for the site',
+  );
+  assert.equal(openGraphImage({ cover: undefined, coverAlt: 'Home', share: null, siteName: 'Site', siteUrl }), null);
 });

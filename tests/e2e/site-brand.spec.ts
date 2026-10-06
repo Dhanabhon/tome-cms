@@ -304,3 +304,51 @@ test('keeping the site out of search results marks every public answer, and turn
   expect(await (await page.request.get(`${origin}/robots.txt`)).text()).toContain(`Sitemap: ${origin}/sitemap.xml`);
   expect(await (await page.request.get(`${origin}/sitemap.xml`)).text()).toContain('<url>');
 });
+
+test('a share image uploaded in Settings is what a page without a cover shows when shared', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const { db } = await import('../../src/server/db/client');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  const { createPage } = await import('../../src/server/content/pages');
+  const sharp = (await import('sharp')).default;
+  await db.updateTable('site_settings').set({ brand_share: null, hide_from_search: false }).execute();
+  await createPage(OWNER, {
+    contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Who writes here.' }] }] },
+    excerpt: '', metaDescription: null, metaTitle: null, slug: 'about-share', status: 'published', title: 'About',
+  });
+  clearPageCache(owner);
+  await page.goto(`${origin}/en/about-share`);
+  await expect(page.locator('meta[property="og:image"]'), 'nothing to show yet').toHaveCount(0);
+
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const enrollment = await issueRecoveryEnrollment(OWNER);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  owner = await ownerFrom(context, origin);
+
+  await page.goto(`${origin}/admin/settings`);
+  const field = page.locator('.brand-field[data-kind="share"]');
+  await expect(field.locator('.brand-field__label')).toContainText('Shown when a page without a cover is shared on LINE, Facebook or X. Cropped to 1200 × 630.');
+  const input = page.locator('input[name="brand-share"]');
+  await input.setInputFiles({ buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6"/>'), mimeType: 'image/svg+xml', name: 'share.svg' });
+  await expect(field.locator('[role="alert"]')).toHaveText('Use PNG, JPEG or WebP. LINE, Facebook and X do not show SVG.');
+  const photo = await sharp({ create: { background: '#2e7d5b', channels: 3, height: 1000, width: 1600 } }).png().toBuffer();
+  await input.setInputFiles({ buffer: photo, mimeType: 'image/png', name: 'share.png' });
+  await expect(field.locator('[role="status"]')).toHaveText('Saved.');
+  await expect(field.locator('.brand-preview img')).toBeVisible();
+  const stored = (await db.selectFrom('site_settings').select('brand_share').executeTakeFirstOrThrow()).brand_share as { key: string };
+
+  for (const path of ['/en/about-share', '/th', '/en']) {
+    await page.goto(`${origin}${path}`);
+    await expect(page.locator('meta[property="og:image"]'), path).toHaveAttribute('content', new RegExp(`${stored.key}$`));
+    await expect(page.locator('meta[property="og:image:width"]'), path).toHaveAttribute('content', '1200');
+    await expect(page.locator('meta[property="og:image:height"]'), path).toHaveAttribute('content', '630');
+    await expect(page.locator('meta[property="og:image:alt"]'), path).toHaveAttribute('content', 'Brand Test');
+    await expect(page.locator('meta[name="twitter:card"]'), path).toHaveAttribute('content', 'summary_large_image');
+  }
+});

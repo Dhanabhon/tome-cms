@@ -128,6 +128,8 @@ test('public contracts validate queries and serialize only explicit fields', () 
     logoDark: null,
     showSiteName: false,
   };
+  // The share image is for the page's own head; the API names the brand as it always has.
+  const share = { height: 630, mimeType: 'image/jpeg' as const, url: 'https://media.test/f.jpg', width: 1200 };
   const publicSite = serializePublicSite({
     admin_path: '/private-admin',
     allow_visitor_theme: true,
@@ -142,6 +144,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
     brand_icon: null,
     brand_logo: null,
     brand_logo_dark: null,
+    brand_share: null,
     hide_site_name: false,
     // An admin switch, not something a headless frontend is told: the deepEqual below has no room for it.
     hide_from_search: true,
@@ -160,7 +163,7 @@ test('public contracts validate queries and serialize only explicit fields', () 
     theme: 'system' as const,
     timezone: 'Asia/Bangkok',
     updated_at: new Date('2026-09-08T04:00:00.000Z'),
-  }, media, brand);
+  }, media, { ...brand, share });
   assert.deepEqual(publicSite, {
     author: {
       avatar: {

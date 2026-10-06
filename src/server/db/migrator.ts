@@ -31,6 +31,7 @@ import * as mcp from './migrations/028_mcp';
 import * as navigationParent from './migrations/029_navigation_parent';
 import * as deviceEnrollment from './migrations/030_device_enrollment';
 import * as searchVisibility from './migrations/031_search_visibility';
+import * as shareImageAndDescriptions from './migrations/032_share_image_and_descriptions';
 
 export const migrations = {
   '001_system': system,
@@ -64,6 +65,7 @@ export const migrations = {
   '029_navigation_parent': navigationParent,
   '030_device_enrollment': deviceEnrollment,
   '031_search_visibility': searchVisibility,
+  '032_share_image_and_descriptions': shareImageAndDescriptions,
 } as const;
 
 const provider: MigrationProvider = {

@@ -75,7 +75,7 @@ export function serializePublicPage(row: PublishedPage): PublicPage {
 }
 
 /** The brand is resolved by the caller, which knows where media is served from; this does not. */
-export function serializePublicSite(row: SiteSettings, avatar: ReadyImage | null, brand: SiteBrand): PublicSite {
+export function serializePublicSite(row: SiteSettings, avatar: ReadyImage | null, { share: _share, ...brand }: SiteBrand): PublicSite {
   return publicSiteSchema.parse({
     author: row.author_name.trim() ? {
       avatar: avatar ? serializePublicMedia(avatar) : null,

@@ -5,15 +5,18 @@ import { detectImageType } from './image';
 import type { BrandExtension } from './keys';
 import { sanitizeSvg } from './svg';
 
-export type BrandKind = 'logo' | 'logo-dark' | 'icon';
-export const BRAND_KINDS: readonly BrandKind[] = ['logo', 'logo-dark', 'icon'];
+export type BrandKind = 'logo' | 'logo-dark' | 'icon' | 'share';
+export const BRAND_KINDS: readonly BrandKind[] = ['logo', 'logo-dark', 'icon', 'share'];
 
-/** The most a logo or an icon may weigh, before anything is done with it. */
+/** The most a brand file may weigh, before anything is done with it. */
 export const MAX_BRAND_BYTES = 1024 * 1024;
 /** A phone's home screen draws an icon at 180 pixels; a raster one smaller would be blown up. */
 export const MIN_ICON_PIXELS = 180;
 const MAX_PIXELS = 40_000_000;
 const ICON_SIZES = [32, 180] as const;
+/** The card LINE, Facebook and X draw for a shared link: 1.91 to 1, at the size they ask for. */
+export const SHARE_WIDTH = 1200;
+export const SHARE_HEIGHT = 630;
 
 export type BrandMime = 'image/jpeg' | 'image/png' | 'image/svg+xml' | 'image/webp';
 const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg', 'image/webp': 'webp' } as const;
@@ -21,11 +24,13 @@ const ACCEPTED: Record<BrandKind, readonly BrandMime[]> = {
   icon: ['image/png', 'image/svg+xml'],
   logo: ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'],
   'logo-dark': ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'],
+  // No SVG: none of the sites a link is shared on draws one.
+  share: ['image/jpeg', 'image/png', 'image/webp'],
 };
 
 export interface PreparedFile { body: Buffer; contentType: BrandMime; extension: BrandExtension }
 export type PreparedBrand =
-  | { kind: 'logo' | 'logo-dark'; source: PreparedFile; mime: BrandMime; width: number; height: number }
+  | { kind: 'logo' | 'logo-dark' | 'share'; source: PreparedFile; mime: BrandMime; width: number; height: number }
   | { kind: 'icon'; svg: PreparedFile | null; png32: PreparedFile; png180: PreparedFile };
 
 const refuse = (status: 400 | 413 | 415, message: string, code: string) => new HttpError(status, message, { code });
@@ -74,13 +79,32 @@ async function rasterSource(kind: BrandKind, bytes: Buffer): Promise<{ size: { h
 }
 
 /**
- * A logo or an icon as it may be stored: the type read from the bytes, an SVG made safe and
- * still drawable, a raster logo as it came, an icon drawn at a tab's size and a phone's.
+ * Cropped from the centre to the card's shape rather than fitted into it: a sharing site draws
+ * the card edge to edge, and bars of padding would be drawn too. Turned the way the camera held
+ * it first, and written without what the camera or the editor recorded -- where it was taken,
+ * on what -- since sharp leaves metadata out unless asked to keep it.
+ */
+async function shareCard(source: Buffer): Promise<PreparedFile> {
+  const body = await sharp(source, { failOn: 'error', limitInputPixels: MAX_PIXELS })
+    .rotate()
+    .resize(SHARE_WIDTH, SHARE_HEIGHT, { fit: 'cover' })
+    .jpeg({ mozjpeg: true, quality: 82 })
+    .toBuffer();
+  return file(body, 'image/jpeg');
+}
+
+/**
+ * A brand file as it may be stored: the type read from the bytes, an SVG made safe and still
+ * drawable, a raster logo as it came, an icon drawn at a tab's size and a phone's, a share
+ * image cropped to the card a shared link shows.
  */
 export async function prepareBrandImage(kind: BrandKind, bytes: Buffer): Promise<PreparedBrand> {
   if (bytes.byteLength > MAX_BRAND_BYTES) throw refuse(413, 'The file is larger than 1 MB.', 'brand_too_large');
   const { size, source } = looksLikeSvg(bytes) ? await svgSource(kind, bytes) : await rasterSource(kind, bytes);
 
+  if (kind === 'share') {
+    return { height: SHARE_HEIGHT, kind, mime: 'image/jpeg', source: await shareCard(source.body), width: SHARE_WIDTH };
+  }
   if (kind !== 'icon') return { height: size.height, kind, mime: source.contentType, source, width: size.width };
 
   const isSvg = source.contentType === 'image/svg+xml';
