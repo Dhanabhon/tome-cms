@@ -28,3 +28,23 @@ export async function inspectImage(
   if (!width || !height || width * height > MAX_PIXELS) throw new Error('The uploaded image dimensions are invalid.');
   return { height, width };
 }
+
+/** The widths a picture is also kept at, for a page to draw the copy that fits. */
+export const VARIANT_WIDTHS = [480, 960, 1600] as const;
+export type VariantWidth = (typeof VARIANT_WIDTHS)[number];
+
+/**
+ * The smaller copies of a picture: WebP, turned the way it was taken, with its metadata left
+ * out, at each width narrower than the picture itself. None for an animated one. Made one after
+ * another, so only one decode is held at a time.
+ */
+export async function makeVariants(buffer: Buffer): Promise<{ body: Buffer; width: VariantWidth }[]> {
+  const options = { failOn: 'error', limitInputPixels: MAX_PIXELS } as const;
+  const metadata = await sharp(buffer, options).metadata();
+  if ((metadata.pages ?? 1) > 1) return [];
+  const variants = [];
+  for (const width of VARIANT_WIDTHS.filter((candidate) => candidate < metadata.autoOrient.width)) {
+    variants.push({ body: await sharp(buffer, options).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer(), width });
+  }
+  return variants;
+}

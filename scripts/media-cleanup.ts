@@ -61,7 +61,7 @@ async function candidates(database: Kysely<Database>): Promise<CleanupCandidate[
   ];
 }
 
-async function resolveStoredCandidate(
+export async function resolveStoredCandidate(
   database: Kysely<Database>,
   candidate: CleanupCandidate,
   removeObject: (key: string) => Promise<void>,
@@ -82,6 +82,10 @@ async function resolveStoredCandidate(
       .where('id', '=', candidate.id).forUpdate().executeTakeFirst();
     if (!row || row.state !== 'delete_failed') return false;
     if (row.object_key !== candidate.objectKey || !isTomeObjectKey(row.object_key)) throw new Error('Unsafe media object key.');
+    // An image's smaller copies go with it; their rows go with its row.
+    const variants = await transaction.selectFrom('media_variants').select('object_key').where('media_id', '=', candidate.id).execute();
+    if (!variants.every(({ object_key: key }) => isTomeObjectKey(key))) throw new Error('Unsafe media object key.');
+    for (const { object_key: key } of variants) await removeObject(key);
     await removeObject(row.object_key);
     await transaction.deleteFrom('media_items').where('id', '=', candidate.id)
       .where('state', '=', 'delete_failed').executeTakeFirstOrThrow();

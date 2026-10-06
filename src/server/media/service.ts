@@ -44,6 +44,7 @@ import { detectImageType, inspectImage } from './image';
 import { createObjectKey } from './keys';
 import { s3, s3Bucket, s3Presign } from './storage';
 import { stableMediaPath } from './url';
+import { queueVariants } from './variants';
 
 const checksumSha256 = z.string().regex(/^[A-Za-z0-9+/]{43}=$/);
 
@@ -288,8 +289,9 @@ export async function reserveUpload(ownerId: string, input: ReserveUploadInput):
 }
 
 export async function finalizeUpload(ownerId: string, reservationId: string): Promise<ReadyMedia> {
+  let image: Buffer | undefined;
   try {
-    return await db.transaction().execute(async (trx) => {
+    const item = await db.transaction().execute(async (trx) => {
       const reservation = await trx.selectFrom('media_upload_reservations').selectAll()
         .where('id', '=', reservationId).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!reservation) throw new HttpError(404, 'Upload reservation not found.');
@@ -321,6 +323,7 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
       const dimensions = isImageType(reservation.mime_type)
         ? await verifiedImage(reservation.object_key, reservation.mime_type, expectedSize, reservation.expected_checksum_sha256)
         : await verifiedDocument(reservation.object_key, reservation.mime_type, expectedSize, reservation.expected_checksum_sha256, head.ETag);
+      image = dimensions?.body;
       const item = await trx.insertInto('media_items').values({
         id: reservation.id,
         owner_id: ownerId,
@@ -339,8 +342,11 @@ export async function finalizeUpload(ownerId: string, reservationId: string): Pr
       await trx.updateTable('media_upload_reservations')
         .set({ state: 'finalized', finalized_at: new Date() })
         .where('id', '=', reservation.id).where('state', '=', 'pending').executeTakeFirstOrThrow();
-      return readyMedia(item);
+      return item;
     });
+    // Only once the row is committed: the copies never hold up, or fail, the upload.
+    if (image) queueVariants(item, image);
+    return readyMedia(item);
   } catch (error) {
     if (error instanceof InvalidUploadError) {
       await expireInvalidReservation(ownerId, reservationId, error.objectKey);
@@ -381,6 +387,7 @@ export async function importImage(ownerId: string, body: Buffer, name: string): 
       state: 'ready',
       delete_error_code: null,
     }).returningAll().executeTakeFirstOrThrow();
+    queueVariants(item, body);
     return readyMedia(item);
   } catch (error) {
     // Best effort: an object nothing points at is harmless, as brand.ts says of its own.
@@ -440,15 +447,22 @@ export async function createMediaFromBytes(ownerId: string, body: Buffer, name: 
  */
 export async function deleteImportedMedia(ownerId: string, ids: readonly string[]): Promise<void> {
   if (!ids.length) return;
-  const rows = await db.deleteFrom('media_items').where('owner_id', '=', ownerId).where('id', 'in', [...ids])
-    .returning('object_key').execute();
+  // The items' rows are locked before their copies are read, so none is added in between.
+  const rows = await db.transaction().execute(async (trx) => {
+    const owned = (await trx.selectFrom('media_items').select('id').where('owner_id', '=', ownerId)
+      .where('id', 'in', [...ids]).forUpdate().execute()).map(({ id }) => id);
+    if (!owned.length) return [];
+    const variants = await trx.selectFrom('media_variants').select('object_key').where('media_id', 'in', owned).execute();
+    const items = await trx.deleteFrom('media_items').where('id', 'in', owned).returning('object_key').execute();
+    return [...items, ...variants];
+  });
   const results = await Promise.allSettled(rows.map(({ object_key: key }) => s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }))));
   const left = rows.filter((_, index) => results[index]!.status === 'rejected').map(({ object_key: key }) => key);
   if (left.length) throw new Error(`These objects are left in the bucket: ${left.join(', ')}`);
 }
 
 /** An image, read whole: sharp needs all of it, and it is 8 MB at most. */
-async function verifiedImage(objectKey: string, type: SupportedImageType, size: number, checksum: string): Promise<{ height: number; width: number }> {
+async function verifiedImage(objectKey: string, type: SupportedImageType, size: number, checksum: string): Promise<{ body: Buffer; height: number; width: number }> {
   let body: Buffer;
   try {
     const object = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: objectKey, ChecksumMode: 'ENABLED' }));
@@ -462,7 +476,7 @@ async function verifiedImage(objectKey: string, type: SupportedImageType, size: 
     throw new InvalidUploadError('The uploaded object checksum or size is invalid.', objectKey);
   }
   try {
-    return await inspectImage(body, type);
+    return { body, ...await inspectImage(body, type) };
   } catch {
     throw new InvalidUploadError('The uploaded object is not a valid supported image.', objectKey);
   }
@@ -695,7 +709,7 @@ function storageErrorCode(error: unknown): string {
 }
 
 export async function deleteMedia(ownerId: string, id: string): Promise<void> {
-  const objectKey = await db.transaction().execute(async (trx) => {
+  const objectKeys = await db.transaction().execute(async (trx) => {
     const item = await trx.selectFrom('media_items').selectAll()
       .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
     if (!item) throw new HttpError(404, 'Media not found.');
@@ -708,17 +722,19 @@ export async function deleteMedia(ownerId: string, id: string): Promise<void> {
       await trx.updateTable('media_items').set({ state: 'deleting', delete_error_code: null })
         .where('id', '=', id).where('owner_id', '=', ownerId).executeTakeFirstOrThrow();
     }
-    return item.object_key;
+    // Read under the row's lock, after it is marked: no copy can be added once it is not ready.
+    const variants = await trx.selectFrom('media_variants').select('object_key').where('media_id', '=', id).execute();
+    return [...variants.map(({ object_key: key }) => key), item.object_key];
   });
 
-  try {
-    await s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: objectKey }));
-  } catch (error) {
-    if (!isNotFound(error)) {
-      await db.updateTable('media_items').set({ state: 'delete_failed', delete_error_code: storageErrorCode(error) })
-        .where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'deleting').execute();
-      throw new HttpError(503, 'Storage is temporarily unavailable. Try deleting the file again.');
-    }
+  // The copies go with the original, and fail the delete the way it would: the rows stay until
+  // every object is gone, so a retry or the cleanup script finds them all again.
+  const results = await Promise.allSettled(objectKeys.map((key) => s3.send(new DeleteObjectCommand({ Bucket: s3Bucket, Key: key }))));
+  const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected' && !isNotFound(result.reason));
+  if (failure) {
+    await db.updateTable('media_items').set({ state: 'delete_failed', delete_error_code: storageErrorCode(failure.reason) })
+      .where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'deleting').execute();
+    throw new HttpError(503, 'Storage is temporarily unavailable. Try deleting the file again.');
   }
   await db.deleteFrom('media_items').where('id', '=', id).where('owner_id', '=', ownerId).where('state', '=', 'deleting').execute();
 }

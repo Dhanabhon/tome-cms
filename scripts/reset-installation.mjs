@@ -61,6 +61,7 @@ async function inventory(database) {
       (select count(*)::integer from media_items where state = 'ready') as media_ready,
       (select count(*)::integer from media_items where state = 'deleting') as media_deleting,
       (select count(*)::integer from media_items where state = 'delete_failed') as media_delete_failed,
+      (select count(*)::integer from media_variants) as media_variants,
       (select count(*)::integer from media_upload_reservations where state = 'pending') as reservations_pending,
       (select count(*)::integer from media_upload_reservations where state = 'expired') as reservations_expired,
       (select count(*)::integer from media_upload_reservations where expires_at > current_timestamp) as active_upload_signatures
@@ -71,12 +72,14 @@ async function inventory(database) {
 export async function knownObjects(database) {
   const media = await database.selectFrom('media_items').select(['id', 'object_key']).execute();
   const reservations = await database.selectFrom('media_upload_reservations').select(['id', 'object_key']).execute();
+  // An image's smaller copies are objects of their own, accounted for by the image's id.
+  const variants = await database.selectFrom('media_variants').select(['media_id as id', 'object_key']).execute();
   // The site's logos, icon and share image live in the same bucket, and the settings row accounts for them.
   const brand = (await database.selectFrom('site_settings').select(['brand_logo', 'brand_logo_dark', 'brand_icon', 'brand_share']).execute())
     .flatMap((row) => [row.brand_logo, row.brand_logo_dark, row.brand_icon, row.brand_share].flatMap(storedBrandKeys))
     .map((object_key) => ({ id: 'site_settings', object_key }));
   const objects = new Map();
-  for (const row of [...media, ...reservations, ...brand]) {
+  for (const row of [...media, ...variants, ...reservations, ...brand]) {
     const ids = objects.get(row.object_key) ?? [];
     ids.push(row.id);
     objects.set(row.object_key, ids);
