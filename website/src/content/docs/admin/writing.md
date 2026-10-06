@@ -122,7 +122,7 @@ The pencil beside a category opens its form:
 | Field | What it does |
 | --- | --- |
 | "Category name for …" | The name on the post cards and on the category's page. There is one name for both languages. |
-| "URL name" | The end of the category page's address, after `/en/category/` or `/th/category/`. A new category gets one made from its name, Thai included. Renaming a category keeps it, so links to the page keep working. Left blank, it is made from the name again. It takes lowercase letters, numbers, Thai and single hyphens, and two categories cannot share one. |
+| "URL name" | The end of the category page's address, after `/en/category/` or `/th/category/`. A new category gets one made from its name, Thai included. Renaming a category keeps it, so links to the page keep working. Left blank, it is made from the name again. Changing the URL name moves the page to a new address, and so can clearing it; links to the old address then stop working, because nothing sends them on. It takes lowercase letters, numbers, Thai and single hyphens, and two categories cannot share one. |
 | "Description (Thai)" and "Description (English)" | Up to 160 characters each, both optional. The category's page shows the description in its language and uses it in search results. With none in that language, the page uses the other language's, then a sentence made from the category's name and the site's. |
 
 The trash can deletes a category. Posts that have no other category move to the default one.
