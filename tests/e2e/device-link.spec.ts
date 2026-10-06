@@ -257,3 +257,33 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
     await contextE.close();
   }
 });
+
+test('a link that dies while the passkey is being made shows the expired message', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const { getSiteSettings } = await import('../../src/server/content/site-settings');
+  const { cancelDeviceEnrollments, issueDeviceEnrollment } = await import('../../src/server/auth/device-link');
+  const settings = await getSiteSettings();
+  const ownerId = settings!.owner_id;
+  const { context: linkContext } = await issueDeviceEnrollment(ownerId);
+
+  const contextB = await browser.newContext();
+  try {
+    const pageB = await contextB.newPage();
+    const cdpB = await contextB.newCDPSession(pageB);
+    await cdpB.send('WebAuthn.enable');
+    await cdpB.send('WebAuthn.addVirtualAuthenticator', { options: AUTHENTICATOR });
+    // The options were handed out while the link was good; it is cancelled before the browser's
+    // answer reaches the server, as when the owner cancels it on the other device mid-way.
+    await pageB.route('**/api/auth/passkey/verify-registration', async (route) => {
+      await cancelDeviceEnrollments(ownerId);
+      await route.continue();
+    });
+    await pageB.goto(`${origin}/add-device?context=${encodeURIComponent(linkContext)}`);
+    await pageB.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+    await pageB.getByRole('button', { name: 'Create a passkey' }).click();
+    await expect(pageB.getByText('This link has expired or was already used.')).toBeVisible({ timeout: 30_000 });
+    await expect(pageB.getByRole('button', { name: 'Create a passkey' })).toHaveCount(0);
+  } finally {
+    await contextB.close();
+  }
+});

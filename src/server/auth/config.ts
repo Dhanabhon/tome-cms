@@ -1,8 +1,10 @@
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 
 import { pool } from '../db/client';
 import { getServerEnv } from '../env';
+import { EnrollmentContextError } from './context';
 import { consumeDeviceEnrollmentReference } from './device-link';
 import {
   assertEnrollmentReference,
@@ -89,28 +91,36 @@ export const auth = betterAuth({
       afterVerification: async ({ context, ctx, user, verification }) => {
         if (ctx.body.response.id !== verification.registrationInfo?.credential.id) throw new Error('Passkey credential verification failed.');
         if (context) {
-          const purpose = await assertEnrollmentReference({
-            reference: context,
-            pendingUserId: user.id,
-            fallbackAdapter: ctx.context.adapter,
-          });
-          if (purpose === 'recovery') {
-            if (ctx.body.createSession !== true) throw new Error('Recovery registration must create a session.');
-            await consumeRecoveryEnrollmentReference({
+          try {
+            const purpose = await assertEnrollmentReference({
               reference: context,
-              ownerId: user.id,
+              pendingUserId: user.id,
               fallbackAdapter: ctx.context.adapter,
             });
-          }
-          // A device link adds a passkey and lands the new device signed in. It is spent here,
-          // in the registration transaction, so the same link cannot register a second device.
-          if (purpose === 'device') {
-            if (ctx.body.createSession !== true) throw new Error('Device registration must create a session.');
-            await consumeDeviceEnrollmentReference({
-              reference: context,
-              ownerId: user.id,
-              fallbackAdapter: ctx.context.adapter,
-            });
+            if (purpose === 'recovery') {
+              if (ctx.body.createSession !== true) throw new Error('Recovery registration must create a session.');
+              await consumeRecoveryEnrollmentReference({
+                reference: context,
+                ownerId: user.id,
+                fallbackAdapter: ctx.context.adapter,
+              });
+            }
+            // A device link adds a passkey and lands the new device signed in. It is spent here,
+            // in the registration transaction, so the same link cannot register a second device.
+            if (purpose === 'device') {
+              if (ctx.body.createSession !== true) throw new Error('Device registration must create a session.');
+              await consumeDeviceEnrollmentReference({
+                reference: context,
+                ownerId: user.id,
+                fallbackAdapter: ctx.context.adapter,
+              });
+            }
+          } catch (error) {
+            // A link can die between the options and this answer: cancelled, replaced by a newer
+            // one, spent by a recovery, or simply out of time. better-auth turns anything but an
+            // APIError into a 500, so say what it is -- a bare 400, as the context guard does.
+            if (error instanceof EnrollmentContextError) throw new APIError('BAD_REQUEST', { message: error.message });
+            throw error;
           }
           return;
         }
