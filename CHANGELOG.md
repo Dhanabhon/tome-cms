@@ -2,6 +2,14 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.18.0 - 2026-10-06
+
+A switch that keeps a site out of search results. One migration.
+
+### Added
+
+- Settings → "Search results" → "Keep this site out of search results". When on, every public page and answer asks search engines and AI crawlers not to list it (`noindex, nofollow` as a meta tag and as `X-Robots-Tag`), the sitemap is empty and `robots.txt` stops pointing to it, and the admin sidebar says "Hidden from search". It asks rather than blocks: `robots.txt` still lets crawlers in, so a site that is already listed is dropped. Off by default, and off changes nothing.
+
 ## 1.17.1 - 2026-10-06
 
 The "Add a device" card notices the new device by itself.
