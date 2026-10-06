@@ -29,7 +29,11 @@ test('category slugs are filled from names and media variants are stored per wid
     await db.insertInto('categories').values({ owner_id, name, is_default }).execute();
   }
 
+  const before = await db.selectFrom('categories').select(['id', 'updated_at']).execute();
   await migrateToLatest();
+  // Filling a slug is not an edit.
+  const after = await db.selectFrom('categories').select(['id', 'updated_at']).execute();
+  assert.deepEqual(after.map((row) => row.updated_at).sort(), before.map((row) => row.updated_at).sort());
 
   const rows = await db.selectFrom('categories').select(['owner_id', 'name', 'slug', 'description_th', 'description_en'])
     .orderBy('created_at').orderBy('id').execute();

@@ -342,7 +342,7 @@ export interface MediaVariantTable {
   width: 480 | 960 | 1600;
   object_key: string;
   size_bytes: number;
-  created_at: Generated<Date>;
+  created_at: Timestamp;
 }
 
 export interface MediaUploadReservationTable {

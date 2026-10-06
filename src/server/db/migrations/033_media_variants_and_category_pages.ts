@@ -1,6 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 
-import { contentSlug } from '../../../lib/slug';
+import { contentSlug, SLUG_LENGTH } from '../../../lib/slug';
 import type { Database } from '../types';
 
 /**
@@ -15,8 +15,11 @@ import type { Database } from '../types';
  * on in the order the categories were made; a name with nothing to slug gets `category-` and the
  * start of its id. A category inserted without a slug gets that same fallback from a trigger, so
  * the places that create categories (the installer, import, the admin) keep working until each
- * names a slug of its own; the trigger is a floor, not the way a slug is made. This file imports only slug.ts, which needs no configuration: the updater
- * loads every migration in a bare image to list them.
+ * names a slug of its own; the trigger is a floor, not the way a slug is made.
+ *
+ * This file imports slug.ts, which needs no configuration and only slugify and Intl. The runtime
+ * image loads every migration to list or run them, and it copies selected sources only, so the
+ * Dockerfile copies slug.ts too (tests/unit/migration-image-imports.test.ts holds the two together).
  */
 export async function up(db: Kysely<Database>): Promise<void> {
   await sql`
@@ -42,15 +45,19 @@ export async function up(db: Kysely<Database>): Promise<void> {
   `.execute(db);
   const taken = new Set<string>();
   // Uncategorized is protected from every update, this one included.
+  // Nor should the fill count as an edit, so updated_at stays as it was.
   await sql`alter table categories disable trigger categories_protect_identity`.execute(db);
+  await sql`alter table categories disable trigger categories_touch_updated_at`.execute(db);
   for (const { id, owner_id, name } of rows) {
-    const base = contentSlug(name) || `category-${id.replaceAll('-', '').slice(0, 8)}`;
+    // Short enough that a -N suffix, up to five digits, still fits the length a slug may be.
+    const base = contentSlug(name).slice(0, SLUG_LENGTH - 6).replace(/-+$/, '') || `category-${id.replaceAll('-', '').slice(0, 8)}`;
     let slug = base;
     for (let suffix = 2; taken.has(`${owner_id}\0${slug}`); suffix += 1) slug = `${base}-${suffix}`;
     taken.add(`${owner_id}\0${slug}`);
     await sql`update categories set slug = ${slug} where id = ${id}`.execute(db);
   }
 
+  await sql`alter table categories enable trigger categories_touch_updated_at`.execute(db);
   await sql`alter table categories enable trigger categories_protect_identity`.execute(db);
 
   await sql`alter table categories alter column slug set not null`.execute(db);
