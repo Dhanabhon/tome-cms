@@ -238,6 +238,27 @@ test('a public page carries only the plugins that asked to be on it', async ({ p
   await expect(page.locator('.lightbox__image')).toHaveAttribute('alt', 'In the body');
 });
 
+test('a picture drawn from a copy the width of its column opens full size, from the copy that fits the screen', async ({ page }) => {
+  setPlugin('lightbox', true, {});
+  // The cover is 1600 wide: a copy at 960 is what its column draws it from on this screen.
+  psql(`insert into media_variants (media_id, width, object_key, size_bytes)
+    select id, 960, 'seed/cover-960.webp', 10 from media_items where object_key = 'seed/cover.webp'
+    on conflict do nothing`);
+  try {
+    await page.goto(`${origin}/en/blog/an-article`, { waitUntil: 'networkidle' });
+    const cover = page.locator('article img[data-lightbox][srcset]');
+    await expect(cover, 'the cover offers its copy').toHaveCount(1);
+    await cover.click();
+    const shown = page.locator('.lightbox__image');
+    await expect(page.locator('dialog.lightbox')).toBeVisible();
+    await expect(shown, 'the dialog is given the original, never the column\'s copy').toHaveAttribute('src', /\/media\/[0-9a-f-]{36}$/);
+    await expect(shown, 'and the copies, for a picture as wide as the window').toHaveAttribute('sizes', '100vw');
+    await expect(shown).toHaveAttribute('srcset', /\?w=960 960w, .+ 1600w$/);
+  } finally {
+    psql(`delete from media_variants where object_key = 'seed/cover-960.webp'`);
+  }
+});
+
 test('the banner is the owner\'s colours, and stays or goes as they said', async ({ page }) => {
   test.setTimeout(120_000);
   const band = page.locator('[data-site-notice]');

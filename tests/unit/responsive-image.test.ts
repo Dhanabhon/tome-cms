@@ -104,7 +104,22 @@ test('the sizes follow the columns the themes\' CSS draws', () => {
   const paper = css('paper');
   assert.match(paper, /\.post-page \{\n {2}width: min\(100%, 48rem\);\n {2}margin-inline: auto;\n {2}padding: var\(--space-xl\) 1\.25rem var\(--space-3xl\);/);
   assert.match(paper, /@media \(min-width: 37\.5rem\) \{\n {2}\.post-page \{ padding-inline: 1\.75rem; \}/);
-  assert.match(paper, /gap: var\(--space-xl\) var\(--space-lg\);/);
+  assert.ok(paper.includes(`.post-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(
+    min(100%, max(
+      var(--post-grid-min, 19rem),
+      calc((100% - (var(--post-grid-columns, 3) - 1) * var(--space-lg)) / var(--post-grid-columns, 3))
+    )),
+    1fr
+  ));
+  gap: var(--space-xl) var(--space-lg);`), 'the card grid the cards sizes are solved from');
+  const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+  const home = read('src/themes/paper/Home.astro');
+  assert.ok(home.includes("--post-grid-min: ${columns === '4' ? '16rem' : '19rem'};"), 'the cards\' least widths');
+  assert.ok(home.includes('<section class="mx-auto w-full max-w-7xl px-5 py-12 sm:px-7 sm:py-16">'), 'the feed\'s frame and gutters');
+  assert.match(read('tailwind.config.mjs'), /sm: '600px',/, 'sm: is 37.5rem');
+  assert.match(read('src/styles/installer-tokens.css'), /--space-lg: 1\.5rem;/, 'the gap between cards');
   assert.match(paper, /\.hero-slide \{\n {2}display: grid;[\s\S]*?flex: 0 0 100%;/);
   assert.equal(PAPER_SIZES.article, '(min-width: 48rem) 44.5rem, (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
   assert.equal(PAPER_SIZES.cards['3'], '(min-width: 80rem) 24.5rem, (min-width: 63.5rem) calc((100vw - 6.5rem) / 3), (min-width: 43rem) calc((100vw - 5rem) / 2), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
@@ -119,7 +134,10 @@ test('the sizes follow the columns the themes\' CSS draws', () => {
   const almanac = css('almanac');
   assert.match(almanac, /\.almanac-frame \{ width: min\(100% - 2 \* var\(--almanac-gutter\), 76rem\);/);
   assert.match(almanac, /inline-size: min\(100% - 2 \* var\(--almanac-gutter, 1\.25rem\), 44em\);\n {2}margin-inline: auto;\n {2}padding-block: var\(--space-xl\) var\(--space-2xl\);\n {2}color: var\(--color-ink\);\n {2}font-size: 1\.125rem;/);
+  assert.match(almanac, /--almanac-gutter: 1\.25rem;/);
+  assert.match(almanac, /@media \(min-width: 40rem\) \{\n {2}\.almanac \{ --almanac-gutter: 1\.75rem; \}/);
   assert.match(almanac, /\.almanac-grid \{ display: grid; grid-template-columns: minmax\(0, 1fr\); gap: var\(--space-lg\); \}/);
+  assert.match(almanac, /@media \(min-width: 40rem\) \{\n {2}\.almanac-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(almanac, /@media \(min-width: 64rem\) \{\n {2}\.almanac-grid \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
   assert.equal(ALMANAC_SIZES.article, '(min-width: 53rem) 49.5rem, (min-width: 40rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
   assert.equal(ALMANAC_SIZES.card, '(min-width: 79.5rem) 24.34rem, (min-width: 64rem) calc((100vw - 6.5rem) / 3), (min-width: 40rem) calc((100vw - 5rem) / 2), calc(100vw - 2.5rem)');

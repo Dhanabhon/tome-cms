@@ -55,7 +55,18 @@ export default function wireLightbox(mount: HTMLElement): void {
       shown.removeAttribute('width');
       shown.removeAttribute('height');
     }
-    shown.src = image.currentSrc || image.src;
+    // A picture drawn from a copy the width of its column is shown full size from the copy that
+    // fits the screen: the browser chooses again, from the same copies and the original, for a
+    // dialog as wide as the window. One with no copies is shown from what the page loaded.
+    if (image.srcset) {
+      shown.sizes = '100vw';
+      shown.srcset = image.srcset;
+      shown.src = image.src;
+    } else {
+      shown.removeAttribute('srcset');
+      shown.removeAttribute('sizes');
+      shown.src = image.currentSrc || image.src;
+    }
     shown.alt = image.alt;
     dialog.showModal();
     close.focus();

@@ -640,10 +640,11 @@ test('a post\'s cover and its body picture are drawn from the copy that fits, in
   const { sql: query } = await import('kysely');
   const { db } = await import('../../src/server/db/client');
   const { ALMANAC_SIZES, PAPER_SIZES, PLAIN_SIZES } = await import('../../src/lib/responsive-image');
-  const { rows: [{ id }] } = await query<{ id: string }>`select id from media_items limit 1`.execute(db);
+  const { rows: [{ id }] } = await query<{ id: string }>`select id from media_items order by created_at limit 1`.execute(db);
   // The cover every post has is 1600 wide: its copies are the two narrower widths.
   await query`insert into media_variants (media_id, width, object_key, size_bytes)
-    values (${id}::uuid, 480, 'seed/cover-480.webp', 10), (${id}::uuid, 960, 'seed/cover-960.webp', 10)`.execute(db);
+    values (${id}::uuid, 480, 'seed/cover-480.webp', 10), (${id}::uuid, 960, 'seed/cover-960.webp', 10)
+    on conflict do nothing`.execute(db);
   const content = { type: 'doc', content: [
     { type: 'paragraph', content: [{ type: 'text', text: 'Before the picture.' }] },
     { type: 'image', attrs: { alt: 'A loaf', mediaId: id, src: `/media/${id}` } },
