@@ -51,7 +51,7 @@
   padding-block-end: var(--space-sm);
   border-block-end: var(--rule-hair) solid var(--color-rule);
 }
-.admin-shell-site__name { min-width: 0; overflow: hidden; font-weight: 600; font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell-site__name { flex: 1 1 0; min-width: 0; overflow: hidden; font-weight: 600; font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
 .admin-shell-site__view { display: grid; flex: 0 0 auto; place-items: center; width: 2rem; height: 2rem; border-radius: var(--radius-sm); color: var(--color-muted); }
 /* A fact about the site under its name, on a line of its own: muted like the dateline it sits in,
  * not a warning. It links to the switch, which is where the owner goes to turn it off. */

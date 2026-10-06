@@ -47,6 +47,8 @@ The request is a `noindex` on each page, and on the feed, the sitemap and the co
 
 Files from [the file library](/tome-cms/admin/file-library/) are served from the media host, not by the site, and do not carry the request. To actually close the site to visitors, use [Maintenance mode](/tome-cms/running/maintenance/).
 
+The pages, the feed and the sitemap change as soon as you save. The content API's answers may be kept by a CDN for a few more minutes. In [headless mode](/tome-cms/running/modes/) the site draws no pages of its own, so the switch reaches only the content API: the frontend you build has to ask crawlers not to list its pages itself.
+
 Press "Save". When you change the site name, the language, the time zone or this switch, the admin reloads so the change shows everywhere at once. Otherwise it says "Saved."
 
 ## Profile
