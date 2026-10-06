@@ -47,6 +47,7 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }
 
+const NAME_TAKEN = () => new HttpError(409, 'That Category name is already in use.', { code: 'name_taken' });
 const SLUG_TAKEN = () => new HttpError(409, 'That Category address is already in use.', { code: 'slug_taken' });
 
 /** The unique violation was the address's, not the name's. */
@@ -199,7 +200,7 @@ export async function createCategory(ownerId: string, requestedName: string): Pr
     });
     return category(row);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new HttpError(409, 'That Category name is already in use.');
+    if (isUniqueViolation(error)) throw NAME_TAKEN();
     throw error;
   }
 }
@@ -241,7 +242,7 @@ export async function updateCategory(ownerId: string, id: string, input: Categor
     return category(row);
   } catch (error) {
     if (isSlugViolation(error)) throw SLUG_TAKEN();
-    if (isUniqueViolation(error)) throw new HttpError(409, 'That Category name is already in use.');
+    if (isUniqueViolation(error)) throw NAME_TAKEN();
     throw error;
   }
 }

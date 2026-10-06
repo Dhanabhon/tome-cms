@@ -195,4 +195,20 @@ test('a category gets an address from its name, keeps it through a rename, and t
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit Quiet Mornings' })).toBeFocused();
 
+  // A Thai site's admin says it all in Thai, the server's refusals included.
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  await sql`update site_settings set default_locale = 'th'`.execute(db);
+  try {
+    await page.reload();
+    await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+    await page.locator('#category-name').fill('Food');
+    await page.getByRole('button', { name: 'สร้างหมวดหมู่' }).click();
+    await expect(page.locator('.category-manager [role="alert"]')).toHaveText('มีหมวดหมู่อื่นใช้ชื่อนี้แล้ว');
+    await page.locator('#category-name').fill('Tea');
+    await page.getByRole('button', { name: 'สร้างหมวดหมู่' }).click();
+    await expect(page.locator('.category-status')).toHaveText('สร้างหมวดหมู่ “Tea” แล้ว');
+  } finally {
+    await sql`update site_settings set default_locale = 'en'`.execute(db);
+  }
 });

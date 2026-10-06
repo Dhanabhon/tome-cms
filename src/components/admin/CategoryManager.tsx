@@ -77,19 +77,20 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
     startAction(actionId);
     setError('');
     setNameMissing(null);
-    setLiveStatus(`Creating “${name}”…`);
+    setLiveStatus(fill(copy.categories.creating, { name }));
     try {
       const response = await atLeast(fetch('/api/admin/categories', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name }),
       }));
-      const body = await response.json().catch(() => null) as { category?: PostCategorySummary; error?: string } | null;
+      const body = await response.json().catch(() => null) as { category?: PostCategorySummary; code?: string; error?: string } | null;
+      if (body?.code === 'name_taken') throw new Error(copy.categories.nameTaken);
       if (!response.ok || !body?.category) throw new Error(body?.error || copy.categories.createFailed);
       categoryRevision.current += 1;
       setCategories((current) => sortCategories([...current, body.category!]));
       setCreateName((current) => current === createName ? '' : current);
-      setLiveStatus(`Category “${body.category.name}” created.`);
+      setLiveStatus(fill(copy.categories.created, { name: body.category.name }));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : copy.categories.createFailed);
       setLiveStatus('');
@@ -135,6 +136,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
         requestAnimationFrame(() => slugField.current?.focus());
         return;
       }
+      if (body?.code === 'name_taken') throw new Error(copy.categories.nameTaken);
       if (!response.ok || !body?.category) throw new Error(body?.error || copy.categories.updateFailed);
       categoryRevision.current += 1;
       setCategories((current) => sortCategories(current.map((category) => (
