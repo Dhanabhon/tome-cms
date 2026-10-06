@@ -42,7 +42,7 @@ import { contentDisposition } from './disposition';
 import { documentRefusal, isTextDocument, readDocument, type DocumentRefusal } from './document';
 import { detectImageType, inspectImage } from './image';
 import { createObjectKey } from './keys';
-import { s3, s3Bucket, s3Presign } from './storage';
+import { isNotFound, s3, s3Bucket, s3Presign, storageErrorCode } from './storage';
 import { stableMediaPath } from './url';
 import { queueVariants } from './variants';
 
@@ -185,12 +185,6 @@ async function headUploadedObject(objectKey: string): Promise<HeadObjectCommandO
       await new Promise((resolve) => setTimeout(resolve, attempt * 200));
     }
   }
-}
-
-function isNotFound(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  const candidate = error as { name?: unknown; $metadata?: { httpStatusCode?: unknown } };
-  return candidate.name === 'NoSuchKey' || candidate.name === 'NotFound' || candidate.$metadata?.httpStatusCode === 404;
 }
 
 async function readObjectBody(body: GetObjectCommandOutput['Body'], maximum: number, objectKey: string): Promise<Buffer> {
@@ -701,11 +695,6 @@ function referenceCount(references: MediaReferences): number {
 function storageStatus(error: unknown): number | 'no status' {
   const status = (error as { $metadata?: { httpStatusCode?: unknown } } | null)?.$metadata?.httpStatusCode;
   return typeof status === 'number' ? status : 'no status';
-}
-
-function storageErrorCode(error: unknown): string {
-  if (typeof error !== 'object' || error === null || !('name' in error) || typeof error.name !== 'string') return 'StorageError';
-  return /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(error.name) ? error.name : 'StorageError';
 }
 
 export async function deleteMedia(ownerId: string, id: string): Promise<void> {

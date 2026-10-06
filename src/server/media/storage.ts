@@ -33,3 +33,16 @@ const client = (endpoint: string) => new S3Client({
 export const s3 = client(endpoints.server);
 /** Only for `getSignedUrl`: the URL it signs is the one the browser uses. */
 export const s3Presign = client(endpoints.presign);
+
+/** A missing object: what a read of something already deleted answers. */
+export function isNotFound(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as { name?: unknown; $metadata?: { httpStatusCode?: unknown } };
+  return candidate.name === 'NoSuchKey' || candidate.name === 'NotFound' || candidate.$metadata?.httpStatusCode === 404;
+}
+
+/** An error's name when it is a plain code, safe for a log: never its message, keys or secrets. */
+export function storageErrorCode(error: unknown): string {
+  if (typeof error !== 'object' || error === null || !('name' in error) || typeof error.name !== 'string') return 'StorageError';
+  return /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(error.name) ? error.name : 'StorageError';
+}

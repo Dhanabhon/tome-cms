@@ -96,7 +96,7 @@ test('an image keeps smaller copies for as long as it is kept itself', async (co
   }
   assert.equal((await db.selectFrom('media_items').select('state').where('id', '=', failed.id).executeTakeFirstOrThrow()).state, 'ready');
   assert.deepEqual(await variantsOf(failed.id), []);
-  assert.deepEqual(logged, [['Image variants could not be made.', { mediaId: failed.id }]]);
+  assert.deepEqual(logged, [['Image variants could not be made.', { mediaId: failed.id, error: 'ServiceUnavailable' }]]);
   assert.equal(putKeys.length, 2);
   for (const key of putKeys) assert.equal(await head(key), null, 'a half-made set of copies is not left behind');
 

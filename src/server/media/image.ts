@@ -23,8 +23,9 @@ export async function inspectImage(
 ): Promise<{ height: number; width: number }> {
   if (detectImageType(buffer) !== expectedType) throw new Error('The uploaded bytes do not match the selected image type.');
   const metadata = await sharp(buffer, { animated: true, failOn: 'error', limitInputPixels: MAX_PIXELS }).metadata();
-  const width = metadata.width ?? 0;
-  const height = metadata.pageHeight ?? metadata.height ?? 0;
+  // Measured the way it is seen: EXIF orientation 5–8 turns the stored pixels a quarter turn.
+  const stored = { height: metadata.pageHeight ?? metadata.height ?? 0, width: metadata.width ?? 0 };
+  const { height, width } = (metadata.orientation ?? 1) >= 5 ? { height: stored.width, width: stored.height } : stored;
   if (!width || !height || width * height > MAX_PIXELS) throw new Error('The uploaded image dimensions are invalid.');
   return { height, width };
 }
@@ -32,6 +33,11 @@ export async function inspectImage(
 /** The widths a picture is also kept at, for a page to draw the copy that fits. */
 export const VARIANT_WIDTHS = [480, 960, 1600] as const;
 export type VariantWidth = (typeof VARIANT_WIDTHS)[number];
+
+/** The copy a `?w=` asks for: exactly one of the widths, written plainly, or none. */
+export function variantWidth(value: string | null): VariantWidth | null {
+  return VARIANT_WIDTHS.find((width) => String(width) === value) ?? null;
+}
 
 /**
  * The smaller copies of a picture: WebP, turned the way it was taken, with its metadata left
