@@ -22,6 +22,31 @@ export function organizationSchema(name: string, siteUrl: URL, brand: Pick<SiteB
   };
 }
 
+/**
+ * The way from a post or a page back to the home page of its language, for a search result to
+ * show above the title. Two steps: categories have no address of their own to stand between.
+ * The home page is where the trail starts, so it carries none, nor does a page that is missing;
+ * and a page asking not to be listed carries no structured data at all.
+ */
+export function breadcrumbList({ homeName, homeUrl, name, robots, type, url }: {
+  homeName: string;
+  homeUrl: string;
+  name: string;
+  robots: string;
+  type: 'article' | 'page' | 'website';
+  url: string;
+}): Record<string, unknown> | undefined {
+  if (type === 'website' || robots.includes('noindex')) return undefined;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', item: homeUrl, name: homeName, position: 1 },
+      { '@type': 'ListItem', item: url, name, position: 2 },
+    ],
+  };
+}
+
 export interface OpenGraphImage { alt: string; height?: number; url: string; width?: number }
 
 /**

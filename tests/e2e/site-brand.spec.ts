@@ -351,4 +351,19 @@ test('a share image uploaded in Settings is what a page without a cover shows wh
     await expect(page.locator('meta[property="og:image:alt"]'), path).toHaveAttribute('content', 'Brand Test');
     await expect(page.locator('meta[name="twitter:card"]'), path).toHaveAttribute('content', 'summary_large_image');
   }
+
+  // The page also carries the way back to its language's home page; the home page carries none.
+  const trails = async () => (await page.locator('script[type="application/ld+json"]').allTextContents())
+    .map((text) => JSON.parse(text) as { '@type': string; itemListElement?: unknown })
+    .filter((data) => data['@type'] === 'BreadcrumbList');
+  expect(await trails(), 'the home page').toEqual([]);
+  await page.goto(`${origin}/en/about-share`);
+  expect(await trails()).toEqual([{
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', item: `${origin}/en`, name: 'Brand Test', position: 1 },
+      { '@type': 'ListItem', item: `${origin}/en/about-share`, name: 'About', position: 2 },
+    ],
+  }]);
 });

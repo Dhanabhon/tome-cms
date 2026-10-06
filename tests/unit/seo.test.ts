@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { documentTitle, getPublicSiteUrl, openGraphImage } from '../../src/lib/seo';
+import { breadcrumbList, documentTitle, getPublicSiteUrl, openGraphImage } from '../../src/lib/seo';
 
 test('public URLs prefer the configured canonical origin', () => {
   const previous = process.env.TOME_CMS_PUBLIC_URL;
@@ -51,7 +51,31 @@ test('the layout hands the owner\'s logo and profile links to the structured dat
 });
 
 test('structured data cannot close its script tag', () => {
-  assert.match(route('src/components/blog/SEOHead.astro'), /JSON\.stringify\(structuredData\)\.replaceAll\('<', '\\\\u003c'\)/);
+  assert.match(route('src/components/blog/SEOHead.astro'), /JSON\.stringify\(item\)\.replaceAll\('<', '\\\\u003c'\)/);
+});
+
+test('a post and a page carry the way back to their language\'s home page', () => {
+  const crumbs = (type: 'article' | 'page' | 'website', robots = 'index, follow') => breadcrumbList({
+    homeName: 'Site', homeUrl: 'https://example.com/th', name: 'บทความ', robots, type, url: 'https://example.com/th/blog/a-post',
+  });
+  const expected = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', item: 'https://example.com/th', name: 'Site', position: 1 },
+      { '@type': 'ListItem', item: 'https://example.com/th/blog/a-post', name: 'บทความ', position: 2 },
+    ],
+  };
+  assert.deepEqual(crumbs('article'), expected);
+  assert.deepEqual(crumbs('page'), expected);
+  assert.equal(crumbs('website'), undefined, 'the home page is where the trail starts, and a missing page has none');
+  assert.equal(crumbs('article', 'noindex, nofollow'), undefined, 'a site kept out of search results gives no structured data');
+});
+
+test('the layout hands the breadcrumbs to the head beside the page\'s own structured data', () => {
+  const layout = route('src/layouts/BaseLayout.astro');
+  assert.match(layout, /breadcrumbList\(\{/);
+  assert.match(layout, /homeUrl: new URL\(localePath\(locale\), siteUrl\)\.toString\(\)/);
 });
 
 test('a shared page shows its own cover, then the site\'s share image, then nothing', () => {

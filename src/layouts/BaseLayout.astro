@@ -7,12 +7,12 @@ import VideoScript from '../components/VideoScript.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
-import { documentTitle, getPublicSiteUrl, openGraphImage, organizationSchema, personSchema } from '../lib/seo';
+import { breadcrumbList, documentTitle, getPublicSiteUrl, openGraphImage, organizationSchema, personSchema } from '../lib/seo';
 import { HIDDEN_FROM_SEARCH } from '../lib/search-visibility';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
 import { publicAdditions } from '../server/plugins/public';
-import { publicCopy } from '../lib/i18n';
+import { localePath, publicCopy } from '../lib/i18n';
 import type { CountedPage } from '../lib/stats';
 import { getSiteSettings } from '../server/content/settings';
 import { normalizeTheme, themeAttribute } from '../lib/theme';
@@ -133,7 +133,7 @@ const seoAlternates: AlternateLink[] = [
     ? [{ href: new URL(xDefaultHref, siteUrl).toString(), hreflang: 'x-default' as const }]
     : []),
 ];
-const structuredData = robots.includes('noindex')
+const pageData = robots.includes('noindex')
   ? undefined
   : type === 'article'
     ? {
@@ -171,6 +171,15 @@ const structuredData = robots.includes('noindex')
         publisher,
         url: homeUrl,
       };
+const breadcrumbs = breadcrumbList({
+  homeName: siteName,
+  homeUrl: new URL(localePath(locale), siteUrl).toString(),
+  name: headline ?? title,
+  robots,
+  type,
+  url: canonical,
+});
+const structuredData = [pageData, breadcrumbs].filter((item) => item !== undefined);
 ---
 
 <!doctype html>

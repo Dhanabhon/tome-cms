@@ -21,7 +21,8 @@ interface Props {
   publishedTime?: string | null;
   robots?: string;
   siteName?: string;
-  structuredData?: Record<string, unknown>;
+  /** Each written as a script of its own. */
+  structuredData?: Record<string, unknown>[];
   type?: 'article' | 'page' | 'website';
   alternates?: AlternateLink[];
 }
@@ -42,7 +43,7 @@ const {
   title,
   type = 'website',
 } = Astro.props;
-const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '\\u003c') : null;
+const jsonLd = (structuredData ?? []).map((item) => JSON.stringify(item).replaceAll('<', '\\u003c'));
 ---
 
 <title>{title}</title>
@@ -70,4 +71,4 @@ const jsonLd = structuredData ? JSON.stringify(structuredData).replaceAll('<', '
 <meta name="twitter:description" content={description} />
 {image && <meta name="twitter:image" content={image.url} />}
 {image?.alt && <meta name="twitter:image:alt" content={image.alt} />}
-{jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd}></script>}
+{jsonLd.map((item) => <script is:inline type="application/ld+json" set:html={item}></script>)}
