@@ -6,12 +6,14 @@ import { db } from '../db/client';
 import { getServerEnv } from '../env';
 import { rateLimitKey, type SenderAddress } from '../http/sender-address';
 
-export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-authorize' | 'oauth-token';
+export type RateLimitAction = 'install' | 'signin' | 'recovery' | 'device-link' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-authorize' | 'oauth-token';
 
 const limits: Record<RateLimitAction, { attempts: number; windowSeconds: number }> = {
   install: { attempts: 8, windowSeconds: 15 * 60 },
   signin: { attempts: 10, windowSeconds: 15 * 60 },
   recovery: { attempts: 5, windowSeconds: 30 * 60 },
+  // As many as sign-ins: each link already needs a passkey sign-in, and a new link spends the last.
+  'device-link': { attempts: 10, windowSeconds: 15 * 60 },
   'update-check': { attempts: 6, windowSeconds: 10 * 60 },
   'update-apply': { attempts: 3, windowSeconds: 30 * 60 },
   'oauth-register': { attempts: 10, windowSeconds: 60 * 60 },

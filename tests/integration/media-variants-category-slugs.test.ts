@@ -68,8 +68,17 @@ test('category slugs are filled from names and media variants are stored per wid
   await db.deleteFrom('media_items').where('id', '=', media.id).execute();
   assert.equal((await db.selectFrom('media_variants').select('media_id').execute()).length, 0);
 
+  // Making a device link has a rate-limit action of its own.
+  const rateRow = (action: string) => ({
+    key_hash: randomUUID(), action: action as never, window_started_at: new Date(), attempts: 1,
+  });
+  await db.insertInto('security_rate_limits').values(rateRow('device-link')).execute();
+  await assert.rejects(db.insertInto('security_rate_limits').values(rateRow('no-such-action')).execute(), { code: '23514' });
+
   // Down removes both, and up puts them back with the same slugs.
   assert.ifError((await migrator.migrateTo('032_share_image_and_descriptions')).error);
+  assert.equal((await sql<{ n: number }>`select count(*)::int as n from security_rate_limits where action = 'device-link'`.execute(db)).rows[0]?.n, 0);
+  await assert.rejects(db.insertInto('security_rate_limits').values(rateRow('device-link')).execute(), { code: '23514' });
   assert.equal((await sql<{ n: number }>`select count(*)::int as n from information_schema.columns
     where table_name = 'categories' and column_name in ('slug', 'description_th', 'description_en')`.execute(db)).rows[0]?.n, 0);
   assert.equal((await sql<{ n: number }>`select count(*)::int as n from information_schema.tables

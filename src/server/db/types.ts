@@ -148,7 +148,7 @@ export interface PluginSettingsTable {
 
 export interface SecurityRateLimitTable {
   key_hash: string;
-  action: 'install' | 'signin' | 'recovery' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-authorize' | 'oauth-token';
+  action: 'install' | 'signin' | 'recovery' | 'device-link' | 'update-check' | 'update-apply' | 'oauth-register' | 'oauth-authorize' | 'oauth-token';
   window_started_at: RequiredTimestamp;
   attempts: number;
 }

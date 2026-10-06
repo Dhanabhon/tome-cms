@@ -21,7 +21,8 @@ function problem(request: Request, status: number, title: string, detail: string
 
 async function mutationGuard(request: Request, clientAddress: string): Promise<void> {
   assertSameOrigin(request, configuredOrigin);
-  await enforceRateLimit('signin', senderAddress(request, clientAddress));
+  // A budget of its own, so making links does not use up the owner's sign-ins.
+  await enforceRateLimit('device-link', senderAddress(request, clientAddress));
 }
 
 function handleError(request: Request, error: unknown, requestId: string): Response {

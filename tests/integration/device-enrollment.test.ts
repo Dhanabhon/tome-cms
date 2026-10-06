@@ -160,6 +160,22 @@ test('a device link is stored, issued, cancelled and consumed only for the insta
     }),
     clientAddress: '127.0.0.21',
   } as Parameters<typeof POST>[0]);
+  // A link draws on a budget of its own: an owner who has used up sign-ins can still make one,
+  // and making links does not use up their sign-ins.
+  const { enforceRateLimit, RateLimitExceededError } = await import('../../src/server/auth/rate-limit');
+  type Sender = Parameters<typeof enforceRateLimit>[1];
+  const linkSender = '127.0.0.21' as Sender;
+  const exhaust = async (action: Parameters<typeof enforceRateLimit>[0]) => {
+    for (;;) {
+      try {
+        await enforceRateLimit(action, linkSender);
+      } catch (error) {
+        if (error instanceof RateLimitExceededError) return;
+        throw error;
+      }
+    }
+  };
+  await exhaust('signin');
   const created = await callLink('POST', POST);
   assert.equal(created.status, 200);
   assert.equal(created.headers.get('Cache-Control'), 'no-store');
@@ -178,6 +194,10 @@ test('a device link is stored, issued, cancelled and consumed only for the insta
   assert.equal(stale.status, 403, 'a stale session creates no link');
   assert.equal(stale.headers.get('Content-Type'), 'application/problem+json');
   assert.equal((await authorizeEnrollmentContext(linkContext)).purpose, 'device', 'a refused request spends nothing');
+  await exhaust('device-link');
+  const limited = await callLink('POST', POST);
+  assert.equal(limited.status, 429, 'links have a limit of their own');
+  assert.ok(Number(limited.headers.get('Retry-After')) > 0);
   const cancelled = await callLink('DELETE', DELETE);
   assert.equal(cancelled.status, 200);
   assert.deepEqual(await cancelled.json(), { cancelled: true });

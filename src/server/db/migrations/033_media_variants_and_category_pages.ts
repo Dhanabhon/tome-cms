@@ -4,7 +4,8 @@ import { contentSlug, SLUG_LENGTH } from '../../../lib/slug';
 import type { Database } from '../types';
 
 /**
- * Smaller copies of an image, and an address and a description for each category.
+ * Smaller copies of an image, and an address and a description for each category; and a
+ * rate-limit action of its own for making a device link.
  *
  * A variant is its own object and row beside the original, which keeps its key and size: a site
  * taken back to 1.19 still serves every image it had. The widths are the three the site makes.
@@ -74,9 +75,19 @@ export async function up(db: Kysely<Database>): Promise<void> {
     create trigger categories_slug_fallback before insert on categories
       for each row execute function tomecms_category_slug_fallback();
   `.execute(db);
+
+  await db.schema.alterTable('security_rate_limits').dropConstraint('security_rate_limits_action').execute();
+  await db.schema.alterTable('security_rate_limits')
+    .addCheckConstraint('security_rate_limits_action', sql`action in ('install', 'signin', 'recovery', 'device-link', 'update-check', 'update-apply', 'oauth-register', 'oauth-authorize', 'oauth-token')`)
+    .execute();
 }
 
 export async function down(db: Kysely<Database>): Promise<void> {
+  await db.deleteFrom('security_rate_limits').where('action', '=', 'device-link').execute();
+  await db.schema.alterTable('security_rate_limits').dropConstraint('security_rate_limits_action').execute();
+  await db.schema.alterTable('security_rate_limits')
+    .addCheckConstraint('security_rate_limits_action', sql`action in ('install', 'signin', 'recovery', 'update-check', 'update-apply', 'oauth-register', 'oauth-authorize', 'oauth-token')`)
+    .execute();
   await sql`
     drop trigger categories_slug_fallback on categories;
     drop function tomecms_category_slug_fallback();
