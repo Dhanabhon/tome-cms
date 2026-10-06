@@ -23,7 +23,7 @@ npm ci
 ถ้าเตรียมเซิร์ฟเวอร์ด้วยวิธีอื่น ให้ clone tag ของ release ไว้ที่นั่นก่อน
 
 ```sh
-git clone --depth 1 --branch v1.17.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.17.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 ```
 
 ใช้เวอร์ชันล่าสุดจาก[หน้า Releases](https://github.com/Dhanabhon/tome-cms/releases) ทั้งที่นี่และในคำสั่งด้านล่าง ตัวติดตั้งทำงานได้เฉพาะจากโค้ดที่ checkout ไว้ตรง tag นั้นพอดีและไม่มีอะไรถูกแก้ และ build ตัวอัปเดตด้วย package ที่ `npm ci` ติดตั้งไว้ อย่าลบโฟลเดอร์นี้ทิ้ง เพราะการตรวจการกู้คืนในหน้า[สำรองและกู้คืนข้อมูล](/tome-cms/th/running/backups/) รันจากโค้ดที่ checkout ไว้ที่ release เดียวกัน
@@ -43,11 +43,11 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ลองด้วย `--dry-run` ก่อน แล้วจึงติดตั้งจริง
 
 ```sh
-./scripts/install-managed-vps.sh --dry-run --version 1.17.0
-./scripts/install-managed-vps.sh --version 1.17.0
+./scripts/install-managed-vps.sh --dry-run --version 1.17.1
+./scripts/install-managed-vps.sh --version 1.17.1
 ```
 
-ถ้ารันจากบัญชีธรรมดา ให้ส่งที่อยู่ทั้งสามผ่าน `sudo` ไปด้วยคำสั่ง `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.17.0`
+ถ้ารันจากบัญชีธรรมดา ให้ส่งที่อยู่ทั้งสามผ่าน `sudo` ไปด้วยคำสั่ง `sudo --preserve-env=TOME_CMS_PUBLIC_URL,S3_ENDPOINT,MEDIA_PUBLIC_URL ./scripts/install-managed-vps.sh --version 1.17.1`
 
 ตัวติดตั้งทำงานตามลำดับนี้ และหยุดทันทีที่ขั้นไหนไม่ผ่าน
 
@@ -66,7 +66,7 @@ export MEDIA_PUBLIC_URL=https://media.example.com/tomecms-media/
 ```text
 Installer: https://cms.example.com/install
 Installation token: sudo grep '^TOME_CMS_INSTALL_TOKEN=' /etc/tome-cms/tome-cms.env
-Current version: 1.17.0
+Current version: 1.17.1
 Backups: /var/backups/tome-cms
 ```
 
