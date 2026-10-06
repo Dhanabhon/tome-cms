@@ -213,7 +213,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
   return (
     <div className="category-manager" aria-busy={pendingActionIds.size > 0}>
       <p className="category-status" role="status" aria-live="polite">{liveStatus}</p>
-      {error && <p className="admin-alert" role="alert">{error}</p>}
+      {error && <p className="admin-alert" id="category-error" role="alert">{error}</p>}
 
       <div className="category-frame">
         <form className="category-create" noValidate onSubmit={createCategory}>
@@ -260,24 +260,29 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                           value={edit.name}
                         />
                       </label>
-                      <label className="admin-field">
-                        <span>{copy.categories.slugLabel}</span>
-                        <input
-                          aria-invalid={nameMissing === 'slug' || undefined}
-                          autoCapitalize="none"
-                          className="admin-control"
-                          disabled={pendingActionIds.has(renameAction)}
-                          maxLength={160}
-                          onChange={(event) => changeEdit({ slug: event.target.value }, 'slug')}
-                          ref={slugField}
-                          spellCheck={false}
-                          value={edit.slug}
-                        />
-                        <small>{copy.categories.slugHint}</small>
-                      </label>
+                      {/* Hints sit outside the labels, so a field is named by its label alone and described by its hint. */}
+                      <div className="admin-field">
+                        <label className="admin-field">
+                          <span>{copy.categories.slugLabel}</span>
+                          <input
+                            aria-describedby={nameMissing === 'slug' ? 'category-slug-hint category-error' : 'category-slug-hint'}
+                            aria-invalid={nameMissing === 'slug' || undefined}
+                            autoCapitalize="none"
+                            className="admin-control"
+                            disabled={pendingActionIds.has(renameAction)}
+                            maxLength={160}
+                            onChange={(event) => changeEdit({ slug: event.target.value }, 'slug')}
+                            ref={slugField}
+                            spellCheck={false}
+                            value={edit.slug}
+                          />
+                        </label>
+                        <small id="category-slug-hint">{copy.categories.slugHint}</small>
+                      </div>
                       <label className="admin-field">
                         <span>{copy.categories.descriptionTh} <small>{edit.descriptionTh.length}/{DESCRIPTION_LENGTH}</small></span>
                         <textarea
+                          aria-describedby="category-description-hint"
                           className="admin-control admin-control--textarea"
                           disabled={pendingActionIds.has(renameAction)}
                           lang="th"
@@ -286,18 +291,21 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                           value={edit.descriptionTh}
                         />
                       </label>
-                      <label className="admin-field">
-                        <span>{copy.categories.descriptionEn} <small>{edit.descriptionEn.length}/{DESCRIPTION_LENGTH}</small></span>
-                        <textarea
-                          className="admin-control admin-control--textarea"
-                          disabled={pendingActionIds.has(renameAction)}
-                          lang="en"
-                          maxLength={DESCRIPTION_LENGTH}
-                          onChange={(event) => changeEdit({ descriptionEn: event.target.value })}
-                          value={edit.descriptionEn}
-                        />
-                        <small>{copy.categories.descriptionHint}</small>
-                      </label>
+                      <div className="admin-field">
+                        <label className="admin-field">
+                          <span>{copy.categories.descriptionEn} <small>{edit.descriptionEn.length}/{DESCRIPTION_LENGTH}</small></span>
+                          <textarea
+                            aria-describedby="category-description-hint"
+                            className="admin-control admin-control--textarea"
+                            disabled={pendingActionIds.has(renameAction)}
+                            lang="en"
+                            maxLength={DESCRIPTION_LENGTH}
+                            onChange={(event) => changeEdit({ descriptionEn: event.target.value })}
+                            value={edit.descriptionEn}
+                          />
+                        </label>
+                        <small id="category-description-hint">{copy.categories.descriptionHint}</small>
+                      </div>
                     </div>
                     <div className="category-edit-actions">
                       <button aria-busy={pendingActionIds.has(renameAction)} className="admin-button admin-button--secondary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>

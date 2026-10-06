@@ -154,9 +154,12 @@ test('a category gets an address from its name, keeps it through a rename, and t
   await expect(page.locator('.category-manager [role="alert"]')).toHaveText('Another category uses this URL name.');
   await expect(slug).toHaveAttribute('aria-invalid', 'true');
   await expect(slug).toBeFocused();
+  // The error is the field's: a screen reader reads it with the field, beside the hint.
+  await expect(slug).toHaveAccessibleDescription(/Another category uses this URL name\./);
   await slug.pressSequentially('-and-drink');
   await expect(slug).not.toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('.category-manager [role="alert"]')).toHaveCount(0);
+  await expect(slug).not.toHaveAccessibleDescription(/Another category/);
 
   // So is one that is not an address.
   await slug.fill('Quiet Mornings');
@@ -168,6 +171,12 @@ test('a category gets an address from its name, keeps it through a rename, and t
   await slug.fill('เช้า-ช้า');
   const thai = page.getByRole('textbox', { name: /Description \(Thai\)/ });
   const english = page.getByRole('textbox', { name: /Description \(English\)/ });
+  // Each field is named by its label alone; what helps fill it in is its description.
+  await expect(slug).toHaveAccessibleName('URL name');
+  await expect(slug).toHaveAccessibleDescription(/^The end of the category page’s URL/);
+  for (const description of [thai, english]) {
+    await expect(description).toHaveAccessibleDescription('Shown on the category page and in search results. Optional.');
+  }
   await thai.fill('เรื่องเล่าตอนเช้า');
   await expect(page.locator('.category-edit label').filter({ has: thai })).toContainText('17/160');
   await english.fill('x'.repeat(170));
@@ -185,4 +194,5 @@ test('a category gets an address from its name, keeps it through a rename, and t
   await expect(english).toHaveValue('Stories for a slow start.');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit Quiet Mornings' })).toBeFocused();
+
 });
