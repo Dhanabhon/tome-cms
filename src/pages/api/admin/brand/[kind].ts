@@ -7,7 +7,7 @@ import { requireInstalledOwner } from '../../../../server/auth/session';
 import { removeBrandImage, storeBrandImage } from '../../../../server/content/brand';
 import { getServerEnv } from '../../../../server/env';
 import { adminErrorResponse, HttpError } from '../../../../server/http/errors';
-import { BRAND_KINDS, MAX_BRAND_BYTES, type BrandKind } from '../../../../server/media/brand-image';
+import { BRAND_KINDS, maxBrandBytes, tooLargeMessage, type BrandKind } from '../../../../server/media/brand-image';
 
 const configuredOrigin = new URL(getServerEnv().TOME_CMS_PUBLIC_URL).origin;
 const headers = (requestId: string) => ({ 'Cache-Control': 'no-store', 'X-Request-ID': requestId });
@@ -27,11 +27,12 @@ function kindOf(value: string | undefined): BrandKind {
   return value as BrandKind;
 }
 
-/** The body, read no further than a brand file may weigh. */
-async function readFile(request: Request): Promise<Buffer> {
-  const tooLarge = () => new HttpError(413, 'The file is larger than 1 MB.', { code: 'brand_too_large' });
+/** The body, read no further than a file of this kind may weigh. */
+async function readFile(request: Request, kind: BrandKind): Promise<Buffer> {
+  const limit = maxBrandBytes(kind);
+  const tooLarge = () => new HttpError(413, tooLargeMessage(kind), { code: 'brand_too_large' });
   const declared = Number(request.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > MAX_BRAND_BYTES) throw tooLarge();
+  if (Number.isFinite(declared) && declared > limit) throw tooLarge();
   const reader = request.body?.getReader();
   if (!reader) throw new HttpError(415, 'Choose a file.', { code: 'brand_type' });
   const chunks: Uint8Array[] = [];
@@ -40,7 +41,7 @@ async function readFile(request: Request): Promise<Buffer> {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_BRAND_BYTES) {
+    if (size > limit) {
       await reader.cancel();
       throw tooLarge();
     }
@@ -53,7 +54,8 @@ export const POST: APIRoute = async ({ params, request }) => {
   const requestId = randomUUID();
   try {
     const current = await owner(request);
-    const result = await storeBrandImage(current.user.id, kindOf(params.kind), await readFile(request));
+    const kind = kindOf(params.kind);
+    const result = await storeBrandImage(current.user.id, kind, await readFile(request, kind));
     return Response.json(result, { headers: headers(requestId) });
   } catch (error) {
     return adminErrorResponse(error, requestId);

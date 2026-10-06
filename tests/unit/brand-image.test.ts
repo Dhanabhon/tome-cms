@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import test from 'node:test';
 
 import sharp from 'sharp';
 
 import { HttpError } from '../../src/server/http/errors';
-import { MAX_BRAND_BYTES, prepareBrandImage } from '../../src/server/media/brand-image';
+import { MAX_IMAGE_BYTES } from '../../src/lib/media';
+import { MAX_BRAND_BYTES, maxBrandBytes, prepareBrandImage } from '../../src/server/media/brand-image';
 
 const png = (width: number, height: number) =>
   sharp({ create: { background: '#2e7d5b', channels: 4, height, width } }).png().toBuffer();
@@ -91,4 +93,16 @@ test('a share image is never an SVG: the sites it is for do not draw one', async
   for (const bytes of [await blank().jpeg().toBuffer(), await blank().webp().toBuffer()]) {
     assert.equal((await prepareBrandImage('share', bytes)).kind, 'share');
   }
+});
+
+test('a share image may weigh what a picture in the library may, and the logos and icon keep their 1 MB', async () => {
+  assert.equal(maxBrandBytes('share'), MAX_IMAGE_BYTES);
+  for (const kind of ['logo', 'logo-dark', 'icon'] as const) assert.equal(maxBrandBytes(kind), MAX_BRAND_BYTES);
+  // A photograph straight off a phone is past 1 MB: noise does not compress.
+  const noise = randomBytes(1400 * 900 * 3);
+  const photo = await sharp(noise, { raw: { channels: 3, height: 900, width: 1400 } }).png().toBuffer();
+  assert.ok(photo.byteLength > MAX_BRAND_BYTES, 'the test picture is over 1 MB');
+  assert.equal((await prepareBrandImage('share', photo)).kind, 'share');
+  await refused(prepareBrandImage('logo', photo), 413, 'brand_too_large');
+  await refused(prepareBrandImage('share', Buffer.alloc(MAX_IMAGE_BYTES + 1)), 413, 'brand_too_large');
 });

@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 
+import { MAX_IMAGE_BYTES } from '../../lib/media';
 import { HttpError } from '../http/errors';
 import { detectImageType } from './image';
 import type { BrandExtension } from './keys';
@@ -8,8 +9,21 @@ import { sanitizeSvg } from './svg';
 export type BrandKind = 'logo' | 'logo-dark' | 'icon' | 'share';
 export const BRAND_KINDS: readonly BrandKind[] = ['logo', 'logo-dark', 'icon', 'share'];
 
-/** The most a brand file may weigh, before anything is done with it. */
+/** The most a logo or an icon may weigh, before anything is done with it. */
 export const MAX_BRAND_BYTES = 1024 * 1024;
+
+/**
+ * A share image is usually a photograph, straight off a phone and well past 1 MB, and it is
+ * re-encoded down to a small JPEG anyway: it may weigh what a picture in the library may.
+ */
+export function maxBrandBytes(kind: BrandKind): number {
+  return kind === 'share' ? MAX_IMAGE_BYTES : MAX_BRAND_BYTES;
+}
+
+/** What the refusal says, in megabytes, for the kind that was too heavy. */
+export function tooLargeMessage(kind: BrandKind): string {
+  return `The file is larger than ${maxBrandBytes(kind) / (1024 * 1024)} MB.`;
+}
 /** A phone's home screen draws an icon at 180 pixels; a raster one smaller would be blown up. */
 export const MIN_ICON_PIXELS = 180;
 const MAX_PIXELS = 40_000_000;
@@ -99,7 +113,7 @@ async function shareCard(source: Buffer): Promise<PreparedFile> {
  * image cropped to the card a shared link shows.
  */
 export async function prepareBrandImage(kind: BrandKind, bytes: Buffer): Promise<PreparedBrand> {
-  if (bytes.byteLength > MAX_BRAND_BYTES) throw refuse(413, 'The file is larger than 1 MB.', 'brand_too_large');
+  if (bytes.byteLength > maxBrandBytes(kind)) throw refuse(413, tooLargeMessage(kind), 'brand_too_large');
   const { size, source } = looksLikeSvg(bytes) ? await svgSource(kind, bytes) : await rasterSource(kind, bytes);
 
   if (kind === 'share') {

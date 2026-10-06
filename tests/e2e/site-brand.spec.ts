@@ -337,7 +337,10 @@ test('a share image and a description for each language, set in Settings, are wh
   const input = page.locator('input[name="brand-share"]');
   await input.setInputFiles({ buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6"/>'), mimeType: 'image/svg+xml', name: 'share.svg' });
   await expect(field.locator('[role="alert"]')).toHaveText('Use PNG, JPEG or WebP. LINE, Facebook and X do not show SVG.');
-  const photo = await sharp({ create: { background: '#2e7d5b', channels: 3, height: 1000, width: 1600 } }).png().toBuffer();
+  // A photograph past the 1 MB a logo may weigh: a share image is allowed what a library picture is.
+  const { randomBytes } = await import('node:crypto');
+  const photo = await sharp(randomBytes(1600 * 1000 * 3), { raw: { channels: 3, height: 1000, width: 1600 } }).png().toBuffer();
+  expect(photo.byteLength).toBeGreaterThan(1024 * 1024);
   await input.setInputFiles({ buffer: photo, mimeType: 'image/png', name: 'share.png' });
   await expect(field.locator('[role="status"]')).toHaveText('Saved.');
   await expect(field.locator('.brand-preview img')).toBeVisible();

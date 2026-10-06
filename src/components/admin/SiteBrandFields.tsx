@@ -32,6 +32,11 @@ const REFUSALS: Record<string, keyof AdminCopy['brand']> = {
   brand_type: 'typeRefused',
 };
 
+const SHARE_REFUSALS: Record<string, keyof AdminCopy['brand']> = {
+  brand_too_large: 'shareTooLarge',
+  brand_type: 'shareTypeRefused',
+};
+
 /**
  * The site's logo, its dark logo, its icon and its share image: each chosen, previewed where it
  * will be seen, and removed. Each applies on its own request, so there is nothing here for Save to lose.
@@ -59,8 +64,10 @@ export default function SiteBrandFields({ afterLogo, copy, initialBrand, onChang
         : { headers: { 'content-type': 'application/json' }, method: 'DELETE' }));
       const result = await response.json().catch(() => ({})) as { brand?: SiteBrand; code?: string; updatedAt?: string };
       if (!response.ok || !result.brand || !result.updatedAt) {
-        // A share image is refused as a type for being an SVG, which the general line allows.
-        const refusal = kind === 'share' && result.code === 'brand_type' ? 'shareTypeRefused' : result.code ? REFUSALS[result.code] : undefined;
+        // A share image has rules of its own: no SVG, which the general line allows, and a
+        // larger limit than the general 1 MB.
+        const refusal = (kind === 'share' && result.code ? SHARE_REFUSALS[result.code] : undefined)
+          ?? (result.code ? REFUSALS[result.code] : undefined);
         throw new Error(refusal ? copy.brand[refusal] : action === 'upload' ? copy.brand.uploadFailed : copy.brand.removeFailed);
       }
       setBrand(result.brand);

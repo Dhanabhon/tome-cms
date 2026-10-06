@@ -24,7 +24,7 @@ Open "Settings", then "General". The screen has four parts, and one "Save" butto
 
 ### Logo and icon
 
-A file here applies as soon as you choose it, without "Save", and the admin says "Saved." under it. "Remove" takes it off again. Each file can be up to 1 MB. An SVG has its unsafe parts removed first, and is refused if it cannot be drawn once they are gone.
+A file here applies as soon as you choose it, without "Save", and the admin says "Saved." under it. "Remove" takes it off again. Each file can be up to 1 MB, and the share image up to 8 MB. An SVG has its unsafe parts removed first, and is refused if it cannot be drawn once they are gone.
 
 - "Logo" goes in the site's header. Use an SVG, or a PNG at least 80 pixels tall, and JPEG and WebP are taken too. Turn any text in an SVG into outlines, because otherwise the reader's own fonts draw it.
 - "Hide the site name in the header" lets the logo stand in for the name. It needs a logo, and it is saved with "Save". The name stays in the tab, in search results and in the footer.
