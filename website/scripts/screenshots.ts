@@ -126,6 +126,9 @@ try {
     await signIn(context, page);
     const { sql } = await import('kysely');
     const { db } = await import('../../src/server/db/client');
+    // The virtual authenticator is no provider anyone has heard of, so Security would show no
+    // line saying where the passkey lives. Google's AAGUID gives it the line a real one has.
+    await sql`update passkey set aaguid = 'ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4'`.execute(db);
     for (const locale of ['en', 'th'] as const) {
       // The admin speaks the site's default language.
       await sql`update site_settings set default_locale = ${locale}`.execute(db);
@@ -186,8 +189,11 @@ async function seed(): Promise<string> {
 
   await sql`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
     values (${OWNER}, 'Somchai Writer', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
-  await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
-    values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
+  await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path,
+      site_description, site_description_en, site_description_th)
+    values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin',
+      'Short essays on making things, in English and Thai.', 'Short essays on making things, in English and Thai.',
+      'บทความสั้นว่าด้วยการลงมือทำ ทั้งภาษาไทยและอังกฤษ')`.execute(db);
   const category = await db.insertInto('categories').values({ owner_id: OWNER, name: 'Uncategorized', is_default: true })
     .returning('id').executeTakeFirstOrThrow();
 
@@ -206,6 +212,13 @@ async function seed(): Promise<string> {
     } as never).returning('id').executeTakeFirstOrThrow()).id;
   };
   const pictures = [await picture(150, 'Morning light'), await picture(30, 'Paper and ink'), await picture(210, 'A quiet street')];
+
+  // A share image, so Settings shows the card a shared link draws.
+  const { createBrandObjectKey } = await import('../../src/server/media/keys');
+  const shareSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="g" x2="1" y2="1"><stop offset="0" stop-color="hsl(150 45% 62%)"/><stop offset="1" stop-color="hsl(190 35% 30%)"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>';
+  const shareKey = createBrandObjectKey(OWNER, 'jpg');
+  await s3.send(new PutObjectCommand({ Body: await sharp(Buffer.from(shareSvg)).jpeg({ quality: 82 }).toBuffer(), Bucket: s3Bucket, ContentType: 'image/jpeg', Key: shareKey }));
+  await sql`update site_settings set brand_share = ${JSON.stringify({ height: 630, key: shareKey, mime: 'image/jpeg', width: 1200 })}::jsonb`.execute(db);
 
   const html = (text: string) => `<p>${text}</p>`;
   const post = (locale: 'en' | 'th', title: string, text: string, cover: string, status: 'draft' | 'published', publishedAt: Date | null) =>

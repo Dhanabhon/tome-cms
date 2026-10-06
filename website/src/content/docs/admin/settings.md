@@ -1,6 +1,6 @@
 ---
 title: Settings, profile and passkeys
-description: Name the site, give it a logo and an icon, choose its language and time zone, write your author profile, and look after the passkeys you sign in with.
+description: Name and describe the site, give it a logo, an icon and a share image, choose its language and time zone, write your author profile, and look after the passkeys you sign in with.
 sidebar:
   order: 7
 ---
@@ -11,7 +11,7 @@ The screens under "Configuration" hold what belongs to the site as a whole, and 
 
 Open "Settings", then "General". The screen has four parts, and one "Save" button at the bottom for all of them. While something is not saved yet, the line beside the button says "Unsaved changes".
 
-![The Settings screen with three cards. "Site identity" has "Site name" set to Quiet Notes, an empty "Tagline" and "Site description", and "Credit TomeCMS in the footer" ticked. "Logo and icon" has a "Choose a file" button each for "Logo", "Logo for the dark theme" and "Site icon", and "Hide the site name in the header" unticked. "Language and time" has "Default language" set to English and "Timezone" set to Asia/Bangkok. "Save" is at the bottom.](../../../assets/screenshots/en/settings.png)
+![The Settings screen in four parts. "Site identity" has "Site name" set to Quiet Notes, an empty "Tagline", "Site description (English)" and then "Site description (Thai)", each holding a sentence about short essays on making things, and "Credit TomeCMS in the footer" ticked. "Logo and icon" has a "Choose a file" button each for "Logo", "Logo for the dark theme" and "Site icon", with "Hide the site name in the header" unticked under the logo, and "Share image" shows a green picture in the shape of a shared link's card, with "Choose a file" and "Remove" under it. "Language and time" has "Default language" set to English and "Timezone" set to Asia/Bangkok. "Search results" has "Keep this site out of search results" unticked. "Save" is at the bottom.](../../../assets/screenshots/en/settings.png)
 
 ### Site identity
 
@@ -19,7 +19,7 @@ Open "Settings", then "General". The screen has four parts, and one "Save" butto
 | --- | --- |
 | "Site name" | The site's name, in the header, the browser tab, search results and the footer. It is required, up to 120 characters. |
 | "Tagline" | A short line on the home page, under the headline, up to 120 characters. Left empty, the site shows a line of its own in the reader's language. |
-| "Site description" | Up to 160 characters, for search results and shared links on any page without a description of its own, and for the RSS feed. |
+| "Site description (English)" and "Site description (Thai)" | One for each language, up to 160 characters each, with the site's default language first. Each language's home page uses its own, and so do search results and shared links for a page in that language without a description of its own. When one is empty, the other language's is used. The RSS feed uses the default language's. |
 | "Credit TomeCMS in the footer" | A quiet line beside the copyright. On Paper the word "TomeCMS" in it links to TomeCMS's repository, in a new tab. It is on to begin with, and turning it off changes nothing else. |
 
 ### Logo and icon
@@ -30,6 +30,7 @@ A file here applies as soon as you choose it, without "Save", and the admin says
 - "Hide the site name in the header" lets the logo stand in for the name. It needs a logo, and it is saved with "Save". The name stays in the tab, in search results and in the footer.
 - "Logo for the dark theme" is optional, and is shown in place of the logo while the site is dark. Without one, the logo is used on the dark theme as well, and the admin shows a preview of it there.
 - "Site icon" is for the browser tab and a phone's home screen. Use a square SVG or PNG, at least 512 pixels across. An icon under 180 × 180 pixels is refused.
+- "Share image" is the picture a link shows when a page without a cover is shared on LINE, Facebook or X: the home page, a page, or a post with no cover. A post's own cover still comes first. Use PNG, JPEG or WebP. An SVG is refused, because those sites do not show one. The picture is cropped from the centre to 1200 × 630 and saved as a JPEG, without the details a camera or an editor writes into the file.
 
 These files are kept apart from [the file library](/tome-cms/admin/file-library/), and are not listed there.
 
@@ -66,7 +67,7 @@ Press "Save". When you change the site name, the language, the time zone or this
 
 "Security" opens "Passkeys and recovery". TomeCMS has no password: you sign in with a passkey your device keeps. This screen is where you add a second one and replace your recovery codes, so that losing a device does not lock you out.
 
-![The Passkeys and recovery screen. Under "Passkeys" is one passkey, "Recovery passkey", created on Sep 27, 2026 and never used, with a pencil and a bin beside it. Below it are the "New passkey name" field and "Add a spare passkey". Under "Recovery codes" is the button "Verify and create new codes".](../../../assets/screenshots/en/security.png)
+![The Passkeys and recovery screen. Under "Passkeys" is one passkey, "Recovery passkey", created on Oct 6, 2026 and never used, with a line saying it is kept in Google Password Manager and works in Chrome signed in to the same Google account on another computer, and a pencil and a bin beside it. Below it are the "New passkey name" field and "Add a spare passkey". Under "Add a device" is the button "Create a link", for a passkey on another computer, phone or tablet. Under "Recovery codes" is the button "Verify and create new codes".](../../../assets/screenshots/en/security.png)
 
 ### Your passkeys
 
