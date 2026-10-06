@@ -108,6 +108,9 @@ test('a manifest that does not hold together is refused', () => {
   refused({ ...manifest, categories: [{ ...category, descriptionEn: 'a'.repeat(161) }] });
   refused({ ...manifest, categories: [{ ...category, name: '' }] });
   refused({ ...manifest, categories: [{ name: 'Baking' }] });
+  // The export writes these four fields and slugs no longer than a category's may be given.
+  refused({ ...manifest, categories: [{ ...category, slug: 'a'.repeat(321) }] });
+  refused({ ...manifest, categories: [{ ...category, owner: 'someone' }] });
 });
 
 test("a manifest carries each category's address and descriptions, and one from before 1.20 has none", () => {

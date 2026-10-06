@@ -2,6 +2,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
 
 import { ACCEPTED_MEDIA_TYPES } from '../../lib/media';
+import { SLUG_LENGTH } from '../../lib/slug';
 import { isTomeObjectKey, isUuid } from '../media/keys';
 
 /*
@@ -94,12 +95,13 @@ const manifestSchema = z.object({
     size: count,
   })),
   // The slug is checked where it is used: one that is not a slug, or is taken, is made from the name.
+  // Bounded as an edit in the category manager is, and exactly the four fields the export writes.
   categories: z.array(z.object({
     name: z.string().trim().min(1).max(80),
-    slug: z.string(),
+    slug: z.string().max(SLUG_LENGTH * 2),
     descriptionTh: z.string().trim().max(160),
     descriptionEn: z.string().trim().max(160),
-  })).optional(),
+  }).strict()).optional(),
 }).refine((manifest) => manifest.counts.media === Object.keys(manifest.media).length);
 
 export function readManifest(source: string): ArchiveManifest {
