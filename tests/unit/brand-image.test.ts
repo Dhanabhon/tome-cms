@@ -86,6 +86,15 @@ test('a share image is cropped to the size LINE, Facebook and X draw, as a JPEG 
   assert.deepEqual([tall.width, tall.height], [1200, 630]);
 });
 
+test('a transparent share image is laid on white, not black: a JPEG has no transparency', async () => {
+  // A logo on a clear background is the likeliest share image; dropped onto black, every card is dark.
+  const clear = await sharp({ create: { background: { alpha: 0, b: 0, g: 0, r: 0 }, channels: 4, height: 630, width: 1200 } }).png().toBuffer();
+  const prepared = await prepareBrandImage('share', clear);
+  if (prepared.kind === 'icon') throw new Error('a share image');
+  const { data } = await sharp(prepared.source.body).raw().toBuffer({ resolveWithObject: true });
+  assert.ok(data[0]! > 240 && data[1]! > 240 && data[2]! > 240, `a clear corner came out ${data[0]},${data[1]},${data[2]}`);
+});
+
 test('a share image is never an SVG: the sites it is for do not draw one', async () => {
   await refused(prepareBrandImage('share', SVG), 415, 'brand_type');
   await refused(prepareBrandImage('share', Buffer.from('GIF89a\x01\x00\x01\x00')), 415, 'brand_type');

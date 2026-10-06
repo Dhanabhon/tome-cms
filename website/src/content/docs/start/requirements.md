@@ -97,7 +97,7 @@ The proxy is yours to provide, with its certificates, unless [`prepare-vps.sh`](
 | The CMS, `https://cms.example.com` | `127.0.0.1:4321` |
 | The media, `https://media.example.com` | `127.0.0.1:9000` |
 
-Two settings on the proxy matter for uploads. The media origin has to pass the `Host` header through unchanged, because each upload address is signed for that host name. It also has to accept a request body of 25 MB, the largest document the File Manager takes (an image may be up to 8 MB). Some proxies send their own host name upstream or cap a body at 1 MB unless told otherwise; nginx does both.
+Two settings on the proxy matter for uploads. The media origin has to pass the `Host` header through unchanged, because each upload address is signed for that host name. It also has to accept a request body of 25 MB, the largest document the File Manager takes (an image may be up to 8 MB). The CMS origin takes uploads too: a logo or icon is sent to it, and a share image of up to 8 MB, so it needs a body limit of at least 8 MB. Some proxies send their own host name upstream or cap a body at 1 MB unless told otherwise; nginx does both.
 
 The proxy also has to tell the application who is connecting, by setting or adding the address it saw in the `X-Forwarded-For` header. Caddy does, and nginx needs `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. The application reads the last entry, the one the proxy wrote, and only when the connection comes from the proxy's side: a loopback address, or one in `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` or `fc00::/7`. The limits on signing in, recovery, installing and updating read it from 1.1.2, the limit on searching the posts from 1.2.0, and the reader counts in "Stats" always have.
 

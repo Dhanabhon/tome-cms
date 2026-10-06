@@ -102,6 +102,9 @@ async function shareCard(source: Buffer): Promise<PreparedFile> {
   const body = await sharp(source, { failOn: 'error', limitInputPixels: MAX_PIXELS })
     .rotate()
     .resize(SHARE_WIDTH, SHARE_HEIGHT, { fit: 'cover' })
+    // A JPEG has no transparency, and sharp fills what was clear with black: a logo on a clear
+    // background would show on a dark card. White is what a shared link is usually drawn on.
+    .flatten({ background: '#ffffff' })
     .jpeg({ mozjpeg: true, quality: 82 })
     .toBuffer();
   return file(body, 'image/jpeg');
