@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isPostLocale, localePath, publicCopy } from '../../lib/i18n';
+import { siteDescriptionFor } from '../../lib/seo';
 import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
 import { getPublicSlides } from '../../server/content/slides';
@@ -54,7 +55,7 @@ const take = homePageLimit({
   pageSize: PAGE_SIZE,
   query,
 });
-const siteDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
+const siteDescription = siteDescriptionFor(settings, locale);
 const profile = settings ? await getPublicAuthorProfile(settings, locale) : null;
 
 const slidesRead = getPublicSlides(locale);

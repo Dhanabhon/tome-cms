@@ -282,7 +282,10 @@ export interface SiteSettings {
   id: boolean;
   site_name: string;
   tagline: string;
+  /** The default language's description, kept for a rollback to 1.18. */
   site_description: string;
+  site_description_th: string;
+  site_description_en: string;
   default_locale: PostLocale;
   theme: 'system' | 'light' | 'dark';
   allow_visitor_theme: boolean;

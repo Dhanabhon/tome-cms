@@ -42,10 +42,10 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
   assert.equal(initial?.owner_id, 'owner-a');
   assert.equal(await getOwnerSettings('owner-b'), null);
   assert.equal(siteSettingsMutationSchema.safeParse({
-    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'en', siteDescription: '', siteName: ' ', tagline: '', theme: 'system', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
+    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'en', siteDescriptionEn: '', siteDescriptionTh: '', siteName: ' ', tagline: '', theme: 'system', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
   }).success, false, 'a blank site name is rejected');
   assert.equal(siteSettingsMutationSchema.safeParse({
-    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'en', siteDescription: '', siteName: 'Valid', tagline: '', theme: 'sepia', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
+    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'en', siteDescriptionEn: '', siteDescriptionTh: '', siteName: 'Valid', tagline: '', theme: 'sepia', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
   }).success, false, 'only the three theme states are accepted');
   assert.equal(profileMutationSchema.safeParse({
     authorAvatarMediaId: crypto.randomUUID(), authorBioEn: '', authorBioTh: '', authorLinks: [], authorName: '', updatedAt: initial?.updated_at.toISOString(),
@@ -58,7 +58,8 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
     hideFromSearch: true,
     themeId: 'paper',
     defaultLocale: 'en',
-    siteDescription: 'A multilingual publication.',
+    siteDescriptionEn: 'A multilingual publication.',
+    siteDescriptionTh: 'สิ่งพิมพ์สองภาษา',
     siteName: 'Tome Journal',
     tagline: 'Ideas worth keeping.',
     theme: 'dark',
@@ -66,6 +67,9 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
     updatedAt: initial!.updated_at.toISOString(),
   });
   assert.equal(settings.site_name, 'Tome Journal');
+  assert.equal(settings.site_description_en, 'A multilingual publication.', 'each language keeps its own description');
+  assert.equal(settings.site_description_th, 'สิ่งพิมพ์สองภาษา');
+  assert.equal(settings.site_description, 'A multilingual publication.', 'the old column keeps the default language\'s, for a rollback');
   assert.equal(settings.theme, 'dark', 'the site theme is stored and returned');
   assert.equal(settings.allow_visitor_theme, false, 'the visitor theme control can be switched off');
   assert.equal(settings.show_powered_by, false, 'the footer credit can be switched off');
@@ -82,7 +86,7 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
 
   await assert.rejects(
     updateSiteSettings('owner-a', {
-      allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'th', siteDescription: '', siteName: 'Stale', tagline: '', theme: 'light', timezone: 'Asia/Bangkok', updatedAt: initial!.updated_at.toISOString(),
+      allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'th', siteDescriptionEn: '', siteDescriptionTh: '', siteName: 'Stale', tagline: '', theme: 'light', timezone: 'Asia/Bangkok', updatedAt: initial!.updated_at.toISOString(),
     }),
     (error: unknown) => error instanceof HttpError && error.status === 409,
   );
@@ -105,4 +109,15 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
     }),
     (error: unknown) => error instanceof HttpError && error.status === 404,
   );
+
+  // A site updated from 1.18 had one description: it becomes its default language's.
+  const { Migrator } = await import('kysely/migration');
+  const { migrations } = await import('../../src/server/db/migrator');
+  const migrator = new Migrator({ db, provider: { async getMigrations() { return migrations; } } });
+  assert.ifError((await migrator.migrateTo('031_search_visibility')).error);
+  await db.updateTable('site_settings').set({ default_locale: 'th', site_description: 'คำอธิบายเดิม' } as never).execute();
+  await migrateToLatest();
+  const migrated = await getSiteSettings();
+  assert.deepEqual([migrated?.site_description_th, migrated?.site_description_en, migrated?.site_description],
+    ['คำอธิบายเดิม', '', 'คำอธิบายเดิม']);
 });

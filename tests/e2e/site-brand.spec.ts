@@ -305,7 +305,7 @@ test('keeping the site out of search results marks every public answer, and turn
   expect(await (await page.request.get(`${origin}/sitemap.xml`)).text()).toContain('<url>');
 });
 
-test('a share image uploaded in Settings is what a page without a cover shows when shared', async ({ context, page }) => {
+test('a share image and a description for each language, set in Settings, are what a shared page shows', async ({ context, page }) => {
   test.setTimeout(120_000);
   const { db } = await import('../../src/server/db/client');
   const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
@@ -342,6 +342,18 @@ test('a share image uploaded in Settings is what a page without a cover shows wh
   await expect(field.locator('[role="status"]')).toHaveText('Saved.');
   await expect(field.locator('.brand-preview img')).toBeVisible();
   const stored = (await db.selectFrom('site_settings').select('brand_share').executeTakeFirstOrThrow()).brand_share as { key: string };
+
+  // Each language has its own description, the site's own language first, saved with the form.
+  const descriptions = page.locator('.admin-settings-form textarea');
+  expect(await descriptions.evaluateAll((areas) => areas.map((area) => area.getAttribute('name')))).toEqual(['siteDescriptionEn', 'siteDescriptionTh']);
+  await page.getByLabel('Site description (English)').fill('Notes on work, in English.');
+  await page.getByLabel('Site description (Thai)').fill('บันทึกเรื่องงาน ภาษาไทย');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('.admin-save-button')).toHaveAttribute('data-state', 'saved');
+  for (const [path, said] of [['/en', 'Notes on work, in English.'], ['/th', 'บันทึกเรื่องงาน ภาษาไทย']]) {
+    await page.goto(`${origin}${path}`);
+    await expect(page.locator('meta[name="description"]'), path).toHaveAttribute('content', said!);
+  }
 
   for (const path of ['/en/about-share', '/th', '/en']) {
     await page.goto(`${origin}${path}`);

@@ -16,7 +16,7 @@ import { atLeast } from '../../lib/busy';
 /** Everything the settings record holds, because a write has to send all of it. */
 type ThemeSettings = Pick<
   SiteSettings,
-  'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id'
+  'site_name' | 'tagline' | 'site_description_th' | 'site_description_en' | 'default_locale' | 'theme' | 'theme_id'
   | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'hide_from_search' | 'timezone' | 'updated_at'
 >;
 
@@ -80,7 +80,8 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
           hideFromSearch: initialSettings.hide_from_search,
           hideSiteName: initialSettings.hide_site_name,
           showPoweredBy: initialSettings.show_powered_by,
-          siteDescription: initialSettings.site_description,
+          siteDescriptionEn: initialSettings.site_description_en,
+          siteDescriptionTh: initialSettings.site_description_th,
           siteName: initialSettings.site_name,
           tagline: initialSettings.tagline,
           theme: next.theme,

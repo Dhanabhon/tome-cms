@@ -24,7 +24,8 @@ export const siteSettingsMutationSchema = z.object({
   hideFromSearch: z.boolean(),
   hideSiteName: z.boolean(),
   showPoweredBy: z.boolean(),
-  siteDescription: z.string().trim().max(160),
+  siteDescriptionEn: z.string().trim().max(160),
+  siteDescriptionTh: z.string().trim().max(160),
   siteName: z.string().trim().min(1).max(120),
   tagline: z.string().trim().max(120),
   theme: z.enum(['system', 'light', 'dark']),
@@ -110,7 +111,10 @@ export async function updateSiteSettings(ownerId: string, input: SiteSettingsMut
   const row = await db.updateTable('site_settings')
     .set({
       default_locale: input.defaultLocale,
-      site_description: input.siteDescription,
+      // The default language's, kept in the old column too, for a rollback to 1.18.
+      site_description: input.defaultLocale === 'th' ? input.siteDescriptionTh : input.siteDescriptionEn,
+      site_description_en: input.siteDescriptionEn,
+      site_description_th: input.siteDescriptionTh,
       site_name: input.siteName,
       tagline: input.tagline,
       theme: input.theme,

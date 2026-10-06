@@ -7,7 +7,7 @@ import VideoScript from '../components/VideoScript.astro';
 import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
-import { breadcrumbList, documentTitle, getPublicSiteUrl, openGraphImage, organizationSchema, personSchema } from '../lib/seo';
+import { breadcrumbList, documentTitle, getPublicSiteUrl, openGraphImage, organizationSchema, personSchema, siteDescriptionFor } from '../lib/seo';
 import { HIDDEN_FROM_SEARCH } from '../lib/search-visibility';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
@@ -71,13 +71,12 @@ const allowVisitorTheme = settings?.allow_visitor_theme ?? true;
 const showPoweredBy = settings?.show_powered_by ?? true;
 const siteName = settings?.site_name ?? 'TomeCMS';
 const brand = settings ? siteBrand(settings, resolveMediaUrl) : NO_BRAND;
-const defaultDescription = settings?.site_description || 'A quiet place for thoughtful notes on design, software, and the work between.';
 const {
   alternates,
   authorLinks = [],
   authorName,
   canonicalPath,
-  description = defaultDescription,
+  description: givenDescription,
   headline,
   image,
   metaTitle,
@@ -91,6 +90,8 @@ const {
   themeId = settings?.theme_id,
   xDefaultHref,
 } = Astro.props;
+// Read once the page's language is known: each language has its own.
+const description = givenDescription ?? siteDescriptionFor(settings, locale);
 // The owner's switch outranks what any one page asks for, and takes its structured data with it.
 const robots = settings?.hide_from_search ? HIDDEN_FROM_SEARCH : pageRobots;
 const navigation = await getPublicNavigation(locale);

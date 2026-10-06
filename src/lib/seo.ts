@@ -1,3 +1,4 @@
+import type { PostLocale } from '../types/cms';
 import type { BrandImage, SiteBrand } from './site-brand';
 
 /**
@@ -65,6 +66,26 @@ export function openGraphImage({ cover, coverAlt, share, siteName, siteUrl }: {
   if (cover) return { alt: coverAlt, url: new URL(cover, siteUrl).toString() };
   if (share) return { alt: siteName, height: share.height, url: new URL(share.url, siteUrl).toString(), width: share.width };
   return null;
+}
+
+/** What a site says of itself when the owner has not said anything in either language. */
+export const DEFAULT_SITE_DESCRIPTION = 'A quiet place for thoughtful notes on design, software, and the work between.';
+
+interface SiteDescriptions { site_description_en: string; site_description_th: string }
+
+/**
+ * The site's description in a language: its own, or the other language's when it has none --
+ * a line in the other language says more than a stock one -- or, with neither, the caller's
+ * last resort.
+ */
+export function siteDescriptionFor(
+  settings: SiteDescriptions | null | undefined,
+  locale: PostLocale,
+  fallback = DEFAULT_SITE_DESCRIPTION,
+): string {
+  const own = (locale === 'th' ? settings?.site_description_th : settings?.site_description_en)?.trim();
+  const other = (locale === 'th' ? settings?.site_description_en : settings?.site_description_th)?.trim();
+  return own || other || fallback;
 }
 
 export function getPublicSiteUrl(request: Request, configuredSite?: URL) {

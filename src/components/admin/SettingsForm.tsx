@@ -14,7 +14,7 @@ interface SettingsFormProps {
   /** Everything stored for the logo, dark logo and icon, as addresses. */
   initialBrand: SiteBrand;
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'hide_from_search' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description_th' | 'site_description_en' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'hide_from_search' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -32,7 +32,8 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
   const copy = adminCopy(ownerLocale);
   const [siteName, setSiteName] = useState(initialSettings.site_name);
   const [tagline, setTagline] = useState(initialSettings.tagline);
-  const [siteDescription, setSiteDescription] = useState(initialSettings.site_description);
+  const [siteDescriptionTh, setSiteDescriptionTh] = useState(initialSettings.site_description_th);
+  const [siteDescriptionEn, setSiteDescriptionEn] = useState(initialSettings.site_description_en);
   const [defaultLocale, setDefaultLocale] = useState(initialSettings.default_locale);
   const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
@@ -52,14 +53,20 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [savedOnce, setSavedOnce] = useState(false);
 
+  // The site's own language first: it is the description most readers meet. The order follows
+  // the language as saved, so the two do not swap places under the owner while they choose.
+  const thaiDescription = { label: copy.settings.siteDescriptionTh, name: 'siteDescriptionTh', set: setSiteDescriptionTh, value: siteDescriptionTh };
+  const englishDescription = { label: copy.settings.siteDescriptionEn, name: 'siteDescriptionEn', set: setSiteDescriptionEn, value: siteDescriptionEn };
+  const descriptionFields = initialSettings.default_locale === 'th' ? [thaiDescription, englishDescription] : [englishDescription, thaiDescription];
+
   /** Serialised, so a value edited and edited back counts as clean. */
   const snapshot = (values: readonly unknown[]) => JSON.stringify(values);
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot([
-    initialSettings.site_name, initialSettings.tagline, initialSettings.site_description,
+    initialSettings.site_name, initialSettings.tagline, initialSettings.site_description_th, initialSettings.site_description_en,
     initialSettings.default_locale, initialSettings.timezone,
     initialSettings.show_powered_by, initialSettings.hide_site_name, initialSettings.hide_from_search,
   ]));
-  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, showPoweredBy, hideSiteName, hideFromSearch]);
+  const currentSnapshot = snapshot([siteName, tagline, siteDescriptionTh, siteDescriptionEn, defaultLocale, timezone, showPoweredBy, hideSiteName, hideFromSearch]);
   const dirty = currentSnapshot !== savedSnapshot;
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -72,12 +79,12 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
       const response = await atLeast(fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ allowVisitorTheme, defaultLocale, hideFromSearch, hideSiteName, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
+        body: JSON.stringify({ allowVisitorTheme, defaultLocale, hideFromSearch, hideSiteName, showPoweredBy, siteDescriptionEn, siteDescriptionTh, siteName, tagline, theme, themeId, timezone, updatedAt }),
       }));
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
         const fields: Record<string, string> = {};
-        for (const name of ['siteName', 'tagline', 'siteDescription', 'defaultLocale', 'timezone']) {
+        for (const name of ['siteName', 'tagline', 'siteDescriptionTh', 'siteDescriptionEn', 'defaultLocale', 'timezone']) {
           fields[name] = result.issues?.properties?.[name]?.errors?.join(' ') ?? '';
         }
         setFieldErrors(fields);
@@ -132,11 +139,13 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
               <input className="admin-control" id="tagline" name="tagline" aria-invalid={Boolean(fieldErrors.tagline)} aria-describedby="tagline-error" maxLength={120} placeholder={copy.settings.taglinePlaceholder} value={tagline} onChange={(event) => setTagline(event.target.value)} />
               <p className="admin-field-error" id="tagline-error" aria-live="polite">{fieldErrors.tagline}</p>
             </div>
-            <div className="admin-field">
-              <label htmlFor="siteDescription">{copy.settings.siteDescription}</label>
-              <textarea className="admin-control admin-control--textarea" id="siteDescription" name="siteDescription" aria-invalid={Boolean(fieldErrors.siteDescription)} aria-describedby="siteDescription-error" maxLength={160} value={siteDescription} onChange={(event) => setSiteDescription(event.target.value)} />
-              <p className="admin-field-error" id="siteDescription-error" aria-live="polite">{fieldErrors.siteDescription}</p>
-            </div>
+            {descriptionFields.map(({ label, name, set, value }) => (
+              <div className="admin-field" key={name}>
+                <label htmlFor={name}>{label}</label>
+                <textarea className="admin-control admin-control--textarea" id={name} name={name} aria-invalid={Boolean(fieldErrors[name])} aria-describedby={`${name}-error`} maxLength={160} value={value} onChange={(event) => set(event.target.value)} />
+                <p className="admin-field-error" id={`${name}-error`} aria-live="polite">{fieldErrors[name]}</p>
+              </div>
+            ))}
             <div className="admin-check">
               <label>
                 <input

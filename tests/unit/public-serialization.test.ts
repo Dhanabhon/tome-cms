@@ -157,7 +157,10 @@ test('public contracts validate queries and serialize only explicit fields', () 
     id: true,
     installed_at: new Date('2026-09-01T00:00:00.000Z'),
     owner_id: 'private-owner',
+    // The API keeps one description, the default language's, which is also kept here.
     site_description: 'A public description',
+    site_description_en: 'An English description',
+    site_description_th: 'A public description',
     site_name: 'TomeCMS',
     tagline: 'Publish clearly',
     theme: 'system' as const,

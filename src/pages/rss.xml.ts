@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 
 import { postPath } from '../lib/i18n';
 import { postExcerpt } from '../lib/posts';
-import { getPublicSiteUrl } from '../lib/seo';
+import { getPublicSiteUrl, siteDescriptionFor } from '../lib/seo';
 import { escapeXml } from '../lib/xml';
 import { listPublishedPosts } from '../server/content/published';
 import { getSiteSettings } from '../server/content/settings';
@@ -21,7 +21,10 @@ export const GET: APIRoute = async ({ request, site }) => {
     const siteUrl = getPublicSiteUrl(request, site);
     const feedUrl = new URL('/rss.xml', siteUrl).toString();
     const channelUrl = new URL(`/${settings.default_locale}`, siteUrl).toString();
-    const fallbackDescription = settings.site_description || settings.tagline || 'Latest published articles.';
+    // One feed holds both languages: the channel speaks the default one, and a post without an
+    // excerpt borrows the description of its own.
+    const lastResort = settings.tagline || 'Latest published articles.';
+    const channelDescription = siteDescriptionFor(settings, settings.default_locale, lastResort);
     const items = posts.map((post) => {
       const url = new URL(postPath(post), siteUrl).toString();
       return [
@@ -29,7 +32,7 @@ export const GET: APIRoute = async ({ request, site }) => {
         `      <title>${escapeXml(post.title)}</title>`,
         `      <link>${escapeXml(url)}</link>`,
         `      <guid isPermaLink="true">${escapeXml(url)}</guid>`,
-        `      <description>${escapeXml(postExcerpt(post, fallbackDescription))}</description>`,
+        `      <description>${escapeXml(postExcerpt(post, siteDescriptionFor(settings, post.locale, lastResort)))}</description>`,
         `      <pubDate>${new Date(post.published_at!).toUTCString()}</pubDate>`,
         '    </item>',
       ].join('\n');
@@ -40,7 +43,7 @@ export const GET: APIRoute = async ({ request, site }) => {
       '  <channel>',
       `    <title>${escapeXml(settings.site_name)}</title>`,
       `    <link>${escapeXml(channelUrl)}</link>`,
-      `    <description>${escapeXml(fallbackDescription)}</description>`,
+      `    <description>${escapeXml(channelDescription)}</description>`,
       `    <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml" />`,
       items,
       '  </channel>',

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { breadcrumbList, documentTitle, getPublicSiteUrl, openGraphImage } from '../../src/lib/seo';
+import { breadcrumbList, DEFAULT_SITE_DESCRIPTION, documentTitle, getPublicSiteUrl, openGraphImage, siteDescriptionFor } from '../../src/lib/seo';
 
 test('public URLs prefer the configured canonical origin', () => {
   const previous = process.env.TOME_CMS_PUBLIC_URL;
@@ -92,4 +92,26 @@ test('a shared page shows its own cover, then the site\'s share image, then noth
     'without a cover the share image stands in, named for the site',
   );
   assert.equal(openGraphImage({ cover: undefined, coverAlt: 'Home', share: null, siteName: 'Site', siteUrl }), null);
+});
+
+test('each language has its own site description, and borrows the other\'s before the built-in line', () => {
+  const both = { site_description_en: 'Notes on work.', site_description_th: 'บันทึกเรื่องงาน' };
+  assert.equal(siteDescriptionFor(both, 'th'), 'บันทึกเรื่องงาน');
+  assert.equal(siteDescriptionFor(both, 'en'), 'Notes on work.');
+  assert.equal(siteDescriptionFor({ ...both, site_description_en: '  ' }, 'en'), 'บันทึกเรื่องงาน', 'an empty one uses the other language\'s');
+  assert.equal(siteDescriptionFor({ site_description_en: '', site_description_th: '' }, 'th'), DEFAULT_SITE_DESCRIPTION);
+  assert.equal(siteDescriptionFor(null, 'en'), DEFAULT_SITE_DESCRIPTION, 'a site whose settings could not be read');
+  assert.equal(siteDescriptionFor(null, 'en', 'Read the latest.'), 'Read the latest.', 'a caller may name its own last resort');
+  assert.equal(DEFAULT_SITE_DESCRIPTION, 'A quiet place for thoughtful notes on design, software, and the work between.');
+});
+
+test('the home page, a post, a page, the layout and the feed read the description of their own language', () => {
+  assert.match(route('src/pages/[locale]/index.astro'), /siteDescriptionFor\(settings, locale\)/);
+  assert.match(route('src/pages/[locale]/blog/[slug].astro'), /siteDescriptionFor\(settings, locale, /);
+  assert.match(route('src/pages/[locale]/[slug].astro'), /siteDescriptionFor\(settings, locale, /);
+  assert.match(route('src/layouts/BaseLayout.astro'), /siteDescriptionFor\(settings, locale\)/);
+  assert.match(route('src/pages/rss.xml.ts'), /siteDescriptionFor\(settings, settings\.default_locale, /);
+  for (const path of ['src/pages/[locale]/index.astro', 'src/layouts/BaseLayout.astro', 'src/pages/rss.xml.ts']) {
+    assert.doesNotMatch(route(path), /settings\??\.site_description\b/, `${path} still reads the single description`);
+  }
 });

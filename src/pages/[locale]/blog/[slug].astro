@@ -4,6 +4,7 @@ import { documentHasVideo } from '../../../lib/editor-video';
 import { isPostLocale, localePath, postPath, publicCopy } from '../../../lib/i18n';
 import { postDescription } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
+import { siteDescriptionFor } from '../../../lib/seo';
 import {
   getPublishedPost,
   type PublishedPost,
@@ -21,7 +22,7 @@ if (!isPostLocale(localeValue)) {
 const locale = localeValue;
 const slug = Astro.params.slug;
 const settings = await getSiteSettings();
-const fallbackDescription = settings?.site_description || 'Read the latest from TomeCMS.';
+const fallbackDescription = siteDescriptionFor(settings, locale, 'Read the latest from TomeCMS.');
 const articleSettings = settings ?? {
   author_avatar_media_id: null,
   author_bio_en: '',

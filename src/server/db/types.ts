@@ -157,7 +157,10 @@ export interface SiteSettingsTable {
   owner_id: string;
   site_name: string;
   tagline: Generated<string>;
+  /** The default language's description, kept for a rollback to 1.18 -- see migrations/032. */
   site_description: Generated<string>;
+  site_description_th: Generated<string>;
+  site_description_en: Generated<string>;
   default_locale: 'th' | 'en';
   timezone: 'Asia/Bangkok' | 'UTC';
   theme: Generated<'system' | 'light' | 'dark'>;
