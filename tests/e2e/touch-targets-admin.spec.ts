@@ -128,8 +128,9 @@ test.beforeAll(async () => {
   const { db } = await import('../../src/server/db/client');
   await sql`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
     values (${OWNER}, 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now())`.execute(db);
-  await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
-    values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
+  // Kept out of search results, so every screen's sidebar carries the mark that says so, and it is measured too.
+  await sql`insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path, hide_from_search)
+    values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin', true)`.execute(db);
   await sql`insert into categories (owner_id, name, is_default) values (${OWNER}, 'Uncategorized', true)`.execute(db);
   await seed();
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
@@ -278,6 +279,7 @@ test('every admin control is at least 44 × 44 under a coarse pointer', async ({
   await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
 
   expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'the premise: a coarse pointer').toBe(true);
+  await expect(page.locator('.admin-shell-site__search'), 'the search mark, in the sidebar and the drawer').toHaveCount(2);
   const failures: string[] = [];
   let width = 'phone';
   const measure = async (name: string) => {
