@@ -244,3 +244,63 @@ test('the owner uploads a logo and an icon, and hides the name behind the logo',
   await page.locator('input[name="brand-icon"]').setInputFiles({ buffer: tiny, mimeType: 'image/png', name: 'icon.png' });
   await expect(page.locator('.brand-field[data-kind="icon"] [role="alert"]')).toHaveText('An icon must be at least 180 × 180 pixels.');
 });
+
+test('keeping the site out of search results marks every public answer, and turning it off unmarks them', async ({ context, page }) => {
+  test.setTimeout(120_000);
+  const { db } = await import('../../src/server/db/client');
+  const { issueRecoveryEnrollment } = await import('../../src/server/auth/recovery');
+  await db.updateTable('site_settings').set({ hide_from_search: false }).execute();
+  clearPageCache(owner);
+
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  const enrollment = await issueRecoveryEnrollment(OWNER);
+  await page.goto(`${origin}/recovery?context=${encodeURIComponent(enrollment.context)}`);
+  await page.getByRole('button', { name: /Create recovery Passkey/i }).click();
+  await page.waitForURL(`${origin}/admin`, { timeout: 30_000 });
+  owner = await ownerFrom(context, origin);
+
+  const badge = page.locator('.admin-sidebar .admin-shell-site__search');
+  const flip = async (on: boolean) => {
+    await page.goto(`${origin}/admin/settings`);
+    await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+    const box = page.getByRole('checkbox', { name: 'Keep this site out of search results' });
+    await box.setChecked(on);
+    await page.getByRole('button', { name: 'Save' }).click();
+    // Saving this switch reloads the screen, so the sidebar can say what it now is.
+    await expect(badge).toHaveCount(on ? 1 : 0);
+  };
+  const robotsMeta = page.locator('meta[name="robots"]');
+
+  await flip(true);
+  await expect(badge).toHaveText('Hidden from search');
+  await expect(badge).toHaveAttribute('href', '/admin/settings');
+  const admin = await page.request.get(`${origin}/admin/settings`);
+  expect(admin.headers()['x-robots-tag'], 'the admin keeps its own').toBeUndefined();
+
+  for (const state of ['miss', 'hit']) {
+    const answer = await page.goto(`${origin}/en`);
+    expect(answer?.headers()['x-tome-cache']).toBe(state);
+    expect(answer?.headers()['x-robots-tag'], state).toBe('noindex, nofollow');
+    await expect(robotsMeta).toHaveAttribute('content', 'noindex, nofollow');
+  }
+  const robots = await (await page.request.get(`${origin}/robots.txt`)).text();
+  expect(robots).toContain('User-agent: *\nAllow: /\n');
+  expect(robots).not.toContain('Sitemap:');
+  const sitemap = await page.request.get(`${origin}/sitemap.xml`);
+  expect(sitemap.headers()['x-robots-tag']).toBe('noindex, nofollow');
+  expect(await sitemap.text()).not.toContain('<url>');
+  const api = await page.request.get(`${origin}/api/v1/content/site`);
+  expect(api.headers()['x-robots-tag']).toBe('noindex, nofollow');
+  expect(JSON.stringify(await api.json()), 'the switch is the owner\'s, not the API\'s').not.toContain('hide');
+
+  await flip(false);
+  const listed = await page.goto(`${origin}/en`);
+  expect(listed?.headers()['x-robots-tag']).toBeUndefined();
+  await expect(robotsMeta).toHaveAttribute('content', /^index, follow/);
+  expect(await (await page.request.get(`${origin}/robots.txt`)).text()).toContain(`Sitemap: ${origin}/sitemap.xml`);
+  expect(await (await page.request.get(`${origin}/sitemap.xml`)).text()).toContain('<url>');
+});
