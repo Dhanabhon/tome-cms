@@ -8,6 +8,7 @@ import SEOHead from '../components/blog/SEOHead.astro';
 import ThemeScript from '../components/ThemeScript.astro';
 import { adminHref } from '../lib/admin';
 import { documentTitle, getPublicSiteUrl, organizationSchema, personSchema } from '../lib/seo';
+import { HIDDEN_FROM_SEARCH } from '../lib/search-visibility';
 import { NO_BRAND, siteBrand } from '../lib/site-brand';
 import { getPublicNavigation } from '../server/content/navigation';
 import { publicAdditions } from '../server/plugins/public';
@@ -82,7 +83,7 @@ const {
   metaTitle,
   modifiedTime,
   publishedTime,
-  robots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+  robots: pageRobots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
   stats,
   title = siteName,
   type = 'website',
@@ -90,6 +91,8 @@ const {
   themeId = settings?.theme_id,
   xDefaultHref,
 } = Astro.props;
+// The owner's switch outranks what any one page asks for, and takes its structured data with it.
+const robots = settings?.hide_from_search ? HIDDEN_FROM_SEARCH : pageRobots;
 const navigation = await getPublicNavigation(locale);
 const publicText = publicCopy(locale);
 // What the enabled plugins add here. The band is drawn by this layout, from words and at

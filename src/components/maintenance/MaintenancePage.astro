@@ -7,6 +7,7 @@
  * Only Countdown runs script, and a reader without it still reads the return time in words.
  */
 import { dateLocale, publicCopy } from '../../lib/i18n';
+import { HIDDEN_FROM_SEARCH } from '../../lib/search-visibility';
 import { iconLinks, siteBrand } from '../../lib/site-brand';
 import { isAhead, maintenanceWords } from '../../lib/site-maintenance';
 import { normalizeTheme, themeAttribute } from '../../lib/theme';
@@ -45,7 +46,7 @@ const units = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
+    <meta name="robots" content={settings.hide_from_search ? HIDDEN_FROM_SEARCH : 'noindex'} />
     <title>{words.heading} · {settings.site_name}</title>
     {iconLinks(brand.icon).map((link) => <link {...link} />)}
     <link rel="stylesheet" href="/fonts.css" />

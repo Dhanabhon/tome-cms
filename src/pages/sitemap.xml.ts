@@ -2,44 +2,38 @@ import type { APIRoute } from 'astro';
 
 import { pagePath, postPath } from '../lib/i18n';
 import { getPublicSiteUrl } from '../lib/seo';
-import { escapeXml } from '../lib/xml';
+import { sitemapXml, type SitemapEntry } from '../lib/xml';
 import { listPublishedPages, listPublishedPosts } from '../server/content/published';
 import { getSiteSettings } from '../server/content/settings';
 import { POST_LOCALES } from '../types/cms';
+
+/** Every public address, each language's home first. */
+async function listedEntries(siteUrl: URL): Promise<SitemapEntry[]> {
+  // ponytail: cap each content type at 1,000 URLs; add a sitemap index if either outgrows this limit.
+  const [postResults, pageResults] = await Promise.all([
+    Promise.all(POST_LOCALES.map((locale) => listPublishedPosts({ locale, limit: 1_000 }))),
+    Promise.all(POST_LOCALES.map((locale) => listPublishedPages({ locale, limit: 1_000 }))),
+  ]);
+  return [
+    { location: new URL('/th', siteUrl).toString() },
+    { location: new URL('/en', siteUrl).toString() },
+    ...postResults.flatMap(({ items }) => items).map((post) => ({
+      lastModified: post.updated_at,
+      location: new URL(postPath(post), siteUrl).toString(),
+    })),
+    ...pageResults.flatMap(({ items }) => items).map((page) => ({
+      lastModified: page.updated_at,
+      location: new URL(pagePath(page), siteUrl).toString(),
+    })),
+  ];
+}
 
 export const GET: APIRoute = async ({ request, site }) => {
   try {
     const settings = await getSiteSettings();
     if (!settings) throw new Error('Site settings are unavailable.');
-    // ponytail: cap each content type at 1,000 URLs; add a sitemap index if either outgrows this limit.
-    const [postResults, pageResults] = await Promise.all([
-      Promise.all(POST_LOCALES.map((locale) => listPublishedPosts({ locale, limit: 1_000 }))),
-      Promise.all(POST_LOCALES.map((locale) => listPublishedPages({ locale, limit: 1_000 }))),
-    ]);
-    const posts = postResults.flatMap(({ items }) => items);
-    const pages = pageResults.flatMap(({ items }) => items);
-
-    const siteUrl = getPublicSiteUrl(request, site);
-    const entries: { lastModified?: string; location: string }[] = [
-      { location: new URL('/th', siteUrl).toString() },
-      { location: new URL('/en', siteUrl).toString() },
-      ...posts.map((post) => ({
-        lastModified: post.updated_at,
-        location: new URL(postPath(post), siteUrl).toString(),
-      })),
-      ...pages.map((page) => ({
-        lastModified: page.updated_at,
-        location: new URL(pagePath(page), siteUrl).toString(),
-      })),
-    ];
-    const urls = entries
-      .map(
-        ({ lastModified, location }) =>
-          `  <url>\n    <loc>${escapeXml(location)}</loc>${lastModified ? `\n    <lastmod>${escapeXml(lastModified)}</lastmod>` : ''}\n  </url>`,
-      )
-      .join('\n');
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
-
+    // A site kept out of search results lists nothing: a sitemap is an invitation to index.
+    const xml = sitemapXml(settings.hide_from_search ? [] : await listedEntries(getPublicSiteUrl(request, site)));
     return new Response(xml, {
       headers: {
         'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600',

@@ -1,6 +1,7 @@
 import type { APIContext, MiddlewareHandler, MiddlewareNext } from 'astro';
 
 import { adminSignInPath, matchAdminPath, normalizeAdminPath } from './lib/admin';
+import { HIDDEN_FROM_SEARCH } from './lib/search-visibility';
 import type { OwnerSession } from './server/auth/session';
 import type { SiteSettings } from './server/content/site-settings';
 import { invalidatePageCache, servePublicPage } from './server/http/page-cache';
@@ -176,10 +177,28 @@ export const preparedHeadlessRequest: MiddlewareHandler = async (context, next) 
       });
     }
   }
-  const closed = await closedForMaintenance(context, next, settings);
-  if (closed) return closed;
-  return routeConfiguredAdmin(context, next, settings);
+  const response = await closedForMaintenance(context, next, settings) ?? await routeConfiguredAdmin(context, next, settings);
+  return withSearchVisibility(response, context.url.pathname, settings.hide_from_search);
 };
+
+/**
+ * A site kept out of search results says so on every public answer, not only in a page's
+ * meta: a feed, the sitemap and the content API have no <head> to carry it. Applied to the
+ * render, so the page cache keeps it with the page; saving the switch is an admin write,
+ * which clears every page kept before it.
+ */
+export function withSearchVisibility(response: Response, pathname: string, hidden: boolean): Response {
+  if (!hidden || !(isBundledFrontendPath(pathname) || pathname.startsWith('/api/v1/content/'))) return response;
+  try {
+    response.headers.set('X-Robots-Tag', HIDDEN_FROM_SEARCH);
+    return response;
+  } catch {
+    // A redirect's headers are immutable; a copy takes the header.
+    const copy = new Response(response.body, response);
+    copy.headers.set('X-Robots-Tag', HIDDEN_FROM_SEARCH);
+    return copy;
+  }
+}
 
 /** An admin write that succeeded may have changed what a reader sees: the cached pages go. */
 export function afterWrite(pathname: string, response: Response): Response {
