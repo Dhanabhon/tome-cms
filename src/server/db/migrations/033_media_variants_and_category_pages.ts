@@ -83,6 +83,8 @@ export async function up(db: Kysely<Database>): Promise<void> {
 }
 
 export async function down(db: Kysely<Database>): Promise<void> {
+  // Where the backfill's last walk began: forgotten, so up walks the whole library again.
+  await db.deleteFrom('app_metadata').where('key', '=', 'media_variants_backfill').execute();
   await db.deleteFrom('security_rate_limits').where('action', '=', 'device-link').execute();
   await db.schema.alterTable('security_rate_limits').dropConstraint('security_rate_limits_action').execute();
   await db.schema.alterTable('security_rate_limits')

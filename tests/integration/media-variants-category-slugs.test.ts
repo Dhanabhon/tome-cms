@@ -75,8 +75,12 @@ test('category slugs are filled from names and media variants are stored per wid
   await db.insertInto('security_rate_limits').values(rateRow('device-link')).execute();
   await assert.rejects(db.insertInto('security_rate_limits').values(rateRow('no-such-action')).execute(), { code: '23514' });
 
+  // The backfill keeps where its last walk began; down forgets it, so up walks the whole library again.
+  await db.insertInto('app_metadata').values({ key: 'media_variants_backfill', value: new Date().toISOString() }).execute();
+
   // Down removes both, and up puts them back with the same slugs.
   assert.ifError((await migrator.migrateTo('032_share_image_and_descriptions')).error);
+  assert.equal(await db.selectFrom('app_metadata').select('key').where('key', '=', 'media_variants_backfill').executeTakeFirst(), undefined);
   assert.equal((await sql<{ n: number }>`select count(*)::int as n from security_rate_limits where action = 'device-link'`.execute(db)).rows[0]?.n, 0);
   await assert.rejects(db.insertInto('security_rate_limits').values(rateRow('device-link')).execute(), { code: '23514' });
   assert.equal((await sql<{ n: number }>`select count(*)::int as n from information_schema.columns
