@@ -284,7 +284,8 @@ test('below 64rem the tabs are one row that scrolls sideways, with the rule unde
 });
 
 test('header, footer, back, paging and search-status links are a full target on a touch screen', () => {
-  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more, .plain-search-status, .plain-empty) a, .plain-wordmark', COARSE);
+  // The category names in a post's meta line go to the categories' pages, so they are targets too.
+  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more, .plain-search-status, .plain-empty, .plain-meta) a, .plain-wordmark', COARSE);
   assert.match(touch, /display: inline-flex;/);
   assert.match(touch, /min-height: var\(--plain-field\);/);
   assert.match(touch, /min-inline-size: var\(--plain-field\);/, 'a short word such as TH is a full target across too');
@@ -359,9 +360,10 @@ test('the tab row shows that it scrolls: an edge fades where there is more, and 
   assert.match(script, /addEventListener\('scroll', mark/);
 });
 
-test('an empty category names itself in a heading, since it has no tab to mark', () => {
+test('an empty category, and a category\'s own page, name the list in a heading', () => {
   const home = read('Home.astro');
-  assert.match(home, /\{activeCategory && !query && !categories\.some\(\(\{ name \}\) => isCurrent\(name\)\) && <h2 class="plain-list-heading">\{activeCategory\}<\/h2>\}/);
+  assert.match(home, /\{\(category \|\| \(activeCategory && !query && !categories\.some\(\(\{ name \}\) => isCurrent\(name\)\)\)\) && <h2 class="plain-list-heading">\{category\?\.name \?\? activeCategory\}<\/h2>\}/);
+  assert.match(home, /\{category\?\.description && <p class="plain-list-description">\{category\.description\}<\/p>\}/);
   assert.match(top('.plain-list-heading'), /font-size: var\(--text-xl\)/);
 });
 

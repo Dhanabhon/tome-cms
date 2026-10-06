@@ -6,7 +6,7 @@
  * on a full row at any width. The next page is the homepage itself at the next cursor, the
  * same link a reader without JavaScript follows: its cards are parsed out of that response,
  * held hidden at the end of the grid, and shown one row at a time. A category works the same
- * way: its pill links to the homepage filtered by it, and the list is taken from that page.
+ * way: its pill links to the category's page, and the list is taken from that page.
  */
 
 /** Cards to show to bring the grid to the end of a row -- a whole row when it is level. */
@@ -15,9 +15,19 @@ export function cardsToRowEnd(shown: number, columns: number): number {
   return across - (shown % across);
 }
 
-/** The category a homepage URL filters by, in the case-blind form the server matches it in. */
-export function categoryOf(url: URL): string {
-  return (url.searchParams.get('category') ?? '').trim().toLocaleLowerCase();
+/**
+ * Which list an address shows: its path -- the home or a category's page, however its escapes are
+ * written -- and, on the home, the old category filter in the case-blind form the server matches it
+ * in (the default category's pill still uses it). A search and a later page are the same list.
+ */
+export function listOf(url: URL): string {
+  let path = url.pathname.replace(/\/+$/, '');
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // An escape that does not decode is compared as written.
+  }
+  return `${path}?${(url.searchParams.get('category') ?? '').trim().toLocaleLowerCase()}`;
 }
 
 async function fetchPage(url: URL, signal?: AbortSignal): Promise<Document> {
@@ -127,10 +137,10 @@ function wireFilter(nav: HTMLElement, first: HTMLElement, stopFirst: () => void)
   let pending: AbortController | null = null;
 
   /** Marks the pill for a category current and returns its label. */
-  const markCurrent = (category: string) => {
+  const markCurrent = (list: string) => {
     let label = '';
     for (const link of nav.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-      if (categoryOf(new URL(link.href)) === category) {
+      if (listOf(new URL(link.href)) === list) {
         link.setAttribute('aria-current', 'page');
         label = link.textContent?.trim() ?? '';
       } else {
@@ -145,13 +155,13 @@ function wireFilter(nav: HTMLElement, first: HTMLElement, stopFirst: () => void)
     pending = null;
     if (key(url) === shown) {
       // Back to the list already on screen: undo what a choice still loading had marked.
-      markCurrent(categoryOf(url));
+      markCurrent(listOf(url));
       feed.removeAttribute('aria-busy');
       return;
     }
     const controller = new AbortController();
     pending = controller;
-    const label = markCurrent(categoryOf(url));
+    const label = markCurrent(listOf(url));
     feed.setAttribute('aria-busy', 'true');
     try {
       const page = await fetchPage(url, controller.signal);
@@ -167,6 +177,8 @@ function wireFilter(nav: HTMLElement, first: HTMLElement, stopFirst: () => void)
       // The box says what the list on screen was searched for, and a pill's list was not.
       const box = document.querySelector<HTMLInputElement>('[data-post-search] input[name="q"]');
       if (box) box.value = url.searchParams.get('q') ?? '';
+      // The tab names the list on screen: a category's page is titled for its category.
+      if (page.title) document.title = page.title;
       if (push) history.pushState(null, '', url);
       if (status) status.textContent = (nav.dataset.announce ?? '{name}').replace('{name}', label);
     } catch (error) {

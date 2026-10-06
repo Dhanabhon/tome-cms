@@ -18,7 +18,8 @@ test('Category addresses are made, kept, edited and refused as the owner expects
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
   const {
-    categoriesByPostGroup, categoryUpdateSchema, createCategory, insertDefaultCategory, listCategories, updateCategory,
+    categoriesByPostGroup, categoryBySlug, categoryUpdateSchema, createCategory, insertDefaultCategory, listCategories,
+    listPublishedCategoriesForOwner, updateCategory,
   } = await import('../../src/server/content/categories');
   const { HttpError } = await import('../../src/server/http/errors');
   context.after(closeDatabase);
@@ -127,5 +128,24 @@ test('Category addresses are made, kept, edited and refused as the owner expects
     }).execute();
     await trx.insertInto('post_category_assignments').values({ translation_group_id: group, category_id: thai.id, owner_id: 'owner-a' }).execute();
   });
-  assert.deepEqual((await categoriesByPostGroup('owner-a', [group])).get(group), [{ id: thai.id, name: 'ขนมไทย', slug: 'ขนม' }]);
+  assert.deepEqual((await categoriesByPostGroup('owner-a', [group])).get(group), [{ id: thai.id, is_default: false, name: 'ขนมไทย', slug: 'ขนม' }]);
+
+  // A category page finds its category by address, this owner's only, with what the page says of it.
+  assert.deepEqual(await categoryBySlug('owner-a', 'ขนม'), {
+    description_en: 'Thai sweets.', description_th: 'ขนมหวานของไทย', id: thai.id, is_default: false, name: 'ขนมไทย', slug: 'ขนม',
+  });
+  assert.equal((await categoryBySlug('owner-a', 'uncategorized'))?.is_default, true, 'found, and the page refuses it');
+  assert.equal((await categoryBySlug('owner-a', 'journeys'))?.id, travel.id);
+  assert.equal(await categoryBySlug('owner-b', 'ขนม'), null, "another owner's address is not this one's");
+  assert.equal(await categoryBySlug('owner-a', 'nothing-here'), null);
+
+  // The categories a language lists are those with a live post in it, each dated for the sitemap.
+  assert.deepEqual((await listPublishedCategoriesForOwner('owner-a', 'th', new Date(0))).items, [], 'a draft makes no page');
+  await db.updateTable('posts').set({ status: 'published', published_at: new Date(Date.now() - 60_000) })
+    .where('translation_group_id', '=', group).execute();
+  const thaiList = await listPublishedCategoriesForOwner('owner-a', 'th', new Date(0));
+  assert.deepEqual(thaiList.items, [{ id: thai.id, is_default: false, name: 'ขนมไทย', slug: 'ขนม' }]);
+  assert.ok(thaiList.modified.get(thai.id) instanceof Date);
+  assert.equal(thaiList.modified.get(thai.id)?.getTime(), thaiList.lastModified.getTime());
+  assert.deepEqual((await listPublishedCategoriesForOwner('owner-a', 'en', new Date(0))).items, [], 'none in English');
 });

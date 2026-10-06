@@ -1,6 +1,6 @@
 ---
 import { demoteH1 } from '../../lib/editor-content';
-import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
+import { categoryHref, dateLocale, publicCopy } from '../../lib/i18n';
 import { articleCover } from '../../lib/post-cover';
 import { postReadingMinutes } from '../../lib/posts';
 import { ALMANAC_SIZES } from '../../lib/responsive-image';
@@ -20,7 +20,8 @@ const { cover, coverAlt, coverPicture, bodyHtml } = articleCover(post, ALMANAC_S
 // The title is the page's one h1, whatever heading level the body was written in.
 const body = demoteH1(bodyHtml);
 const [category] = categories;
-const categoryHref = category && `${localePath(post.locale)}?${new URLSearchParams({ category: category.name })}`;
+// Its page, or for the default category, which has none, the home filtered by it as before.
+const pillHref = category && categoryHref(post.locale, category);
 const categoryTone = category && tone(category.id);
 const when = preview ? post.updated_at : post.published_at ?? post.created_at;
 const date = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone }).format(new Date(when));
@@ -32,7 +33,7 @@ const lead = post.excerpt || post.meta_description;
   <header class="almanac-article__head">
     {preview && <p class="almanac-article__draft">{copy.draftPreview}</p>}
     {category && (
-      <a class="almanac-article__pill" href={categoryHref}
+      <a class="almanac-article__pill" href={pillHref}
         style={`--pill-tone: var(--almanac-tone-${categoryTone}); --pill-tone-ink: var(--almanac-tone-${categoryTone}-ink);`}>{category.name}</a>
     )}
     <h1 class="almanac-article__title">{post.title}</h1>
@@ -48,7 +49,7 @@ const lead = post.excerpt || post.meta_description;
   <div class="almanac-prose" set:html={body} />
   {category && (
     <footer class="almanac-article__end">
-      <a class="almanac-article__more" href={categoryHref}><span class="almanac-article__more-label">{copy.moreIn.replace('{category}', () => category.name)}</span> <span aria-hidden="true" class="almanac-article__arrow">→</span></a>
+      <a class="almanac-article__more" href={pillHref}><span class="almanac-article__more-label">{copy.moreIn.replace('{category}', () => category.name)}</span> <span aria-hidden="true" class="almanac-article__arrow">→</span></a>
     </footer>
   )}
 </article>

@@ -109,8 +109,12 @@ export type ThemeHomePost = Post & { categories?: PostCategoryBadge[]; coverImag
 export interface ThemeHomeProps {
   /** What this theme has been told, with its declared fallbacks already applied. */
   themeSettings: Readonly<Record<string, string>>;
-  /** The category the reader filtered by, as they wrote it. */
+  /** The category the reader filtered by, as they wrote it; on a category's own page, its name. */
   activeCategory: string | undefined;
+  /** Set on a category's own page: its name, what it says of itself in this language ('' when it says
+   *  nothing), and its address, which the list's later pages hang off (draw them with listHref). The
+   *  theme names the list with it as it names a filtered one, the description under the name. */
+  category?: { description: string; name: string; path: string };
   /** What the reader searched for, trimmed, or undefined when they did not. The posts are already
    *  only the ones that match. A theme draws them first, without a hero, and says what was
    *  searched for and how to leave it: the words are the reader's, so it prints them as text. */

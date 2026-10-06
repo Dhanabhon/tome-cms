@@ -79,6 +79,10 @@ let owner: Owner | undefined;
 let draftId = '';
 /** The category ids a card's tone comes from, by name. */
 const categoryIds: Record<string, string> = {};
+/** Category addresses by name. */
+const categorySlugs: Record<string, string> = {};
+/** A category's own page, in English. */
+const categoryPage = (name: string) => `/en/category/${encodeURIComponent(categorySlugs[name])}`;
 
 test.beforeAll(async () => {
   // Seeding, a migrated schema and a cold dev server are more than the 30 s a test gets.
@@ -132,6 +136,7 @@ test.beforeAll(async () => {
   const { seedAlmanac } = await import('../helpers/almanac-seed');
   const seeded = await seedAlmanac(OWNER, THAI_CATEGORY, LONG_TITLE);
   Object.assign(categoryIds, seeded.categoryIds);
+  Object.assign(categorySlugs, seeded.categorySlugs);
   draftId = seeded.draftId;
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
@@ -414,7 +419,8 @@ test('the pills filter the list in place, by click and by keyboard, in Thai too'
   await page.evaluate(() => { (window as unknown as { stayed: boolean }).stayed = true; });
 
   await pills(page).getByRole('link', { name: 'Field Notes' }).click();
-  await expect(page).toHaveURL(`${origin}/en?category=Field+Notes`);
+  await expect(page).toHaveURL(`${origin}${categoryPage('Field Notes')}`);
+  await expect(page, 'the tab names the list the pill brought').toHaveTitle(`Field Notes | ${SITE}`);
   await expect(cards(page), 'two posts are in Field Notes').toHaveCount(2);
   await expect(feed(page).getByRole('heading', { level: 2 }), 'the list says what it is').toHaveText('Field Notes');
   await expect(pills(page).getByRole('link', { name: 'Field Notes' })).toHaveAttribute('aria-current', 'page');
@@ -426,7 +432,7 @@ test('the pills filter the list in place, by click and by keyboard, in Thai too'
   await expect(page.getByRole('heading', { level: 1 }), 'still named for a screen reader').toHaveText(TAGLINE);
 
   await pills(page).getByRole('link', { name: THAI_CATEGORY }).click();
-  await expect(page).toHaveURL(`${origin}/en?category=${encodeURIComponent(THAI_CATEGORY)}`);
+  await expect(page).toHaveURL(`${origin}${categoryPage(THAI_CATEGORY)}`);
   await expect(cards(page)).toHaveCount(1);
   await expect(feed(page).getByRole('heading', { level: 2 })).toHaveText(THAI_CATEGORY);
 
@@ -443,8 +449,9 @@ test('the pills filter the list in place, by click and by keyboard, in Thai too'
   await expect(hero(page).getByRole('link', { name: copy.startReading }), 'all posts brings the band back').toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { stayed?: boolean }).stayed)).toBe(true);
 
-  // Straight to an address: the pill is already the current one.
+  // Straight to an address, the old one too: the pill is already the current one.
   await open(page, '/en?category=Recipes');
+  await expect(page).toHaveURL(`${origin}${categoryPage('Recipes')}`);
   await expect(pills(page).getByRole('link', { name: 'Recipes' })).toHaveAttribute('aria-current', 'page');
   await expect(cards(page)).toHaveCount(5);
 });
@@ -504,6 +511,60 @@ test('a category opened by its address has no hero: its list comes first, under 
   }
 });
 
+test('a category has a page of its own: its heading and head, its later pages at its Thai address, and no page for the rest', async ({ page }) => {
+  test.setTimeout(120_000);
+  useAlmanac();
+  const thaiPage = categoryPage(THAI_CATEGORY);
+  // Every other post not filed under the default joins the Thai category for this test, so its page has a second page.
+  psql(`insert into post_category_assignments (translation_group_id, category_id, owner_id)
+      select p.translation_group_id, '${categoryIds[THAI_CATEGORY]}', '${OWNER}' from posts p
+      where p.status = 'published' and not exists (select 1 from post_category_assignments a
+        where a.translation_group_id = p.translation_group_id and a.category_id in ('${categoryIds[THAI_CATEGORY]}', '${categoryIds.Uncategorized}'));
+    update categories set description_en = 'Recipes written down in Thai.' where id = '${categoryIds[THAI_CATEGORY]}';`);
+  try {
+    const response = await page.goto(`${origin}${thaiPage}`);
+    expect(response?.status()).toBe(200);
+    await expect(page).toHaveTitle(`${THAI_CATEGORY} | ${SITE}`);
+    await expect(hero(page), 'no hero above a category').toHaveCount(0);
+    await expect(feed(page).getByRole('heading', { level: 2 })).toHaveText(THAI_CATEGORY);
+    await expect(feed(page).locator('.almanac-feed__description')).toHaveText('Recipes written down in Thai.');
+    await expect(pills(page).getByRole('link', { name: THAI_CATEGORY })).toHaveAttribute('aria-current', 'page');
+    const head = await page.evaluate(() => ({
+      alternates: [...document.querySelectorAll('link[rel="alternate"][hreflang]')].map((link) => `${link.getAttribute('hreflang')} ${link.getAttribute('href')}`),
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+      crumbs: [...document.querySelectorAll('script[type="application/ld+json"]')].map((script) => JSON.parse(script.textContent ?? '{}'))
+        .find((item) => item['@type'] === 'BreadcrumbList')?.itemListElement.map((item: { item: string; name: string }) => `${item.name} ${item.item}`),
+      description: document.querySelector('meta[name="description"]')?.getAttribute('content'),
+    }));
+    expect(head).toEqual({
+      alternates: [`en ${origin}${thaiPage}`, `x-default ${origin}${thaiPage}`],
+      canonical: `${origin}${thaiPage}`,
+      crumbs: [`${SITE} ${origin}/en`, `${THAI_CATEGORY} ${origin}${thaiPage}`],
+      description: 'Recipes written down in Thai.',
+    });
+
+    await expect(cards(page), 'a page of six').toHaveCount(6);
+    const more = page.getByRole('link', { name: new RegExp(`^${copy.morePosts}`) });
+    await expect(more).toHaveAttribute('href', new RegExp(`^${thaiPage}\\?cursor=[^&]+$`));
+    await more.click();
+    await expect(page).toHaveURL(new RegExp(`${thaiPage}\\?cursor=`));
+    await expect(cards(page), 'the other two of the eight').toHaveCount(2);
+    await expect(page.getByRole('link', { name: new RegExp(`^${copy.morePosts}`) })).toHaveCount(0);
+
+    for (const path of ['/en/category/uncategorized', '/en/category/nothing-here', `/th${categoryPage('Field Notes').slice(3)}`]) {
+      expect((await page.goto(`${origin}${path}`))?.status(), path).toBe(404);
+      await expect(page.locator('h1'), `${path}: the missing page, in the theme`).toHaveText(path.startsWith('/th') ? publicCopy('th').categoryNotFound : copy.categoryNotFound);
+    }
+    const moved = await fetch(`${origin}/en?category=Field+Notes`, { redirect: 'manual' });
+    expect([moved.status, moved.headers.get('location')]).toEqual([301, categoryPage('Field Notes')]);
+  } finally {
+    // Only what this test added: the Thai category keeps the one post the seed filed under it.
+    psql(`delete from post_category_assignments a using posts p
+        where a.translation_group_id = p.translation_group_id and a.category_id = '${categoryIds[THAI_CATEGORY]}' and p.slug <> 'sourdough-thai';
+      update categories set description_en = '' where id = '${categoryIds[THAI_CATEGORY]}';`);
+  }
+});
+
 test('"More posts" carries on where the list stopped: nothing twice, nothing missed', async ({ page }) => {
   test.setTimeout(120_000);
   useAlmanac();
@@ -529,9 +590,9 @@ test('a post: the pill, the one eager cover, the reading bar, and the way on', a
   await expect(page.locator('.almanac-prose h1')).toHaveCount(0);
   await expect(page.locator('.almanac-prose h2').first(), 'it became a heading two').toHaveText('A heading one in the body');
   await expect(page.locator('.almanac-article__pill')).toHaveText('Field Notes');
-  await expect(page.locator('.almanac-article__pill')).toHaveAttribute('href', '/en?category=Field+Notes');
+  await expect(page.locator('.almanac-article__pill')).toHaveAttribute('href', categoryPage('Field Notes'));
   await expect(page.locator('.almanac-article__more')).toHaveText('More in Field Notes →');
-  await expect(page.locator('.almanac-article__more')).toHaveAttribute('href', '/en?category=Field+Notes');
+  await expect(page.locator('.almanac-article__more')).toHaveAttribute('href', categoryPage('Field Notes'));
   await expect(page.locator('.almanac-article__lead')).toHaveText('The dough is calmer after dark, and so is the baker.');
   await expect(page.locator('.almanac-article__meta')).toContainText(/^By .+·.+·\d+ min read$/);
 
@@ -543,9 +604,9 @@ test('a post: the pill, the one eager cover, the reading bar, and the way on', a
   expect(await page.locator('img[loading="lazy"]').count(), 'nothing else on the page is eager but the cover').toBe(await page.locator('img').count() - 1);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 
-  // The pill is a way to the filtered list.
+  // The pill is a way to the category's page.
   await page.locator('.almanac-article__pill').click();
-  await expect(page).toHaveURL(`${origin}/en?category=Field+Notes`);
+  await expect(page).toHaveURL(`${origin}${categoryPage('Field Notes')}`);
   await expect(pills(page).getByRole('link', { name: 'Field Notes' })).toHaveAttribute('aria-current', 'page');
 });
 
@@ -600,6 +661,8 @@ test('a post with no cover has none, and one with no category chosen is filed un
   await expect(page.locator('h1')).toHaveText('Zymurgy, butter and patience');
   await expect(page.locator('.almanac-article__cover'), 'no cover, no empty frame').toHaveCount(0);
   await expect(page.locator('.almanac-article__pill'), 'the default category is still a category').toHaveText('Uncategorized');
+  // It has no page of its own, so its pill keeps the home list filtered by it.
+  await expect(page.locator('.almanac-article__pill')).toHaveAttribute('href', '/en?category=Uncategorized');
   await expect(page.locator('.almanac-article__more')).toHaveText('More in Uncategorized →');
   await expect(page.locator('.almanac-article__meta')).toContainText('min read');
 });

@@ -2,15 +2,16 @@
 import Icon from '../../components/Icon.astro';
 import HeroControls from './parts/HeroControls.astro';
 import { FOCUS_POSITION } from '../../lib/home-slides';
-import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
+import { categoryHref, dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
 import { postExcerpt, postReadingMinutes } from '../../lib/posts';
 import { PAPER_SIZES, responsiveAttrs } from '../../lib/responsive-image';
 import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
+import { listHref } from '../list-href';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, profile, query, slides: ownSlides, siteName, tagline, themeSettings, timezone } = Astro.props;
+const { activeCategory, categories, category, cursor, loadError, locale, nextCursor, posts, profile, query, slides: ownSlides, siteName, tagline, themeSettings, timezone } = Astro.props;
 // Off leaves the link a reader without JavaScript already follows, and the script below
 // finds nothing to wire -- the marker is what it looks for.
 const endless = themeSettings.infiniteScroll !== 'off';
@@ -73,7 +74,6 @@ const name = siteName.trim() || 'TomeCMS';
 // when it does not.
 const byline = profile?.name || siteName;
 const home = localePath(locale);
-const categoryHref = (name: string) => `${home}?${new URLSearchParams({ category: name })}`;
 const isCurrent = (name: string) => activeCategory?.toLocaleLowerCase() === name.toLocaleLowerCase();
 // The owner's words, or the theme's in the language the page is read in. It was one English
 // sentence written into the template, which a Thai reader met in English.
@@ -91,9 +91,7 @@ const band = query || activeCategory ? 'none'
     ? ownSlides.length > 1 ? 'slides' : ownSlides.length === 1 ? 'banner' : 'text'
     : slides.length > 1 ? 'slider' : hero === 'slider' ? 'text' : hero;
 
-const olderHref = nextCursor
-  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
-  : null;
+const olderHref = nextCursor ? listHref(home, Astro.props, nextCursor) : null;
 const shared = publicCopy(locale);
 // The reader's words go into a sentence as text, whatever they contain.
 const saying = (template: string) => template.replace('{query}', () => query ?? '');
@@ -227,8 +225,8 @@ const readTime = (post: Post) => {
       <nav class="post-filter" aria-label={copy.categories} data-post-filter data-announce={copy.showing}>
         <ul>
           <li><a href={home} aria-current={activeCategory || query ? undefined : 'page'}>{copy.all}</a></li>
-          {categories.map(({ name }) => (
-            <li><a href={categoryHref(name)} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a></li>
+          {categories.map((chip) => (
+            <li><a href={categoryHref(locale, chip)} aria-current={isCurrent(chip.name) ? 'page' : undefined}>{chip.name}</a></li>
           ))}
         </ul>
         <p class="sr-only" role="status" data-post-filter-status></p>
@@ -252,7 +250,12 @@ const readTime = (post: Post) => {
         </div>
         <p class="sr-only" role="status">{saying(shared.searchResults)}</p>
       </>
-    ) : categoryName && <h2 class="post-feed__heading">{categoryName}</h2>}
+    ) : categoryName && (
+      <>
+        <h2 class="post-feed__heading">{categoryName}</h2>
+        {category?.description && <p class="post-feed__description">{category.description}</p>}
+      </>
+    )}
     {posts.length > 0 ? (
       <div class="post-grid" data-post-grid style={gridStyle}>
         {posts.map((post, index) => {

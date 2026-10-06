@@ -44,6 +44,8 @@ export interface PostCategoryAssignment {
 
 export interface PostCategoryBadge {
   id: string;
+  /** Uncategorized, which has no page: its chip keeps the filtered home, and no trail passes through it. */
+  is_default: boolean;
   name: string;
   slug: string;
 }

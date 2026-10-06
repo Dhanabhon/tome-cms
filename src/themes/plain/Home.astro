@@ -1,27 +1,24 @@
 ---
 import Icon from '../../components/Icon.astro';
-import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
+import { categoryHref, dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
 import { postExcerpt } from '../../lib/posts';
 import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
+import { listHref } from '../list-href';
 import { leadsWith } from './lead';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, timezone } = Astro.props;
+const { activeCategory, categories, category, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, timezone } = Astro.props;
 const copy = publicCopy(locale);
 // Never an empty h1: a site with no name yet is called what the route calls it, as in Almanac.
 const name = siteName.trim() || 'TomeCMS';
 const home = localePath(locale);
 const formatter = new Intl.DateTimeFormat(dateLocale(locale), { dateStyle: 'long', timeZone: timezone });
-// The same list -- its category, its search -- from its newest post, or from where a page stopped.
-const listHref = (from?: string) => {
-  const search = `${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), ...(from ? { cursor: from } : {}) })}`;
-  return search ? `${home}?${search}` : home;
-};
-const olderHref = nextCursor ? listHref(nextCursor) : null;
+// The same list -- its category, its search -- from where a page stopped.
+const olderHref = nextCursor ? listHref(home, Astro.props, nextCursor) : null;
 // A page knows the next one's cursor but not the last one's, so the way back is to the newest.
-const newestHref = cursor ? listHref() : null;
+const newestHref = cursor ? listHref(home, Astro.props) : null;
 // The reader's words go into a sentence as text, whatever they contain.
 const saying = (template: string) => template.replace('{query}', () => query ?? '');
 // A category filter narrows the list but not the lead: the newest post in it leads.
@@ -46,14 +43,16 @@ const isCurrent = (category: string) => activeCategory?.toLocaleLowerCase() === 
     {categories.length > 0 && (
       <nav class="plain-filter" aria-label={copy.categories}>
         <a href={home} aria-current={activeCategory || query ? undefined : 'page'}>{copy.allPosts}</a>
-        {categories.map(({ name }) => (
-          <a href={`${home}?${new URLSearchParams({ category: name })}`} aria-current={isCurrent(name) ? 'page' : undefined}>{name}</a>
+        {categories.map((chip) => (
+          <a href={categoryHref(locale, chip)} aria-current={isCurrent(chip.name) ? 'page' : undefined}>{chip.name}</a>
         ))}
       </nav>
     )}
   </div>
-  {/* A category with no posts has no tab to mark, so the list names it. */}
-  {activeCategory && !query && !categories.some(({ name }) => isCurrent(name)) && <h2 class="plain-list-heading">{activeCategory}</h2>}
+  {/* A category's own page names its list, and says what it is about when it says anything; a
+      category with no posts has no tab to mark, so the list names it too. */}
+  {(category || (activeCategory && !query && !categories.some(({ name }) => isCurrent(name)))) && <h2 class="plain-list-heading">{category?.name ?? activeCategory}</h2>}
+  {category?.description && <p class="plain-list-description">{category.description}</p>}
   {query && <p class="plain-search-status" role="status">{saying(copy.searchResults)} · <a href={home}>{copy.clearSearch}</a></p>}
   {loadError && <p class="plain-empty" role="alert">{copy.postsUnavailable}</p>}
 

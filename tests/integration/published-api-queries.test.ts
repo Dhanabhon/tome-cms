@@ -180,7 +180,7 @@ test('Published query services paginate, enrich, and isolate the installed site'
   );
   assert.deepEqual([first.hasMore, second.hasMore, third.hasMore], [true, true, false]);
   assert.equal(third.nextCursor, null);
-  assert.deepEqual(first.items[0]?.categories, [{ id: news.id, name: 'News', slug: 'news' }]);
+  assert.deepEqual(first.items[0]?.categories, [{ id: news.id, is_default: false, name: 'News', slug: 'news' }]);
   assert.equal(first.items[0]?.coverImage?.id, mediaId);
   assert.deepEqual(first.items[0]?.media.map(({ id }) => id), [mediaId]);
   assert.deepEqual(first.items[0]?.translations, [
@@ -211,8 +211,8 @@ test('Published query services paginate, enrich, and isolate the installed site'
 
   const categorySnapshot = await listPublishedCategories('th');
   assert.deepEqual(categorySnapshot.items, [
-    { id: uncategorized.id, name: 'Uncategorized', slug: 'uncategorized' },
-    { id: news.id, name: 'News', slug: 'news' },
+    { id: uncategorized.id, is_default: true, name: 'Uncategorized', slug: 'uncategorized' },
+    { id: news.id, is_default: false, name: 'News', slug: 'news' },
   ]);
   const navigation = await getPublicNavigationSnapshot('th');
   assert.deepEqual(navigation.navigation, {

@@ -23,6 +23,9 @@ const PROJECT = 'tomecms-home-search';
 const COMPOSE = ['compose', '-p', PROJECT, '-f', 'compose.test.yaml'];
 const CREDENTIAL = 'home-search-secret-at-least-32-chars!';
 const OWNER = 'home-search-owner';
+/** A category whose address is Thai, as an owner writing in Thai gets one. */
+const THAI_CATEGORY = 'บันทึก';
+const THAI_SLUG = encodeURIComponent(THAI_CATEGORY);
 
 function docker(args: string[], timeout = 180_000) {
   const result = spawnSync('docker', [...COMPOSE, ...args], { encoding: 'utf8', timeout });
@@ -89,12 +92,14 @@ test.beforeAll(async () => {
   await migrateToLatest();
 
   // An installed owner, eight notes (so a page of six has an older one), one about compost, and
-  // one in Thai. Field note 1 is also in "Notes", the pill the tests click.
+  // one in Thai. Field note 1 is also in "Notes", the pill the tests click. The notes and the Thai
+  // post are in "บันทึก", a category with a Thai address and posts in both languages, whose page pages.
   psql(`insert into "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
       values ('${OWNER}', 'Owner', 'owner@tomecms.invalid', true, 'owner', now(), now());
     insert into site_settings (id, owner_id, site_name, default_locale, timezone, admin_path)
       values (true, '${OWNER}', 'Search Test', 'en', 'UTC', '/admin');
-    insert into categories (owner_id, name, is_default) values ('${OWNER}', 'Uncategorized', true), ('${OWNER}', 'Notes', false);
+    insert into categories (owner_id, name, slug, is_default) values ('${OWNER}', 'Uncategorized', 'uncategorized', true),
+      ('${OWNER}', 'Notes', 'notes', false), ('${OWNER}', '${THAI_CATEGORY}', '${THAI_CATEGORY}', false);
     do $$
     declare g uuid; n int;
     begin
@@ -105,7 +110,7 @@ test.beforeAll(async () => {
             '{"type":"doc","content":[]}'::jsonb, '<p>Notes from the garden, day ' || n || '.</p>',
             'published', now() - (n || ' hours')::interval, '${OWNER}');
         insert into post_category_assignments (translation_group_id, category_id, owner_id)
-          select g, id, '${OWNER}' from categories where name = case when n = 1 then 'Notes' else 'Uncategorized' end;
+          select g, id, '${OWNER}' from categories where name = '${THAI_CATEGORY}' or (n = 1 and name = 'Notes');
       end loop;
       insert into post_translation_groups (owner_id) values ('${OWNER}') returning id into g;
       insert into posts (translation_group_id, locale, title, slug, excerpt, content_json, content_html, status, published_at, owner_id)
@@ -120,7 +125,7 @@ test.beforeAll(async () => {
           '{"type":"doc","content":[]}'::jsonb, '<p>ปุ๋ยหมักต้องกลับกองทุกสัปดาห์</p>',
           'published', now() - interval '1 hour', '${OWNER}');
       insert into post_category_assignments (translation_group_id, category_id, owner_id)
-        select g, id, '${OWNER}' from categories where name = 'Uncategorized';
+        select g, id, '${OWNER}' from categories where name = '${THAI_CATEGORY}';
     end $$;`);
 
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
@@ -257,8 +262,9 @@ test('paper: choosing a category leaves the search, in the list and in the box',
   await expect(page.getByRole('heading', { name: 'Results for “note”' })).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Categories' }).getByRole('link', { name: 'Notes' }).click();
-  await expect(page).toHaveURL(`${origin}/en?category=Notes`);
+  await expect(page).toHaveURL(`${origin}/en/category/notes`);
   await expect(page.locator('.post-card'), 'only Field note 1 is in Notes').toHaveCount(1);
+  await expect(page, 'the tab names the list the pill brought').toHaveTitle('Notes | Search Test');
   await expect(page.getByText('Results for')).toHaveCount(0);
   await expect(searchBox(page), 'the box no longer claims a search that is not on screen').toHaveValue('');
 });
@@ -326,6 +332,180 @@ for (const theme of ['paper', 'plain'] as const) {
     });
   }
 }
+
+// A category's own page (1.20.0): the theme's home list of one category, with its own head. Notes is
+// English only; บันทึก has a Thai address and posts in both languages; Uncategorized has no page.
+test.describe('category pages', () => {
+  /** What the head promises a search engine. */
+  const head = (page: Page) => page.evaluate(() => {
+    const data = [...document.querySelectorAll('script[type="application/ld+json"]')].map((script) => JSON.parse(script.textContent ?? '{}'));
+    const crumbs = data.find((item) => item['@type'] === 'BreadcrumbList');
+    return {
+      alternates: [...document.querySelectorAll('link[rel="alternate"][hreflang]')].map((link) => `${link.getAttribute('hreflang')} ${link.getAttribute('href')}`),
+      breadcrumbs: crumbs?.itemListElement.map((item: { item: string; name: string }) => `${item.name} ${item.item}`) as string[] | undefined,
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+      description: document.querySelector('meta[name="description"]')?.getAttribute('content'),
+      robots: document.querySelector('meta[name="robots"]')?.getAttribute('content'),
+    };
+  });
+  const filter = (page: Page) => page.getByRole('navigation', { name: 'Categories' });
+
+  for (const theme of ['paper', 'plain'] as const) {
+    test(`${theme}: a category's page has its heading, title, description, canonical, alternates and trail`, async ({ page }) => {
+      test.setTimeout(120_000);
+      useTheme(theme);
+      const response = await page.goto(`${origin}/en/category/notes`);
+      expect(response?.status()).toBe(200);
+      await expect(page).toHaveTitle('Notes | Search Test');
+      await expect(page.getByRole('heading', { level: 2, name: 'Notes', exact: true })).toBeVisible();
+      await expect(page.locator('h1'), 'the site\'s name is still the page\'s one h1').toHaveText('Search Test');
+      await expect(cards(page, theme), 'only Field note 1 is in Notes').toHaveCount(1);
+      await expect(filter(page).getByRole('link', { name: 'Notes' })).toHaveAttribute('aria-current', 'page');
+      expect(await head(page)).toEqual({
+        // Notes has posts in English only, so English is its one language, and the default's.
+        alternates: [`en ${origin}/en/category/notes`, `x-default ${origin}/en/category/notes`],
+        breadcrumbs: [`Search Test ${origin}/en`, `Notes ${origin}/en/category/notes`],
+        canonical: `${origin}/en/category/notes`,
+        description: 'Posts in Notes from Search Test.',
+        robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+      });
+
+      // The owner's description, under the heading and in the head; the other language's when this one has none.
+      psql(`update categories set description_en = 'Short notes from the garden.', description_th = 'บันทึกสั้น ๆ จากสวน' where slug = '${THAI_CATEGORY}'`);
+      await page.goto(`${origin}/en/category/${THAI_SLUG}`);
+      await expect(page.getByRole('heading', { level: 2, name: THAI_CATEGORY, exact: true })).toBeVisible();
+      await expect(page.getByText('Short notes from the garden.', { exact: true })).toBeVisible();
+      const thai = await head(page);
+      expect(thai.description).toBe('Short notes from the garden.');
+      expect(thai.canonical, 'the Thai address, encoded once').toBe(`${origin}/en/category/${THAI_SLUG}`);
+      expect(thai.alternates, 'it has posts in both languages').toEqual([
+        `th ${origin}/th/category/${THAI_SLUG}`, `en ${origin}/en/category/${THAI_SLUG}`, `x-default ${origin}/en/category/${THAI_SLUG}`,
+      ]);
+      expect(thai.breadcrumbs).toEqual([`Search Test ${origin}/en`, `${THAI_CATEGORY} ${origin}/en/category/${THAI_SLUG}`]);
+      psql(`update categories set description_en = '' where slug = '${THAI_CATEGORY}'`);
+      await page.goto(`${origin}/th/category/${THAI_SLUG}`);
+      await expect(cards(page, theme), 'the Thai post').toHaveCount(1);
+      expect((await head(page)).description, 'Thai has its own').toBe('บันทึกสั้น ๆ จากสวน');
+      await page.goto(`${origin}/en/category/${THAI_SLUG}`);
+      expect((await head(page)).description, 'English borrows the Thai one').toBe('บันทึกสั้น ๆ จากสวน');
+      await expect(page.locator(theme === 'paper' ? '.post-feed__description' : '.plain-list-description'), 'but the page shows only its own language\'s').toHaveCount(0);
+      psql(`update categories set description_th = '' where slug = '${THAI_CATEGORY}'`);
+    });
+
+    test(`${theme}: chips and a post's categories go to the category's page; the default category keeps the filtered home`, async ({ page }) => {
+      test.setTimeout(120_000);
+      useTheme(theme);
+      await page.goto(`${origin}/en`);
+      await expect(filter(page).getByRole('link', { name: 'Notes' })).toHaveAttribute('href', '/en/category/notes');
+      await expect(filter(page).getByRole('link', { name: THAI_CATEGORY })).toHaveAttribute('href', `/en/category/${THAI_SLUG}`);
+      await expect(filter(page).getByRole('link', { name: 'Uncategorized' })).toHaveAttribute('href', '/en?category=Uncategorized');
+
+      // A post names its categories as links, the default one as a word; its trail goes through the first with a page.
+      await page.goto(`${origin}/en/blog/field-note-1`);
+      const names = page.locator(theme === 'paper' ? '.post-categories' : '.plain-meta');
+      await expect(names.getByRole('link', { name: 'Notes' })).toHaveAttribute('href', '/en/category/notes');
+      await expect(names.getByRole('link', { name: THAI_CATEGORY })).toHaveAttribute('href', `/en/category/${THAI_SLUG}`);
+      expect((await head(page)).breadcrumbs).toEqual([
+        `Search Test ${origin}/en`, `Notes ${origin}/en/category/notes`, `Field note 1 ${origin}/en/blog/field-note-1`,
+      ]);
+      await names.getByRole('link', { name: THAI_CATEGORY }).click();
+      await expect(page).toHaveURL(`${origin}/en/category/${THAI_SLUG}`);
+
+      await page.goto(`${origin}/en/blog/gardening-in-winter`);
+      await expect(names).toContainText('Uncategorized');
+      await expect(names.getByRole('link'), 'Uncategorized has no page to go to').toHaveCount(0);
+      expect((await head(page)).breadcrumbs, 'and the trail goes straight home').toEqual([
+        `Search Test ${origin}/en`, `Gardening in winter ${origin}/en/blog/gardening-in-winter`,
+      ]);
+    });
+  }
+
+  test('paper: a category\'s page pages under its own address, and a page past the end is not found', async ({ browser }) => {
+    test.setTimeout(120_000);
+    useTheme('paper');
+    const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.goto(`${origin}/en/category/${THAI_SLUG}`);
+    await expect(cards(page, 'paper')).toHaveCount(6);
+    const older = page.getByRole('link', { name: /Older posts/ });
+    await expect(older).toHaveAttribute('href', new RegExp(`^/en/category/${THAI_SLUG}\\?cursor=[^&]+$`));
+    await older.click();
+    await expect(cards(page, 'paper'), 'the other two notes').toHaveCount(2);
+    expect((await head(page)).robots, 'a later page is not for the index').toBe('noindex, follow');
+    expect((await head(page)).canonical, 'and names the first as the page').toBe(`${origin}/en/category/${THAI_SLUG}`);
+    await expect(page.getByRole('link', { name: /Older posts/ })).toHaveCount(0);
+    await context.close();
+
+    // A cursor this list could have made, from before every post: nothing is there.
+    const { cursorQueryHash, encodeCursor } = await import('../../src/server/http/cursor');
+    const past = encodeCursor({ v: 1, resource: 'posts', queryHash: cursorQueryHash({ category: THAI_CATEGORY, limit: 6, locale: 'en' }),
+      publishedAt: '2000-01-01T00:00:00.000Z', id: '00000000-0000-4000-8000-000000000000' });
+    const answer = await fetch(`${origin}/en/category/${THAI_SLUG}?cursor=${past}`);
+    expect(answer.status).toBe(404);
+    expect(await answer.text()).toContain('Category not found');
+  });
+
+  test('the old ?category= address moves to the page for good, and only when the page answers', async () => {
+    test.setTimeout(120_000);
+    useTheme('paper');
+    const at = async (path: string) => {
+      const answer = await fetch(`${origin}${path}`, { redirect: 'manual' });
+      return { cache: answer.headers.get('x-tome-cache'), location: answer.headers.get('location'), status: answer.status };
+    };
+    expect(await at('/en?category=Notes')).toEqual({ cache: null, location: '/en/category/notes', status: 301 });
+    expect(await at('/en?category=notes'), 'case-blind, as the list matched').toMatchObject({ location: '/en/category/notes', status: 301 });
+    expect(await at('/en?category=Notes'), 'and never kept as a page').toEqual({ cache: null, location: '/en/category/notes', status: 301 });
+    expect(await at('/en?category=Notes&cursor=abc'), 'the old list\'s page does not carry over').toMatchObject({ location: '/en/category/notes', status: 301 });
+    expect(await at(`/th?category=${THAI_SLUG}`)).toMatchObject({ location: `/th/category/${THAI_SLUG}`, status: 301 });
+    expect((await at('/th?category=Notes')).status, 'Notes has no Thai post: the home as before').toBe(200);
+    expect((await at('/en?category=Uncategorized')).status, 'the default category has no page').toBe(200);
+    expect((await at('/en?category=Nothing')).status, 'an unknown name').toBe(200);
+    expect((await at('/en?category=Notes&q=note')).status, 'a search stays a search').toBe(200);
+  });
+
+  test('no page for the default category, an unknown address, or a language with no post in it', async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const theme of ['paper', 'plain'] as const) {
+      useTheme(theme);
+      for (const path of ['/en/category/uncategorized', '/en/category/no-such-thing', '/th/category/notes']) {
+        const response = await page.goto(`${origin}${path}`);
+        expect(response?.status(), `${theme} ${path}`).toBe(404);
+        await expect(page.getByRole('heading', { level: 1, name: 'Category not found' }).or(page.getByRole('heading', { level: 1, name: 'ไม่พบหมวดหมู่นี้' }))).toBeVisible();
+        expect((await head(page)).robots).toBe('noindex, follow');
+        expect((await head(page)).alternates).toEqual([]);
+      }
+    }
+  });
+
+  test('a category\'s page is cached like the others, listed in the sitemap, and hidden with the site', async ({ page }) => {
+    test.setTimeout(120_000);
+    useTheme('paper');
+    const first = await fetch(`${origin}/en/category/notes`);
+    const second = await fetch(`${origin}/en/category/notes`);
+    expect([first.headers.get('x-tome-cache'), second.headers.get('x-tome-cache')]).toEqual(['miss', 'hit']);
+
+    const sitemap = await (await fetch(`${origin}/sitemap.xml`)).text();
+    const listed = [...sitemap.matchAll(/<loc>([^<]*\/category\/[^<]*)<\/loc>/g)].map(([, location]) => location).sort();
+    expect(listed, 'one per language it has posts in, never the default').toEqual([
+      `${origin}/en/category/notes`, `${origin}/en/category/${THAI_SLUG}`, `${origin}/th/category/${THAI_SLUG}`,
+    ].sort());
+    expect(sitemap).toMatch(new RegExp(`<loc>${origin}/en/category/notes</loc>\\s*<lastmod>[^<]+</lastmod>`));
+
+    psql('update site_settings set hide_from_search = true');
+    try {
+      const hidden = await fetch(`${origin}/en/category/notes`);
+      expect(hidden.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+      await page.goto(`${origin}/en/category/notes`);
+      expect((await head(page)).robots).toBe('noindex, nofollow');
+      expect((await head(page)).breadcrumbs, 'no structured data').toBeUndefined();
+      expect(await (await fetch(`${origin}/sitemap.xml`)).text()).not.toContain('/category/');
+      const moved = await fetch(`${origin}/en?category=Notes`, { redirect: 'manual' });
+      expect(moved.headers.get('x-robots-tag'), 'the redirect says so too').toBe('noindex, nofollow');
+    } finally {
+      psql('update site_settings set hide_from_search = false');
+    }
+  });
+});
 
 // Paper's home and its header, as a reader meets them (1.14.0). Each test sets the hero and the
 // name it needs, and leaves them as the file found them: the text hero, and "Search Test".
@@ -513,15 +693,18 @@ test.describe('plain', () => {
 
   test('the next page is "More posts", and a later page leads back to the newest', async ({ page }) => {
     test.setTimeout(120_000);
-    await page.goto(`${origin}/en?category=Uncategorized`);
+    // A category's own page, at its Thai address: its later pages hang off that address.
+    await page.goto(`${origin}/en/category/${THAI_SLUG}`);
     await expect(page.getByRole('link', { name: 'All posts →' }), 'the old label, the first tab\'s name').toHaveCount(0);
     await expect(page.getByRole('link', { name: /Latest posts/ }), 'the first page is the newest').toHaveCount(0);
+    await expect(cards(page, 'plain'), 'the lead and six').toHaveCount(7);
     await page.getByRole('link', { name: 'More posts' }).click();
-    await expect(page).toHaveURL(/category=Uncategorized.*cursor=/);
+    await expect(page).toHaveURL(new RegExp(`/en/category/${THAI_SLUG}\\?cursor=`));
+    await expect(cards(page, 'plain'), 'the eighth note').toHaveCount(1);
     const back = page.getByRole('link', { name: 'Latest posts' });
-    await expect(back, 'the same list, from its newest').toHaveAttribute('href', '/en?category=Uncategorized');
+    await expect(back, 'the same list, from its newest').toHaveAttribute('href', `/en/category/${THAI_SLUG}`);
     await back.click();
-    await expect(page).toHaveURL(`${origin}/en?category=Uncategorized`);
+    await expect(page).toHaveURL(`${origin}/en/category/${THAI_SLUG}`);
   });
 
   test('an empty list says why: an empty category, and a list that failed to load', async ({ page }) => {
@@ -563,7 +746,7 @@ test.describe('plain', () => {
       await page.goto(`${origin}/en`);
       const row = tabs(page);
       const links = row.getByRole('link');
-      await expect(links).toHaveCount(names.length + 3);
+      await expect(links).toHaveCount(names.length + 4);
       const [scrolls, tops] = await row.evaluate((nav) => [
         nav.scrollWidth > nav.clientWidth,
         new Set([...nav.querySelectorAll('a')].map((link) => Math.round(link.getBoundingClientRect().top))).size,

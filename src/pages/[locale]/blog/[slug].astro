@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { documentHasVideo } from '../../../lib/editor-video';
-import { isPostLocale, localePath, postPath, publicCopy } from '../../../lib/i18n';
+import { categoryPath, isPostLocale, localePath, postPath, publicCopy } from '../../../lib/i18n';
 import { postDescription } from '../../../lib/posts';
 import { getPublicAuthorProfile } from '../../../lib/profile';
 import { siteDescriptionFor } from '../../../lib/seo';
@@ -69,12 +69,15 @@ const xDefaultHref = settings
   ? availableLocales.find((alternate) => alternate.locale === settings.default_locale)?.href
   : undefined;
 const copy = publicCopy(locale);
+// The trail a search result shows passes through the post's first category with a page of its own.
+const trailCategory = categories.find(({ is_default }) => !is_default);
 ---
 
 <BaseLayout
   alternates={availableLocales}
   authorLinks={profile?.links.map(({ url }) => url)}
   authorName={profile?.name}
+  category={trailCategory && { name: trailCategory.name, path: categoryPath(locale, trailCategory.slug) }}
   canonicalPath={post ? postPath(post) : undefined}
   description={post ? postDescription(post, fallbackDescription) : fallbackDescription}
   headline={post?.title}

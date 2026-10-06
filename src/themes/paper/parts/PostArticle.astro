@@ -1,6 +1,6 @@
 ---
 import { demoteH1 } from '../../../lib/editor-content';
-import { dateLocale, localePath, publicCopy } from '../../../lib/i18n';
+import { categoryHref, dateLocale, localePath, publicCopy } from '../../../lib/i18n';
 import { articleCover } from '../../../lib/post-cover';
 import { readingRail } from '../../../lib/reading-rail';
 import { PAPER_SIZES } from '../../../lib/responsive-image';
@@ -72,7 +72,8 @@ const copy = publicCopy(post.locale);
     </div>
     {categories.length > 0 && (
       <ul class="post-categories" aria-label={copy.categories}>
-        {categories.map((category) => <li>{category.name}</li>)}
+        {/* Each goes to its category's page; the default category has none, so it stays a word. */}
+        {categories.map((category) => <li>{category.is_default ? category.name : <a href={categoryHref(post.locale, category)}>{category.name}</a>}</li>)}
       </ul>
     )}
   </header>

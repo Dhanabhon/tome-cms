@@ -112,7 +112,7 @@ export async function enrichPosts(ownerId: string, posts: Post[]): Promise<Publi
   const categoryDates = new Map<string, Date>();
   for (const row of categoryRows) {
     const items = categories.get(row.translation_group_id) ?? [];
-    items.push({ id: row.id, name: row.name, slug: row.slug });
+    items.push({ id: row.id, is_default: row.is_default, name: row.name, slug: row.slug });
     categories.set(row.translation_group_id, items);
     categoryDates.set(row.translation_group_id, newer(
       categoryDates.get(row.translation_group_id), row.assignment_created_at, row.category_updated_at,
@@ -343,11 +343,11 @@ export async function getPublishedSite(): Promise<PublishedSiteResult | null> {
 
 export async function listPublishedCategories(
   locale: PostLocale,
-): Promise<{ items: PostCategoryBadge[]; lastModified: Date }> {
+): Promise<{ items: PostCategoryBadge[]; lastModified: Date; modified: Map<string, Date> }> {
   const settings = await getSiteSettings();
   return settings
     ? listPublishedCategoriesForOwner(settings.owner_id, locale, settings.updated_at)
-    : { items: [], lastModified: new Date(0) };
+    : { items: [], lastModified: new Date(0), modified: new Map() };
 }
 
 export async function listPublishedPostAlternates(translationGroupId: string): Promise<PostAlternate[]> {
@@ -381,7 +381,7 @@ export async function listPublishedPostCategories(translationGroupId: string): P
     .innerJoin('categories as category', (join) => join
       .onRef('category.id', '=', 'assignment.category_id')
       .onRef('category.owner_id', '=', 'assignment.owner_id'))
-    .select(['category.id', 'category.name', 'category.slug'])
+    .select(['category.id', 'category.is_default', 'category.name', 'category.slug'])
     .where('assignment.owner_id', '=', settings.owner_id)
     .where('assignment.translation_group_id', '=', translationGroupId)
     .orderBy('category.is_default', 'desc')

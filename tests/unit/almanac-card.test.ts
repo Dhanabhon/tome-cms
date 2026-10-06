@@ -10,14 +10,14 @@ import type { PostCategoryBadge } from '../../src/types/cms';
 const post = (categories?: PostCategoryBadge[]) => ({ categories, id: 'p1', title: 'A title' }) as unknown as ThemeHomePost;
 
 test('a card with no cover takes its band\'s name and tone from the first category', () => {
-  const design = { id: '6f1c2a90-3d4b-4e5f-8a7b-1c2d3e4f5a6b', name: 'design notes', slug: 'design-notes' };
-  const panel = cardPanel(post([design, { id: 'other', name: 'Zebra', slug: 'zebra' }]), 'Tome');
+  const design = { id: '6f1c2a90-3d4b-4e5f-8a7b-1c2d3e4f5a6b', is_default: false, name: 'design notes', slug: 'design-notes' };
+  const panel = cardPanel(post([design, { id: 'other', is_default: false, name: 'Zebra', slug: 'zebra' }]), 'Tome');
   assert.deepEqual(panel, { name: 'design notes', tone: tone(design.id) });
 });
 
 test('a Thai category is named whole, as it is written', () => {
-  assert.equal(cardPanel(post([{ id: 'c', name: 'สูตรขนม', slug: 'สูตร-ขนม' }]), 'Tome').name, 'สูตรขนม');
-  assert.equal(cardPanel(post([{ id: 'c', name: '  เทคโนโลยี ', slug: 'เทคโนโลยี' }]), 'Tome').name, 'เทคโนโลยี');
+  assert.equal(cardPanel(post([{ id: 'c', is_default: false, name: 'สูตรขนม', slug: 'สูตร-ขนม' }]), 'Tome').name, 'สูตรขนม');
+  assert.equal(cardPanel(post([{ id: 'c', is_default: false, name: '  เทคโนโลยี ', slug: 'เทคโนโลยี' }]), 'Tome').name, 'เทคโนโลยี');
 });
 
 test('a post with no category falls back to the site name, in one tone for all of them', () => {
@@ -26,7 +26,7 @@ test('a post with no category falls back to the site name, in one tone for all o
   assert.deepEqual(cardPanel(post([]), 'tome notes'), { name: 'tome notes', tone: tone('') });
   assert.deepEqual(cardPanel(post(), 'บันทึก'), { name: 'บันทึก', tone: tone('') });
   // A category with no name is no name: the site name speaks instead.
-  assert.equal(cardPanel(post([{ id: 'c', name: '   ', slug: 'c' }]), 'Tome').name, 'Tome');
+  assert.equal(cardPanel(post([{ id: 'c', is_default: false, name: '   ', slug: 'c' }]), 'Tome').name, 'Tome');
 });
 
 test('the meta line is the reading time and the day, in the page\'s language and the site\'s time zone', () => {

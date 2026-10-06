@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { isPostLocale, localePath, publicCopy } from '../../lib/i18n';
+import { categoryRedirect, isPostLocale, localePath, publicCopy } from '../../lib/i18n';
 import { siteDescriptionFor } from '../../lib/seo';
 import { getPublicAuthorProfile } from '../../lib/profile';
 import { listPublishedCategories, listPublishedPosts } from '../../server/content/published';
@@ -33,6 +33,17 @@ if (query && !maySearch(Astro.request, Astro.clientAddress)) {
     headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '60' },
     status: 429,
   });
+}
+// An old link to the home filtered by a category goes to that category's page, for good, when the
+// page answers in this language; the page of the list it asked for does not carry over. Anything
+// else -- an unknown name, the default category, a search -- is the home as it always was.
+if (category && !query) {
+  try {
+    const moved = categoryRedirect(locale, category, (await listPublishedCategories(locale)).items);
+    if (moved) return Astro.redirect(moved, 301);
+  } catch (error) {
+    console.error('Category redirect lookup failed:', error);
+  }
 }
 let posts: ThemeHomePost[] = [];
 // Read whatever the theme will do with them: which hero it draws is its own setting, and the

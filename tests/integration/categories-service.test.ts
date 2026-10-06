@@ -73,10 +73,10 @@ test('Category services preserve shared membership, ownership, and fallback', as
   // The admin post list reads a whole page of rows through this one call.
   const absentGroup = randomUUID();
   const grouped = await categoriesByPostGroup('owner-a', [firstGroup, secondGroup, absentGroup, firstGroup]);
-  assert.deepEqual(grouped.get(firstGroup), [{ id: alpha.id, name: 'Alpha', slug: 'alpha' }]);
+  assert.deepEqual(grouped.get(firstGroup), [{ id: alpha.id, is_default: false, name: 'Alpha', slug: 'alpha' }]);
   assert.deepEqual(
     grouped.get(secondGroup),
-    [{ id: alpha.id, name: 'Alpha', slug: 'alpha' }, { id: zeta.id, name: 'Zeta', slug: 'zeta' }],
+    [{ id: alpha.id, is_default: false, name: 'Alpha', slug: 'alpha' }, { id: zeta.id, is_default: false, name: 'Zeta', slug: 'zeta' }],
     'a group keeps every assignment, ordered default first then by name',
   );
   assert.equal(grouped.has(absentGroup), false, 'a group with no assignments is absent rather than empty');

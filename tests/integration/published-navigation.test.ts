@@ -70,7 +70,7 @@ test('published content and Navigation stay locale-safe and draft-safe', async (
     { href: `/th/blog/${thaiPost.slug}`, locale: 'th' },
   ]);
   assert.deepEqual(await listPublishedPostCategories(thaiPost.translation_group_id), [
-    { id: architecture.id, name: architecture.name, slug: architecture.slug },
+    { id: architecture.id, is_default: false, name: architecture.name, slug: architecture.slug },
   ]);
 
   const publishedPage = await createPage('public-owner', {

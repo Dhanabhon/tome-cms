@@ -29,6 +29,9 @@ interface Props {
   /** The author's profile addresses, which an article's structured data names as the same person. */
   authorLinks?: string[];
   authorName?: string;
+  /** The category page a search result's trail passes through: the page itself on a category's
+   *  page, a post's first category with a page on a post. */
+  category?: { name: string; path: string };
   title?: string;
   description?: string;
   headline?: string;
@@ -75,6 +78,7 @@ const {
   alternates,
   authorLinks = [],
   authorName,
+  category,
   canonicalPath,
   description: givenDescription,
   headline,
@@ -173,6 +177,7 @@ const pageData = robots.includes('noindex')
         url: homeUrl,
       };
 const breadcrumbs = breadcrumbList({
+  category: category && { name: category.name, url: new URL(category.path, siteUrl).toString() },
   homeName: siteName,
   homeUrl: new URL(localePath(locale), siteUrl).toString(),
   name: headline ?? title,

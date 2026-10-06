@@ -2,21 +2,23 @@ import type { APIRoute } from 'astro';
 
 import { pagePath, postPath } from '../lib/i18n';
 import { getPublicSiteUrl } from '../lib/seo';
-import { sitemapXml, type SitemapEntry } from '../lib/xml';
-import { listPublishedPages, listPublishedPosts } from '../server/content/published';
+import { categorySitemapEntries, sitemapXml, type SitemapEntry } from '../lib/xml';
+import { listPublishedCategories, listPublishedPages, listPublishedPosts } from '../server/content/published';
 import { getSiteSettings } from '../server/content/settings';
 import { POST_LOCALES } from '../types/cms';
 
 /** Every public address, each language's home first. */
 async function listedEntries(siteUrl: URL): Promise<SitemapEntry[]> {
   // ponytail: cap each content type at 1,000 URLs; add a sitemap index if either outgrows this limit.
-  const [postResults, pageResults] = await Promise.all([
+  const [postResults, pageResults, categoryResults] = await Promise.all([
     Promise.all(POST_LOCALES.map((locale) => listPublishedPosts({ locale, limit: 1_000 }))),
     Promise.all(POST_LOCALES.map((locale) => listPublishedPages({ locale, limit: 1_000 }))),
+    Promise.all(POST_LOCALES.map(async (locale) => ({ locale, ...await listPublishedCategories(locale) }))),
   ]);
   return [
     { location: new URL('/th', siteUrl).toString() },
     { location: new URL('/en', siteUrl).toString() },
+    ...categorySitemapEntries(siteUrl, categoryResults),
     ...postResults.flatMap(({ items }) => items).map((post) => ({
       lastModified: post.updated_at,
       location: new URL(postPath(post), siteUrl).toString(),

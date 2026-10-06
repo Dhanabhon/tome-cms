@@ -5,10 +5,11 @@ import PostCard from './parts/PostCard.astro';
 import { heroLink } from './home';
 import { localePath, postPath, publicCopy } from '../../lib/i18n';
 import type { ThemeHomeProps } from '../contract';
+import { listHref } from '../list-href';
 
 interface Props extends ThemeHomeProps {}
 
-const { activeCategory, categories, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, themeSettings, timezone } = Astro.props;
+const { activeCategory, categories, category, cursor, loadError, locale, nextCursor, posts, query, siteName, tagline, themeSettings, timezone } = Astro.props;
 const copy = publicCopy(locale);
 const home = localePath(locale);
 // The first page only, and not for a search or a category: whoever asked for a list wants it first.
@@ -24,9 +25,7 @@ const headline = themeSettings.heroHeadline?.trim();
 // Paper's words for it: the core's copy has no "try again".
 const tryAgain = locale === 'th' ? 'ลองอีกครั้ง' : 'Try again';
 
-const olderHref = nextCursor
-  ? `${home}?${new URLSearchParams({ ...(activeCategory ? { category: activeCategory } : {}), ...(query ? { q: query } : {}), cursor: nextCursor })}`
-  : null;
+const olderHref = nextCursor ? listHref(home, Astro.props, nextCursor) : null;
 // The reader's words go into a sentence as text, whatever they contain.
 const saying = (template: string) => template.replace('{query}', () => query ?? '');
 // The category as the site names it, not as the address happened to spell it.
@@ -54,6 +53,7 @@ const heading = query ? saying(copy.searchResults) : categoryName || copy.latest
   <div class="almanac-feed" data-post-feed>
     <h2 class:list={['almanac-feed__heading', { 'sr-only': !query && !categoryName }]}>{heading}</h2>
     {query && <p class="almanac-feed__clear"><a href={home}>{copy.clearSearch}</a></p>}
+    {category?.description && <p class="almanac-feed__description">{category.description}</p>}
 
     {posts.length > 0 ? (
       <div class="almanac-grid">

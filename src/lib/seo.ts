@@ -23,13 +23,18 @@ export function organizationSchema(name: string, siteUrl: URL, brand: Pick<SiteB
   };
 }
 
+export interface BreadcrumbStep { name: string; url: string }
+
 /**
- * The way from a post or a page back to the home page of its language, for a search result to
- * show above the title. Two steps: categories have no address of their own to stand between.
- * The home page is where the trail starts, so it carries none, nor does a page that is missing;
- * and a page asking not to be listed carries no structured data at all.
+ * The way from a page back to the home page of its language, for a search result to show above
+ * the title. A category's page is one step from home; a post passes through its category when it
+ * has one with a page; a page has none to pass through. The home page is where the trail starts,
+ * so it carries none, nor does a page that is missing; and a page asking not to be listed carries
+ * no structured data at all.
  */
-export function breadcrumbList({ homeName, homeUrl, name, robots, type, url }: {
+export function breadcrumbList({ category, homeName, homeUrl, name, robots, type, url }: {
+  /** The category page on the way: the page itself on a category's page, the post's on a post. */
+  category?: BreadcrumbStep;
   homeName: string;
   homeUrl: string;
   name: string;
@@ -37,15 +42,35 @@ export function breadcrumbList({ homeName, homeUrl, name, robots, type, url }: {
   type: 'article' | 'page' | 'website';
   url: string;
 }): Record<string, unknown> | undefined {
-  if (type === 'website' || robots.includes('noindex')) return undefined;
+  if (robots.includes('noindex')) return undefined;
+  const trail: BreadcrumbStep[] = type === 'website'
+    ? category ? [category] : []
+    : [...(type === 'article' && category ? [category] : []), { name, url }];
+  if (!trail.length) return undefined;
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', item: homeUrl, name: homeName, position: 1 },
-      { '@type': 'ListItem', item: url, name, position: 2 },
+      ...trail.map((step, index) => ({ '@type': 'ListItem', item: step.url, name: step.name, position: index + 2 })),
     ],
   };
+}
+
+/**
+ * What a category's page says of itself to a search result: the owner's description in the page's
+ * language, or the other language's, or a line made from the category's and the site's names.
+ */
+export function categoryDescription({ category, locale, siteName }: {
+  category: { description_en: string; description_th: string; name: string };
+  locale: PostLocale;
+  siteName: string;
+}): string {
+  const own = (locale === 'th' ? category.description_th : category.description_en).trim();
+  const other = (locale === 'th' ? category.description_en : category.description_th).trim();
+  if (own || other) return own || other;
+  const line = locale === 'th' ? 'บทความในหมวด {category} จาก {site}' : 'Posts in {category} from {site}.';
+  return line.replace('{category}', () => category.name).replace('{site}', () => siteName);
 }
 
 export interface OpenGraphImage { alt: string; height?: number; url: string; width?: number }

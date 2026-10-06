@@ -120,6 +120,17 @@ export async function insertDefaultCategory(trx: Transaction<Database>, ownerId:
   `.execute(trx);
 }
 
+/** The category at an address of this owner's, with what its page says of it. Slugs are unique per owner. */
+export async function categoryBySlug(ownerId: string, slug: string): Promise<Pick<
+  PostCategory, 'description_en' | 'description_th' | 'id' | 'is_default' | 'name' | 'slug'
+> | null> {
+  return await db.selectFrom('categories')
+    .select(['id', 'name', 'slug', 'is_default', 'description_th', 'description_en'])
+    .where('owner_id', '=', ownerId)
+    .where('slug', '=', slug)
+    .executeTakeFirst() ?? null;
+}
+
 export async function listCategories(ownerId: string): Promise<PostCategorySummary[]> {
   const rows = await db.selectFrom('categories as category')
     .leftJoin('post_category_assignments as assignment', (join) => join
@@ -139,7 +150,7 @@ export async function listPublishedCategoriesForOwner(
   ownerId: string,
   locale: PostLocale,
   baseline: Date,
-): Promise<{ items: PostCategoryBadge[]; lastModified: Date }> {
+): Promise<{ items: PostCategoryBadge[]; lastModified: Date; modified: Map<string, Date> }> {
   const rows = await db.selectFrom('categories as category')
     .innerJoin('post_category_assignments as assignment', (join) => join
       .onRef('assignment.category_id', '=', 'category.id')
@@ -164,17 +175,19 @@ export async function listPublishedCategoriesForOwner(
     .orderBy('category.id')
     .execute();
   const items = new Map<string, PostCategoryBadge>();
-  let modified = baseline.getTime();
+  // Per category too, for its page's entry in the sitemap: the newest change to what that page lists.
+  const each = new Map<string, number>();
   for (const row of rows) {
-    if (!items.has(row.id)) items.set(row.id, { id: row.id, name: row.name, slug: row.slug });
-    modified = Math.max(
-      modified,
+    if (!items.has(row.id)) items.set(row.id, { id: row.id, is_default: row.is_default, name: row.name, slug: row.slug });
+    each.set(row.id, Math.max(
+      each.get(row.id) ?? 0,
       row.category_updated_at.getTime(),
       row.assignment_created_at.getTime(),
       row.post_updated_at.getTime(),
-    );
+    ));
   }
-  return { items: [...items.values()], lastModified: new Date(modified) };
+  const modified = new Map([...each].map(([id, at]) => [id, new Date(at)]));
+  return { items: [...items.values()], lastModified: new Date(Math.max(baseline.getTime(), ...each.values())), modified };
 }
 
 export async function createCategory(ownerId: string, requestedName: string): Promise<PostCategory> {
@@ -346,7 +359,7 @@ export async function categoriesByPostGroup(
     .innerJoin('categories as category', (join) => join
       .onRef('category.id', '=', 'assignment.category_id')
       .onRef('category.owner_id', '=', 'assignment.owner_id'))
-    .select(['assignment.translation_group_id', 'category.id', 'category.name', 'category.slug'])
+    .select(['assignment.translation_group_id', 'category.id', 'category.is_default', 'category.name', 'category.slug'])
     .where('assignment.owner_id', '=', ownerId)
     .where('assignment.translation_group_id', 'in', [...new Set(groupIds)])
     .orderBy('category.is_default', 'desc')
@@ -355,7 +368,7 @@ export async function categoriesByPostGroup(
     .execute();
   for (const row of rows) {
     const items = groups.get(row.translation_group_id) ?? [];
-    items.push({ id: row.id, name: row.name, slug: row.slug });
+    items.push({ id: row.id, is_default: row.is_default, name: row.name, slug: row.slug });
     groups.set(row.translation_group_id, items);
   }
   return groups;

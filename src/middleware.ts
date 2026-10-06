@@ -21,6 +21,7 @@ const AUTHENTICATE_OPTIONS_PATH = '/api/auth/passkey/generate-authenticate-optio
 const LOCALIZED_HOME = /^\/(?:th|en)\/?$/;
 const LOCALIZED_POST = /^\/(?:th|en)\/blog\/[^/]+\/?$/;
 const LOCALIZED_PAGE = /^\/(?:th|en)\/(?!blog(?:\/|$))[^/]+\/?$/;
+const LOCALIZED_CATEGORY = /^\/(?:th|en)\/category\/[^/]+\/?$/;
 const LEGACY_POST = /^\/blog\/[^/]+\/?$/;
 
 export function isBundledFrontendPath(pathname: string): boolean {
@@ -30,6 +31,7 @@ export function isBundledFrontendPath(pathname: string): boolean {
     || LOCALIZED_HOME.test(pathname)
     || LOCALIZED_POST.test(pathname)
     || LOCALIZED_PAGE.test(pathname)
+    || LOCALIZED_CATEGORY.test(pathname)
     || LEGACY_POST.test(pathname);
 }
 

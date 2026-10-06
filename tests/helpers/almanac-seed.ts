@@ -4,6 +4,8 @@ import type { EditorDocument, EditorNode } from '../../src/types/cms';
 export interface AlmanacSeed {
   /** Category ids by name, which is where a card's tone comes from. */
   categoryIds: Record<string, string>;
+  /** Category addresses by name, the end of each one's page: /<locale>/category/<slug>. */
+  categorySlugs: Record<string, string>;
   draftId: string;
 }
 
@@ -80,6 +82,7 @@ export async function seedAlmanac(owner: string, thaiCategory: string, longTitle
     title: 'A draft in the making', slug: 'a-draft', excerpt: '', contentJson: body(paragraph('Not yet.')), categoryIds: [],
     coverMediaId: null, metaTitle: null, metaDescription: null, status: 'draft',
   });
-  return { categoryIds, draftId: draft.id };
+  const categorySlugs = { 'Field Notes': fieldNotes.slug, Recipes: recipes.slug, [thaiCategory]: thai.slug };
+  return { categoryIds, categorySlugs, draftId: draft.id };
 }
 

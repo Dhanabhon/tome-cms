@@ -1,6 +1,6 @@
 ---
 import { demoteH1 } from '../../lib/editor-content';
-import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
+import { categoryHref, dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import { articleCover } from '../../lib/post-cover';
 import { PLAIN_SIZES } from '../../lib/responsive-image';
 import type { ThemePostProps } from '../contract';
@@ -20,7 +20,12 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
   <p class="plain-meta">
     <span>{copy.by} {profile?.name || settings.site_name}</span>
     <span>{preview ? copy.lastSaved : copy.published} <time datetime={when}>{formatter.format(new Date(when))}</time></span>
-    {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
+    {/* Each goes to its category's page; the default category has none, so it stays a word. */}
+    {categories.length > 0 && (
+      <span>{categories.map((category, index) => (
+        <>{index > 0 && ', '}{category.is_default ? category.name : <a href={categoryHref(post.locale, category)}>{category.name}</a>}</>
+      ))}</span>
+    )}
   </p>
   {/* The picture is described by the alt text it has in the library, and is decoration without one: the title is the h1 just above it, and saying it again would only be heard twice. */}
   {cover && <img src={cover} alt={coverAlt} fetchpriority="high" {...coverPicture} />}

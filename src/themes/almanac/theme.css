@@ -495,6 +495,8 @@ main:has(.almanac-feed__heading:not(.sr-only)) :is(.almanac-hero__lead, .almanac
 .almanac-feed__heading { margin: 0 0 var(--space-lg); font-size: var(--text-xl); overflow-wrap: anywhere; }
 
 .almanac-feed__clear { margin: calc(-1 * var(--space-sm)) 0 var(--space-lg); font-size: var(--text-sm); }
+/* What a category's own page says the category is about, close under its name. */
+.almanac-feed__description { margin: calc(-1 * var(--space-sm)) 0 var(--space-lg); color: var(--color-ink-2); }
 
 .almanac-feed__clear a, .almanac-feed__empty a { color: var(--color-link); font-weight: 500; }
 

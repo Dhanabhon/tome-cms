@@ -1,4 +1,4 @@
-import type { Page, Post, PostLocale } from '../types/cms';
+import type { Page, Post, PostCategoryBadge, PostLocale } from '../types/cms';
 import { POST_LOCALES } from '../types/cms';
 
 export function isPostLocale(value: string | null | undefined): value is PostLocale {
@@ -8,6 +8,43 @@ export function isPostLocale(value: string | null | undefined): value is PostLoc
 export const localePath = (locale: PostLocale) => `/${locale}`;
 export const postPath = (post: Pick<Post, 'locale' | 'slug'>) => `/${post.locale}/blog/${encodeURIComponent(post.slug)}`;
 export const pagePath = (page: Pick<Page, 'locale' | 'slug'>) => `/${page.locale}/${encodeURIComponent(page.slug)}`;
+export const categoryPath = (locale: PostLocale, slug: string) => `/${locale}/category/${encodeURIComponent(slug)}`;
+
+/**
+ * Where a category's chip or name goes: its own page. The default category has none, so its chip
+ * keeps the home list filtered by it, as every chip did before categories had pages.
+ */
+export function categoryHref(locale: PostLocale, category: Pick<PostCategoryBadge, 'is_default' | 'name' | 'slug'>): string {
+  return category.is_default
+    ? `${localePath(locale)}?${new URLSearchParams([['category', category.name]])}`
+    : categoryPath(locale, category.slug);
+}
+
+/**
+ * The slug a page's address names, as the database holds it: decoded, whether or not the router
+ * already did (a slug never holds a %), and in NFC, as slugs are stored. Null when it cannot be read.
+ */
+export function slugFromParam(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return (value.includes('%') ? decodeURIComponent(value) : value).normalize('NFC') || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where an old `/<locale>?category=<name>` address now lives: the page of the category of that
+ * name, matched as the list matched it (trimmed, case-blind), when that page answers in this
+ * language -- `live` is the language's categories with a live post. Otherwise null: the home as before.
+ */
+export function categoryRedirect(locale: PostLocale, name: string | undefined, live: readonly PostCategoryBadge[]): string | null {
+  const wanted = name?.trim().toLocaleLowerCase();
+  if (!wanted) return null;
+  const found = live.find((category) => !category.is_default && category.name.toLocaleLowerCase() === wanted);
+  return found ? categoryPath(locale, found.slug) : null;
+}
+
 export const otherLocale = (locale: PostLocale): PostLocale => locale === 'th' ? 'en' : 'th';
 
 /** The tag Intl wants for a locale. Here rather than in each component, so a page never
@@ -41,6 +78,7 @@ export function publicCopy(locale: PostLocale) {
       authorLinks: 'ลิงก์ของผู้เขียน',
       by: 'โดย',
       categories: 'หมวดหมู่',
+      categoryNotFound: 'ไม่พบหมวดหมู่นี้',
       clearSearch: 'ล้างการค้นหา',
       closeImage: 'ปิดภาพ',
       openImage: 'เปิดภาพขนาดเต็ม',
@@ -95,6 +133,7 @@ export function publicCopy(locale: PostLocale) {
       authorLinks: 'Author links',
       by: 'By',
       categories: 'Categories',
+      categoryNotFound: 'Category not found',
       clearSearch: 'Clear search',
       closeImage: 'Close image',
       openImage: 'Open the image full size',

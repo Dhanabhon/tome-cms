@@ -270,7 +270,7 @@ test.beforeEach(async ({ page }) => {
   }));
 });
 
-const SCREENS = [['home', '/en'], ['post', POST], ['category', '/en?category=Recipes'], ['search', '/en?q=bread'], ['404', '/en/no-such-page']] as const;
+const SCREENS = [['home', '/en'], ['post', POST], ['category', '/en/category/recipes'], ['search', '/en?q=bread'], ['404', '/en/no-such-page']] as const;
 // Each entry: a selector and why it may stay under 44 px. Filled from the first run's findings, never guessed.
 const ALLOWED: readonly string[] = [
   // Paper's card title: its ::after covers the whole card, so the card, far over 44 each way, is what a finger presses.

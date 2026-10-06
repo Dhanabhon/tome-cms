@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { cardsToRowEnd, categoryOf } from '../../src/lib/post-feed';
+import { cardsToRowEnd, listOf } from '../../src/lib/post-feed';
 
 // A public page loads the core stylesheet and the theme's, so that is what these rules
 // are read from: which of the two a rule ended up in is layer 2's business, not this test's.
@@ -36,9 +36,8 @@ test('a grid that reports no columns still moves forward one card', () => {
 test('a pill and an address name the same filter the way the server matches it', () => {
   // The server trims the category and compares it case-blind, so the pill marked current
   // after a swap or a Back must be the one whose list is on screen.
-  assert.equal(categoryOf(new URL('https://blog.test/th')), '');
-  assert.equal(categoryOf(new URL('https://blog.test/th?category=')), '');
-  assert.equal(categoryOf(new URL('https://blog.test/th?category=Design')), 'design');
-  assert.equal(categoryOf(new URL('https://blog.test/th?category=+DESIGN+&cursor=abc')), 'design');
-  assert.equal(categoryOf(new URL('https://blog.test/th?category=%E0%B8%97%E0%B8%B1%E0%B9%88%E0%B8%A7%E0%B9%84%E0%B8%9B')), 'ทั่วไป');
+  const at = (path: string) => listOf(new URL(`https://blog.test${path}`));
+  assert.equal(at('/th'), at('/th?category='));
+  assert.equal(at('/th?category=Design'), at('/th?category=+DESIGN+&cursor=abc'));
+  assert.equal(at('/th?category=%E0%B8%97%E0%B8%B1%E0%B9%88%E0%B8%A7%E0%B9%84%E0%B8%9B'), '/th?ทั่วไป');
 });

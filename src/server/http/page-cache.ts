@@ -19,6 +19,7 @@ export const ENTRY_OVERHEAD_BYTES = 1024;
 const LOCALIZED_HOME = /^\/(?:th|en)\/?$/;
 const LOCALIZED_POST = /^\/(?:th|en)\/blog\/[^/]+\/?$/;
 const LOCALIZED_PAGE = /^\/(?:th|en)\/(?!blog(?:\/|$))[^/]+\/?$/;
+const LOCALIZED_CATEGORY = /^\/(?:th|en)\/category\/[^/]+\/?$/;
 const FEEDS = new Set(['/rss.xml', '/sitemap.xml', '/robots.txt']);
 const KEPT_PARAMETERS = ['category', 'cursor'] as const;
 const DROPPED_HEADERS = new Set(['set-cookie', 'date', 'content-length']);
@@ -39,11 +40,13 @@ const entries = new Map<string, Entry>();
 
 export function pageCacheKey(url: URL): string | null {
   const path = url.pathname;
-  if (!(FEEDS.has(path) || LOCALIZED_HOME.test(path) || LOCALIZED_POST.test(path) || LOCALIZED_PAGE.test(path))) return null;
+  const category = LOCALIZED_CATEGORY.test(path);
+  if (!(FEEDS.has(path) || LOCALIZED_HOME.test(path) || LOCALIZED_POST.test(path) || LOCALIZED_PAGE.test(path) || category)) return null;
   if (url.searchParams.has('q')) return null;
-  // Only the home page reads these parameters; on any other path they would just mint entries.
-  if (!LOCALIZED_HOME.test(path)) return path;
-  const kept = KEPT_PARAMETERS
+  // Only the lists read these parameters -- a category's page only its cursor; on any other path
+  // they would just mint entries.
+  if (!LOCALIZED_HOME.test(path) && !category) return path;
+  const kept = (category ? ['cursor'] : KEPT_PARAMETERS)
     .map((name): [string, string] => [name, url.searchParams.get(name) ?? ''])
     .filter(([, value]) => value !== '');
   return kept.length === 0 ? path : `${path}?${new URLSearchParams(kept).toString()}`;

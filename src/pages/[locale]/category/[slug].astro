@@ -1,0 +1,130 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { categoryPath, isPostLocale, localePath, publicCopy, slugFromParam } from '../../../lib/i18n';
+import { getPublicAuthorProfile } from '../../../lib/profile';
+import { categoryDescription, siteDescriptionFor } from '../../../lib/seo';
+import { categoryBySlug } from '../../../server/content/categories';
+import { listPublishedCategories, listPublishedPosts } from '../../../server/content/published';
+import { getSiteSettings } from '../../../server/content/settings';
+import { HttpError } from '../../../server/http/errors';
+import { readThemeSettings } from '../../../server/themes/store';
+import type { ThemeHomePost } from '../../../themes/contract';
+import { THEME_MANIFESTS } from '../../../themes/manifests';
+import { homePageLimit } from '../../../themes/page-size';
+import { DEFAULT_THEME_ID, isThemeId, resolveTheme } from '../../../themes/registry';
+import { POST_LOCALES, type PostAlternate, type PostCategoryBadge } from '../../../types/cms';
+
+/**
+ * A category's own page: the theme's home list of the category's posts in this language, under the
+ * category's name, with its own title, description, canonical address and trail. It answers only
+ * while it has something to list -- not for the default category, an address no category has, a
+ * category with no live post in this language, or a later page past the last post.
+ */
+const localeValue = Astro.params.locale;
+if (!isPostLocale(localeValue)) {
+  return new Response('Not found.\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8' }, status: 404 });
+}
+const locale = localeValue;
+const slug = slugFromParam(Astro.params.slug);
+const cursor = Astro.url.searchParams.get('cursor') || undefined;
+const settings = await getSiteSettings();
+// The home's page size and first-page rule, so a category's list pages as the home's does.
+const themeId = isThemeId(settings?.theme_id) ? settings.theme_id : DEFAULT_THEME_ID;
+const themeSettings = await readThemeSettings(themeId);
+const PAGE_SIZE = Number(themeSettings.postsPerLoad ?? 6) || 6;
+const take = homePageLimit({
+  cursor,
+  leadsFirstPage: THEME_MANIFESTS.find((manifest) => manifest.id === themeId)?.leadsFirstPage,
+  pageSize: PAGE_SIZE,
+  query: undefined,
+});
+
+let category: { description: string; name: string; path: string } | null = null;
+let metaDescription = siteDescriptionFor(settings, locale);
+let posts: ThemeHomePost[] = [];
+let nextCursor: string | null = null;
+let categories: PostCategoryBadge[] = [];
+let alternates: PostAlternate[] = [];
+let loadError = false;
+try {
+  const found = settings && slug ? await categoryBySlug(settings.owner_id, slug) : null;
+  if (found && !found.is_default) {
+    const [page, ...lists] = await Promise.all([
+      listPublishedPosts({ category: found.name, cursor, limit: PAGE_SIZE, locale, take }),
+      ...POST_LOCALES.map((each) => listPublishedCategories(each)),
+    ]);
+    // The languages it has a live post in, which are the ones its page answers in.
+    alternates = POST_LOCALES
+      .filter((_, index) => lists[index]?.items.some(({ id }) => id === found.id))
+      .map((each) => ({ href: categoryPath(each, found.slug), locale: each }));
+    if (page.items.length && alternates.some((alternate) => alternate.locale === locale)) {
+      category = {
+        description: (locale === 'th' ? found.description_th : found.description_en).trim(),
+        name: found.name,
+        path: categoryPath(locale, found.slug),
+      };
+      metaDescription = categoryDescription({ category: found, locale, siteName: settings?.site_name ?? 'TomeCMS' });
+      posts = page.items;
+      nextCursor = page.nextCursor;
+      categories = lists[POST_LOCALES.indexOf(locale)]?.items ?? [];
+    }
+  }
+  if (!category) {
+    alternates = [];
+    Astro.response.status = 404;
+  }
+} catch (error) {
+  // A cursor that fails to verify is a bad request, not the server failing.
+  if (error instanceof HttpError) {
+    Astro.response.status = error.status;
+  } else {
+    console.error('Category page query failed:', error);
+    Astro.response.status = 500;
+    loadError = true;
+  }
+  category = null;
+  alternates = [];
+}
+
+const profile = category && settings ? await getPublicAuthorProfile(settings, locale) : null;
+const activeTheme = await resolveTheme(settings?.theme_id);
+const copy = publicCopy(locale);
+const xDefaultHref = alternates.find((alternate) => alternate.locale === settings?.default_locale)?.href;
+---
+
+<BaseLayout
+  alternates={alternates}
+  canonicalPath={category?.path}
+  category={category ?? undefined}
+  description={metaDescription}
+  locale={locale}
+  robots={loadError ? 'noindex, nofollow' : !category || cursor ? 'noindex, follow' : undefined}
+  title={category?.name ?? (loadError ? copy.unavailable : copy.categoryNotFound)}
+  xDefaultHref={xDefaultHref}
+>
+  {category ? (
+    <activeTheme.Home
+      themeSettings={themeSettings}
+      activeCategory={category.name}
+      category={category}
+      categories={categories}
+      cursor={cursor}
+      loadError={false}
+      locale={locale}
+      nextCursor={nextCursor}
+      posts={posts}
+      profile={profile}
+      query={undefined}
+      slides={[]}
+      siteName={settings?.site_name ?? 'TomeCMS'}
+      tagline={settings?.tagline?.trim() || copy.defaultTagline}
+      timezone={settings?.timezone ?? 'UTC'}
+    />
+  ) : (
+    <section class="notice-page mx-auto max-w-3xl px-5 py-20 sm:px-7">
+      <p class="notice-status">{loadError ? copy.unavailable : String(Astro.response.status)}</p>
+      <h1 class="article-title">{loadError ? copy.postsUnavailable : copy.categoryNotFound}</h1>
+      <p class="notice-back"><a href={localePath(locale)}>{copy.returnToAllPosts}</a></p>
+    </section>
+  )}
+</BaseLayout>
