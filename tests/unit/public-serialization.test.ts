@@ -30,6 +30,8 @@ const media = {
   publicUrl: '/media/fbe68a65-49a7-49b8-bcc5-1057c8a1a7cf',
   size_bytes: 12_345,
   updated_at: '2026-09-08T02:00:00.000Z',
+  // The copies are the theme's to draw from: the API never says what they are.
+  variant_widths: [480, 960],
   width: 1600,
 };
 

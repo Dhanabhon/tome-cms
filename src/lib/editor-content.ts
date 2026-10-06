@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { EditorDocument, EditorNode, Json } from '../types/cms';
 import { CODE_LANGUAGES } from './code-languages';
+import { imageSrcset, type ResponsiveImage } from './responsive-image';
 import { TEXT_COLORS } from './text-colors';
 
 export const MAX_DOCUMENT_BYTES = 1_000_000;
@@ -147,6 +148,26 @@ export function withLibraryAlts(html: string, media: ReadonlyArray<{ alt_text: s
     const item = byId.get(/\ssrc="\/media\/([0-9a-f-]{36})"/.exec(tag)?.[1] ?? '');
     if (!item || !tag.includes(` alt="${escapeAttribute(item.original_name)}"`)) return tag;
     return tag.replace(/ alt="[^"]*"/, () => ` alt="${escapeAttribute(item.alt_text ?? '')}"`);
+  });
+}
+
+/**
+ * Stored HTML with each library picture that has smaller copies offered them by width, with the
+ * slot it is drawn in (`sizes`, the theme's column) and, when the body gives no size, its own
+ * width and height, so the copy chosen is shown at the size the original would have been and
+ * room is kept for it. Only a picture whose address is exactly `/media/<id>` is touched, only
+ * once (one with a srcset is left as it is), and nothing else in the tag or around it changes.
+ * Themes call this, with their own column: the API's HTML is left to a headless site's layout.
+ */
+export function withResponsiveImages(html: string, media: readonly ResponsiveImage[], sizes: string): string {
+  const byId = new Map(media.map((item) => [item.id, item]));
+  return html.replace(/<img\b[^>]*>/g, (tag) => {
+    if (/\ssrcset="/.test(tag)) return tag;
+    const item = byId.get(/\ssrc="\/media\/([0-9a-f-]{36})"/.exec(tag)?.[1] ?? '');
+    const srcset = item && imageSrcset(item);
+    if (!item || !srcset) return tag;
+    const size = /\s(width|height)="/.test(tag) ? '' : ` width="${item.width}" height="${item.height}"`;
+    return tag.replace(/^<img\b/, () => `<img srcset="${srcset}" sizes="${escapeAttribute(sizes)}"${size}`);
   });
 }
 

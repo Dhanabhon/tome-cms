@@ -13,7 +13,7 @@ test('a picture keeps its file name as a title in the editor, but the HTML a rea
 test('a post saved before has the file names taken off its pictures when it is read', () => {
   const stored = '<p><img src="/media/a1" alt="A lake" title="IMG_2041-th.webp" decoding="async" loading="lazy" /></p><p title="kept">t</p>';
   assert.equal(withoutImageTitles(stored), '<p><img src="/media/a1" alt="A lake" decoding="async" loading="lazy" /></p><p title="kept">t</p>');
-  const { bodyHtml } = articleCover({ cover_image: '/media/c', show_cover: true, content_html: stored });
+  const { bodyHtml } = articleCover({ cover_image: '/media/c', show_cover: true, content_html: stored }, '100vw');
   assert.doesNotMatch(bodyHtml, /IMG_2041/);
 });
 

@@ -1,8 +1,9 @@
-import type { Selectable, Transaction } from 'kysely';
+import { sql, type Selectable, type Transaction } from 'kysely';
 
 import { SHOWN_HOME_SLIDES, slideStatus, type HomeSlidesMutation } from '../../lib/home-slides';
 import { localePath, pagePath } from '../../lib/i18n';
 import { normalizeNavigationUrl } from '../../lib/navigation-url';
+import { imageSrcset } from '../../lib/responsive-image';
 import type { HomeSlide, HomeSlideMedia, PageLocale, PublicHomeSlide } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database, HomeSlideTable } from '../db/types';
@@ -148,6 +149,7 @@ async function queryPublicSlides(locale: PageLocale, now: Date): Promise<{ nextE
       .onRef('media_items.owner_id', '=', 'home_slides.owner_id'))
     .selectAll('home_slides')
     .select(['media_items.alt_text as media_alt', 'media_items.width as media_width', 'media_items.height as media_height', 'media_items.state as media_state'])
+    .select(sql<number[]>`array(select width from media_variants where media_variants.media_id = media_items.id order by width)`.as('media_variant_widths'))
     .where('home_slides.owner_id', '=', settings.owner_id).where('home_slides.locale', '=', locale)
     .orderBy('home_slides.position').execute();
 
@@ -184,13 +186,20 @@ async function queryPublicSlides(locale: PageLocale, now: Date): Promise<{ nextE
     const href = row.link_kind === 'home' ? localePath(locale)
       : row.link_kind === 'page' ? pageUrls.get(row.page_id ?? '')
         : row.link_kind === 'custom' ? normalizeNavigationUrl(row.url ?? '') || undefined : undefined;
+    const srcset = imageSrcset({ id: row.media_id, variant_widths: row.media_variant_widths, width: row.media_width! });
     return {
       align: row.align,
       body: row.body,
       button: row.button_label && href ? { href, label: row.button_label, newTab: row.link_kind === 'custom' && row.new_tab } : null,
       focus: row.focus,
       heading: row.heading,
-      image: { alt: row.heading ? '' : row.media_alt ?? '', height: row.media_height!, src: stableMediaPath(row.media_id), width: row.media_width! },
+      image: {
+        alt: row.heading ? '' : row.media_alt ?? '',
+        height: row.media_height!,
+        src: stableMediaPath(row.media_id),
+        width: row.media_width!,
+        ...(srcset ? { srcset } : {}),
+      },
       overlay: row.overlay,
     };
   });

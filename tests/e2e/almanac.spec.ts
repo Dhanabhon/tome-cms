@@ -268,7 +268,7 @@ test('the cards: one link each, and their category\'s name on its tone when ther
   const cover = cardNamed(page, 'Why we bake at night');
   await expect(cover.locator('img'), 'a cover is the panel').toHaveCount(1);
   await expect(cover.locator('img'), 'and is a decoration inside a link already named by the title').toHaveAttribute('alt', '');
-  await expect(cover.locator('img')).toHaveAttribute('width', '800');
+  await expect(cover.locator('img'), 'at the size the library knows it by').toHaveAttribute('width', '1600');
   expect(await cover.locator('img').getAttribute('fetchpriority'), 'the first card\'s cover is the one asked for first').toBe('high');
   await expect(cover.locator('.almanac-card__band'), 'a cover has no band').toHaveCount(0);
   // A cover further down the page is lazy, and is not the one asked for first.
@@ -538,8 +538,8 @@ test('a post: the pill, the one eager cover, the reading bar, and the way on', a
   const cover = page.locator('.almanac-article__cover');
   await expect(cover).toHaveAttribute('loading', 'eager');
   await expect(cover).toHaveAttribute('fetchpriority', 'high');
-  await expect(cover, 'room is kept for it, so nothing jumps').toHaveAttribute('width', '1200');
-  await expect(cover).toHaveAttribute('height', '675');
+  await expect(cover, 'room is kept for it at its own size, so nothing jumps').toHaveAttribute('width', '1600');
+  await expect(cover).toHaveAttribute('height', '900');
   expect(await page.locator('img[loading="lazy"]').count(), 'nothing else on the page is eager but the cover').toBe(await page.locator('img').count() - 1);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 

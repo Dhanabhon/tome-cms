@@ -2,13 +2,14 @@
 import { demoteH1 } from '../../lib/editor-content';
 import { dateLocale, localePath, publicCopy } from '../../lib/i18n';
 import { articleCover } from '../../lib/post-cover';
+import { PLAIN_SIZES } from '../../lib/responsive-image';
 import type { ThemePostProps } from '../contract';
 
 interface Props extends ThemePostProps {}
 
 const { categories, post, preview, profile, settings } = Astro.props;
 const copy = publicCopy(post.locale);
-const { cover, coverAlt, bodyHtml } = articleCover(post);
+const { cover, coverAlt, coverPicture, bodyHtml } = articleCover(post, PLAIN_SIZES.article);
 const formatter = new Intl.DateTimeFormat(dateLocale(post.locale), { dateStyle: 'long', timeZone: settings.timezone });
 const when = preview ? post.updated_at : post.published_at ?? post.created_at;
 ---
@@ -22,7 +23,7 @@ const when = preview ? post.updated_at : post.published_at ?? post.created_at;
     {categories.length > 0 && <span>{categories.map(({ name }) => name).join(', ')}</span>}
   </p>
   {/* The picture is described by the alt text it has in the library, and is decoration without one: the title is the h1 just above it, and saying it again would only be heard twice. */}
-  {cover && <img src={cover} alt={coverAlt} fetchpriority="high" width="1200" height="675" />}
+  {cover && <img src={cover} alt={coverAlt} fetchpriority="high" {...coverPicture} />}
   <div class="plain-body" set:html={demoteH1(bodyHtml)} />
   {profile?.bio && (
     <footer class="plain-author">

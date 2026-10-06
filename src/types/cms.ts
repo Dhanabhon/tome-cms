@@ -258,7 +258,8 @@ export interface PublicHomeSlide {
   button: { href: string; label: string; newTab: boolean } | null;
   focus: HomeSlideFocus;
   heading: string | null;
-  image: { alt: string; height: number; src: string; width: number };
+  /** `srcset` is the theme's, from the picture's copies, and is never in the API's answer. */
+  image: { alt: string; height: number; src: string; srcset?: string; width: number };
   overlay: HomeSlideOverlay;
 }
 

@@ -634,3 +634,57 @@ test('a post keeps its title the one h1 in Paper and in Plain, aligned headings 
     clearPageCache(owner);
   }
 });
+
+test('a post\'s cover and its body picture are drawn from the copy that fits, in Paper, Plain and Almanac', async ({ page }) => {
+  test.setTimeout(90_000);
+  const { sql: query } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const { ALMANAC_SIZES, PAPER_SIZES, PLAIN_SIZES } = await import('../../src/lib/responsive-image');
+  const { rows: [{ id }] } = await query<{ id: string }>`select id from media_items limit 1`.execute(db);
+  // The cover every post has is 1600 wide: its copies are the two narrower widths.
+  await query`insert into media_variants (media_id, width, object_key, size_bytes)
+    values (${id}::uuid, 480, 'seed/cover-480.webp', 10), (${id}::uuid, 960, 'seed/cover-960.webp', 10)`.execute(db);
+  const content = { type: 'doc', content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Before the picture.' }] },
+    { type: 'image', attrs: { alt: 'A loaf', mediaId: id, src: `/media/${id}` } },
+  ] };
+  await query`update posts set content_json = ${JSON.stringify(content)}::jsonb,
+    content_html = ${`<p>Before the picture.</p><img src="/media/${id}" alt="A loaf" decoding="async" loading="lazy" />`}
+    where slug = 'post-5'`.execute(db);
+  const srcset = `/media/${id}?w=480 480w, /media/${id}?w=960 960w, /media/${id} 1600w`;
+  const themes = [
+    // Paper's cards are as many across as the theme is told, and a test above leaves it told something.
+    { body: '.post-body img', card: '.post-card__cover img', cards: (across: string) => PAPER_SIZES.cards[across as '2' | '3' | '4'], cover: '.post-cover', sizes: PAPER_SIZES.article, theme: 'paper' },
+    { body: '.plain-body img', card: null, cards: null, cover: '.plain-article > img', sizes: PLAIN_SIZES.article, theme: 'plain' },
+    { body: '.almanac-prose img', card: '.almanac-card__panel img', cards: () => ALMANAC_SIZES.card, cover: '.almanac-article__cover', sizes: ALMANAC_SIZES.article, theme: 'almanac' },
+  ];
+  const { rows: [before] } = await query<{ theme_id: string | null }>`select theme_id from site_settings`.execute(db);
+  try {
+    for (const { body, card, cards, cover, sizes, theme } of themes) {
+      await query`update site_settings set theme_id = ${theme}`.execute(db);
+      clearPageCache(owner);
+      await page.goto(`${origin}/en/blog/post-5`, { waitUntil: 'networkidle' });
+      for (const [what, picture] of [['cover', page.locator(cover)], ['body picture', page.locator(body)]] as const) {
+        await expect(picture, `${theme}: one ${what}`).toHaveCount(1);
+        await expect(picture, `${theme}: the ${what} offers its copies and its original`).toHaveAttribute('srcset', srcset);
+        await expect(picture, `${theme}: as wide as the column it is drawn in`).toHaveAttribute('sizes', sizes);
+        await expect(picture, `${theme}: with the ${what}'s own size`).toHaveAttribute('width', '1600');
+        await expect(picture).toHaveAttribute('height', '900');
+      }
+      await expect(page.locator(cover), `${theme}: the cover is still the first paint`).toHaveAttribute('fetchpriority', 'high');
+      await expect(page.locator(body), `${theme}: the body picture keeps its words and waits its turn`).toHaveAttribute('alt', 'A loaf');
+      await expect(page.locator(body)).toHaveAttribute('loading', 'lazy');
+      if (!card || !cards) continue;
+      await page.goto(`${origin}/en`, { waitUntil: 'networkidle' });
+      await expect(page.locator(card).first(), `${theme}: a card's cover is drawn from its copies too`).toHaveAttribute('srcset', srcset);
+      const across = theme === 'paper'
+        ? await page.locator('[data-post-grid]').evaluate((grid: HTMLElement) => grid.style.getPropertyValue('--post-grid-columns').trim())
+        : '';
+      await expect(page.locator(card).first(), `${theme}: as wide as a card is drawn`).toHaveAttribute('sizes', cards(across));
+    }
+  } finally {
+    await query`update site_settings set theme_id = ${before?.theme_id ?? null}`.execute(db);
+    await query`delete from media_variants where media_id = ${id}::uuid`.execute(db);
+    clearPageCache(owner);
+  }
+});

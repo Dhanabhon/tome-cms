@@ -110,6 +110,8 @@ export interface ReadyImage extends ReadyMedia {
   mime_type: SupportedImageType;
   width: number;
   height: number;
+  /** The widths of its smaller copies, narrowest first: none until they are made. */
+  variant_widths: number[];
 }
 
 export interface MediaFolder {
@@ -157,7 +159,7 @@ function readyMedia(row: Selectable<MediaItemTable>): ReadyMedia {
   };
 }
 
-function isReadyImage(media: ReadyMedia): media is ReadyImage {
+function isReadyImage(media: ReadyMedia): media is Omit<ReadyImage, 'variant_widths'> {
   return isImageType(media.mime_type) && media.width !== null && media.height !== null;
 }
 
@@ -558,9 +560,21 @@ export async function listReadyMediaByIds(ownerId: string, requestedIds: readonl
     .orderBy('id').execute()).map(readyMedia);
 }
 
-/** Images only: covers, the author's photo and an article's pictures, which carry dimensions. */
+/**
+ * Images only: covers, the author's photo and an article's pictures, which carry dimensions, each
+ * with the widths of its copies, read in the same query so a page of pictures is one read.
+ */
 export async function listReadyImagesByIds(ownerId: string, requestedIds: readonly string[]): Promise<ReadyImage[]> {
-  return (await listReadyMediaByIds(ownerId, requestedIds)).filter(isReadyImage);
+  const ids = [...new Set(requestedIds)];
+  if (!ids.length) return [];
+  const rows = await db.selectFrom('media_items').selectAll()
+    .select(sql<number[]>`array(select width from media_variants where media_variants.media_id = media_items.id order by width)`.as('variant_widths'))
+    .where('owner_id', '=', ownerId).where('state', '=', 'ready').where('id', 'in', ids)
+    .orderBy('id').execute();
+  return rows.flatMap(({ variant_widths, ...row }) => {
+    const media = readyMedia(row);
+    return isReadyImage(media) ? [{ ...media, variant_widths }] : [];
+  });
 }
 
 /** The library's word on each document a card points at: its name, its type and its size. */

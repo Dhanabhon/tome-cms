@@ -9,6 +9,7 @@ import type {
   PublicNavigationItem,
   SiteSettings,
 } from '../types/cms';
+import type { ResponsiveImage } from '../lib/responsive-image';
 import type { SiteBrand } from '../lib/site-brand';
 import type { ThemeChoice } from '../lib/theme';
 
@@ -101,8 +102,9 @@ export interface ThemeShellProps {
 }
 
 /** A post on the home page: the route hands over the published read, which carries the post's
- *  categories in the order they were given. Optional, so a post without them is still a post. */
-export type ThemeHomePost = Post & { categories?: PostCategoryBadge[] };
+ *  categories in the order they were given, and its cover's size and copies (draw it with
+ *  responsiveAttrs). Optional, so a post without them is still a post. */
+export type ThemeHomePost = Post & { categories?: PostCategoryBadge[]; coverImage?: ResponsiveImage | null };
 
 export interface ThemeHomeProps {
   /** What this theme has been told, with its declared fallbacks already applied. */
@@ -138,14 +140,16 @@ export interface ThemePostProps {
   preview?: boolean;
   locale: PostLocale;
   /** Never null: a post that is missing is a system state, and the route says so itself. A
-   *  published post brings its cover's library entry, which is what describes the cover. */
-  post: Post & { coverImage?: { alt_text: string | null } | null };
+   *  published post brings its cover's library entry, which is what describes the cover, and its
+   *  pictures' sizes and copies: articleCover draws both from them. */
+  post: Post & { coverImage?: (ResponsiveImage & { alt_text: string | null }) | null; media?: readonly ResponsiveImage[] };
   profile: PublicAuthorProfile | null;
   settings: Pick<SiteSettings, 'site_name' | 'timezone'>;
 }
 
 export interface ThemePageProps {
   locale: PostLocale;
-  page: Page;
+  /** A published page brings its pictures' sizes and copies, for withResponsiveImages. */
+  page: Page & { media?: readonly ResponsiveImage[] };
   preview?: boolean;
 }

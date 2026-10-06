@@ -1,5 +1,6 @@
 ---
-import { demoteH1, sanitizedContentHtmlSchema, withLeadImage } from '../../lib/editor-content';
+import { demoteH1, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../lib/editor-content';
+import { ALMANAC_SIZES } from '../../lib/responsive-image';
 import { publicCopy } from '../../lib/i18n';
 import type { ThemePageProps } from '../contract';
 
@@ -18,5 +19,5 @@ const copy = publicCopy(page.locale);
     {preview && <p class="almanac-article__draft">{copy.draftPreview}</p>}
     <h1 class="almanac-article__title">{page.title}</h1>
   </header>
-  <div class="almanac-prose" set:html={withLeadImage(contentHtml)} />
+  <div class="almanac-prose" set:html={withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], ALMANAC_SIZES.article))} />
 </article>

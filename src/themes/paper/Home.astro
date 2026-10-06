@@ -4,6 +4,7 @@ import HeroControls from './parts/HeroControls.astro';
 import { FOCUS_POSITION } from '../../lib/home-slides';
 import { dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
 import { postExcerpt, postReadingMinutes } from '../../lib/posts';
+import { PAPER_SIZES, responsiveAttrs } from '../../lib/responsive-image';
 import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
 
@@ -22,6 +23,7 @@ const turn = themeSettings.heroTurn === 'off' ? 'off' : 'on';
 const every = themeSettings.heroEvery === '4' || themeSettings.heroEvery === '8' ? themeSettings.heroEvery : '6';
 const moveBy = themeSettings.heroMove === 'fade' ? 'fade' : 'slide';
 const gridStyle = `--post-grid-columns: ${columns}; --post-grid-min: ${columns === '4' ? '16rem' : '19rem'};`;
+const cardSizes = PAPER_SIZES.cards[columns === '2' || columns === '4' ? columns : '3'];
 
 const copy = locale === 'th'
   ? {
@@ -132,10 +134,11 @@ const readTime = (post: Post) => {
             <img
               alt=""
               fetchpriority={index === 0 ? 'high' : 'low'}
-              height="900"
+              height={post.coverImage?.height ?? 900}
               loading={index === 0 ? 'eager' : 'lazy'}
               src={post.cover_image}
-              width="1600"
+              width={post.coverImage?.width ?? 1600}
+              {...responsiveAttrs(post.coverImage, PAPER_SIZES.hero)}
             />
             <span class="hero-slider__caption"><span class="hero-slider__title">{post.title}</span></span>
           </a>
@@ -173,7 +176,9 @@ const readTime = (post: Post) => {
             fetchpriority={index === 0 ? 'high' : 'low'}
             height={slide.image.height}
             loading={index === 0 ? 'eager' : 'lazy'}
+            sizes={slide.image.srcset && PAPER_SIZES.hero}
             src={slide.image.src}
+            srcset={slide.image.srcset}
             style={`object-position: ${FOCUS_POSITION[slide.focus]};`}
             width={slide.image.width}
           />
@@ -256,7 +261,8 @@ const readTime = (post: Post) => {
             <article class="post-card" style={`--card-index: ${index};`}>
               <div class="post-card__cover" aria-hidden="true">
                 {post.cover_image
-                  ? <img src={post.cover_image} alt="" width="800" height="400" loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
+                  ? <img src={post.cover_image} alt="" width={post.coverImage?.width ?? 800} height={post.coverImage?.height ?? 400}
+                    {...responsiveAttrs(post.coverImage, cardSizes)} loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
                   : !activeCategory && <span>{post.categories?.[0]?.name ?? name}</span>}
               </div>
               <h2 class="card-title post-card__title">

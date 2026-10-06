@@ -1,6 +1,7 @@
 ---
 import { postPath } from '../../../lib/i18n';
 import { postExcerpt, postReadingMinutes } from '../../../lib/posts';
+import { ALMANAC_SIZES, responsiveAttrs } from '../../../lib/responsive-image';
 import type { PostLocale } from '../../../types/cms';
 import type { ThemeHomePost } from '../../contract';
 import { cardMeta, cardPanel } from '../home';
@@ -37,7 +38,8 @@ const titleId = `card-${post.id}`;
   <a class="almanac-card__link" href={postPath(post)} aria-labelledby={titleId}>
     {post.cover_image ? (
       <div class="almanac-card__panel" aria-hidden="true">
-        <img src={post.cover_image} alt="" width="800" height="450" decoding="async" fetchpriority={first ? 'high' : undefined} loading={eager ? 'eager' : 'lazy'} />
+        <img src={post.cover_image} alt="" width={post.coverImage?.width ?? 800} height={post.coverImage?.height ?? 450}
+          {...responsiveAttrs(post.coverImage, ALMANAC_SIZES.card)} decoding="async" fetchpriority={first ? 'high' : undefined} loading={eager ? 'eager' : 'lazy'} />
       </div>
     ) : panel && (
       <p class="almanac-card__band" aria-hidden={named ? undefined : 'true'} style={`--card-tone: var(--almanac-tone-${panel.tone}); --card-tone-ink: var(--almanac-tone-${panel.tone}-ink);`}>
