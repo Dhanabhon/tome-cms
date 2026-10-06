@@ -2,6 +2,24 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.19.0 - 2026-10-06
+
+How the site looks where it is found and shared. One migration.
+
+### Added
+
+- A share image in Settings: links to pages without a cover show it on LINE, Facebook and X, cropped to 1200 × 630.
+- A `BreadcrumbList` on every post and page.
+- A site description for each language, each language's home page using its own.
+
+### Fixed
+
+- A profile link's "Remove" button sits on its fields' line again.
+
+### Changed
+
+- Every admin screenshot in the documentation, in both languages.
+
 ## 1.18.0 - 2026-10-06
 
 A switch that keeps a site out of search results. One migration.
