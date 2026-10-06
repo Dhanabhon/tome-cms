@@ -34,6 +34,7 @@ const MAX_BYTES = 400_000;
 const SCREENS: Array<{ name: string; path: string }> = [
   { name: 'posts', path: '/admin?status=all' },
   { name: 'editor', path: '/admin/edit/:post' },
+  { name: 'categories', path: '/admin/categories' },
   { name: 'pages', path: '/admin/pages?status=all' },
   { name: 'navigation', path: '/admin/navigation' },
   { name: 'slides', path: '/admin/slides' },
@@ -137,6 +138,12 @@ try {
         await page.goto(`${origin}${path.replace(':post', postId)}`);
         await page.waitForLoadState('networkidle');
         await page.evaluate(() => document.fonts.ready);
+        if (name === 'categories') {
+          // The form open, so the picture shows the URL name and both descriptions.
+          await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+          await page.locator('.category-row').filter({ hasText: 'Workshop notes' }).getByRole('button').first().click();
+          await page.locator('.category-edit').waitFor();
+        }
         await shoot(page, new URL(`${locale}/${name}.png`, OUT));
         console.log(`${locale}/${name}.png`);
       }
@@ -196,6 +203,12 @@ async function seed(): Promise<string> {
       'บทความสั้นว่าด้วยการลงมือทำ ทั้งภาษาไทยและอังกฤษ')`.execute(db);
   const category = await db.insertInto('categories').values({ owner_id: OWNER, name: 'Uncategorized', is_default: true })
     .returning('id').executeTakeFirstOrThrow();
+  // Categories with an address and descriptions, for the category manager's form.
+  await db.insertInto('categories').values([
+    { owner_id: OWNER, name: 'Workshop notes', slug: 'workshop-notes', is_default: false,
+      description_en: 'What a small studio learns from making things.', description_th: 'สิ่งที่สตูดิโอเล็ก ๆ ได้เรียนรู้จากการลงมือทำ' },
+    { owner_id: OWNER, name: 'บันทึกเดินทาง', slug: 'บันทึกเดินทาง', is_default: false, description_en: '', description_th: '' },
+  ]).execute();
 
   // Pictures drawn here, so the documentation ships nothing it has no rights to.
   const picture = async (hue: number, name: string) => {
