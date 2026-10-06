@@ -40,6 +40,8 @@ test('images kept before copies were made get theirs once, and /media serves the
   };
   const variantsOf = async (mediaId: string) => (await db.selectFrom('media_variants').select('width')
     .where('media_id', '=', mediaId).orderBy('width').execute()).map(({ width }) => width);
+  const cutoff = async () => (await db.selectFrom('app_metadata').select('value')
+    .where('key', '=', 'media_variants_backfill').executeTakeFirst())?.value;
   const sizeOf = (mediaId: string) => db.selectFrom('media_items').select(['width', 'height'])
     .where('id', '=', mediaId).executeTakeFirstOrThrow();
 
@@ -81,21 +83,25 @@ test('images kept before copies were made get theirs once, and /media serves the
   failReads = false;
   assert.deepEqual(logs.info, []);
   assert.deepEqual(logs.error, [[
-    'Older images stopped getting their smaller copies; the next start tries again.',
+    'Images stopped getting their smaller copies; the next start tries again.',
     { corrected: 0, gone: 0, made: 0, none: 0, unreadable: 0, error: 'ServiceUnavailable' },
   ]]);
   assert.equal(reads.length, 1, 'it stops at the first failure');
   assert.deepEqual(await variantsOf(wide.id), []);
+  assert.equal(await cutoff(), undefined, 'a stopped walk leaves no point to begin from');
   logs.error.length = 0;
   reads.length = 0;
 
   // The next start walks them all, oldest first, one at a time, and says what it did in one line.
+  const secondStart = Date.now();
   await backfillVariants();
   assert.deepEqual(logs.error, []);
   assert.deepEqual(logs.info, [[
-    'Older images were given their smaller copies.',
+    'Images were given their smaller copies.',
     { corrected: 1, gone: 1, made: 2, none: 2, unreadable: 1 },
   ]]);
+  const walked = await cutoff();
+  assert.ok(walked && Date.parse(walked) >= secondStart && Date.parse(walked) <= Date.now(), 'a finished walk keeps its start');
   assert.deepEqual(reads, [broken, missing, wide, turned, small, animated].map(({ object_key: key }) => key));
   assert.deepEqual(await variantsOf(wide.id), [480, 960, 1600]);
   assert.deepEqual(await variantsOf(turned.id), [480, 960]);
@@ -111,6 +117,25 @@ test('images kept before copies were made get theirs once, and /media serves the
   await backfillVariants();
   assert.deepEqual(reads, []);
   assert.deepEqual(logs.info, []);
+
+  // An upload after that walk whose copies failed is left to the next start, which reads only it.
+  const late = await before('late.jpg', await picture(1200, 600), { width: 1200, height: 600 });
+  await db.updateTable('media_items').set({ created_at: new Date() }).where('id', '=', late.id).execute();
+  const stopping = await cutoff();
+  failReads = true;
+  await backfillVariants();
+  failReads = false;
+  assert.equal(await cutoff(), stopping, 'a stopped walk leaves the last point as it was');
+  assert.deepEqual(reads, [late.object_key]);
+  logs.error.length = 0;
+  reads.length = 0;
+  await backfillVariants();
+  assert.deepEqual(reads, [late.object_key], 'nothing before the last walk is read again');
+  assert.deepEqual(await variantsOf(late.id), [480, 960]);
+  assert.deepEqual(logs.info, [['Images were given their smaller copies.', { corrected: 0, gone: 0, made: 1, none: 0, unreadable: 0 }]]);
+  assert.ok(Date.parse((await cutoff())!) > Date.parse(stopping!));
+  logs.info.length = 0;
+  reads.length = 0;
 
   // An image deleted while its copies waited in line has nothing to do, and nothing is logged.
   let release!: () => void;

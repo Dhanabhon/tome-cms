@@ -93,28 +93,37 @@ export function variantsIdle(): Promise<void> {
   return queue.then(() => undefined);
 }
 
-const BACKFILL_DONE = 'media_variants_backfill';
+const BACKFILL_CUTOFF = 'media_variants_backfill';
+// An image whose row was written in a transaction begun just before a walk started can carry a
+// created_at a little earlier than that start; the next walk looks back this far to catch it.
+const BACKFILL_OVERLAP_MS = 60_000;
 
 interface BackfillCounts { corrected: number; gone: number; made: number; none: number; unreadable: number }
 
 /**
- * Gives the images kept before 1.20.0 their copies: oldest first, one at a time between any
- * uploads, each read back from storage. A photo taken on its side was measured from its raw
- * pixels then, so it is measured again the way it is seen. A picture that cannot be read is
- * passed over; anything else stops the walk, and the next start begins it again. Once it has
- * walked the whole library it says so in app_metadata, and no start reads the library again.
+ * Gives images their copies when they have none: on the first start of 1.20.0 the whole library,
+ * on later starts only what was added since the last finished walk (an upload whose copies
+ * failed, or whose turn was lost to a restart). Oldest first, one at a time between any uploads,
+ * each read back from storage. A photo taken on its side was measured from its raw pixels before
+ * 1.20.0, so it is measured again the way it is seen. A picture that cannot be read is passed
+ * over; anything else stops the walk, and the next start begins it again from the same point. A
+ * walk that finishes keeps its start time in app_metadata, which is where the next one begins.
  */
 export async function backfillVariants(): Promise<void> {
   const counts: BackfillCounts = { corrected: 0, gone: 0, made: 0, none: 0, unreadable: 0 };
+  const startedAt = new Date();
   try {
-    if (await db.selectFrom('app_metadata').select('key').where('key', '=', BACKFILL_DONE).executeTakeFirst()) return;
-    const candidates = await waitingImages().select('id').orderBy('created_at').orderBy('id').execute();
+    const last = await db.selectFrom('app_metadata').select('value').where('key', '=', BACKFILL_CUTOFF).executeTakeFirst();
+    const since = last ? Date.parse(last.value) - BACKFILL_OVERLAP_MS : Number.NaN;
+    const candidates = await waitingImages()
+      .$if(Number.isFinite(since), (query) => query.where('created_at', '>=', new Date(since)))
+      .select('id').orderBy('created_at').orderBy('id').execute();
     for (const { id } of candidates) await serially(() => backfillImage(id, counts));
-    await db.insertInto('app_metadata').values({ key: BACKFILL_DONE, value: 'done' })
-      .onConflict((conflict) => conflict.column('key').doNothing()).execute();
-    console.info('Older images were given their smaller copies.', counts);
+    await db.insertInto('app_metadata').values({ key: BACKFILL_CUTOFF, value: startedAt.toISOString() })
+      .onConflict((conflict) => conflict.column('key').doUpdateSet({ updated_at: new Date(), value: startedAt.toISOString() })).execute();
+    if (candidates.length) console.info('Images were given their smaller copies.', counts);
   } catch (error) {
-    console.error('Older images stopped getting their smaller copies; the next start tries again.', { ...counts, error: storageErrorCode(error) });
+    console.error('Images stopped getting their smaller copies; the next start tries again.', { ...counts, error: storageErrorCode(error) });
   }
 }
 

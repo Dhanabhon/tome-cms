@@ -52,6 +52,12 @@ test('a photo taken on its side is measured the way it is seen', async () => {
     .jpeg().withMetadata({ orientation: 6 }).toBuffer();
   assert.deepEqual(await inspectImage(photo, 'image/jpeg'), { height: 2000, width: 1000 });
   assert.deepEqual(await inspectImage(await jpeg(2000, 1000), 'image/jpeg'), { height: 1000, width: 2000 });
+  // Orientations 5–8 are a quarter turn either way, mirrored or not; 1–4 keep the stored shape.
+  for (let orientation = 1; orientation <= 8; orientation += 1) {
+    const turned = await sharp({ create: { background: '#c33', channels: 3, height: 200, width: 300 } })
+      .jpeg().withMetadata({ orientation }).toBuffer();
+    assert.deepEqual(await inspectImage(turned, 'image/jpeg'), orientation >= 5 ? { height: 300, width: 200 } : { height: 200, width: 300 }, `orientation ${orientation}`);
+  }
 });
 
 test('/media asks for a copy only by one of its exact widths', () => {

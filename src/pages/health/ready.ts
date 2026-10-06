@@ -9,8 +9,8 @@ import { checkReadiness } from '../../server/health';
  */
 // ponytail: one-time 1.16.4 backfill riding on readiness; drop it once no install predates 1.16.4.
 let brandSvgBackfill: Promise<void> | undefined;
-// ponytail: likewise for images kept before 1.20.0 and their smaller copies; once an install has walked
-// its library, app_metadata says so and this reads nothing. Drop it once no install predates 1.20.0.
+// Likewise once per process: images with no smaller copies yet get them, the whole library the first
+// time and after that only what was added since the last walk finished.
 let mediaVariantsBackfill: Promise<void> | undefined;
 
 export const GET: APIRoute = async () => {
@@ -21,7 +21,7 @@ export const GET: APIRoute = async () => {
       .then(() => undefined, () => console.error('Brand SVGs could not be given their download header.'));
     mediaVariantsBackfill ??= import('../../server/media/variants')
       .then(({ backfillVariants }) => backfillVariants())
-      .then(() => undefined, () => console.error('Older images could not be given their smaller copies.'));
+      .then(() => undefined, () => console.error('Images could not be given their smaller copies.'));
   }
   return Response.json(result, {
     status: result.status === 'ready' ? 200 : 503,
