@@ -34,3 +34,13 @@ test('a hidden cover leaves the article, and the first body image takes the lead
 test('no cover behaves as it always did', () => {
   assert.equal(articleCover({ cover_image: null, show_cover: true, content_html: body }, SIZES).cover, null);
 });
+
+test('a theme forked before 1.20.0 passes no sizes: its pictures are drawn the screen wide, never a failed page', () => {
+  const id = '0f8c2a9e-6b1d-4c3e-9a7f-2d5e8b1c4a60';
+  const media = [{ id, height: 900, variant_widths: [480, 960], width: 1600 }];
+  const post = { cover_image: null, show_cover: true, content_html: `<p>Hi</p><img src="/media/${id}">`, media };
+  const { bodyHtml } = articleCover(post);
+  assert.match(bodyHtml, new RegExp(`<img srcset="/media/${id}\\?w=480 480w, /media/${id}\\?w=960 960w, /media/${id} 1600w" sizes="100vw"`));
+  assert.match(articleCover(post, '').bodyHtml, /sizes="100vw"/, 'nor an empty one');
+  assert.deepEqual(articleCover({ ...post, cover_image: `/media/${id}`, coverImage: { ...media[0]!, alt_text: null } }, '').coverPicture.sizes, '100vw');
+});

@@ -133,6 +133,9 @@ export function withoutImageTitles(html: string): string {
   return html.replace(/<img\b[^>]*>/g, (tag) => tag.replace(/\s([\w-]+)="[^"]*"/g, (attribute, name) => (name === 'title' ? '' : attribute)));
 }
 
+/** The `sizes` of a picture drawn as wide as the screen. */
+export const FULL_WIDTH = '100vw';
+
 const escapeAttribute = (value: string) => value
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
@@ -158,8 +161,9 @@ export function withLibraryAlts(html: string, media: ReadonlyArray<{ alt_text: s
  * room is kept for it. Only a picture whose address is exactly `/media/<id>` is touched, only
  * once (one with a srcset is left as it is), and nothing else in the tag or around it changes.
  * Themes call this, with their own column: the API's HTML is left to a headless site's layout.
+ * With no column given (a theme copied before 1.20.0 gives none) a picture is drawn screen wide.
  */
-export function withResponsiveImages(html: string, media: readonly ResponsiveImage[], sizes: string): string {
+export function withResponsiveImages(html: string, media: readonly ResponsiveImage[], sizes?: string): string {
   const byId = new Map(media.map((item) => [item.id, item]));
   return html.replace(/<img\b[^>]*>/g, (tag) => {
     if (/\ssrcset="/.test(tag)) return tag;
@@ -167,7 +171,7 @@ export function withResponsiveImages(html: string, media: readonly ResponsiveIma
     const srcset = item && imageSrcset(item);
     if (!item || !srcset) return tag;
     const size = /\s(width|height)="/.test(tag) ? '' : ` width="${item.width}" height="${item.height}"`;
-    return tag.replace(/^<img\b/, () => `<img srcset="${srcset}" sizes="${escapeAttribute(sizes)}"${size}`);
+    return tag.replace(/^<img\b/, () => `<img srcset="${srcset}" sizes="${escapeAttribute(sizes || FULL_WIDTH)}"${size}`);
   });
 }
 

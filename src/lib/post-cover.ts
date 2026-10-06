@@ -1,4 +1,4 @@
-import { withLeadImage, withoutImageTitles, withResponsiveImages } from './editor-content';
+import { FULL_WIDTH, withLeadImage, withoutImageTitles, withResponsiveImages } from './editor-content';
 import { responsiveAttrs, type ResponsiveImage } from './responsive-image';
 
 /**
@@ -9,7 +9,8 @@ import { responsiveAttrs, type ResponsiveImage } from './responsive-image';
  *
  * `sizes` is how wide the theme draws its column: the cover and the body's pictures fill it, and
  * are drawn from the copy that fits it. The cover keeps its own width and height; one the library
- * does not describe keeps the 16:9 box the themes always gave it.
+ * does not describe keeps the 16:9 box the themes always gave it. A theme copied before 1.20.0
+ * passes none, and its pictures are drawn as wide as the screen.
  */
 export function articleCover(post: {
   cover_image: string | null;
@@ -17,19 +18,20 @@ export function articleCover(post: {
   media?: readonly ResponsiveImage[];
   show_cover: boolean;
   content_html: string;
-}, sizes: string): {
+}, sizes?: string): {
   cover: string | null;
   coverAlt: string;
   coverPicture: { height: number; sizes?: string; srcset?: string; width: number };
   bodyHtml: string;
 } {
   const cover = post.show_cover ? post.cover_image : null;
-  const html = withResponsiveImages(withoutImageTitles(post.content_html), post.media ?? [], sizes);
+  const slot = sizes || FULL_WIDTH;
+  const html = withResponsiveImages(withoutImageTitles(post.content_html), post.media ?? [], slot);
   const image = post.coverImage;
   return {
     cover,
     coverAlt: image?.alt_text ?? '',
-    coverPicture: { height: image?.height ?? 675, width: image?.width ?? 1200, ...responsiveAttrs(image, sizes) },
+    coverPicture: { height: image?.height ?? 675, width: image?.width ?? 1200, ...responsiveAttrs(image, slot) },
     bodyHtml: cover ? html : withLeadImage(html),
   };
 }
