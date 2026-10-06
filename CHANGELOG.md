@@ -2,6 +2,25 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.20.0 - 2026-10-07
+
+Pictures at the size they are drawn, and a page for every category. One migration.
+
+### Added
+
+- WebP copies of every image at 480, 960 and 1600 pixels, used through `srcset` in all three themes; older images get theirs in the background after the update.
+- A page for every category at `/<locale>/category/<address>`, with its own title, description, breadcrumb and sitemap entry.
+- A URL name and a Thai and English description for each category in the category manager.
+
+### Changed
+
+- Old `?category=` links redirect to the category's page; `/api/v1` and MCP list each category's `slug`.
+- Creating a device link has its own rate limit.
+
+### Fixed
+
+- `/add-device` says the link expired instead of "server error"; the Security screen counts a link's time from the server.
+
 ## 1.19.0 - 2026-10-06
 
 How the site looks where it is found and shared. One migration.
