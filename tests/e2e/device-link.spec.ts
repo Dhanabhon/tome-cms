@@ -158,6 +158,8 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
   await expect(qr).toBeVisible();
   expect(await qr.getAttribute('src')).toMatch(/^data:image\/svg\+xml/);
   await expect(page.getByText(/^Expires at /)).toBeVisible();
+  // The screen says it is watching, so a link left on screen does not look stuck.
+  await expect(page.getByText('Waiting for the other device…')).toBeVisible();
 
   // Device B: a browser of its own, with an authenticator of its own.
   const contextB = await browser.newContext();
@@ -180,11 +182,13 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
     await contextB.close();
   }
 
-  // The link showing on A is spent. When the window comes back to the front the list catches up,
-  // sees a passkey it did not know, and takes the link and its QR away.
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  // The link showing on A is spent. A never lost focus -- the owner was holding the other device --
+  // so the screen has to notice by itself: it names the device that came in, marks its row, and
+  // takes the link and its QR away.
+  await expect(page.locator('.security-link__outcome'), 'said in the card the owner is looking at')
+    .toHaveText(/^Added .+\. Its passkey is in the list above\.$/, { timeout: 15_000 });
   await expect(page.locator('.security-key')).toHaveCount(2);
-  await expect(page.getByText('Device added.')).toBeVisible();
+  await expect(page.locator('.security-key--new')).toHaveCount(1);
   await expect(link).toHaveCount(0);
   await expect(qr).toHaveCount(0);
 

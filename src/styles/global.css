@@ -2370,6 +2370,20 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 /* 240px: a 200-character link is a dense code, and at 176px a camera could not read it off a 1x screen. */
 .security-link__qr { inline-size: 15rem; max-inline-size: 100%; block-size: auto; aspect-ratio: 1; }
 .security-link__meta { margin: 0; color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+/* A dot that breathes while the screen watches for the new device, so a link left up does not
+ * look stuck. Still, and still said, when motion is reduced. */
+.security-link__waiting { display: inline-flex; align-items: center; gap: var(--space-xs); margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.security-link__waiting::before { content: ''; inline-size: 0.5rem; block-size: 0.5rem; border-radius: 50%; background: var(--color-accent); animation: security-waiting 1.6s ease-in-out infinite; }
+@keyframes security-waiting { 50% { opacity: 0.25; } }
+.security-link__outcome { margin: 0; color: var(--color-ink); font-size: var(--text-sm); }
+.security-link__outcome:empty { display: none; }
+/* The passkey a link just brought in, lit for a moment and then like the others. */
+.security-key--new { position: relative; }
+.security-key--new::before { content: ''; position: absolute; inset: 0 calc(var(--space-xs) * -1); border-radius: var(--radius-sm); background: var(--color-accent); opacity: 0; pointer-events: none; animation: security-key-arrive 2.4s ease-out; }
+@keyframes security-key-arrive { 15% { opacity: 0.14; } }
+@media (prefers-reduced-motion: reduce) {
+  .security-link__waiting::before, .security-key--new::before { animation: none; }
+}
 /* A bin says what it does by turning the colour of the thing it cannot undo. */
 
 @media (min-width: 42rem) {

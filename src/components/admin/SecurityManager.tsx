@@ -51,8 +51,8 @@ function formatDate(value: string | null, copy: AdminCopy, locale: PostLocale | 
 interface DeviceLink {
   url: string;
   expiresAt: number;
-  /** How many passkeys there were when the link was made. */
-  knownPasskeys: number;
+  /** The passkeys there were when the link was made; one not among them is the new device. */
+  knownIds: ReadonlySet<string>;
   /** A `data:` URL of the QR code; empty when the QR library could not load. */
   qr: string;
 }
@@ -75,6 +75,11 @@ async function qrDataUrl(url: string): Promise<string> {
   }
 }
 
+/** How often the screen asks whether the device a link was made for has come in. */
+const DEVICE_LINK_POLL_MS = 3_000;
+/** How long the new passkey stays marked; matches the fade in global.css. */
+const ARRIVED_MARK_MS = 2_400;
+
 interface SecurityManagerProps {
   ownerLocale?: PostLocale | null;
 }
@@ -94,6 +99,10 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   const [missingName, setMissingName] = useState<'add' | 'rename' | null>(null);
   const addField = useRef<HTMLInputElement>(null);
   const [deviceLink, setDeviceLink] = useState<DeviceLink | null>(null);
+  // The passkey a device link just brought in, marked in the list for a moment.
+  const [arrivedId, setArrivedId] = useState<string | null>(null);
+  // How the last link ended, said in its own card, where the owner is looking.
+  const [linkOutcome, setLinkOutcome] = useState('');
 
   /** Renaming closes back onto the button that opened it, so the keyboard keeps its place. */
   const focusRename = (id: string) => requestAnimationFrame(() => renameButtons.current.get(id)?.focus());
@@ -240,33 +249,55 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     }
   }
 
-  // While a link is showing: the new device appears in the list when the owner comes back to this
-  // window, and the link goes when it expires.
+  // While a link is showing, the screen watches for the device it was made for. The owner is
+  // usually holding that device, so this window keeps its focus and a focus event never comes:
+  // it asks again every few seconds while it is on screen, and at once when it comes back.
   useEffect(() => {
     if (!deviceLink) return;
-    // A longer list than when the link was made means the device came in: the link is spent.
-    const refresh = () => {
+    let settled = false;
+    const look = () => {
+      if (document.visibilityState !== 'visible') return;
       void loadPasskeys().then((loaded) => {
-        if (loaded.length <= deviceLink.knownPasskeys) return;
+        const arrived = loaded.find((passkey) => !deviceLink.knownIds.has(passkey.id));
+        // A link cancelled or expired while the list was loading is not a device that came in.
+        if (settled || !arrived) return;
+        settled = true;
         setDeviceLink(null);
-        setMessage(copy.security.deviceAdded);
-      }).catch(() => setMessage(copy.security.passkeysTemporarilyUnavailable));
+        setArrivedId(arrived.id);
+        setLinkOutcome(fill(copy.security.deviceAdded, { name: arrived.name }));
+      }).catch(() => {
+        // The next look tries again; a passing failure should not cover the link with an error.
+      });
     };
-    window.addEventListener('focus', refresh);
+    const every = window.setInterval(look, DEVICE_LINK_POLL_MS);
+    window.addEventListener('focus', look);
+    document.addEventListener('visibilitychange', look);
     const expiry = window.setTimeout(() => {
+      settled = true;
       setDeviceLink(null);
-      setMessage(copy.security.linkExpired);
+      setLinkOutcome(copy.security.linkExpired);
     }, Math.max(0, deviceLink.expiresAt - Date.now()));
     return () => {
-      window.removeEventListener('focus', refresh);
+      settled = true;
+      window.clearInterval(every);
+      window.removeEventListener('focus', look);
+      document.removeEventListener('visibilitychange', look);
       window.clearTimeout(expiry);
     };
   }, [deviceLink, loadPasskeys]);
+
+  // The mark on the new passkey fades with its animation; the class goes after it.
+  useEffect(() => {
+    if (!arrivedId) return;
+    const clear = window.setTimeout(() => setArrivedId(null), ARRIVED_MARK_MS);
+    return () => window.clearTimeout(clear);
+  }, [arrivedId]);
 
   async function createLink() {
     if (busy) return;
     setBusy('link');
     setMessage('');
+    setLinkOutcome('');
     try {
       // The server only makes a link for a session verified in the last few minutes.
       const assertion = await authClient.signIn.passkey();
@@ -274,16 +305,16 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         setMessage(describeReauthFailure(assertion, copy, copy.security.linkNotCreated));
         return;
       }
-      // Counted from a fresh load, so a list that was stale or not yet loaded cannot make the first
-      // focus read as a device that came in.
-      const knownPasskeys = (await loadPasskeys()).length;
+      // Taken from a fresh load, so a list that was stale or not yet loaded cannot make the first
+      // look read as a device that came in.
+      const knownIds = new Set((await loadPasskeys()).map((passkey) => passkey.id));
       const response = await fetch('/api/admin/security/device-link', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' } });
       const payload = await responsePayload(response);
       const expiresAt = typeof payload.expiresAt === 'string' ? Date.parse(payload.expiresAt) : Number.NaN;
       if (!response.ok || typeof payload.url !== 'string' || Number.isNaN(expiresAt)) {
         throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCreated);
       }
-      setDeviceLink({ url: payload.url, expiresAt, knownPasskeys, qr: await qrDataUrl(payload.url) });
+      setDeviceLink({ url: payload.url, expiresAt, knownIds, qr: await qrDataUrl(payload.url) });
     } catch (error) {
       setMessage(describePasskeyException(error, copy, error instanceof Error ? error.message : copy.security.linkNotCreated));
     } finally {
@@ -302,7 +333,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.security.linkNotCancelled);
       }
       setDeviceLink(null);
-      setMessage(copy.security.linkCancelled);
+      setLinkOutcome(copy.security.linkCancelled);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : copy.security.linkNotCancelled);
     } finally {
@@ -352,7 +383,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
         </header>
         <div className="security-list">
           {passkeys.map((passkey) => (
-            <div className="security-key" key={passkey.id}>
+            <div className={passkey.id === arrivedId ? 'security-key security-key--new' : 'security-key'} key={passkey.id}>
               {renamingId === passkey.id ? (
                 <form className="security-key__edit" noValidate onSubmit={(event) => void renamePasskey(event, passkey.id)}>
                   <label className="admin-field">
@@ -418,13 +449,15 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
               <input aria-label={copy.security.linkLabel} className="admin-control" onFocus={(event) => event.currentTarget.select()} readOnly value={deviceLink.url} />
               <button className="admin-button" onClick={() => void copyLink()} type="button">{copy.security.copyLink}</button>
             </div>
-            {deviceLink.qr && <img alt={copy.security.qrAlt} className="security-link__qr" height={176} src={deviceLink.qr} width={176} />}
+            {deviceLink.qr && <img alt={copy.security.qrAlt} className="security-link__qr" height={240} src={deviceLink.qr} width={240} />}
+            <p className="security-link__waiting">{copy.security.waitingForDevice}</p>
             <p className="security-link__meta">{fill(copy.security.linkExpires, { time: new Intl.DateTimeFormat(ownerLocale === 'th' ? 'th-TH' : 'en', { timeStyle: 'short' }).format(deviceLink.expiresAt) })}</p>
             <button aria-busy={pressed('cancel')} className="admin-button admin-button--secondary" disabled={busy !== null} onClick={() => void cancelLink()} type="button">{copy.security.cancelLink}</button>
           </div>
         ) : (
           <button aria-busy={pressed('link')} className="admin-button admin-button--secondary" disabled={busy !== null} onClick={() => void createLink()} type="button">{copy.security.createLink}</button>
         )}
+        <p className="security-link__outcome" role="status" aria-live="polite">{linkOutcome}</p>
       </section>
 
       <section className="admin-card" aria-labelledby="recovery-codes-title">
