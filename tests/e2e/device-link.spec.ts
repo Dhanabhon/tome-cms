@@ -245,6 +245,17 @@ test('a link made on a signed-in device adds a passkey on another, once', async 
   }
   expect((await db.selectFrom('passkey').select('id').execute()).length, 'no further passkey was added').toBe(2);
 
+  // A laptop that slept can wake before the link's timer has run. The screen reads the clock when
+  // it is looked at again, and a link past its time is gone at once. The fixed clock moves without
+  // running any timer, as a sleep does.
+  await page.getByRole('button', { name: 'Create a link' }).click();
+  await expect(link).toBeVisible({ timeout: 30_000 });
+  await page.clock.setFixedTime(new Date(Date.now() + 2 * 60 * 60_000));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.locator('.security-link__outcome')).toHaveText('The link expired before a device used it. Create a new one.');
+  await expect(link).toHaveCount(0);
+  await expect(qr).toHaveCount(0);
+
   // Last, because issuing a recovery ends the owner's sessions. A recovery context is accepted by
   // the same registration, so this page must refuse it on sight: finishing it would replace every
   // passkey.

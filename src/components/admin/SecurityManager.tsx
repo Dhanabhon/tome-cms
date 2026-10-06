@@ -255,7 +255,17 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
   useEffect(() => {
     if (!deviceLink) return;
     let settled = false;
+    const expire = () => {
+      settled = true;
+      setDeviceLink(null);
+      setLinkOutcome(copy.security.linkExpired);
+    };
     const look = () => {
+      // A laptop that slept may wake before the timer below has run: a link past its time ends on sight.
+      if (Date.now() >= deviceLink.expiresAt) {
+        if (!settled) expire();
+        return;
+      }
       if (document.visibilityState !== 'visible') return;
       void loadPasskeys().then((loaded) => {
         const arrived = loaded.find((passkey) => !deviceLink.knownIds.has(passkey.id));
@@ -272,11 +282,7 @@ export default function SecurityManager({ ownerLocale }: SecurityManagerProps = 
     const every = window.setInterval(look, DEVICE_LINK_POLL_MS);
     window.addEventListener('focus', look);
     document.addEventListener('visibilitychange', look);
-    const expiry = window.setTimeout(() => {
-      settled = true;
-      setDeviceLink(null);
-      setLinkOutcome(copy.security.linkExpired);
-    }, Math.max(0, deviceLink.expiresAt - Date.now()));
+    const expiry = window.setTimeout(expire, Math.max(0, deviceLink.expiresAt - Date.now()));
     return () => {
       settled = true;
       window.clearInterval(every);
