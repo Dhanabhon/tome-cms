@@ -14,7 +14,7 @@ interface SettingsFormProps {
   /** Everything stored for the logo, dark logo and icon, as addresses. */
   initialBrand: SiteBrand;
   ownerLocale?: PostLocale | null;
-  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'timezone' | 'updated_at'>;
+  initialSettings: Pick<SiteSettings, 'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id' | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'hide_from_search' | 'timezone' | 'updated_at'>;
 }
 
 interface IssueNode {
@@ -37,6 +37,7 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
   const [showPoweredBy, setShowPoweredBy] = useState(initialSettings.show_powered_by);
   const [timezone, setTimezone] = useState(initialSettings.timezone);
   const [hideSiteName, setHideSiteName] = useState(initialSettings.hide_site_name);
+  const [hideFromSearch, setHideFromSearch] = useState(initialSettings.hide_from_search);
   // The switch means something only while there is a logo to stand in for the name.
   const [hasLogo, setHasLogo] = useState(Boolean(initialBrand.logo));
   // The record is written whole, so these three travel with every save although Themes is
@@ -56,9 +57,9 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
   const [savedSnapshot, setSavedSnapshot] = useState(() => snapshot([
     initialSettings.site_name, initialSettings.tagline, initialSettings.site_description,
     initialSettings.default_locale, initialSettings.timezone,
-    initialSettings.show_powered_by, initialSettings.hide_site_name,
+    initialSettings.show_powered_by, initialSettings.hide_site_name, initialSettings.hide_from_search,
   ]));
-  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, showPoweredBy, hideSiteName]);
+  const currentSnapshot = snapshot([siteName, tagline, siteDescription, defaultLocale, timezone, showPoweredBy, hideSiteName, hideFromSearch]);
   const dirty = currentSnapshot !== savedSnapshot;
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -71,7 +72,7 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
       const response = await atLeast(fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ allowVisitorTheme, defaultLocale, hideSiteName, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
+        body: JSON.stringify({ allowVisitorTheme, defaultLocale, hideFromSearch, hideSiteName, showPoweredBy, siteDescription, siteName, tagline, theme, themeId, timezone, updatedAt }),
       }));
       const result = await response.json().catch(() => ({})) as SaveResult;
       if (!response.ok) {
@@ -85,16 +86,17 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
       if (typeof result.settings?.updated_at !== 'string') throw new Error(copy.settings.incompleteResponse);
       setUpdatedAt(result.settings.updated_at);
       setSavedSnapshot(currentSnapshot);
-      // The admin's language, its date format and the site name in the sidebar are all
-      // read from the database when the server renders the page -- adminCopy(), the
-      // lang attribute and AdminShell each take them as props. No amount of state in
-      // this island reaches them, so when one of the three changes the page has to be
-      // asked for again. Saving is the moment to do that, rather than leaving the owner
+      // The admin's language, its date format, and the site name and the search mark in
+      // the sidebar are all read from the database when the server renders the page --
+      // adminCopy(), the lang attribute and AdminShell each take them from there. No amount
+      // of state in this island reaches them, so when one of them changes the page has to
+      // be asked for again. Saving is the moment to do that, rather than leaving the owner
       // to work out that a reload is what applies the change they just made.
       if (
         defaultLocale !== initialSettings.default_locale
         || timezone !== initialSettings.timezone
         || siteName !== initialSettings.site_name
+        || hideFromSearch !== initialSettings.hide_from_search
       ) {
         window.location.reload();
         return;
@@ -196,6 +198,25 @@ export default function SettingsForm({ initialBrand, initialSettings, ownerLocal
                 <UiSelect ariaDescribedBy="timezone-error" className="admin-control" id="timezone" invalid={Boolean(fieldErrors.timezone)} name="timezone" options={[{ label: 'Asia/Bangkok', value: 'Asia/Bangkok' }, { label: 'UTC', value: 'UTC' }]} value={timezone} onValueChange={(next) => { setTimezone(next as SiteSettings['timezone']); setFieldErrors((current) => ({ ...current, timezone: '' })); }} />
                 <p className="admin-field-error" id="timezone-error" aria-live="polite">{fieldErrors.timezone}</p>
               </div>
+            </div>
+          </section>
+
+          <section className="admin-card" aria-labelledby="settings-search-heading">
+            <header className="admin-card__head">
+              <h2 id="settings-search-heading">{copy.settings.searchResults}</h2>
+            </header>
+            <div className="admin-check">
+              <label>
+                <input
+                  aria-describedby="hideFromSearch-help"
+                  checked={hideFromSearch}
+                  name="hideFromSearch"
+                  onChange={(event) => { setHideFromSearch(event.target.checked); }}
+                  type="checkbox"
+                />
+                <span>{copy.settings.hideFromSearch}</span>
+              </label>
+              <small id="hideFromSearch-help">{copy.settings.hideFromSearchHint}</small>
             </div>
           </section>
 

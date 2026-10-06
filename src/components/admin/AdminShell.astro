@@ -35,6 +35,9 @@ const { version } = getBuildInfo();
 // form too. A count that fails leaves the badges out; it never takes the shell down with it.
 let counts: AdminStoryCounts | null = null;
 let maintenanceOn = false;
+// Kept out of search results is a switch that is easy to forget is on, so the shell says so
+// under the site's name for as long as it is.
+let hiddenFromSearch = false;
 /**
  * A build whose migrations have not run writes to columns that are not there, and the
  * owner meets that as a save that failed for no stated reason -- which is how it was met
@@ -48,6 +51,7 @@ if (userEmail) {
   try {
     const settings = await getSiteSettings();
     maintenanceOn = settings?.maintenance_enabled ?? false;
+    hiddenFromSearch = settings?.hide_from_search ?? false;
     if (settings) counts = await countAdminStories(settings.owner_id);
   } catch (error) {
     console.error('Admin story counts could not be read:', error);
@@ -155,6 +159,7 @@ const currentLabel = allLinks.find(({ id }) => id === active)?.label ?? '';
         <div class="admin-shell-site">
           <span class="admin-shell-site__name" title={siteName}>{siteName}</span>
           <a class="admin-shell-site__view" href="/" target="_blank" rel="noopener noreferrer" aria-label={copy.shell.viewSiteLabel} title={copy.shell.viewSite}><Icon name="external" /></a>
+          {hiddenFromSearch && <a class="admin-shell-site__search" href={adminHref(adminSettings, '/settings')}>{copy.shell.hiddenFromSearch}</a>}
         </div>
         <nav aria-label={copy.nav.label}>
           {groups.map((group) => {

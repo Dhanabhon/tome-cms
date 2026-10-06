@@ -17,7 +17,7 @@ import { atLeast } from '../../lib/busy';
 type ThemeSettings = Pick<
   SiteSettings,
   'site_name' | 'tagline' | 'site_description' | 'default_locale' | 'theme' | 'theme_id'
-  | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'timezone' | 'updated_at'
+  | 'allow_visitor_theme' | 'show_powered_by' | 'hide_site_name' | 'hide_from_search' | 'timezone' | 'updated_at'
 >;
 
 interface ThemeFormProps {
@@ -60,8 +60,8 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
 
   /**
    * Every control here applies on the spot, so there is no save bar and nothing to leave
-   * unsaved. The record is written whole: the six fields this screen does not show are
-   * carried back exactly as they were drawn, and updatedAt is what makes that safe -- if
+   * unsaved. The record is written whole: every field this screen does not show is
+   * carried back exactly as it was drawn, and updatedAt is what makes that safe -- if
    * Settings saved since, the write is refused rather than quietly undoing it.
    */
   const write = async (change: Partial<Draft>, said: string, marker: string) => {
@@ -77,6 +77,7 @@ export default function ThemeForm({ adminPath, initialSettings, initialThemeSett
         body: JSON.stringify({
           allowVisitorTheme: next.allowVisitorTheme,
           defaultLocale: initialSettings.default_locale,
+          hideFromSearch: initialSettings.hide_from_search,
           hideSiteName: initialSettings.hide_site_name,
           showPoweredBy: initialSettings.show_powered_by,
           siteDescription: initialSettings.site_description,

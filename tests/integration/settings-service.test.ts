@@ -42,10 +42,10 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
   assert.equal(initial?.owner_id, 'owner-a');
   assert.equal(await getOwnerSettings('owner-b'), null);
   assert.equal(siteSettingsMutationSchema.safeParse({
-    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, themeId: 'paper', defaultLocale: 'en', siteDescription: '', siteName: ' ', tagline: '', theme: 'system', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
+    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'en', siteDescription: '', siteName: ' ', tagline: '', theme: 'system', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
   }).success, false, 'a blank site name is rejected');
   assert.equal(siteSettingsMutationSchema.safeParse({
-    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, themeId: 'paper', defaultLocale: 'en', siteDescription: '', siteName: 'Valid', tagline: '', theme: 'sepia', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
+    allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'en', siteDescription: '', siteName: 'Valid', tagline: '', theme: 'sepia', timezone: 'UTC', updatedAt: initial?.updated_at.toISOString(),
   }).success, false, 'only the three theme states are accepted');
   assert.equal(profileMutationSchema.safeParse({
     authorAvatarMediaId: crypto.randomUUID(), authorBioEn: '', authorBioTh: '', authorLinks: [], authorName: '', updatedAt: initial?.updated_at.toISOString(),
@@ -55,6 +55,7 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
     allowVisitorTheme: false,
     showPoweredBy: false,
     hideSiteName: true,
+    hideFromSearch: true,
     themeId: 'paper',
     defaultLocale: 'en',
     siteDescription: 'A multilingual publication.',
@@ -71,6 +72,8 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
   assert.equal(settings.theme_id, 'paper', 'the chosen theme round-trips');
   assert.equal(settings.hide_site_name, true, 'the switch to hide the name is kept');
   assert.equal(initial?.hide_site_name, false, 'a fresh installation shows its name');
+  assert.equal(settings.hide_from_search, true, 'the switch to keep the site out of search results is kept');
+  assert.equal(initial?.hide_from_search, false, 'a fresh installation is listed');
   assert.equal(settings.brand_logo, null, 'a site starts with no logo');
   assert.equal(initial?.show_powered_by, true, 'a fresh installation shows the credit');
   assert.equal(initial?.allow_visitor_theme, true, 'a fresh installation offers visitors the control');
@@ -79,7 +82,7 @@ test('PostgreSQL settings validate input, isolate owners, and reject stale write
 
   await assert.rejects(
     updateSiteSettings('owner-a', {
-      allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, themeId: 'paper', defaultLocale: 'th', siteDescription: '', siteName: 'Stale', tagline: '', theme: 'light', timezone: 'Asia/Bangkok', updatedAt: initial!.updated_at.toISOString(),
+      allowVisitorTheme: true, showPoweredBy: true, hideSiteName: false, hideFromSearch: false, themeId: 'paper', defaultLocale: 'th', siteDescription: '', siteName: 'Stale', tagline: '', theme: 'light', timezone: 'Asia/Bangkok', updatedAt: initial!.updated_at.toISOString(),
     }),
     (error: unknown) => error instanceof HttpError && error.status === 409,
   );

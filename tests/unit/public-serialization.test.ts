@@ -143,6 +143,8 @@ test('public contracts validate queries and serialize only explicit fields', () 
     brand_logo: null,
     brand_logo_dark: null,
     hide_site_name: false,
+    // An admin switch, not something a headless frontend is told: the deepEqual below has no room for it.
+    hide_from_search: true,
     maintenance_back_at: null,
     maintenance_copy: {},
     maintenance_enabled: false,

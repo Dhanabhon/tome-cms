@@ -66,3 +66,16 @@ test('dates are formatted in the owner language and the site timezone', () => {
   assert.match(bangkok, /10:04/, 'UTC+7 must shift the clock, not just relabel it');
   assert.notEqual(adminDateFormat('th', 'Asia/Bangkok').format(moment), bangkok);
 });
+
+test('the switch is worded as the owner approved, in both languages', () => {
+  const en = adminCopy('en');
+  const th = adminCopy('th');
+  assert.equal(en.settings.searchResults, 'Search results');
+  assert.equal(en.settings.hideFromSearch, 'Keep this site out of search results');
+  assert.equal(en.settings.hideFromSearchHint, 'Every page asks search engines and AI crawlers not to list it. Most follow the request, but it does not stop anyone from visiting.');
+  assert.equal(en.shell.hiddenFromSearch, 'Hidden from search');
+  assert.equal(th.settings.searchResults, 'ผลการค้นหา');
+  assert.equal(th.settings.hideFromSearch, 'ไม่ให้เว็บนี้ขึ้นในผลการค้นหา');
+  assert.equal(th.settings.hideFromSearchHint, 'ทุกหน้าจะขอให้เครื่องมือค้นหาและบอท AI ไม่นำไปแสดง ส่วนใหญ่ทำตาม แต่ไม่ได้กันคนเข้าเว็บ');
+  assert.equal(th.shell.hiddenFromSearch, 'ไม่ขึ้นในผลค้นหา');
+});
