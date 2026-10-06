@@ -29,6 +29,10 @@ Every route answers `GET`, and `OPTIONS` for a browser's preflight.
 
 Each content route puts what it returns under `data`. The two lists add `meta` and `links`, and categories, navigation and slides add a `meta` with the language. A post or page has its HTML in `contentHtml` and the editor's own document in `contentJson`. The [reference](/tome-cms/api/reference/) lists every field.
 
+The site's `description` is the one in its default language, or the other language's when that one is empty. Each category, in the categories list and in a post's `categories`, has a `slug` from 1.20.0: the end of its page's address on the bundled site, such as `/en/category/notes`. The `category` filter on the list of posts still takes the name.
+
+An image's address, `/media/{id}`, also takes `?w=480`, `?w=960` or `?w=1600` from 1.20.0, for a smaller WebP copy of it. When the image has no copy of that width, because it is narrower or animated, the address gives the original.
+
 A slug can be in Thai, because a Thai title gets a Thai address. Encode it when you build the path:
 
 ```js

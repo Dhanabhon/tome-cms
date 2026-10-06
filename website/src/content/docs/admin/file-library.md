@@ -22,6 +22,14 @@ The older Office formats, such as `.doc` and `.xls`, are not taken. The server r
 
 The file goes from your browser straight to the site's object storage. If storage turns it away or does not answer in time, the admin says why and asks you to try again.
 
+## Smaller copies of an image
+
+When an image is uploaded, TomeCMS also makes smaller copies of it as WebP, 480, 960 and 1600 pixels wide. It makes only the widths narrower than the image, and none for an animated GIF or WebP. The site's pages list the copies for the reader's browser, which downloads the one that fits the screen, so a phone does not fetch the full picture. The File Manager shows only the original, and "File URL" points to it. A copy is deleted with its image.
+
+Images uploaded before version 1.20.0 get their copies in the background after the update, one at a time, the oldest first. The site works as usual meanwhile, and an image without copies yet is shown from the original. If the work stops, it carries on the next time the app starts.
+
+The copies take a little more storage. [Requirements](/tome-cms/start/requirements/) says how much.
+
 ## Finding a file
 
 "Search files" looks in file names and in images' alt text. The type choices narrow the list to "Images", "PDF", "Documents" (Word and text files), "Spreadsheets" (Excel and CSV), "Slides" (PowerPoint) or "ZIP", and "All" shows everything again. The folders on their own row narrow it further. The screen shows 48 files at a time, and "Load more" brings the next ones.

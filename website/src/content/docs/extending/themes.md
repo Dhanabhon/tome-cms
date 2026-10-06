@@ -115,7 +115,7 @@ The registry returns a union of every theme's templates, so a template whose pro
 | Template | Props | What it is given |
 | --- | --- | --- |
 | `Shell` | `ThemeShellProps` | `themeSettings`, `allowVisitorTheme`, `alternates` (the same page in the other language), `brand`, the `header` and `footer` menus, `locale`, `showPoweredBy`, `siteName`, and `theme`, the light or dark choice the server rendered |
-| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (each a `ThemeHomePost`, which may carry its `categories`), `categories`, `activeCategory`, `query`, what the reader searched for, `cursor` and `nextCursor` for moving between pages of posts, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` and `timezone` |
+| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (each a `ThemeHomePost`, which may carry its `categories`), `categories`, `activeCategory`, `category`, set on a category's own page, `query`, what the reader searched for, `cursor` and `nextCursor` for moving between pages of posts, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` and `timezone` |
 | `Post` | `ThemePostProps` | `themeSettings`, `post`, `categories`, `locale`, `profile`, `settings` (the site's name and time zone), and `preview`, set when the owner is looking at a draft |
 | `Page` | `ThemePageProps` | `page`, `locale` and `preview`. A page is not given the theme's settings. |
 
@@ -123,10 +123,14 @@ When `query` is set, the route has already narrowed `posts` to the ones that mat
 
 - draw a `<form role="search" method="get">` whose field is named `q`, so search works with no script, and put the current `query` back in it;
 - say what was searched for and how to leave it, printing the reader's words as text, never as markup;
-- carry `q` on the link to older posts, next to `category`;
+- build the link to older posts with `listHref`, which carries `q` and `category`;
 - draw the results before any hero, and say when nothing matched.
 
 All three bundled themes do this. The route also sends `noindex, follow` for a page of results, and a template needs nothing for that.
+
+From 1.20.0 the `Home` template also draws each category's own page, `/en/category/<slug>`. There the optional `category` prop is set: the category's `name`, its `description` in this language (`''` when it has none) and its `path`. Name the list with it as you name a filtered one, and put the description under the name. The page's later pages hang off `category.path`, not the home, so build every pagination link with `listHref(home, Astro.props, cursor)` from `src/themes/list-href.ts` and never by hand: a link made by hand sends a reader paging a category back to the home. A theme that ignores `category` still builds, and draws the page as the home filtered by `activeCategory`. Link a category's name with `categoryHref(locale, category)` from `src/lib/i18n.ts`, which gives its page, or the home filter for the default category, which has no page.
+
+A post's `coverImage` carries the picture's size and the widths of its smaller copies. Spread `responsiveAttrs(post.coverImage, sizes)` from `src/lib/responsive-image.ts` onto the `<img>` to get its `srcset` and `sizes`, with a `sizes` that matches your column.
 
 All of it is what the route already had in hand. A theme gets no way to fetch more, and a test fails any file in a theme that imports from `src/server/` or `src/pages/`.
 

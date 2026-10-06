@@ -33,7 +33,7 @@ A managed install is lighter, because it never builds the application. The test 
 
 The PostgreSQL and SeaweedFS images take about 1.1 GB together, and the application image several hundred MB more. Each build leaves a cache of about the same size, which `docker builder prune` gives back.
 
-Media is stored once, in SeaweedFS. A full backup copies the database and every media object again, so plan for the size of your media times the number of backups you keep on the server, or copy the backups somewhere else. A managed install (1.0.0 and later) takes a backup before each update and never deletes old ones.
+Media is stored once, in SeaweedFS. From 1.20.0 each image also has up to three smaller WebP copies, 480, 960 and 1600 pixels wide, that pages load in its place. Together they usually take less than the original, so allow a little more room for images than the files you upload. A full backup copies the database and every media object again, so plan for the size of your media times the number of backups you keep on the server, or copy the backups somewhere else. A managed install (1.0.0 and later) takes a backup before each update and never deletes old ones.
 
 ## Two HTTPS origins
 

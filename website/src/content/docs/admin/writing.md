@@ -111,6 +111,26 @@ On the site, a reader sees the poster with a play mark, and nothing loads from Y
 | "Search title" | The title in search results, up to 70 characters. Left blank, the post's own title is used. |
 | "Search description" | Shown below the post's title in the Paper theme, and used in search results and when the post is shared. Up to 320 characters. |
 
+## Categories
+
+"Manage categories", on the Posts screen and in "Post settings", opens the list of categories with the number of posts in each. Type a name in "Category name", up to 80 characters, and press "Create category".
+
+![The Categories screen with "Category name" and "Create category" at the top, and a list of categories with the number of posts in each. One is open for editing, with its name, "URL name", "Description (Thai)" and "Description (English)", and "Save" and "Cancel" beside them.](../../../assets/screenshots/en/categories.png)
+
+The pencil beside a category opens its form:
+
+| Field | What it does |
+| --- | --- |
+| "Category name for …" | The name on the post cards and on the category's page. There is one name for both languages. |
+| "URL name" | The end of the category page's address, after `/en/category/` or `/th/category/`. A new category gets one made from its name, Thai included. Renaming a category keeps it, so links to the page keep working. Left blank, it is made from the name again. It takes lowercase letters, numbers, Thai and single hyphens, and two categories cannot share one. |
+| "Description (Thai)" and "Description (English)" | Up to 160 characters each, both optional. The category's page shows the description in its language and uses it in search results. With none in that language, the page uses the other language's, then a sentence made from the category's name and the site's. |
+
+The trash can deletes a category. Posts that have no other category move to the default one.
+
+Each category has a page of its own in each language that has a published post in it, such as `/en/category/notes`, with the posts of that category, newest first. The category names on cards and posts link to it, the page is in the sitemap, and a post's breadcrumb in search results goes Home, then its first category, then the post. A language with no published post in the category answers `404` there.
+
+An address from before 1.20.0, such as `/en?category=Notes`, moves to the category's page for good (a `301`), so old links and bookmarks still land. The default category, "Uncategorized", has no page and no form: its name filters the home page as before.
+
 ## Writing the other language
 
 The chips in the bar show each language and how it stands, such as "EN Published" and "TH Not written". Press the other language's chip and the admin saves this edition, then opens that one. A new edition starts empty, with this one's cover image and categories. It has its own title, address and settings, and you publish it on its own.

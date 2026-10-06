@@ -13,7 +13,7 @@ An AI app you connect can:
 
 - read the site's name, languages, time zone and address;
 - search your posts and pages, drafts included;
-- list your posts, pages, categories and the pictures in your File Manager;
+- list your posts, pages, categories (each with its URL name) and the pictures in your File Manager;
 - read a post or a page in full, as Markdown;
 - create a new post or page as a draft, or the other-language edition of one;
 - change a draft: its text, title, slug, excerpt, search title and description, categories and cover.

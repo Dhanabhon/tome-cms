@@ -115,7 +115,7 @@ registry คืนค่าเป็น union ของ template จากทุ
 | Template | Props | ได้รับอะไร |
 | --- | --- | --- |
 | `Shell` | `ThemeShellProps` | `themeSettings`, `allowVisitorTheme`, `alternates` (หน้าเดียวกันในอีกภาษา), `brand`, เมนู `header` กับ `footer`, `locale`, `showPoweredBy`, `siteName` และ `theme` ซึ่งเป็นโหมดสว่างหรือมืดที่เซิร์ฟเวอร์วาดมา |
-| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (แต่ละรายการเป็น `ThemeHomePost` ซึ่งอาจมี `categories` ของบทความนั้นมาด้วย), `categories`, `activeCategory`, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
+| `Home` | `ThemeHomeProps` | `themeSettings`, `posts` (แต่ละรายการเป็น `ThemeHomePost` ซึ่งอาจมี `categories` ของบทความนั้นมาด้วย), `categories`, `activeCategory`, `category` ซึ่งถูกตั้งไว้ในหน้าของหมวดหมู่, `query` คือสิ่งที่ผู้อ่านค้นหา, `cursor` กับ `nextCursor` สำหรับไปหน้าถัดไปของรายการบทความ, `loadError`, `locale`, `profile`, `slides`, `siteName`, `tagline` และ `timezone` |
 | `Post` | `ThemePostProps` | `themeSettings`, `post`, `categories`, `locale`, `profile`, `settings` (ชื่อเว็บและเขตเวลา) และ `preview` ซึ่งถูกตั้งไว้เมื่อเจ้าของเว็บกำลังดูฉบับร่าง |
 | `Page` | `ThemePageProps` | `page`, `locale` และ `preview` เพจไม่ได้รับการตั้งค่าของธีม |
 
@@ -123,10 +123,14 @@ registry คืนค่าเป็น union ของ template จากทุ
 
 - วาด `<form role="search" method="get">` ที่ช่องกรอกชื่อ `q` เพื่อให้ค้นได้โดยไม่ต้องมีสคริปต์ และใส่ `query` ปัจจุบันกลับลงในช่อง
 - บอกว่าค้นหาอะไรและออกจากการค้นหาได้อย่างไร โดยแสดงคำของผู้อ่านเป็นข้อความ ไม่ใช่ markup
-- ใส่ `q` ไว้ในลิงก์ไปบทความเก่ากว่า คู่กับ `category`
+- สร้างลิงก์ไปบทความเก่ากว่าด้วย `listHref` ซึ่งใส่ `q` และ `category` ให้
 - วาดผลลัพธ์ก่อน hero และบอกเมื่อไม่มีอะไรตรงกัน
 
 ธีมที่มากับระบบทั้งสามทำครบแล้ว ส่วนการส่ง `noindex, follow` สำหรับหน้าผลการค้นหา route ทำให้ template ไม่ต้องทำอะไร
+
+ตั้งแต่ 1.20.0 template ของ `Home` ยังใช้วาดหน้าของแต่ละหมวดหมู่ด้วย คือ `/th/category/<slug>` ในหน้านี้ prop `category` ซึ่งไม่บังคับจะมีค่า ได้แก่ `name` ของหมวดหมู่ `description` ในภาษาของหน้า (เป็น `''` ถ้าไม่มี) และ `path` ของหน้า ให้ตั้งชื่อรายการด้วยค่านี้แบบเดียวกับรายการที่กรองหมวดหมู่ และวางคำอธิบายไว้ใต้ชื่อ หน้าถัดไปของรายการจะต่อจาก `category.path` ไม่ใช่หน้าแรก ลิงก์แบ่งหน้าทุกลิงก์จึงต้องสร้างด้วย `listHref(home, Astro.props, cursor)` จาก `src/themes/list-href.ts` ห้ามประกอบเอง เพราะลิงก์ที่ประกอบเองจะพาผู้อ่านที่กำลังไล่ดูหมวดหมู่กลับไปหน้าแรก ธีมที่ไม่ได้ใช้ `category` ยัง build ผ่าน และจะวาดหน้านี้เป็นหน้าแรกที่กรองด้วย `activeCategory` ส่วนลิงก์ชื่อหมวดหมู่ให้ใช้ `categoryHref(locale, category)` จาก `src/lib/i18n.ts` ซึ่งให้ที่อยู่หน้าของหมวดหมู่ หรือตัวกรองบนหน้าแรกสำหรับหมวดเริ่มต้นที่ไม่มีหน้าของตัวเอง
+
+`coverImage` ของบทความมีขนาดของภาพและความกว้างของภาพขนาดเล็กที่มี ให้กระจาย `responsiveAttrs(post.coverImage, sizes)` จาก `src/lib/responsive-image.ts` ลงบน `<img>` เพื่อได้ `srcset` และ `sizes` โดยตั้ง `sizes` ให้ตรงกับความกว้างคอลัมน์ของธีม
 
 ทั้งหมดนี้คือข้อมูลที่ route มีอยู่แล้ว ธีมไม่มีทางดึงข้อมูลเพิ่มเอง และมีเทสต์ที่ล้มทันทีถ้าไฟล์ไหนในธีม import จาก `src/server/` หรือ `src/pages/`
 

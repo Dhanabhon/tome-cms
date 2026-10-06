@@ -317,7 +317,7 @@ What it keeps and decides:
 - **Status and dates.** `status: published` makes a published item with its `published` date. A draft keeps its `planned` date. A file with no `status` is a draft. The updated time is the time of the import.
 - **Content.** When a `<slug>.tome.json` sits beside the `.md`, its exact document is used. Otherwise the `.md` body is converted, with the converter the admin's Markdown import uses. Every item is checked and cleaned the way a save from the editor is.
 - **Media.** Files are matched by checksum, so one the site already has is reused and not uploaded again. A file the content names that is missing from the archive shows as a line saying it is missing, and the end says how many.
-- **Categories.** They are matched by name, ignoring case, with no language. A name the site lacks is created, and `Uncategorized` is matched by name like any other, so it joins the site's default category.
+- **Categories.** They are matched by name, ignoring case, with no language. A name the site lacks is created, with the URL name and descriptions the archive's manifest gives it, or a URL name made from its name when the archive is from before 1.20.0 or that URL name is taken. A category the site already has keeps its own. `Uncategorized` is matched by name like any other, so it joins the site's default category.
 - **Translations.** Items that share a `translation` value form one new group. When one of them was skipped, the rest still form a group, and the plan says so.
 - **Author.** The site's owner.
 
