@@ -153,8 +153,8 @@ async function exportContent(out: string): Promise<Receipt> {
   }
 }
 
-async function importContent(dir: string, mode: 'plan' | 'apply'): Promise<Receipt> {
-  const directory = await workPath(dir);
+export async function importContent(dir: string, mode: 'plan' | 'apply', work = WORK): Promise<Receipt> {
+  const directory = await workPath(dir, work);
   if (!(await stat(directory)).isDirectory()) throw new StepError('layout_invalid');
   const { isUpdateWriteBlocked } = await import('../update/maintenance');
   // The updater's status file, mounted into every app container, says when an update is writing.
@@ -171,7 +171,11 @@ async function importContent(dir: string, mode: 'plan' | 'apply'): Promise<Recei
       return { plan: await planImport(directory, settings.owner_id) };
     }
     const { applyImport } = await import('./import-apply');
-    return { result: await applyImport(directory, settings.owner_id) };
+    const { variantsIdle } = await import('../media/variants');
+    const result = await applyImport(directory, settings.owner_id);
+    // Each picture's smaller copies are queued behind it; closing first would fail every one.
+    await variantsIdle();
+    return { result };
   } catch (error) {
     if (error instanceof ArchiveInputError) throw new StepError(error.code, { file: error.file, ...(error.field ? { field: error.field } : {}) });
     throw error;

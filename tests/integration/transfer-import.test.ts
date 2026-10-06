@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -418,4 +418,26 @@ test("a category's address from the archive is kept when it is free, and made fr
     { name: 'Plain', slug: 'plain', description_th: '', description_en: '' },
     { name: 'pastry', slug: 'ขนม-อบ', description_th: 'ขนมอบ', description_en: 'Baked sweets.' },
   ]);
+});
+
+// Last in the file: the step closes the database and the bucket client, as the one-shot does when it ends.
+test('tome import --apply makes the smaller copies of its pictures before it closes the database', async () => {
+  const { importContent } = await import('../../src/server/transfer/cli');
+  const work = await realpath(await tempDirectory());
+  const wide = await sharp({ create: { width: 1200, height: 800, channels: 3, background: '#264653' } }).png().toBuffer();
+  await writeTree(join(work, 'in'), {
+    'posts/en/wide.md': '---\ntitle: Wide\n---\n\n![Wide](../../media/wide.png)\n',
+    'media/wide.png': wide,
+  });
+  let copiesAtClose = -1;
+  const destroy = m.db.destroy.bind(m.db);
+  m.db.destroy = async () => {
+    m.db.destroy = destroy;
+    copiesAtClose = (await m.db.selectFrom('media_variants').innerJoin('media_items', 'media_items.id', 'media_variants.media_id')
+      .select('media_variants.width').where('media_items.original_name', '=', 'wide.png').execute()).length;
+    await destroy();
+  };
+  const receipt = await importContent(join(work, 'in'), 'apply', work);
+  assert.ok(receipt.result);
+  assert.equal(copiesAtClose, 2, 'the 480 and 960 copies are kept before the database closes');
 });
