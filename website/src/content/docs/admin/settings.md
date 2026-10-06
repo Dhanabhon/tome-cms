@@ -9,7 +9,7 @@ The screens under "Configuration" hold what belongs to the site as a whole, and 
 
 ## General settings
 
-Open "Settings", then "General". The screen has three parts, and one "Save" button at the bottom for all of them. While something is not saved yet, the line beside the button says "Unsaved changes".
+Open "Settings", then "General". The screen has four parts, and one "Save" button at the bottom for all of them. While something is not saved yet, the line beside the button says "Unsaved changes".
 
 ![The Settings screen with three cards. "Site identity" has "Site name" set to Quiet Notes, an empty "Tagline" and "Site description", and "Credit TomeCMS in the footer" ticked. "Logo and icon" has a "Choose a file" button each for "Logo", "Logo for the dark theme" and "Site icon", and "Hide the site name in the header" unticked. "Language and time" has "Default language" set to English and "Timezone" set to Asia/Bangkok. "Save" is at the bottom.](../../../assets/screenshots/en/settings.png)
 
@@ -39,7 +39,15 @@ These files are kept apart from [the file library](/tome-cms/admin/file-library/
 
 "Timezone" is "Asia/Bangkok" or "UTC". Dates on the site and in the admin are shown in it, and [Stats](/tome-cms/admin/stats/) counts its days by it.
 
-Press "Save". When you change the site name, the language or the time zone, the admin reloads so the change shows everywhere at once. Otherwise it says "Saved."
+### Search results
+
+"Keep this site out of search results" is off to begin with. Turned on and saved, every page of the site asks search engines and AI crawlers not to list it, and the admin's sidebar says "Hidden from search" under the site's name for as long as it stays on. Most crawlers follow the request, and a page already listed drops out of the results once they visit it again. It does not stop anyone from visiting.
+
+The request is a `noindex` on each page, and on the feed, the sitemap and the content API, rather than a `Disallow` in `robots.txt`. A crawler refused a page never reads its `noindex`, so a page already listed would stay in the results as a bare address. `robots.txt` therefore still lets crawlers in, and only stops naming the sitemap, which lists nothing while the switch is on.
+
+Files from [the file library](/tome-cms/admin/file-library/) are served from the media host, not by the site, and do not carry the request. To actually close the site to visitors, use [Maintenance mode](/tome-cms/running/maintenance/).
+
+Press "Save". When you change the site name, the language, the time zone or this switch, the admin reloads so the change shows everywhere at once. Otherwise it says "Saved."
 
 ## Profile
 
