@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { EnrollmentContextError, hashEnrollmentContext, verifyEnrollmentContext } from '../../../server/auth/context';
 import { consumeEnrollment } from '../../../server/auth/enrollment';
-import { installationInputSchema } from '../../../server/auth/installation';
+import { installationInputSchema, installedDescription } from '../../../server/auth/installation';
 import { assertSameOrigin } from '../../../server/auth/origin';
 import { enforceRateLimit, RateLimitExceededError } from '../../../server/auth/rate-limit';
 import { storeRecoveryCodes } from '../../../server/auth/recovery';
@@ -110,10 +110,7 @@ export const POST: APIRoute = async ({ clientAddress, request }) => {
         owner_id: ownerId,
         site_name: parsed.data.siteName,
         tagline: parsed.data.tagline,
-        // Written in the language the site starts in, which is where the description is kept.
-        site_description: parsed.data.siteDescription,
-        site_description_en: parsed.data.defaultLocale === 'en' ? parsed.data.siteDescription : '',
-        site_description_th: parsed.data.defaultLocale === 'th' ? parsed.data.siteDescription : '',
+        ...installedDescription(parsed.data),
         default_locale: parsed.data.defaultLocale,
         timezone: parsed.data.timezone,
         admin_path: parsed.data.adminPath,

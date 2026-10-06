@@ -20,6 +20,18 @@ export const installationInputSchema = z.object({
 
 export type InstallationInput = z.infer<typeof installationInputSchema>;
 
+/**
+ * The installer asks for one description, written in the language the site starts in, so that
+ * is the column it goes in; the old single column keeps it too, as Settings does.
+ */
+export function installedDescription({ defaultLocale, siteDescription }: Pick<InstallationInput, 'defaultLocale' | 'siteDescription'>) {
+  return {
+    site_description: siteDescription,
+    site_description_en: defaultLocale === 'en' ? siteDescription : '',
+    site_description_th: defaultLocale === 'th' ? siteDescription : '',
+  };
+}
+
 export function installationTokenMatches(actual: string, expected: string): boolean {
   const digest = (value: string) => createHash('sha256').update(value).digest();
   return timingSafeEqual(digest(actual), digest(expected));

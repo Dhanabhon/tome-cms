@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { installationInputSchema, installationTokenMatches } from '../../src/server/auth/installation';
+import { installationInputSchema, installationTokenMatches, installedDescription } from '../../src/server/auth/installation';
 
 const valid = {
   siteName: 'Tome Notes',
@@ -27,4 +27,13 @@ test('installer input and token boundaries reject unsafe values', () => {
   assert.equal(installationTokenMatches('same-token', 'same-token'), true);
   assert.equal(installationTokenMatches('same-token', 'other-token'), false);
   assert.equal(installationTokenMatches('short', 'a-much-longer-token'), false);
+});
+
+test('the description written at install is kept in the language the site starts in', () => {
+  assert.deepEqual(installedDescription({ ...valid, defaultLocale: 'en' }), {
+    site_description: 'Notes about building software.', site_description_en: 'Notes about building software.', site_description_th: '',
+  });
+  assert.deepEqual(installedDescription({ ...valid, defaultLocale: 'th', siteDescription: 'บันทึก' }), {
+    site_description: 'บันทึก', site_description_en: '', site_description_th: 'บันทึก',
+  });
 });
