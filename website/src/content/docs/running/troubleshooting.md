@@ -13,7 +13,7 @@ On a managed install, this command shows the application's log. Several entries 
 sudo tome logs app
 ```
 
-That is [the `tome` command](/tome-cms/running/cli/), which arrives with `sudo npm run updater:upgrade` from 1.11.0. A server that does not have it yet shows the same log with the long form:
+That is [the `tome` command](/tome-cms/cli/), which arrives with `sudo npm run updater:upgrade` from 1.11.0. A server that does not have it yet shows the same log with the long form:
 
 ```sh
 sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml \
@@ -109,7 +109,7 @@ The running version is the one that asks, so an update started from 1.1.0 or ear
 
 Only the application from 1.10.0 on, with updater 1.4.0 or later, shows this message. An earlier application, or an earlier updater, refuses in the same way but reports it as `release_unavailable`, and "System" says only that the previous version was restored. On a full disk, that is this entry.
 
-See what takes the space. `sudo tome status` shows the free disk where backups go, and `sudo tome prune` lists the old application images that can go, with their sizes. [The `tome` command](/tome-cms/running/cli/#when-the-disk-is-full) walks through it. On a server without `tome`, these commands show the same:
+See what takes the space. `sudo tome status` shows the free disk where backups go, and `sudo tome prune` lists the old application images that can go, with their sizes. [The `tome` command](/tome-cms/cli/updates/#when-the-disk-is-full) walks through it. On a server without `tome`, these commands show the same:
 
 ```sh
 df -h /var/backups/tome-cms

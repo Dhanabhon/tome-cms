@@ -11,7 +11,7 @@ Themes ship in the repository. The owner picks one of the themes a release conta
 
 ## Starting with tome
 
-In a TomeCMS source checkout, `tome` starts a theme for you. It is the same program as the [`tome` command](/tome-cms/running/cli/) on a server, but these commands are for development: they run from the checkout with `npm run tome --`, need no `sudo`, and refuse anywhere else.
+In a TomeCMS source checkout, `tome` starts a theme for you. It is the same program as the [`tome` command](/tome-cms/cli/) on a server, but these commands are for development: they run from the checkout with `npm run tome --`, need no `sudo`, and refuse anywhere else.
 
 ```sh
 npm run tome -- theme new ledger
@@ -65,7 +65,7 @@ Next:
   npm run tome -- check
 ```
 
-The theme is already selectable on the [Themes](/tome-cms/admin/themes/) screen. [`tome check`](/tome-cms/running/cli/#building-themes-and-plugins) then looks for what a pull request would be sent back for: a missing file, a manifest that does not match its directory, a setting without both languages, a theme that imports from `src/server/`, a stylesheet that does not keep to the design tokens. The sections below explain what each file is for, and [Registering a theme](#registering-a-theme) does by hand what `tome` just did.
+The theme is already selectable on the [Themes](/tome-cms/admin/themes/) screen. [`tome check`](/tome-cms/cli/themes-and-plugins/) then looks for what a pull request would be sent back for: a missing file, a manifest that does not match its directory, a setting without both languages, a theme that imports from `src/server/`, a stylesheet that does not keep to the design tokens. The sections below explain what each file is for, and [Registering a theme](#registering-a-theme) does by hand what `tome` just did.
 
 ## What a theme is made of
 

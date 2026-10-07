@@ -19,7 +19,7 @@ A plugin is a directory under `src/plugins/`, and the directory's name is the pl
 
 ## Starting with tome
 
-In a TomeCMS source checkout, `tome` starts a plugin for you. These commands run from the checkout with `npm run tome --`, need no `sudo`, and refuse anywhere else, as the [`tome` command](/tome-cms/running/cli/#building-themes-and-plugins) explains.
+In a TomeCMS source checkout, `tome` starts a plugin for you. These commands run from the checkout with `npm run tome --`, need no `sudo`, and refuse anywhere else, as the [`tome` command](/tome-cms/cli/themes-and-plugins/) explains.
 
 ```sh
 npm run tome -- plugin new nimbus --hook publicPage

@@ -19,7 +19,7 @@ sidebar:
 
 ## เริ่มต้นด้วย tome
 
-ใน source checkout ของ TomeCMS คำสั่ง `tome` ช่วยเริ่มปลั๊กอินให้ได้ ชุดคำสั่งนี้รันจาก checkout ด้วย `npm run tome --` ไม่ต้องใช้ `sudo` และปฏิเสธเมื่อรันที่อื่น ตามที่[คำสั่ง `tome`](/tome-cms/th/running/cli/#สร้างธีมและปลั๊กอิน)อธิบายไว้
+ใน source checkout ของ TomeCMS คำสั่ง `tome` ช่วยเริ่มปลั๊กอินให้ได้ ชุดคำสั่งนี้รันจาก checkout ด้วย `npm run tome --` ไม่ต้องใช้ `sudo` และปฏิเสธเมื่อรันที่อื่น ตามที่[คำสั่ง `tome`](/tome-cms/th/cli/themes-and-plugins/)อธิบายไว้
 
 ```sh
 npm run tome -- plugin new nimbus --hook publicPage

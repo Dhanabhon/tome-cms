@@ -13,7 +13,7 @@ sidebar:
 sudo tome logs app
 ```
 
-นี่คือ[คำสั่ง `tome`](/tome-cms/th/running/cli/) ซึ่งมาพร้อม `sudo npm run updater:upgrade` ตั้งแต่ 1.11.0 เซิร์ฟเวอร์ที่ยังไม่มี `tome` แสดง log เดียวกันได้ด้วยคำสั่งแบบยาว
+นี่คือ[คำสั่ง `tome`](/tome-cms/th/cli/) ซึ่งมาพร้อม `sudo npm run updater:upgrade` ตั้งแต่ 1.11.0 เซิร์ฟเวอร์ที่ยังไม่มี `tome` แสดง log เดียวกันได้ด้วยคำสั่งแบบยาว
 
 ```sh
 sudo docker compose -p tomecms -f /opt/tome-cms/compose.managed.yaml \
@@ -109,7 +109,7 @@ sudo curl --unix-socket /run/tome-cms/updater.sock http://localhost/v1/status
 
 ข้อความนี้จะแสดงเฉพาะเมื่อแอปเป็น 1.10.0 ขึ้นไป และตัวอัปเดตเป็น 1.4.0 ขึ้นไป แอปหรือตัวอัปเดตที่เก่ากว่านั้นจะหยุดแบบเดียวกัน แต่รายงานเป็น `release_unavailable` และเมนู "ระบบ" จะบอกแค่ว่ากลับไปใช้เวอร์ชันเดิมแล้ว ถ้าดิสก์เต็ม ให้ทำตามหัวข้อนี้
 
-ดูว่าอะไรใช้พื้นที่อยู่ `sudo tome status` แสดงที่ว่างของดิสก์ที่เก็บชุดสำรอง และ `sudo tome prune` แสดงรายการ image ของแอปรุ่นเก่าที่ลบได้ พร้อมขนาด หน้า[คำสั่ง `tome`](/tome-cms/th/running/cli/#เมื่อดิสก์เต็ม)พาทำทีละขั้น ส่วนเซิร์ฟเวอร์ที่ไม่มี `tome` ใช้สองคำสั่งนี้ดูได้เหมือนกัน
+ดูว่าอะไรใช้พื้นที่อยู่ `sudo tome status` แสดงที่ว่างของดิสก์ที่เก็บชุดสำรอง และ `sudo tome prune` แสดงรายการ image ของแอปรุ่นเก่าที่ลบได้ พร้อมขนาด หน้า[คำสั่ง `tome`](/tome-cms/th/cli/updates/#เมื่อดิสก์เต็ม)พาทำทีละขั้น ส่วนเซิร์ฟเวอร์ที่ไม่มี `tome` ใช้สองคำสั่งนี้ดูได้เหมือนกัน
 
 ```sh
 df -h /var/backups/tome-cms
