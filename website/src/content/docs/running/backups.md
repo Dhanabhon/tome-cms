@@ -163,7 +163,7 @@ pages/th/about.tome.json
 media/<object key>
 ```
 
-- **`manifest.json`** says the archive is a TomeCMS Markdown archive, when and by which version it was made, for which address, how many posts, pages and media files it holds, and the name, type, checksum and size of each file. From 1.20.0 it also lists, under `categories`, the URL name and both descriptions of each category the posts are in, except the default one.
+- **`manifest.json`** says the archive is a TomeCMS Markdown archive, when and by which version it was made, for which address, how many posts, pages and media files it holds, and the name, type, checksum and size of each file. From 1.20.0 it also lists, under `categories`, the URL name and both descriptions of each category the posts are in, except the default one. From 1.21.0 it also says, under `defaultCategory`, what the default is called.
 - **Each `.md` file** is the writing to read. Its front matter holds `title`, `slug`, `language`, `status`, `published` and `planned` when set, `updated`, the `categories` of a post by name, `excerpt`, `cover`, `show_cover`, `meta_title`, `meta_description` and `translation`, which is the same in every language of one translated item. The body is Markdown, and its images and file links point into `media/`. A block Markdown cannot hold, such as a video, an attachment or a table with merged cells, becomes a plain link or a short line naming it. Colour, underline and alignment are dropped from the `.md`.
 - **Each `.tome.json` file** keeps the exact editor document, with its media links pointing into `media/`. An import uses it when it is there, so nothing the `.md` cannot show is lost. `tome export` ends by counting the items that carry such formatting.
 

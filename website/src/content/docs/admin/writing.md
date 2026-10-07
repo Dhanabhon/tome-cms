@@ -127,9 +127,11 @@ The pencil beside a category opens its form:
 
 The trash can deletes a category. Posts that have no other category move to the default one.
 
+The default category is called "Uncategorized" until you rename it. Its pencil opens a form with the name alone, so you can call it "General" or anything else up to 80 characters. Its URL name stays `uncategorized`, it has no page, and it has no trash can, because it cannot be deleted. Only the default may be called "Uncategorized": giving that name to another category is refused.
+
 Each category has a page of its own in each language that has a published post in it, such as `/en/category/notes`, with the posts of that category, newest first. The category names on cards and posts link to it, the page is in the sitemap, and a post's breadcrumb in search results goes Home, then its first category, then the post. A language with no published post in the category answers `404` there.
 
-An address from before 1.20.0, such as `/en?category=Notes`, moves to the category's page for good (a `301`), so old links and bookmarks still land. The default category, "Uncategorized", has no page and no form: its name filters the home page as before.
+An address from before 1.20.0, such as `/en?category=Notes`, moves to the category's page for good (a `301`), so old links and bookmarks still land. The default category has no page, so its name, whatever you have called it, filters the home page as before.
 
 ## Writing the other language
 
