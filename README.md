@@ -61,6 +61,21 @@ TomeCMS is a lightweight CMS for sites in Thai and English, built with Astro. It
 - Images for `amd64` and `arm64`.
 - A small personal site runs on a 1 GB server with swap.
 
+## Where to get a server
+
+TomeCMS runs on any VPS that meets the [requirements](https://dhanabhon.github.io/tome-cms/start/requirements/). If you don't have one yet, these referral links support the project at no extra cost to you:
+
+- **DigitalOcean**: new accounts get free credit to start with. [Sign up through this link](https://m.do.co/c/724516110262).
+- **Vultr**: new accounts get $300 of credit to try the platform, usable for 30 days (a valid card or PayPal is required). [Sign up through this link](https://www.vultr.com/?ref=9926955-9J).
+
+These are referral links: when an account made through them pays for a server, the project receives credit from the provider. Any VPS works the same.
+
+[![DigitalOcean Referral Badge](https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%203.svg)](https://www.digitalocean.com/?refcode=724516110262&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
+
+## Sites that run on TomeCMS
+
+[dhanabhon.com](https://dhanabhon.com) runs on TomeCMS, on a DigitalOcean Droplet.
+
 ## Architecture
 
 <img alt="How TomeCMS fits together: a visitor reads public pages that the chosen theme draws and the Astro server renders on every request; the site owner writes in the React admin, which calls the same server; the server keeps content in PostgreSQL and files in S3-compatible storage; Better Auth signs the owner in with a passkey; plugins can check a sign-in with Cloudflare Turnstile and suggest while writing through Jev (TypeSafe AI)." src="docs/tome-cms-overview.en.light.png#gh-light-mode-only">

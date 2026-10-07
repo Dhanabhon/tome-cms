@@ -35,6 +35,15 @@ The PostgreSQL and SeaweedFS images take about 1.1 GB together, and the applicat
 
 Media is stored once, in SeaweedFS. From 1.20.0 each image also has up to three smaller WebP copies, 480, 960 and 1600 pixels wide, that pages load in its place. Together they usually take less than the original, so allow a little more room for images than the files you upload. A full backup copies the database and every media object again, so plan for the size of your media times the number of backups you keep on the server, or copy the backups somewhere else. A managed install (1.0.0 and later) takes a backup before each update and never deletes old ones.
 
+## Where to get a server
+
+TomeCMS runs on any VPS that meets the sizes above. If you don't have one yet, these referral links support the project at no extra cost to you:
+
+- **DigitalOcean**: new accounts get free credit to start with. <a href="https://m.do.co/c/724516110262" rel="sponsored noopener">Sign up through this link</a>.
+- **Vultr**: new accounts get $300 of credit to try the platform, usable for 30 days (a valid card or PayPal is required). <a href="https://www.vultr.com/?ref=9926955-9J" rel="sponsored noopener">Sign up through this link</a>.
+
+These are referral links: when an account made through them pays for a server, the project receives credit from the provider. Any VPS works the same.
+
 ## Two HTTPS origins
 
 A site needs two origins, both on HTTPS, with DNS pointing at the server before you install:
