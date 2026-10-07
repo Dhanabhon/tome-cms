@@ -9,6 +9,9 @@ import type { Database } from '../types';
  * so a column added later is held too. The name "Uncategorized" stays the default's alone, so an
  * archive that names it means the default, and down can give the name back.
  *
+ * The trigger now holds every column of the default row, so a later migration that backfills
+ * default rows must disable categories_protect_identity around the fill, as 033 does.
+ *
  * Plain SQL, importing nothing of the app's: the runtime image loads every migration.
  */
 export async function up(db: Kysely<Database>): Promise<void> {

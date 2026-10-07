@@ -27,9 +27,14 @@ test('the default category takes a new name and nothing else', async (context) =
     && (code === undefined || error.details?.code === code) && (field === undefined || error.details?.field === field);
   const body = async () => (await sql<{ body: string }>`
     select prosrc as body from pg_proc where proname = 'tomecms_protect_category'`.execute(db)).rows[0]?.body;
+  const check = async () => (await sql<{ definition: string }>`
+    select pg_get_constraintdef(oid) as definition from pg_constraint
+    where conname = 'categories_default_name_check' and conrelid = 'categories'::regclass`.execute(db)).rows[0]?.definition;
 
   assert.ifError((await migrator.migrateTo('033_media_variants_and_category_pages')).error);
   const before = await body();
+  const checkBefore = await check();
+  assert.ok(checkBefore);
   await db.insertInto('user').values([
     { id: 'owner-a', name: 'Owner A', email: 'a@example.invalid', emailVerified: true, image: null, role: 'owner' },
     { id: 'owner-b', name: 'Owner B', email: 'b@example.invalid', emailVerified: true, image: null, role: 'owner' },
@@ -95,6 +100,7 @@ test('the default category takes a new name and nothing else', async (context) =
   // Down: migration 005's rule exactly, and the default's name back as that rule wants it.
   assert.ifError((await migrator.migrateTo('033_media_variants_and_category_pages')).error);
   assert.equal(await body(), before);
+  assert.equal(await check(), checkBefore);
   assert.equal((await db.selectFrom('categories').select('name').where('id', '=', fallback.id).executeTakeFirstOrThrow()).name, 'Uncategorized');
   await assert.rejects(db.updateTable('categories').set({ name: 'General' }).where('id', '=', fallback.id).execute(), { code: '23514' });
   await assert.rejects(db.insertInto('categories').values({ owner_id: 'owner-a', name: 'uncategorized' }).execute(), { code: '23514' });

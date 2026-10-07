@@ -355,12 +355,14 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
     if (members.translation && members.created.length && members.skipped.length) {
       plan.groupsSplit.push({ translation: members.translation, skipped: members.skipped });
     }
+    // By the category each name ends up as, so two names for one (the default's aliases) give it once.
     const names = new Map<string, string>();
     for (const item of members.created) {
       for (const written of item.kind === 'post' ? item.frontMatter.categories ?? [] : []) {
         const name = written.trim();
         const lower = name.toLowerCase();
-        if (!names.has(lower)) names.set(lower, name);
+        const target = categories.get(lower) ?? `new:${lower}`;
+        if (!names.has(target)) names.set(target, name);
         if (!categories.has(lower) && !toCreate.has(lower)) toCreate.set(lower, name);
       }
     }

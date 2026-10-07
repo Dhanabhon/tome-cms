@@ -146,7 +146,7 @@ export async function applyImport(root: string, ownerId: string, site?: SiteRead
             const input = createPostSchema.parse({
               ...fields,
               // Every edition of a group carries the group's categories, so writing each sets the same.
-              categoryIds: item.categories.map((name) => categories.get(name.toLowerCase())!),
+              categoryIds: [...new Set(item.categories.map((name) => categories.get(name.toLowerCase())!))],
               coverMediaId: cover,
               showCover: item.frontMatter.show_cover ?? true,
             });

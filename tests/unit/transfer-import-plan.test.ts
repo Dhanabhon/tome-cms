@@ -99,6 +99,18 @@ test("the archive's default category is the site's, whatever either is called, a
   assert.equal(detail.categories.get('general'), 'default-id');
   // To a site whose default is still Uncategorized, likewise.
   assert.deepEqual((await planImport(root, OWNER, site())).categoriesToCreate, []);
+
+  // Names that all mean the default -- the reserved one, the archive's and the site's own -- plan it once,
+  // in the order first named, so the dry run and the write agree.
+  const aliases = await archive(context, {
+    'manifest.json': manifest('General'),
+    'posts/en/a.md': md({ title: 'A', slug: 'a', categories: ['Uncategorized', 'ไม่มีหมวดหมู่', 'General', 'Bread', 'bread'] }),
+  });
+  const planned = await buildPlan(aliases, OWNER, renamed);
+  const [item] = planned.detail.items;
+  assert.deepEqual(item?.categories, ['Uncategorized', 'Bread']);
+  assert.deepEqual(planned.plan.categoriesToCreate, ['Bread']);
+  assert.deepEqual(item?.categories.map((name) => planned.detail.categories.get(name.toLowerCase())), ['default-id', undefined]);
 });
 
 test('an exact .tome.json is preferred to its .md', async (context) => {

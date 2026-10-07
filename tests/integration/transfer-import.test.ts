@@ -420,6 +420,29 @@ test("a category's address from the archive is kept when it is free, and made fr
   ]);
 });
 
+test("the archive's default is the site's renamed one, once, whichever of its names a post lists", async () => {
+  await m.db.updateTable('categories').set({ name: 'General' }).where('owner_id', '=', OWNER).where('is_default', '=', true).execute();
+  const root = await tempDirectory();
+  await writeTree(root, {
+    'manifest.json': JSON.stringify({
+      format: 'tomecms-markdown', version: 1, createdAt: '2026-10-07T00:00:00.000Z', applicationVersion: '1.21.0',
+      publicUrl: 'https://old.example', counts: { posts: 1, pages: 0, media: 0 }, media: {}, categories: [], defaultCategory: 'ไม่มีหมวดหมู่',
+    }),
+    'posts/en/loose.md': '---\ntitle: Loose\ncategories: [Uncategorized, ไม่มีหมวดหมู่, general]\n---\n\nWords.\n',
+  });
+  try {
+    const result = await m.applyImport(root, OWNER);
+    assert.deepEqual(result.categoriesToCreate, []);
+    const assigned = await m.db.selectFrom('posts')
+      .innerJoin('post_category_assignments as a', 'a.translation_group_id', 'posts.translation_group_id')
+      .innerJoin('categories as c', 'c.id', 'a.category_id')
+      .select(['c.name', 'c.is_default']).where('posts.slug', '=', 'loose').execute();
+    assert.deepEqual(assigned, [{ name: 'General', is_default: true }], 'the default, once, and it keeps its name');
+  } finally {
+    await m.db.updateTable('categories').set({ name: 'Uncategorized' }).where('owner_id', '=', OWNER).where('is_default', '=', true).execute();
+  }
+});
+
 // Last in the file: the step closes the database and the bucket client, as the one-shot does when it ends.
 test('tome import --apply makes the smaller copies of its pictures before it closes the database', async () => {
   const { importContent } = await import('../../src/server/transfer/cli');
