@@ -443,6 +443,30 @@ test("the archive's default is the site's renamed one, once, whichever of its na
   }
 });
 
+test('tome import --apply that fails after a picture was queued waits for its copies before it closes, and its own error is the one thrown', async (context) => {
+  const { importContent } = await import('../../src/server/transfer/cli');
+  const work = await realpath(await tempDirectory());
+  const wide = await sharp({ create: { width: 1200, height: 800, channels: 3, background: '#e76f51' } }).png().toBuffer();
+  await writeTree(join(work, 'in'), {
+    'posts/en/a-first.md': '---\ntitle: First\nslug: queued-first\nstatus: published\n---\n\n![First](../../media/queued.png)\n',
+    // Published with nothing in it: refused when it is written, after the picture went up and its copies were queued.
+    'posts/en/b-second.md': '---\ntitle: Second\nslug: queued-second\nstatus: published\n---\n',
+    'media/queued.png': wide,
+  });
+  // The clients are only recorded as closed, so the tests after this one still have them.
+  let closed = false;
+  context.mock.method(m.db, 'destroy', async () => { closed = true; });
+  context.mock.method(m.s3, 'destroy', () => { closed = true; });
+  const logged: { afterClose: boolean; message: unknown }[] = [];
+  context.mock.method(console, 'error', (message: unknown) => { logged.push({ afterClose: closed, message }); });
+  await assert.rejects(importContent(join(work, 'in'), 'apply', work), (error: unknown) =>
+    (error as { code?: unknown }).code === 'content_invalid' && (error as { detail?: { file?: unknown } }).detail?.file === 'posts/en/b-second.md');
+  // The queue is drained here too, so a job the step left behind has run by the time we look.
+  await (await import('../../src/server/media/variants')).variantsIdle();
+  assert.equal(closed, true, 'the step closed its clients');
+  assert.deepEqual(logged.filter(({ afterClose }) => afterClose), [], 'nothing was left to fail on a closed client');
+});
+
 // Last in the file: the step closes the database and the bucket client, as the one-shot does when it ends.
 test('tome import --apply makes the smaller copies of its pictures before it closes the database', async () => {
   const { importContent } = await import('../../src/server/transfer/cli');

@@ -175,15 +175,18 @@ export async function importContent(dir: string, mode: 'plan' | 'apply', work = 
       return { plan: await planImport(directory, settings.owner_id) };
     }
     const { applyImport } = await import('./import-apply');
-    const { variantsIdle } = await import('../media/variants');
-    const result = await applyImport(directory, settings.owner_id);
-    // Each picture's smaller copies are queued behind it; closing first would fail every one.
-    await variantsIdle();
-    return { result };
+    return { result: await applyImport(directory, settings.owner_id) };
   } catch (error) {
     if (error instanceof ArchiveInputError) throw new StepError(error.code, { file: error.file, ...(error.field ? { field: error.field } : {}) });
     throw error;
   } finally {
+    // Each picture's smaller copies are queued behind it, also when the import fails after it was
+    // queued; closing first would fail every one. A failure here never hides the import's own.
+    try {
+      await (await import('../media/variants')).variantsIdle();
+    } catch (error) {
+      console.error(`Error: the image copies did not finish: ${error instanceof Error ? error.message : String(error)}`);
+    }
     s3.destroy();
     await closeQuietly(closeDatabase);
   }
