@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { createInterface } from 'node:readline/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -45,6 +45,16 @@ export function orphanReportLines(report: OrphanReport, execute: boolean): strin
 
 export function cleanupConfirmation(origin: string, bucket: string): string {
   return `CLEAN ${origin} ${bucket}`;
+}
+
+/** A database by its host and name, never its password: the bucket's other user would be another one. */
+export function databaseLabel(databaseUrl: string): string {
+  const url = new URL(databaseUrl);
+  return `${url.host}/${decodeURIComponent(url.pathname.slice(1))}`;
+}
+
+export function orphanConfirmation(origin: string, database: string, bucket: string): string {
+  return `SWEEP ${origin} ${database} ${bucket}`;
 }
 
 export async function runCleanupCandidates(
@@ -122,6 +132,38 @@ async function ask(question: string): Promise<string> {
   }
 }
 
+/**
+ * The orphan sweep from a checkout: always a dry run first, then, with --execute, a typed line that
+ * names the site, the database and the bucket. Two sites sharing one bucket see each other's files
+ * as untracked, which is why the line names the database too.
+ */
+async function sweep(execute: boolean, origin: string, database: string, input: {
+  db: Kysely<Database>; s3: S3Client; s3Bucket: string;
+}): Promise<void> {
+  const { sweepOrphans } = await import('../src/server/media/orphans');
+  console.log('TomeCMS orphan sweep');
+  console.log(`Site: ${origin}`);
+  console.log(`Database: ${database}`);
+  console.log(`Bucket: ${input.s3Bucket}`);
+  const found = await sweepOrphans({ storage: input.s3, bucket: input.s3Bucket, database: input.db, execute: false });
+  const listing = orphanReportLines(found, false);
+  // With --execute, the dry run's closing line ("Dry run complete… Delete them with…") would mislead.
+  for (const line of execute && found.count ? listing.slice(0, -1) : listing) console.log(line);
+  if (!execute || !found.count) return;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error('Run this command in an interactive terminal.');
+  console.log('If another TomeCMS site uses this bucket, these may be its files: stop here and give each site its own bucket.');
+  const expected = orphanConfirmation(origin, database, input.s3Bucket);
+  console.log('Type this line to delete them, or press Enter to cancel:');
+  console.log(`  ${expected}`);
+  if ((await ask('> ')).trim() !== expected) {
+    console.log('Cancelled. No changes were made.');
+    return;
+  }
+  const report = await sweepOrphans({ storage: input.s3, bucket: input.s3Bucket, database: input.db, execute: true });
+  for (const line of orphanReportLines(report, true)) console.log(line);
+  if (report.failed) throw new Error('Some media files could not be deleted. Run the sweep again after storage recovers.');
+}
+
 async function main(): Promise<void> {
   const options = parseCleanupOptions(process.argv.slice(2));
   const [{ db, closeDatabase }, { getServerEnv }, { s3, s3Bucket }] = await Promise.all([
@@ -130,16 +172,11 @@ async function main(): Promise<void> {
     import('../src/server/media/storage'),
   ]);
   try {
+    const env = getServerEnv();
     if (options.orphans) {
-      const { sweepOrphans } = await import('../src/server/media/orphans');
-      console.log('TomeCMS orphan sweep');
-      console.log(`Bucket: ${s3Bucket}`);
-      const report = await sweepOrphans({ storage: s3, bucket: s3Bucket, database: db, execute: options.execute });
-      for (const line of orphanReportLines(report, options.execute)) console.log(line);
-      if (report.failed) throw new Error('Some media files could not be deleted. Run the sweep again after storage recovers.');
+      await sweep(options.execute, new URL(env.TOME_CMS_PUBLIC_URL).origin, databaseLabel(env.DATABASE_URL), { db, s3, s3Bucket });
       return;
     }
-    const env = getServerEnv();
     const queued = await candidates(db);
     const origin = new URL(env.TOME_CMS_PUBLIC_URL).origin;
     console.log('TomeCMS media cleanup preview');

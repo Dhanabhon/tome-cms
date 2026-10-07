@@ -187,7 +187,9 @@ The list holds only files under the names TomeCMS gives, that no media item, sma
 
 `sudo tome prune --orphans` deletes them and prints `Deleted 3 media files nothing pointed at.` Just before each batch it asks the database again, so a file that came into use while it ran is kept. A file it cannot delete does not stop the rest: it says how many, exits 1, and running it again takes them. With nothing to delete it says `No media files are left with nothing pointing at them.`
 
-The list needs TomeCMS 1.21.0 or newer; on an older site `sudo tome prune` leaves it out, and `--orphans` refuses with the version to update to. It also refuses while the site is in maintenance or the updater is busy. In a source checkout, `npm run media:cleanup -- --orphans` lists the same files and `npm run media:cleanup -- --orphans --execute` deletes them.
+The list needs TomeCMS 1.21.0 or newer; on an older site `sudo tome prune` leaves it out, and `--orphans` refuses with the version to update to. It also refuses while the site is in maintenance or the updater is busy. In a source checkout, `npm run media:cleanup -- --orphans` lists the same files with the site, database and bucket it checked, and `npm run media:cleanup -- --orphans --execute` deletes them after you type a line naming all three.
+
+The sweep knows only its own site's database. When two TomeCMS sites share one bucket, such as staging and production, or several checkouts on one local SeaweedFS, each site's files look like files nothing points at to the other. Do not sweep a shared bucket: give each site its own bucket. A managed server has its own SeaweedFS, so its bucket is not shared.
 
 | Option | What it does |
 | --- | --- |

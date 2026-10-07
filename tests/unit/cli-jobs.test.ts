@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { tome } from '../../src/cli/main.js';
@@ -456,10 +458,10 @@ test('prune with nothing to remove, an unreadable listing, and a busy updater', 
 const orphanKeys = Array.from({ length: 3 }, (_, index) => `owners/5b0e1f3c-2d4a-4e6b-8c9d-0a1b2c3d4e5f/2026/10/0000000${index}-2d4a-4e6b-8c9d-0a1b2c3d4e5f.jpg`);
 
 /** A site on `version` whose image's orphan step answers `answer`, recording each step it is asked for. */
-function sweepContext(answer: Record<string, unknown>, input: { version?: string; busy?: boolean; candidates?: unknown[] } = {}) {
+function sweepContext(answer: Record<string, unknown>, input: { version?: string; busy?: boolean; candidates?: unknown[]; environmentFile?: string; stderr?: string[] } = {}) {
   const steps: string[][] = [];
   const f = fakeContext({
-    config: { backupDirectory: tmpdir() },
+    config: { backupDirectory: tmpdir(), ...input.environmentFile ? { environmentFile: input.environmentFile } : {} },
     routes: {
       'POST /v1/prune': [{ status: 200, body: { candidates: input.candidates ?? [], removed: [] } }],
       'GET /v1/status': [statusAnswer(null, input.version ?? '1.21.0')],
@@ -471,6 +473,7 @@ function sweepContext(answer: Record<string, unknown>, input: { version?: string
         assert.equal(executable, 'docker');
         steps.push(args.slice(args.indexOf('--') + 1));
         onLine(JSON.stringify(answer), 'stdout');
+        for (const line of input.stderr ?? []) onLine(line, 'stderr');
         return answer.ok === true ? 0 : 1;
       },
     },
@@ -526,13 +529,34 @@ test('the sweep waits for an app that has it, and for a quiet updater', async ()
   assert.equal(await run(busy, ['prune', '--orphans']), 1);
   assert.deepEqual(busy.steps, []);
   assert.match(busy.err(), /The site is in maintenance, or the updater is busy/);
+  const busyDry = sweepContext(found(), { busy: true });
+  assert.equal(await run(busyDry, ['prune']), 0, 'a dry run that could not look says why and leaves the exit code to the images');
+  assert.match(busyDry.err(), /The site is in maintenance, or the updater is busy/);
 });
 
-test('a sweep that fails or answers what tome cannot read deletes nothing it does not say', async () => {
-  const refused = sweepContext({ ok: false, code: 'orphans_failed' });
-  assert.equal(await run(refused, ['prune', '--orphans']), 1);
-  assert.match(refused.err(), /The media file check failed \(orphans_failed\)/);
+test('a sweep that fails says why, with its last lines and every secret hidden; only --orphans exits 1 for it', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'tome-sweep-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const environmentFile = join(dir, 'tome-cms.env');
+  const secret = 'correct-horse-battery-staple';
+  await writeFile(environmentFile, `POSTGRES_PASSWORD='${secret}'\n`);
+  const stderr = [`Error: connect to postgres://tomecms:${secret}@postgres failed`];
+  const failure = { ok: false, code: 'orphans_failed' };
+  const dry = sweepContext(failure, { environmentFile, stderr });
+  assert.equal(await run(dry, ['prune']), 0);
+  assert.deepEqual(dry.warned, [
+    'The check for media files nothing points at failed (orphans_failed), so nothing was deleted. What it said:',
+    '  Error: connect to postgres://tomecms:[redacted]@postgres failed',
+  ]);
+  const real = sweepContext(failure, { environmentFile, stderr });
+  assert.equal(await run(real, ['prune', '--orphans']), 1);
+  assert.deepEqual(real.warned, [
+    'The sweep of media files nothing points at failed (orphans_failed). It may have deleted some before it stopped; run sudo tome prune --orphans again. What it said:',
+    '  Error: connect to postgres://tomecms:[redacted]@postgres failed',
+  ]);
   const garbled = sweepContext({ ok: true, count: 'many' });
-  assert.equal(await run(garbled, ['prune']), 1);
-  assert.match(garbled.err(), /The media file check failed \(its answer does not read\)/);
+  assert.equal(await run(garbled, ['prune']), 0);
+  assert.deepEqual(garbled.warned, ['The check for media files nothing points at failed (its answer does not read), so nothing was deleted.']);
+  const garbledReal = sweepContext({ ok: true, count: 'many' });
+  assert.equal(await run(garbledReal, ['prune', '--orphans']), 1);
 });

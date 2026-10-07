@@ -1,6 +1,6 @@
 import { compareStableVersions } from '../../update/contracts.js';
 import type { PruneResult } from '../../updater/prune.js';
-import { ContentStepFailure, runContentStep, transferRefusal } from '../content-step.js';
+import { ContentStepFailure, runContentStep, stepDiagnostics, transferRefusal } from '../content-step.js';
 import type { CliContext } from '../main.js';
 import { formatBytes, printable } from '../output.js';
 import { postJob, readStatus, refusal } from '../socket.js';
@@ -62,22 +62,24 @@ async function sweep(context: CliContext, execute: boolean): Promise<number> {
     context.warn(`This site runs TomeCMS ${printable(installed.version)}. Deleting media files nothing points at needs ${ORPHANS_APP_SINCE} or newer: sudo tome update`);
     return 1;
   }
+  // A dry run that could not look says why, and leaves prune's answer to the images.
+  const failed = execute ? 1 : 0;
   const refused = await transferRefusal(context);
   if (refused) {
     context.warn(refused);
-    return 1;
+    return failed;
   }
   let result: Sweep | null;
   try {
     result = readSweep(await runContentStep(context, context.requestId(), 'orphans', execute ? ['orphans', '--execute'] : ['orphans']));
   } catch (error) {
     if (!(error instanceof ContentStepFailure)) throw error;
-    context.warn(`The media file check failed (${printable(error.code ?? error.unreadable ?? 'unknown')}).`);
-    return 1;
+    explainSweepFailure(context, execute, error.code ?? error.unreadable ?? 'unknown', await stepDiagnostics(context, error));
+    return failed;
   }
   if (!result) {
-    context.warn('The media file check failed (its answer does not read).');
-    return 1;
+    explainSweepFailure(context, execute, 'its answer does not read', []);
+    return failed;
   }
   if (!result.count) {
     context.print('No media files are left with nothing pointing at them.');
@@ -97,6 +99,14 @@ async function sweep(context: CliContext, execute: boolean): Promise<number> {
   if (!result.failed) return 0;
   context.warn(`${result.failed} could not be deleted. Run sudo tome prune --orphans again.`);
   return 1;
+}
+
+function explainSweepFailure(context: CliContext, execute: boolean, reason: string, lines: readonly string[]): void {
+  const said = lines.length ? ' What it said:' : '';
+  context.warn(execute
+    ? `The sweep of media files nothing points at failed (${printable(reason)}). It may have deleted some before it stopped; run sudo tome prune --orphans again.${said}`
+    : `The check for media files nothing points at failed (${printable(reason)}), so nothing was deleted.${said}`);
+  for (const line of lines) context.warn(line);
 }
 
 function readSweep(receipt: Record<string, unknown>): Sweep | null {

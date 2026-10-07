@@ -112,10 +112,7 @@ export async function explainStepFailure(context: CliContext, failure: ContentSt
     if (!sentence.endsWith(`${nothing}.`)) context.warn(`Nothing was ${step}ed.`);
     return;
   }
-  const lines = await hiddenSecrets(context).then(
-    (secrets) => failure.stderr.map((line) => `  ${printable(redactLine(line, secrets))}`),
-    () => ['  (not shown: the secrets in it could not be hidden)'],
-  );
+  const lines = await stepDiagnostics(context, failure);
   const said = lines.length ? ' What it said:' : '';
   if (failure.code !== null) {
     context.warn(`The ${step} step failed (${printable(failure.code)}), so ${nothing}.${said}`);
@@ -126,6 +123,15 @@ export async function explainStepFailure(context: CliContext, failure: ContentSt
     context.warn(`The ${step} step failed, and tome could not read its answer (${failure.unreadable}).${said}`);
   }
   for (const line of lines) context.warn(line);
+}
+
+/** A failed step's last lines of stderr, indented, with every secret in the server's environment hidden. */
+export async function stepDiagnostics(context: CliContext, failure: ContentStepFailure): Promise<string[]> {
+  if (!failure.stderr.length) return [];
+  return hiddenSecrets(context).then(
+    (secrets) => failure.stderr.map((line) => `  ${printable(redactLine(line, secrets))}`),
+    () => ['  (not shown: the secrets in it could not be hidden)'],
+  );
 }
 
 /** The secrets in the server's environment, as `tome logs` hides them. It throws when it cannot. */

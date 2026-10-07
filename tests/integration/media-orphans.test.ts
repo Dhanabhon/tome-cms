@@ -66,6 +66,14 @@ test('the sweep lists and deletes only old TomeCMS objects that nothing points a
     expires_at: new Date(Date.now() + 60_000), finalized_at: null,
   }).execute();
 
+  // The sweep's keys and reset's list come from the same sources.
+  const { knownObjects, trackedKeys } = await import('../../src/server/media/tracked-objects');
+  const known = await knownObjects(db);
+  assert.deepEqual([...await trackedKeys(db)].sort(), known.map(({ key }) => key).sort());
+  assert.deepEqual(known.map(({ key }) => key).sort(), [original, variant, brand, reserved].sort());
+  assert.deepEqual(known.find(({ key }) => key === variant)?.ids, [media.id], 'a copy is accounted for by its image');
+  assert.deepEqual([...await trackedKeys(db, [variant, race])], [variant]);
+
   const put = (Key: string) => s3.send(new PutObjectCommand({ Bucket: s3Bucket, Key, Body: body }));
   await Promise.all([original, variant, brand, reserved, race, foreign, ...orphans].map(put));
   // Object times are whole seconds; the young one is stored a second later, and the sweep's clock

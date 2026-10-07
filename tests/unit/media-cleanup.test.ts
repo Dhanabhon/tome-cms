@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   cleanupConfirmation,
+  databaseLabel,
+  orphanConfirmation,
   orphanReportLines,
   parseCleanupOptions,
   runCleanupCandidates,
@@ -21,6 +23,11 @@ test('media cleanup is bounded, explicit, and keeps failures retryable', async (
     assert.throws(() => parseCleanupOptions(args), /Usage/, args.join(' '));
   }
   assert.equal(cleanupConfirmation('https://cms.example.com', 'tomecms-media'), 'CLEAN https://cms.example.com tomecms-media');
+  assert.equal(databaseLabel('postgresql://tomecms:secret@127.0.0.1:5432/tomecms'), '127.0.0.1:5432/tomecms', 'the host and name, never the password');
+  assert.equal(
+    orphanConfirmation('https://cms.example.com', '127.0.0.1:5432/tomecms', 'tomecms-media'),
+    'SWEEP https://cms.example.com 127.0.0.1:5432/tomecms tomecms-media',
+  );
 
   const candidates: CleanupCandidate[] = [
     { id: 'resolved', kind: 'reservation', objectKey: 'one' },

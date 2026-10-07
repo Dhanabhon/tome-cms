@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 
 import type { Database } from '../db/types';
 import { isTomeObjectKey } from './keys';
-import { knownObjects } from './tracked-objects';
+import { trackedKeys } from './tracked-objects';
 
 /** Only objects at least this old are swept, so an upload still in flight is never touched. */
 export const ORPHAN_MIN_AGE_MS = 24 * 60 * 60 * 1000;
@@ -42,7 +42,7 @@ export async function sweepOrphans(input: {
   pageSize?: number;
 }): Promise<OrphanReport> {
   const now = input.now ?? new Date();
-  const tracked = new Set((await knownObjects(input.database)).map(({ key }) => key));
+  const tracked = await trackedKeys(input.database);
   const report: OrphanReport = { count: 0, bytes: 0, keys: [], deleted: 0, failed: 0, kept: 0 };
   let token: string | undefined;
   do {
@@ -64,7 +64,7 @@ async function remove(input: { storage: S3Client; bucket: string; database: Kyse
   for (let start = 0; start < keys.length; start += DELETE_BATCH) {
     const batch = keys.slice(start, start + DELETE_BATCH);
     // Asked again just before deleting: a row may have come to point at one since the listing.
-    const now = new Set((await knownObjects(input.database, batch)).map(({ key }) => key));
+    const now = await trackedKeys(input.database, batch);
     const going = batch.filter((key) => !now.has(key));
     report.kept += batch.length - going.length;
     if (!going.length) continue;

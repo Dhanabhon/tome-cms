@@ -91,7 +91,8 @@ export function untrackedRefusal(bucketKeys, objects) {
   const knownKeys = new Set(objects.map(({ key }) => key));
   if (bucketKeys.every((key) => knownKeys.has(key))) return null;
   return 'The media bucket contains TomeCMS objects nothing points at; no changes were made. ' +
-    'Remove the ones over a day old with: npm run media:cleanup -- --orphans --execute ' +
+    'If another TomeCMS site uses this bucket, they may be its files: do not sweep them, give each site its own bucket. ' +
+    'Otherwise remove the ones over a day old with: npm run media:cleanup -- --orphans --execute ' +
     '(on a managed install: sudo tome prune --orphans), then run reset again.';
 }
 
@@ -139,7 +140,7 @@ function selfTest() {
   assert.equal(isTomeObjectKey('../other-bucket/private'), false);
   const tracked = 'owners/123e4567-e89b-42d3-a456-426614174000/2026/09/123e4567-e89b-42d3-a456-426614174001.webp';
   assert.equal(untrackedRefusal([tracked], [{ key: tracked, ids: ['media'] }]), null);
-  assert.match(untrackedRefusal([tracked], []), /npm run media:cleanup -- --orphans --execute.*sudo tome prune --orphans/);
+  assert.match(untrackedRefusal([tracked], []), /another TomeCMS site uses this bucket.*own bucket.*npm run media:cleanup -- --orphans --execute.*sudo tome prune --orphans/);
   // The Record in reset-tables.ts makes the list complete, but not correct: flipping
   // either of these two to the wrong side typechecks and then does real damage.
   assert.equal(RESET_TABLES.includes('app_metadata'), false, 'the schema version must survive a reset');
