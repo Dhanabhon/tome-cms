@@ -13,9 +13,18 @@
 @import './overlays.css';
 @import './code.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind 4, laid out the way Tailwind 3 left it, so nothing on a page moves. Its theme variables
+ * sit in a layer, under every token above; the reset and the utilities are unlayered, in Tailwind 3's
+ * order -- after the sheets above, before the rules below -- so a rule here still wins or loses to a
+ * utility by specificity and order, never by layer. The reset is Tailwind 3's own (see preflight.css).
+ * The classes come from the files tailwind.config.mjs lists, and only those: source(none) turns off
+ * Tailwind 4's search of the whole project, website/ included. */
+@import 'tailwindcss/theme.css' layer(theme);
+@import './preflight.css';
+@tailwind utilities source(none);
+@config '../../tailwind.config.mjs';
+/* Tailwind 3's hover: on a touch screen a tapped button keeps it, as the admin's own rules do. */
+@custom-variant hover (&:hover);
 
 :root {
   font-synthesis: none;

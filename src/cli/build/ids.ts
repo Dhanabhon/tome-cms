@@ -19,11 +19,11 @@ const RESERVED = new Set([
   'super', 'switch', 'this', 'throw', 'true', 'try', 'typeof', 'var', 'void', 'while', 'with', 'yield',
 ]);
 
-// The single-word Tailwind utilities (3.4's own, with the typography plugin's, and the group, peer
-// and dark markers). A theme's id is its body class and its stylesheet's selector, so a theme with
-// one of these ids would restyle every element that uses the utility. Joined by slashes because
-// Tailwind scans src/ for class names: written as separate strings, each would ship its rule to
-// every page of the site.
+// The single-word Tailwind utilities (3.4's own, which take in every one Tailwind 4 has, with the
+// typography plugin's, and the group, peer and dark markers). A theme's id is its body class and its
+// stylesheet's selector, so a theme with one of these ids would restyle every element that uses the
+// utility. Joined by slashes because Tailwind scans src/ for class names: written as separate
+// strings, each would ship its rule to every page of the site.
 const TAILWIND_UTILITIES = new Set([
   'block/inline/flex/grid/table/contents/hidden/container/static/fixed/absolute/relative/sticky',
   'visible/invisible/collapse/isolate/truncate/italic/underline/overline/uppercase/lowercase/capitalize',

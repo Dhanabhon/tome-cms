@@ -72,6 +72,13 @@ export default {
             '--tw-prose-pre-bg': 'var(--color-code-surface)',
             '--tw-prose-th-borders': 'var(--color-rule-strong)',
             '--tw-prose-td-borders': 'var(--color-rule)',
+            // The plugin takes the rest from Tailwind's palette, and Tailwind 4's grays are a shade off
+            // Tailwind 3's. These are the grays Tailwind 3 gave a lead paragraph, a rule, a caption and a key.
+            '--tw-prose-lead': '#4b5563',
+            '--tw-prose-hr': '#e5e7eb',
+            '--tw-prose-captions': '#6b7280',
+            '--tw-prose-kbd': '#111827',
+            '--tw-prose-kbd-shadows': 'rgb(17 24 39 / 10%)',
             fontFamily: 'var(--font-body)',
             // The plugin draws a backtick either side of inline code: a Markdown mark a reader should
             // never see. The theme gives inline code its own quiet tint instead.
