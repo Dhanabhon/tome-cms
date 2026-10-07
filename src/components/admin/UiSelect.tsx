@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { placePopover } from '../../lib/popover';
+import { scrollTargetFor } from '../../lib/ui-select-scroll';
 import Icon from '../Icon';
 
 /** The gap between the trigger and its list, and the shortest list worth opening. */
@@ -111,18 +112,17 @@ export default function UiSelect({
   // list out from under it.
   const pointed = useRef(false);
   useLayoutEffect(() => {
-    if (!open) return;
-    if (pointed.current) {
-      pointed.current = false;
-      return;
-    }
+    // Cleared on every run, closed or not: a hover committed with the close must not
+    // make the next open skip its scroll.
+    const wasPointed = pointed.current;
+    pointed.current = false;
+    if (!open || wasPointed) return;
     // The list's own scroll only: scrollIntoView would also move a dialog or the page under it.
     const list = menu.current;
     const row = list?.children[activeIndex] as HTMLElement | undefined;
     if (!list || !row) return;
-    if (row.offsetTop < list.scrollTop) list.scrollTop = row.offsetTop;
-    else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
-  }, [open, activeIndex]);
+    list.scrollTop = scrollTargetFor(list, row, activeIndex, options.length);
+  }, [open, activeIndex, options.length]);
 
   // A list that filters a page submits its form once the new value is in its hidden input.
   const submitPending = useRef(false);

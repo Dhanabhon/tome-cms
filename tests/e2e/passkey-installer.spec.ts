@@ -238,7 +238,7 @@ test('the timezone list opens inside the window at desktop sizes', async ({ page
       const trigger = page.locator('#timezone');
       await expect(trigger).toHaveAttribute('data-value', 'Asia/Bangkok');
       // Measured once the entrance is over: that is when the step used to keep its transform.
-      await page.locator('.installer-step').evaluate((step) => Promise.all(step.getAnimations().map((animation) => animation.finished)));
+      await page.locator('.installer-step').evaluate((step) => Promise.all(step.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
       await trigger.click();
       const list = page.locator('#timezone-listbox');
       await expect(list).toBeVisible();

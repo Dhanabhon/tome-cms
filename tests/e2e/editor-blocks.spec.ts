@@ -1441,6 +1441,8 @@ test('a code block has a language, highlighted in the editor and on the publishe
     const box = row.getBoundingClientRect();
     return box.top >= list.top && box.bottom <= list.bottom;
   }), 'the last language is in sight').toBe(true);
+  await expect.poll(() => page.getByRole('listbox').evaluate((list) => Math.round(list.scrollHeight - list.clientHeight - list.scrollTop)),
+    'the list is scrolled to its very end, padding included').toBe(0);
   await page.keyboard.press('Escape');
   await expect(canvas).toBeFocused();
 
