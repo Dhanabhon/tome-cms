@@ -44,8 +44,13 @@ export const PAPER_SIZES = {
     '3': '(min-width: 80rem) 24.5rem, (min-width: 63.5rem) calc((100vw - 6.5rem) / 3), (min-width: 43rem) calc((100vw - 5rem) / 2), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)',
     '4': '(min-width: 80rem) 18rem, (min-width: 72rem) calc((100vw - 8rem) / 4), (min-width: 54.5rem) calc((100vw - 6.5rem) / 3), (min-width: 37.5rem) calc((100vw - 5rem) / 2), (min-width: 36rem) calc((100vw - 4rem) / 2), calc(100vw - 2.5rem)',
   },
-  // .hero-slider__slide and .hero-slide: flex 0 0 100% of a band the page's full width.
-  hero: '100vw',
+  // .hero-slider__slide: flex 0 0 100% of a band the page's full width. Below 37.5rem its picture
+  // is cropped into a 4:3 box (object-fit: cover): a 16:9 cover is scaled to the box's height, so
+  // it is drawn (16 / 9) / (4 / 3) = 133.3 % of the slide wide, 134vw.
+  hero: '(max-width: 37.5rem) 134vw, 100vw',
+  // .hero-slide > img (the owner's slides): flex 0 0 100% and a 16:7 box below 64rem, so a 16:9
+  // cover fills its width and is cropped in height; from 64rem it fills a 21:9 slide the same way.
+  heroSlides: '100vw',
 } as const;
 
 export const PLAIN_SIZES = {

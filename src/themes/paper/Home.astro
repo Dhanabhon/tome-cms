@@ -174,7 +174,7 @@ const readTime = (post: Post) => {
             fetchpriority={index === 0 ? 'high' : 'low'}
             height={slide.image.height}
             loading={index === 0 ? 'eager' : 'lazy'}
-            sizes={slide.image.srcset && PAPER_SIZES.hero}
+            sizes={slide.image.srcset && PAPER_SIZES.heroSlides}
             src={slide.image.src}
             srcset={slide.image.srcset}
             style={`object-position: ${FOCUS_POSITION[slide.focus]};`}
