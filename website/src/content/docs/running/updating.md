@@ -53,8 +53,8 @@ A release that needs a newer updater says so on "System" ("This version needs it
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.21.0
-git checkout --detach v1.21.0
+git fetch --depth 1 origin tag v1.21.1
+git checkout --detach v1.21.1
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -63,7 +63,7 @@ sudo npm run updater:upgrade
 A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
 
 ```sh
-git clone --depth 1 --branch v1.21.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.21.1 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -77,8 +77,8 @@ From 1.21.0, `sudo tome prune` lists the media files nothing points at and `sudo
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.21.0
-git checkout --detach v1.21.0
+git fetch --depth 1 origin tag v1.21.1
+git checkout --detach v1.21.1
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -129,7 +129,7 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.21.0 | 0 | None |
+| 1.21.1 or 1.21.0 | 0 | None |
 | 1.20.0 | 1 | `034_default_category_name` |
 | 1.19.0 | 2 | The one above and `033_media_variants_and_category_pages` |
 | 1.18.0 | 3 | The two above and `032_share_image_and_descriptions` |

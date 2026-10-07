@@ -2,6 +2,19 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.21.1 - 2026-10-07
+
+The installer's timezone list, and sharp 0.35.5 for a security advisory. No migration.
+
+### Security
+
+- sharp 0.35.5, with a patched librsvg (GHSA-wq5f-xc86-pv6w, high); http-cache-semantics, source-map-js, smol-toml and fast-uri updated too.
+
+### Fixed
+
+- The installer's timezone list opens inside the window on a desktop screen.
+- Every list in the admin keeps its chosen option in sight as it opens and as the keyboard moves through it.
+
 ## 1.21.0 - 2026-10-07
 
 Loose ends after 1.20.0. One migration.
