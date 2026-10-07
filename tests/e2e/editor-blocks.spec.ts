@@ -1538,24 +1538,39 @@ test('the row menu copies a published post\'s link, offers none for a draft, and
   await expect(dialog).toBeHidden();
 });
 
-/** Signs the owner in through a recovery enrollment, as a new device would. */
 /**
- * Selects the `count` characters before the last `skip` of the line, until the selection holds. Typing marks the
- * post unsaved, and the re-render that follows can land between the Shift+Arrow keys and the
- * moment the editor reads the new selection, putting the caret back where it was. A person never
- * selects within those milliseconds; a test does, and in CI it lost the selection (the trace of
- * run 36323303108 shows the caret after the text and nothing selected). So this selects again
- * until the browser says the words are selected.
+ * Selects the `count` characters before the last `skip` of the line, and waits until the editor
+ * holds them -- the editor, not the browser, since the bars follow the editor's selection.
+ *
+ * A click into the editor focuses it, and on focus ProseMirror sets a 20 ms timer that writes its
+ * own selection back to the page if the page's differs. Chromium runs input before timers, so
+ * while a test types and presses keys without a pause the timer waits; when the keys stop it runs,
+ * and if the editor has not yet read the Shift+Arrow selection, it puts the caret back where the
+ * editor last saw it. The browser said the words were selected a moment before (CI run
+ * 36323303108, and "a line and a table cell can be aligned" failing 3 times in 10, alone). Once
+ * the editor holds the selection the timer finds nothing to put back. A person never selects
+ * within 20 ms of a click; a test does, so this selects again until the editor has it.
  */
 async function selectBack(page: Page, count: number, expected: string, skip = 0) {
+  const selected = () => page.locator('.ProseMirror').evaluate((node) => {
+    const { doc, selection } = (node as unknown as { editor: Editor }).editor.state;
+    return { editor: doc.textBetween(selection.from, selection.to), page: window.getSelection()?.toString() ?? '' };
+  });
   await expect.poll(async () => {
     await page.keyboard.press('End');
     for (let step = 0; step < skip; step += 1) await page.keyboard.press('ArrowLeft');
     for (let step = 0; step < count; step += 1) await page.keyboard.press('Shift+ArrowLeft');
-    return page.evaluate(() => window.getSelection()?.toString());
+    // The editor reads the page's selection an event after the keys: wait until the two agree,
+    // whether the editor took the words or the timer took them back.
+    await expect.poll(async () => {
+      const { editor, page: shown } = await selected();
+      return editor === shown;
+    }, { message: 'the editor has read the selection' }).toBe(true);
+    return (await selected()).editor;
   }, { message: `"${expected}" is selected` }).toBe(expected);
 }
 
+/** Signs the owner in through a recovery enrollment, as a new device would. */
 async function signIn(context: BrowserContext, page: Page) {
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
