@@ -53,6 +53,7 @@ test('the orphan report names the first keys, counts the rest, and says how to d
     `  ${keys[0]}`,
     `  ${keys[1]}`,
     '  and 50 more',
+    'If another TomeCMS site uses this bucket, these may be its files: do not delete them, give each site its own bucket.',
     'Dry run complete. No changes were made. Delete them with: npm run media:cleanup -- --orphans --execute',
   ]);
   assert.deepEqual(orphanReportLines({ count: 2, bytes: 10, keys, deleted: 1, failed: 0, kept: 1 }, true).slice(-2), [

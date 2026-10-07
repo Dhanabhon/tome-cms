@@ -29,6 +29,8 @@ export function parseCleanupOptions(args: string[]): { execute: boolean; orphans
   throw new Error('Usage: npm run media:cleanup [-- [--orphans] --dry-run|--execute]');
 }
 
+const SHARED_BUCKET = 'If another TomeCMS site uses this bucket, these may be its files: do not delete them, give each site its own bucket.';
+
 /** What the orphan sweep found, and what it did with them. */
 export function orphanReportLines(report: OrphanReport, execute: boolean): string[] {
   if (!report.count) return ['No media files are left in storage with nothing pointing at them.'];
@@ -37,7 +39,9 @@ export function orphanReportLines(report: OrphanReport, execute: boolean): strin
     ...report.keys.map((key) => `  ${key}`),
   ];
   if (report.count > report.keys.length) lines.push(`  and ${report.count - report.keys.length} more`);
-  if (!execute) return [...lines, 'Dry run complete. No changes were made. Delete them with: npm run media:cleanup -- --orphans --execute'];
+  if (!execute) {
+    return [...lines, SHARED_BUCKET, 'Dry run complete. No changes were made. Delete them with: npm run media:cleanup -- --orphans --execute'];
+  }
   lines.push(`Deleted: ${report.deleted}; failed: ${report.failed}.`);
   if (report.kept) lines.push(`${report.kept} came into use while the sweep ran, so ${report.kept === 1 ? 'it was' : 'they were'} kept.`);
   return lines;
@@ -145,13 +149,14 @@ async function sweep(execute: boolean, origin: string, database: string, input: 
   console.log(`Site: ${origin}`);
   console.log(`Database: ${database}`);
   console.log(`Bucket: ${input.s3Bucket}`);
-  const found = await sweepOrphans({ storage: input.s3, bucket: input.s3Bucket, database: input.db, execute: false });
+  // One clock for both listings: nothing younger than what the dry run showed can be deleted.
+  const now = new Date();
+  const found = await sweepOrphans({ storage: input.s3, bucket: input.s3Bucket, database: input.db, execute: false, now });
   const listing = orphanReportLines(found, false);
   // With --execute, the dry run's closing line ("Dry run complete… Delete them with…") would mislead.
   for (const line of execute && found.count ? listing.slice(0, -1) : listing) console.log(line);
   if (!execute || !found.count) return;
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error('Run this command in an interactive terminal.');
-  console.log('If another TomeCMS site uses this bucket, these may be its files: stop here and give each site its own bucket.');
   const expected = orphanConfirmation(origin, database, input.s3Bucket);
   console.log('Type this line to delete them, or press Enter to cancel:');
   console.log(`  ${expected}`);
@@ -159,7 +164,7 @@ async function sweep(execute: boolean, origin: string, database: string, input: 
     console.log('Cancelled. No changes were made.');
     return;
   }
-  const report = await sweepOrphans({ storage: input.s3, bucket: input.s3Bucket, database: input.db, execute: true });
+  const report = await sweepOrphans({ storage: input.s3, bucket: input.s3Bucket, database: input.db, execute: true, now });
   for (const line of orphanReportLines(report, true)) console.log(line);
   if (report.failed) throw new Error('Some media files could not be deleted. Run the sweep again after storage recovers.');
 }
