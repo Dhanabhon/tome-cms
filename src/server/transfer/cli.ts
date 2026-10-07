@@ -183,7 +183,7 @@ export async function importContent(dir: string, mode: 'plan' | 'apply', work = 
     // Each picture's smaller copies are queued behind it, also when the import fails after it was
     // queued; closing first would fail every one. A failure here never hides the import's own.
     try {
-      await (await import('../media/variants')).variantsIdle();
+      if (mode === 'apply') await (await import('../media/variants')).variantsIdle();
     } catch (error) {
       console.error(`Error: the image copies did not finish: ${error instanceof Error ? error.message : String(error)}`);
     }

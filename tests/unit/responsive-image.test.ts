@@ -126,7 +126,7 @@ test('the sizes follow the columns the themes\' CSS draws', () => {
   assert.match(paper, /@media \(max-width: 37\.499rem\) \{[\s\S]*?\.home-hero--slider:not\(\.home-hero--slides\) \.hero-slider__slide img \{ aspect-ratio: 4 \/ 3; \}/);
   assert.match(paper, /\.hero-slide > img \{\n {2}display: block;\n {2}width: 100%;\n {2}height: auto;\n {2}aspect-ratio: 16 \/ 7;\n {2}object-fit: cover;/);
   // A 16:9 cover cropped into 4:3 is drawn (16 / 9) / (4 / 3) = 133 % of the slide wide.
-  assert.equal(PAPER_SIZES.hero, '(max-width: 37.5rem) 134vw, 100vw');
+  assert.equal(PAPER_SIZES.hero, '(max-width: 37.499rem) 134vw, 100vw');
   assert.equal(PAPER_SIZES.heroSlides, '100vw');
   assert.equal(PAPER_SIZES.article, '(min-width: 48rem) 44.5rem, (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
   assert.equal(PAPER_SIZES.cards['3'], '(min-width: 80rem) 24.5rem, (min-width: 63.5rem) calc((100vw - 6.5rem) / 3), (min-width: 43rem) calc((100vw - 5rem) / 2), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
