@@ -207,6 +207,18 @@ test('get_site tells the AI about the site and nothing secret', async () => {
   assert.deepEqual(site, { name: 'Tools', languages: ['th', 'en'], defaultLanguage: 'en', timeZone: 'Asia/Bangkok', url: ORIGIN });
 });
 
+test('a draft naming Uncategorized lands in the default category after it was renamed, without a warning', async () => {
+  await db.updateTable('categories').set({ name: 'Home' }).where('id', '=', defaultCategoryId).execute();
+  try {
+    const created = await ok(writer, 'create_draft', { kind: 'post', locale: 'en', title: 'Alias draft', body: 'Text', categories: ['Uncategorized'] });
+    assert.deepEqual(created.warnings, []);
+    const { categoryIdsForPost } = await import('../../src/server/content/categories');
+    assert.deepEqual(await categoryIdsForPost(OWNER, created.id), [defaultCategoryId]);
+  } finally {
+    await db.updateTable('categories').set({ name: 'Uncategorized' }).where('id', '=', defaultCategoryId).execute();
+  }
+});
+
 let aiDraftId: string;
 test('create_draft makes a draft with the categories that exist, and joins a translation', async () => {
   const generationBefore = pageCacheGeneration();

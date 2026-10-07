@@ -1,5 +1,6 @@
 import { sql, type Kysely, type RawBuilder } from 'kysely';
 
+// This imports ../../lib/site-brand, which the runtime image's src/ copy does not include, so it must only be loaded bundled (the content CLI) or from a checkout, not from source inside the image.
 import { storedBrandKeys } from '../../lib/site-brand';
 import type { Database } from '../db/types';
 

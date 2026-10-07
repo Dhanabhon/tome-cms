@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
-import { POST_LOCALES, type Page, type Post } from '../../types/cms';
+import { DEFAULT_CATEGORY_NAME, POST_LOCALES, type Page, type Post } from '../../types/cms';
 import { categoryIdsForPost, listCategories } from '../content/categories';
 import { assertContentMedia } from '../content/content-media';
 import { MarkdownBusyError } from '../content/markdown-import-run';
@@ -180,13 +180,15 @@ function registerReadTools(server: McpServer, config: McpConfig, token: Verified
   }, async (args) => guard(requestId, 'list_media', async () => respond(await listOwnerMedia(ownerId, args))));
 }
 
-/** Categories by name, ignoring case: only ones that exist, as in the Markdown import. */
+/** Categories by name, ignoring case: only ones that exist, as in the Markdown import. The default also answers to Uncategorized. */
 async function categoriesNamed(ownerId: string, names: string[]): Promise<{ ids: string[]; warnings: string[] }> {
   const all = await listCategories(ownerId);
   const ids = new Set<string>();
   const warnings: string[] = [];
   for (const name of names) {
-    const found = all.find((category) => category.name.toLowerCase() === name.toLowerCase());
+    // The default's literal name is its alias, as in the import, so it still lands there after a rename.
+    const found = all.find((category) => category.name.toLowerCase() === name.toLowerCase())
+      ?? (name.toLowerCase() === DEFAULT_CATEGORY_NAME.toLowerCase() ? all.find((category) => category.is_default) : undefined);
     if (found) ids.add(found.id);
     else warnings.push(`There is no category "${name}", so it was left out. Categories are made in the admin.`);
   }
