@@ -96,7 +96,7 @@ export { Home, Page, Post, Shell };
 
 `src/themes/styles.ts` finds each theme's `theme.css`, and the page links the stylesheet of the theme in use, so a reader downloads only that one. A template never imports `theme.css` itself: the build would then put the stylesheet in the wrong bundle.
 
-Tailwind reads every file under `src/` for class names, comments included. The name of a utility class written in a comment in a theme can put that rule on every page a reader loads.
+Tailwind reads every file under `src/` for class names, comments included, and nothing outside it: `tailwind.config.mjs` lists the files, and `src/styles/global.css` turns off Tailwind 4's own search. The name of a utility class written in a comment in a theme can put that rule on every page a reader loads.
 
 ## The contract
 

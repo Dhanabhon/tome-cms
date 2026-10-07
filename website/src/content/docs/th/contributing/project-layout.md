@@ -13,7 +13,7 @@ TomeCMS เป็นแอป Astro ตัวเดียว หน้าเว�
 | --- | --- |
 | แอป | Astro 7 ที่เรนเดอร์ทุกคำขอบนเซิร์ฟเวอร์ รันบน Node.js 22 ผ่าน `@astrojs/node` |
 | แอดมิน | island ของ React 18 และใช้ Tiptap 3 เป็นตัวแก้ไขบทความ |
-| สไตล์ | Tailwind CSS 3 บน design token ใน `src/styles/installer-tokens.css` |
+| สไตล์ | Tailwind CSS 4 บน design token ใน `src/styles/installer-tokens.css` |
 | ฐานข้อมูล | PostgreSQL 17 ผ่าน Kysely |
 | การลงชื่อเข้าใช้ | Better Auth กับพาสคีย์ |
 | ไฟล์ | ที่เก็บไฟล์แบบ S3 ผ่าน AWS SDK ตอนพัฒนาบนเครื่องและบนเซิร์ฟเวอร์ที่ดูแลเองใช้ SeaweedFS 4.46 ส่วนการย่อขนาดภาพใช้ `sharp` |
@@ -21,6 +21,8 @@ TomeCMS เป็นแอป Astro ตัวเดียว หน้าเว�
 | การทดสอบ | ตัวรันเทสต์ที่มากับ Node เอง และ Playwright สำหรับเทสต์ในเบราว์เซอร์ |
 
 `src/styles/installer-tokens.css` เป็นเจ้าของ token ทุกตัว ทั้งสี ระยะห่าง ความโค้งมุม และตัวอักษร `DESIGN.md` อธิบาย token เหล่านี้ และ `npm run check` จะไม่ผ่านถ้าสองไฟล์นี้ไม่ตรงกัน
+
+Tailwind ทำงานเป็นปลั๊กอินของ PostCSS (`postcss.config.mjs`) โดย `src/styles/global.css` เป็นไฟล์ที่โหลด Tailwind อ่านธีมจาก `tailwind.config.mjs` ด้วย `@config` และใช้ชุดรีเซ็ตสไตล์ของ Tailwind 3 ที่เก็บไว้ใน `src/styles/preflight.css` การย้ายมา Tailwind 4 จึงไม่ทำให้หน้าเว็บเปลี่ยนไปเลย
 
 ## อะไรอยู่ตรงไหน
 

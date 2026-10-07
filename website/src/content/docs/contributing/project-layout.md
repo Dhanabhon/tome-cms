@@ -13,7 +13,7 @@ TomeCMS is one Astro application. The public site, the admin, the admin's own AP
 | --- | --- |
 | Application | Astro 7, rendering every request on the server, on Node.js 22 through `@astrojs/node` |
 | Admin | React 18 islands, with Tiptap 3 for the editor |
-| Styles | Tailwind CSS 3, on the design tokens in `src/styles/installer-tokens.css` |
+| Styles | Tailwind CSS 4, on the design tokens in `src/styles/installer-tokens.css` |
 | Database | PostgreSQL 17, through Kysely |
 | Sign-in | Better Auth, with passkeys |
 | Files | S3-compatible storage through the AWS SDK. Local development and a self-hosted server use SeaweedFS 4.46, and `sharp` resizes images. |
@@ -21,6 +21,8 @@ TomeCMS is one Astro application. The public site, the admin, the admin's own AP
 | Tests | Node's own test runner, and Playwright for the browser |
 
 `src/styles/installer-tokens.css` owns every colour, spacing, radius and type token. `DESIGN.md` describes them, and `npm run check` fails when the two disagree.
+
+Tailwind runs as a PostCSS plugin (`postcss.config.mjs`). `src/styles/global.css` loads it, reads the theme from `tailwind.config.mjs` with `@config`, and keeps Tailwind 3's reset in `src/styles/preflight.css`, so the move to Tailwind 4 changed nothing on the page.
 
 ## Where things are
 
