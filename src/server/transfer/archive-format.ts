@@ -44,10 +44,15 @@ export interface ArchiveManifest {
    */
   media: Record<string, ArchiveMediaFile>;
   /**
-   * The address and descriptions of each category the posts are in, but Uncategorized. An archive
+   * The address and descriptions of each category the posts are in, but the default. An archive
    * made before 1.20 has none, and an import then makes each address from the name.
    */
   categories?: ArchiveCategory[];
+  /**
+   * What the default category was called (1.21 on). An import puts a post that names it in the
+   * site's own default, which keeps its name. Without it, the default is Uncategorized, as it was.
+   */
+  defaultCategory?: string;
 }
 
 /** A refusal of something in an archive, by its code, the file it is about and, for front matter, the field. */
@@ -102,6 +107,7 @@ const manifestSchema = z.object({
     descriptionTh: z.string().trim().max(160),
     descriptionEn: z.string().trim().max(160),
   }).strict()).optional(),
+  defaultCategory: z.string().trim().min(1).max(80).optional(),
 }).refine((manifest) => manifest.counts.media === Object.keys(manifest.media).length);
 
 export function readManifest(source: string): ArchiveManifest {

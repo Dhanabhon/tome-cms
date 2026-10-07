@@ -4,7 +4,7 @@ import { sql, type Selectable, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { contentSlug, SLUG_LENGTH } from '../../lib/slug';
-import type { PostCategory, PostCategoryBadge, PostCategorySummary, PostLocale } from '../../types/cms';
+import { DEFAULT_CATEGORY_NAME, type PostCategory, type PostCategoryBadge, type PostCategorySummary, type PostLocale } from '../../types/cms';
 import { db } from '../db/client';
 import type { CategoryTable, Database } from '../db/types';
 import { HttpError } from '../http/errors';
@@ -34,13 +34,18 @@ function category(row: Selectable<CategoryTable>): PostCategory {
   return { ...row, created_at: row.created_at.toISOString(), updated_at: row.updated_at.toISOString() };
 }
 
-function nameForWrite(name: string): string {
+function nameForWrite(name: string, isDefault = false): string {
   const value = name.trim();
   if (!value || value.length > 80) throw new HttpError(400, 'Enter a Category name up to 80 characters.');
-  if (value.toLocaleLowerCase('en-US') === 'uncategorized') {
-    throw new HttpError(409, 'Uncategorized is protected.');
+  if (!isDefault && value.toLocaleLowerCase('en-US') === DEFAULT_CATEGORY_NAME.toLowerCase()) {
+    throw new HttpError(409, 'That name is kept for the default Category.', { code: 'name_reserved' });
   }
   return value;
+}
+
+/** A field of the default category's that no edit may change: it has no page to address or describe. */
+function defaultCategoryFixed(field: string): HttpError {
+  return new HttpError(400, 'The default Category takes a new name only.', { code: 'default_category_fixed', field });
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -116,7 +121,7 @@ export async function insertCategory(
 export async function insertDefaultCategory(trx: Transaction<Database>, ownerId: string): Promise<void> {
   await sql`
     insert into categories (owner_id, name, slug, is_default)
-    values (${ownerId}, 'Uncategorized', 'uncategorized', true)
+    values (${ownerId}, ${DEFAULT_CATEGORY_NAME}, 'uncategorized', true)
     on conflict (owner_id) where is_default do nothing
   `.execute(trx);
 }
@@ -208,18 +213,26 @@ export async function createCategory(ownerId: string, requestedName: string): Pr
 /**
  * A name, and an address and descriptions when they are given. A rename keeps the address, so
  * links to the category keep working; an empty one is made from the name again. An address the
- * category already has is kept as it is, even one a stricter rule would now refuse.
+ * category already has is kept as it is, even one a stricter rule would now refuse. The default
+ * category takes a name only: an address or a description it does not already have is refused.
  */
 export async function updateCategory(ownerId: string, id: string, input: CategoryUpdate): Promise<PostCategory> {
-  const name = nameForWrite(input.name);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
-      const current = await trx.selectFrom('categories').select(['is_default', 'slug'])
+      const current = await trx.selectFrom('categories').select(['is_default', 'slug', 'description_th', 'description_en'])
         .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
       if (!current) throw new HttpError(404, 'Category not found.');
-      if (current.is_default) throw new HttpError(409, 'Uncategorized is protected.');
+      const name = nameForWrite(input.name, current.is_default);
       const given = input.slug?.normalize('NFC').trim();
+      if (current.is_default) {
+        if (given !== undefined && given !== current.slug) throw defaultCategoryFixed('slug');
+        if (input.descriptionTh !== undefined && input.descriptionTh.trim() !== current.description_th) throw defaultCategoryFixed('descriptionTh');
+        if (input.descriptionEn !== undefined && input.descriptionEn.trim() !== current.description_en) throw defaultCategoryFixed('descriptionEn');
+        return trx.updateTable('categories').set({ name })
+          .where('id', '=', id).where('owner_id', '=', ownerId)
+          .returningAll().executeTakeFirstOrThrow();
+      }
       let slug = current.slug;
       if (given === '') slug = await freeCategorySlug(trx, ownerId, name, id);
       else if (given !== undefined && given !== current.slug) {
@@ -253,7 +266,7 @@ export async function deleteCategory(ownerId: string, id: string): Promise<{ aff
     const current = await trx.selectFrom('categories').select('is_default')
       .where('id', '=', id).where('owner_id', '=', ownerId).forUpdate().executeTakeFirst();
     if (!current) throw new HttpError(404, 'Category not found.');
-    if (current.is_default) throw new HttpError(409, 'Uncategorized is protected.');
+    if (current.is_default) throw new HttpError(409, 'The default Category cannot be deleted.');
 
     const affected = await trx.selectFrom('post_category_assignments')
       .select('translation_group_id')

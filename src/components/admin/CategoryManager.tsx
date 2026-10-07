@@ -15,9 +15,10 @@ function sortCategories(categories: PostCategorySummary[]) {
   return [...categories].sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
 }
 
-/** A category as its edit form holds it: the name, the address and both descriptions. */
+/** A category as its edit form holds it: the name, the address and both descriptions. The default has the name alone. */
 interface CategoryEdit {
   id: string;
+  isDefault: boolean;
   name: string;
   slug: string;
   descriptionTh: string;
@@ -29,6 +30,7 @@ const DESCRIPTION_LENGTH = 160;
 
 const editOf = (category: PostCategorySummary): CategoryEdit => ({
   id: category.id,
+  isDefault: category.is_default,
   name: category.name,
   slug: category.slug,
   descriptionTh: category.description_th,
@@ -86,6 +88,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
       }));
       const body = await response.json().catch(() => null) as { category?: PostCategorySummary; code?: string; error?: string } | null;
       if (body?.code === 'name_taken') throw new Error(copy.categories.nameTaken);
+      if (body?.code === 'name_reserved') throw new Error(copy.categories.nameReserved);
       if (!response.ok || !body?.category) throw new Error(body?.error || copy.categories.createFailed);
       categoryRevision.current += 1;
       setCategories((current) => sortCategories([...current, body.category!]));
@@ -125,7 +128,9 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
       const response = await atLeast(fetch('/api/admin/categories', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id, name, slug: edit.slug, descriptionTh: edit.descriptionTh, descriptionEn: edit.descriptionEn }),
+        body: JSON.stringify(edit.isDefault
+          ? { id, name }
+          : { id, name, slug: edit.slug, descriptionTh: edit.descriptionTh, descriptionEn: edit.descriptionEn }),
       }));
       const body = await response.json().catch(() => null) as { category?: PostCategorySummary; code?: string; error?: string } | null;
       if (body?.code === 'slug_taken' || body?.code === 'slug_invalid') {
@@ -137,6 +142,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
         return;
       }
       if (body?.code === 'name_taken') throw new Error(copy.categories.nameTaken);
+      if (body?.code === 'name_reserved') throw new Error(copy.categories.nameReserved);
       if (!response.ok || !body?.category) throw new Error(body?.error || copy.categories.updateFailed);
       categoryRevision.current += 1;
       setCategories((current) => sortCategories(current.map((category) => (
@@ -159,8 +165,11 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
   async function deleteCategory(category: PostCategorySummary) {
     const confirmed = await confirmUi({
       title: copy.categories.deleteTitle,
-      message: fill(category.postCount === 1 ? copy.categories.deleteOne : copy.categories.deleteMany,
-        { count: category.postCount, name: category.name }),
+      message: fill(category.postCount === 1 ? copy.categories.deleteOne : copy.categories.deleteMany, {
+        count: category.postCount,
+        fallback: categories.find(({ is_default }) => is_default)?.name ?? copy.categories.fallbackName,
+        name: category.name,
+      }),
       confirmLabel: copy.categories.delete,
       cancelLabel: copy.shell.cancel,
       tone: 'danger',
@@ -263,6 +272,8 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                         />
                       </label>
                       {/* Hints sit outside the labels, so a field is named by its label alone and described by its hint. */}
+                      {/* The default category has no page, so it has no address or description to edit. */}
+                      {!edit.isDefault && (<>
                       <div className="admin-field">
                         <label className="admin-field">
                           <span>{copy.categories.slugLabel}</span>
@@ -308,6 +319,7 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                         </label>
                         <small id="category-description-hint">{copy.categories.descriptionHint}</small>
                       </div>
+                      </>)}
                     </div>
                     <div className="category-edit-actions">
                       <button aria-busy={pendingActionIds.has(renameAction)} className="admin-button admin-button--secondary" disabled={pendingActionIds.has(renameAction)} type="submit" aria-label={fill(copy.categories.saveLabelFor, { name: edit.name.trim() || copy.categories.fallbackName })}>{copy.categories.save}</button>
@@ -329,18 +341,19 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                     </div>
                     <div className="category-row__meta">
                       <span aria-label={postCountLabel(copy, category.postCount)} className="admin-count">{category.postCount}</span>
-                      {!category.is_default && (
-                        <div className="category-actions">
-                          <button
-                            aria-label={fill(copy.categories.editLabelFor, { name: category.name })}
-                            className="admin-button admin-button--ghost admin-button--icon"
-                            onClick={() => { setEdit(editOf(category)); setError(''); setNameMissing(null); setLiveStatus(''); }}
-                            ref={(button) => { if (button) renameButtons.current.set(category.id, button); }}
-                            title={fill(copy.categories.editLabelFor, { name: category.name })}
-                            type="button"
-                          >
-                            <Icon name="pencil" />
-                          </button>
+                      <div className="category-actions">
+                        <button
+                          aria-label={fill(copy.categories.editLabelFor, { name: category.name })}
+                          className="admin-button admin-button--ghost admin-button--icon"
+                          onClick={() => { setEdit(editOf(category)); setError(''); setNameMissing(null); setLiveStatus(''); }}
+                          ref={(button) => { if (button) renameButtons.current.set(category.id, button); }}
+                          title={fill(copy.categories.editLabelFor, { name: category.name })}
+                          type="button"
+                        >
+                          <Icon name="pencil" />
+                        </button>
+                        {/* The default category is where posts go when theirs is deleted, so it stays. */}
+                        {!category.is_default && (
                           <button
                             aria-busy={pendingActionIds.has(deleteAction)}
                             aria-label={fill(copy.categories.deleteLabelFor, { name: category.name })}
@@ -352,8 +365,8 @@ export default function CategoryManager({ initialCategories, ownerLocale }: Cate
                           >
                             <Icon name="trash" />
                           </button>
-                        </div>
                         )}
+                      </div>
                     </div>
                   </>
                 )}

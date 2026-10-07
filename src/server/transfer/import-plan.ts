@@ -6,7 +6,7 @@ import { MAX_MARKDOWN_BYTES } from '../../lib/markdown-import';
 import { documentTypeForName, MAX_DOCUMENT_FILE_BYTES, MAX_IMAGE_BYTES } from '../../lib/media';
 import { RESERVED_PAGE_SLUGS } from '../../lib/pages';
 import { contentSlug, SLUG, SLUG_LENGTH } from '../../lib/slug';
-import type { EditorDocument, EditorNode } from '../../types/cms';
+import { DEFAULT_CATEGORY_NAME, type EditorDocument, type EditorNode } from '../../types/cms';
 import { parseEditorContent, ValidationError } from '../content/editor';
 import { parseMarkdownPost } from '../content/markdown-import';
 import { detectImageType } from '../media/image';
@@ -342,7 +342,13 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
     plan.create.push({ kind: item.kind, locale: item.locale, slug: item.slug, path: item.path, source: item.source });
   }
 
-  const categories = new Map((await site.categories(ownerId)).map(({ id, name }) => [name.toLowerCase(), id]));
+  const siteCategories = await site.categories(ownerId);
+  const categories = new Map(siteCategories.map(({ id, name }) => [name.toLowerCase(), id]));
+  // The archive's default is this site's, whatever each is called; no other category may be called Uncategorized.
+  const fallback = siteCategories.find(({ is_default }) => is_default);
+  for (const name of fallback ? [DEFAULT_CATEGORY_NAME, manifest?.defaultCategory] : []) {
+    if (name) categories.set(name.toLowerCase(), fallback!.id);
+  }
   const toCreate = new Map<string, string>();
   const items: PlannedItem[] = [];
   for (const [group, members] of groups) {

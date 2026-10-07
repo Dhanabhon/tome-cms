@@ -163,7 +163,9 @@ export default function PostSettingsDrawer({
               {suggestFailed && <small role="status">{copy.drawer.suggestUnavailable}</small>}
             </div>
           )}
-          <small id="category-fallback-help">{copy.drawer.categoryFallback}</small>
+          <small id="category-fallback-help">{fill(copy.drawer.categoryFallback, {
+            name: categories.find(({ is_default }) => is_default)?.name ?? copy.categories.fallbackName,
+          })}</small>
           <button className="admin-button admin-button--secondary" onClick={onManageCategories} type="button">{copy.posts.manageCategories}</button>
         </fieldset>
       </section>

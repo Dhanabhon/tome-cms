@@ -33,6 +33,7 @@ import * as deviceEnrollment from './migrations/030_device_enrollment';
 import * as searchVisibility from './migrations/031_search_visibility';
 import * as shareImageAndDescriptions from './migrations/032_share_image_and_descriptions';
 import * as mediaVariantsAndCategoryPages from './migrations/033_media_variants_and_category_pages';
+import * as defaultCategoryName from './migrations/034_default_category_name';
 
 export const migrations = {
   '001_system': system,
@@ -68,6 +69,7 @@ export const migrations = {
   '031_search_visibility': searchVisibility,
   '032_share_image_and_descriptions': shareImageAndDescriptions,
   '033_media_variants_and_category_pages': mediaVariantsAndCategoryPages,
+  '034_default_category_name': defaultCategoryName,
 } as const;
 
 const provider: MigrationProvider = {

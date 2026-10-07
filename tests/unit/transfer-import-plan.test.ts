@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import { ArchiveInputError, writeFrontMatter, type FrontMatter } from '../../src/server/transfer/archive-format';
-import { planImport, type SiteReader } from '../../src/server/transfer/import-plan';
+import { buildPlan, planImport, type SiteReader } from '../../src/server/transfer/import-plan';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -72,6 +72,33 @@ test('Uncategorized is the default category, names match ignoring case, and a gr
   assert.deepEqual(plan.categoriesToCreate, ['Bread', 'ขนม']);
   assert.equal(plan.create.length, 2);
   assert.deepEqual(plan.groupsSplit, []);
+});
+
+test("the archive's default category is the site's, whatever either is called, and the site's keeps its name", async (context) => {
+  const renamed: SiteReader = { ...site(), categories: async () => [
+    { id: 'default-id', name: 'ไม่มีหมวดหมู่', is_default: true },
+    { id: 'general-id', name: 'General', is_default: false },
+  ] };
+  const manifest = (defaultCategory?: string) => JSON.stringify({
+    format: 'tomecms-markdown', version: 1, createdAt: '2026-10-07T00:00:00.000Z', applicationVersion: '1.21.0',
+    publicUrl: 'https://example.invalid', counts: { posts: 1, pages: 0, media: 0 }, media: {}, categories: [],
+    ...(defaultCategory ? { defaultCategory } : {}),
+  });
+  // An archive from before 1.21, or without a manifest: its default was always called Uncategorized.
+  for (const files of [{}, { 'manifest.json': manifest() }] as Array<Record<string, string>>) {
+    const root = await archive(context, { ...files, 'posts/en/a.md': md({ title: 'A', slug: 'a', categories: ['Uncategorized'] }) });
+    assert.deepEqual((await planImport(root, OWNER, renamed)).categoriesToCreate, []);
+  }
+  // A renamed one says its name, which here is another category's on this site: it is still the default.
+  const root = await archive(context, {
+    'manifest.json': manifest('General'),
+    'posts/en/a.md': md({ title: 'A', slug: 'a', categories: ['general'] }),
+  });
+  const { plan, detail } = await buildPlan(root, OWNER, renamed);
+  assert.deepEqual(plan.categoriesToCreate, []);
+  assert.equal(detail.categories.get('general'), 'default-id');
+  // To a site whose default is still Uncategorized, likewise.
+  assert.deepEqual((await planImport(root, OWNER, site())).categoriesToCreate, []);
 });
 
 test('an exact .tome.json is preferred to its .md', async (context) => {

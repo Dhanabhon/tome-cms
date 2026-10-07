@@ -7,7 +7,8 @@ import { expect, test } from './own-worker';
  * The category manager gives each category an address and a description in each language: made
  * from the name when the category is made, kept through a rename, changed only by the owner, and
  * refused with the field marked when another category has it or it is not an address. Uncategorized
- * has no page, so it offers nothing to edit. It signs in once: /recovery allows five sign-ins per spec file.
+ * has no page, so it takes a new name and nothing else, and its chip on the home follows the name.
+ * It signs in once: /recovery allows five sign-ins per spec file.
  */
 
 test.use({ stack: 'category-manager' });
@@ -77,6 +78,23 @@ test.beforeAll(async () => {
     values (true, ${OWNER}, 'Quiet Notes', 'en', 'Asia/Bangkok', '/admin')`.execute(db);
   await sql`insert into categories (owner_id, name, slug, is_default) values (${OWNER}, 'Uncategorized', 'uncategorized', true)`.execute(db);
   await sql`insert into categories (owner_id, name, slug, is_default) values (${OWNER}, 'Food', 'food', false)`.execute(db);
+  // A published post in each, so the home has a chip for each to filter by.
+  await sql.raw(`do $$
+    declare g uuid;
+    begin
+      insert into post_translation_groups (owner_id) values ('${OWNER}') returning id into g;
+      insert into posts (translation_group_id, locale, title, slug, excerpt, content_json, content_html, status, published_at, owner_id)
+        values (g, 'en', 'Left as it is', 'left-as-it-is', '', '{"type":"doc","content":[]}'::jsonb, '<p>No category.</p>',
+          'published', now() - interval '2 hours', '${OWNER}');
+      insert into post_category_assignments (translation_group_id, category_id, owner_id)
+        select g, id, owner_id from categories where owner_id = '${OWNER}' and is_default;
+      insert into post_translation_groups (owner_id) values ('${OWNER}') returning id into g;
+      insert into posts (translation_group_id, locale, title, slug, excerpt, content_json, content_html, status, published_at, owner_id)
+        values (g, 'en', 'Rice for breakfast', 'rice-for-breakfast', '', '{"type":"doc","content":[]}'::jsonb, '<p>Rice.</p>',
+          'published', now() - interval '1 hour', '${OWNER}');
+      insert into post_category_assignments (translation_group_id, category_id, owner_id)
+        select g, id, owner_id from categories where owner_id = '${OWNER}' and slug = 'food';
+    end $$`).execute(db);
   server = spawn(process.execPath, ['./node_modules/astro/bin/astro.mjs', 'dev', '--ignore-lock',
     '--host', 'localhost', '--port', String(port)], { cwd: process.cwd(), env, stdio: 'pipe' });
   let output = '';
@@ -126,9 +144,33 @@ test('a category gets an address from its name, keeps it through a rename, and t
 
   await page.goto(`${origin}/admin/categories`);
   await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
-  // Uncategorized has no page, so nothing on its row offers an address or a description.
+  // Uncategorized takes a new name, and nothing else: it has no page to address or describe, and it stays.
+  const alert = page.locator('.category-manager [role="alert"]');
   const fallback = page.locator('.category-row').filter({ hasText: 'Uncategorized' });
-  await expect(fallback.getByRole('button')).toHaveCount(0);
+  await expect(fallback.getByRole('button')).toHaveCount(1);
+  await fallback.getByRole('button', { name: 'Edit Uncategorized' }).click();
+  await expect(page.locator('.category-edit').getByRole('textbox')).toHaveCount(1);
+  await page.getByRole('textbox', { name: 'Category name for Uncategorized' }).fill('Everything Else');
+  await page.getByRole('button', { name: 'Save Everything Else' }).click();
+  await expect(page.locator('.category-status')).toHaveText('Category “Everything Else” saved.');
+  await expect(page.getByRole('button', { name: 'Edit Everything Else' })).toBeFocused();
+  await expect(page.locator('.category-row').first()).toContainText('Default');
+  expect(await stored('Everything Else')).toEqual({ slug: 'uncategorized', description_th: '', description_en: '' });
+  // Its old name stays its own.
+  await page.locator('#category-name').fill('uncategorized');
+  await page.getByRole('button', { name: 'Create category' }).click();
+  await expect(alert).toHaveText('This name is kept for the default category.');
+  // An address or a description for it is refused by the server, which names the field.
+  const refusal = await page.evaluate(async () => {
+    const list = await (await fetch('/api/admin/categories')).json() as { categories: Array<{ id: string; is_default: boolean }> };
+    const id = list.categories.find(({ is_default }) => is_default)!.id;
+    const response = await fetch('/api/admin/categories', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, name: 'Everything Else', descriptionEn: 'All the rest.' }),
+    });
+    return { status: response.status, body: await response.json() as Record<string, unknown> };
+  });
+  expect(refusal).toMatchObject({ status: 400, body: { code: 'default_category_fixed', field: 'descriptionEn' } });
 
   // Made: the address comes from the name.
   await page.locator('#category-name').fill('Slow Mornings');
@@ -211,4 +253,13 @@ test('a category gets an address from its name, keeps it through a rename, and t
   } finally {
     await sql`update site_settings set default_locale = 'en'`.execute(db);
   }
+
+  // On the home, its chip carries the new name and still lists its posts alone.
+  await page.goto(`${origin}/en`);
+  const chip = page.getByRole('link', { name: 'Everything Else', exact: true });
+  await expect(chip).toHaveAttribute('href', '/en?category=Everything+Else');
+  await chip.click();
+  await page.waitForURL(`${origin}/en?category=Everything+Else`);
+  await expect(page.getByRole('link', { name: 'Left as it is' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Rice for breakfast' })).toHaveCount(0);
 });

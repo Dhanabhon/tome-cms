@@ -101,8 +101,8 @@ test('Category addresses are made, kept, edited and refused as the owner expects
   assert.equal(categoryUpdateSchema.safeParse({ ...input, descriptionEn: `  ${'a'.repeat(160)}  ` }).success, true, 'trimmed before it is counted');
   assert.equal(categoryUpdateSchema.safeParse({ ...input, extra: true }).success, false);
 
-  // Uncategorized stays as it is: it has no page to address or describe.
-  await assert.rejects(updateCategory('owner-a', fallback.id, { name: 'Uncategorized', descriptionEn: 'Everything else.' }), refused(409));
+  // The default category takes a new name only: it has no page to address or describe.
+  await assert.rejects(updateCategory('owner-a', fallback.id, { name: 'Uncategorized', descriptionEn: 'Everything else.' }), refused(400, 'default_category_fixed'));
   await assert.rejects(updateCategory('owner-a', randomUUID(), { name: 'Missing' }), refused(404));
   await assert.rejects(updateCategory('owner-b', thai.id, { name: 'Stolen' }), refused(404));
 

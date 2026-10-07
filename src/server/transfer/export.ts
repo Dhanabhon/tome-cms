@@ -51,8 +51,10 @@ interface Site {
   posts: Post[];
   pages: Page[];
   categories: Map<string, string[]>;
-  /** Each category the posts are in, but Uncategorized, by name. */
+  /** Each category the posts are in, but the default, by name. */
   categoryDetails: Map<string, ArchiveCategory>;
+  /** What the default category is called, when there is one. */
+  defaultCategory: string | undefined;
   media: Map<string, Media>;
 }
 
@@ -87,6 +89,8 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
     categories.set(group, [...categories.get(group) ?? [], name]);
     if (!isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
   }
+  const defaultCategory = (await trx.selectFrom('categories').select('name')
+    .where('owner_id', '=', settings.owner_id).where('is_default', '=', true).executeTakeFirst())?.name;
 
   const ids = new Set<string>();
   for (const post of posts) {
@@ -99,7 +103,7 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
     .where('owner_id', '=', settings.owner_id).where('state', '=', 'ready').where('id', 'in', [...ids])
     .orderBy('id').execute() : [];
   for (const { object_key: key } of rows) if (!isTomeObjectKey(key)) throw new Error('A media item has an unsupported object key.');
-  return { posts, pages, categories, categoryDetails, media: new Map(rows.map((row) => [row.id, row])) };
+  return { posts, pages, categories, categoryDetails, defaultCategory, media: new Map(rows.map((row) => [row.id, row])) };
 }
 
 /** The exact document, with each library file's address pointing into the archive instead. */
@@ -192,6 +196,7 @@ export async function exportSite(outDir: string): Promise<ExportReceipt> {
     counts,
     media,
     categories: [...site.categoryDetails.values()],
+    ...(site.defaultCategory ? { defaultCategory: site.defaultCategory } : {}),
   };
   // Last, so a directory with a manifest is a whole export.
   await writeNew(join(outDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

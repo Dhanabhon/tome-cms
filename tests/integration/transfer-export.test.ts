@@ -50,6 +50,8 @@ test('an export writes every post and page as Markdown and an exact copy, with t
   ]).execute();
   const categories = await db.selectFrom('categories').select(['id', 'name']).execute();
   await db.insertInto('categories').values({ owner_id: owner, name: 'Unused', slug: 'unused', is_default: false }).execute();
+  // Renamed (1.21): the manifest says what the default is called, so an import knows it.
+  await db.insertInto('categories').values({ owner_id: owner, name: 'ไม่มีหมวดหมู่', slug: 'uncategorized', is_default: true }).execute();
   const baking = categories.find(({ name }) => name === 'Baking')!;
 
   const picture = { id: randomUUID(), key: createObjectKey(owner, 'image/png'), bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]) };
@@ -188,6 +190,7 @@ test('an export writes every post and page as Markdown and an exact copy, with t
       { name: 'Baking', slug: 'bread-and-cakes', descriptionTh: 'ขนมปังและเค้ก', descriptionEn: 'Bread and cakes.' },
       { name: 'ขนม', slug: 'ขนม', descriptionTh: '', descriptionEn: '' },
     ],
+    defaultCategory: 'ไม่มีหมวดหมู่',
   }, 'every file by its id, the video poster too, and nothing unused');
 
   const read = async (path: string) => readFrontMatter(await readFile(join(root, path), 'utf8'), path);

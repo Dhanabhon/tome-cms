@@ -18,6 +18,12 @@ export interface PostTranslationSummary {
   title: string;
 }
 
+/**
+ * The name the installer gives the default category. The owner may rename it (1.21), but no other
+ * category may take this name (migration 034), so an archive that names it means the default.
+ */
+export const DEFAULT_CATEGORY_NAME = 'Uncategorized';
+
 export interface PostCategory {
   id: string;
   owner_id: string;
@@ -44,7 +50,7 @@ export interface PostCategoryAssignment {
 
 export interface PostCategoryBadge {
   id: string;
-  /** Uncategorized, which has no page: its chip keeps the filtered home, and no trail passes through it. */
+  /** The default category, which has no page: its chip keeps the filtered home, and no trail passes through it. */
   is_default: boolean;
   name: string;
   slug: string;

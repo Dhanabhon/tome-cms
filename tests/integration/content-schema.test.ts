@@ -166,7 +166,7 @@ test('content schema keeps ownership, translation, category, and navigation inva
     { code: '23514' },
   );
   await assert.rejects(
-    db.updateTable('categories').set({ name: 'Renamed' }).where('id', '=', defaultCategory.id).execute(),
+    db.updateTable('categories').set({ slug: 'renamed' }).where('id', '=', defaultCategory.id).execute(),
     { code: '23514' },
   );
   await db.transaction().execute(async (trx) => {
