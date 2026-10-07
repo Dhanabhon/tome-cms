@@ -153,7 +153,7 @@ It exits 1 when you decline, when the release is not one this server can take di
 
 ## tome prune
 
-Clears the old TomeCMS images that every update used to leave on the disk. It is a dry run unless you add `--yes`:
+Clears what a server leaves behind: the old TomeCMS images that every update used to leave on the disk, and media files in storage that nothing on the site points at. It is a dry run unless you add `--yes` or `--orphans`:
 
 ```text
 $ sudo tome prune
@@ -162,7 +162,13 @@ These old application images can go:
   sha256:cccccccccccc  718 MiB
 Total: about 1.8 GiB.
 Remove them with: sudo tome prune --yes
+These media files are over a day old, and nothing on the site points at them:
+  owners/5b0e1f3c-2d4a-4e6b-8c9d-0a1b2c3d4e5f/2026/09/3f2a9c1e-7b4d-4e8a-9c2f-1d6e5a4b3c2d.jpg
+Total: 1 file, 2.4 MiB.
+Delete them with: sudo tome prune --orphans
 ```
+
+### Old images
 
 `sudo tome prune --yes` removes them and prints what went (`Removed sha256:…`) and `Freed about 1.8 GiB.` The updater applies the rules it uses after a successful update:
 
@@ -173,9 +179,20 @@ Remove them with: sudo tome prune --yes
 
 An image a stopped container still uses cannot be removed. `tome` says how many it left. With nothing to remove it says `No old application images to remove.` and exits 0. It refuses while an update, a backup, a restore or another clean-up is running.
 
+### Media files nothing points at
+
+A file can stay in storage after nothing points at it: the server stopped between an upload and its record, a delete failed, or the site went back to 1.19 after 1.20 had made smaller copies of its images. Such files take space, and [resetting the installation](/tome-cms/running/recovery/) refuses a bucket that holds them.
+
+The list holds only files under the names TomeCMS gives, that no media item, smaller copy, logo, icon, share image or upload in progress points at, and that are over a day old, so an upload still on its way is never touched. Another app's files in the bucket are never listed. It names the first 50 and counts the rest.
+
+`sudo tome prune --orphans` deletes them and prints `Deleted 3 media files nothing pointed at.` Just before each batch it asks the database again, so a file that came into use while it ran is kept. A file it cannot delete does not stop the rest: it says how many, exits 1, and running it again takes them. With nothing to delete it says `No media files are left with nothing pointing at them.`
+
+The list needs TomeCMS 1.21.0 or newer; on an older site `sudo tome prune` leaves it out, and `--orphans` refuses with the version to update to. It also refuses while the site is in maintenance or the updater is busy. In a source checkout, `npm run media:cleanup -- --orphans` lists the same files and `npm run media:cleanup -- --orphans --execute` deletes them.
+
 | Option | What it does |
 | --- | --- |
 | `-y`, `--yes` | Removes the images instead of only listing them. |
+| `--orphans` | Deletes the media files nothing points at instead of only listing them. |
 
 ## tome restore
 

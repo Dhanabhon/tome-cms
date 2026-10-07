@@ -95,5 +95,5 @@ These commands work on the same setup:
 | --- | --- |
 | `npm run infra:up` | Starts PostgreSQL and SeaweedFS with the values in `.env.local`, and waits until they are ready |
 | `npm run db:migrate` | Applies the migrations that have not run yet |
-| `npm run media:cleanup` | Lists expired upload reservations and files whose deletion failed. With `-- --execute`, it asks you to type a confirmation, then removes them. |
+| `npm run media:cleanup` | Lists expired upload reservations and files whose deletion failed. With `-- --execute`, it asks you to type a confirmation, then removes them. With `-- --orphans`, it lists the files over a day old that nothing points at instead, and `-- --orphans --execute` deletes them. |
 | `npm run infra:down` | Stops PostgreSQL and SeaweedFS and removes their containers, keeping their data |

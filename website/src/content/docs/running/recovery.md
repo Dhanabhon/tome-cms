@@ -101,7 +101,7 @@ Nothing brings a reset site back but a backup. If anything on the site may be wa
 
 6. Open `/install` and go through [the wizard](/tome-cms/start/first-run/) with the same installation token.
 
-The reset refuses, and changes nothing, in two cases. While an upload signed in the last few minutes could still arrive, it says `Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.` When the bucket holds objects no table accounts for, it says `The media bucket contains objects not tracked by TomeCMS; no changes were made. Use a dedicated clean bucket.` Give the site a bucket of its own, because a reset empties it.
+The reset refuses, and changes nothing, in three cases. While an upload signed in the last few minutes could still arrive, it says `Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.` When the bucket holds TomeCMS files that nothing points at, it says `The media bucket contains TomeCMS objects nothing points at; no changes were made.` and names the sweep that deletes them: `npm run media:cleanup -- --orphans --execute`, or `sudo tome prune --orphans` on a managed server, as [tome prune](/tome-cms/running/cli/#media-files-nothing-points-at) describes. The sweep keeps files less than a day old, so a recent one may need a day. When the bucket holds another app's files, it says `The media bucket contains an unsupported object key; no changes were made.` Give the site a bucket of its own, because a reset empties it.
 
 If the content or the files change while it runs, it stops and keeps the database as it was. The files are deleted before the tables are emptied, so a reset that fails partway through them keeps the database, but not the files it had already deleted.
 

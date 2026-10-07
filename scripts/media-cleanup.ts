@@ -6,8 +6,10 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Kysely, Transaction } from 'kysely';
 
+import { formatBytes } from '../src/cli/output.js';
 import type { Database } from '../src/server/db/types';
 import { isTomeObjectKey } from '../src/server/media/keys';
+import type { OrphanReport } from '../src/server/media/orphans';
 
 export const CLEANUP_LIMIT = 1_000;
 
@@ -17,10 +19,28 @@ export interface CleanupCandidate {
   objectKey: string;
 }
 
-export function parseCleanupOptions(args: string[]): { execute: boolean } {
-  if (!args.length || (args.length === 1 && args[0] === '--dry-run')) return { execute: false };
-  if (args.length === 1 && args[0] === '--execute') return { execute: true };
-  throw new Error('Usage: npm run media:cleanup [-- --dry-run|--execute]');
+export function parseCleanupOptions(args: string[]): { execute: boolean; orphans: boolean } {
+  const orphans = args.includes('--orphans');
+  const rest = args.filter((arg) => arg !== '--orphans');
+  if (args.length - rest.length <= 1) {
+    if (!rest.length || (rest.length === 1 && rest[0] === '--dry-run')) return { execute: false, orphans };
+    if (rest.length === 1 && rest[0] === '--execute') return { execute: true, orphans };
+  }
+  throw new Error('Usage: npm run media:cleanup [-- [--orphans] --dry-run|--execute]');
+}
+
+/** What the orphan sweep found, and what it did with them. */
+export function orphanReportLines(report: OrphanReport, execute: boolean): string[] {
+  if (!report.count) return ['No media files are left in storage with nothing pointing at them.'];
+  const lines = [
+    `${report.count} media file${report.count === 1 ? ' in storage is' : 's in storage are'} over a day old and nothing points at ${report.count === 1 ? 'it' : 'them'} (${formatBytes(report.bytes)}):`,
+    ...report.keys.map((key) => `  ${key}`),
+  ];
+  if (report.count > report.keys.length) lines.push(`  and ${report.count - report.keys.length} more`);
+  if (!execute) return [...lines, 'Dry run complete. No changes were made. Delete them with: npm run media:cleanup -- --orphans --execute'];
+  lines.push(`Deleted: ${report.deleted}; failed: ${report.failed}.`);
+  if (report.kept) lines.push(`${report.kept} came into use while the sweep ran, so ${report.kept === 1 ? 'it was' : 'they were'} kept.`);
+  return lines;
 }
 
 export function cleanupConfirmation(origin: string, bucket: string): string {
@@ -110,6 +130,15 @@ async function main(): Promise<void> {
     import('../src/server/media/storage'),
   ]);
   try {
+    if (options.orphans) {
+      const { sweepOrphans } = await import('../src/server/media/orphans');
+      console.log('TomeCMS orphan sweep');
+      console.log(`Bucket: ${s3Bucket}`);
+      const report = await sweepOrphans({ storage: s3, bucket: s3Bucket, database: db, execute: options.execute });
+      for (const line of orphanReportLines(report, options.execute)) console.log(line);
+      if (report.failed) throw new Error('Some media files could not be deleted. Run the sweep again after storage recovers.');
+      return;
+    }
     const env = getServerEnv();
     const queued = await candidates(db);
     const origin = new URL(env.TOME_CMS_PUBLIC_URL).origin;

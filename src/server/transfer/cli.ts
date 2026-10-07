@@ -17,7 +17,8 @@ export type ContentStep =
   | { step: 'restore-objects'; backup: string }
   | { step: 'after-restore' }
   | { step: 'export'; out: string }
-  | { step: 'import'; dir: string; mode: 'plan' | 'apply' };
+  | { step: 'import'; dir: string; mode: 'plan' | 'apply' }
+  | { step: 'orphans'; execute: boolean };
 
 class UsageError extends Error {}
 
@@ -35,7 +36,7 @@ export function parseContentArgs(argv: string[]): ContentStep {
       args: argv, allowPositionals: true, strict: true,
       options: {
         backup: { type: 'string' }, dump: { type: 'string' }, out: { type: 'string' }, dir: { type: 'string' },
-        plan: { type: 'boolean' }, apply: { type: 'boolean' },
+        plan: { type: 'boolean' }, apply: { type: 'boolean' }, execute: { type: 'boolean' },
       },
     });
   } catch {
@@ -51,6 +52,9 @@ export function parseContentArgs(argv: string[]): ContentStep {
   if (step === 'restore-database' && only('dump')) return { step, dump: values.dump! };
   if (step === 'restore-objects' && only('backup')) return { step, backup: values.backup! };
   if (step === 'export' && only('out')) return { step, out: values.out! };
+  if (step === 'orphans' && positionals.length === 1 && (only() || (given.length === 1 && values.execute))) {
+    return { step, execute: values.execute === true };
+  }
   // Exactly one of --plan and --apply, beside the directory.
   if (step === 'import' && positionals.length === 1 && given.length === 2 && values.dir && (values.plan || values.apply)) {
     return { step, dir: values.dir, mode: values.plan ? 'plan' : 'apply' };
@@ -185,6 +189,19 @@ export async function importContent(dir: string, mode: 'plan' | 'apply', work = 
   }
 }
 
+/** Lists the media objects nothing points at, and with `execute` deletes them. */
+async function orphans(execute: boolean): Promise<Receipt> {
+  const { sweepOrphans } = await import('../media/orphans');
+  const { closeDatabase, db } = await import('../db/client');
+  const { s3, s3Bucket } = await import('../media/storage');
+  try {
+    return { ...await sweepOrphans({ storage: s3, bucket: s3Bucket, database: db, execute }) };
+  } finally {
+    s3.destroy();
+    await closeQuietly(closeDatabase);
+  }
+}
+
 async function selfTest(): Promise<Receipt> {
   // Loads every package the steps use, without the environment, so the build fails on a missing one.
   const steps = await import('./restore-steps');
@@ -193,6 +210,8 @@ async function selfTest(): Promise<Receipt> {
   if (typeof exportSite !== 'function') throw new StepError('self_test_failed');
   const { applyImport } = await import('./import-apply');
   if (typeof applyImport !== 'function') throw new StepError('self_test_failed');
+  const { sweepOrphans } = await import('../media/orphans');
+  if (typeof sweepOrphans !== 'function') throw new StepError('self_test_failed');
   const { step } = parseContentArgs(['restore-objects', '--backup', `${WORK}/backup`]);
   if (step !== 'restore-objects') throw new StepError('self_test_failed');
   return {};
@@ -206,6 +225,7 @@ function run(step: ContentStep): Promise<Receipt> {
     case 'after-restore': return afterRestore();
     case 'export': return exportContent(step.out);
     case 'import': return importContent(step.dir, step.mode);
+    case 'orphans': return orphans(step.execute);
   }
 }
 

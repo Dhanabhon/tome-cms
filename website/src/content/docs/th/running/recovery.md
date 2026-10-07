@@ -101,7 +101,7 @@ npm run plugin:disable turnstile
 
 6. เปิด `/install` แล้วทำตาม[ตัวช่วยตั้งค่า](/tome-cms/th/start/first-run/)ใหม่ด้วย installation token เดิม
 
-มีสองกรณีที่การรีเซ็ตจะไม่ยอมทำงานและไม่เปลี่ยนอะไรเลย กรณีแรก ถ้ายังมีการอัปโหลดที่เพิ่งได้ลายเซ็นไปไม่กี่นาทีและอาจยังส่งไฟล์เข้ามาได้ คำสั่งจะแจ้งว่า `Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.` กรณีที่สอง ถ้าใน bucket มี object ที่ไม่มีตารางไหนรู้จัก คำสั่งจะแจ้งว่า `The media bucket contains objects not tracked by TomeCMS; no changes were made. Use a dedicated clean bucket.` ควรให้เว็บมี bucket เป็นของตัวเอง เพราะการรีเซ็ตจะล้าง bucket ทั้งใบ
+มีสามกรณีที่การรีเซ็ตจะไม่ยอมทำงานและไม่เปลี่ยนอะไรเลย กรณีแรก ถ้ายังมีการอัปโหลดที่เพิ่งได้ลายเซ็นไปไม่กี่นาทีและอาจยังส่งไฟล์เข้ามาได้ คำสั่งจะแจ้งว่า `Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.` กรณีที่สอง ถ้าใน bucket มีไฟล์ของ TomeCMS ที่ไม่มีอะไรชี้ถึง คำสั่งจะแจ้งว่า `The media bucket contains TomeCMS objects nothing points at; no changes were made.` พร้อมบอกคำสั่งที่ใช้ลบไฟล์เหล่านั้น คือ `npm run media:cleanup -- --orphans --execute` หรือ `sudo tome prune --orphans` บนเซิร์ฟเวอร์แบบ managed ตามหัวข้อ [tome prune](/tome-cms/th/running/cli/#ไฟล์สื่อที่ไม่มีอะไรชี้ถึง) คำสั่งนี้ไม่ลบไฟล์ที่อายุไม่ถึงหนึ่งวัน ไฟล์ที่เพิ่งค้างจึงอาจต้องรอหนึ่งวัน กรณีที่สาม ถ้าใน bucket มีไฟล์ของแอปอื่น คำสั่งจะแจ้งว่า `The media bucket contains an unsupported object key; no changes were made.` ควรให้เว็บมี bucket เป็นของตัวเอง เพราะการรีเซ็ตจะล้าง bucket ทั้งใบ
 
 ถ้าเนื้อหาหรือไฟล์เปลี่ยนระหว่างที่คำสั่งทำงาน คำสั่งจะหยุดและคงฐานข้อมูลไว้ตามเดิม แต่เพราะคำสั่งลบไฟล์ก่อนล้างตาราง ถ้าล้มเหลวกลางทางระหว่างลบไฟล์ ฐานข้อมูลจะยังอยู่ครบ ส่วนไฟล์ที่ลบไปแล้วจะไม่กลับมา
 

@@ -10,7 +10,7 @@ export type Command =
   | { name: 'logs'; service: LogService; lines: number; follow: boolean }
   | { name: 'backup'; full: boolean; yes: boolean }
   | { name: 'update'; version: string | null; yes: boolean }
-  | { name: 'prune'; yes: boolean }
+  | { name: 'prune'; yes: boolean; orphans: boolean }
   | { name: 'restore'; directory: string; yes: boolean }
   | { name: 'export' }
   | { name: 'import'; path: string; dryRun: boolean; yes: boolean };
@@ -40,7 +40,7 @@ Looks after this TomeCMS server. These commands run as root:
   logs [service]    Recent logs of app (the default), postgres, seaweedfs or updater.
   backup            Back up the database, or everything with --full.
   update [version]  Install the newest release, or the version named.
-  prune             List the old application images that can go; --yes removes them.
+  prune             List old application images, and media files nothing points at, that can go.
   restore <backup>  Put a backup back into this site, replacing everything on it.
   export            Write every post and page, with their media, to a Markdown archive.
   import <archive>  Add the posts and pages in a Markdown archive, skipping any already here.
@@ -84,13 +84,15 @@ the release, backs up, and rolls back if the new version does not come up.
 
 Options:
   -y, --yes   Do not ask first.`,
-  prune: `Usage: sudo tome prune [--yes]
+  prune: `Usage: sudo tome prune [--yes] [--orphans]
 
-A dry run by default: it lists the old, untagged application images that can go, with their sizes.
+A dry run by default: it lists the old, untagged application images that can go, with their sizes,
+and the media files in storage that nothing on the site points at and that are over a day old.
 The installed image and the one before it are always kept.
 
 Options:
-  -y, --yes   Remove them.`,
+  -y, --yes   Remove the old images.
+  --orphans   Delete the media files nothing points at.`,
   restore: `Usage: sudo tome restore <backup> [--yes]
 
 Puts a backup back into this site: its database, and its media unless it holds the database only.
@@ -156,7 +158,7 @@ const options = {
   logs: { ...help, lines: { type: 'string', short: 'n' }, follow: { type: 'boolean', short: 'f' } },
   backup: { ...help, ...yes, full: { type: 'boolean' } },
   update: { ...help, ...yes },
-  prune: { ...help, ...yes },
+  prune: { ...help, ...yes, orphans: { type: 'boolean' } },
   restore: { ...help, ...yes },
   export: { ...help },
   import: { ...help, ...yes, ...dryRun },
@@ -220,7 +222,7 @@ export function parseCommand(argv: readonly string[]): Command {
   if (command === 'export') return { name: 'export' };
   if (command === 'status') return { name: 'status', json: values.json === true };
   if (command === 'backup') return { name: 'backup', full: values.full === true, yes: values.yes === true };
-  return { name: 'prune', yes: values.yes === true };
+  return { name: 'prune', yes: values.yes === true, orphans: values.orphans === true };
 }
 
 /** Whether `name` is one of the builder commands, which run in a source checkout without root. */

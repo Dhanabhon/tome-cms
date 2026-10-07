@@ -20,8 +20,10 @@ test('each command takes its own options, with the documented defaults', () => {
   assert.deepEqual(parseCommand(['backup', '--full', '--yes']), { name: 'backup', full: true, yes: true });
   assert.deepEqual(parseCommand(['update']), { name: 'update', version: null, yes: false });
   assert.deepEqual(parseCommand(['update', '1.11.0', '-y']), { name: 'update', version: '1.11.0', yes: true });
-  assert.deepEqual(parseCommand(['prune']), { name: 'prune', yes: false });
-  assert.deepEqual(parseCommand(['prune', '--yes']), { name: 'prune', yes: true });
+  assert.deepEqual(parseCommand(['prune']), { name: 'prune', yes: false, orphans: false });
+  assert.deepEqual(parseCommand(['prune', '--yes']), { name: 'prune', yes: true, orphans: false });
+  assert.deepEqual(parseCommand(['prune', '--orphans']), { name: 'prune', yes: false, orphans: true });
+  assert.deepEqual(parseCommand(['prune', '-y', '--orphans']), { name: 'prune', yes: true, orphans: true });
   assert.deepEqual(parseCommand(['restore', '/var/backups/tome-cms/x']), { name: 'restore', directory: '/var/backups/tome-cms/x', yes: false });
   assert.deepEqual(parseCommand(['restore', 'x', '--yes']), { name: 'restore', directory: 'x', yes: true });
   assert.deepEqual(parseCommand(['export']), { name: 'export' });
@@ -64,7 +66,7 @@ test('--help explains tome and each command', () => {
   for (const name of ['status', 'logs', 'backup', 'update', 'prune', 'restore', 'export', 'import']) assert.match(overview.name === 'help' ? overview.text : '', new RegExp(`\\b${name}\\b`));
   const expected: Record<string, RegExp[]> = {
     status: [/--json/], logs: [/-n, --lines/, /-f, --follow/, /updater/], backup: [/--full/, /--yes/, /maintenance/],
-    update: [/\[version\]/, /--yes/], prune: [/--yes/, /dry run/i],
+    update: [/\[version\]/, /--yes/], prune: [/--yes/, /--orphans/, /dry run/i, /over a day old/],
     restore: [/<backup>/, /--yes/, /safety backup/, /replaced/],
     export: [/markdown-<time>\.tar\.gz/, /stays up/], import: [/<archive>/, /--dry-run/, /--yes/, /overwritten/],
   };

@@ -24,6 +24,10 @@ test('the router turns a step and its option into one value', () => {
   assert.throws(() => parseContentArgs(['restore-objects']), 'a restore step needs its path');
   assert.throws(() => parseContentArgs(['restore-objects', '--dump', '/work/x']), 'and only its own option');
   assert.throws(() => parseContentArgs(['after-restore', 'extra']), 'and nothing after it');
+  assert.deepEqual(parseContentArgs(['orphans']), { step: 'orphans', execute: false });
+  assert.deepEqual(parseContentArgs(['orphans', '--execute']), { step: 'orphans', execute: true });
+  assert.throws(() => parseContentArgs(['orphans', '--out', '/work/x']), 'the sweep takes only --execute');
+  assert.throws(() => parseContentArgs(['export', '--out', '/work/x', '--execute']), '--execute is the sweep\'s alone');
 });
 
 test('an unknown step is wrong usage: one JSON line, exit 2', () => {

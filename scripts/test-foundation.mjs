@@ -16,6 +16,7 @@ const STORAGE_TESTS = new Set([
   'tests/integration/foundation.test.ts',
   'tests/integration/site-brand.test.ts',
   'tests/integration/media-documents-storage.test.ts',
+  'tests/integration/media-orphans.test.ts',
   'tests/integration/media-variants-backfill.test.ts',
   'tests/integration/media-variants-storage.test.ts',
   'tests/integration/popup-plugin-media.test.ts',

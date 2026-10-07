@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
 
 import { tome } from '../../src/cli/main.js';
@@ -402,8 +403,11 @@ const candidates = [
   { id: `sha256:${'d'.repeat(64)}`, size: null },
 ];
 
+// An app before 1.21.0 has no orphan sweep, so prune shows the images alone.
+const oldApp = { 'GET /v1/status': [statusAnswer(null, '1.20.0')] };
+
 test('prune is a dry run by default: what would go, with sizes and the total', async () => {
-  const f = fakeContext({ routes: { 'POST /v1/prune': [{ status: 200, body: { candidates, removed: [] } }] } });
+  const f = fakeContext({ routes: { 'POST /v1/prune': [{ status: 200, body: { candidates, removed: [] } }], ...oldApp } });
   assert.equal(await run(f, ['prune']), 0);
   assert.deepEqual(posts(f, '/v1/prune')[0]!.body, { dryRun: true });
   assert.deepEqual(f.printed, [
@@ -417,7 +421,7 @@ test('prune is a dry run by default: what would go, with sizes and the total', a
 });
 
 test('prune --yes removes them and prints what went and the space freed', async () => {
-  const f = fakeContext({ routes: { 'POST /v1/prune': [{ status: 200, body: { candidates, removed: [candidates[0]!.id, candidates[1]!.id] } }] } });
+  const f = fakeContext({ routes: { 'POST /v1/prune': [{ status: 200, body: { candidates, removed: [candidates[0]!.id, candidates[1]!.id] } }], ...oldApp } });
   assert.equal(await run(f, ['prune', '--yes']), 0);
   assert.deepEqual(posts(f, '/v1/prune')[0]!.body, { dryRun: false });
   assert.deepEqual(f.printed, [
@@ -429,10 +433,10 @@ test('prune --yes removes them and prints what went and the space freed', async 
 });
 
 test('prune with nothing to remove, an unreadable listing, and a busy updater', async () => {
-  const none = fakeContext({ routes: { 'POST /v1/prune': [{ status: 200, body: { candidates: [], removed: [] } }] } });
+  const none = fakeContext({ routes: { 'POST /v1/prune': [{ status: 200, body: { candidates: [], removed: [] } }], ...oldApp } });
   assert.equal(await run(none, ['prune']), 0);
   assert.deepEqual(none.printed, ['No old application images to remove.']);
-  const unreadable = fakeContext({ routes: { 'POST /v1/prune': [{ status: 503, body: { error: 'image_listing_unreadable' } }] } });
+  const unreadable = fakeContext({ routes: { 'POST /v1/prune': [{ status: 503, body: { error: 'image_listing_unreadable' } }], ...oldApp } });
   assert.equal(await run(unreadable, ['prune', '--yes']), 1);
   assert.match(unreadable.err(), /could not be read in full, so nothing was removed/);
   const busy = fakeContext({
@@ -445,4 +449,90 @@ test('prune with nothing to remove, an unreadable listing, and a busy updater', 
   });
   assert.equal(await run(busy, ['prune']), 1);
   assert.match(busy.err(), /An update, a backup, a restore or an image clean-up is running\..*sudo tome status shows it/);
+});
+
+// --- prune: media files nothing points at -------------------------------------------------------
+
+const orphanKeys = Array.from({ length: 3 }, (_, index) => `owners/5b0e1f3c-2d4a-4e6b-8c9d-0a1b2c3d4e5f/2026/10/0000000${index}-2d4a-4e6b-8c9d-0a1b2c3d4e5f.jpg`);
+
+/** A site on `version` whose image's orphan step answers `answer`, recording each step it is asked for. */
+function sweepContext(answer: Record<string, unknown>, input: { version?: string; busy?: boolean; candidates?: unknown[] } = {}) {
+  const steps: string[][] = [];
+  const f = fakeContext({
+    config: { backupDirectory: tmpdir() },
+    routes: {
+      'POST /v1/prune': [{ status: 200, body: { candidates: input.candidates ?? [], removed: [] } }],
+      'GET /v1/status': [statusAnswer(null, input.version ?? '1.21.0')],
+      'GET /v1/busy': [{ status: 200, body: { busy: input.busy ?? false } }],
+      'GET /v1/restore': [{ status: 404, body: { error: 'not_found' } }],
+    },
+    overrides: {
+      streamCommand: async (executable, args, onLine) => {
+        assert.equal(executable, 'docker');
+        steps.push(args.slice(args.indexOf('--') + 1));
+        onLine(JSON.stringify(answer), 'stdout');
+        return answer.ok === true ? 0 : 1;
+      },
+    },
+  });
+  return { ...f, steps };
+}
+
+const found = (patch: Record<string, unknown> = {}) => ({ ok: true, count: 52, bytes: 3 * 1024 ** 2, keys: orphanKeys, deleted: 0, failed: 0, kept: 0, ...patch });
+
+test('prune also lists the media files nothing points at, from a dry run of the image\'s sweep, and says how to delete them', async () => {
+  const f = sweepContext(found(), { candidates: [candidates[0]] });
+  assert.equal(await run(f, ['prune']), 0, f.err());
+  assert.deepEqual(f.steps, [['orphans']]);
+  assert.deepEqual(f.printed, [
+    'These old application images can go:',
+    `  sha256:${'b'.repeat(12)}  1.1 GiB`,
+    'Total: about 1.1 GiB.',
+    'Remove them with: sudo tome prune --yes',
+    'These media files are over a day old, and nothing on the site points at them:',
+    ...orphanKeys.map((key) => `  ${key}`),
+    '  and 49 more',
+    'Total: 52 files, 3.0 MiB.',
+    'Delete them with: sudo tome prune --orphans',
+  ]);
+  const none = sweepContext(found({ count: 0, bytes: 0, keys: [] }));
+  assert.equal(await run(none, ['prune']), 0);
+  assert.deepEqual(none.printed, ['No old application images to remove.', 'No media files are left with nothing pointing at them.']);
+});
+
+test('prune --orphans deletes them; one that came into use is kept, and a failed delete fails the command', async () => {
+  const f = sweepContext(found({ count: 3, deleted: 2, kept: 1 }));
+  assert.equal(await run(f, ['prune', '--orphans']), 0, f.err());
+  assert.deepEqual(f.steps, [['orphans', '--execute']]);
+  assert.deepEqual(f.printed.slice(1), [
+    'Deleted 2 media files nothing pointed at.',
+    '1 came into use while it ran, so it was kept.',
+  ]);
+  const failing = sweepContext(found({ count: 3, deleted: 1, failed: 2 }));
+  assert.equal(await run(failing, ['prune', '--orphans']), 1);
+  assert.match(failing.err(), /^2 could not be deleted\. Run sudo tome prune --orphans again\.$/);
+});
+
+test('the sweep waits for an app that has it, and for a quiet updater', async () => {
+  const old = sweepContext(found(), { version: '1.20.0' });
+  assert.equal(await run(old, ['prune']), 0);
+  assert.deepEqual(old.steps, [], 'a dry run on an older app skips it quietly');
+  assert.deepEqual(old.printed, ['No old application images to remove.']);
+  const oldDelete = sweepContext(found(), { version: '1.20.0' });
+  assert.equal(await run(oldDelete, ['prune', '--orphans']), 1);
+  assert.deepEqual(oldDelete.steps, []);
+  assert.match(oldDelete.err(), /runs TomeCMS 1\.20\.0\. Deleting media files nothing points at needs 1\.21\.0 or newer: sudo tome update/);
+  const busy = sweepContext(found(), { busy: true });
+  assert.equal(await run(busy, ['prune', '--orphans']), 1);
+  assert.deepEqual(busy.steps, []);
+  assert.match(busy.err(), /The site is in maintenance, or the updater is busy/);
+});
+
+test('a sweep that fails or answers what tome cannot read deletes nothing it does not say', async () => {
+  const refused = sweepContext({ ok: false, code: 'orphans_failed' });
+  assert.equal(await run(refused, ['prune', '--orphans']), 1);
+  assert.match(refused.err(), /The media file check failed \(orphans_failed\)/);
+  const garbled = sweepContext({ ok: true, count: 'many' });
+  assert.equal(await run(garbled, ['prune']), 1);
+  assert.match(garbled.err(), /The media file check failed \(its answer does not read\)/);
 });

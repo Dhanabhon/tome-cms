@@ -8,8 +8,10 @@ import { createInterface } from 'node:readline/promises';
 import { pathToFileURL } from 'node:url';
 
 import { RESET_TABLES } from '../src/server/db/reset-tables.ts';
-import { storedBrandKeys } from '../src/lib/site-brand.ts';
 import { isTomeObjectKey } from '../src/server/media/keys.ts';
+import { knownObjects } from '../src/server/media/tracked-objects.ts';
+
+export { knownObjects };
 
 export function parseResetOptions(args) {
   if (!args.length || (args.length === 1 && args[0] === '--dry-run')) return { execute: false };
@@ -69,24 +71,6 @@ async function inventory(database) {
   return result.rows[0];
 }
 
-export async function knownObjects(database) {
-  const media = await database.selectFrom('media_items').select(['id', 'object_key']).execute();
-  const reservations = await database.selectFrom('media_upload_reservations').select(['id', 'object_key']).execute();
-  // An image's smaller copies are objects of their own, accounted for by the image's id.
-  const variants = await database.selectFrom('media_variants').select(['media_id as id', 'object_key']).execute();
-  // The site's logos, icon and share image live in the same bucket, and the settings row accounts for them.
-  const brand = (await database.selectFrom('site_settings').select(['brand_logo', 'brand_logo_dark', 'brand_icon', 'brand_share']).execute())
-    .flatMap((row) => [row.brand_logo, row.brand_logo_dark, row.brand_icon, row.brand_share].flatMap(storedBrandKeys))
-    .map((object_key) => ({ id: 'site_settings', object_key }));
-  const objects = new Map();
-  for (const row of [...media, ...variants, ...reservations, ...brand]) {
-    const ids = objects.get(row.object_key) ?? [];
-    ids.push(row.id);
-    objects.set(row.object_key, ids);
-  }
-  return [...objects].map(([key, ids]) => ({ ids, key })).sort((left, right) => left.key.localeCompare(right.key));
-}
-
 async function bucketObjectKeys(storage, bucket) {
   const keys = [];
   let continuationToken;
@@ -100,6 +84,15 @@ async function bucketObjectKeys(storage, bucket) {
     if (result.IsTruncated && !continuationToken) throw new Error('The media object inventory was incomplete; no changes were made.');
   } while (continuationToken);
   return keys.sort();
+}
+
+/** Why reset refuses a bucket holding TomeCMS objects no row points at, or null when it holds none. */
+export function untrackedRefusal(bucketKeys, objects) {
+  const knownKeys = new Set(objects.map(({ key }) => key));
+  if (bucketKeys.every((key) => knownKeys.has(key))) return null;
+  return 'The media bucket contains TomeCMS objects nothing points at; no changes were made. ' +
+    'Remove the ones over a day old with: npm run media:cleanup -- --orphans --execute ' +
+    '(on a managed install: sudo tome prune --orphans), then run reset again.';
 }
 
 function sameObjectKeys(left, right) {
@@ -144,6 +137,9 @@ function selfTest() {
   );
   assert.equal(isTomeObjectKey('owners/123e4567-e89b-42d3-a456-426614174000/2026/09/123e4567-e89b-42d3-a456-426614174001.webp'), true);
   assert.equal(isTomeObjectKey('../other-bucket/private'), false);
+  const tracked = 'owners/123e4567-e89b-42d3-a456-426614174000/2026/09/123e4567-e89b-42d3-a456-426614174001.webp';
+  assert.equal(untrackedRefusal([tracked], [{ key: tracked, ids: ['media'] }]), null);
+  assert.match(untrackedRefusal([tracked], []), /npm run media:cleanup -- --orphans --execute.*sudo tome prune --orphans/);
   // The Record in reset-tables.ts makes the list complete, but not correct: flipping
   // either of these two to the wrong side typechecks and then does real damage.
   assert.equal(RESET_TABLES.includes('app_metadata'), false, 'the schema version must survive a reset');
@@ -184,10 +180,8 @@ async function main() {
     if (Number(counts.active_upload_signatures) > 0) {
       throw new Error('Recent signed uploads are still valid. Stop TomeCMS, wait five minutes, and run reset again.');
     }
-    const knownKeys = new Set(objects.map(({ key }) => key));
-    if (bucketKeys.some((key) => !knownKeys.has(key))) {
-      throw new Error('The media bucket contains objects not tracked by TomeCMS; no changes were made. Use a dedicated clean bucket.');
-    }
+    const untracked = untrackedRefusal(bucketKeys, objects);
+    if (untracked) throw new Error(untracked);
     const expected = resetConfirmation(origin, database, s3Bucket);
     console.log('This permanently deletes TomeCMS content, media, sessions, recovery data, and owner accounts.');
     // The line stands on its own rather than sitting inside quotes in the prompt:
