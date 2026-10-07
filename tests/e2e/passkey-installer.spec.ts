@@ -208,3 +208,61 @@ test('six-step installer preserves safe values and registers a primary Passkey',
     await stopServer(child);
   }
 });
+
+/**
+ * The timezone list opens on screen. The installer's step kept the transform of its entrance,
+ * which made it the containing block of the fixed list -- so a list placed against the window
+ * was placed against the step instead, and opened off the bottom and right of it. The trigger
+ * sits low on the page, so a click scrolls it to the window's bottom edge: the list has to go
+ * above, and all of it has to be there to hit.
+ */
+test('the timezone list opens inside the window at desktop sizes', async ({ page }) => {
+  test.setTimeout(90_000);
+  const { child, origin } = await startInstallerServer();
+  try {
+    await page.route(`${origin}/api/install/status`, (route) => route.fulfill({
+      contentType: 'application/json',
+      json: {
+        installed: false,
+        ready: true,
+        checks: { database: 'ready', migrations: 'ready', storage: 'ready', relyingParty: 'ready' },
+        rp: { id: 'localhost', name: 'TomeCMS', origin },
+      },
+      status: 200,
+    }));
+
+    for (const [width, height] of [[1280, 720], [1440, 900], [1280, 640]] as const) {
+      await page.setViewportSize({ width, height });
+      await page.goto(`${origin}/install?lang=en`);
+      await page.getByRole('button', { name: 'Name your site' }).click();
+      const trigger = page.locator('#timezone');
+      await expect(trigger).toHaveAttribute('data-value', 'Asia/Bangkok');
+      // Measured once the entrance is over: that is when the step used to keep its transform.
+      await page.locator('.installer-step').evaluate((step) => Promise.all(step.getAnimations().map((animation) => animation.finished)));
+      await trigger.click();
+      const list = page.locator('#timezone-listbox');
+      await expect(list).toBeVisible();
+
+      const shown = await list.evaluate((menu) => {
+        const box = menu.getBoundingClientRect();
+        const last = (menu.lastElementChild as HTMLElement).getBoundingClientRect();
+        const onTop = document.elementFromPoint(last.left + 8, last.top + last.height / 2);
+        return {
+          lastOptionOnTop: Boolean(onTop && menu.contains(onTop)),
+          whole: Math.round(box.height) >= menu.scrollHeight - 1,
+          withinWindow: box.top >= 0 && box.left >= 0 && box.bottom <= window.innerHeight && box.right <= window.innerWidth,
+        };
+      });
+      expect(shown, `the timezone list at ${width}x${height}`).toEqual({
+        lastOptionOnTop: true, whole: true, withinWindow: true,
+      });
+
+      await list.getByRole('option', { name: 'UTC' }).click();
+      await expect(list).toBeHidden();
+      await expect(trigger).toHaveAttribute('data-value', 'UTC');
+      await expect(trigger).toBeFocused();
+    }
+  } finally {
+    await stopServer(child);
+  }
+});

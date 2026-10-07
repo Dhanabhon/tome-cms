@@ -210,7 +210,9 @@ h1, h2, p { margin-block-start: 0; }
   align-content: start;
   gap: var(--space-lg);
   min-width: 0;
-  animation: installer-step-in var(--dur-long) var(--ease-out) both;
+  /* Backwards, not both: a step that keeps its arrival's transform is a containing block for
+   * every fixed thing inside it, and the timezone list was placed against it, off the window. */
+  animation: installer-step-in var(--dur-long) var(--ease-out) backwards;
 }
 .installer-step-head { display: grid; gap: var(--space-xs); }
 .installer-step h2, .installer-success h2 {

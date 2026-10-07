@@ -106,6 +106,24 @@ export default function UiSelect({
     };
   }, [open, place]);
 
+  // The active row is kept in sight when the keyboard moves it, the list opens, or a typed
+  // letter finds one past the fold -- not when the pointer does, which would scroll the
+  // list out from under it.
+  const pointed = useRef(false);
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (pointed.current) {
+      pointed.current = false;
+      return;
+    }
+    // The list's own scroll only: scrollIntoView would also move a dialog or the page under it.
+    const list = menu.current;
+    const row = list?.children[activeIndex] as HTMLElement | undefined;
+    if (!list || !row) return;
+    if (row.offsetTop < list.scrollTop) list.scrollTop = row.offsetTop;
+    else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
+  }, [open, activeIndex]);
+
   // A list that filters a page submits its form once the new value is in its hidden input.
   const submitPending = useRef(false);
   useEffect(() => {
@@ -216,7 +234,11 @@ export default function UiSelect({
             id={`${id}-option-${index}`}
             key={option.value}
             onClick={() => choose(index)}
-            onPointerMove={() => setActiveIndex(index)}
+            onPointerMove={() => {
+              if (index === activeIndex) return;
+              pointed.current = true;
+              setActiveIndex(index);
+            }}
             role="option"
             tabIndex={-1}
             type="button"

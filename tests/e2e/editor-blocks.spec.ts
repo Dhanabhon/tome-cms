@@ -1433,6 +1433,17 @@ test('a code block has a language, highlighted in the editor and on the publishe
   await expect(page.getByRole('listbox')).toBeHidden();
   await expect(canvas).toBeFocused();
 
+  // End opens the list on its last row, past the fold, and the list scrolls to show it.
+  await picker.first().focus();
+  await page.keyboard.press('End');
+  await expect.poll(() => page.getByRole('option', { name: 'YAML', exact: true }).evaluate((row) => {
+    const list = row.parentElement!.getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    return box.top >= list.top && box.bottom <= list.bottom;
+  }), 'the last language is in sight').toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(canvas).toBeFocused();
+
   // Below it, a second block that finds its own language. ArrowDown at the end of the last block
   // leaves it for a paragraph, and the + menu makes the new block there.
   await page.keyboard.press('End');
