@@ -23,7 +23,7 @@ Every server command:
 | 1 | It failed or was refused. The message says why and what to do. |
 | 2 | Wrong usage, such as an unknown command or option. It prints the usage. |
 
-Most changes go through the updater, the service that already installs updates from "System". `tome` never stops a container or deletes an image itself. `export` and `import` are the exception: they run in a short-lived container of the installed application, which `tome` starts and removes, and the site stays up.
+Most changes go through the updater, the service that already installs updates from "System". `tome` never stops a container or deletes an image itself. `export`, `import` and `prune` are the exception: they run in a short-lived container of the installed application, which `tome` starts and removes, and the site stays up. `prune` does this on every run, the dry run included.
 
 ## The commands
 
@@ -66,5 +66,16 @@ cd /opt/tome-cms-src
 That one command brings updater 1.5.0 and `tome`, which it installs as `/usr/local/bin/tome`. The updater needs 1.5.0 because `tome backup` and `tome prune` use two requests that earlier updaters do not have. At its end it prints `tome is installed at /usr/local/bin/tome. Try: sudo tome status`. [Upgrading the updater](/tome-cms/running/updating/#upgrading-the-updater) explains the rest, including what `--dry-run` does.
 
 `tome restore`, `tome export` and `tome import` come with 1.13.0, which brings updater 1.6.0. Update the application to 1.13.0 from "System", then upgrade the updater again from a checkout of v1.13.0, with the same commands as above. Until then the `tome` on the server is the old one, which does not know these commands: it prints its usage and exits 2. `sudo npm run updater:upgrade` from a v1.13.0 checkout installs both the new updater and the new `tome`.
+
+From 1.21.0, `sudo tome prune` lists the media files nothing points at and `sudo tome prune --orphans` deletes them. The new `tome` reaches the server only through `sudo npm run updater:upgrade`, run from a v1.21.0 checkout after you update the application to 1.21.0 from "System". Updating from "System" or with `sudo tome update` does not replace `tome`. The updater stays 1.6.0, installing it again is allowed, and the site stays up. The commands are the same, with `v1.21.0` as the tag:
+
+```sh
+cd /opt/tome-cms-src
+git fetch --depth 1 origin tag v1.21.0
+git checkout --detach v1.21.0
+npm ci
+sudo npm run updater:upgrade -- --dry-run
+sudo npm run updater:upgrade
+```
 
 If `/usr/local/bin/tome` already exists and is not TomeCMS's own, the upgrade refuses before it stops anything and says to move that file aside.

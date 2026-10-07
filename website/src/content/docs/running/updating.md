@@ -73,6 +73,17 @@ Updater 1.5.0 and the `tome` command come with `sudo npm run updater:upgrade` fr
 
 Updater 1.6.0 comes with 1.13.0. It adds the restore that `sudo tome restore` runs, and `tome export` and `tome import` need the 1.13.0 application. These three commands exist only after you update the application to 1.13.0 from "System" and then run `sudo npm run updater:upgrade` from a checkout of v1.13.0, with the commands above and `v1.13.0` as the tag. Until then the `tome` on the server is the old one, which does not know these commands: it prints its usage and exits 2. The upgrade installs the new updater and the new `tome` together. [Backups and restore](/tome-cms/running/backups/#restoring-a-site) shows what they do.
 
+From 1.21.0, `sudo tome prune` lists the media files nothing points at and `sudo tome prune --orphans` deletes them, as [The tome command](/tome-cms/cli/updates/#tome-prune) describes. The new `tome` reaches the server only through `sudo npm run updater:upgrade`, run from a v1.21.0 checkout after you update the application to 1.21.0 from "System". Updating from "System" or with `sudo tome update` does not replace `tome`. The updater stays 1.6.0, installing it again is allowed, and the site stays up. The commands are the same, with `v1.21.0` as the tag:
+
+```sh
+cd /opt/tome-cms-src
+git fetch --depth 1 origin tag v1.21.0
+git checkout --detach v1.21.0
+npm ci
+sudo npm run updater:upgrade -- --dry-run
+sudo npm run updater:upgrade
+```
+
 It refuses to run while an update, a backup or a restore is in progress, when `/usr/local/bin/tome` is a program that is not TomeCMS's (it leaves that file alone), from a checkout that is not a clean copy of the release tag, or to go back to an older updater. The same version again is allowed, and repairs an updater whose files were damaged.
 
 A 0.x install cannot become a managed one in place. The move to 1.0.0 needs a fresh server, as [Installing on a VPS](/tome-cms/start/install/#moving-from-0x) explains.
