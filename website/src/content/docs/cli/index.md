@@ -10,7 +10,7 @@ sidebar:
 
 In a TomeCMS source checkout, the same program has three more commands, for writing a theme or a plugin. They run with `npm run tome --` and need no `sudo`, as [Themes and plugins](/tome-cms/cli/themes-and-plugins/) explains.
 
-Every command:
+Every server command:
 
 - runs as root, so start it with `sudo`. Run as anyone else, it says so and stops;
 - never prints a secret. Passwords, tokens and keys from the server's environment are hidden;
@@ -41,7 +41,7 @@ Most changes go through the updater, the service that already installs updates f
 | [`npm run tome -- plugin new`](/tome-cms/cli/themes-and-plugins/) | Writes a plugin that fills its hook and does nothing yet, switched off. In a source checkout. |
 | [`npm run tome -- check`](/tome-cms/cli/themes-and-plugins/) | Checks every theme and plugin, and changes nothing. In a source checkout. |
 
-When the disk is full, [When the disk is full](/tome-cms/cli/updates/#when-the-disk-is-full) walks through freeing it.
+To free a full disk, see [When the disk is full](/tome-cms/cli/updates/#when-the-disk-is-full).
 
 ## Installing
 
