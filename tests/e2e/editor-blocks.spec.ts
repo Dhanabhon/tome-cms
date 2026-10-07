@@ -1562,6 +1562,7 @@ async function selectBack(page: Page, count: number, expected: string, skip = 0)
     for (let step = 0; step < count; step += 1) await page.keyboard.press('Shift+ArrowLeft');
     // The editor reads the page's selection an event after the keys: wait until the two agree,
     // whether the editor took the words or the timer took them back.
+    // This holds for a single-line plain-text selection: textBetween and the page's toString differ across block boundaries and hard breaks.
     await expect.poll(async () => {
       const { editor, page: shown } = await selected();
       return editor === shown;
