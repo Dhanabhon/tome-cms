@@ -53,8 +53,8 @@ A release that needs a newer updater says so on "System" ("This version needs it
 
 ```sh
 cd /opt/tome-cms-src
-git fetch --depth 1 origin tag v1.20.0
-git checkout --detach v1.20.0
+git fetch --depth 1 origin tag v1.21.0
+git checkout --detach v1.21.0
 npm ci
 sudo npm run updater:upgrade -- --dry-run
 sudo npm run updater:upgrade
@@ -63,7 +63,7 @@ sudo npm run updater:upgrade
 A server installed before 1.0.2 has no `/opt/tome-cms-src`. Clone the release there instead of the first three lines:
 
 ```sh
-git clone --depth 1 --branch v1.20.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
+git clone --depth 1 --branch v1.21.0 https://github.com/Dhanabhon/tome-cms.git /opt/tome-cms-src
 cd /opt/tome-cms-src
 ```
 
@@ -129,21 +129,22 @@ Find the version your install was created from, or last upgraded to, and count f
 
 | Your install is from | Waiting | Which |
 | --- | --- | --- |
-| 1.20.0 | 0 | None |
-| 1.19.0 | 1 | `033_media_variants_and_category_pages` |
-| 1.18.0 | 2 | The one above and `032_share_image_and_descriptions` |
-| 1.17.1 or 1.17.0 | 3 | The two above and `031_search_visibility` |
-| 1.16.4, 1.16.3, 1.16.2, 1.16.1, 1.16.0, 1.15.0, 1.14.1, 1.14.0, 1.13.0, 1.12.1, 1.12.0, 1.11.1, 1.11.0, 1.10.1 or 1.10.0 | 4 | The three above and `030_device_enrollment` |
-| 1.9.1, 1.9.0, 1.8.2, 1.8.1, 1.8.0 or 1.7.0 | 5 | The four above and `029_navigation_parent` |
-| 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 or 1.5.0 | 6 | The five above and `028_mcp` |
-| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 7 | The six above and `027_post_show_cover` |
-| 0.12.0 or 0.11.0 | 8 | The seven above and `026_planned_dates` |
-| 0.10.0 | 10 | The eight above, `024_site_maintenance` and `025_content_stats` |
-| 0.9.0 or 0.8.0 | 11 | The ten above and `023_home_slides` |
-| 0.7.0 or 0.6.0 | 13 | The eleven above, `021_media_documents` and `022_navigation_new_tab` |
-| 0.5.0 or 0.4.0 | 14 | The thirteen above and `020_site_brand` |
-| 0.3.0 | 17 | The fourteen above, `017_scheduled_publishing`, `018_thai_slugs` and `019_content_redirects` |
-| 0.2.0 | 26 | The seventeen above, and `008_update_rate_limit_actions` through `016_theme_settings` |
+| 1.21.0 | 0 | None |
+| 1.20.0 | 1 | `034_default_category_name` |
+| 1.19.0 | 2 | The one above and `033_media_variants_and_category_pages` |
+| 1.18.0 | 3 | The two above and `032_share_image_and_descriptions` |
+| 1.17.1 or 1.17.0 | 4 | The three above and `031_search_visibility` |
+| 1.16.4, 1.16.3, 1.16.2, 1.16.1, 1.16.0, 1.15.0, 1.14.1, 1.14.0, 1.13.0, 1.12.1, 1.12.0, 1.11.1, 1.11.0, 1.10.1 or 1.10.0 | 5 | The four above and `030_device_enrollment` |
+| 1.9.1, 1.9.0, 1.8.2, 1.8.1, 1.8.0 or 1.7.0 | 6 | The five above and `029_navigation_parent` |
+| 1.6.2, 1.6.1, 1.6.0, 1.5.5, 1.5.4, 1.5.3, 1.5.2, 1.5.1 or 1.5.0 | 7 | The six above and `028_mcp` |
+| 1.4.0, 1.3.3, 1.3.2, 1.3.1, 1.3.0, 1.2.1, 1.2.0, 1.1.2, 1.1.1, 1.1.0, 1.0.4, 1.0.3, 1.0.2, 1.0.1, 1.0.0, 0.14.1, 0.14.0, 0.13.0 or 0.12.1 | 8 | The seven above and `027_post_show_cover` |
+| 0.12.0 or 0.11.0 | 9 | The eight above and `026_planned_dates` |
+| 0.10.0 | 11 | The nine above, `024_site_maintenance` and `025_content_stats` |
+| 0.9.0 or 0.8.0 | 12 | The eleven above and `023_home_slides` |
+| 0.7.0 or 0.6.0 | 14 | The twelve above, `021_media_documents` and `022_navigation_new_tab` |
+| 0.5.0 or 0.4.0 | 15 | The fourteen above and `020_site_brand` |
+| 0.3.0 | 18 | The fifteen above, `017_scheduled_publishing`, `018_thai_slugs` and `019_content_redirects` |
+| 0.2.0 | 27 | The eighteen above, and `008_update_rate_limit_actions` through `016_theme_settings` |
 
 The counts follow each version's release notes. An install made from a checkout between two releases, or from before 0.2.0, can have a different number waiting. The admin's notice names them exactly.
 

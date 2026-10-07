@@ -2,6 +2,24 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.21.0 - 2026-10-07
+
+Loose ends after 1.20.0. One migration.
+
+### Added
+
+- `sudo tome prune` lists media files nothing points at, and `--orphans` deletes them (the new `tome` comes with `sudo npm run updater:upgrade` from a v1.21.0 checkout); `npm run media:cleanup -- --orphans` in a checkout.
+- A "Tome CLI" section in the documentation.
+
+### Changed
+
+- The default category can be renamed; its address stays `uncategorized`. Export writes `defaultCategory`.
+- Paper's covers slider tells phones the width it draws a cover at.
+
+### Fixed
+
+- `tome import` that fails part-way waits for its queued picture copies.
+
 ## 1.20.0 - 2026-10-07
 
 Pictures at the size they are drawn, and a page for every category. One migration.
