@@ -83,18 +83,15 @@ const dialog = (closing = false) => {
 };
 const inside = (home: Element | null) => ({ closest: () => home });
 
-test('a drop is taken only where no other dialog is on top', () => {
+test('a picker takes a drop only where no other dialog is on top of it', () => {
   const picker = dialog();
   const confirm = dialog();
-  // The library page: nothing open takes it, any dialog over it does not.
-  assert.equal(dropBlocked(inside(null), null), false);
-  assert.equal(dropBlocked(inside(confirm), null), true);
-  assert.equal(dropBlocked(null, null), false);
-  // A picker: its own dialog takes it, one on top of it does not, and so does the page behind.
+  // Its own dialog takes it; one on top of it does not, and neither does the page behind.
   assert.equal(dropBlocked(inside(picker), picker), false);
   assert.equal(dropBlocked(picker, picker), false, 'its backdrop is the dialog');
   assert.equal(dropBlocked(inside(confirm), picker), true);
   assert.equal(dropBlocked(inside(null), picker), true);
+  // A point that hits nothing -- a dialog leaving takes no pointer, nor does a scrollbar -- is refused.
   assert.equal(dropBlocked(null, picker), true);
   // A picker on its way out takes nothing more.
   const leaving = dialog(true);

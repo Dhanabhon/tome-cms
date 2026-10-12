@@ -294,11 +294,14 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     let depth = 0;
     let fromPage = false;
     const fromComputer = (event: DragEvent) => !fromPage && carriesFiles(event.dataTransfer?.types);
-    // Only the topmost dialog takes a drop, and only when it is the one this library is in: none
-    // on the library page (upload, details or a confirm open over it take none), the picker's own
-    // when it is a picker. A picker that is uploading takes no second file.
-    const blocked = (event: DragEvent) => busy.current
-      || dropBlocked(document.elementFromPoint(event.clientX, event.clientY), shell.current?.closest('dialog') ?? null);
+    // The library page takes no drop while any dialog is open (upload, details, a confirm, or one
+    // still leaving). A picker is a dialog itself, so it asks which dialog is on top at the drop's
+    // point, and takes it only when that is its own; one that is uploading takes no second file.
+    const blocked = (event: DragEvent) => {
+      const home = shell.current?.closest('dialog') ?? null;
+      if (!home) return document.querySelector('dialog[open]') !== null;
+      return busy.current || dropBlocked(document.elementFromPoint(event.clientX, event.clientY), home);
+    };
     const hide = () => { depth = 0; setDragging(false); };
     const onStart = () => { fromPage = true; };
     const onEnd = () => { fromPage = false; hide(); };

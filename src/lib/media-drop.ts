@@ -68,11 +68,12 @@ export function pickerDrop({ files, skipped }: { files: File[]; skipped: number 
 }
 
 /**
- * Whether a drop belongs to something else. A modal dialog leaves only itself to the pointer, so
- * the open dialog at the drop's point (`over`, as the browser hit-tests it) is the topmost one. A
- * library takes the drop when that is the dialog it sits in (`home`: a picker), or there is none
- * and neither is it in one (the library page). A picker on its way out takes nothing more.
+ * Whether a drop on a picker belongs to something else. A modal dialog leaves only itself to the
+ * pointer, so the open dialog at the drop's point (`over`, as the browser hit-tests it) is the
+ * topmost one: the picker (`home`) takes the drop only when it is that one. A point that hits
+ * nothing (a dialog leaving takes no pointer, nor does a scrollbar) or no dialog is refused, and
+ * so is any drop while the picker itself is on its way out.
  */
-export function dropBlocked(over: Pick<Element, 'closest'> | null, home: Element | null): boolean {
-  return (over?.closest('dialog[open]') ?? null) !== home || Boolean(home?.hasAttribute('data-closing'));
+export function dropBlocked(over: Pick<Element, 'closest'> | null, home: Element): boolean {
+  return over?.closest('dialog[open]') !== home || home.hasAttribute('data-closing');
 }

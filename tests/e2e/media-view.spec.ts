@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, JSHandle, Page } from '@playwright/test';
 
 import { expect, test } from './own-worker';
 
@@ -412,10 +412,24 @@ test('a file dragged onto the picker goes into the folder it has open, and only 
   const notice = picker.locator('.media-status[role="status"]');
   const one = (await picture('#2b2d42', '#8d99ae')).toString('base64');
   const dropped = { name: 'Picked.png', type: 'image/png', base64: one };
+  /**
+   * A drag event where a hand would make it: in the middle of the files the picker shows, so the
+   * browser's hit lands on the picker's own box rather than its backdrop. Says whether the page
+   * held the browser's own handling back, and what the point hit.
+   */
+  const at = (type: string, data: JSHandle<DataTransfer>) => zone.evaluate((element, { type, data }) => {
+    const files = element.getBoundingClientRect();
+    const dialog = element.closest('dialog')!.getBoundingClientRect();
+    const x = files.left + files.width / 2;
+    const y = (Math.max(files.top, dialog.top) + Math.min(files.bottom, dialog.bottom)) / 2;
+    const hit = document.elementFromPoint(x, y);
+    const held = !element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, dataTransfer: data }));
+    return { held, inPicker: Boolean(hit && hit !== element.closest('dialog') && element.closest('dialog')!.contains(hit)), onTop: hit?.closest('dialog')?.id ?? '' };
+  }, { type, data });
 
   // The picker's own dialog does not stand in the way: the overlay names the folder it has open.
   const single = await dragData(page, [dropped]);
-  await zone.dispatchEvent('dragenter', { dataTransfer: single });
+  expect((await at('dragenter', single)).inPicker, 'the point is on the picker itself').toBe(true);
   await expect(overlay).toBeVisible();
   await expect(overlay).toHaveText('Drop a file to upload it to “Picked”');
   await zone.dispatchEvent('dragleave', { dataTransfer: single });
@@ -425,7 +439,7 @@ test('a file dragged onto the picker goes into the folder it has open, and only 
   const two = await dragData(page, [dropped, { name: 'Picked two.png', type: 'image/png', base64: one }]);
   await zone.dispatchEvent('dragenter', { dataTransfer: two });
   await zone.dispatchEvent('drop', { dataTransfer: two });
-  await expect(notice).toHaveText('Drop one file at a time.');
+  await expect(notice).toHaveText('Drop just one file.');
   await expect(picker).toBeVisible();
 
   // A PDF on a picker for a picture: refused as the upload button refuses it.
@@ -436,13 +450,30 @@ test('a file dragged onto the picker goes into the folder it has open, and only 
   await expect(picker).toBeVisible();
   expect(await named(['Picked.png', 'Picked two.png', 'Notes.pdf'])).toEqual([]);
 
+  // A window opened on top of the picker (as a confirm would be) takes the drop from it: no
+  // overlay, and nothing goes up. Were it taken, the picker would close and the file be in twice.
+  await page.evaluate(() => {
+    const onTop = document.createElement('dialog');
+    onTop.id = 'on-top';
+    onTop.textContent = 'On top';
+    document.body.append(onTop);
+    onTop.showModal();
+  });
+  expect((await at('dragenter', single)).onTop, 'the point is on the window on top').toBe('on-top');
+  await expect(overlay).toHaveCount(0);
+  await at('drop', single);
+  await expect(picker).toBeVisible();
+  await page.evaluate(() => {
+    const onTop = document.getElementById('on-top') as HTMLDialogElement;
+    onTop.close();
+    onTop.remove();
+  });
+
   // One picture: up at once into the open folder, and it comes back chosen. The drop is the
   // picker's alone: the browser does not open the file, and the editor behind puts nothing in.
-  await zone.dispatchEvent('dragenter', { dataTransfer: single });
-  const held = await zone.evaluate((element, data) => {
-    const drop = new DragEvent('drop', { bubbles: true, cancelable: true, composed: true, dataTransfer: data });
-    return !element.dispatchEvent(drop);
-  }, single);
+  await at('dragenter', single);
+  const { held, inPicker } = await at('drop', single);
+  expect(inPicker, 'dropped on the picker itself').toBe(true);
   expect(held, 'the browser does not open the dropped file').toBe(true);
   await expect(picker).toBeHidden({ timeout: 30_000 });
   await expect(canvas.locator('img')).toHaveCount(1);
