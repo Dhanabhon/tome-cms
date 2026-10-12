@@ -94,6 +94,9 @@ test('a box is still moving while it is drawn anywhere but where it is laid out'
   assert.equal(isMoving({ ...block(), width: 1263, laidOutWidth: 1263 }), false, 'the window beside a scrollbar');
   assert.equal(isMoving(block(900, 0)), true, 'a drawer still off to the side');
   assert.equal(isMoving(block(0, 0, 0.98)), true, 'a dialog still growing into place');
+  // At 110% a 1280px window is 1163.64 CSS pixels, laid out rounded to 1164: still the window.
+  assert.equal(isMoving({ left: 0.3, top: 0, bottom: 800, width: 1163.64, height: 800, laidOutWidth: 1164, laidOutHeight: 800 }), false, 'a zoomed window');
+  assert.equal(isMoving({ ...block(), height: 727.27, laidOutHeight: 727 }), false, 'a zoomed window, down');
 });
 
 test('a drawer with a classic scrollbar is measured from its start, which the bar does not move', () => {

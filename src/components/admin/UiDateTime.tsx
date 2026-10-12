@@ -73,13 +73,16 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
-      if (!trigger.current || !panel.current) return;
-      // Measured at its own height, not the one an earlier placement squeezed it to.
+      if (!trigger.current || !panel.current) return undefined;
+      // Measured at its own height, not the one an earlier placement squeezed it to -- which lets
+      // the days stop scrolling for a moment, so where they were is put back below.
+      const scrolled = grid.current?.scrollTop ?? 0;
       panel.current.style.maxHeight = '';
       const where = placePopover(trigger.current.getBoundingClientRect(), panel.current.scrollHeight, window.innerHeight,
         parseFloat(getComputedStyle(document.documentElement).fontSize || '16'), { matchWidth: false, maxRows: 40, minHeight: 240 });
       // A drawer still sliding in is the containing block the offsets are taken from (see UiSelect).
-      const at = insetsWithin(drawnContainingBlock(panel.current), {
+      const block = drawnContainingBlock(panel.current);
+      const at = insetsWithin(block, {
         ...where,
         // Kept inside the window on a narrow screen, where the field can sit near the right edge.
         left: Math.max(8, Math.min(where.left, window.innerWidth - panel.current.offsetWidth - 8)),
@@ -91,14 +94,15 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
         insetBlockStart: at.top === null ? 'auto' : `${at.top}px`,
         insetBlockEnd: at.bottom === null ? 'auto' : `${at.bottom}px`,
       });
+      if (grid.current) grid.current.scrollTop = scrolled;
+      return block;
     };
-    // The days scrolling inside the panel is not the field moving, and placing again would
-    // measure the panel at full height and send them back to the top.
+    // The days scrolling inside the panel is not the field moving: nothing to place again.
     const onScroll = (event: Event) => {
       if (!panel.current?.contains(event.target as Node)) place();
     };
     place();
-    const following = panel.current ? placeWhileMoving(panel.current, place) : () => undefined;
+    const following = placeWhileMoving(place);
     window.addEventListener('resize', place);
     document.addEventListener('scroll', onScroll, true);
     // A drawer still sliding in is the fixed panel's containing block (see UiSelect): placed

@@ -78,7 +78,7 @@ export default function UiSelect({
   const place = useCallback(() => {
     const button = trigger.current;
     const list = menu.current;
-    if (!button || !list) return;
+    if (!button || !list) return undefined;
     // Measured at the width its options want, not the one an earlier placement gave it.
     list.style.minWidth = '';
     list.style.maxWidth = '';
@@ -87,7 +87,8 @@ export default function UiSelect({
       { gap: GAP, maxRows: MAX_ROWS, minHeight: MIN_HEIGHT, panelWidth: list.offsetWidth, viewportWidth: window.innerWidth });
     // Inside a dialog still sliding in, the offsets are taken from the dialog: given against it, the
     // list sits beside its trigger and travels with it from then on.
-    const at = insetsWithin(drawnContainingBlock(list), { ...where, viewportHeight: window.innerHeight });
+    const block = drawnContainingBlock(list);
+    const at = insetsWithin(block, { ...where, viewportHeight: window.innerHeight });
     list.style.left = `${at.left}px`;
     list.style.right = 'auto';
     list.style.minWidth = where.minWidth === null ? '' : `${where.minWidth}px`;
@@ -95,6 +96,7 @@ export default function UiSelect({
     list.style.maxHeight = `${where.maxHeight}px`;
     list.style.insetBlockStart = at.top === null ? 'auto' : `${at.top}px`;
     list.style.insetBlockEnd = at.bottom === null ? 'auto' : `${at.bottom}px`;
+    return block;
   }, []);
 
   // Before paint, so the list is never seen in the corner it starts in. Scrolling is
@@ -109,7 +111,7 @@ export default function UiSelect({
       if (event.target instanceof Node && root.current && event.target.contains(root.current)) place();
     };
     place();
-    const following = menu.current ? placeWhileMoving(menu.current, place) : () => undefined;
+    const following = placeWhileMoving(place);
     window.addEventListener('resize', place);
     document.addEventListener('scroll', place, true);
     document.addEventListener('transitionend', settled, true);

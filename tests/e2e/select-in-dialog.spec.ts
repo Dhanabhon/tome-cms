@@ -201,20 +201,25 @@ test('a select opens clear of the dialog it lives in', async ({ context, page, p
   }
 
   // The date and time panel, opened while a post's settings drawer is still sliding in from the
-  // side. Again in a browser whose scrollbars take room, as Windows and Linux draw them: the
-  // headless one hides them, and the drawer's own bar narrows the box the panel is placed in.
+  // side. Again in a browser whose scrollbars take room, as Windows and Linux draw them (the
+  // headless one hides them, and the drawer's own bar narrows the box the panel is placed in),
+  // at 125%, where the window is a fraction of a pixel wide: a 1283px window, not emulated, is
+  // 1283.2 CSS pixels across, laid out as 1283.
   await page.setViewportSize({ width: 1280, height: 900 });
   await panelFollowsTheDrawer(page, cdp);
-  const classic = await playwright.chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] });
+  const classic = await playwright.chromium.launch({
+    args: ['--force-device-scale-factor=1.25', '--window-size=1283,903'],
+    ignoreDefaultArgs: ['--hide-scrollbars'],
+  });
   try {
-    const barred = await (await classic.newContext({ storageState: await context.storageState(), viewport: { width: 1280, height: 900 } })).newPage();
+    const barred = await (await classic.newContext({ storageState: await context.storageState(), viewport: null, deviceScaleFactor: undefined, isMobile: undefined, hasTouch: undefined })).newPage();
     // Drawn the same width on every system: an unstyled bar is 15px on Linux and none on a Mac.
     await barred.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
       const style = document.createElement('style');
       style.textContent = '::-webkit-scrollbar { width: 17px; height: 17px; background: #ccc; } html, .admin-editor-settings { overflow-y: scroll !important; }';
       document.head.append(style);
     }));
-    await panelFollowsTheDrawer(barred, await barred.context().newCDPSession(barred), 17);
+    await panelFollowsTheDrawer(barred, await barred.context().newCDPSession(barred), 17, 1.25);
   } finally {
     await classic.close();
   }
@@ -225,56 +230,69 @@ test('a select opens clear of the dialog it lives in', async ({ context, page, p
  * every frame the drawer moves: under its field, and where it was placed across -- held inside the
  * window while the field is still past its edge, then at the field -- and there once it arrives.
  * Every frame, not one look: a panel placed once rides the drawer away from where it was put, and
- * a single look only catches that on a machine slow enough to look late.
+ * a single look only catches that on a machine slow enough to look late. And then left alone.
  */
-async function panelFollowsTheDrawer(page: Page, cdp: CDPSession, scrollbar = 0) {
+async function panelFollowsTheDrawer(page: Page, cdp: CDPSession, scrollbar = 0, zoom = 1) {
   await page.goto(`${origin}/admin/new`);
   await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
   await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.1 });
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  const drawer = page.locator('dialog.admin-editor-settings');
-  await drawer.waitFor({ state: 'visible' });
-  // Dispatched: the field may still be past the window's edge, where no pointer can press it.
-  await page.locator('#post-publish-at').dispatchEvent('click');
-  await page.locator('.ui-datetime__panel').waitFor({ state: 'attached' });
-  const seen = await drawer.evaluate(async (element) => {
-    const panel = document.querySelector('.ui-datetime__panel') as HTMLElement;
-    const field = document.querySelector('#post-publish-at')!;
-    const offset = () => new DOMMatrix(getComputedStyle(element).transform).m41;
-    const measure = () => {
-      const box = panel.getBoundingClientRect();
-      // Its own drop-in taken out, as the list's is above.
-      const lift = new DOMMatrix(getComputedStyle(panel).transform).m42;
-      const at = field.getBoundingClientRect();
-      // Where the panel means to start across: at its field, kept inside the window.
-      const left = Math.max(8, Math.min(at.left, window.innerWidth - panel.offsetWidth - 8));
-      const gap = box.top - lift >= at.bottom ? box.top - lift - at.bottom : at.top - (box.bottom - lift);
-      return { across: box.left - left, gap, held: at.left > left, x: offset() };
-    };
-    // After each frame's work, not during it: the panel is placed in a frame callback too.
-    const frame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
-    const from = offset();
-    const frames: ReturnType<typeof measure>[] = [];
-    while (getComputedStyle(element).transform !== 'none') {
-      frames.push(measure());
+  try {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const drawer = page.locator('dialog.admin-editor-settings');
+    await drawer.waitFor({ state: 'visible' });
+    // Dispatched: the field may still be past the window's edge, where no pointer can press it.
+    await page.locator('#post-publish-at').dispatchEvent('click');
+    await page.locator('.ui-datetime__panel').waitFor({ state: 'attached' });
+    const seen = await drawer.evaluate(async (element) => {
+      const panel = document.querySelector('.ui-datetime__panel') as HTMLElement;
+      const field = document.querySelector('#post-publish-at')!;
+      const offset = () => new DOMMatrix(getComputedStyle(element).transform).m41;
+      const measure = () => {
+        const box = panel.getBoundingClientRect();
+        // Its own drop-in taken out, as the list's is above.
+        const lift = new DOMMatrix(getComputedStyle(panel).transform).m42;
+        const at = field.getBoundingClientRect();
+        // Where the panel means to start across: at its field, kept inside the window.
+        const left = Math.max(8, Math.min(at.left, window.innerWidth - panel.offsetWidth - 8));
+        const gap = box.top - lift >= at.bottom ? box.top - lift - at.bottom : at.top - (box.bottom - lift);
+        return { across: box.left - left, gap, held: at.left > left, x: offset() };
+      };
+      // After each frame's work, not during it: the panel is placed in a frame callback too.
+      const frame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+      const from = offset();
+      const frames: ReturnType<typeof measure>[] = [];
+      while (getComputedStyle(element).transform !== 'none') {
+        frames.push(measure());
+        await frame();
+      }
+      await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
       await frame();
-    }
-    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
-    await frame();
-    return { bar: (element as HTMLElement).offsetWidth - element.clientWidth, frames, from, settled: measure() };
-  });
-  await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
-  const where = scrollbar ? ` beside a ${scrollbar}px scrollbar` : '';
-  if (scrollbar) expect(seen.bar, 'the drawer draws its scrollbar').toBeGreaterThanOrEqual(scrollbar);
-  expect(seen.frames.length, `the panel opened while the drawer was still sliding in${where}`).toBeGreaterThan(0);
-  expect(seen.frames.some((one) => one.held && one.x < seen.from), `and was held inside the window while the drawer moved${where}`).toBe(true);
-  const worst = (key: 'across' | 'gap', mark: number) => seen.frames.reduce((most, one) => (Math.abs(one[key] - mark) > Math.abs(most[key] - mark) ? one : most));
-  const gap = worst('gap', 4);
-  expect(Math.abs(gap.gap - 4), `the panel is 4px from its field while the drawer moves${where} (gap ${gap.gap} with the drawer ${gap.x}px out)`).toBeLessThanOrEqual(2);
-  const across = worst('across', 0);
-  expect(Math.abs(across.across), `and where it was placed across${where} (off by ${across.across} with the drawer ${across.x}px out)`).toBeLessThanOrEqual(2);
-  expect(Math.abs(seen.settled.gap - 4), `and 4px from its field once the drawer has arrived${where} (gap ${seen.settled.gap})`).toBeLessThanOrEqual(1);
-  expect(Math.abs(seen.settled.across), `and at its field across once the drawer has arrived${where} (off by ${seen.settled.across})`).toBeLessThanOrEqual(1);
+      const settled = measure();
+      // Then left alone: a panel that took a window a fraction of a pixel off its rounded size for
+      // a box still moving was placed again on every frame it was open, and its days could not scroll.
+      let placed = 0;
+      const watch = new MutationObserver((records) => { placed += records.length; });
+      watch.observe(panel, { attributeFilter: ['style'] });
+      for (let count = 0; count < 10; count += 1) await frame();
+      watch.disconnect();
+      return { bar: (element as HTMLElement).offsetWidth - element.clientWidth, frames, from, placed, settled, width: visualViewport!.width };
+    });
+    const where = `${scrollbar ? ` beside a ${scrollbar}px scrollbar` : ''}${zoom === 1 ? '' : ` at ${zoom * 100}%`}`;
+    if (scrollbar) expect(seen.bar, 'the drawer draws its scrollbar').toBeGreaterThanOrEqual(scrollbar);
+    if (zoom !== 1) expect(seen.width % 1, `the window is a fraction of a pixel wide${where} (${seen.width})`).not.toBe(0);
+    expect(seen.frames.length, `the panel opened while the drawer was still sliding in${where}`).toBeGreaterThan(0);
+    expect(seen.frames.some((one) => one.held && one.x < seen.from), `and was held inside the window while the drawer moved${where}`).toBe(true);
+    const worst = (key: 'across' | 'gap', mark: number) => seen.frames.reduce((most, one) => (Math.abs(one[key] - mark) > Math.abs(most[key] - mark) ? one : most));
+    const gap = worst('gap', 4);
+    expect(Math.abs(gap.gap - 4), `the panel is 4px from its field while the drawer moves${where} (gap ${gap.gap} with the drawer ${gap.x}px out)`).toBeLessThanOrEqual(2);
+    const across = worst('across', 0);
+    expect(Math.abs(across.across), `and where it was placed across${where} (off by ${across.across} with the drawer ${across.x}px out)`).toBeLessThanOrEqual(2);
+    expect(Math.abs(seen.settled.gap - 4), `and 4px from its field once the drawer has arrived${where} (gap ${seen.settled.gap})`).toBeLessThanOrEqual(1);
+    expect(Math.abs(seen.settled.across), `and at its field across once the drawer has arrived${where} (off by ${seen.settled.across})`).toBeLessThanOrEqual(1);
+    expect(seen.placed, `and left where it is once the drawer has arrived${where}`).toBe(0);
+  } finally {
+    await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+  }
 }
 
 test('a switch in Customize saves what it shows', async ({ context, page }) => {

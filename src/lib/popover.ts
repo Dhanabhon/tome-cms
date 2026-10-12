@@ -87,26 +87,35 @@ export function drawnContainingBlock(panel: HTMLElement): DrawnBlock {
   return block;
 }
 
+/**
+ * How far a box can be from the window's corner and size and still be the window. A zoomed
+ * window (110% in the browser, 125% in the system) is a fraction of a pixel wide, and its laid-out
+ * size is rounded: the window, not a box a pixel short of it.
+ */
+const STILL = 1;
+
 /** True while a fixed panel's containing block is not the window: moved off its corner or drawn at another scale. */
 export function isMoving(block: DrawnBlock) {
-  return block.left !== 0 || block.top !== 0 || block.width !== block.laidOutWidth || block.height !== block.laidOutHeight;
+  return Math.abs(block.left) > STILL || Math.abs(block.top) > STILL
+    || Math.abs(block.width - block.laidOutWidth) > STILL || Math.abs(block.height - block.laidOutHeight) > STILL;
 }
 
 /**
- * Places a fixed `panel` again on every frame while its containing block is a box still moving
- * in -- a dialog rising, a drawer sliding. Offsets taken once carry the panel along with the box,
+ * Places a fixed panel again (`place`, which returns the box it measured) on every frame while
+ * its containing block is a box still moving in -- a dialog rising, a drawer sliding. Offsets taken once carry the panel along with the box,
  * which keeps it beside a trigger that travels too, but not where it was kept inside the window:
  * a panel held off the window's edge would ride the box away from that edge, and away from its
  * field, until the box arrived. Stops once the box has arrived (one last placement against the
  * window); the returned function stops it sooner.
  */
-export function placeWhileMoving(panel: HTMLElement, place: () => void) {
+export function placeWhileMoving(place: () => DrawnBlock | undefined) {
   let frame = 0;
   const tick = () => {
-    place();
+    // The box place() measured is the one asked about: one probe a frame.
+    const block = place();
     // ponytail: a box that keeps a transform for good keeps this running while the panel is open;
     // stop once the box holds still for a frame if one ever does.
-    if (isMoving(drawnContainingBlock(panel))) frame = requestAnimationFrame(tick);
+    if (block && isMoving(block)) frame = requestAnimationFrame(tick);
   };
   frame = requestAnimationFrame(tick);
   return () => cancelAnimationFrame(frame);
