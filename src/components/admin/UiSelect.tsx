@@ -96,14 +96,24 @@ export default function UiSelect({
 
   // Before paint, so the list is never seen in the corner it starts in. Scrolling is
   // listened for in the capture phase: the box that moves is usually a dialog, not the page.
+  // So is a box around the select ending a transition or an animation: while a dialog's
+  // entrance moves its transform, the dialog is the fixed list's containing block, and a list
+  // opened then was placed against a box that has since moved.
   useLayoutEffect(() => {
     if (!open) return;
+    const settled = (event: Event) => {
+      if (event.target instanceof Node && root.current && event.target.contains(root.current)) place();
+    };
     place();
     window.addEventListener('resize', place);
     document.addEventListener('scroll', place, true);
+    document.addEventListener('transitionend', settled, true);
+    document.addEventListener('animationend', settled, true);
     return () => {
       window.removeEventListener('resize', place);
       document.removeEventListener('scroll', place, true);
+      document.removeEventListener('transitionend', settled, true);
+      document.removeEventListener('animationend', settled, true);
     };
   }, [open, place]);
 

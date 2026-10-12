@@ -142,26 +142,44 @@ test('a select opens clear of the dialog it lives in', async ({ context, page })
   for (const height of [900, 560, 420]) {
     await page.setViewportSize({ width: 1280, height });
     await page.goto(`${origin}/admin/navigation`);
+    // The list is opened while the dialog is still rising into place, as a quick hand (or a
+    // busy machine) does: its transform makes it the fixed list's containing block until it
+    // arrives. Slowed down, so the click lands mid-entrance every time, not only under load.
+    await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.1 });
     await page.getByRole('button', { name: /Add item/i }).first().click();
-    await page.locator('dialog.navigation-dialog').waitFor({ state: 'visible' });
-    await page.locator('#navigation-placement').click();
+    const dialog = page.locator('dialog.navigation-dialog');
+    await dialog.waitFor({ state: 'visible' });
+    // Forced: a normal click waits for the trigger to stop moving, which is the case under test.
+    await page.locator('#navigation-placement').click({ force: true });
     await page.locator('.ui-select__menu').waitFor({ state: 'visible' });
+    const arriving = await dialog.evaluate(async (element) => {
+      const moving = getComputedStyle(element).transform !== 'none';
+      await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+      return moving;
+    });
+    await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+    expect(arriving, `the list opened while the dialog was still arriving at ${height}px tall`).toBe(true);
 
     const shown = await page.evaluate(() => {
       const list = document.querySelector('.ui-select__menu') as HTMLElement;
       const box = list.getBoundingClientRect();
+      // Placed against where the trigger is now, not where it was while the dialog moved:
+      // the list's edge is the 4px gap from the trigger's, below it or above it.
+      const field = document.querySelector('#navigation-placement')!.getBoundingClientRect();
+      const gap = box.top >= field.bottom ? box.top - field.bottom : field.top - box.bottom;
       const last = (list.lastElementChild as HTMLElement).getBoundingClientRect();
       // What is painted on top at the last option: if something clipped or covered the
       // list, this point belongs to that instead.
       const onTop = document.elementFromPoint(last.left + 8, last.top + last.height / 2);
       return {
+        againstTrigger: Math.abs(gap - 4) <= 1,
         lastOptionOnTop: Boolean(onTop && list.contains(onTop)),
         whole: Math.round(box.height) >= list.scrollHeight - 1,
         withinWindow: box.top >= 0 && box.bottom <= window.innerHeight,
       };
     });
     expect(shown, `the whole list is reachable at ${height}px tall`).toEqual({
-      lastOptionOnTop: true, whole: true, withinWindow: true,
+      againstTrigger: true, lastOptionOnTop: true, whole: true, withinWindow: true,
     });
 
     // Reachable is not the same as usable: the last option has to answer a click.

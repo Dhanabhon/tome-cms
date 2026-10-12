@@ -94,9 +94,18 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
     place();
     window.addEventListener('resize', place);
     document.addEventListener('scroll', onScroll, true);
+    // A drawer still sliding in is the fixed panel's containing block (see UiSelect): placed
+    // again once a box around the field has stopped moving, not when a day's hover fades.
+    const settled = (event: Event) => {
+      if (event.target instanceof Node && root.current && event.target.contains(root.current)) place();
+    };
+    document.addEventListener('transitionend', settled, true);
+    document.addEventListener('animationend', settled, true);
     return () => {
       window.removeEventListener('resize', place);
       document.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('transitionend', settled, true);
+      document.removeEventListener('animationend', settled, true);
     };
   }, [open]);
 
