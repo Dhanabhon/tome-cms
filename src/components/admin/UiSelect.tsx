@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
-import { placePopover } from '../../lib/popover';
+import { drawnContainingBlock, insetsWithin, placePopover } from '../../lib/popover';
 import { scrollTargetFor } from '../../lib/ui-select-scroll';
 import Icon from '../Icon';
 
@@ -85,20 +85,24 @@ export default function UiSelect({
     const where = placePopover(button.getBoundingClientRect(), list.scrollHeight, window.innerHeight,
       parseFloat(getComputedStyle(document.documentElement).fontSize || '16'),
       { gap: GAP, maxRows: MAX_ROWS, minHeight: MIN_HEIGHT, panelWidth: list.offsetWidth, viewportWidth: window.innerWidth });
-    list.style.left = `${where.left}px`;
+    // Inside a dialog still sliding in, the offsets are taken from the dialog: given against it, the
+    // list sits beside its trigger and travels with it from then on.
+    const at = insetsWithin(drawnContainingBlock(list), { ...where, viewportHeight: window.innerHeight });
+    list.style.left = `${at.left}px`;
     list.style.right = 'auto';
     list.style.minWidth = where.minWidth === null ? '' : `${where.minWidth}px`;
     list.style.maxWidth = where.maxWidth === null ? '' : `${where.maxWidth}px`;
     list.style.maxHeight = `${where.maxHeight}px`;
-    list.style.insetBlockStart = where.top === null ? 'auto' : `${where.top}px`;
-    list.style.insetBlockEnd = where.bottom === null ? 'auto' : `${where.bottom}px`;
+    list.style.insetBlockStart = at.top === null ? 'auto' : `${at.top}px`;
+    list.style.insetBlockEnd = at.bottom === null ? 'auto' : `${at.bottom}px`;
   }, []);
 
   // Before paint, so the list is never seen in the corner it starts in. Scrolling is
   // listened for in the capture phase: the box that moves is usually a dialog, not the page.
   // So is a box around the select ending a transition or an animation: while a dialog's
-  // entrance moves its transform, the dialog is the fixed list's containing block, and a list
-  // opened then was placed against a box that has since moved.
+  // entrance moves its transform, the dialog is the fixed list's containing block. place()
+  // already lands the list beside its trigger then; once the transform is gone the containing
+  // block is the window again, and the list is placed against it.
   useLayoutEffect(() => {
     if (!open) return;
     const settled = (event: Event) => {

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEv
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import { addDays, addMonths, endOfWeek, formatLocal, isBefore, monthGrid, parseLocal, startOfWeek, todayLocal, type LocalParts } from '../../lib/calendar';
-import { placePopover } from '../../lib/popover';
+import { drawnContainingBlock, insetsWithin, placePopover } from '../../lib/popover';
 import Icon from '../Icon';
 
 interface UiDateTimeProps {
@@ -78,12 +78,18 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
       panel.current.style.maxHeight = '';
       const where = placePopover(trigger.current.getBoundingClientRect(), panel.current.scrollHeight, window.innerHeight,
         parseFloat(getComputedStyle(document.documentElement).fontSize || '16'), { matchWidth: false, maxRows: 40, minHeight: 240 });
-      Object.assign(panel.current.style, {
+      // A drawer still sliding in is the containing block the offsets are taken from (see UiSelect).
+      const at = insetsWithin(drawnContainingBlock(panel.current), {
+        ...where,
         // Kept inside the window on a narrow screen, where the field can sit near the right edge.
-        insetInlineStart: `${Math.max(8, Math.min(where.left, window.innerWidth - panel.current.offsetWidth - 8))}px`,
+        left: Math.max(8, Math.min(where.left, window.innerWidth - panel.current.offsetWidth - 8)),
+        viewportHeight: window.innerHeight,
+      });
+      Object.assign(panel.current.style, {
+        insetInlineStart: `${at.left}px`,
         maxHeight: `${where.maxHeight}px`,
-        insetBlockStart: where.top === null ? 'auto' : `${where.top}px`,
-        insetBlockEnd: where.bottom === null ? 'auto' : `${where.bottom}px`,
+        insetBlockStart: at.top === null ? 'auto' : `${at.top}px`,
+        insetBlockEnd: at.bottom === null ? 'auto' : `${at.bottom}px`,
       });
     };
     // The days scrolling inside the panel is not the field moving, and placing again would

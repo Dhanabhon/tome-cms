@@ -154,11 +154,20 @@ test('a select opens clear of the dialog it lives in', async ({ context, page })
     await page.locator('.ui-select__menu').waitFor({ state: 'visible' });
     const arriving = await dialog.evaluate(async (element) => {
       const moving = getComputedStyle(element).transform !== 'none';
+      // Measured while it moves: beside its trigger from the first frame, not only once the
+      // dialog has arrived and the list is placed again. The list's own drop-in (a few pixels
+      // from above) is how it arrives, not where it was placed, so it is taken out.
+      const list = document.querySelector('.ui-select__menu') as HTMLElement;
+      const box = list.getBoundingClientRect();
+      const lift = new DOMMatrix(getComputedStyle(list).transform).m42;
+      const field = document.querySelector('#navigation-placement')!.getBoundingClientRect();
+      const gap = box.top - lift >= field.bottom ? box.top - lift - field.bottom : field.top - (box.bottom - lift);
       await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
-      return moving;
+      return { gap, moving };
     });
     await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
-    expect(arriving, `the list opened while the dialog was still arriving at ${height}px tall`).toBe(true);
+    expect(arriving.moving, `the list opened while the dialog was still arriving at ${height}px tall`).toBe(true);
+    expect(Math.abs(arriving.gap - 4), `the list is 4px from its trigger while the dialog arrives at ${height}px tall (gap ${arriving.gap})`).toBeLessThanOrEqual(2);
 
     const shown = await page.evaluate(() => {
       const list = document.querySelector('.ui-select__menu') as HTMLElement;
@@ -186,6 +195,36 @@ test('a select opens clear of the dialog it lives in', async ({ context, page })
     await page.locator('.ui-select__option').last().click();
     await expect(page.locator('#navigation-placement .ui-select__label')).toHaveText('Both');
   }
+
+  // The date and time panel, opened while a post's settings drawer is still sliding in from the
+  // side: under its field, and where it was placed across, while the drawer moves.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${origin}/admin/new`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.1 });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const drawer = page.locator('dialog.admin-editor-settings');
+  await drawer.waitFor({ state: 'visible' });
+  // Dispatched: the field may still be past the window's edge, where no pointer can press it.
+  await page.locator('#post-publish-at').dispatchEvent('click');
+  await page.locator('.ui-datetime__panel').waitFor({ state: 'attached' });
+  const sliding = await drawer.evaluate(async (element) => {
+    const moving = getComputedStyle(element).transform !== 'none';
+    const panel = document.querySelector('.ui-datetime__panel') as HTMLElement;
+    const box = panel.getBoundingClientRect();
+    // Its own drop-in taken out, as the list's is above.
+    const lift = new DOMMatrix(getComputedStyle(panel).transform).m42;
+    const field = document.querySelector('#post-publish-at')!.getBoundingClientRect();
+    // Where the panel means to start across: at its field, kept inside the window.
+    const left = Math.max(8, Math.min(field.left, window.innerWidth - panel.offsetWidth - 8));
+    const gap = box.top - lift >= field.bottom ? box.top - lift - field.bottom : field.top - (box.bottom - lift);
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+    return { across: box.left - left, gap, moving };
+  });
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+  expect(sliding.moving, 'the panel opened while the drawer was still sliding in').toBe(true);
+  expect(Math.abs(sliding.gap - 4), `the panel is 4px from its field while the drawer moves (gap ${sliding.gap})`).toBeLessThanOrEqual(2);
+  expect(Math.abs(sliding.across), `and where it was placed across (off by ${sliding.across})`).toBeLessThanOrEqual(2);
 });
 
 test('a switch in Customize saves what it shows', async ({ context, page }) => {

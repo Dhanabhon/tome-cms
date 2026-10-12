@@ -42,3 +42,47 @@ export function placePopover(
     bottom: flip ? viewportHeight - trigger.top + gap : null,
   };
 }
+
+/** A fixed panel's containing block as it is drawn, and its size before any transform. */
+export interface DrawnBlock {
+  left: number;
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
+  laidOutWidth: number;
+  laidOutHeight: number;
+}
+
+/**
+ * The offsets that put a fixed panel where it was placed in the window (`wanted`, as placePopover
+ * gives it). A box around it with a transform -- a dialog or a drawer still sliding in -- is its
+ * containing block until the transform ends, and offsets are measured from that box as it is
+ * drawn: from its edges, at its scale. In the window, they are the ones asked for. Exact for a box
+ * that moves and scales (a dialog arriving at 0.98); a rotation is not one any overlay here makes.
+ */
+export function insetsWithin(block: DrawnBlock, wanted: { left: number; top: number | null; bottom: number | null; viewportHeight: number }) {
+  const scaleX = block.laidOutWidth > 0 && block.width > 0 ? block.width / block.laidOutWidth : 1;
+  const scaleY = block.laidOutHeight > 0 && block.height > 0 ? block.height / block.laidOutHeight : 1;
+  return {
+    left: (wanted.left - block.left) / scaleX,
+    top: wanted.top === null ? null : (wanted.top - block.top) / scaleY,
+    // Up from the box's bottom edge to where the panel's bottom should be in the window.
+    bottom: wanted.bottom === null ? null : (block.bottom - (wanted.viewportHeight - wanted.bottom)) / scaleY,
+  };
+}
+
+/**
+ * The containing block a fixed `panel` is placed in, as drawn now: an empty fixed box beside it,
+ * stretched to all four edges, is that block. Measured with a box of its own rather than the
+ * panel, whose own entrance (a menu dropping in) is not the block moving.
+ */
+export function drawnContainingBlock(panel: HTMLElement): DrawnBlock {
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;inset:0;visibility:hidden;pointer-events:none;transform:none;transition:none;animation:none';
+  (panel.parentElement ?? document.body).append(probe);
+  const { left, top, bottom, width, height } = probe.getBoundingClientRect();
+  const block = { left, top, bottom, width, height, laidOutWidth: probe.offsetWidth, laidOutHeight: probe.offsetHeight };
+  probe.remove();
+  return block;
+}

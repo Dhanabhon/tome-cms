@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { placePopover } from '../../src/lib/popover';
+import { insetsWithin, placePopover } from '../../src/lib/popover';
 
 const rect = (top: number, bottom: number, left = 100, width = 200) => ({ top, bottom, left, width }) as DOMRect;
 
@@ -55,4 +55,35 @@ test('a list lined up with its end stays in the window at its start', () => {
 
 test('a panel with no width to measure keeps the start of its trigger, as a date panel does', () => {
   assert.equal(placePopover(rect(100, 140, 1200, 100), 200, 800, 16, { matchWidth: false }).left, 1200);
+});
+
+/** A containing block 1280 x 800 laid out, drawn at `left`, `top` and `scale`: the window when it is not moved. */
+const block = (left = 0, top = 0, scale = 1) => ({ left, top, bottom: top + 800 * scale, width: 1280 * scale, height: 800 * scale, laidOutWidth: 1280, laidOutHeight: 800 });
+const below = { left: 100, top: 144, bottom: null, viewportHeight: 800 };
+const above = { left: 100, top: null, bottom: 400, viewportHeight: 800 };
+
+test('in the window, a panel keeps the offsets it was placed at', () => {
+  assert.deepEqual(insetsWithin(block(), below), { left: 100, top: 144, bottom: null });
+  assert.deepEqual(insetsWithin(block(), above), { left: 100, top: null, bottom: 400 });
+});
+
+test('inside a box that has moved, the offsets are taken back by as much', () => {
+  // A dialog 300px down and 40px across is the containing block: measured from it, not the window.
+  assert.deepEqual(insetsWithin(block(40, 300), below), { left: 60, top: -156, bottom: null });
+  // Placed by its bottom, it is measured up from the box's bottom edge, here 300px below the window's.
+  assert.deepEqual(insetsWithin(block(40, 300), above), { left: 60, top: null, bottom: 700 });
+  // A drawer still 900px off to the right.
+  assert.deepEqual(insetsWithin(block(900, 0), below), { left: -800, top: 144, bottom: null });
+});
+
+test('inside a box that is also scaled, the offsets are scaled with it', () => {
+  // At 0.98 a pixel of style is 0.98 of a pixel on screen.
+  const { left, top } = insetsWithin(block(10, 20, 0.98), below);
+  assert.ok(Math.abs(10 + left * 0.98 - 100) < 1e-9 && Math.abs(20 + top! * 0.98 - 144) < 1e-9, JSON.stringify({ left, top }));
+  const { bottom } = insetsWithin(block(10, 20, 0.98), above);
+  assert.ok(Math.abs(20 + 800 * 0.98 - bottom! * 0.98 - (800 - 400)) < 1e-9, String(bottom));
+});
+
+test('a box with no size is taken at its own scale', () => {
+  assert.deepEqual(insetsWithin({ ...block(10, 20), width: 0, height: 0, laidOutWidth: 0, laidOutHeight: 0, bottom: 20 }, below), { left: 90, top: 124, bottom: null });
 });
