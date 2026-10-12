@@ -30,7 +30,7 @@ import {
 import { copiedFlag } from '../../lib/copy-feedback';
 import { closeOverlay } from '../../lib/overlay-motion';
 import { readMediaView, writeMediaView, type MediaView } from '../../lib/media-view';
-import { carriesFiles, dropFolderName, splitDrop } from '../../lib/media-drop';
+import { carriesFiles, dropBlocked, dropFolderName, pickerDrop, splitDrop } from '../../lib/media-drop';
 import { pdfThumbnails } from '../../lib/pdf-thumbnail';
 import { wireDetailsMenus } from '../../lib/details-menu';
 import { confirmUi } from '../../lib/ui-dialog';
@@ -96,11 +96,14 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  // Read by the drop listeners, which are set up once: a picker takes no drop while it uploads.
+  const busy = useRef(false);
+  busy.current = uploading;
   // Files chosen on the library page, waiting in the upload dialog. A picker never has any.
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   // Folders dropped with those files, left out; the dialog says how many.
   const [droppedFolders, setDroppedFolders] = useState(0);
-  // Files from the computer are over the page, and a drop would open the upload dialog.
+  // Files from the computer are over the page (or the picker), and a drop would take them.
   const [dragging, setDragging] = useState(false);
   const [dropNotice, setDropNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +157,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const detailsClose = useRef<HTMLButtonElement>(null);
   const detailsOpener = useRef<HTMLButtonElement | null>(null);
   const mediaHeading = useRef<HTMLHeadingElement>(null);
+  const shell = useRef<HTMLElement>(null);
 
   const load = useCallback(async (nextPage: number, append: boolean, term: string, nextSelection: CategorySelection, nextFilter: MediaTypeFilter | null) => {
     const id = ++requestId.current;
@@ -261,16 +265,40 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     if (selected && isPdfAsset(selected)) showThumbnail(selected.id);
   }, [selected?.id, showThumbnail]);
 
-  // Files dragged from the computer go to the upload dialog, filed into the open folder. A drag
-  // that began on the page (a picture, a link) is never one, whatever its types say: Chromium
-  // offers a dragged picture as a file too.
+  /**
+   * A drop on a picker does what its upload button does: the one file goes up at once into the
+   * folder it has open, and comes back chosen. Anything else is refused with a notice, and nothing
+   * is sent. Set on every render, so the listeners below always call the current picker.
+   */
+  const pickDropped = useRef<(dropped: { files: File[]; skipped: number }) => void>(() => undefined);
+  pickDropped.current = (dropped) => {
+    if (props.mode !== 'select') return;
+    const picked = pickerDrop(dropped, props.kind);
+    if (!picked) return;
+    if ('file' in picked) {
+      setDropNotice(null);
+      void sendFile(picked.file);
+      return;
+    }
+    setDropNotice(picked.refused === 'several' ? copy.media.dropOneFile : picked.refused === 'folder' ? copy.media.dropFolderOne : uploadFailureMessage(picked.error, copy));
+  };
+
+  // Files dragged from the computer go to the upload dialog, filed into the open folder; on a
+  // picker, straight up (see pickDropped). A drag that began on the page (a picture, a link) is
+  // never one, whatever its types say: Chromium offers a dragged picture as a file too.
+  //
+  // A drop on a picker never reaches the editor behind it: ProseMirror listens on its own
+  // contenteditable, which the picker's dialog is beside rather than inside, and the browser's
+  // own handling (opening the file) is held back here.
   useEffect(() => {
-    if (props.mode !== 'manage') return;
     let depth = 0;
     let fromPage = false;
     const fromComputer = (event: DragEvent) => !fromPage && carriesFiles(event.dataTransfer?.types);
-    // A modal dialog that is open (upload, details, a confirm) takes no drop.
-    const blocked = () => document.querySelector('dialog[open]') !== null;
+    // Only the topmost dialog takes a drop, and only when it is the one this library is in: none
+    // on the library page (upload, details or a confirm open over it take none), the picker's own
+    // when it is a picker. A picker that is uploading takes no second file.
+    const blocked = (event: DragEvent) => busy.current
+      || dropBlocked(document.elementFromPoint(event.clientX, event.clientY), shell.current?.closest('dialog') ?? null);
     const hide = () => { depth = 0; setDragging(false); };
     const onStart = () => { fromPage = true; };
     const onEnd = () => { fromPage = false; hide(); };
@@ -278,7 +306,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     const onEnter = (event: DragEvent) => {
       if (!fromComputer(event)) return;
       depth += 1;
-      if (!blocked()) setDragging(true);
+      if (!blocked(event)) setDragging(true);
     };
     const onLeave = (event: DragEvent) => {
       if (!fromComputer(event)) return;
@@ -289,14 +317,15 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     const onOver = (event: DragEvent) => {
       if (!fromComputer(event)) return;
       event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = blocked() ? 'none' : 'copy';
+      if (event.dataTransfer) event.dataTransfer.dropEffect = blocked(event) ? 'none' : 'copy';
     };
     const onDrop = (event: DragEvent) => {
       if (!fromComputer(event)) { fromPage = false; return; }
       event.preventDefault();
       hide();
-      if (blocked() || !event.dataTransfer) return;
+      if (blocked(event) || !event.dataTransfer) return;
       const { files, skipped } = splitDrop(event.dataTransfer);
+      if (props.mode === 'select') { pickDropped.current({ files, skipped }); return; }
       // Cleared here, not on dragenter: unmounting the notice under the cursor would lose its dragleave.
       setDropNotice(!files.length && skipped ? copy.media.dropFoldersOnly : null);
       if (!files.length) return;
@@ -331,6 +360,15 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       input.value = '';
       return;
     }
+    try {
+      await sendFile(file);
+    } finally {
+      input.value = '';
+    }
+  }
+
+  /** A picker's one file, chosen or dropped: uploaded at once, with its progress, into the open folder. */
+  async function sendFile(file: File) {
     const uploadSelection = currentSelection.current;
     const uploadQuery = currentQuery.current;
     const uploadFilter = currentFilter.current;
@@ -356,7 +394,6 @@ export default function MediaLibrary(props: MediaLibraryProps) {
       setError(uploadFailureMessage(uploadError, copy));
       setFailedRequest(null);
     } finally {
-      input.value = '';
       setUploading(false);
       setUploadProgress(null);
     }
@@ -644,7 +681,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   );
 
   return (
-    <section className="media-shell" data-mode={props.mode}>
+    <section className="media-shell" data-mode={props.mode} ref={shell}>
       {props.mode === 'manage' && (
         <div className="admin-page__head">
           <div>
@@ -686,8 +723,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         </aside>
 
         <div className="media-files min-w-0">
-          {dragging && <div aria-hidden="true" className="media-drop"><p>{fill(copy.media.dropHere, { name: dropFolderName(folderId(selection), folders, copy.media.unsorted) })}</p></div>}
-          {props.mode === 'manage' && <p className={dropNotice ? 'media-status' : 'sr-only'} role="status">{dropNotice}</p>}
+          {dragging && <div aria-hidden="true" className="media-drop"><p>{fill(props.mode === 'select' ? copy.media.dropOneHere : copy.media.dropHere, { name: dropFolderName(folderId(selection), folders, copy.media.unsorted) })}</p></div>}
+          <p className={dropNotice ? 'media-status' : 'sr-only'} role="status">{dropNotice}</p>
           {uploading && <p className="media-status" role="status">{copy.media.uploadingProgress} {uploadProgress ?? 0}%</p>}
           {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection, failedRequest.filter)} type="button">{copy.media.retry}</button>}</div>}
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}

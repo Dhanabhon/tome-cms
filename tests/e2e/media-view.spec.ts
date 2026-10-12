@@ -375,3 +375,78 @@ test('files dragged onto the File Manager wait in the upload dialog, then go int
   await expect(zone.getByRole('button', { name: /^Drop one\.png,/ })).toBeVisible();
   await expect(zone.getByRole('button', { name: /^Drop two\.png,/ })).toBeVisible();
 });
+
+test('a file dragged onto the picker goes into the folder it has open, and only the picker takes it', async ({ context, page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(context, page);
+
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const named = async (names: string[]) => (await sql<{ folder_id: string | null }>`select folder_id from media_items where original_name = any(${names})`.execute(db)).rows;
+
+  // A folder for the picker to have open.
+  await page.goto(`${origin}/admin/media`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('Picked');
+  await page.getByRole('button', { name: 'Create folder' }).click();
+  await expect(page.locator('.media-categories nav').getByRole('button', { name: 'Picked', exact: true })).toBeVisible();
+  const [{ id: folder }] = (await sql<{ id: string }>`select id from media_folders where name = 'Picked'`.execute(db)).rows;
+
+  // The picker a writer opens for a picture, on the folder.
+  await page.goto(`${origin}/admin/new`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+  await page.locator('#post-title').fill('A picture dropped on the picker');
+  const canvas = page.locator('.ProseMirror');
+  await canvas.click();
+  await page.getByRole('button', { name: /Add block/i }).click();
+  await page.getByRole('menuitem', { name: 'Image', exact: true }).click();
+  const picker = page.locator('dialog.media-picker');
+  await expect(picker).toBeVisible();
+  const folderButton = picker.locator('.media-categories nav').getByRole('button', { name: 'Picked', exact: true });
+  await folderButton.click();
+  await expect(folderButton).toHaveAttribute('aria-pressed', 'true');
+
+  const zone = picker.locator('.media-files');
+  const overlay = picker.locator('.media-drop');
+  const notice = picker.locator('.media-status[role="status"]');
+  const one = (await picture('#2b2d42', '#8d99ae')).toString('base64');
+  const dropped = { name: 'Picked.png', type: 'image/png', base64: one };
+
+  // The picker's own dialog does not stand in the way: the overlay names the folder it has open.
+  const single = await dragData(page, [dropped]);
+  await zone.dispatchEvent('dragenter', { dataTransfer: single });
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveText('Drop a file to upload it to “Picked”');
+  await zone.dispatchEvent('dragleave', { dataTransfer: single });
+  await expect(overlay).toHaveCount(0);
+
+  // Two files: the picker hands back one, so it takes neither and says so.
+  const two = await dragData(page, [dropped, { name: 'Picked two.png', type: 'image/png', base64: one }]);
+  await zone.dispatchEvent('dragenter', { dataTransfer: two });
+  await zone.dispatchEvent('drop', { dataTransfer: two });
+  await expect(notice).toHaveText('Drop one file at a time.');
+  await expect(picker).toBeVisible();
+
+  // A PDF on a picker for a picture: refused as the upload button refuses it.
+  const pdf = await dragData(page, [{ name: 'Notes.pdf', type: 'application/pdf', base64: Buffer.from('%PDF-1.4\n%%EOF\n').toString('base64') }]);
+  await zone.dispatchEvent('dragenter', { dataTransfer: pdf });
+  await zone.dispatchEvent('drop', { dataTransfer: pdf });
+  await expect(notice).toHaveText('Use a JPEG, PNG, WebP, GIF, or AVIF image.');
+  await expect(picker).toBeVisible();
+  expect(await named(['Picked.png', 'Picked two.png', 'Notes.pdf'])).toEqual([]);
+
+  // One picture: up at once into the open folder, and it comes back chosen. The drop is the
+  // picker's alone: the browser does not open the file, and the editor behind puts nothing in.
+  await zone.dispatchEvent('dragenter', { dataTransfer: single });
+  const held = await zone.evaluate((element, data) => {
+    const drop = new DragEvent('drop', { bubbles: true, cancelable: true, composed: true, dataTransfer: data });
+    return !element.dispatchEvent(drop);
+  }, single);
+  expect(held, 'the browser does not open the dropped file').toBe(true);
+  await expect(picker).toBeHidden({ timeout: 30_000 });
+  await expect(canvas.locator('img')).toHaveCount(1);
+  await expect(canvas.locator('img')).toHaveAttribute('title', 'Picked.png');
+  expect(await named(['Picked.png'])).toEqual([{ folder_id: folder }]);
+  expect(await named(['Picked two.png', 'Notes.pdf'])).toEqual([]);
+});

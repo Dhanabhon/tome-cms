@@ -1,3 +1,6 @@
+import { precheck } from './media-client';
+import type { MediaKind } from './media';
+
 /** What a drop event offers, as far as the library reads it. */
 interface DroppedItem {
   kind: string;
@@ -45,4 +48,31 @@ export function splitDrop(data: DroppedData): { files: File[]; skipped: number }
 /** The folder a drop goes into, by name: the one that is open, or Unsorted when none is. */
 export function dropFolderName(folderId: string | null | undefined, folders: ReadonlyArray<{ id: string; name: string }>, unsorted: string): string {
   return folders.find((folder) => folder.id === folderId)?.name ?? unsorted;
+}
+
+/** What a picker does with a drop: upload the one file, or say why not. */
+export type PickerDrop = { file: File } | { refused: 'several' } | { refused: 'folder' } | { refused: 'file'; error: unknown };
+
+/**
+ * A picker hands back one file, so it takes a drop of exactly one, of a kind it accepts: the same
+ * check its upload button makes. Several things (a folder counts), a folder alone, or a file it
+ * would refuse upload nothing. A drop with nothing in it is not answered at all.
+ */
+export function pickerDrop({ files, skipped }: { files: File[]; skipped: number }, accept: MediaKind | 'any'): PickerDrop | null {
+  if (files.length + skipped > 1) return { refused: 'several' };
+  if (skipped) return { refused: 'folder' };
+  const [file] = files;
+  if (!file) return null;
+  const checked = precheck(file, accept);
+  return checked.ok ? { file } : { refused: 'file', error: checked.error };
+}
+
+/**
+ * Whether a drop belongs to something else. A modal dialog leaves only itself to the pointer, so
+ * the open dialog at the drop's point (`over`, as the browser hit-tests it) is the topmost one. A
+ * library takes the drop when that is the dialog it sits in (`home`: a picker), or there is none
+ * and neither is it in one (the library page). A picker on its way out takes nothing more.
+ */
+export function dropBlocked(over: Pick<Element, 'closest'> | null, home: Element | null): boolean {
+  return (over?.closest('dialog[open]') ?? null) !== home || Boolean(home?.hasAttribute('data-closing'));
 }
