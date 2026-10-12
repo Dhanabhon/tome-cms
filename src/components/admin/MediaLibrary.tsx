@@ -30,6 +30,7 @@ import {
 import { copiedFlag } from '../../lib/copy-feedback';
 import { closeOverlay } from '../../lib/overlay-motion';
 import { readMediaView, writeMediaView, type MediaView } from '../../lib/media-view';
+import { carriesFiles, dropFolderName, splitDrop } from '../../lib/media-drop';
 import { pdfThumbnails } from '../../lib/pdf-thumbnail';
 import { wireDetailsMenus } from '../../lib/details-menu';
 import { confirmUi } from '../../lib/ui-dialog';
@@ -97,6 +98,13 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   // Files chosen on the library page, waiting in the upload dialog. A picker never has any.
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
+  // Folders dropped with those files, left out; the dialog says how many.
+  const [droppedFolders, setDroppedFolders] = useState(0);
+  // Files from the computer are over the page, and a drop would open the upload dialog.
+  const [dragging, setDragging] = useState(false);
+  const [dropNotice, setDropNotice] = useState<string | null>(null);
+  // Read by the page's drag listeners, which are set once: a dialog that is open takes no drop.
+  const dropBlocked = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [failedRequest, setFailedRequest] = useState<FailedRequest | null>(null);
   const [search, setSearch] = useState('');
@@ -255,6 +263,55 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     if (selected && isPdfAsset(selected)) showThumbnail(selected.id);
   }, [selected?.id, showThumbnail]);
 
+  dropBlocked.current = pendingFiles !== null || selected !== null;
+
+  // Files dragged from the computer go to the upload dialog, filed into the open folder. A drag
+  // that began on the page (a picture, a link) is never one, whatever its types say: Chromium
+  // offers a dragged picture as a file too.
+  useEffect(() => {
+    if (props.mode !== 'manage') return;
+    let depth = 0;
+    let fromPage = false;
+    const fromComputer = (event: DragEvent) => !fromPage && carriesFiles(event.dataTransfer?.types);
+    const hide = () => { depth = 0; setDragging(false); };
+    const onStart = () => { fromPage = true; };
+    const onEnd = () => { fromPage = false; hide(); };
+    // Entering a child comes before leaving its parent, so the count stays above 0 until the page is left.
+    const onEnter = (event: DragEvent) => {
+      if (!fromComputer(event)) return;
+      depth += 1;
+      if (!dropBlocked.current) { setDropNotice(null); setDragging(true); }
+    };
+    const onLeave = (event: DragEvent) => {
+      if (!fromComputer(event)) return;
+      depth = Math.max(0, depth - 1);
+      if (!depth) setDragging(false);
+    };
+    // Held back everywhere on the page, or a file dropped beside the list would replace the admin.
+    const onOver = (event: DragEvent) => {
+      if (!fromComputer(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = dropBlocked.current ? 'none' : 'copy';
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!fromComputer(event)) { fromPage = false; return; }
+      event.preventDefault();
+      hide();
+      if (dropBlocked.current || !event.dataTransfer) return;
+      const { files, skipped } = splitDrop(event.dataTransfer);
+      if (!files.length) {
+        if (skipped) setDropNotice(copy.media.dropFoldersOnly);
+        return;
+      }
+      setDroppedFolders(skipped);
+      setPendingFiles(files);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') hide(); };
+    const listeners = [['dragstart', onStart], ['dragend', onEnd], ['dragenter', onEnter], ['dragleave', onLeave], ['dragover', onOver], ['drop', onDrop], ['keydown', onKey]] as const;
+    for (const [type, listener] of listeners) window.addEventListener(type, listener as EventListener);
+    return () => { for (const [type, listener] of listeners) window.removeEventListener(type, listener as EventListener); };
+  }, [props.mode]);
+
   function selectCategory(nextSelection: CategorySelection) {
     currentSelection.current = nextSelection;
     setPage(1);
@@ -273,6 +330,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     if (!file) return;
     if (props.mode === 'manage') {
       // The library page files several files at once, from a dialog of its own.
+      setDropNotice(null);
       setPendingFiles([...input.files!]);
       input.value = '';
       return;
@@ -311,6 +369,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   /** The dialog is done: show where its files went, whatever type filter would have hidden them. */
   function finishUpload(chosenFolderId: string, uploadedAny: boolean) {
     setPendingFiles(null);
+    setDroppedFolders(0);
     if (!uploadedAny) return;
     const next = chosenFolderId || 'unsorted';
     const sameView = currentSelection.current === next && currentFilter.current === null;
@@ -630,7 +689,9 @@ export default function MediaLibrary(props: MediaLibraryProps) {
           {props.mode === 'manage' && categoryError && <p className="media-category-error" role="alert">{categoryError}</p>}
         </aside>
 
-        <div className="min-w-0">
+        <div className="media-files min-w-0">
+          {dragging && <div aria-hidden="true" className="media-drop"><p>{fill(copy.media.dropHere, { name: dropFolderName(folderId(selection), folders, copy.media.unsorted) })}</p></div>}
+          {dropNotice && <p className="media-status" role="status">{dropNotice}</p>}
           {uploading && <p className="media-status" role="status">{copy.media.uploadingProgress} {uploadProgress ?? 0}%</p>}
           {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection, failedRequest.filter)} type="button">{copy.media.retry}</button>}</div>}
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}
@@ -668,7 +729,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
             : <span aria-hidden="true" className="media-card__file media-details__file">{formatLabel(selected.mime_type)}</span>}
         <p className="break-all font-medium">{selected.original_name}</p>
         <p className="text-sm text-muted">{isImageAsset(selected) ? `${selected.width} × ${selected.height} · ` : ''}{formatLabel(selected.mime_type)} · {formatBytes(selected.size_bytes)}</p><label>{copy.media.name}<input aria-describedby="media-details-name-hint" aria-invalid={fileNameMissing || undefined} aria-label={copy.media.name} className="admin-control" maxLength={255} onChange={(event) => { setDraft((current) => ({ ...current, name: event.target.value })); setFileNameMissing(false); }} ref={fileNameField} required value={draft.name ?? ''} /></label><p className="text-sm text-muted" id="media-details-name-hint">{copy.media.nameHint}</p>{fileNameMissing && <p className="media-category-error" role="alert">{copy.media.nameRequired}</p>}<label htmlFor="media-details-category">{copy.media.folder}</label><UiSelect ariaLabel={copy.media.folder} className="admin-control" id="media-details-category" onValueChange={(next) => setDraft((current) => ({ ...current, folderId: next }))} options={detailCategoryOptions} value={draft.folderId} />{isImageAsset(selected) && <label>{copy.media.altText}<textarea aria-label={copy.media.altText} className="admin-control admin-control--textarea" maxLength={300} onChange={(event) => setDraft((current) => ({ ...current, altText: event.target.value }))} value={draft.altText} /></label>}<label>{copy.media.fileUrl}<input aria-label={copy.media.fileUrl} className="admin-control" readOnly ref={urlInput} value={absoluteMediaUrl(selected.publicUrl)} /></label><div className="media-details-actions"><SaveButton disabled={working !== null || deleting} label={copy.media.save} onClick={() => void saveDetails()} savedLabel={copy.shell.saved} savingLabel={copy.shell.saving} state={saveButtonState({ saving: pressed('save-details'), dirty: draft.altText !== savedDraft.altText || draft.folderId !== savedDraft.folderId || draft.name !== savedDraft.name, savedOnce })} /><button className="admin-button admin-copy-button" data-state={copied ? 'copied' : 'idle'} onClick={() => void copyUrl()} type="button"><span aria-hidden={copied} className="admin-copy-button__label">{copy.media.copyUrl}</span><span aria-hidden={!copied} className="admin-copy-button__label admin-copy-button__label--copied"><Icon name="check" />{copy.media.urlCopiedShort}</span></button><span className="sr-only" role="status">{copied ? copy.media.urlCopiedShort : ''}</span><button aria-busy={deleting} className="admin-button admin-button--danger" disabled={deleting || working !== null} onClick={() => void deleteSelected(true)} type="button">{copy.media.delete}</button></div>{(deleting || detailsStatus) && <p role="status">{deleting ? copy.media.deleting : detailsStatus}</p>}{deleteError && <div role="alert"><p>{deleteError}</p>{referencingPosts.length > 0 && <ul>{referencingPosts.map((post) => <li key={post.id}><a href={`/admin/edit/${post.id}`}>{post.title}</a></li>)}</ul>}{referencingPages.length > 0 && <ul>{referencingPages.map((page) => <li key={page.id}><a href={`/admin/pages/edit/${page.id}`}>{page.title}</a></li>)}</ul>}{profileReference && <p>{copy.media.profileAvatar}</p>}{referencingSlides.length > 0 && <ul>{referencingSlides.map((slide) => <li key={slide.id}><a href="/admin/slides">{slide.heading ?? fill(copy.media.slideReference, { language: slide.locale === 'th' ? 'ไทย' : 'English', position: String(slide.position + 1) })}</a></li>)}</ul>}{maintenanceReference && <p><a href="/admin/maintenance">{copy.media.maintenanceReference}</a></p>}{referencingPlugins.length > 0 && <ul>{referencingPlugins.map((plugin) => <li key={plugin.id}><a href="/admin/plugins">{plugin.name}</a></li>)}</ul>}{!referencingPosts.length && !referencingPages.length && !profileReference && !referencingSlides.length && !maintenanceReference && !referencingPlugins.length && <button className="admin-button" disabled={deleting} onClick={() => void deleteSelected(false)} type="button">{copy.media.retry}</button>}</div>}</div>}</dialog>}
-      {props.mode === 'manage' && pendingFiles && <MediaUploadDialog copy={copy} files={pendingFiles} folders={folders} initialFolderId={folderId(currentSelection.current) ?? ''} onClose={finishUpload} />}
+      {props.mode === 'manage' && pendingFiles && <MediaUploadDialog copy={copy} files={pendingFiles} folders={folders} initialFolderId={folderId(currentSelection.current) ?? ''} onClose={finishUpload} skipped={droppedFolders} />}
     </section>
   );
 }

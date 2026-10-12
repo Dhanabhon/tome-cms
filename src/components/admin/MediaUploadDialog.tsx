@@ -34,13 +34,15 @@ interface MediaUploadDialogProps {
   initialFolderId: string;
   /** The folder the files were filed into, and whether any of them went up. */
   onClose: (folderId: string, uploadedAny: boolean) => void;
+  /** Folders dropped with the files, which were left out. */
+  skipped?: number;
 }
 
 /**
  * Files chosen in the system's file chooser land here first: listed, checked, filed into a folder,
  * then sent two at a time. Each row reports itself; one failure does not stop the others.
  */
-export default function MediaUploadDialog({ copy, files, folders, initialFolderId, onClose }: MediaUploadDialogProps) {
+export default function MediaUploadDialog({ copy, files, folders, initialFolderId, onClose, skipped = 0 }: MediaUploadDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   // Stop aborts every upload at once: what is on the wire is cancelled, what is queued never starts.
   const controller = useRef(new AbortController());
@@ -129,6 +131,7 @@ export default function MediaUploadDialog({ copy, files, folders, initialFolderI
         <h2 id="media-upload-title">{copy.media.uploadTitle}</h2>
         <button aria-label={copy.shell.close} className="admin-button admin-button--ghost admin-button--icon" onClick={() => void close()} type="button"><Icon name="close" /></button>
       </div>
+      {skipped > 0 && <p className="media-upload-dialog__note">{skipped === 1 ? copy.media.dropSkippedOne : fill(copy.media.dropSkippedMany, { count: skipped })}</p>}
       <div className="admin-field">
         <label htmlFor="media-upload-folder">{copy.media.folder}</label>
         <UiSelect className="admin-control" disabled={started} id="media-upload-folder" onValueChange={setFolderId} options={folderOptions} value={folderId} />

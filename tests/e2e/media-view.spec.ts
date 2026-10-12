@@ -264,3 +264,102 @@ test('the File Manager lists its files as rows, remembers the choice, and a pick
   await expect(page.locator('.media-grid')).toBeVisible();
   await expect(page.locator('ul.media-list')).toHaveCount(0);
 });
+
+/** A drag built in the page, as the system hands one over: files, or a line of text. */
+async function dragData(page: Page, files: { name: string; type: string; base64: string }[], text?: string) {
+  return page.evaluateHandle(({ files, text }) => {
+    const data = new DataTransfer();
+    for (const file of files) data.items.add(new File([Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0))], file.name, { type: file.type }));
+    if (text) data.setData('text/plain', text);
+    return data;
+  }, { files, text });
+}
+
+test('files dragged onto the File Manager wait in the upload dialog, then go into the folder that is open', async ({ context, page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(context, page);
+  await page.goto(`${origin}/admin/media`);
+  await page.waitForFunction(() => !document.querySelector('astro-island[ssr]'));
+
+  const { sql } = await import('kysely');
+  const { db } = await import('../../src/server/db/client');
+  const named = async (names: string[]) => (await sql<{ folder_id: string | null }>`select folder_id from media_items where original_name = any(${names})`.execute(db)).rows;
+
+  // A folder to drop into, and open.
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('Drops');
+  await page.getByRole('button', { name: 'Create folder' }).click();
+  const folderButton = page.locator('.media-categories nav').getByRole('button', { name: 'Drops', exact: true });
+  await folderButton.click();
+  await expect(folderButton).toHaveAttribute('aria-pressed', 'true');
+  const [{ id: folder }] = (await sql<{ id: string }>`select id from media_folders where name = 'Drops'`.execute(db)).rows;
+
+  const zone = page.locator('.media-files');
+  const overlay = page.locator('.media-drop');
+  const dialog = page.getByRole('dialog', { name: 'Upload files' });
+  const one = (await picture('#1d3557', '#457b9d')).toString('base64');
+  const two = (await picture('#ffb703', '#fb8500')).toString('base64');
+  const images = [{ name: 'Drop one.png', type: 'image/png', base64: one }, { name: 'Drop two.png', type: 'image/png', base64: two }];
+  // A folder from the computer, as a browser that cannot open it gives it: empty, with no type.
+  const holiday = { name: 'Holiday', type: '', base64: '' };
+
+  // Text dragged within the page is not a file: no overlay.
+  const text = await dragData(page, [], 'Just some words');
+  await zone.dispatchEvent('dragenter', { dataTransfer: text });
+  await zone.dispatchEvent('dragover', { dataTransfer: text });
+  await expect(overlay).toHaveCount(0);
+  await zone.dispatchEvent('dragleave', { dataTransfer: text });
+
+  // Files say where they will go, and leaving the page or Escape takes that away at once.
+  const both = await dragData(page, [...images, holiday]);
+  await zone.dispatchEvent('dragenter', { dataTransfer: both });
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveText('Drop files to upload them to “Drops”');
+  await expect(overlay).toHaveAttribute('aria-hidden', 'true');
+  await shoot(page, 'drop-overlay');
+  await zone.dispatchEvent('dragleave', { dataTransfer: both });
+  await expect(overlay).toHaveCount(0);
+  await zone.dispatchEvent('dragenter', { dataTransfer: both });
+  await expect(overlay).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(overlay).toHaveCount(0);
+
+  // A folder alone has nothing to upload: a notice, and no dialog.
+  const onlyFolder = await dragData(page, [holiday]);
+  await zone.dispatchEvent('dragenter', { dataTransfer: onlyFolder });
+  await zone.dispatchEvent('drop', { dataTransfer: onlyFolder });
+  await expect(page.locator('.media-status[role="status"]')).toHaveText('Folders cannot be uploaded. Drop the files inside them.');
+  await expect(dialog).toHaveCount(0);
+
+  // Dropped, the files wait in the upload dialog, filed into the open folder, and nothing is sent yet.
+  await zone.dispatchEvent('dragenter', { dataTransfer: both });
+  await zone.dispatchEvent('dragover', { dataTransfer: both });
+  await zone.dispatchEvent('drop', { dataTransfer: both });
+  await expect(overlay).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.media-upload-row__name')).toHaveText(['Drop one.png', 'Drop two.png']);
+  await expect(dialog.locator('.media-upload-dialog__note')).toHaveText('1 folder was left out. Only files are uploaded.');
+  await expect(dialog.locator('#media-upload-folder')).toHaveAttribute('data-value', folder);
+  await expect(dialog.locator('#media-upload-folder')).toHaveText('Drops');
+  expect(await named(['Drop one.png', 'Drop two.png'])).toEqual([]);
+  await shoot(page, 'drop-dialog');
+
+  // Another drop while the dialog is open changes nothing in it, and shows no overlay.
+  const third = await dragData(page, [{ name: 'Drop three.png', type: 'image/png', base64: one }]);
+  await zone.dispatchEvent('dragenter', { dataTransfer: third });
+  await expect(overlay).toHaveCount(0);
+  await zone.dispatchEvent('drop', { dataTransfer: third });
+  await expect(dialog.locator('.media-upload-row__name')).toHaveText(['Drop one.png', 'Drop two.png']);
+
+  // The dialog's own button sends them, and both land in the folder.
+  await dialog.getByRole('button', { name: 'Upload 2 files' }).click();
+  for (const row of await dialog.locator('.media-upload-row').all()) {
+    await expect(row).toHaveAttribute('data-status', 'done', { timeout: 30_000 });
+  }
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toBeHidden();
+  expect(await named(['Drop one.png', 'Drop two.png'])).toEqual([{ folder_id: folder }, { folder_id: folder }]);
+  expect(await named(['Drop three.png'])).toEqual([]);
+  await expect(zone.getByRole('button', { name: /^Drop one\.png,/ })).toBeVisible();
+  await expect(zone.getByRole('button', { name: /^Drop two\.png,/ })).toBeVisible();
+});
