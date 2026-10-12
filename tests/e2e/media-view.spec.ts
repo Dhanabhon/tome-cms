@@ -331,6 +331,18 @@ test('files dragged onto the File Manager wait in the upload dialog, then go int
   await expect(page.locator('.media-status[role="status"]')).toHaveText('Folders cannot be uploaded. Drop the files inside them.');
   await expect(dialog).toHaveCount(0);
 
+  // A drop while a confirm is open (deleting the folder) is ignored: no upload dialog on top of it.
+  await page.locator('.media-categories nav summary[aria-label="Actions for Drops"]').click();
+  await page.locator('.media-categories nav [data-folder-action="delete"]').click();
+  const confirm = page.getByRole('dialog', { name: 'Delete folder?' });
+  await expect(confirm).toBeVisible();
+  await zone.dispatchEvent('dragenter', { dataTransfer: both });
+  await expect(overlay).toHaveCount(0);
+  await zone.dispatchEvent('drop', { dataTransfer: both });
+  await expect(dialog).toHaveCount(0);
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirm).toHaveCount(0);
+
   // Dropped, the files wait in the upload dialog, filed into the open folder, and nothing is sent yet.
   await zone.dispatchEvent('dragenter', { dataTransfer: both });
   await zone.dispatchEvent('dragover', { dataTransfer: both });

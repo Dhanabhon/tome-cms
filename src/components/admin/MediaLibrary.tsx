@@ -103,8 +103,6 @@ export default function MediaLibrary(props: MediaLibraryProps) {
   // Files from the computer are over the page, and a drop would open the upload dialog.
   const [dragging, setDragging] = useState(false);
   const [dropNotice, setDropNotice] = useState<string | null>(null);
-  // Read by the page's drag listeners, which are set once: a dialog that is open takes no drop.
-  const dropBlocked = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [failedRequest, setFailedRequest] = useState<FailedRequest | null>(null);
   const [search, setSearch] = useState('');
@@ -263,8 +261,6 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     if (selected && isPdfAsset(selected)) showThumbnail(selected.id);
   }, [selected?.id, showThumbnail]);
 
-  dropBlocked.current = pendingFiles !== null || selected !== null;
-
   // Files dragged from the computer go to the upload dialog, filed into the open folder. A drag
   // that began on the page (a picture, a link) is never one, whatever its types say: Chromium
   // offers a dragged picture as a file too.
@@ -273,6 +269,8 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     let depth = 0;
     let fromPage = false;
     const fromComputer = (event: DragEvent) => !fromPage && carriesFiles(event.dataTransfer?.types);
+    // A modal dialog that is open (upload, details, a confirm) takes no drop.
+    const blocked = () => document.querySelector('dialog[open]') !== null;
     const hide = () => { depth = 0; setDragging(false); };
     const onStart = () => { fromPage = true; };
     const onEnd = () => { fromPage = false; hide(); };
@@ -280,7 +278,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     const onEnter = (event: DragEvent) => {
       if (!fromComputer(event)) return;
       depth += 1;
-      if (!dropBlocked.current) { setDropNotice(null); setDragging(true); }
+      if (!blocked()) setDragging(true);
     };
     const onLeave = (event: DragEvent) => {
       if (!fromComputer(event)) return;
@@ -291,18 +289,17 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     const onOver = (event: DragEvent) => {
       if (!fromComputer(event)) return;
       event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = dropBlocked.current ? 'none' : 'copy';
+      if (event.dataTransfer) event.dataTransfer.dropEffect = blocked() ? 'none' : 'copy';
     };
     const onDrop = (event: DragEvent) => {
       if (!fromComputer(event)) { fromPage = false; return; }
       event.preventDefault();
       hide();
-      if (dropBlocked.current || !event.dataTransfer) return;
+      if (blocked() || !event.dataTransfer) return;
       const { files, skipped } = splitDrop(event.dataTransfer);
-      if (!files.length) {
-        if (skipped) setDropNotice(copy.media.dropFoldersOnly);
-        return;
-      }
+      // Cleared here, not on dragenter: unmounting the notice under the cursor would lose its dragleave.
+      setDropNotice(!files.length && skipped ? copy.media.dropFoldersOnly : null);
+      if (!files.length) return;
       setDroppedFolders(skipped);
       setPendingFiles(files);
     };
@@ -330,7 +327,6 @@ export default function MediaLibrary(props: MediaLibraryProps) {
     if (!file) return;
     if (props.mode === 'manage') {
       // The library page files several files at once, from a dialog of its own.
-      setDropNotice(null);
       setPendingFiles([...input.files!]);
       input.value = '';
       return;
@@ -673,7 +669,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
         <div className="media-toolbar__end">
           <label aria-busy={uploading} className="admin-button admin-button--primary media-upload">
             <span>{props.mode === 'manage' ? copy.media.uploadTitle : props.kind === 'image' ? copy.media.uploadImage : copy.media.uploadFile}</span>
-            <input accept={acceptAttribute(props.mode === 'select' ? props.kind : 'any')} className="sr-only" disabled={uploading} multiple={props.mode === 'manage'} onChange={handleUpload} type="file" />
+            <input accept={acceptAttribute(props.mode === 'select' ? props.kind : 'any')} className="sr-only" disabled={uploading} multiple={props.mode === 'manage'} onChange={handleUpload} onClick={() => setDropNotice(null)} type="file" />
           </label>
           {props.mode === 'select' && <button autoFocus aria-label={copy.media.cancel} className="admin-button admin-button--ghost admin-button--icon" onClick={props.onCancel} title={copy.media.cancel} type="button"><Icon name="close" /></button>}
         </div>
@@ -691,7 +687,7 @@ export default function MediaLibrary(props: MediaLibraryProps) {
 
         <div className="media-files min-w-0">
           {dragging && <div aria-hidden="true" className="media-drop"><p>{fill(copy.media.dropHere, { name: dropFolderName(folderId(selection), folders, copy.media.unsorted) })}</p></div>}
-          {dropNotice && <p className="media-status" role="status">{dropNotice}</p>}
+          {props.mode === 'manage' && <p className={dropNotice ? 'media-status' : 'sr-only'} role="status">{dropNotice}</p>}
           {uploading && <p className="media-status" role="status">{copy.media.uploadingProgress} {uploadProgress ?? 0}%</p>}
           {error && <div className="media-status" role="alert"><span>{error}</span>{failedRequest && <button className="admin-button admin-button--ghost" onClick={() => void load(failedRequest.page, failedRequest.append, failedRequest.term, failedRequest.selection, failedRequest.filter)} type="button">{copy.media.retry}</button>}</div>}
           {loading && !items.length && <p className="media-status" role="status">{copy.media.loadingFiles}</p>}
