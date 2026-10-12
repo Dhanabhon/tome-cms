@@ -13,7 +13,7 @@ sidebar:
 
 Choose the folder the file belongs in first, then press "Upload files" and pick it. A file uploaded from "All files" goes to "Unsorted". The screen shows "Uploading…" with how far it has got, and the new file appears first, since the File Manager lists the newest first.
 
-You can also drag files from your computer onto the list of files. An outline names the folder they will go to, the one you have open, or "Unsorted" when "All files" or "Unsorted" is selected. Drop them and the upload window opens with that folder chosen: nothing is uploaded until you press its upload button, and you can remove a file or pick another folder first. Folders dragged in are skipped, and the window says how many, so drop the files inside a folder rather than the folder itself. While any window is open on the page, a drop does nothing.
+You can also drag files from your computer onto the list of files. An outline names the folder they will go to, the one you have open, or "Unsorted" when "All files" or "Unsorted" is selected. Drop them and the upload window opens with that folder chosen: nothing is uploaded until you press its upload button, and you can remove a file or pick another folder first. Folders dragged in are skipped, and the window says how many, so drop the files inside a folder rather than the folder itself. While any window is open on the page, a drop does nothing. When the File Manager opens as a picker, while writing or on another screen, you can drop one file of the kind it asks for on it: the file uploads into the folder the picker has open straight away and comes back chosen, as with its Upload button.
 
 | Kind | Types | Largest |
 | --- | --- | --- |
