@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
-import { drawnContainingBlock, insetsWithin, placePopover } from '../../lib/popover';
+import { drawnContainingBlock, insetsWithin, placePopover, placeWhileMoving } from '../../lib/popover';
 import { scrollTargetFor } from '../../lib/ui-select-scroll';
 import Icon from '../Icon';
 
@@ -109,11 +109,13 @@ export default function UiSelect({
       if (event.target instanceof Node && root.current && event.target.contains(root.current)) place();
     };
     place();
+    const following = menu.current ? placeWhileMoving(menu.current, place) : () => undefined;
     window.addEventListener('resize', place);
     document.addEventListener('scroll', place, true);
     document.addEventListener('transitionend', settled, true);
     document.addEventListener('animationend', settled, true);
     return () => {
+      following();
       window.removeEventListener('resize', place);
       document.removeEventListener('scroll', place, true);
       document.removeEventListener('transitionend', settled, true);

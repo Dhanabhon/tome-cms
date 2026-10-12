@@ -86,3 +86,28 @@ export function drawnContainingBlock(panel: HTMLElement): DrawnBlock {
   probe.remove();
   return block;
 }
+
+/** True while a fixed panel's containing block is not the window: moved off its corner or drawn at another scale. */
+export function isMoving(block: DrawnBlock) {
+  return block.left !== 0 || block.top !== 0 || block.width !== block.laidOutWidth || block.height !== block.laidOutHeight;
+}
+
+/**
+ * Places a fixed `panel` again on every frame while its containing block is a box still moving
+ * in -- a dialog rising, a drawer sliding. Offsets taken once carry the panel along with the box,
+ * which keeps it beside a trigger that travels too, but not where it was kept inside the window:
+ * a panel held off the window's edge would ride the box away from that edge, and away from its
+ * field, until the box arrived. Stops once the box has arrived (one last placement against the
+ * window); the returned function stops it sooner.
+ */
+export function placeWhileMoving(panel: HTMLElement, place: () => void) {
+  let frame = 0;
+  const tick = () => {
+    place();
+    // ponytail: a box that keeps a transform for good keeps this running while the panel is open;
+    // stop once the box holds still for a frame if one ever does.
+    if (isMoving(drawnContainingBlock(panel))) frame = requestAnimationFrame(tick);
+  };
+  frame = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(frame);
+}

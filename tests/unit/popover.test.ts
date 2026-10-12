@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { insetsWithin, placePopover } from '../../src/lib/popover';
+import { insetsWithin, isMoving, placePopover } from '../../src/lib/popover';
 
 const rect = (top: number, bottom: number, left = 100, width = 200) => ({ top, bottom, left, width }) as DOMRect;
 
@@ -86,4 +86,18 @@ test('inside a box that is also scaled, the offsets are scaled with it', () => {
 
 test('a box with no size is taken at its own scale', () => {
   assert.deepEqual(insetsWithin({ ...block(10, 20), width: 0, height: 0, laidOutWidth: 0, laidOutHeight: 0, bottom: 20 }, below), { left: 90, top: 124, bottom: null });
+});
+
+test('a box is still moving while it is drawn anywhere but where it is laid out', () => {
+  assert.equal(isMoving(block()), false, 'the window');
+  // A classic scrollbar takes width from the box as laid out and as drawn alike: still the window.
+  assert.equal(isMoving({ ...block(), width: 1263, laidOutWidth: 1263 }), false, 'the window beside a scrollbar');
+  assert.equal(isMoving(block(900, 0)), true, 'a drawer still off to the side');
+  assert.equal(isMoving(block(0, 0, 0.98)), true, 'a dialog still growing into place');
+});
+
+test('a drawer with a classic scrollbar is measured from its start, which the bar does not move', () => {
+  // 448px wide, its border at 1263 and a 17px bar inside it: the box a panel is placed in is 430 wide.
+  const drawer = { left: 1264, top: 0, bottom: 800, width: 430, height: 800, laidOutWidth: 430, laidOutHeight: 800 };
+  assert.deepEqual(insetsWithin(drawer, { ...below, left: 984 }), { left: -280, top: 144, bottom: null });
 });

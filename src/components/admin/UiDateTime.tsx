@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEv
 
 import type { AdminCopy } from '../../lib/admin-i18n';
 import { addDays, addMonths, endOfWeek, formatLocal, isBefore, monthGrid, parseLocal, startOfWeek, todayLocal, type LocalParts } from '../../lib/calendar';
-import { drawnContainingBlock, insetsWithin, placePopover } from '../../lib/popover';
+import { drawnContainingBlock, insetsWithin, placePopover, placeWhileMoving } from '../../lib/popover';
 import Icon from '../Icon';
 
 interface UiDateTimeProps {
@@ -98,6 +98,7 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
       if (!panel.current?.contains(event.target as Node)) place();
     };
     place();
+    const following = panel.current ? placeWhileMoving(panel.current, place) : () => undefined;
     window.addEventListener('resize', place);
     document.addEventListener('scroll', onScroll, true);
     // A drawer still sliding in is the fixed panel's containing block (see UiSelect): placed
@@ -108,6 +109,7 @@ export default function UiDateTime({ ariaDescribedBy, disabled = false, id, inva
     document.addEventListener('transitionend', settled, true);
     document.addEventListener('animationend', settled, true);
     return () => {
+      following();
       window.removeEventListener('resize', place);
       document.removeEventListener('scroll', onScroll, true);
       document.removeEventListener('transitionend', settled, true);
