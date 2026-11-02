@@ -12,6 +12,7 @@ import { textAlign } from '../../lib/editor-align';
 import { TEXT_COLORS, textColor, type TextColor } from '../../lib/editor-color';
 import { attachment, attachmentMeta } from '../../lib/editor-attachment';
 import { linkWithFile } from '../../lib/editor-link';
+import { pageDocument, postList } from '../../lib/editor-post-list';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
 import { video, type VideoAttrs } from '../../lib/editor-video';
@@ -116,6 +117,8 @@ const editorVideo = video.extend({
 
 const buildExtensions = (copy: AdminCopy) => [
   StarterKit.configure({
+    // The document is pageDocument, below, as it is on the server.
+    document: false,
     heading: { levels: [1, 2, 3] },
     blockquote: { HTMLAttributes: { class: 'border-l-2 border-accent pl-5 italic' } },
     code: { HTMLAttributes: { class: 'rounded bg-soft px-1.5 py-0.5 font-mono text-[0.9em]' } },
@@ -126,6 +129,7 @@ const buildExtensions = (copy: AdminCopy) => [
     // one. A post that ends in a quote or a table would store a paragraph it never had.
     trailingNode: false,
   }),
+  pageDocument,
   createCodeBlock(copy),
   // includeChildren is what puts the hint inside an empty heading or list item, not only in an
   // empty document. The removed editor package set it; now it is said here.
@@ -141,6 +145,7 @@ const buildExtensions = (copy: AdminCopy) => [
   textColor,
   editorAttachment,
   editorVideo,
+  postList,
   createSlashCommand(copy),
 ];
 

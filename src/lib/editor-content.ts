@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { EditorDocument, EditorNode, Json } from '../types/cms';
 import { CODE_LANGUAGES } from './code-languages';
+import { POST_LIST_PLACEHOLDER } from './editor-post-list';
 import { imageSrcset, type ResponsiveImage } from './responsive-image';
 import { TEXT_COLORS } from './text-colors';
 
@@ -77,12 +78,13 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan'],
   },
-  // A table's wrapper, a file card's parts and a video's poster are the only things that carry
-  // a class: the wrapper is how a wide table scrolls inside its box on a phone, the card is
-  // drawn by it, and the poster is how a reader's page finds the video to play.
+  // A table's wrapper, a file card's parts, a video's poster and a post list's place are the only
+  // things that carry a class: the wrapper is how a wide table scrolls inside its box on a phone,
+  // the card is drawn by it, the poster is how a reader's page finds the video to play, and the
+  // place is where a page puts its posts. A div's data is stripped, so that place holds nothing.
   allowedClasses: {
     a: ['tome-video__play'],
-    div: ['tableWrapper'],
+    div: ['tableWrapper', 'tome-post-list'],
     figure: ['tome-video'],
     p: ['file-card'],
     // A code block is drawn by its class, its language by the one on its code, and its
@@ -199,12 +201,13 @@ export function editorText(node: EditorNode): string {
 }
 
 export function hasMeaningfulContent(node: EditorNode): boolean {
-  if (node.type === 'image' || node.type === 'attachment' || node.type === 'video') return true;
+  if (node.type === 'image' || node.type === 'attachment' || node.type === 'video' || node.type === 'postList') return true;
   if (typeof node.text === 'string' && node.text.trim()) return true;
   return (node.content ?? []).some(hasMeaningfulContent);
 }
 
 export function hasMeaningfulHtml(html: string): boolean {
+  if (html.includes(POST_LIST_PLACEHOLDER)) return true;
   let meaningful = false;
   const imageBase = 'https://tomecms.invalid';
   // The wrapper also collects plain text outside block elements; frame.text has decoded entities.

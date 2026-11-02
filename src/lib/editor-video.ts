@@ -8,7 +8,7 @@ export interface VideoAttrs extends VideoLink {
   mediaId: string | null;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MEDIA_PATH = /^\/media\/([0-9a-f-]{36})$/i;
 
 /** The attributes a stored video may have, or null. Anything else on the node is refused. */

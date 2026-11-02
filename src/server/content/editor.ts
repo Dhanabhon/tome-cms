@@ -17,6 +17,7 @@ import { codeBlock } from '../../lib/editor-code';
 import { isTextColor, textColor } from '../../lib/editor-color';
 import { attachment, type AttachmentFile } from '../../lib/editor-attachment';
 import { linkWithFile } from '../../lib/editor-link';
+import { documentHasPostList, pageDocument, postList, postListAttrs } from '../../lib/editor-post-list';
 import { tableExtensions } from '../../lib/editor-table';
 import { video, videoAttrs } from '../../lib/editor-video';
 import type { EditorDocument, EditorMark, EditorNode } from '../../types/cms';
@@ -50,6 +51,8 @@ const rawEditorContentInputSchema = z.object({ contentJson: z.unknown() }).stric
 
 export const extensions = [
   StarterKit.configure({
+    // The document is pageDocument, below: it alone can hold a post list.
+    document: false,
     heading: { levels: [1, 2, 3] },
     // No class for a quote: the sanitizer keeps none on blockquote, so the theme draws it. The
     // editor's own classes match paper's, which is why they differ. The code block is ours, below.
@@ -61,6 +64,7 @@ export const extensions = [
     // one. A post that ends in a quote or a table would store a paragraph it never had.
     trailingNode: false,
   }),
+  pageDocument,
   codeBlock,
   editorLink.configure({
     autolink: true,
@@ -76,6 +80,7 @@ export const extensions = [
   textColor,
   attachment,
   video,
+  postList,
 ];
 
 const schema = getSchema(extensions);
@@ -194,7 +199,19 @@ function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string
       // Only what a video is: a writer's extra attributes never reach the page.
       node.attrs = { ...attrs };
     }
+    if (node.type === 'postList') {
+      const attrs = postListAttrs(node.attrs);
+      if (!attrs) throw new ValidationError('A post list needs valid settings.');
+      node.attrs = { ...attrs };
+    }
     pending.push(...(node.content ?? []));
+  }
+}
+
+/** Rendering does not check a document against its schema, so a block's place is checked here. */
+function assertPostListsAtTop(document: EditorDocument): void {
+  if ((document.content ?? []).some((node) => (node.content ?? []).some(documentHasPostList))) {
+    throw new ValidationError('A post list sits at the top of the page.');
   }
 }
 
@@ -278,6 +295,7 @@ export function parseEditorContent(input: unknown): EditorDocument {
 
 /** A parsed document made safe to store: its media named by id, its cards filled from `files`. */
 export function renderEditorContent(contentJson: EditorDocument, files: ReadonlyMap<string, AttachmentFile> = new Map()): StoredEditorContent {
+  assertPostListsAtTop(contentJson);
   normalizeMediaNodes(contentJson, files);
   return { contentJson, contentHtml: renderEditorHtml(contentJson) };
 }

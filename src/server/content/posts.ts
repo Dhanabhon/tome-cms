@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { Selectable, Transaction } from 'kysely';
 import { z } from 'zod';
 
+import { documentHasPostList } from '../../lib/editor-post-list';
 import type { Post, PostLocale, PostTranslationSummary } from '../../types/cms';
 import { db } from '../db/client';
 import type { Database, PostTable } from '../db/types';
@@ -10,7 +11,7 @@ import { HttpError } from '../http/errors';
 import { stableMediaPath } from '../media/url';
 import { replacePostGroupCategories } from './categories';
 import { assertContentMedia, prepareContentWithFiles } from './content-media';
-import type { StoredEditorContent } from './editor';
+import { ValidationError, type StoredEditorContent } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -96,6 +97,13 @@ function writeConflict(error: unknown): never {
   throw error;
 }
 
+/** `prepareContentWithFiles`, for a post: a post list is a page's, whatever sent it. */
+async function preparePostContent(...args: Parameters<typeof prepareContentWithFiles>): Promise<StoredEditorContent> {
+  const content = await prepareContentWithFiles(...args);
+  if (documentHasPostList(content.contentJson)) throw new ValidationError('A post list belongs on a page.');
+  return content;
+}
+
 export async function listPosts(ownerId: string): Promise<Post[]> {
   return (await db.selectFrom('posts').selectAll()
     .where('owner_id', '=', ownerId).orderBy('updated_at', 'desc').orderBy('id').execute()).map(postFromRow);
@@ -115,7 +123,7 @@ export async function listPostTranslations(ownerId: string, translationGroupId: 
 }
 
 export async function createPost(ownerId: string, input: CreatePostInput): Promise<Post> {
-  const content = await prepareContentWithFiles(db, ownerId, input);
+  const content = await preparePostContent(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
@@ -140,7 +148,7 @@ export async function insertPostIn(
   options: { groupId?: string; prepared?: StoredEditorContent; keepSlug?: boolean } = {},
 ): Promise<Selectable<PostTable>> {
   const id = randomUUID();
-  const content = options.prepared ?? await prepareContentWithFiles(trx, ownerId, input);
+  const content = options.prepared ?? await preparePostContent(trx, ownerId, input);
   let translationGroupId: string = options.groupId ?? randomUUID();
   let locale: PostLocale;
   const coverMediaId = input.coverMediaId;
@@ -254,7 +262,7 @@ export async function duplicatePost(ownerId: string, id: string): Promise<Post> 
 }
 
 export async function updatePost(ownerId: string, input: UpdatePostInput): Promise<Post> {
-  const content = await prepareContentWithFiles(db, ownerId, input);
+  const content = await preparePostContent(db, ownerId, input);
   try {
     const row = await db.transaction().execute(async (trx) => {
       await lockOwner(trx, ownerId);
@@ -302,7 +310,7 @@ export async function updatePostStatus(
     if (!current) throw new HttpError(404, 'Post not found.');
     assertCurrentVersion(current.updated_at, input.updatedAt, 'post');
     const content = input.status === 'published'
-      ? await prepareContentWithFiles(trx, ownerId, { contentJson: current.content_json, status: input.status })
+      ? await preparePostContent(trx, ownerId, { contentJson: current.content_json, status: input.status })
       : null;
     const updated = await trx.updateTable('posts').set({
       status: input.status,
