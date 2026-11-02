@@ -1,5 +1,5 @@
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from '@tiptap/react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import { fill, type AdminCopy } from '../../../lib/admin-i18n';
 import { postList, type PostListAttrs, type PostListOption } from '../../../lib/editor-post-list';
@@ -39,14 +39,15 @@ function Rows({ attrs, copy, options }: { attrs: PostListAttrs; copy: AdminCopy;
 
 /**
  * What a block will show, in words: the preview shows the real thing. The answers are read when the
- * box is drawn, so a post deleted in another tab is marked the next time the page is opened.
+ * box is drawn and after each save, so a post deleted in another tab is marked at the next of those.
  */
 function postListView(copy: AdminCopy, pageLocale: PostLocale) {
   return function PostListView({ node, updateAttributes }: NodeViewProps) {
     const attrs = node.attrs as PostListAttrs;
     const settings = useRef<HTMLButtonElement>(null);
-    const options = useAdminList<PostListOption>(attrs.source === 'posts' ? postOptionsUrl(pageLocale) : null, 'options');
-    const categories = useAdminList<PostCategorySummary>(attrs.source === 'category' ? CATEGORIES_URL : null, 'categories');
+    const [reading, setReading] = useState(0);
+    const options = useAdminList<PostListOption>(attrs.source === 'posts' ? postOptionsUrl(pageLocale) : null, 'options', reading);
+    const categories = useAdminList<PostCategorySummary>(attrs.source === 'category' ? CATEGORIES_URL : null, 'categories', reading);
     const category = Array.isArray(categories) ? categories.find((one) => one.id === attrs.categoryId) : undefined;
     const layout = copy.blocks.postListLayouts[attrs.layout];
 
@@ -58,7 +59,11 @@ function postListView(copy: AdminCopy, pageLocale: PostLocale) {
 
     const openSettings = async () => {
       const next = await askForPostList(copy, pageLocale, attrs);
-      if (next) updateAttributes(next);
+      // The window read lists newer than this box's, so what it chose may be in none of the box's.
+      if (next) {
+        setReading((count) => count + 1);
+        updateAttributes(next);
+      }
       settings.current?.focus({ preventScroll: true });
     };
 

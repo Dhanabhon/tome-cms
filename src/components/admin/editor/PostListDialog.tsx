@@ -20,23 +20,28 @@ const LAYOUTS: PostListLayout[] = ['grid-3', 'grid-2', 'list'];
 export const postOptionsUrl = (locale: PostLocale) => `/api/admin/post-list-options?locale=${locale}`;
 export const CATEGORIES_URL = '/api/admin/categories';
 
-/** One list from the admin API: null until it answers, 'failed' if it cannot, and no read at all for no address. */
-export function useAdminList<T>(url: string | null, key: string): T[] | 'failed' | null {
-  const [answer, setAnswer] = useState<T[] | 'failed' | null>(null);
+/**
+ * One list from the admin API: null until it answers, 'failed' if it cannot, and no read at all for
+ * no address. A new `reading` reads again, and the last answer is not returned while it does: it may
+ * not know what was just chosen, and would call that missing.
+ */
+export function useAdminList<T>(url: string | null, key: string, reading = 0): T[] | 'failed' | null {
+  const asked = `${url}#${reading}`;
+  const [answer, setAnswer] = useState<{ asked: string; list: T[] | 'failed' } | null>(null);
   useEffect(() => {
     if (!url) return;
     let current = true;
-    setAnswer(null);
+    const settle = (list: T[] | 'failed') => { if (current) setAnswer({ asked, list }); };
     fetch(url)
       .then(async (response) => {
         if (!response.ok) throw new Error(`${url} answered ${response.status}.`);
         return (await response.json() as Record<string, T[]>)[key];
       })
-      .then((list) => { if (current) setAnswer(list ?? 'failed'); })
-      .catch(() => { if (current) setAnswer('failed'); });
+      .then((list) => settle(list ?? 'failed'))
+      .catch(() => settle('failed'));
     return () => { current = false; };
-  }, [key, url]);
-  return answer;
+  }, [asked, key, url]);
+  return answer?.asked === asked ? answer.list : null;
 }
 
 interface PostListDialogProps {

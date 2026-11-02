@@ -617,6 +617,37 @@ test.describe('the page editor', () => {
     expect(await topLevel(page)).toEqual(['postList', 'p', 'p']);
   });
 
+  test('what was written after the box was drawn is named once it is chosen', async ({ context, page }) => {
+    await openNewPage(context, page, 'Chosen after drawing');
+    await insertPicked(page, TITLES.second);
+    await expect(box(page).locator('li')).toHaveText([TITLES.second]);
+
+    // As another tab would, with this one left open.
+    const { createCategory } = await import('../../src/server/content/categories');
+    const { createPost } = await import('../../src/server/content/posts');
+    const fresh = await createCategory(OWNER, 'Made later');
+    await createPost(OWNER, {
+      title: 'Written later', slug: 'written-later', excerpt: '', contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A post.' }] }] },
+      categoryIds: [fresh.id], coverMediaId: null, metaTitle: null, metaDescription: null, status: 'published', publishedAt: new Date(Date.now() - 3_600_000).toISOString(),
+    });
+
+    await box(page).getByRole('button', { name: 'Post list settings' }).click();
+    await tick(page, 'Written later').check();
+    await save(page).click();
+    await expect(settings(page)).toHaveCount(0);
+    await expect(box(page).locator('li')).toHaveText([TITLES.second, 'Written later']);
+    await expect(box(page)).not.toContainText('no longer shows');
+
+    await box(page).getByRole('button', { name: 'Post list settings' }).click();
+    await settings(page).getByRole('radio', { name: 'A category' }).check();
+    await settings(page).getByRole('combobox', { name: 'Category' }).click();
+    await page.getByRole('option', { name: 'Made later', exact: true }).click();
+    await save(page).click();
+    await expect(settings(page)).toHaveCount(0);
+    await expect(box(page)).toContainText('Newest from Made later');
+    await expect(box(page)).not.toContainText('was deleted');
+  });
+
   test('a read that fails says so and marks nothing', async ({ context, page }) => {
     await signIn(context, page);
     const { createPage } = await import('../../src/server/content/pages');
