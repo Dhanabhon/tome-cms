@@ -201,7 +201,8 @@ function normalizeMediaNodes(document: EditorDocument, files: ReadonlyMap<string
     }
     if (node.type === 'postList') {
       const attrs = postListAttrs(node.attrs);
-      if (!attrs) throw new ValidationError('A post list needs valid settings.');
+      // A mark would wrap the placeholder in the stored HTML, where a page splits its body.
+      if (!attrs || node.content?.length || node.marks?.length) throw new ValidationError('A post list needs valid settings.');
       node.attrs = { ...attrs };
     }
     pending.push(...(node.content ?? []));

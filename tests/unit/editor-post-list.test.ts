@@ -71,6 +71,12 @@ test('a nested block is refused', () => {
   assert.throws(() => prepareEditorContent({ contentJson: nested }), ValidationError);
 });
 
+test('a block refuses marks, which would wrap its place in the stored HTML, and content, which would hide in its JSON', () => {
+  const stored = (extra: Record<string, unknown>) => prepareEditorContent({ contentJson: { type: 'doc', content: [{ type: 'postList', attrs: hand, ...extra }] } });
+  assert.throws(() => stored({ marks: [{ type: 'bold' }] }), ValidationError);
+  assert.throws(() => stored({ content: [{ type: 'text', text: 'smuggled' }] }), ValidationError);
+});
+
 test('the clipboard form round-trips through parseHTML', () => {
   for (const attrs of [hand, whole]) assert.deepEqual(parse(serialize(attrs)).content?.[0], { type: 'postList', attrs });
 });
