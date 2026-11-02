@@ -31,6 +31,30 @@ A page has no categories and no cover image. "Settings" opens "Page settings":
 
 With the "Jev (TypeSafe AI)" plugin on, the drawer offers a line for the excerpt and a passage for the search description, as it does for a post.
 
+## Showing posts on a page
+
+A page can show posts among its own text, such as a portfolio page with an introduction and then the work. Choose "Post list" from the "+" menu or from `/`. It is for pages only: a post has no such block.
+
+Put it anywhere in the page, and as many as you like. A block has no heading of its own, so add a heading above it the way you would above any text. In the editor the block is a box that says what it shows, with "Post list settings" beside it. The editor does not draw the cards. "Preview" shows the page as a reader sees it, cards included.
+
+"Post list settings" opens a window with three choices.
+
+| Choice | What it does |
+| --- | --- |
+| "What it shows" | "Posts I pick" or "A category". One block has one source. For both on one page, add two blocks. |
+| "Layout" | "Grid, 2 columns", "Grid, 3 columns" or "List". A new block starts as "Grid, 3 columns". |
+| "How many posts (1 to 24)" | For "A category" only. A new block starts at 6. |
+
+With "Posts I pick", search by title and tick the posts you want, up to 24. "In this order" lists them in the order the page shows them, and each has buttons to move it up or down, or to remove it. With "A category", choose one under "Category". The block shows its newest posts, newest first, and a post you publish there later joins the block by itself.
+
+A grid uses the number of columns you chose only where the screen is wide enough: a narrow screen uses fewer, and a phone shows one. Each card is the one that theme uses on its home page, so "Plain", whose cards have no cover image, shows a grid of text. When a category holds more posts than the block shows, "See all" under the block goes to the category's page. A block of picked posts has no such link.
+
+Each language's page holds its own block. A block shows each post's edition in the page's language, and leaves out a post that has none. A Thai page and an English page therefore need a block each.
+
+Deleting or unpublishing a post is never held up by a block, and nothing warns you. The public page leaves that post out. A block with nothing left shows nothing at all, not even an empty box. Back in the editor, the block says which picked posts no longer show. Deleting a category moves its posts to the default category, so a block that showed it becomes empty.
+
+A block does not appear through the content API: a page's `contentHtml` has no post list in it.
+
 ## Menus
 
 "Navigation", under "Content", keeps four menus: "Header menu" and "Footer", each in Thai and in English. A reader sees the menus of the language they are reading in, and the theme decides where on the page each one goes.
