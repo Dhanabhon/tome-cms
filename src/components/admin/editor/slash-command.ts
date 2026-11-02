@@ -3,11 +3,12 @@ import { ReactRenderer } from '@tiptap/react';
 import Suggestion from '@tiptap/suggestion';
 
 import type { AdminCopy } from '../../../lib/admin-i18n';
+import type { PostLocale } from '../../../types/cms';
 import SlashMenu, { type SlashMenuHandle } from './SlashMenu';
 import { commandItems, type SlashItem } from './slash-items';
 
 /** The menu's labels follow the owner's language, so the extension is built per editor. */
-export const createSlashCommand = (copy: AdminCopy) => Extension.create({
+export const createSlashCommand = (copy: AdminCopy, pageLocale?: PostLocale) => Extension.create({
   name: 'slashCommand',
   addProseMirrorPlugins() {
     return [
@@ -17,7 +18,7 @@ export const createSlashCommand = (copy: AdminCopy) => Extension.create({
         editor: this.editor,
         items: ({ editor, query }) => {
           const asked = query.trim().toLowerCase();
-          return commandItems(copy, editor.isActive('table')).filter((item) => !asked
+          return commandItems(copy, editor.isActive('table'), pageLocale).filter((item) => !asked
             || item.title.toLowerCase().includes(asked)
             || item.searchTerms.some((term) => term.includes(asked)));
         },

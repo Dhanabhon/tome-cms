@@ -19,6 +19,13 @@ export interface PostListAttrs {
   layout: PostListLayout;
 }
 
+/** A post as the settings window and the editor's box name it. */
+export interface PostListOption {
+  groupId: string;
+  title: string;
+  status: 'published' | 'scheduled' | 'draft';
+}
+
 const KEYS: ReadonlySet<string> = new Set(['source', 'postGroupIds', 'categoryId', 'limit', 'layout']);
 const isLayout = (value: unknown): value is PostListLayout => value === 'grid-2' || value === 'grid-3' || value === 'list';
 const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);

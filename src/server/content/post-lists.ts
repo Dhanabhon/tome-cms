@@ -1,5 +1,5 @@
 import { categoryPath } from '../../lib/i18n';
-import { documentPostLists, type PostListAttrs, type PostListLayout } from '../../lib/editor-post-list';
+import { documentPostLists, type PostListAttrs, type PostListLayout, type PostListOption } from '../../lib/editor-post-list';
 import { getPublicAuthorProfile } from '../../lib/profile';
 import type { EditorDocument, Page, PostLocale } from '../../types/cms';
 import type { ThemeHomePost, ThemePageProps } from '../../themes/contract';
@@ -38,6 +38,26 @@ async function pickedPosts(ownerId: string, locale: PostLocale, attrs: PostListA
   const byGroup = new Map((await enrichPosts(ownerId, rows.map(postFromRow))).map((post) => [post.translation_group_id, post]));
   // A group without a live edition in this language is skipped.
   return { posts: attrs.postGroupIds.flatMap((group) => byGroup.get(group) ?? []), moreHref: null };
+}
+
+// shortcut: a site past 1000 posts sees only the newest 1000 in the picker, and an older chosen post
+// reads as missing; move the search to the server when one does.
+const OPTIONS_LIMIT = 1000;
+
+/** Every post of a language, by its columns alone: `listPosts` would read whole documents to name them. */
+export async function listPostListOptions(ownerId: string, locale: PostLocale): Promise<PostListOption[]> {
+  const rows = await db.selectFrom('posts')
+    .select(['translation_group_id', 'title', 'status', live('posts').as('is_live')])
+    .where('owner_id', '=', ownerId)
+    .where('locale', '=', locale)
+    .orderBy('updated_at', 'desc')
+    .limit(OPTIONS_LIMIT)
+    .execute();
+  return rows.map((row) => ({
+    groupId: row.translation_group_id,
+    title: row.title,
+    status: row.is_live ? 'published' : row.status === 'published' ? 'scheduled' : 'draft',
+  }));
 }
 
 /** One entry per block, in the order the page shows them. */

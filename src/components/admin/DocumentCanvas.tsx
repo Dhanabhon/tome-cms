@@ -12,7 +12,7 @@ import { textAlign } from '../../lib/editor-align';
 import { TEXT_COLORS, textColor, type TextColor } from '../../lib/editor-color';
 import { attachment, attachmentMeta } from '../../lib/editor-attachment';
 import { linkWithFile } from '../../lib/editor-link';
-import { pageDocument, postList } from '../../lib/editor-post-list';
+import { pageDocument } from '../../lib/editor-post-list';
 import { tableExtensions } from '../../lib/editor-table';
 import { promptWithToggleUi } from '../../lib/ui-dialog';
 import { video, type VideoAttrs } from '../../lib/editor-video';
@@ -21,6 +21,7 @@ import Icon from '../Icon';
 import AlignButtons from './AlignButtons';
 import BlockInsertMenu from './BlockInsertMenu';
 import { createCodeBlock } from './editor/CodeBlockView';
+import { createEditorPostList } from './editor/PostListView';
 import { handleImageDrop, handleImagePaste, imageUploadPlugin } from './editor/editor-image-upload';
 import { createSlashCommand } from './editor/slash-command';
 import { handleVideoPaste } from './editor/video-insert';
@@ -35,6 +36,8 @@ interface DocumentCanvasProps {
   initialContent: JSONContent;
   onChange: (contentJson: JSONContent) => void;
   ownerLocale?: PostLocale | null;
+  /** Set on a page only: it allows the post list block, and names the language it shows. */
+  pageLocale?: PostLocale;
 }
 
 const editorImage = Image.extend({
@@ -115,7 +118,7 @@ const editorVideo = video.extend({
   },
 });
 
-const buildExtensions = (copy: AdminCopy) => [
+const buildExtensions = (copy: AdminCopy, pageLocale?: PostLocale) => [
   StarterKit.configure({
     // The document is pageDocument, below, as it is on the server.
     document: false,
@@ -145,8 +148,8 @@ const buildExtensions = (copy: AdminCopy) => [
   textColor,
   editorAttachment,
   editorVideo,
-  postList,
-  createSlashCommand(copy),
+  createEditorPostList(copy, pageLocale),
+  createSlashCommand(copy, pageLocale),
 ];
 
 function normalizedLink(value: string): string | null {
@@ -325,10 +328,10 @@ function FormattingBubble({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?
   );
 }
 
-export default function DocumentCanvas({ initialContent, onChange, ownerLocale }: DocumentCanvasProps) {
+export default function DocumentCanvas({ initialContent, onChange, ownerLocale, pageLocale }: DocumentCanvasProps) {
   const copy = adminCopy(ownerLocale);
-  // Rebuilding the extension list would reset the editor, so it is tied to the copy only.
-  const extensions = useMemo(() => buildExtensions(copy), [copy]);
+  // Rebuilding the extension list would reset the editor, so it is tied to these two only.
+  const extensions = useMemo(() => buildExtensions(copy, pageLocale), [copy, pageLocale]);
   const uploadFn = useMemo(() => createUploadFn(copy), [copy]);
   // The paste handler is built before useEditor returns the instance it needs, so it reads the
   // editor from a ref that is set right after.
@@ -360,7 +363,7 @@ export default function DocumentCanvas({ initialContent, onChange, ownerLocale }
         <FormattingBubble copy={copy} ownerLocale={ownerLocale} />
         <TableBubble copy={copy} />
         <ImageBubble copy={copy} ownerLocale={ownerLocale} />
-        <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} />
+        <BlockInsertMenu copy={copy} ownerLocale={ownerLocale} pageLocale={pageLocale} />
       </div>
     </EditorContext.Provider>
   );

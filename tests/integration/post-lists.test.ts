@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { runWithEndpointContext } from '@better-auth/core/context';
+import { makeSignature } from 'better-auth/crypto';
+
 import type { PostListAttrs } from '../../src/lib/editor-post-list';
 import type { EditorDocument } from '../../src/types/cms';
 
@@ -162,4 +165,46 @@ test('a page\'s post lists resolve to the posts a reader may see', async (contex
   const bare = await pagePostListProps({ locale: 'en', content_json: { type: 'doc', content: [{ type: 'paragraph' }] } });
   assert.deepEqual(bare, {}, 'a page with no block gets nothing');
   assert.equal('profile' in bare, false);
+
+  // The settings window's list: every post of that language, whatever its status.
+  const { listPostListOptions } = await import('../../src/server/content/post-lists');
+  const english = new Map((await listPostListOptions('owner', 'en')).map((option) => [option.groupId, option]));
+  assert.deepEqual(english.get(group(1)), { groupId: group(1), title: 'en 1', status: 'published' });
+  assert.equal(english.get(group(5))?.status, 'draft');
+  assert.equal(english.get(group(6))?.status, 'scheduled', 'a future date is not yet published');
+  assert.equal(english.has(group(4)), false, 'no row for another language');
+  assert.equal(english.has(group(7)), false, 'no row for a deleted post');
+  const thaiOptions = await listPostListOptions('owner', 'th');
+  assert.deepEqual(thaiOptions.find((option) => option.groupId === group(4)), { groupId: group(4), title: 'th 4', status: 'published' });
+  assert.equal(thaiOptions.filter((option) => option.groupId === group(1)).length, 1, 'one row per post');
+  assert.deepEqual(await listPostListOptions('someone else', 'en'), [], 'only the owner\'s');
+  await db.updateTable('posts').set({ updated_at: new Date(Date.now() + 60_000) }).where('id', '=', id('1', 21)).execute();
+  assert.equal((await listPostListOptions('owner', 'en'))[0]?.groupId, group(2), 'the newest edit first');
+
+  // Its route.
+  const { GET } = await import('../../src/pages/api/admin/post-list-options');
+  const ask = (query: string, headers: Record<string, string> = {}) => GET({
+    request: new Request(`http://localhost:4321/api/admin/post-list-options?${query}`, { headers }),
+  } as unknown as Parameters<typeof GET>[0]);
+  assert.equal((await ask('locale=en')).status, 401, 'signed out');
+
+  // A signed-in owner, as a browser would be: the session is bound to a passkey.
+  await db.insertInto('passkey').values({
+    id: 'lists-passkey', name: 'Lists', publicKey: 'lists-key', userId: 'owner', credentialID: 'lists-credential', counter: 0,
+    deviceType: 'singleDevice', backedUp: false, transports: '', aaguid: null,
+  }).execute();
+  const { auth } = await import('../../src/server/auth/config');
+  const authContext = await auth.$context;
+  const session = await runWithEndpointContext({
+    context: authContext as unknown as Parameters<typeof runWithEndpointContext>[0]['context'],
+    path: '/passkey/verify-authentication',
+    body: { response: { id: 'lists-credential' } },
+  }, () => authContext.internalAdapter.createSession('owner'));
+  const owner = { Cookie: `${authContext.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, authContext.secret)}` };
+  assert.equal((await ask('locale=fr', owner)).status, 400, 'a language that is not one');
+  assert.equal((await ask('', owner)).status, 400, 'no language');
+  const answer = await ask('locale=th', owner);
+  assert.equal(answer.status, 200);
+  assert.equal(answer.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual((await answer.json() as { options: unknown[] }).options, await listPostListOptions('owner', 'th'));
 });

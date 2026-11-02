@@ -122,6 +122,24 @@
 }
 
 .ui-dialog__surface { padding: var(--space-lg); }
+/* Holds a list to pick from and the list picked, so it takes more of the window than a question. */
+.post-list-dialog { width: min(calc(100% - (var(--space-md) * 2)), 40rem); }
+.post-list-dialog__surface { display: grid; gap: var(--space-md); }
+.post-list-dialog fieldset { margin: 0; padding: 0; border: 0; }
+.post-list-dialog h3 { margin: 0 0 var(--space-2xs); font-size: var(--text-sm); font-weight: 500; }
+.post-list-dialog__options, .post-list-dialog__chosen { display: grid; margin: 0; padding: 0; list-style: none; }
+.post-list-dialog__options { max-height: 14rem; min-height: 4rem; overflow-y: auto; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-input); }
+.post-list-dialog__options label { display: flex; align-items: center; gap: var(--space-xs); min-height: var(--control-height); padding: var(--space-3xs) var(--space-sm); font-size: var(--text-sm); cursor: pointer; }
+.post-list-dialog__options label:has(input:disabled) { color: var(--color-muted); cursor: not-allowed; }
+.post-list-dialog__options input { flex: none; width: 1.125rem; height: 1.125rem; margin: 0; accent-color: var(--color-accent); }
+.post-list-dialog__options span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.post-list-dialog__options small { flex: none; color: var(--color-muted); font-size: var(--text-xs); }
+.post-list-dialog__options > .admin-hint { padding: var(--space-sm); }
+.post-list-dialog__chosen li { display: flex; align-items: center; gap: var(--space-xs); padding-block: var(--space-3xs); border-block-start: var(--rule-hair) solid var(--color-rule); }
+.post-list-dialog__chosen li:first-child { border-block-start: 0; }
+.post-list-dialog__chosen li > span:first-child { flex: 1; min-width: 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.post-list-dialog__row-actions { display: flex; flex: none; }
+.post-list-dialog .ui-dialog__actions { margin-block-start: 0; }
 .ui-dialog__message { margin: var(--space-sm) 0 0; color: var(--color-muted); line-height: 1.55; }
 .ui-dialog__field { display: grid; gap: var(--space-2xs); margin-block-start: var(--space-lg); font-size: var(--text-sm); font-weight: 500; }
 .ui-dialog__input {

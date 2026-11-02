@@ -5,7 +5,9 @@ import Icon from '../../Icon';
 import type { AdminCopy } from '../../../lib/admin-i18n';
 import { PICK_FILE_EVENT } from '../../../lib/editor-attachment';
 import { NEW_TABLE } from '../../../lib/editor-table';
+import type { PostLocale } from '../../../types/cms';
 import { tableActions } from '../TableBubble';
+import { addPostList } from './post-list-insert';
 import { askForVideo } from './video-insert';
 
 export interface SlashItem {
@@ -16,7 +18,7 @@ export interface SlashItem {
   title: string;
 }
 
-export const commandItems = (copy: AdminCopy, inTable: boolean): SlashItem[] => [
+export const commandItems = (copy: AdminCopy, inTable: boolean, pageLocale?: PostLocale): SlashItem[] => [
   // Inside a table, what can be done to it comes first: this is how a keyboard reaches it.
   ...(inTable ? tableActions(copy).map((action) => ({
     title: action.label,
@@ -97,4 +99,15 @@ export const commandItems = (copy: AdminCopy, inTable: boolean): SlashItem[] => 
       void askForVideo(editor, editor.state.selection.from, copy);
     },
   }]),
+  // On a page only, and not in a cell: a block lives at the top of the document.
+  ...(pageLocale && !inTable ? [{
+    title: copy.blocks.postList,
+    description: copy.blocks.postListHint,
+    icon: <Icon name="list" />,
+    searchTerms: ['post', 'posts', 'list', 'บทความ', 'รายการ'],
+    command: ({ editor, range }: { editor: Editor; range: Range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      void addPostList(editor, copy, pageLocale);
+    },
+  }] : []),
 ];

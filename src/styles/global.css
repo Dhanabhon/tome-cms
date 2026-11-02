@@ -706,6 +706,18 @@ a.tome-video__play:focus-visible { outline: 2px solid var(--color-focus); outlin
 .editor-content .ProseMirror-selectednode.tome-video { outline: none; }
 .ProseMirror-selectednode.tome-video > .tome-video__play { outline: 2px solid var(--color-focus); outline-offset: var(--space-3xs); }
 
+/* A post list while it is written: what it will show, in words. The preview shows the real thing. */
+.post-list-box { display: grid; gap: var(--space-xs); margin-block: var(--space-md); padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-sm); line-height: 1.45; }
+.post-list-box__head { display: flex; align-items: center; gap: var(--space-sm); }
+.post-list-box__head > .icon { flex: none; width: 1.25rem; height: 1.25rem; color: var(--color-accent); }
+.post-list-box__summary { display: grid; flex: 1; min-width: 0; }
+.post-list-box__summary > span { color: var(--color-muted); font-size: var(--text-xs); }
+.post-list-box .post-list-box__rows { display: grid; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; }
+.post-list-box .post-list-box__rows li { margin: 0; padding: 0; overflow-wrap: anywhere; }
+.post-list-box small { color: var(--color-muted); font-size: var(--text-xs); }
+.post-list-box p { margin: 0; }
+.post-list-box__off { color: var(--color-error-ink); }
+
 /* A table while it is written: every cell ruled, so an empty one can be seen and clicked into,
  * and cells chosen together tinted, which the browser's own selection does not show. */
 .editor-content .ProseMirror :is(th, td) {

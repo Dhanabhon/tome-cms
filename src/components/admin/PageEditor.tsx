@@ -419,7 +419,7 @@ export default function PageEditor({ adminPath, canSuggest = false, initialPage,
             value={title}
           />
 
-          <DocumentCanvas initialContent={contentJson} ownerLocale={ownerLocale} onChange={(nextContentJson) => {
+          <DocumentCanvas initialContent={contentJson} ownerLocale={ownerLocale} pageLocale={locale} onChange={(nextContentJson) => {
             setContentJson(nextContentJson);
             markDirty();
           }} />

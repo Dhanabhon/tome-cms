@@ -8,6 +8,7 @@ import { NEW_TABLE } from '../../lib/editor-table';
 import { isImageAsset, pictureAttrs, type MediaKind } from '../../lib/media';
 import type { MediaAsset, PostLocale } from '../../types/cms';
 import Icon from '../Icon';
+import { addPostList } from './editor/post-list-insert';
 import { askForVideo } from './editor/video-insert';
 import MediaPicker from './MediaPicker';
 
@@ -32,7 +33,7 @@ function caretAfterCard({ commands, tr }: CommandProps): boolean {
     : commands.insertContentAt(after, { type: 'paragraph' });
 }
 
-export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null }) {
+export default function BlockInsertMenu({ copy, ownerLocale, pageLocale }: { copy: AdminCopy; ownerLocale?: PostLocale | null; pageLocale?: PostLocale }) {
   const { editor } = useCurrentEditor();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -190,6 +191,15 @@ export default function BlockInsertMenu({ copy, ownerLocale }: { copy: AdminCopy
         void askForVideo(editor, position, copy);
       },
     }] as const),
+    // On a page only, and not in a cell: a block lives at the top of the document.
+    ...(pageLocale && !inTable ? [{
+      icon: 'list',
+      label: copy.blocks.postList,
+      run: () => {
+        setMenuOpen(false);
+        void addPostList(editor, copy, pageLocale);
+      },
+    }] as const : []),
   ] as const;
 
   const runAction = (index: number) => {
