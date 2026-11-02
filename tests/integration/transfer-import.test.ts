@@ -443,6 +443,148 @@ test("the archive's default is the site's renamed one, once, whichever of its na
   }
 });
 
+const postListBlock = (attrs: Record<string, unknown>) =>
+  ({ type: 'postList', attrs: { source: 'posts', postGroupIds: [], categoryId: null, limit: 6, layout: 'grid-3', ...attrs } });
+
+/** A fresh site, as an install leaves it. */
+async function emptySite(): Promise<void> {
+  const { migrateToLatest } = await import('../../src/server/db/migrator');
+  await sql`drop schema public cascade; create schema public;`.execute(m.db);
+  await migrateToLatest();
+  await seedSite();
+}
+
+/** A page's blocks once it is stored. */
+async function storedBlocks(slug: string): Promise<Array<Record<string, unknown> | undefined>> {
+  const page = await m.db.selectFrom('pages').select('content_json').where('slug', '=', slug).executeTakeFirstOrThrow();
+  return (page.content_json.content ?? []).filter((node) => node.type === 'postList').map((node) => node.attrs);
+}
+
+const GONE = '99999999-9999-4999-8999-999999999999';
+
+test('an import onto an empty site repoints blocks at new groups and categories', async () => {
+  const { createPost } = await import('../../src/server/content/posts');
+  const { createPage } = await import('../../src/server/content/pages');
+  const { exportSite } = await import('../../src/server/transfer/export');
+  await emptySite();
+  // Renamed here only: the block on the default must land on the other site's, not make a new one.
+  await m.db.updateTable('categories').set({ name: 'ไม่มีหมวดหมู่' }).where('is_default', '=', true).execute();
+  const fallback = await m.db.selectFrom('categories').select('id').where('is_default', '=', true).executeTakeFirstOrThrow();
+  const [baking, rye] = await m.db.insertInto('categories').values([
+    { owner_id: OWNER, name: 'Baking', slug: 'baking', is_default: false },
+    { owner_id: OWNER, name: 'Rye', slug: 'rye-loaves', description_th: 'ไรย์', description_en: 'Dark.', is_default: false },
+  ]).returning('id').execute();
+  const common = { metaTitle: null, metaDescription: null, excerpt: '', coverMediaId: null };
+  const loaf = await createPost(OWNER, {
+    ...common, title: 'Loaf', slug: 'loaf', contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Bread.' }] }] },
+    status: 'published', publishedAt: '2026-09-01T08:00:00.000Z', categoryIds: [baking!.id], showCover: true,
+  });
+  const archivedBlocks = [
+    postListBlock({ postGroupIds: [GONE, loaf.translation_group_id] }),
+    postListBlock({ source: 'category', categoryId: baking!.id, layout: 'list' }),
+    postListBlock({ source: 'category', categoryId: rye!.id, limit: 3 }),
+    postListBlock({ source: 'category', categoryId: fallback.id }),
+  ];
+  await createPage(OWNER, {
+    metaTitle: null, metaDescription: null, excerpt: '', title: 'Shelf', slug: 'shelf', status: 'published', publishedAt: '2026-09-01T08:00:00.000Z',
+    contentJson: { type: 'doc', content: archivedBlocks } as EditorDocument,
+  });
+  const root = await tempDirectory();
+  await exportSite(root);
+  await emptySite();
+
+  const result = await m.applyImport(root, OWNER);
+  // The page's file sorts before its post's, and every block on it still finds the post.
+  assert.deepEqual(result.create.map(({ path }) => path), ['pages/th/shelf.md', 'posts/th/loaf.md']);
+  assert.deepEqual(result.categoriesToCreate, ['Baking', 'Rye'], 'a category no post is in comes across, and the default does not');
+  const post = await m.db.selectFrom('posts').select('translation_group_id').where('slug', '=', 'loaf').executeTakeFirstOrThrow();
+  assert.notEqual(post.translation_group_id, loaf.translation_group_id);
+  const categories = await m.db.selectFrom('categories').select(['id', 'name', 'slug', 'description_th', 'description_en', 'is_default']).execute();
+  const named = (name: string) => categories.find((row) => row.name === name)!;
+  assert.deepEqual({ ...named('Rye'), id: undefined }, { id: undefined, name: 'Rye', slug: 'rye-loaves', description_th: 'ไรย์', description_en: 'Dark.', is_default: false });
+  assert.equal(categories.length, 3);
+  assert.notEqual(named('Baking').id, baking!.id);
+  assert.deepEqual(await storedBlocks('shelf'), [
+    { source: 'posts', postGroupIds: [post.translation_group_id], categoryId: null, limit: 6, layout: 'grid-3' },
+    { source: 'category', postGroupIds: [], categoryId: named('Baking').id, limit: 6, layout: 'list' },
+    { source: 'category', postGroupIds: [], categoryId: named('Rye').id, limit: 3, layout: 'grid-3' },
+    { source: 'category', postGroupIds: [], categoryId: named('Uncategorized').id, limit: 6, layout: 'grid-3' },
+  ], 'each id is this site\'s, and no block keeps a name');
+});
+
+test('the imported page draws its posts', async () => {
+  const { resolvePostLists } = await import('../../src/server/content/post-lists');
+  const page = await m.db.selectFrom('pages').select('content_json').where('slug', '=', 'shelf').executeTakeFirstOrThrow();
+  const lists = await resolvePostLists(page.content_json, 'th');
+  assert.deepEqual(lists.map(({ layout, posts }) => ({ layout, slugs: posts.map(({ slug }) => slug) })), [
+    { layout: 'grid-3', slugs: ['loaf'] },
+    { layout: 'list', slugs: ['loaf'] },
+    { layout: 'grid-3', slugs: [] },
+    { layout: 'grid-3', slugs: [] },
+  ]);
+});
+
+test('an import onto a site holding the post resolves by locale and slug', async () => {
+  const { createPost } = await import('../../src/server/content/posts');
+  const common = { metaTitle: null, metaDescription: null, excerpt: '', coverMediaId: null, contentJson: { type: 'doc', content: [] } as EditorDocument, status: 'draft' as const, publishedAt: null };
+  const thai = await createPost(OWNER, { ...common, title: 'ข้าว', slug: 'held-th', categoryIds: [], showCover: true });
+  await createPost(OWNER, { ...common, title: 'Held', slug: 'held-en', categoryIds: [], showCover: true, locale: 'en', sourcePostId: thai.id });
+  // The same slug in the other language is a different post, and must not be the one found.
+  const other = await createPost(OWNER, { ...common, title: 'Other', slug: 'held-th', categoryIds: [], showCover: true, locale: 'en' });
+  const [en, th, split] = [randomUUID(), randomUUID(), randomUUID()];
+  const root = await tempDirectory();
+  await writeTree(root, {
+    'pages/en/holding.md': `---\ntitle: Holding\nslug: holding\n---\n`,
+    'pages/en/holding.tome.json': JSON.stringify({ type: 'doc', content: [postListBlock({ postGroupIds: [en, th] }), postListBlock({ postGroupIds: [split] })] }),
+    // Two archive groups that are one group here: the block holds it once, or it could not be saved.
+    'posts/en/held-en.md': `---\ntitle: Held\nslug: held-en\nlanguage: en\ntranslation: ${en}\n---\n`,
+    'posts/th/held-th.md': `---\ntitle: ข้าว\nslug: held-th\nlanguage: th\ntranslation: ${th}\n---\n`,
+    // One edition here already and one new: the block follows the group the import writes.
+    'posts/en/held-th.md': `---\ntitle: Taken\nslug: held-th\nlanguage: en\ntranslation: ${split}\n---\n`,
+    'posts/th/fresh.md': `---\ntitle: ใหม่\nslug: split-new\nlanguage: th\ntranslation: ${split}\n---\n`,
+  });
+  const result = await m.applyImport(root, OWNER);
+  assert.deepEqual(result.skip.map(({ path }) => path), ['posts/en/held-en.md', 'posts/en/held-th.md', 'posts/th/held-th.md']);
+  const fresh = await m.db.selectFrom('posts').select('translation_group_id').where('slug', '=', 'split-new').executeTakeFirstOrThrow();
+  assert.notEqual(fresh.translation_group_id, other.translation_group_id);
+  const [first, second] = await storedBlocks('holding');
+  assert.deepEqual(first?.postGroupIds, [thai.translation_group_id]);
+  assert.deepEqual(second?.postGroupIds, [fresh.translation_group_id]);
+});
+
+test('an id that resolves to nothing is dropped', async () => {
+  const root = await tempDirectory();
+  const archived = randomUUID();
+  await writeTree(root, {
+    'pages/en/unlinked.md': `---\ntitle: Unlinked\nslug: unlinked\n---\n`,
+    'pages/en/unlinked.tome.json': JSON.stringify({
+      type: 'doc',
+      content: [
+        postListBlock({ postGroupIds: [GONE] }),
+        // No name to go by, so its archived id stands, and reads as a deleted category.
+        postListBlock({ source: 'category', categoryId: archived }),
+        // A name on a block that is not a category's: it goes, and creates nothing.
+        postListBlock({ categoryName: 'Nothing' }),
+      ],
+    }),
+  });
+  const result = await m.applyImport(root, OWNER);
+  assert.deepEqual(result.categoriesToCreate, []);
+  const base = { source: 'posts', postGroupIds: [], categoryId: null, limit: 6, layout: 'grid-3' };
+  assert.deepEqual(await storedBlocks('unlinked'), [base, { ...base, source: 'category', categoryId: archived }, base]);
+});
+
+test('a post list in a post refuses the import by the post\'s file, and nothing is written', async () => {
+  const before = await rowCounts();
+  const root = await tempDirectory();
+  await writeTree(root, {
+    'posts/en/listed.md': `---\ntitle: Listed\nslug: listed\n---\n`,
+    'posts/en/listed.tome.json': JSON.stringify({ type: 'doc', content: [postListBlock({})] }),
+  });
+  await assert.rejects(m.applyImport(root, OWNER), refusal('content_invalid', 'posts/en/listed.md'));
+  assert.deepEqual(await rowCounts(), before);
+});
+
 test('tome import --apply that fails after a picture was queued waits for its copies before it closes, and its own error is the one thrown', async (context) => {
   const { importContent } = await import('../../src/server/transfer/cli');
   const work = await realpath(await tempDirectory());

@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { Selectable, Transaction } from 'kysely';
 
+import { documentPostLists } from '../../lib/editor-post-list';
 import type { EditorDocument, EditorMark, EditorNode } from '../../types/cms';
 import type { Database, MediaItemTable, PageTable, PostTable } from '../db/types';
 import { isTomeObjectKey, isUuid } from '../media/keys';
@@ -51,8 +52,10 @@ interface Site {
   posts: Post[];
   pages: Page[];
   categories: Map<string, string[]>;
-  /** Each category the posts are in, but the default, by name. */
+  /** Each category the posts are in or a page's post list shows, but the default, by name. */
   categoryDetails: Map<string, ArchiveCategory>;
+  /** Every category's name, by its id: an archive names a post list's category, since ids do not travel. */
+  categoryNames: Map<string, string>;
   /** What the default category is called, when there is one. */
   defaultCategory: string | undefined;
   media: Map<string, Media>;
@@ -89,8 +92,15 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
     categories.set(group, [...categories.get(group) ?? [], name]);
     if (!isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
   }
-  const defaultCategory = (await trx.selectFrom('categories').select('name')
-    .where('owner_id', '=', settings.owner_id).where('is_default', '=', true).executeTakeFirst())?.name;
+  const owned = await trx.selectFrom('categories').select(['id', 'name', 'slug', 'description_th', 'description_en', 'is_default'])
+    .where('owner_id', '=', settings.owner_id).execute();
+  const defaultCategory = owned.find(({ is_default: isDefault }) => isDefault)?.name;
+  const categoryNames = new Map(owned.map(({ id, name }) => [id, name]));
+  // A post list's category may hold no posts yet; an import still needs its address and descriptions.
+  const shown = new Set(pages.flatMap((page) => documentPostLists(page.content_json).flatMap(({ categoryId }) => categoryId ?? [])));
+  for (const { id, name, slug, description_th: descriptionTh, description_en: descriptionEn, is_default: isDefault } of owned) {
+    if (shown.has(id) && !isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
+  }
 
   const ids = new Set<string>();
   for (const post of posts) {
@@ -103,11 +113,14 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
     .where('owner_id', '=', settings.owner_id).where('state', '=', 'ready').where('id', 'in', [...ids])
     .orderBy('id').execute() : [];
   for (const { object_key: key } of rows) if (!isTomeObjectKey(key)) throw new Error('A media item has an unsupported object key.');
-  return { posts, pages, categories, categoryDetails, defaultCategory, media: new Map(rows.map((row) => [row.id, row])) };
+  return { posts, pages, categories, categoryDetails, categoryNames, defaultCategory, media: new Map(rows.map((row) => [row.id, row])) };
 }
 
-/** The exact document, with each library file's address pointing into the archive instead. */
-function relinked(document: EditorDocument, link: (mediaId: string) => string | null): EditorDocument {
+/**
+ * The exact document, with each library file's address pointing into the archive instead, and each
+ * post list's category named. A category block whose id names nothing gets no name: it reads as deleted.
+ */
+function relinked(document: EditorDocument, link: (mediaId: string) => string | null, categoryNames: ReadonlyMap<string, string>): EditorDocument {
   const relink = <T extends EditorNode | EditorMark>(holder: T): T => {
     const attrs = holder.attrs;
     const address = typeof attrs?.mediaId === 'string' ? link(attrs.mediaId) : null;
@@ -115,8 +128,12 @@ function relinked(document: EditorDocument, link: (mediaId: string) => string | 
     const key = 'src' in attrs ? 'src' : 'href' in attrs ? 'href' : null;
     return key ? { ...holder, attrs: { ...attrs, [key]: address } } : holder;
   };
+  const named = (node: EditorNode): EditorNode => {
+    const name = node.type === 'postList' && node.attrs?.source === 'category' ? categoryNames.get(String(node.attrs.categoryId)) : undefined;
+    return name === undefined ? node : { ...node, attrs: { ...node.attrs, categoryName: name } };
+  };
   const visit = (node: EditorNode): EditorNode => ({
-    ...relink(node),
+    ...relink(named(node)),
     ...(node.marks ? { marks: node.marks.map(relink) } : {}),
     ...(node.content ? { content: node.content.map(visit) } : {}),
   });
@@ -164,7 +181,7 @@ export async function exportSite(outDir: string): Promise<ExportReceipt> {
     const readable = documentToReadableMarkdown(row.content_json, link);
     if (readable.formattingNotShown) formattingNotShown += 1;
     await writeNew(join(outDir, itemPath(kind, row.locale, row.slug, '.md')), `${writeFrontMatter(frontMatter)}\n${readable.markdown}\n`);
-    await writeNew(join(outDir, itemPath(kind, row.locale, row.slug, '.tome.json')), `${JSON.stringify(relinked(row.content_json, link), null, 2)}\n`);
+    await writeNew(join(outDir, itemPath(kind, row.locale, row.slug, '.tome.json')), `${JSON.stringify(relinked(row.content_json, link, site.categoryNames), null, 2)}\n`);
   }
 
   const media: ArchiveManifest['media'] = {};

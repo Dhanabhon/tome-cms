@@ -6,7 +6,7 @@ import { MAX_MARKDOWN_BYTES } from '../../lib/markdown-import';
 import { documentTypeForName, MAX_DOCUMENT_FILE_BYTES, MAX_IMAGE_BYTES } from '../../lib/media';
 import { RESERVED_PAGE_SLUGS } from '../../lib/pages';
 import { contentSlug, SLUG, SLUG_LENGTH } from '../../lib/slug';
-import { DEFAULT_CATEGORY_NAME, type EditorDocument, type EditorNode } from '../../types/cms';
+import { DEFAULT_CATEGORY_NAME, type EditorDocument, type EditorNode, type PostLocale } from '../../types/cms';
 import { parseEditorContent, ValidationError } from '../content/editor';
 import { parseMarkdownPost } from '../content/markdown-import';
 import { detectImageType } from '../media/image';
@@ -78,6 +78,8 @@ export interface PlanDetail {
   categories: Map<string, string>;
   /** The manifest's word on each category, by its name in lower case: its address and descriptions. */
   archiveCategories: Map<string, ArchiveCategory>;
+  /** Each post skipped as taken, by the archive's id for its group: a post list may name that group. */
+  skippedGroups: Map<string, { kind: 'post'; locale: PostLocale; slug: string }>;
 }
 
 /** Two files with the same bytes are one file to the library. */
@@ -200,6 +202,17 @@ function documentMediaIds(document: EditorDocument): Set<string> {
   return ids;
 }
 
+const badCategoryName = (name: string) => !name.trim() || name.trim().length > 80;
+
+/**
+ * What the archive's post lists call their categories. Only an export writes `categoryName`: apply
+ * takes it off before the document is stored, where a block with it would be refused.
+ */
+function blockCategoryNames(document: EditorDocument): unknown[] {
+  return (document.content ?? []).flatMap((node) =>
+    node.type === 'postList' && node.attrs?.source === 'category' && node.attrs.categoryName !== undefined ? [node.attrs.categoryName] : []);
+}
+
 /** The archive path an item's relative address leads to, when it is a file under `media/`. */
 function linkedFile(itemPath: string, address: string, files: ReadonlyMap<string, ArchiveFile>): string | null {
   const written = address.split(/[?#]/, 1)[0] ?? '';
@@ -228,7 +241,7 @@ async function readItem(
   const text = (await readItemFile(root, path, MAX_ITEM_MARKDOWN_BYTES)).toString('utf8');
   const { frontMatter, body } = readFrontMatter(text, path);
   if (frontMatter.language && frontMatter.language !== entry.locale) throw new ArchiveInputError('front_matter_invalid', path, 'language');
-  if (frontMatter.categories?.some((name) => !name.trim() || name.trim().length > 80)) throw new ArchiveInputError('front_matter_invalid', path, 'categories');
+  if (frontMatter.categories?.some(badCategoryName)) throw new ArchiveInputError('front_matter_invalid', path, 'categories');
 
   const ids = new Map<string, string>();
   const pictures = new Map<string, string>();
@@ -240,6 +253,9 @@ async function readItem(
       // The editor's own check of a document's shape and bounds; its files are checked on write.
       document = parseEditorContent({ contentJson: JSON.parse(exact.toString('utf8')) });
     } catch {
+      throw new ArchiveInputError('content_invalid', entry.json);
+    }
+    if (blockCategoryNames(document).some((name) => typeof name !== 'string' || badCategoryName(name))) {
       throw new ArchiveInputError('content_invalid', entry.json);
     }
     for (const id of documentMediaIds(document)) {
@@ -323,6 +339,7 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
 
   const plan: ImportPlan = { create: [], skip: [], media: { upload: 0, reuse: 0 }, categoriesToCreate: [], groupsSplit: [] };
   const groups = new Map<string, { translation: string | null; created: Array<typeof read[number]>; skipped: string[] }>();
+  const skippedGroups: PlanDetail['skippedGroups'] = new Map();
   for (const item of read) {
     const group = `${item.kind}:${item.translation ?? item.path}`;
     const members = groups.get(group) ?? { translation: item.translation, created: [], skipped: [] };
@@ -333,6 +350,8 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
     if (item.slug && taken.has(address)) {
       plan.skip.push({ path: item.path, reason: 'slug_taken' });
       members.skipped.push(item.path);
+      // With no translation, nothing can name it: its own export always writes one.
+      if (item.kind === 'post' && item.translation) skippedGroups.set(item.translation, { kind: 'post', locale: item.locale, slug: item.slug });
       continue;
     }
     if (item.slug) taken.add(address);
@@ -368,6 +387,13 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
     }
     for (const { translation: _translation, ...item } of members.created) items.push({ ...item, categories: [...names.values()], group });
   }
+  for (const item of items) {
+    for (const written of blockCategoryNames(item.document)) {
+      const name = String(written).trim();
+      const lower = name.toLowerCase();
+      if (!categories.has(lower) && !toCreate.has(lower)) toCreate.set(lower, name);
+    }
+  }
   plan.categoriesToCreate = [...toCreate.values()];
   // In the archive's order again, so groups are written as their first file comes.
   items.sort((left, right) => (left.path < right.path ? -1 : 1));
@@ -388,7 +414,7 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
   const upload = [...used.values()].filter((file) => !reuse.has(fileKey(file)));
   plan.media = { upload: upload.length, reuse: reuse.size };
   const archiveCategories = new Map((manifest?.categories ?? []).map((entry) => [entry.name.toLowerCase(), entry]));
-  return { plan, detail: { items, files, upload, reuse, categories, archiveCategories } };
+  return { plan, detail: { items, files, upload, reuse, categories, archiveCategories, skippedGroups } };
 }
 
 /** What an import of this directory would do. Nothing is written. */

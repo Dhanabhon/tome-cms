@@ -237,6 +237,37 @@ test('an export writes every post and page as Markdown and an exact copy, with t
   const englishExact = JSON.parse(await readFile(join(root, 'posts/en/bread-at-night.tome.json'), 'utf8'));
   assert.deepEqual(englishExact.content[1], video, 'a video keeps its poster id exactly');
 
+  await context.test('a category block carries its category name in .tome.json', async () => {
+    const unusedCategory = await db.selectFrom('categories').select('id').where('name', '=', 'Unused').executeTakeFirstOrThrow();
+    const fallback = await db.selectFrom('categories').select('id').where('is_default', '=', true).executeTakeFirstOrThrow();
+    const gone = randomUUID();
+    const block = (source: 'posts' | 'category', categoryId: string | null, postGroupIds: string[] = []) =>
+      ({ type: 'postList', attrs: { source, postGroupIds, categoryId, limit: 6, layout: 'grid-3' } });
+    const content = [block('category', unusedCategory.id), block('category', fallback.id), block('category', gone), block('posts', null, [group])];
+    const shelfGroup = randomUUID();
+    await db.insertInto('page_translation_groups').values({ id: shelfGroup, owner_id: owner }).execute();
+    await db.insertInto('pages').values({
+      ...edition, translation_group_id: shelfGroup, locale: 'en', title: 'Shelf', slug: 'shelf', content_json: { type: 'doc', content }, status: 'draft', published_at: null,
+    }).execute();
+    const out = await mkdtemp(join(tmpdir(), 'tomecms-transfer-export-'));
+    context.after(() => rm(out, { force: true, recursive: true }));
+    await exportSite(out);
+
+    const stored = await db.selectFrom('pages').select('content_json').where('slug', '=', 'shelf').executeTakeFirstOrThrow();
+    assert.deepEqual(stored.content_json.content, content, 'the name is for the archive alone');
+    const shelf = JSON.parse(await readFile(join(out, 'pages/en/shelf.tome.json'), 'utf8'));
+    assert.deepEqual(shelf.content, [
+      { ...content[0], attrs: { ...content[0]!.attrs, categoryName: 'Unused' } },
+      { ...content[1], attrs: { ...content[1]!.attrs, categoryName: 'ไม่มีหมวดหมู่' } },
+      content[2],
+      content[3],
+    ], 'an id with no category adds nothing, and a block of picked posts has none to add');
+    assert.ok((await readFile(join(out, 'pages/en/shelf.md'), 'utf8')).includes('Post list: see the .tome.json file.'));
+    const listed = readManifest(await readFile(join(out, 'manifest.json'), 'utf8'));
+    assert.deepEqual(listed.categories?.find(({ name }) => name === 'Unused'), { name: 'Unused', slug: 'unused', descriptionTh: '', descriptionEn: '' }, 'a block\'s category with no posts still travels');
+    assert.equal(listed.categories?.some(({ name }) => name === 'ไม่มีหมวดหมู่'), false, 'the default is named on its own');
+  });
+
   // An object gone from the bucket stops the export, naming the file it is.
   await storage.send(new DeleteObjectCommand({ Bucket: 'tomecms-test-media', Key: guide.key }));
   const again = await mkdtemp(join(tmpdir(), 'tomecms-transfer-export-'));

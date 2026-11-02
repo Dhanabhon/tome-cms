@@ -114,3 +114,30 @@ test('a long run of spaces before a picture is trimmed without stalling the serv
   assert.ok(Date.now() - started < 5_000, `took ${Date.now() - started} ms`);
   assert.deepEqual(document.content?.map((node) => node.type), ['paragraph', 'image']);
 });
+
+const GROUPS = ['a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003'];
+const picked = { type: 'postList', attrs: { source: 'posts', postGroupIds: GROUPS, categoryId: null, limit: 6, layout: 'grid-3' } };
+const byCategory = { type: 'postList', attrs: { source: 'category', postGroupIds: [], categoryId: 'b0000000-0000-4000-8000-000000000001', limit: 3, layout: 'list' } };
+
+test('a post list stands in as a numbered block with a label', () => {
+  const out = documentToMarkdown({ type: 'doc', content: [picked, p('ระหว่าง'), byCategory] } as EditorDocument);
+  assert.match(out.markdown, /^\{\{tome:block 1\}\}\n\nระหว่าง\n\n\{\{tome:block 2\}\}$/);
+  assert.deepEqual(out.blocks, [
+    { n: 1, kind: 'postList', label: 'Post list (3 posts)' },
+    { n: 2, kind: 'postList', label: 'Post list (category)' },
+  ]);
+  const one = { ...picked, attrs: { ...picked.attrs, postGroupIds: [GROUPS[0]] } };
+  assert.equal(documentToMarkdown({ type: 'doc', content: [one] } as EditorDocument).blocks[0]?.label, 'Post list (1 post)');
+});
+
+test('moving a block in Markdown keeps its attrs whole', async () => {
+  const held = { type: 'doc', content: [picked, p('กลาง'), byCategory] } as EditorDocument;
+  const { document } = await markdownToDocument('{{tome:block 2}}\n\nกลาง\n\n{{tome:block 1}}', held);
+  assert.deepEqual(document.content?.map((node) => node.type), ['postList', 'paragraph', 'postList']);
+  assert.deepEqual(document.content?.[0]?.attrs, byCategory.attrs);
+  assert.deepEqual(document.content?.[2]?.attrs, picked.attrs);
+});
+
+test('a new draft cannot hold a post list', async () => {
+  await assert.rejects(markdownToDocument('{{tome:block 1}}', null), (error) => error instanceof McpInputError && /new draft/.test(error.message));
+});

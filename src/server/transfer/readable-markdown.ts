@@ -13,6 +13,7 @@ import { standsIn } from '../mcp/markdown-out';
 const markdown = new MarkdownManager({ extensions });
 
 const TABLE_NOTE = 'Table: see the .tome.json file.';
+const POST_LIST_NOTE = 'Post list: see the .tome.json file.';
 
 const paragraph = (text: string, href?: string): EditorNode => ({
   type: 'paragraph',
@@ -48,6 +49,7 @@ export function documentToReadableMarkdown(
       }
       case 'attachment': return paragraph(String(attrs.name || 'File'), fileHref(attrs, attrs.href));
       case 'table': return paragraph(TABLE_NOTE);
+      case 'postList': return paragraph(POST_LIST_NOTE);
       case null: break;
     }
     let next = node;

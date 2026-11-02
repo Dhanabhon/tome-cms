@@ -21,15 +21,25 @@ export interface ImportResult extends ImportPlan {
   missingMedia: number;
 }
 
+/** What a post list's archived ids are here: post groups by the archive's id, categories by name in lower case. */
+interface PostListLinks {
+  groups: ReadonlyMap<string, string>;
+  categories: ReadonlyMap<string, string>;
+}
+
 /** A card whose file is missing, in the item's own language, as a picture's line is. */
 const MISSING_FILE = { th: 'ไฟล์ที่ขาด', en: 'Missing file' } as const;
+/** What a plan's group key starts with for a post; the rest is the archive's id for the group. */
+const POST_GROUP = 'post:';
 
 /**
  * The exact document with each file the source site named by id pointing at its library item
  * here. A picture without one becomes `placePictures`'s missing-picture line, a card a line of its
- * own, a link plain text, and a video keeps no poster.
+ * own, a link plain text, and a video keeps no poster. A post list's posts and category become this
+ * site's: a post with no group here is dropped, and a category with no name keeps its archived id,
+ * which reads as a deleted category.
  */
-function relinkExact(document: EditorDocument, ids: ReadonlyMap<string, string>, locale: 'th' | 'en'): EditorDocument {
+function relinkExact(document: EditorDocument, ids: ReadonlyMap<string, string>, locale: 'th' | 'en', lists: PostListLinks): EditorDocument {
   const idOf = (attrs: Record<string, unknown> | undefined) => (typeof attrs?.mediaId === 'string' ? ids.get(attrs.mediaId) : undefined);
   const mark = (held: EditorMark): EditorMark | null => {
     if (held.type !== 'link' || held.attrs?.mediaId === undefined || held.attrs.mediaId === null) return held;
@@ -45,6 +55,14 @@ function relinkExact(document: EditorDocument, ids: ReadonlyMap<string, string>,
       if (!id) return { type: 'paragraph', content: [{ type: 'text', text: `[${MISSING_FILE[locale]}: ${String(node.attrs?.name ?? '')}]` }] };
       next.attrs = { ...node.attrs, href: `/media/${id}`, mediaId: id };
     }
+    if (node.type === 'postList') {
+      const { categoryName, ...attrs } = node.attrs ?? {};
+      const categoryId = attrs.source === 'category' && typeof categoryName === 'string' ? lists.categories.get(categoryName.trim().toLowerCase()) : undefined;
+      if (categoryId) attrs.categoryId = categoryId;
+      // A set: two archive groups can be one group here, and a block may not hold a group twice.
+      if (Array.isArray(attrs.postGroupIds)) attrs.postGroupIds = [...new Set(attrs.postGroupIds.flatMap((group) => lists.groups.get(String(group)) ?? []))];
+      next.attrs = attrs;
+    }
     if (node.marks) {
       const marks = node.marks.map(mark).filter((held): held is EditorMark => held !== null);
       next = { ...next, marks };
@@ -57,12 +75,12 @@ function relinkExact(document: EditorDocument, ids: ReadonlyMap<string, string>,
 }
 
 /** The item's document with its files pointing at library items. */
-function itemDocument(item: PlannedItem, byPath: ReadonlyMap<string, string>): EditorDocument {
+function itemDocument(item: PlannedItem, byPath: ReadonlyMap<string, string>, lists: PostListLinks): EditorDocument {
   if (item.source === 'md') {
     const matches = new Map([...item.files.pictures].map(([src, path]) => [src, byPath.get(path)!]));
     return placePictures(item.document, matches, item.locale);
   }
-  return relinkExact(item.document, new Map([...item.files.ids].map(([id, path]) => [id, byPath.get(path)!])), item.locale);
+  return relinkExact(item.document, new Map([...item.files.ids].map(([id, path]) => [id, byPath.get(path)!])), item.locale, lists);
 }
 
 /** What the post or page is made of, as the editor would send it; the schemas check it. */
@@ -130,16 +148,26 @@ export async function applyImport(root: string, ownerId: string, site?: SiteRead
         const row = await insertCategory(trx, ownerId, { ...archived, name });
         categories.set(name.toLowerCase(), row.id);
       }
-      const groups = new Map<string, string>();
+      // Every id before any item: a page's file sorts before its posts', and can already name them.
+      const groups = new Map(detail.items.map(({ group }) => [group, randomUUID()]));
+      const lists = { groups: new Map<string, string>(), categories };
+      for (const [translation, { locale, slug }] of detail.skippedGroups) {
+        const held = await trx.selectFrom('posts').select('translation_group_id')
+          .where('owner_id', '=', ownerId).where('locale', '=', locale).where('slug', '=', slug).executeTakeFirst();
+        if (held) lists.groups.set(translation, held.translation_group_id);
+      }
+      // shortcut: a group the import splits is the one it writes, so a block shows no edition skipped
+      // from it; hold both ids in the block if a site needs the skipped one.
+      for (const [group, id] of groups) if (group.startsWith(POST_GROUP)) lists.groups.set(group.slice(POST_GROUP.length), id);
+      const inserted = new Set<string>();
       for (const item of detail.items) {
-        let groupId = groups.get(item.group);
-        if (!groupId) {
-          groupId = randomUUID();
-          groups.set(item.group, groupId);
+        const groupId = groups.get(item.group)!;
+        if (!inserted.has(groupId)) {
+          inserted.add(groupId);
           await trx.insertInto(item.kind === 'post' ? 'post_translation_groups' : 'page_translation_groups')
             .values({ id: groupId, owner_id: ownerId }).execute();
         }
-        const fields = editionFields(item, itemDocument(item, byPath));
+        const fields = editionFields(item, itemDocument(item, byPath, lists));
         try {
           if (item.kind === 'post') {
             const cover = item.files.cover ? byPath.get(item.files.cover) ?? null : null;

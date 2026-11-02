@@ -178,3 +178,54 @@ test('an item file over its bound is refused by its size, before it is read', { 
   await oversized('posts/en/a.md', 2 * 900_000 + 1);
   await oversized('posts/en/b.tome.json', 8 * 1024 * 1024 + 1, { 'posts/en/b.md': md({ title: 'B' }) });
 });
+
+const categoryBlock = (categoryName: unknown) => ({
+  type: 'postList',
+  attrs: { source: 'category', postGroupIds: [], categoryId: '22222222-2222-4222-8222-222222222222', limit: 6, layout: 'grid-3', categoryName },
+});
+
+test('a block\'s category joins categoriesToCreate when absent', async (context) => {
+  const root = await archive(context, {
+    'manifest.json': JSON.stringify({
+      format: 'tomecms-markdown', version: 1, createdAt: '2026-11-03T00:00:00.000Z', applicationVersion: '1.25.0', publicUrl: 'https://old.example',
+      counts: { posts: 1, pages: 3, media: 0 }, media: {}, categories: [{ name: 'Rye', slug: 'rye-loaves', descriptionTh: '', descriptionEn: 'Dark.' }], defaultCategory: 'ไม่มีหมวดหมู่',
+    }),
+    'pages/en/shelf.md': md({ title: 'Shelf', slug: 'shelf', translation: 'p-shelf' }),
+    // A name this site has, the default under either of its names, and one name twice.
+    'pages/en/shelf.tome.json': JSON.stringify({ type: 'doc', content: [categoryBlock('Rye'), categoryBlock('BAKING'), categoryBlock('ไม่มีหมวดหมู่'), categoryBlock('uncategorized'), categoryBlock(' rye ')] }),
+    // A page that is skipped asks for nothing.
+    'pages/en/taken.md': md({ title: 'Taken', slug: 'taken', translation: 'p-taken' }),
+    'pages/en/taken.tome.json': JSON.stringify({ type: 'doc', content: [categoryBlock('Skipped')] }),
+    // A post's own list comes first, so a name it shares with a block keeps the post's spelling.
+    'pages/en/spelt.md': md({ title: 'Spelt', slug: 'spelt', translation: 'p-spelt' }),
+    'pages/en/spelt.tome.json': JSON.stringify({ type: 'doc', content: [categoryBlock('spelt')] }),
+    'posts/en/loaf.md': md({ title: 'Loaf', slug: 'loaf', categories: ['SPELT'], translation: 'g' }),
+  });
+  const { plan, detail } = await buildPlan(root, OWNER, site(['pages/en/taken']));
+  assert.deepEqual(plan.categoriesToCreate, ['SPELT', 'Rye']);
+  assert.equal(detail.archiveCategories.get('rye')?.slug, 'rye-loaves');
+  // Ruling R1: nothing before the relink refuses the attribute a stored block may not have.
+  assert.equal(detail.items.find(({ slug }) => slug === 'shelf')?.document.content?.[0]?.attrs?.categoryName, 'Rye');
+});
+
+test('a post skipped as taken is remembered by its archive group, and one with no translation is not', async (context) => {
+  const root = await archive(context, {
+    'posts/en/held.md': md({ title: 'Held', slug: 'held', translation: 'g-held' }),
+    'posts/en/free.md': md({ title: 'Free', slug: 'free', translation: 'g-free' }),
+    'posts/en/anon.md': `---\ntitle: Anon\nslug: anon\n---\n\nWords.\n`,
+    'pages/en/held.md': md({ title: 'Held page', slug: 'held-page', translation: 'g-page' }),
+  });
+  const { detail } = await buildPlan(root, OWNER, site(['posts/en/held', 'posts/en/anon', 'pages/en/held-page']));
+  assert.deepEqual([...detail.skippedGroups], [['g-held', { kind: 'post', locale: 'en', slug: 'held' }]]);
+});
+
+for (const [label, name] of [['empty', '  '], ['too long', 'x'.repeat(81)], ['not a string', 7]] as const) {
+  test(`a block's category name that is ${label} refuses the file it is in`, async (context) => {
+    const root = await archive(context, {
+      'pages/en/shelf.md': md({ title: 'Shelf', slug: 'shelf' }),
+      'pages/en/shelf.tome.json': JSON.stringify({ type: 'doc', content: [categoryBlock(name)] }),
+    });
+    await assert.rejects(planImport(root, OWNER, site()), (error) =>
+      error instanceof ArchiveInputError && error.code === 'content_invalid' && error.file === 'pages/en/shelf.tome.json');
+  });
+}

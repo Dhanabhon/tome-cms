@@ -72,3 +72,8 @@ test('what MCP reads is unchanged: it still stands blocks in as lines', () => {
   const video = { type: 'video', attrs: { provider: 'youtube', videoId: 'dQw4w9WgXcQ', start: null, title: 'คลิป', mediaId: null } };
   assert.equal(documentToMarkdown(doc(video)).markdown, '{{tome:block 1}}');
 });
+
+test('a post list is one note line', () => {
+  const block = { type: 'postList', attrs: { source: 'posts', postGroupIds: [], categoryId: null, limit: 6, layout: 'grid-3' } };
+  assert.equal(documentToReadableMarkdown(doc(p('ก่อน'), block), link).markdown, 'ก่อน\n\nPost list: see the .tome.json file.');
+});
