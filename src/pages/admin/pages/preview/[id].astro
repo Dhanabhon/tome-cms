@@ -10,6 +10,7 @@ import { adminHref } from '../../../../lib/admin';
 import { documentHasVideo } from '../../../../lib/editor-video';
 import { requireInstalledOwner } from '../../../../server/auth/session';
 import { getPage } from '../../../../server/content/pages';
+import { pagePostListProps } from '../../../../server/content/post-lists';
 import { draftPreviewPage } from '../../../../server/content/previews';
 import { getSiteSettings } from '../../../../server/content/settings';
 import { HttpError } from '../../../../server/http/errors';
@@ -18,6 +19,7 @@ import type { PageLocale } from '../../../../types/cms';
 let page: Awaited<ReturnType<typeof draftPreviewPage>> | null = null;
 let errorKey: 'pageNotFound' | 'signInToPreviewPage' | 'previewUnavailable' | null = null;
 let serverMessage: string | null = null;
+let postListProps: Awaited<ReturnType<typeof pagePostListProps>> = {};
 let adminPath = '/admin';
 let themeId: string | null = null;
 let ownerLocale: PageLocale | null = null;
@@ -41,6 +43,8 @@ try {
     if (!page) {
       Astro.response.status = 404;
       errorKey = 'pageNotFound';
+    } else {
+      postListProps = await pagePostListProps(page);
     }
   }
 } catch (error) {
@@ -69,7 +73,7 @@ const errorMessage = serverMessage ?? (errorKey ? copy.preview[errorKey] : null)
           <span>{copy.preview.draftPreview}</span>
           <a class="admin-button admin-button--secondary" href={adminHref({ admin_path: adminPath }, `/pages/edit/${page.id}`)}>{copy.preview.editPage}</a>
         </div>
-        <activeTheme.Page locale={page.locale} page={page} preview />
+        <activeTheme.Page locale={page.locale} page={page} preview {...postListProps} />
         {documentHasVideo(page.content_json) && <VideoScript locale={page.locale} />}
       </>
     ) : null}

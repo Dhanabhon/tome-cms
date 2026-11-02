@@ -9,6 +9,7 @@ import type {
   PublicNavigationItem,
   SiteSettings,
 } from '../types/cms';
+import type { ResolvedPostList } from '../server/content/post-lists';
 import type { ResponsiveImage } from '../lib/responsive-image';
 import type { SiteBrand } from '../lib/site-brand';
 import type { ThemeChoice } from '../lib/theme';
@@ -156,4 +157,9 @@ export interface ThemePageProps {
   /** A published page brings its pictures' sizes and copies, for withResponsiveImages. */
   page: Page & { media?: readonly ResponsiveImage[] };
   preview?: boolean;
+  /** One per post list block in the page, in order; set by the route only when the page has one. */
+  postLists?: ResolvedPostList[];
+  /** What a post card shows of its author and date, read only for a page with a post list. */
+  profile?: PublicAuthorProfile | null;
+  settings?: Pick<SiteSettings, 'site_name' | 'timezone'>;
 }

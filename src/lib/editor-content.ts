@@ -193,6 +193,21 @@ export function withLeadImage(html: string): string {
   );
 }
 
+/**
+ * A page's body as the parts a theme draws in order: its text, and its post lists where the
+ * placeholders stood. Each text part gets its own container, so a card never inherits the
+ * body's rules for headings and pictures. A placeholder past the end of `lists` draws nothing.
+ */
+export function pageBodyParts<T>(html: string, lists: readonly T[]): Array<{ kind: 'html'; html: string } | { kind: 'list'; list: T }> {
+  const texts = html.split(POST_LIST_PLACEHOLDER);
+  return texts.flatMap((text, index) => {
+    const parts: Array<{ kind: 'html'; html: string } | { kind: 'list'; list: T }> = text.trim() ? [{ kind: 'html', html: text }] : [];
+    // The last text has no placeholder after it.
+    if (index < texts.length - 1 && index < lists.length) parts.push({ kind: 'list', list: lists[index] as T });
+    return parts;
+  });
+}
+
 const BLOCKS = new Set(['blockquote', 'bulletList', 'doc', 'listItem', 'orderedList', 'table', 'tableCell', 'tableHeader', 'tableRow']);
 
 export function editorText(node: EditorNode): string {

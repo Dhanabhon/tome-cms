@@ -6,6 +6,7 @@ import { pageDescription, RESERVED_PAGE_SLUGS } from '../../lib/pages';
 import { siteDescriptionFor } from '../../lib/seo';
 import { getPublishedPage, type PublishedPage } from '../../server/content/published';
 import { movedPage } from '../../server/content/redirects';
+import { pagePostListProps } from '../../server/content/post-lists';
 import { getSiteSettings } from '../../server/content/settings';
 import { resolveTheme } from '../../themes/registry';
 import type { PostAlternate } from '../../types/cms';
@@ -17,6 +18,7 @@ const slug = Astro.params.slug;
 const fallbackDescription = siteDescriptionFor(settings, locale, 'Read the latest from TomeCMS.');
 let page: PublishedPage | null = null;
 let availableLocales: PostAlternate[] = [];
+let postListProps: Awaited<ReturnType<typeof pagePostListProps>> = {};
 let loadError = false;
 
 try {
@@ -31,6 +33,7 @@ try {
       Astro.response.status = 404;
     } else {
       availableLocales = page.translations;
+      postListProps = await pagePostListProps(page);
     }
   }
 } catch (error) {
@@ -39,6 +42,7 @@ try {
   loadError = true;
   page = null;
   availableLocales = [];
+  postListProps = {};
 }
 
 const activeTheme = await resolveTheme(settings?.theme_id);
@@ -61,7 +65,7 @@ const copy = publicCopy(locale);
   xDefaultHref={xDefaultHref}
 >
   {page ? (
-    <activeTheme.Page locale={locale} page={page} />
+    <activeTheme.Page locale={locale} page={page} {...postListProps} />
   ) : (
     <section class="notice-page mx-auto max-w-3xl px-5 py-20 sm:px-7">
       <p class="notice-status">{loadError ? copy.unavailable : '404'}</p>

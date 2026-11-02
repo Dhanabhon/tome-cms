@@ -6,7 +6,7 @@ import { DOMParser, DOMSerializer, Node } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import { createHTMLDocument, parseHTML } from 'zeed-dom';
 
-import { hasMeaningfulContent, hasMeaningfulHtml } from '../../src/lib/editor-content';
+import { hasMeaningfulContent, hasMeaningfulHtml, pageBodyParts } from '../../src/lib/editor-content';
 import { documentHasPostList, documentPostLists, pageDocument, POST_LIST_PLACEHOLDER, postList, postListAttrs } from '../../src/lib/editor-post-list';
 import { prepareEditorContent, ValidationError } from '../../src/server/content/editor';
 import type { EditorDocument } from '../../src/types/cms';
@@ -110,4 +110,15 @@ test('documentPostLists returns top-level blocks in order', () => {
 test('documentHasPostList looks at any depth', () => {
   assert.equal(documentHasPostList({ type: 'doc', content: [{ type: 'paragraph' }] }), false);
   assert.equal(documentHasPostList({ type: 'doc', content: [{ type: 'blockquote', content: [{ type: 'postList', attrs: hand }] }] }), true);
+});
+
+test('pageBodyParts splits a body on its placeholders and drops empty text', () => {
+  const P = POST_LIST_PLACEHOLDER;
+  assert.deepEqual(pageBodyParts('<p>a</p>', []), [{ kind: 'html', html: '<p>a</p>' }]);
+  assert.deepEqual(pageBodyParts(`${P}<p>a</p>`, ['x']), [{ kind: 'list', list: 'x' }, { kind: 'html', html: '<p>a</p>' }]);
+  assert.deepEqual(pageBodyParts(`<p>a</p>${P}`, ['x']), [{ kind: 'html', html: '<p>a</p>' }, { kind: 'list', list: 'x' }]);
+  assert.deepEqual(pageBodyParts(`${P}${P}`, ['x', 'y']), [{ kind: 'list', list: 'x' }, { kind: 'list', list: 'y' }]);
+  assert.deepEqual(pageBodyParts(P, ['x']), [{ kind: 'list', list: 'x' }]);
+  assert.deepEqual(pageBodyParts(`<p>a</p>${P}<p>b</p>${P}`, ['x']), [{ kind: 'html', html: '<p>a</p>' }, { kind: 'list', list: 'x' }, { kind: 'html', html: '<p>b</p>' }]);
+  assert.deepEqual(pageBodyParts(`${P}\n${P}`, ['x', 'y']), [{ kind: 'list', list: 'x' }, { kind: 'list', list: 'y' }]);
 });
