@@ -9,7 +9,7 @@ test('a post refuses a post list and a page keeps one', async (context) => {
   assert.equal(process.env.DATABASE_URL, 'postgresql://tomecms_test:foundation-test-only@127.0.0.1:55432/tomecms_test', 'use only the disposable Foundation database');
   const { db, closeDatabase } = await import('../../src/server/db/client');
   const { migrateToLatest } = await import('../../src/server/db/migrator');
-  const { ValidationError } = await import('../../src/server/content/editor');
+  const { HttpError } = await import('../../src/server/http/errors');
   const { createPage, updatePage, updatePageStatus } = await import('../../src/server/content/pages');
   const { createPost, updatePost, updatePostStatus } = await import('../../src/server/content/posts');
   const { POST_LIST_PLACEHOLDER } = await import('../../src/lib/editor-post-list');
@@ -33,18 +33,21 @@ test('a post refuses a post list and a page keeps one', async (context) => {
   };
   const common = { excerpt: '', metaDescription: null, metaTitle: null, status: 'draft' as const };
   const postFields = { ...common, categoryIds: [category.id], coverMediaId: null };
+  // A refusal the admin, an agent and an import can each say: an HttpError, never a fault.
+  const refusedBy400 = (error: unknown) => error instanceof HttpError && error.status === 400;
+  const belongsOnAPage = (error: unknown) => refusedBy400(error) && (error as Error).message === 'A post list belongs on a page.';
 
-  await assert.rejects(createPost(ownerId, { ...postFields, contentJson: block, slug: 'refused', title: 'Refused' }), ValidationError);
+  await assert.rejects(createPost(ownerId, { ...postFields, contentJson: block, slug: 'refused', title: 'Refused' }), belongsOnAPage);
 
   const post = await createPost(ownerId, { ...postFields, contentJson: words, slug: 'a-post', title: 'A post' });
   await assert.rejects(updatePost(ownerId, {
     ...postFields, contentJson: block, id: post.id, slug: post.slug, title: post.title, updatedAt: post.updated_at,
-  }), ValidationError);
+  }), belongsOnAPage);
 
   // Publishing reads the stored document, so a block written around the service is refused there too.
   await db.updateTable('posts').set({ content_json: block }).where('id', '=', post.id).execute();
   const held = await db.selectFrom('posts').select('updated_at').where('id', '=', post.id).executeTakeFirstOrThrow();
-  await assert.rejects(updatePostStatus(ownerId, { id: post.id, status: 'published', updatedAt: held.updated_at.toISOString() }), ValidationError);
+  await assert.rejects(updatePostStatus(ownerId, { id: post.id, status: 'published', updatedAt: held.updated_at.toISOString() }), belongsOnAPage);
 
   // A page holding only a block has content: it can be published.
   const page = await createPage(ownerId, { ...common, contentJson: block, slug: 'a-page', title: 'A page' });
@@ -55,4 +58,11 @@ test('a post refuses a post list and a page keeps one', async (context) => {
   const published = await updatePageStatus(ownerId, { id: page.id, status: 'published', updatedAt: edited.updated_at });
   assert.equal(published.status, 'published');
   assert.equal(published.content_html, POST_LIST_PLACEHOLDER);
+
+  // A page can hold a block, but not one in the wrong place or with the wrong settings.
+  const attrs = block.content?.[0]?.attrs ?? {};
+  const nested: EditorDocument = { type: 'doc', content: [{ type: 'blockquote', content: [{ type: 'postList', attrs }] }] };
+  const invalid: EditorDocument = { type: 'doc', content: [{ type: 'postList', attrs: { ...attrs, limit: 25 } }] };
+  await assert.rejects(createPage(ownerId, { ...common, contentJson: nested, slug: 'nested', title: 'Nested' }), refusedBy400);
+  await assert.rejects(createPage(ownerId, { ...common, contentJson: invalid, slug: 'invalid', title: 'Invalid' }), refusedBy400);
 });

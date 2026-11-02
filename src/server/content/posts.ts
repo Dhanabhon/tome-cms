@@ -11,7 +11,7 @@ import { HttpError } from '../http/errors';
 import { stableMediaPath } from '../media/url';
 import { replacePostGroupCategories } from './categories';
 import { assertContentMedia, prepareContentWithFiles } from './content-media';
-import { ValidationError, type StoredEditorContent } from './editor';
+import type { StoredEditorContent } from './editor';
 import {
   assertCurrentVersion,
   contentMutationSchema,
@@ -100,7 +100,7 @@ function writeConflict(error: unknown): never {
 /** `prepareContentWithFiles`, for a post: a post list is a page's, whatever sent it. */
 async function preparePostContent(...args: Parameters<typeof prepareContentWithFiles>): Promise<StoredEditorContent> {
   const content = await prepareContentWithFiles(...args);
-  if (documentHasPostList(content.contentJson)) throw new ValidationError('A post list belongs on a page.');
+  if (documentHasPostList(content.contentJson)) throw new HttpError(400, 'A post list belongs on a page.');
   return content;
 }
 
