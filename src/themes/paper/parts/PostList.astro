@@ -1,0 +1,35 @@
+---
+import { publicCopy } from '../../../lib/i18n';
+import { PAPER_SIZES } from '../../../lib/responsive-image';
+import type { PostLocale } from '../../../types/cms';
+import type { ResolvedPostList, ThemePageProps } from '../../contract';
+import PostCard from './PostCard.astro';
+
+interface Props {
+  list: ResolvedPostList;
+  locale: PostLocale;
+  profile: ThemePageProps['profile'];
+  settings: NonNullable<ThemePageProps['settings']>;
+}
+
+const { list, locale, profile, settings } = Astro.props;
+---
+
+{list.posts.length > 0 && (
+  <div class={`post-list post-list--${list.layout}`}>
+    {list.posts.map((post, index) => (
+      <PostCard
+        avatarUrl={profile?.avatarUrl ?? null}
+        band={post.categories?.[0]?.name ?? settings.site_name}
+        byline={profile?.name || settings.site_name}
+        cardSizes={PAPER_SIZES.lists[list.layout]}
+        eager={false}
+        index={index}
+        locale={locale}
+        post={post}
+        timezone={settings.timezone}
+      />
+    ))}
+  </div>
+)}
+{list.moreHref && <p class="post-list__more"><a href={list.moreHref}>{publicCopy(locale).seeAll}</a></p>}

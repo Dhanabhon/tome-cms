@@ -4,7 +4,7 @@ import type { ThemePageProps } from '../contract';
 
 interface Props extends ThemePageProps {}
 
-const { page, preview } = Astro.props;
+const { page, postLists, preview, profile, settings } = Astro.props;
 ---
 
-<PageArticle page={page} preview={preview} />
+<PageArticle page={page} postLists={postLists} preview={preview} profile={profile} settings={settings} />

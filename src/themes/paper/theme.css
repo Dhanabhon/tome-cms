@@ -687,6 +687,34 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 .post-card[hidden],
 .post-more [hidden] { display: none; }
 
+/* A page's post list: home's cards, in the page's column. The columns are the block's layout
+ * alone, so the theme's grid setting and the home page's floor do not reach them. */
+.post-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl) var(--space-lg); margin-block-start: var(--space-xl); }
+
+.post-list__more { margin-block: var(--space-md) 0; }
+
+/* Wider than a row of cards, or two lists in a row would read as one. */
+:is(.post-list, .post-list__more) + .post-list { margin-block-start: var(--space-2xl); }
+
+@media (min-width: 40rem) {
+  .post-list--grid-2,
+  .post-list--grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* The cover beside the words, a third of the card. The middle row takes what is spare, so the
+   * meta line still ends level with a tall cover whether or not there is an excerpt. */
+  .post-list--list .post-card { display: grid; grid-template: auto 1fr auto / minmax(0, 1fr) minmax(0, 2fr); column-gap: var(--space-md); }
+
+  .post-list--list .post-card > * { grid-column: 2; }
+
+  .post-list--list .post-card__cover { grid-column: 1; grid-row: 1 / -1; align-self: start; }
+
+  .post-list--list .post-card__title { padding-block-start: 0; }
+}
+
+@media (min-width: 48rem) {
+  .post-list--grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /* A row the feed adds, or the list a category swaps in, settles in rather than appearing whole
  * under the reader's eye. */
 .post-card[data-revealed],
@@ -822,7 +850,8 @@ main:has(.post-feed__heading) .home-hero { display: none; }
 /* An empty list says so, and offers the way back to every post. */
 .post-feed__empty { margin: 0; color: var(--color-muted); }
 
-.post-feed__empty a { color: var(--color-link); font-weight: 500; }
+.post-feed__empty a,
+.post-list__more a { color: var(--color-link); font-weight: 500; }
 
 /* The feed could not be read: a hairline box, with no stripe down its side. */
 .post-feed__error { margin: 0; padding: var(--space-sm) var(--space-md); border: var(--rule-hair) solid var(--color-error); color: var(--color-muted); font-size: var(--text-sm); }
@@ -901,7 +930,8 @@ main:has(.post-feed__heading) .home-hero { display: none; }
   .post-meta a,
   .post-more > a,
   .post-search__status a,
-  .post-feed__empty a { display: inline-flex; align-items: center; min-block-size: var(--control-height); }
+  .post-feed__empty a,
+  .post-list__more a { display: inline-flex; align-items: center; min-block-size: var(--control-height); }
 }
 
 .post-more[data-state] > a { display: none; }

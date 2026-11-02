@@ -1,17 +1,16 @@
 ---
-import { demoteH1, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../../lib/editor-content';
+import { demoteH1, pageBodyParts, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../../lib/editor-content';
 import { PAPER_SIZES } from '../../../lib/responsive-image';
 import type { ThemePageProps } from '../../contract';
 import { publicCopy } from '../../../lib/i18n';
+import PostList from './PostList.astro';
 
-interface Props {
-  page: ThemePageProps['page'];
-  preview?: boolean;
-}
+interface Props extends Pick<ThemePageProps, 'page' | 'postLists' | 'preview' | 'profile' | 'settings'> {}
 
-const { page, preview = false } = Astro.props;
+const { page, postLists, preview = false, profile, settings } = Astro.props;
 // Keep the document title as the only h1, including when the body contains heading blocks.
 const contentHtml = demoteH1(sanitizedContentHtmlSchema.parse(page.content_html));
+const parts = pageBodyParts(withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], PAPER_SIZES.article)), postLists ?? []);
 const copy = publicCopy(page.locale);
 ---
 
@@ -20,5 +19,7 @@ const copy = publicCopy(page.locale);
     {preview && <p class="post-draft-note">{copy.draftPreview}</p>}
     <h1 class="article-title">{page.title}</h1>
   </header>
-  <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link" set:html={withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], PAPER_SIZES.article))} />
+  {parts.map((part) => part.kind === 'html'
+    ? <div class="prose post-body max-w-none prose-headings:font-display prose-a:text-link" set:html={part.html} />
+    : settings && <PostList list={part.list} locale={page.locale} profile={profile} settings={settings} />)}
 </article>

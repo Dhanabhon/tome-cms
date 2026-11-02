@@ -51,6 +51,13 @@ export const PAPER_SIZES = {
   // .hero-slide > img (the owner's slides): flex 0 0 100% and a 16:7 box below 64rem, so a 16:9
   // cover fills its width and is cropped in height; from 64rem it fills a 21:9 slide the same way.
   heroSlides: '100vw',
+  // .post-list in the article's column above, 1.5rem between tracks: three from 48rem, two from
+  // 40rem. In --list the cover is one track of 1fr to the text's 2fr, 1rem between, from 40rem.
+  lists: {
+    'grid-2': '(min-width: 48rem) 21.5rem, (min-width: 40rem) calc((100vw - 5rem) / 2), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)',
+    'grid-3': '(min-width: 48rem) 13.84rem, (min-width: 40rem) calc((100vw - 5rem) / 2), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)',
+    list: '(min-width: 48rem) 14.5rem, (min-width: 40rem) calc((100vw - 4.5rem) / 3), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)',
+  },
 } as const;
 
 export const PLAIN_SIZES = {
@@ -66,4 +73,11 @@ export const ALMANAC_SIZES = {
   // The home grid, in the frame (min(100% less the gutter a side, 76rem)): one column, two
   // from 40rem, three from 64rem, 1.5rem between.
   card: '(min-width: 79.5rem) 24.34rem, (min-width: 64rem) calc((100vw - 6.5rem) / 3), (min-width: 40rem) calc((100vw - 5rem) / 2), calc(100vw - 2.5rem)',
+  // .post-list in the article's column above, 1.5rem between tracks: three from 48rem, two from
+  // 40rem. In --list the cover is a third of the card, from 40rem.
+  lists: {
+    'grid-2': '(min-width: 53rem) 24rem, (min-width: 40rem) calc((100vw - 5rem) / 2), calc(100vw - 2.5rem)',
+    'grid-3': '(min-width: 53rem) 15.5rem, (min-width: 48rem) calc((100vw - 6.5rem) / 3), (min-width: 40rem) calc((100vw - 5rem) / 2), calc(100vw - 2.5rem)',
+    list: '(min-width: 53rem) 16.5rem, (min-width: 40rem) calc((100vw - 3.5rem) / 3), calc(100vw - 2.5rem)',
+  },
 } as const;

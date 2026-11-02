@@ -285,7 +285,7 @@ test('below 64rem the tabs are one row that scrolls sideways, with the rule unde
 
 test('header, footer, back, paging and search-status links are a full target on a touch screen', () => {
   // The category names in a post's meta line go to the categories' pages, so they are targets too.
-  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more, .plain-search-status, .plain-empty, .plain-meta) a, .plain-wordmark', COARSE);
+  const touch = top(':is(.plain-nav, .plain-foot, .plain-back, .plain-more, .plain-search-status, .plain-empty, .plain-meta, .post-list__more) a, .plain-wordmark', COARSE);
   assert.match(touch, /display: inline-flex;/);
   assert.match(touch, /min-height: var\(--plain-field\);/);
   assert.match(touch, /min-inline-size: var\(--plain-field\);/, 'a short word such as TH is a full target across too');

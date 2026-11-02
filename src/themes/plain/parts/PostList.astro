@@ -1,0 +1,22 @@
+---
+import { dateLocale, publicCopy } from '../../../lib/i18n';
+import type { PostLocale } from '../../../types/cms';
+import type { ResolvedPostList } from '../../contract';
+import PostCard from './PostCard.astro';
+
+interface Props {
+  list: ResolvedPostList;
+  locale: PostLocale;
+  timezone: string;
+}
+
+const { list, locale, timezone } = Astro.props;
+const formatter = new Intl.DateTimeFormat(dateLocale(locale), { dateStyle: 'long', timeZone: timezone });
+---
+
+{list.posts.length > 0 && (
+  <ol class={`plain-grid post-list post-list--${list.layout}`}>
+    {list.posts.map((post) => <PostCard formatter={formatter} post={post} />)}
+  </ol>
+)}
+{list.moreHref && <p class="post-list__more"><a href={list.moreHref}>{publicCopy(locale).seeAll}</a></p>}

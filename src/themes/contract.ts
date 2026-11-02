@@ -152,6 +152,9 @@ export interface ThemePostProps {
   settings: Pick<SiteSettings, 'site_name' | 'timezone'>;
 }
 
+/** A theme may not import from src/server/, so what it is handed is named here. */
+export type { ResolvedPostList };
+
 export interface ThemePageProps {
   locale: PostLocale;
   /** A published page brings its pictures' sizes and copies, for withResponsiveImages. */

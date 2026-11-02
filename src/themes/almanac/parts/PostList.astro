@@ -1,0 +1,27 @@
+---
+import { publicCopy } from '../../../lib/i18n';
+import { ALMANAC_SIZES } from '../../../lib/responsive-image';
+import type { PostLocale } from '../../../types/cms';
+import type { ResolvedPostList } from '../../contract';
+import PostCard from './PostCard.astro';
+
+interface Props {
+  /** Makes this list's card ids its own: two lists on a page may hold the same post. */
+  id: string;
+  list: ResolvedPostList;
+  locale: PostLocale;
+  siteName: string;
+  timezone: string;
+}
+
+const { id, list, locale, siteName, timezone } = Astro.props;
+---
+
+{list.posts.length > 0 && (
+  <div class={`post-list post-list--${list.layout}`}>
+    {list.posts.map((post) => (
+      <PostCard cardSizes={ALMANAC_SIZES.lists[list.layout]} eager={false} first={false} idPrefix={id} locale={locale} named={true} post={post} siteName={siteName} timezone={timezone} />
+    ))}
+  </div>
+)}
+{list.moreHref && <p class="post-list__more"><a href={list.moreHref}>{publicCopy(locale).seeAll}</a></p>}

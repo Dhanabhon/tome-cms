@@ -1,19 +1,23 @@
 ---
-import { demoteH1, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../lib/editor-content';
+import { demoteH1, pageBodyParts, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../lib/editor-content';
 import { publicCopy } from '../../lib/i18n';
 import { PLAIN_SIZES } from '../../lib/responsive-image';
 import type { ThemePageProps } from '../contract';
+import PostList from './parts/PostList.astro';
 
 interface Props extends ThemePageProps {}
 
-const { page, preview } = Astro.props;
+const { page, postLists, preview, settings } = Astro.props;
 // Keep the document title as the only h1, including when the body contains heading blocks.
 const contentHtml = demoteH1(sanitizedContentHtmlSchema.parse(page.content_html));
+const parts = pageBodyParts(withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], PLAIN_SIZES.article)), postLists ?? []);
 const copy = publicCopy(page.locale);
 ---
 
 <article class="plain-page plain-article">
   {preview && <p class="plain-draft">{copy.draftPreview}</p>}
   <h1>{page.title}</h1>
-  <div class="plain-body" set:html={withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], PLAIN_SIZES.article))} />
+  {parts.map((part) => part.kind === 'html'
+    ? <div class="plain-body" set:html={part.html} />
+    : settings && <PostList list={part.list} locale={page.locale} timezone={settings.timezone} />)}
 </article>

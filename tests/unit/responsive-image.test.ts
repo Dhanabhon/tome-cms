@@ -149,3 +149,19 @@ test('the sizes follow the columns the themes\' CSS draws', () => {
   assert.equal(ALMANAC_SIZES.article, '(min-width: 53rem) 49.5rem, (min-width: 40rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
   assert.equal(ALMANAC_SIZES.card, '(min-width: 79.5rem) 24.34rem, (min-width: 64rem) calc((100vw - 6.5rem) / 3), (min-width: 40rem) calc((100vw - 5rem) / 2), calc(100vw - 2.5rem)');
 });
+
+test('a page\'s post list says the width its layout draws a cover at', () => {
+  const css = (theme: string) => readFileSync(new URL(`../../src/themes/${theme}/theme.css`, import.meta.url), 'utf8');
+  for (const theme of ['paper', 'almanac']) {
+    assert.match(css(theme), /@media \(min-width: 40rem\) \{\n {2}\.post-list--grid-2,\n {2}\.post-list--grid-3 \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/, theme);
+    assert.match(css(theme), /@media \(min-width: 48rem\) \{\n {2}\.post-list--grid-3 \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/, theme);
+  }
+  assert.match(css('paper'), /\.post-list \{[^}]*gap: var\(--space-xl\) var\(--space-lg\);/);
+  assert.match(css('paper'), /\.post-list--list \.post-card \{ display: grid; grid-template: auto 1fr auto \/ minmax\(0, 1fr\) minmax\(0, 2fr\); column-gap: var\(--space-md\); \}/);
+  assert.match(css('almanac'), /\.post-list \{[^}]*gap: var\(--space-lg\);/);
+  assert.match(css('almanac'), /\.post-list--list :is\(\.almanac-card__panel, \.almanac-card__band\) \{ flex: 0 0 calc\(100% \/ 3\);/);
+  assert.equal(PAPER_SIZES.lists['grid-3'], '(min-width: 48rem) 13.84rem, (min-width: 40rem) calc((100vw - 5rem) / 2), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
+  assert.equal(PAPER_SIZES.lists.list, '(min-width: 48rem) 14.5rem, (min-width: 40rem) calc((100vw - 4.5rem) / 3), (min-width: 37.5rem) calc(100vw - 3.5rem), calc(100vw - 2.5rem)');
+  assert.equal(ALMANAC_SIZES.lists['grid-3'], '(min-width: 53rem) 15.5rem, (min-width: 48rem) calc((100vw - 6.5rem) / 3), (min-width: 40rem) calc((100vw - 5rem) / 2), calc(100vw - 2.5rem)');
+  assert.equal(ALMANAC_SIZES.lists.list, '(min-width: 53rem) 16.5rem, (min-width: 40rem) calc((100vw - 3.5rem) / 3), calc(100vw - 2.5rem)');
+});

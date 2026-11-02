@@ -1,16 +1,18 @@
 ---
-import { demoteH1, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../lib/editor-content';
+import { demoteH1, pageBodyParts, sanitizedContentHtmlSchema, withLeadImage, withResponsiveImages } from '../../lib/editor-content';
 import { ALMANAC_SIZES } from '../../lib/responsive-image';
 import { publicCopy } from '../../lib/i18n';
 import type { ThemePageProps } from '../contract';
+import PostList from './parts/PostList.astro';
 
 /** The post's reading column with only the title above the body: a page has no category, no
  *  date to keep and no progress to show. */
 interface Props extends ThemePageProps {}
 
-const { page, preview } = Astro.props;
+const { page, postLists, preview, settings } = Astro.props;
 // Keep the document title as the only h1, including when the body contains heading blocks.
 const contentHtml = demoteH1(sanitizedContentHtmlSchema.parse(page.content_html));
+const parts = pageBodyParts(withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], ALMANAC_SIZES.article)), postLists ?? []);
 const copy = publicCopy(page.locale);
 ---
 
@@ -19,5 +21,7 @@ const copy = publicCopy(page.locale);
     {preview && <p class="almanac-article__draft">{copy.draftPreview}</p>}
     <h1 class="almanac-article__title">{page.title}</h1>
   </header>
-  <div class="almanac-prose" set:html={withLeadImage(withResponsiveImages(contentHtml, page.media ?? [], ALMANAC_SIZES.article))} />
+  {parts.map((part, index) => part.kind === 'html'
+    ? <div class="almanac-prose" set:html={part.html} />
+    : settings && <PostList id={`list-${index}`} list={part.list} locale={page.locale} siteName={settings.site_name} timezone={settings.timezone} />)}
 </article>
