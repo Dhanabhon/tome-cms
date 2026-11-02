@@ -42,7 +42,7 @@ Put it anywhere in the page, and as many as you like. A block has no heading of 
 | Choice | What it does |
 | --- | --- |
 | "What it shows" | "Posts I pick" or "A category". One block has one source. For both on one page, add two blocks. |
-| "Layout" | "Grid, 2 columns", "Grid, 3 columns" or "List". A new block starts as "Grid, 3 columns". |
+| "Layout" | "Grid, 3 columns", "Grid, 2 columns" or "List". A new block starts as "Grid, 3 columns". |
 | "How many posts (1 to 24)" | For "A category" only. A new block starts at 6. |
 
 With "Posts I pick", search by title and tick the posts you want, up to 24. "In this order" lists them in the order the page shows them, and each has buttons to move it up or down, or to remove it. With "A category", choose one under "Category". The block shows its newest posts, newest first, and a post you publish there later joins the block by itself.
