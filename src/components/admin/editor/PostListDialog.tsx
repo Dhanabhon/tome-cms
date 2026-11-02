@@ -55,6 +55,7 @@ export default function PostListDialog({ copy, current, locale, onDone }: PostLi
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const completed = useRef(false);
+  const searchBox = useRef<HTMLInputElement>(null);
   const options = useAdminList<PostListOption>(postOptionsUrl(locale), 'options');
   const categories = useAdminList<PostCategorySummary>(CATEGORIES_URL, 'categories');
   const [source, setSource] = useState(current?.source ?? 'posts');
@@ -106,6 +107,17 @@ export default function PostListDialog({ copy, current, locale, onDone }: PostLi
     requestAnimationFrame(() => (button.disabled ? button.parentElement?.querySelector<HTMLButtonElement>('button:not(:disabled)') : button)?.focus());
   };
 
+  const removeRow = (group: string, index: number, button: HTMLButtonElement) => {
+    const rows = button.closest('ol');
+    toggle(group);
+    // The button goes with its row: the focus moves to the row that takes its place, the one before, or the search box.
+    requestAnimationFrame(() => {
+      const left = rows?.isConnected ? rows.children : [];
+      const next = (left[index] ?? left[index - 1])?.querySelector<HTMLButtonElement>('button:not(:disabled)');
+      (next ?? searchBox.current)?.focus();
+    });
+  };
+
   return (
     <dialog
       aria-labelledby={`${id}-title`}
@@ -132,7 +144,7 @@ export default function PostListDialog({ copy, current, locale, onDone }: PostLi
               <>
                 <label className="admin-field">
                   <span>{copy.blocks.postListSearch}</span>
-                  <input className="admin-control" onChange={(event) => setSearch(event.target.value)} type="search" value={search} />
+                  <input className="admin-control" onChange={(event) => setSearch(event.target.value)} ref={searchBox} type="search" value={search} />
                 </label>
                 <ul className="post-list-dialog__options">
                   {shown.map((option) => {
@@ -169,7 +181,7 @@ export default function PostListDialog({ copy, current, locale, onDone }: PostLi
                         <span className="post-list-dialog__row-actions">
                           <button aria-label={up} className="admin-button admin-button--ghost admin-button--icon" disabled={index === 0} onClick={(event) => move(index, index - 1, event.currentTarget)} title={up} type="button"><Icon name="up" /></button>
                           <button aria-label={down} className="admin-button admin-button--ghost admin-button--icon" disabled={index === picked.length - 1} onClick={(event) => move(index, index + 1, event.currentTarget)} title={down} type="button"><Icon name="down" /></button>
-                          <button aria-label={remove} className="admin-button admin-button--ghost admin-button--icon" onClick={() => toggle(group)} title={remove} type="button"><Icon name="close" /></button>
+                          <button aria-label={remove} className="admin-button admin-button--ghost admin-button--icon" onClick={(event) => removeRow(group, index, event.currentTarget)} title={remove} type="button"><Icon name="close" /></button>
                         </span>
                       </li>
                     );

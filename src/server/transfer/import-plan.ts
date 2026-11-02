@@ -351,6 +351,8 @@ export async function buildPlan(root: string, ownerId: string, site: SiteReader 
       plan.skip.push({ path: item.path, reason: 'slug_taken' });
       members.skipped.push(item.path);
       // With no translation, nothing can name it: its own export always writes one.
+      // shortcut: two skipped editions of one archive group held by different groups here keep the last, so a block
+      // names one of them; hold every id if a site needs the other.
       if (item.kind === 'post' && item.translation) skippedGroups.set(item.translation, { kind: 'post', locale: item.locale, slug: item.slug });
       continue;
     }

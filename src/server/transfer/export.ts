@@ -81,25 +81,24 @@ async function readSite(trx: Transaction<Database>): Promise<Site> {
   const pages = await trx.selectFrom('pages').select(EDITION).orderBy('id').execute();
   const assigned = await trx.selectFrom('post_category_assignments')
     .innerJoin('categories', 'categories.id', 'post_category_assignments.category_id')
-    .select([
-      'post_category_assignments.translation_group_id as group', 'categories.name', 'categories.slug',
-      'categories.description_th', 'categories.description_en', 'categories.is_default',
-    ])
+    .select(['post_category_assignments.translation_group_id as group', 'categories.name'])
     .orderBy('categories.name').execute();
   const categories = new Map<string, string[]>();
-  const categoryDetails = new Map<string, ArchiveCategory>();
-  for (const { group, name, slug, description_th: descriptionTh, description_en: descriptionEn, is_default: isDefault } of assigned) {
+  const assignedNames = new Set<string>();
+  for (const { group, name } of assigned) {
     categories.set(group, [...categories.get(group) ?? [], name]);
-    if (!isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
+    assignedNames.add(name);
   }
   const owned = await trx.selectFrom('categories').select(['id', 'name', 'slug', 'description_th', 'description_en', 'is_default'])
-    .where('owner_id', '=', settings.owner_id).execute();
+    .where('owner_id', '=', settings.owner_id).orderBy('name').execute();
   const defaultCategory = owned.find(({ is_default: isDefault }) => isDefault)?.name;
   const categoryNames = new Map(owned.map(({ id, name }) => [id, name]));
   // A post list's category may hold no posts yet; an import still needs its address and descriptions.
   const shown = new Set(pages.flatMap((page) => documentPostLists(page.content_json).flatMap(({ categoryId }) => categoryId ?? [])));
+  // Owned is in name order, so the manifest's list is too, with the categories only a block shows among them.
+  const categoryDetails = new Map<string, ArchiveCategory>();
   for (const { id, name, slug, description_th: descriptionTh, description_en: descriptionEn, is_default: isDefault } of owned) {
-    if (shown.has(id) && !isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
+    if ((shown.has(id) || assignedNames.has(name)) && !isDefault) categoryDetails.set(name, { name, slug, descriptionTh, descriptionEn });
   }
 
   const ids = new Set<string>();

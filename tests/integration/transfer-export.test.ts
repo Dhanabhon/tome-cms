@@ -266,6 +266,7 @@ test('an export writes every post and page as Markdown and an exact copy, with t
     const listed = readManifest(await readFile(join(out, 'manifest.json'), 'utf8'));
     assert.deepEqual(listed.categories?.find(({ name }) => name === 'Unused'), { name: 'Unused', slug: 'unused', descriptionTh: '', descriptionEn: '' }, 'a block\'s category with no posts still travels');
     assert.equal(listed.categories?.some(({ name }) => name === 'ไม่มีหมวดหมู่'), false, 'the default is named on its own');
+    assert.deepEqual(listed.categories?.map(({ name }) => name), ['Baking', 'Unused', 'ขนม'], 'in name order, a category only a block shows included');
   });
 
   // An object gone from the bucket stops the export, naming the file it is.

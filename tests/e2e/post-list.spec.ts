@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 
@@ -116,6 +117,8 @@ async function seed() {
   });
   const pages: Record<string, EditorNode[]> = {
     textonly: [text('Only words here.')],
+    // A block that shows nothing still splits the body: two text parts with nothing between them.
+    hollow: [text('Above the empty list.'), picked([randomUUID()]), text('Below the empty list.')],
     order: [text('Before the list.'), picked([third, covered, second]), text('After the list.')],
     // The same post in both: a post can be in two blocks, and its card must not bring an id twice.
     two: [picked([covered, second]), picked([second, third])],
@@ -257,6 +260,14 @@ for (const theme of THEMES) {
       expect(between).toBeGreaterThan(rows);
       const ids = await page.locator('[id]').evaluateAll((elements) => elements.map(({ id }) => id));
       expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
+    });
+
+    test('text around a block that shows nothing is still apart', async ({ page }) => {
+      await open(page, 'hollow');
+      await expect(page.locator('.post-list')).toHaveCount(0);
+      const above = await page.getByText('Above the empty list.').boundingBox();
+      const below = await page.getByText('Below the empty list.').boundingBox();
+      expect(below!.y - (above!.y + above!.height)).toBeGreaterThan(0);
     });
 
     test('a page of only a block has no empty prose', async ({ page }) => {
@@ -491,6 +502,8 @@ test.describe('the page editor', () => {
     await expect(stale).toContainText('no longer shows');
     await stale.getByRole('button', { name: /^Remove/ }).click();
     await expect(settings(page).locator('.post-list-dialog__chosen li')).toHaveCount(3);
+    // The button is gone from under the keyboard; the focus goes to the row that took its place.
+    await expect(settings(page).locator('.post-list-dialog__chosen li').nth(1).getByRole('button').first()).toBeFocused();
     await settings(page).getByRole('button', { name: 'Cancel', exact: true }).click();
 
     await page.goto(`${origin}/en/with-a-stale-row`);
