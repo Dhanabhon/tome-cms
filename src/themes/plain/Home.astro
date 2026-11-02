@@ -6,6 +6,7 @@ import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
 import { listHref } from '../list-href';
 import { leadsWith } from './lead';
+import PostCard from './parts/PostCard.astro';
 
 interface Props extends ThemeHomeProps {}
 
@@ -66,16 +67,7 @@ const isCurrent = (category: string) => activeCategory?.toLocaleLowerCase() === 
 
   {rest.length > 0 && (
     <ol class="plain-grid">
-      {rest.map((post) => {
-        const excerpt = postExcerpt(post, '');
-        return (
-          <li>
-            <h2><a href={postPath(post)}>{post.title}</a></h2>
-            <time datetime={when(post)}>{formatter.format(new Date(when(post)))}</time>
-            {excerpt && <p>{excerpt}</p>}
-          </li>
-        );
-      })}
+      {rest.map((post) => <PostCard formatter={formatter} post={post} />)}
     </ol>
   )}
 

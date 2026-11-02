@@ -1,11 +1,10 @@
 ---
 import Icon from '../../components/Icon.astro';
 import HeroControls from './parts/HeroControls.astro';
+import PostCard from './parts/PostCard.astro';
 import { FOCUS_POSITION } from '../../lib/home-slides';
-import { categoryHref, dateLocale, localePath, postPath, publicCopy } from '../../lib/i18n';
-import { postExcerpt, postReadingMinutes } from '../../lib/posts';
+import { categoryHref, localePath, postPath, publicCopy } from '../../lib/i18n';
 import { PAPER_SIZES, responsiveAttrs } from '../../lib/responsive-image';
-import type { Post } from '../../types/cms';
 import type { ThemeHomeProps } from '../contract';
 import { listHref } from '../list-href';
 
@@ -98,17 +97,6 @@ const saying = (template: string) => template.replace('{query}', () => query ?? 
 // The category as the site names it, not as the address happened to spell it.
 const categoryName = activeCategory
   && (categories.find(({ name: category }) => isCurrent(category))?.name ?? activeCategory);
-const dateFormatter = new Intl.DateTimeFormat(dateLocale(locale), {
-  day: 'numeric',
-  month: 'short',
-  timeZone: timezone,
-  year: 'numeric',
-});
-const postDate = (post: Post) => dateFormatter.format(new Date(post.published_at ?? post.created_at));
-const readTime = (post: Post) => {
-  const minutes = postReadingMinutes(post);
-  return locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
-};
 ---
 
 {/* The page's one h1, whatever the band: the site's name. It stands outside every band, so a
@@ -258,33 +246,19 @@ const readTime = (post: Post) => {
     )}
     {posts.length > 0 ? (
       <div class="post-grid" data-post-grid style={gridStyle}>
-        {posts.map((post, index) => {
-          const excerpt = postExcerpt(post, '');
-          return (
-            <article class="post-card" style={`--card-index: ${index};`}>
-              <div class="post-card__cover" aria-hidden="true">
-                {post.cover_image
-                  ? <img src={post.cover_image} alt="" width={post.coverImage?.width ?? 800} height={post.coverImage?.height ?? 400}
-                    {...responsiveAttrs(post.coverImage, cardSizes)} loading={!cursor && index < 3 ? 'eager' : 'lazy'} />
-                  : !activeCategory && <span>{post.categories?.[0]?.name ?? name}</span>}
-              </div>
-              <h2 class="card-title post-card__title">
-                <a href={postPath(post)}>{post.title}</a>
-              </h2>
-              {excerpt && <p class="post-card__excerpt">{excerpt}</p>}
-              <p class="post-card__meta">
-                <span class="post-card__byline">
-                  {profile?.avatarUrl && <img class="post-card__avatar" src={profile.avatarUrl} alt="" width="24" height="24" loading="lazy" />}
-                  <span>{byline}</span>
-                </span>
-                <span class="post-card__when">
-                  <span class="post-card__date"><Icon name="clock" /><time datetime={post.published_at ?? post.created_at}>{postDate(post)}</time></span>
-                  <span>{readTime(post)}</span>
-                </span>
-              </p>
-            </article>
-          );
-        })}
+        {posts.map((post, index) => (
+          <PostCard
+            avatarUrl={profile?.avatarUrl ?? null}
+            band={activeCategory ? null : post.categories?.[0]?.name ?? name}
+            byline={byline}
+            cardSizes={cardSizes}
+            eager={!cursor && index < 3}
+            index={index}
+            locale={locale}
+            post={post}
+            timezone={timezone}
+          />
+        ))}
       </div>
     ) : !loadError && (
       <p class="post-feed__empty">{query ? saying(shared.noResults) : activeCategory ? <>{copy.emptyCategory} <a href={home}>{copy.all}</a></> : copy.empty}</p>

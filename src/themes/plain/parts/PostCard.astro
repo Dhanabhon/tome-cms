@@ -1,0 +1,20 @@
+---
+import { postPath } from '../../../lib/i18n';
+import { postExcerpt } from '../../../lib/posts';
+import type { ThemeHomePost } from '../../contract';
+
+interface Props {
+  formatter: Intl.DateTimeFormat;
+  post: ThemeHomePost;
+}
+
+const { formatter, post } = Astro.props;
+const excerpt = postExcerpt(post, '');
+const published = post.published_at ?? post.created_at;
+---
+
+<li>
+  <h2><a href={postPath(post)}>{post.title}</a></h2>
+  <time datetime={published}>{formatter.format(new Date(published))}</time>
+  {excerpt && <p>{excerpt}</p>}
+</li>

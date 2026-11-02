@@ -288,7 +288,8 @@ test('the shell fills the small viewport, so a phone toolbar does not push the f
 });
 
 test('in a category view a coverless card shows a plain tile, not the category the heading already names', () => {
-  assert.match(HOME, /: !activeCategory && <span>\{post\.categories\?\.\[0\]\?\.name \?\? name\}<\/span>\}/);
+  assert.match(HOME, /band=\{activeCategory \? null : post\.categories\?\.\[0\]\?\.name \?\? name\}/);
+  assert.match(read('src/themes/paper/parts/PostCard.astro'), /: band && <span>\{band\}<\/span>\}/);
 });
 
 test('the header is read in the order it is drawn: the language, then the theme', () => {

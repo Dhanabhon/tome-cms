@@ -1,0 +1,55 @@
+---
+import Icon from '../../../components/Icon.astro';
+import { dateLocale, postPath } from '../../../lib/i18n';
+import { postExcerpt, postReadingMinutes } from '../../../lib/posts';
+import { responsiveAttrs } from '../../../lib/responsive-image';
+import type { PostLocale } from '../../../types/cms';
+import type { ThemeHomePost } from '../../contract';
+
+interface Props {
+  /** The byline's avatar, when the profile has one. */
+  avatarUrl: string | null;
+  /** A coverless post's cover area says this; none leaves it empty, as a category's own list does. */
+  band: string | null;
+  byline: string;
+  /** The `sizes` of a cover, which the grid's column count decides. */
+  cardSizes: string;
+  /** The cover is asked for at once rather than when it nears the viewport. */
+  eager: boolean;
+  /** Its place in the list, which the entrance delay follows. */
+  index: number;
+  locale: PostLocale;
+  post: ThemeHomePost;
+  timezone: string;
+}
+
+const { avatarUrl, band, byline, cardSizes, eager, index, locale, post, timezone } = Astro.props;
+const excerpt = postExcerpt(post, '');
+const published = post.published_at ?? post.created_at;
+const date = new Intl.DateTimeFormat(dateLocale(locale), { day: 'numeric', month: 'short', timeZone: timezone, year: 'numeric' }).format(new Date(published));
+const minutes = postReadingMinutes(post);
+const readTime = locale === 'th' ? `อ่าน ${minutes} นาที` : `${minutes} min read`;
+---
+
+<article class="post-card" style={`--card-index: ${index};`}>
+  <div class="post-card__cover" aria-hidden="true">
+    {post.cover_image
+      ? <img src={post.cover_image} alt="" width={post.coverImage?.width ?? 800} height={post.coverImage?.height ?? 400}
+        {...responsiveAttrs(post.coverImage, cardSizes)} loading={eager ? 'eager' : 'lazy'} />
+      : band && <span>{band}</span>}
+  </div>
+  <h2 class="card-title post-card__title">
+    <a href={postPath(post)}>{post.title}</a>
+  </h2>
+  {excerpt && <p class="post-card__excerpt">{excerpt}</p>}
+  <p class="post-card__meta">
+    <span class="post-card__byline">
+      {avatarUrl && <img class="post-card__avatar" src={avatarUrl} alt="" width="24" height="24" loading="lazy" />}
+      <span>{byline}</span>
+    </span>
+    <span class="post-card__when">
+      <span class="post-card__date"><Icon name="clock" /><time datetime={published}>{date}</time></span>
+      <span>{readTime}</span>
+    </span>
+  </p>
+</article>
