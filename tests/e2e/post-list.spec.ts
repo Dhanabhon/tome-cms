@@ -329,11 +329,11 @@ for (const theme of THEMES) {
     test('shots of each layout', async ({ page }) => {
       test.skip(!SHOTS, 'POST_LIST_SHOTS is not set.');
       mkdirSync(SHOTS!, { recursive: true });
-      for (const width of [320, 1440]) {
+      for (const width of [320, 768, 1024, 1440]) {
         for (const scheme of ['light', 'dark'] as const) {
           await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
           await page.setViewportSize({ width, height: 900 });
-          for (const name of ['layouts', 'more', 'order']) {
+          for (const name of ['layouts', 'more', 'order', 'thai']) {
             await open(page, name);
             await page.evaluate(() => document.querySelectorAll('img[loading="lazy"]').forEach((image) => image.setAttribute('loading', 'eager')));
             await page.screenshot({ path: `${SHOTS}/${theme}-${name}-${width}-${scheme}.png`, fullPage: true });
