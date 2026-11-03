@@ -2,6 +2,18 @@
 
 Every release of TomeCMS, newest first. Each version links to its full release notes in [`docs/releases/`](docs/releases/), which also say what to migrate and what changed for theme and plugin authors. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From `1.0.0`, a managed install takes each release from the admin. Every `0.x` version before it was a pre-1.0 release candidate, not meant for production; from 0.12.1 on, each was also tagged and published as a GitHub release. A `0.x` site cannot become a managed `1.0.0` install in place and needs a fresh server, as the [1.0.0 notes](docs/releases/1.0.0.md#upgrading) explain.
 
+## 1.25.0 - 2026-11-03
+
+A page can show a list of posts, and the libraries with security advisories are updated. No migration.
+
+### Added
+
+- A post list block for pages: posts you pick or a whole category, as a grid of 2 or 3 columns or a list, on every theme.
+
+### Security
+
+- Updated `better-auth`, `@better-auth/passkey`, `@modelcontextprotocol/server`, `sanitize-html`, `zod`, `vite`, `undici`, `deepmerge` and `fast-uri`; `npm audit` reports nothing.
+
 ## 1.24.0 - 2026-10-13
 
 Drag and drop on media pickers. No migration.
